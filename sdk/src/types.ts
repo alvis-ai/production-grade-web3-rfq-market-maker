@@ -31,3 +31,37 @@ export interface QuoteResponse {
   nonce: UIntString;
   signature: `0x${string}`;
 }
+
+export interface SubmitQuoteRequest {
+  quote: Quote;
+  signature: `0x${string}`;
+}
+
+export interface SubmitQuoteResponse {
+  status: "accepted";
+  txHash?: `0x${string}`;
+}
+
+export type QuoteLifecycleStatus =
+  | "requested"
+  | "rejected"
+  | "signed"
+  | "expired"
+  | "submitted"
+  | "settled"
+  | "failed";
+
+export interface QuoteStatus {
+  quoteId: string;
+  status: QuoteLifecycleStatus;
+  snapshotId?: string;
+  deadline?: number;
+  txHash?: `0x${string}`;
+  errorCode?: string;
+}
+
+export interface RFQErrorResponse {
+  code: string;
+  message: string;
+  traceId?: string;
+}

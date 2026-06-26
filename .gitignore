@@ -1,7 +1,8 @@
 # Dependencies
 node_modules/
 vendor/
-lib/
+/lib/
+contracts/lib/
 
 # Build outputs
 dist/

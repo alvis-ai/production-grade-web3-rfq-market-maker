@@ -1,4 +1,23 @@
-import type { QuoteRequest, QuoteResponse } from "./types.js";
+import type {
+  QuoteRequest,
+  QuoteResponse,
+  QuoteStatus,
+  RFQErrorResponse,
+  SubmitQuoteRequest,
+  SubmitQuoteResponse,
+} from "./types.js";
+
+export class RFQClientError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code = "RFQ_CLIENT_ERROR",
+    readonly traceId?: string,
+  ) {
+    super(message);
+    this.name = "RFQClientError";
+  }
+}
 
 export class RFQClient {
   constructor(private readonly baseUrl: string) {}
@@ -12,10 +31,48 @@ export class RFQClient {
       body: JSON.stringify(request),
     });
 
-    if (!response.ok) {
-      throw new Error(`RFQ quote failed: ${response.status}`);
-    }
+    await assertOk(response, "RFQ quote failed");
 
     return (await response.json()) as QuoteResponse;
   }
+
+  async submit(request: SubmitQuoteRequest): Promise<SubmitQuoteResponse> {
+    const response = await fetch(`${this.baseUrl}/submit`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
+
+    await assertOk(response, "RFQ submit failed");
+
+    return (await response.json()) as SubmitQuoteResponse;
+  }
+
+  async getQuote(quoteId: string): Promise<QuoteStatus> {
+    const response = await fetch(`${this.baseUrl}/quote/${encodeURIComponent(quoteId)}`);
+
+    await assertOk(response, "RFQ quote status failed");
+
+    return (await response.json()) as QuoteStatus;
+  }
+}
+
+async function assertOk(response: Response, fallbackMessage: string): Promise<void> {
+  if (response.ok) return;
+
+  let error: RFQErrorResponse | undefined;
+  try {
+    error = (await response.json()) as RFQErrorResponse;
+  } catch {
+    error = undefined;
+  }
+
+  throw new RFQClientError(
+    error?.message ?? fallbackMessage,
+    response.status,
+    error?.code,
+    error?.traceId,
+  );
 }

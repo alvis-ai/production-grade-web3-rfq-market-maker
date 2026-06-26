@@ -14,6 +14,11 @@ input {
   font: inherit;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .app-shell {
   min-height: 100vh;
   padding: 32px;
@@ -100,6 +105,12 @@ input {
   padding: 11px 14px;
 }
 
+.secondary-button {
+  background: #ecf2f0 !important;
+  border: 1px solid #cbd9d5 !important;
+  color: #27433d !important;
+}
+
 .quote-state {
   display: grid;
   gap: 12px;
@@ -120,6 +131,23 @@ input {
 .quote-state dd {
   font-weight: 700;
   margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.action-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.error-text {
+  background: #fff2f0;
+  border: 1px solid #f1b5ad;
+  border-radius: 6px;
+  color: #8a2f25;
+  font-size: 13px;
+  margin: 16px 0 0;
+  padding: 10px 12px;
 }
 
 @media (max-width: 760px) {
