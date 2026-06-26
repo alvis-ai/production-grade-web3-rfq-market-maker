@@ -1,4 +1,4 @@
-.PHONY: help docs-check tree
+.PHONY: help docs-check tree workspace-check skeleton-check
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -6,6 +6,8 @@ help:
 	@echo "Available targets:"
 	@echo "  docs-check  Count Mermaid diagrams and RFQ interview questions"
 	@echo "  tree        Print the first three levels of repository files"
+	@echo "  workspace-check  Verify expected workspace manifests exist"
+	@echo "  skeleton-check  Verify required skeleton entrypoints exist"
 
 docs-check:
 	@echo "Mermaid blocks:"
@@ -15,3 +17,13 @@ docs-check:
 
 tree:
 	@find . -maxdepth 3 -type f | sort
+
+workspace-check:
+	@test -s package.json
+	@test -s pnpm-workspace.yaml
+	@test -s backend/package.json
+	@test -s frontend/package.json
+	@test -s sdk/package.json
+
+skeleton-check:
+	@sh scripts/check-skeleton.sh

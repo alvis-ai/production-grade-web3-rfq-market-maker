@@ -1,0 +1,13 @@
+{
+  "name": "production-grade-web3-rfq-market-maker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs:check": "make docs-check",
+    "backend:typecheck": "pnpm --filter @rfq-market-maker/backend typecheck",
+    "frontend:build": "pnpm --filter @rfq-market-maker/frontend build",
+    "sdk:typecheck": "pnpm --filter @rfq-market-maker/sdk typecheck"
+  },
+  "packageManager": "pnpm@9.12.0"
+}

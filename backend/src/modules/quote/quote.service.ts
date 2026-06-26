@@ -1,4 +1,10 @@
-import type { QuoteRequest, QuoteResponse, SignedQuote } from "../../shared/types/rfq.js";
+import type {
+  QuoteLifecycleStatus,
+  QuoteRequest,
+  QuoteResponse,
+  QuoteStatusResponse,
+  SignedQuote,
+} from "../../shared/types/rfq.js";
 import type { PricingEngine } from "../pricing/pricing.engine.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
@@ -10,6 +16,8 @@ export interface QuoteServiceDeps {
 }
 
 export class QuoteService {
+  private readonly quoteStatuses = new Map<string, QuoteStatusResponse>();
+
   constructor(private readonly deps: QuoteServiceDeps) {}
 
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
@@ -27,8 +35,21 @@ export class QuoteService {
       inventorySkewBps: 0,
     });
 
+    const quoteId = `q_${Date.now().toString()}`;
+    this.quoteStatuses.set(quoteId, {
+      quoteId,
+      snapshotId: snapshot.snapshotId,
+      status: "requested",
+    });
+
     const risk = await this.deps.riskEngine.evaluate({ request, pricing });
     if (risk.status !== "approved") {
+      this.quoteStatuses.set(quoteId, {
+        quoteId,
+        snapshotId: snapshot.snapshotId,
+        status: "rejected",
+        errorCode: risk.reasonCode ?? "RISK_REJECTED",
+      });
       throw new Error(`RFQ risk rejected: ${risk.reasonCode ?? "UNKNOWN"}`);
     }
 
@@ -46,11 +67,17 @@ export class QuoteService {
       chainId: request.chainId,
     };
 
-    const quoteId = `q_${nonce}`;
     const signature = await this.deps.signerService.signQuote({
       quote: signedQuote,
       quoteId,
       snapshotId: snapshot.snapshotId,
+    });
+
+    this.quoteStatuses.set(quoteId, {
+      quoteId,
+      snapshotId: snapshot.snapshotId,
+      status: "signed",
+      deadline,
     });
 
     return {
@@ -62,5 +89,28 @@ export class QuoteService {
       nonce,
       signature,
     };
+  }
+
+  getQuoteStatus(quoteId: string): QuoteStatusResponse | undefined {
+    const status = this.quoteStatuses.get(quoteId);
+    if (!status) return undefined;
+
+    if (status.status === "signed" && status.deadline && status.deadline < Math.floor(Date.now() / 1000)) {
+      return {
+        ...status,
+        status: "expired",
+      };
+    }
+
+    return status;
+  }
+
+  markQuoteStatus(quoteId: string, status: QuoteLifecycleStatus, txHash?: `0x${string}`): void {
+    const current = this.quoteStatuses.get(quoteId) ?? { quoteId, status };
+    this.quoteStatuses.set(quoteId, {
+      ...current,
+      status,
+      txHash,
+    });
   }
 }

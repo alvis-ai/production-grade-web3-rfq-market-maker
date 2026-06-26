@@ -32,6 +32,34 @@ export interface QuoteResponse {
   signature: `0x${string}`;
 }
 
+export interface SubmitQuoteRequest {
+  quote: SignedQuote;
+  signature: `0x${string}`;
+}
+
+export interface SubmitQuoteResponse {
+  status: "accepted";
+  txHash?: `0x${string}`;
+}
+
+export type QuoteLifecycleStatus =
+  | "requested"
+  | "rejected"
+  | "signed"
+  | "expired"
+  | "submitted"
+  | "settled"
+  | "failed";
+
+export interface QuoteStatusResponse {
+  quoteId: string;
+  status: QuoteLifecycleStatus;
+  snapshotId?: string;
+  deadline?: number;
+  txHash?: `0x${string}`;
+  errorCode?: string;
+}
+
 export interface MarketSnapshot {
   snapshotId: string;
   midPrice: string;

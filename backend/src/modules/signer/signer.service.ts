@@ -1,4 +1,5 @@
 import type { SignedQuote } from "../../shared/types/rfq.js";
+import { toFixedHex } from "../../shared/types/hex.js";
 
 export interface SignQuoteInput {
   quote: SignedQuote;
@@ -11,7 +12,9 @@ export interface SignerService {
 }
 
 export class PlaceholderSignerService implements SignerService {
-  async signQuote(): Promise<`0x${string}`> {
-    throw new Error("SignerService is not configured. Wire EIP-712 signing before production use.");
+  async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
+    const seed = `${input.quoteId}:${input.snapshotId}:${input.quote.nonce}`;
+    const hex = toFixedHex(seed, 130);
+    return `0x${hex}`;
   }
 }
