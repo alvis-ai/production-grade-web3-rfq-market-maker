@@ -5,6 +5,7 @@ import type {
   QuoteStatusResponse,
   SignedQuote,
 } from "../../shared/types/rfq.js";
+import { APIError } from "../../shared/errors/api-error.js";
 import type { PricingEngine } from "../pricing/pricing.engine.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
@@ -50,7 +51,7 @@ export class QuoteService {
         status: "rejected",
         errorCode: risk.reasonCode ?? "RISK_REJECTED",
       });
-      throw new Error(`RFQ risk rejected: ${risk.reasonCode ?? "UNKNOWN"}`);
+      throw new APIError("RISK_REJECTED", "Quote rejected by risk policy", 409);
     }
 
     const deadline = Math.floor(Date.now() / 1000) + 30;

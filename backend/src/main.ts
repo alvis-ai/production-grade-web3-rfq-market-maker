@@ -5,7 +5,9 @@ import { StaticPricingEngine } from "./modules/pricing/pricing.engine.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
 import { AllowAllRiskEngine } from "./modules/risk/risk.engine.js";
 import { PlaceholderSignerService } from "./modules/signer/signer.service.js";
-import type { SubmitQuoteRequest } from "./shared/types/rfq.js";
+import { APIError, toAPIError } from "./shared/errors/api-error.js";
+import { validateQuoteRequest } from "./shared/validation/quote-request.js";
+import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.js";
 
 export function buildServer() {
   const server = Fastify({ logger: true });
@@ -25,27 +27,47 @@ export function buildServer() {
     const { quoteId } = request.params as { quoteId: string };
     const status = quoteService.getQuoteStatus(quoteId);
     if (!status) {
-      return reply.code(404).send({
-        code: "QUOTE_NOT_FOUND",
-        message: "Quote not found",
-      });
+      return sendError(reply, new APIError("QUOTE_NOT_FOUND", "Quote not found", 404));
     }
 
     return status;
   });
-  server.post("/quote", async (request) => {
+  server.post("/quote", async (request, reply) => {
     metricsService.recordQuoteRequest();
-    const response = await quoteService.createQuote(request.body as never);
-    metricsService.recordQuoteResponse();
-    return response;
+    try {
+      const quoteRequest = validateQuoteRequest(request.body);
+      const response = await quoteService.createQuote(quoteRequest);
+      metricsService.recordQuoteResponse();
+      return response;
+    } catch (error) {
+      metricsService.recordQuoteError();
+      return sendError(reply, toAPIError(error));
+    }
   });
-  server.post("/submit", async (request) => {
+  server.post("/submit", async (request, reply) => {
     metricsService.recordSubmitRequest();
-    const response = await executionService.submitQuote(request.body as SubmitQuoteRequest);
-    return response;
+    try {
+      const submitRequest = validateSubmitQuoteRequest(request.body);
+      const response = await executionService.submitQuote(submitRequest);
+      return response;
+    } catch (error) {
+      metricsService.recordSubmitError();
+      return sendError(reply, toAPIError(error));
+    }
   });
 
   return server;
+}
+
+function sendError(
+  reply: {
+    code: (statusCode: number) => {
+      send: (payload: unknown) => unknown;
+    };
+  },
+  error: APIError,
+) {
+  return reply.code(error.statusCode).send(error.toResponse());
 }
 
 export async function startServer() {
