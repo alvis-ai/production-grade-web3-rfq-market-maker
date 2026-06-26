@@ -1,0 +1,18 @@
+name: Contract CI
+
+on:
+  pull_request:
+    paths:
+      - "contracts/**"
+      - ".github/workflows/contract-ci.yml"
+  push:
+    branches:
+      - main
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check contract skeleton
+        run: test -d contracts/src
