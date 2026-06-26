@@ -1,0 +1,40 @@
+# API Errors
+
+本文件定义 RFQ API 的错误码方向。错误响应必须对用户可理解、对运维可聚合，同时避免泄露敏感风控阈值。
+
+## Error Shape
+
+```json
+{
+  "code": "RISK_REJECTED",
+  "message": "Quote rejected by risk policy",
+  "traceId": "tr_abc123"
+}
+```
+
+## Error Codes
+
+| Code | HTTP Status | Description | User Action |
+| --- | ---: | --- | --- |
+| `INVALID_REQUEST` | 400 | 请求字段缺失、地址格式错误或 amount 无效 | 修正请求参数 |
+| `UNSUPPORTED_CHAIN` | 400 | chainId 不在支持范围 | 切换网络 |
+| `UNSUPPORTED_TOKEN` | 400 | token 不在 whitelist | 更换资产 |
+| `AMOUNT_TOO_SMALL` | 400 | amount 小于系统最小交易量 | 提高交易数量 |
+| `AMOUNT_TOO_LARGE` | 400 | amount 超过单笔最大交易量 | 降低交易数量 |
+| `MARKET_DATA_UNAVAILABLE` | 503 | 市场数据不可用或过期 | 稍后重试 |
+| `PRICING_UNAVAILABLE` | 503 | Pricing Engine 无法生成报价 | 稍后重试 |
+| `RISK_REJECTED` | 409 | 风控策略拒绝签名 | 降低数量或稍后重试 |
+| `SIGNER_UNAVAILABLE` | 503 | Signer Service 不可用 | 稍后重试 |
+| `QUOTE_NOT_FOUND` | 404 | quoteId 不存在 | 重新询价 |
+| `QUOTE_EXPIRED` | 409 | quote 已过期 | 重新询价 |
+| `QUOTE_ALREADY_USED` | 409 | quote nonce 已使用 | 重新询价 |
+| `SETTLEMENT_REVERTED` | 502 | 链上结算回滚 | 查看交易状态并重新询价 |
+| `RATE_LIMITED` | 429 | 请求频率过高 | 降低请求频率 |
+| `INTERNAL_ERROR` | 500 | 未分类内部错误 | 使用 traceId 联系维护者 |
+
+## Design Rules
+
+- 对外错误码保持稳定，不直接暴露内部 policy threshold。
+- 所有错误响应必须包含 `traceId`。
+- 风控拒绝应记录内部 `reasonCode` 和 `policyVersion`，但对外只返回通用说明。
+- 依赖不可用使用 503，业务状态冲突使用 409。

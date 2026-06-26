@@ -1,0 +1,138 @@
+:root {
+  color: #182027;
+  background: #f4f7f6;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 32px;
+}
+
+.trade-workspace {
+  margin: 0 auto;
+  max-width: 1120px;
+}
+
+.workspace-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.workspace-header h1 {
+  font-size: 28px;
+  letter-spacing: 0;
+  margin: 4px 0 0;
+}
+
+.eyebrow {
+  color: #40665f;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.status-pill {
+  background: #d7ede6;
+  border: 1px solid #9fc9bc;
+  border-radius: 999px;
+  color: #1d5b4e;
+  font-weight: 700;
+  padding: 8px 12px;
+}
+
+.workspace-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid #d8e1df;
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgb(15 33 29 / 8%);
+  padding: 20px;
+}
+
+.panel h2 {
+  font-size: 18px;
+  letter-spacing: 0;
+  margin: 0 0 16px;
+}
+
+.panel label {
+  color: #4c5b57;
+  display: grid;
+  font-size: 13px;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.panel input {
+  border: 1px solid #ccd8d5;
+  border-radius: 6px;
+  color: #182027;
+  padding: 10px 12px;
+}
+
+.panel button {
+  background: #145c4f;
+  border: 0;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 11px 14px;
+}
+
+.quote-state {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.quote-state div {
+  border-bottom: 1px solid #e4ecea;
+  padding-bottom: 12px;
+}
+
+.quote-state dt {
+  color: #66736f;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.quote-state dd {
+  font-weight: 700;
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding: 20px;
+  }
+
+  .workspace-header {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+}
