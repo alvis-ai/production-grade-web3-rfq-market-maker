@@ -1,4 +1,4 @@
-.PHONY: help docs-check tree workspace-check skeleton-check smoke-api
+.PHONY: help docs-check tree workspace-check skeleton-check contract-build contract-test smoke-api
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -8,6 +8,8 @@ help:
 	@echo "  tree        Print the first three levels of repository files"
 	@echo "  workspace-check  Verify expected workspace manifests exist"
 	@echo "  skeleton-check  Verify required skeleton entrypoints exist"
+	@echo "  contract-build  Build Foundry contracts"
+	@echo "  contract-test   Run Foundry contract tests offline"
 	@echo "  smoke-api       Exercise health, quote, submit, and metrics endpoints"
 
 docs-check:
@@ -28,6 +30,12 @@ workspace-check:
 
 skeleton-check:
 	@sh scripts/check-skeleton.sh
+
+contract-build:
+	@cd contracts && forge build
+
+contract-test: contract-build
+	@cd contracts && forge test --offline
 
 smoke-api:
 	@sh scripts/smoke-api.sh

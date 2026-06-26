@@ -1,6 +1,6 @@
 import type { Address, Quote } from "./types.js";
 
-export const RFQ_EIP712_DOMAIN_NAME = "RFQSettlement";
+export const RFQ_EIP712_DOMAIN_NAME = "ProductionGradeRFQ";
 export const RFQ_EIP712_DOMAIN_VERSION = "1";
 
 export const quoteTypes = {

@@ -14,5 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check contract skeleton
-        run: test -d contracts/src
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - name: Check formatting
+        working-directory: contracts
+        run: forge fmt --check
+      - name: Build contracts
+        working-directory: contracts
+        run: forge build
+      - name: Test contracts
+        working-directory: contracts
+        run: forge test

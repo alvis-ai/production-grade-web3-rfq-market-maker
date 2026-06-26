@@ -21,6 +21,7 @@ test -s sdk/src/eip712.ts
 test -s sdk/src/index.ts
 test -s sdk/src/settlement.ts
 test -s contracts/src/RFQSettlement.sol
+test -s contracts/test/RFQSettlement.t.sol
 test -s examples/quote-request.json
 test -s examples/submit-request.json
 test -s infra/docker/backend.Dockerfile
@@ -51,10 +52,21 @@ grep -q 'export { RFQClient' sdk/src/index.ts
 grep -q 'rfqSettlementAbi' sdk/src/index.ts
 grep -q 'buildSubmitQuoteArgs' sdk/src/index.ts
 grep -q 'buildQuoteTypedData' sdk/src/eip712.ts
+grep -q 'ProductionGradeRFQ' sdk/src/eip712.ts
 grep -q 'submitQuote' sdk/src/abi.ts
+grep -q 'setTokenWhitelist' sdk/src/abi.ts
 grep -q 'async submit' sdk/src/client.ts
 grep -q 'async getQuote' sdk/src/client.ts
 grep -q 'function submitQuote' contracts/src/RFQSettlement.sol
+grep -q 'function setTokenWhitelist' contracts/src/RFQSettlement.sol
+grep -q 'function setPaused' contracts/src/RFQSettlement.sol
+grep -q 'ecrecover' contracts/src/RFQSettlement.sol
+grep -q 'transferFrom' contracts/src/RFQSettlement.sol
+grep -q 'testSubmitQuoteTransfersTokensAndConsumesNonce' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsReplay' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsUntrustedSigner' contracts/test/RFQSettlement.t.sol
+grep -q 'contract-test' Makefile
+grep -q 'forge test' .github/workflows/contract-ci.yml
 grep -q 'examples/quote-request.json' scripts/smoke-api.sh
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml

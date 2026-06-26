@@ -69,7 +69,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-RFQSettlement 与 Treasury 和 ERC20 token 交互。生产实现中 Treasury 应限制可调用方。
+RFQSettlement 与 ERC20 token 直接交互，并通过 owner-only 管理 trusted signer、token whitelist 和 pause 状态。当前代码使用无外部依赖的最小实现表达 EIP-712、SafeERC20、ReentrancyGuard、Pausable 和 AccessControl 语义；后续接入 OpenZeppelin 后应保持同样的验证顺序和事件语义。
 
 ## Sequence Diagram
 
@@ -122,7 +122,7 @@ function submitQuote(
 ## Engineering Decisions
 
 - 合约不重新计算价格。
-- nonce 标记和转账顺序必须避免重入和状态不一致。
+- nonce 标记在外部 token 调用之前完成，并由 nonReentrant 防止重入提交。
 - `QuoteSettled` 是链下库存更新的权威事件。
 
 ## Failure Scenarios
@@ -135,7 +135,7 @@ function submitQuote(
 
 ## Security Considerations
 
-生产实现必须使用 OpenZeppelin `SafeERC20`、`ReentrancyGuard`、`Pausable`、`AccessControl`。trusted signer 更新必须受严格权限控制。
+当前实现采用低层 `call` 兼容返回 bool 或无返回值的 ERC20，并显式实现重入锁、暂停和 owner-only 控制。正式审计版应替换为 OpenZeppelin `SafeERC20`、`ReentrancyGuard`、`Pausable`、`AccessControl`，但不能改变签名校验、nonce、deadline、白名单和转账顺序。
 
 ## Performance Considerations
 
