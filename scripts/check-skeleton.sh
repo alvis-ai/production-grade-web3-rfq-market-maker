@@ -52,11 +52,17 @@ grep -q '"submitted"' backend/src/main.ts
 grep -q '"settled"' backend/src/main.ts
 grep -q 'StaticMarketDataService' backend/src/main.ts
 grep -q 'InternalInventoryRoutingEngine' backend/src/main.ts
+grep -q 'BasicRiskEngine' backend/src/main.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveSigned' backend/src/modules/quote/quote.service.ts
 grep -q 'class InMemoryQuoteRepository' backend/src/modules/quote/quote.repository.ts
+grep -q 'class BasicRiskEngine' backend/src/modules/risk/risk.engine.ts
+grep -q 'CHAIN_NOT_ENABLED' backend/src/modules/risk/risk.engine.ts
+grep -q 'TOKEN_NOT_ALLOWED' backend/src/modules/risk/risk.engine.ts
+grep -q 'AMOUNT_IN_LIMIT_EXCEEDED' backend/src/modules/risk/risk.engine.ts
+grep -q 'SLIPPAGE_TOO_WIDE' backend/src/modules/risk/risk.engine.ts
 grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
 grep -q 'getQuoteIdForSignedQuote' backend/src/modules/quote/quote.service.ts
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts

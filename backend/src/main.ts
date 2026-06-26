@@ -7,7 +7,7 @@ import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { StaticPricingEngine } from "./modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "./modules/quote/quote.repository.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
-import { AllowAllRiskEngine } from "./modules/risk/risk.engine.js";
+import { BasicRiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "./modules/routing/routing.engine.js";
 import { PlaceholderSignerService } from "./modules/signer/signer.service.js";
 import { APIError, toAPIError } from "./shared/errors/api-error.js";
@@ -27,7 +27,7 @@ export function buildServer() {
     marketDataService: new StaticMarketDataService(),
     pricingEngine: new StaticPricingEngine(),
     quoteRepository: new InMemoryQuoteRepository(),
-    riskEngine: new AllowAllRiskEngine(),
+    riskEngine: new BasicRiskEngine(),
     routingEngine: new InternalInventoryRoutingEngine(),
     signerService: new PlaceholderSignerService(),
   });
