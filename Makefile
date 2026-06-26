@@ -1,4 +1,4 @@
-.PHONY: help docs-check tree workspace-check skeleton-check
+.PHONY: help docs-check tree workspace-check skeleton-check smoke-api
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -8,6 +8,7 @@ help:
 	@echo "  tree        Print the first three levels of repository files"
 	@echo "  workspace-check  Verify expected workspace manifests exist"
 	@echo "  skeleton-check  Verify required skeleton entrypoints exist"
+	@echo "  smoke-api       Exercise health, quote, submit, and metrics endpoints"
 
 docs-check:
 	@echo "Mermaid blocks:"
@@ -27,3 +28,6 @@ workspace-check:
 
 skeleton-check:
 	@sh scripts/check-skeleton.sh
+
+smoke-api:
+	@sh scripts/smoke-api.sh
