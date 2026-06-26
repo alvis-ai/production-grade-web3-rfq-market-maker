@@ -19,6 +19,8 @@
 flowchart LR
   API[API Gateway]
   Quote[Quote Service]
+  MarketData[Market Data Service]
+  Routing[Routing Engine]
   Pricing[Pricing Service]
   Risk[Risk Service]
   Signer[Signer Service]
@@ -28,6 +30,9 @@ flowchart LR
   Metrics[Metrics Service]
 
   API --> Quote
+  Quote --> MarketData
+  MarketData --> Routing
+  Routing --> Pricing
   Quote --> Pricing
   Quote --> Risk
   Risk --> Signer

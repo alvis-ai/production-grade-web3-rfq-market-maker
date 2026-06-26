@@ -1,8 +1,10 @@
 import type { MarketSnapshot, QuoteRequest, UIntString } from "../../shared/types/rfq.js";
+import type { RoutePlan } from "../routing/routing.engine.js";
 
 export interface PricingInput {
   request: QuoteRequest;
   snapshot: MarketSnapshot;
+  routePlan: RoutePlan;
   inventorySkewBps: number;
 }
 
@@ -21,13 +23,16 @@ export interface PricingEngine {
 
 export class StaticPricingEngine implements PricingEngine {
   async price(input: PricingInput): Promise<PricingResult> {
+    const amountOut = BigInt(input.request.amountIn);
+    const minAmountOut = (amountOut * BigInt(10000 - input.request.slippageBps)) / 10000n;
+
     return {
-      amountOut: input.request.amountIn,
-      minAmountOut: input.request.amountIn,
+      amountOut: amountOut.toString() as UIntString,
+      minAmountOut: minAmountOut.toString() as UIntString,
       spreadBps: 0,
       sizeImpactBps: 0,
       inventorySkewBps: input.inventorySkewBps,
-      pricingVersion: "static-skeleton-v0",
+      pricingVersion: `static-skeleton-v0:${input.routePlan.venue}`,
     };
   }
 }

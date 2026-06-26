@@ -1,9 +1,11 @@
 import Fastify from "fastify";
 import { SkeletonExecutionService } from "./modules/execution/execution.service.js";
+import { StaticMarketDataService } from "./modules/market-data/market-data.service.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { StaticPricingEngine } from "./modules/pricing/pricing.engine.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
 import { AllowAllRiskEngine } from "./modules/risk/risk.engine.js";
+import { InternalInventoryRoutingEngine } from "./modules/routing/routing.engine.js";
 import { PlaceholderSignerService } from "./modules/signer/signer.service.js";
 import { APIError, toAPIError } from "./shared/errors/api-error.js";
 import { validateQuoteRequest } from "./shared/validation/quote-request.js";
@@ -14,8 +16,10 @@ export function buildServer() {
   const executionService = new SkeletonExecutionService();
   const metricsService = new MetricsService();
   const quoteService = new QuoteService({
+    marketDataService: new StaticMarketDataService(),
     pricingEngine: new StaticPricingEngine(),
     riskEngine: new AllowAllRiskEngine(),
+    routingEngine: new InternalInventoryRoutingEngine(),
     signerService: new PlaceholderSignerService(),
   });
 

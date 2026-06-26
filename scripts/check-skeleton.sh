@@ -9,7 +9,9 @@ test -s backend/src/modules/execution/execution.service.ts
 test -s backend/src/modules/inventory/inventory.service.ts
 test -s backend/src/modules/hedge/hedge.service.ts
 test -s backend/src/modules/metrics/metrics.service.ts
+test -s backend/src/modules/market-data/market-data.service.ts
 test -s backend/src/shared/errors/api-error.ts
+test -s backend/src/modules/routing/routing.engine.ts
 test -s backend/src/shared/validation/quote-request.ts
 test -s backend/src/shared/validation/submit-request.ts
 test -s frontend/src/lib/rfq.ts
@@ -36,6 +38,10 @@ grep -q 'server.get("/quote/:quoteId"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts
 grep -q 'validateQuoteRequest' backend/src/main.ts
 grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
+grep -q 'StaticMarketDataService' backend/src/main.ts
+grep -q 'InternalInventoryRoutingEngine' backend/src/main.ts
+grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
+grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
 grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfqClient.quote' frontend/src/pages/QuotePage.tsx

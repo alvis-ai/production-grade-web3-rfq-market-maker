@@ -6,13 +6,17 @@ import type {
   SignedQuote,
 } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
+import type { MarketDataService } from "../market-data/market-data.service.js";
 import type { PricingEngine } from "../pricing/pricing.engine.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
+import type { RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
 
 export interface QuoteServiceDeps {
+  marketDataService: MarketDataService;
   pricingEngine: PricingEngine;
   riskEngine: RiskEngine;
+  routingEngine: RoutingEngine;
   signerService: SignerService;
 }
 
@@ -22,17 +26,13 @@ export class QuoteService {
   constructor(private readonly deps: QuoteServiceDeps) {}
 
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
-    const snapshot = {
-      snapshotId: "snapshot_skeleton",
-      midPrice: "1",
-      liquidityUsd: "0",
-      volatilityBps: 0,
-      observedAt: new Date().toISOString(),
-    };
+    const snapshot = await this.deps.marketDataService.getSnapshot(request);
+    const routePlan = await this.deps.routingEngine.selectRoute({ request, snapshot });
 
     const pricing = await this.deps.pricingEngine.price({
       request,
       snapshot,
+      routePlan,
       inventorySkewBps: 0,
     });
 

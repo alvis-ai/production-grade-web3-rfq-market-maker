@@ -26,6 +26,7 @@
 
 - **RFQ API**: 接收报价请求，聚合市场数据、定价、风控和签名结果。
 - **Market Data Service**: 维护外部价格源、链上流动性和归一化价格快照。
+- **Routing Engine**: 在内部库存、外部交易场所和未来聚合路径之间选择报价路径。
 - **Pricing Engine**: 基于 mid price、spread、size impact、volatility premium 和库存偏移生成报价。
 - **Risk Engine**: 校验库存、delta、gamma、VaR、position limits 和 toxic flow 风险。
 - **EIP-712 Signer**: 只对通过风控的短生命周期 quote 进行签名。
