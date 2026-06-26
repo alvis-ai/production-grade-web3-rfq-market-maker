@@ -1,0 +1,150 @@
+# Chapter 04: SDK
+
+## Abstract
+
+TypeScript SDK 是集成方使用 RFQ 系统的稳定接口。它封装 API client、类型定义、EIP-712 typed data helper 和后续 submit helper。SDK 的目标是减少字段不一致、签名结构错误和 amount 精度问题。
+
+## Learning Objectives
+
+- 定义 SDK 的模块边界。
+- 说明 SDK 与 OpenAPI、合约和后端类型的关系。
+- 设计 EIP-712 helper。
+- 明确 SDK 不应隐藏的错误。
+
+## Background
+
+集成方如果直接拼 HTTP 和 EIP-712 typed data，很容易在字段顺序、chainId、amount 字符串和 verifyingContract 上出错。SDK 提供统一实现。
+
+## Problem Statement
+
+RFQ quote 的字段必须在后端、SDK、前端和合约之间一致。没有 SDK 时，每个集成方都会重复实现高风险逻辑。
+
+## Requirements
+
+### Functional Requirements
+
+- 导出 `QuoteRequest`、`Quote`、`QuoteResponse` 类型。
+- 提供 `RFQClient.quote()`。
+- 提供 `buildRFQDomain()`。
+- 提供 `buildQuoteTypedData()`。
+- 后续提供 submit transaction builder。
+
+### Non-Functional Requirements
+
+- amount 字段使用 string。
+- 类型与 OpenAPI 保持一致。
+- EIP-712 types 与合约字段一致。
+- SDK 不吞掉 API error code。
+
+## Existing Solutions
+
+很多项目只提供 REST API，集成方自行实现 typed data。生产 RFQ 应提供 SDK 降低集成错误。
+
+## Trade-Off Analysis
+
+SDK 增加维护成本，但能显著提升集成可靠性。字段变更必须同步发布 SDK 版本。
+
+## System Design
+
+```mermaid
+flowchart LR
+  Types[types.ts]
+  Client[client.ts]
+  EIP712[eip712.ts]
+  App[Frontend or Integrator]
+  API[RFQ API]
+  Contract[RFQSettlement]
+
+  App --> Client
+  Client --> API
+  App --> EIP712
+  EIP712 --> Contract
+  Types --> Client
+  Types --> EIP712
+```
+
+## Architecture Diagram
+
+SDK 是跨 frontend 和 external integrator 的共享包。它不包含私钥签名能力，只构造 typed data 和 API 请求。
+
+## Sequence Diagram
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant App
+  participant SDK
+  participant API
+  participant Contract
+
+  App->>SDK: quote(request)
+  SDK->>API: POST /quote
+  API-->>SDK: QuoteResponse
+  App->>SDK: buildQuoteTypedData
+  SDK-->>App: typed data for wallet or verification
+  App->>Contract: submitQuote
+```
+
+## State Machine
+
+```mermaid
+stateDiagram-v2
+  [*] --> RequestBuilt
+  RequestBuilt --> QuoteFetched
+  QuoteFetched --> TypedDataBuilt
+  TypedDataBuilt --> ReadyToSubmit
+  RequestBuilt --> APIError
+```
+
+## Data Model
+
+SDK types include `Address = 0x${string}` and `UIntString = string`。Quote mirrors Solidity struct fields.
+
+## API Design
+
+Public SDK interface:
+
+```ts
+const client = new RFQClient(baseUrl);
+const quote = await client.quote(request);
+const typedData = buildQuoteTypedData(quoteLikeStruct, verifyingContract);
+```
+
+## Engineering Decisions
+
+- SDK uses string amounts.
+- SDK owns EIP-712 helper.
+- SDK exposes API errors instead of flattening everything to generic Error in production.
+
+## Failure Scenarios
+
+- API returns risk rejected：throw typed RFQ error。
+- Invalid address：client-side validation error。
+- Network failure：transport error。
+- EIP-712 domain mismatch：consumer must provide correct verifyingContract。
+
+## Security Considerations
+
+SDK should not sign with private keys. Wallet or backend Signer is responsible for signing depending on flow.
+
+## Performance Considerations
+
+SDK should stay lightweight. It should not bundle frontend-only wallet libraries unless submit helper needs optional adapters.
+
+## Testing Strategy
+
+测试 client quote request、API error parsing、typed data structure、domain builder 和 amount string handling。
+
+## Interview Notes
+
+SDK 的价值是统一协议边界，尤其是 EIP-712 和 amount 精度。
+
+## Summary
+
+SDK 将 RFQ 系统变成可集成产品，而不是只服务自家前端。它必须严格对齐 OpenAPI 和合约。
+
+## References
+
+- TypeScript SDK design
+- EIP-712 typed data
+- Viem
