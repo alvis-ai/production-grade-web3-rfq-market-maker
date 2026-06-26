@@ -5,6 +5,7 @@ import { InventoryService } from "./modules/inventory/inventory.service.js";
 import { StaticMarketDataService } from "./modules/market-data/market-data.service.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { StaticPricingEngine } from "./modules/pricing/pricing.engine.js";
+import { InMemoryQuoteRepository } from "./modules/quote/quote.repository.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
 import { AllowAllRiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "./modules/routing/routing.engine.js";
@@ -25,6 +26,7 @@ export function buildServer() {
   const quoteService = new QuoteService({
     marketDataService: new StaticMarketDataService(),
     pricingEngine: new StaticPricingEngine(),
+    quoteRepository: new InMemoryQuoteRepository(),
     riskEngine: new AllowAllRiskEngine(),
     routingEngine: new InternalInventoryRoutingEngine(),
     signerService: new PlaceholderSignerService(),
@@ -36,7 +38,7 @@ export function buildServer() {
   });
   server.get("/quote/:quoteId", async (request, reply) => {
     const { quoteId } = request.params as { quoteId: string };
-    const status = quoteService.getQuoteStatus(quoteId);
+    const status = await quoteService.getQuoteStatus(quoteId);
     if (!status) {
       return sendError(reply, new APIError("QUOTE_NOT_FOUND", "Quote not found", 404));
     }
@@ -63,10 +65,10 @@ export function buildServer() {
       metricsService.recordSubmitAccepted();
       metricsService.recordSettlement();
       metricsService.recordHedgeIntent();
-      const quoteId = quoteService.getQuoteIdForSignedQuote(submitRequest.quote);
+      const quoteId = await quoteService.getQuoteIdForSignedQuote(submitRequest.quote);
       if (quoteId) {
-        quoteService.markQuoteStatus(quoteId, "submitted", result.response.txHash);
-        quoteService.markQuoteStatus(quoteId, "settled", result.response.txHash);
+        await quoteService.markQuoteStatus(quoteId, "submitted", result.response.txHash);
+        await quoteService.markQuoteStatus(quoteId, "settled", result.response.txHash);
       }
       return reply.code(202).send(result.response);
     } catch (error) {

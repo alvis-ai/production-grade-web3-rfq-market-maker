@@ -8,6 +8,7 @@ test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/src/modules/quote/quote.service.ts
+test -s backend/src/modules/quote/quote.repository.ts
 test -s backend/src/modules/execution/execution.service.ts
 test -s backend/src/modules/inventory/inventory.service.ts
 test -s backend/src/modules/hedge/hedge.service.ts
@@ -42,6 +43,7 @@ grep -q 'server.get("/quote/:quoteId"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts
 grep -q 'validateQuoteRequest' backend/src/main.ts
 grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
+grep -q 'InMemoryQuoteRepository' backend/src/main.ts
 grep -q 'new InventoryService' backend/src/main.ts
 grep -q 'new HedgeService' backend/src/main.ts
 grep -q 'recordSettlement' backend/src/main.ts
@@ -52,6 +54,9 @@ grep -q 'StaticMarketDataService' backend/src/main.ts
 grep -q 'InternalInventoryRoutingEngine' backend/src/main.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
+grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
+grep -q 'quoteRepository.saveSigned' backend/src/modules/quote/quote.service.ts
+grep -q 'class InMemoryQuoteRepository' backend/src/modules/quote/quote.repository.ts
 grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
 grep -q 'getQuoteIdForSignedQuote' backend/src/modules/quote/quote.service.ts
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts

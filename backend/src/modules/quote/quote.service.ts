@@ -8,6 +8,7 @@ import type {
 import { APIError } from "../../shared/errors/api-error.js";
 import type { MarketDataService } from "../market-data/market-data.service.js";
 import type { PricingEngine } from "../pricing/pricing.engine.js";
+import type { QuoteRepository } from "./quote.repository.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
 import type { RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
@@ -15,15 +16,13 @@ import type { SignerService } from "../signer/signer.service.js";
 export interface QuoteServiceDeps {
   marketDataService: MarketDataService;
   pricingEngine: PricingEngine;
+  quoteRepository: QuoteRepository;
   riskEngine: RiskEngine;
   routingEngine: RoutingEngine;
   signerService: SignerService;
 }
 
 export class QuoteService {
-  private readonly quoteStatuses = new Map<string, QuoteStatusResponse>();
-  private readonly quoteIdsByUserNonce = new Map<string, string>();
-
   constructor(private readonly deps: QuoteServiceDeps) {}
 
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
@@ -38,19 +37,20 @@ export class QuoteService {
     });
 
     const quoteId = `q_${Date.now().toString()}`;
-    this.quoteStatuses.set(quoteId, {
+    await this.deps.quoteRepository.saveRequested({
       quoteId,
       snapshotId: snapshot.snapshotId,
-      status: "requested",
+      request,
     });
 
     const risk = await this.deps.riskEngine.evaluate({ request, pricing });
     if (risk.status !== "approved") {
-      this.quoteStatuses.set(quoteId, {
+      await this.deps.quoteRepository.saveRejected({
         quoteId,
         snapshotId: snapshot.snapshotId,
-        status: "rejected",
-        errorCode: risk.reasonCode ?? "RISK_REJECTED",
+        request,
+        rejectCode: risk.reasonCode ?? "RISK_REJECTED",
+        riskPolicyVersion: risk.policyVersion,
       });
       throw new APIError("RISK_REJECTED", "Quote rejected by risk policy", 409);
     }
@@ -68,7 +68,6 @@ export class QuoteService {
       deadline,
       chainId: request.chainId,
     };
-    this.quoteIdsByUserNonce.set(this.userNonceKey(signedQuote.user, signedQuote.nonce), quoteId);
 
     const signature = await this.deps.signerService.signQuote({
       quote: signedQuote,
@@ -76,11 +75,13 @@ export class QuoteService {
       snapshotId: snapshot.snapshotId,
     });
 
-    this.quoteStatuses.set(quoteId, {
+    await this.deps.quoteRepository.saveSigned({
       quoteId,
       snapshotId: snapshot.snapshotId,
-      status: "signed",
-      deadline,
+      quote: signedQuote,
+      pricingVersion: pricing.pricingVersion,
+      riskPolicyVersion: risk.policyVersion,
+      signature,
     });
 
     return {
@@ -94,8 +95,8 @@ export class QuoteService {
     };
   }
 
-  getQuoteStatus(quoteId: string): QuoteStatusResponse | undefined {
-    const status = this.quoteStatuses.get(quoteId);
+  async getQuoteStatus(quoteId: string): Promise<QuoteStatusResponse | undefined> {
+    const status = await this.deps.quoteRepository.findStatus(quoteId);
     if (!status) return undefined;
 
     if (status.status === "signed" && status.deadline && status.deadline < Math.floor(Date.now() / 1000)) {
@@ -108,20 +109,11 @@ export class QuoteService {
     return status;
   }
 
-  markQuoteStatus(quoteId: string, status: QuoteLifecycleStatus, txHash?: `0x${string}`): void {
-    const current = this.quoteStatuses.get(quoteId) ?? { quoteId, status };
-    this.quoteStatuses.set(quoteId, {
-      ...current,
-      status,
-      txHash,
-    });
+  async markQuoteStatus(quoteId: string, status: QuoteLifecycleStatus, txHash?: `0x${string}`): Promise<void> {
+    await this.deps.quoteRepository.markStatus(quoteId, status, txHash);
   }
 
-  getQuoteIdForSignedQuote(quote: SignedQuote): string | undefined {
-    return this.quoteIdsByUserNonce.get(this.userNonceKey(quote.user, quote.nonce));
-  }
-
-  private userNonceKey(user: string, nonce: string): string {
-    return `${user.toLowerCase()}:${nonce}`;
+  async getQuoteIdForSignedQuote(quote: SignedQuote): Promise<string | undefined> {
+    return this.deps.quoteRepository.findQuoteIdByUserNonce(quote.user, quote.nonce);
   }
 }

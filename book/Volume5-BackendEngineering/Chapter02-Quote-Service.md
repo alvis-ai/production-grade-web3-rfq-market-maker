@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Quote Service 是 `/quote` 实时路径的编排者。它读取 market snapshot，调用 Pricing Engine，调用 Risk Engine，在风险通过后调用 Signer Service，并持久化 quote、snapshotId、pricingVersion 和 riskPolicyVersion。Quote Service 不能绕过 Risk Engine。
+Quote Service 是 `/quote` 实时路径的编排者。它读取 market snapshot，调用 Pricing Engine，调用 Risk Engine，在风险通过后调用 Signer Service，并通过 Quote Repository 持久化 quote、snapshotId、pricingVersion 和 riskPolicyVersion。Quote Service 不能绕过 Risk Engine。
 
 ## Learning Objectives
 
@@ -67,7 +67,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-Quote Service 依赖 Market Data、Pricing、Risk、Signer、PostgreSQL、Redis 和 Metrics。
+Quote Service 依赖 Market Data、Pricing、Risk、Signer、Quote Repository 和 Metrics。当前代码使用 `InMemoryQuoteRepository` 跑通本地 skeleton；生产版应以同一接口替换为 PostgreSQL repository，并可用 Redis 做短 TTL quote cache。
 
 ## Sequence Diagram
 
@@ -79,17 +79,21 @@ sequenceDiagram
   participant P as Pricing
   participant R as Risk
   participant S as Signer
+  participant Repo as Quote Repository
   participant DB as PostgreSQL
 
   API->>Q: createQuote
+  Q->>Repo: save requested
   Q->>P: price
   Q->>R: evaluate
   alt approved
     Q->>S: signQuote
-    Q->>DB: persist signed quote
+    Q->>Repo: save signed quote
+    Repo->>DB: persist signed quote
     Q-->>API: QuoteResponse
   else rejected
-    Q->>DB: persist rejection
+    Q->>Repo: save rejection
+    Repo->>DB: persist rejection
     Q-->>API: Risk error
   end
 ```
@@ -109,7 +113,7 @@ stateDiagram-v2
 
 ## Data Model
 
-Quote record includes `quoteId`, `snapshotId`, `request`, `pricingResult`, `riskDecision`, `signature`, `deadline`, `nonce`, `status`.
+Quote record includes `quoteId`, `chainId`, `user`, `tokenIn`, `tokenOut`, `snapshotId`, `pricingVersion`, `riskPolicyVersion`, `signature`, `deadline`, `nonce`, `status`, `rejectCode` and optional `txHash`.
 
 ## API Design
 
@@ -117,6 +121,8 @@ Internal interface:
 
 ```ts
 createQuote(request: QuoteRequest): Promise<QuoteResponse>
+getQuoteStatus(quoteId: string): Promise<QuoteStatusResponse | undefined>
+markQuoteStatus(quoteId, status, txHash): Promise<void>
 ```
 
 ## Engineering Decisions
@@ -125,6 +131,7 @@ createQuote(request: QuoteRequest): Promise<QuoteResponse>
 - Quote Service 生成 quoteId。
 - Rejected quote 也要记录。
 - Signer failure 映射为 503。
+- Quote persistence 通过 `QuoteRepository` 抽象，避免编排层直接绑定 PostgreSQL 或内存 Map。
 
 ## Failure Scenarios
 
