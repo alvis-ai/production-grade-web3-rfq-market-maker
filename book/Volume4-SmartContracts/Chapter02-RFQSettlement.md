@@ -1,0 +1,160 @@
+# Chapter 02: RFQSettlement
+
+## Abstract
+
+`RFQSettlement` 是 RFQ 系统的链上结算核心。它不计算价格、不访问市场数据、不执行链下风险模型。它只验证 signed quote 是否有效，并在验证通过后使用 SafeERC20 完成资产转移和事件记录。
+
+## Learning Objectives
+
+- 理解 RFQSettlement 的最小职责。
+- 明确 `submitQuote` 的验证顺序。
+- 区分链上验证和链下风控。
+- 定义 settlement event 的作用。
+
+## Background
+
+RFQ 系统把复杂决策放在链下，但最终资金转移必须链上确定。合约是用户和做市商之间的结算裁判，只接受被 trusted signer 授权的 quote。
+
+## Problem Statement
+
+如果合约承担过多业务逻辑，会增加 gas、攻击面和审计复杂度。如果合约验证不足，则 signed quote 可能被篡改、重放或在错误环境中执行。
+
+## Requirements
+
+### Functional Requirements
+
+- 验证 EIP-712 signature。
+- 验证 trusted signer。
+- 验证 quote.user 等于 msg.sender。
+- 验证 chainId 等于 block.chainid。
+- 验证 deadline 未过期。
+- 验证 nonce 未使用。
+- 验证 token whitelist。
+- 使用 SafeERC20 转账。
+- 发出 `QuoteSettled` 事件。
+
+### Non-Functional Requirements
+
+- 合约逻辑保持最小化。
+- 外部调用受 ReentrancyGuard 保护。
+- 管理操作受 AccessControl 保护。
+- 异常情况下可 Pausable。
+
+## Existing Solutions
+
+一些 DEX 使用 AMM 池直接结算，一些 RFQ 系统使用 settlement proxy。此项目选择单独 RFQSettlement 合约作为清晰边界。
+
+## Trade-Off Analysis
+
+最小合约降低审计复杂度，但要求链下系统可靠。该取舍符合本项目“风险逻辑留链下、结算验证留链上”的原则。
+
+## System Design
+
+```mermaid
+flowchart LR
+  User[User]
+  Quote[Quote]
+  Sig[Signature]
+  Validate[Validate Quote]
+  Transfer[SafeERC20 Transfers]
+  Event[QuoteSettled]
+
+  User --> Quote
+  User --> Sig
+  Quote --> Validate
+  Sig --> Validate
+  Validate --> Transfer
+  Transfer --> Event
+```
+
+## Architecture Diagram
+
+RFQSettlement 与 Treasury 和 ERC20 token 交互。生产实现中 Treasury 应限制可调用方。
+
+## Sequence Diagram
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as User
+  participant C as RFQSettlement
+  participant In as TokenIn
+  participant Out as TokenOut
+  participant T as Treasury
+
+  U->>C: submitQuote(quote, signature)
+  C->>C: validate quote and signature
+  C->>In: transferFrom(user, treasury, amountIn)
+  C->>Out: transfer(user, amountOut)
+  C-->>U: amountOut
+  C-->>T: settlement event observed off-chain
+```
+
+## State Machine
+
+```mermaid
+stateDiagram-v2
+  [*] --> Submitted
+  Submitted --> Reverted: invalid signature
+  Submitted --> Reverted: expired or replayed
+  Submitted --> Reverted: token not whitelisted
+  Submitted --> Transfers
+  Transfers --> Reverted: transfer failed
+  Transfers --> Settled
+  Settled --> [*]
+```
+
+## Data Model
+
+On-chain state includes `trustedSigner`, `tokenWhitelist`, `usedNonces`, roles and pause state. Quote itself does not need to be permanently stored if event contains enough settlement data.
+
+## API Design
+
+Core function:
+
+```solidity
+function submitQuote(
+    Quote calldata quote,
+    bytes calldata signature
+) external nonReentrant whenNotPaused returns (uint256 amountOut);
+```
+
+## Engineering Decisions
+
+- 合约不重新计算价格。
+- nonce 标记和转账顺序必须避免重入和状态不一致。
+- `QuoteSettled` 是链下库存更新的权威事件。
+
+## Failure Scenarios
+
+- 签名无效：revert。
+- nonce 已使用：revert。
+- token 不支持：revert。
+- ERC20 transfer 失败：revert。
+- 合约 paused：revert。
+
+## Security Considerations
+
+生产实现必须使用 OpenZeppelin `SafeERC20`、`ReentrancyGuard`、`Pausable`、`AccessControl`。trusted signer 更新必须受严格权限控制。
+
+## Performance Considerations
+
+Quote 字段应保持最小，避免 gas 膨胀。事件字段应足够索引，但不要过度冗余。
+
+## Testing Strategy
+
+测试 happy path、wrong signer、wrong user、expired deadline、replay nonce、unsupported token、pause、transfer failure 和 event emission。
+
+## Interview Notes
+
+回答 RFQSettlement 设计时，重点说明它是“授权验证与结算合约”，不是“链上定价引擎”。
+
+## Summary
+
+RFQSettlement 将链下 signed quote 转化为链上确定结算，是整个 RFQ 系统的可信执行边界。
+
+## References
+
+- OpenZeppelin SafeERC20
+- OpenZeppelin ReentrancyGuard
+- RFQ settlement contracts
