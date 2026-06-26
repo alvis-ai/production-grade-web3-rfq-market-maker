@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "docs:check": "make docs-check",
-    "backend:typecheck": "pnpm --filter @rfq-market-maker/backend typecheck",
-    "frontend:build": "pnpm --filter @rfq-market-maker/frontend build",
-    "sdk:typecheck": "pnpm --filter @rfq-market-maker/sdk typecheck"
+    "skeleton:check": "make skeleton-check",
+    "backend:typecheck": "make backend-typecheck",
+    "frontend:build": "make frontend-build",
+    "sdk:typecheck": "make sdk-typecheck",
+    "typescript:check": "make typescript-check",
+    "contract:build": "make contract-build",
+    "contract:test": "make contract-test"
   },
   "packageManager": "pnpm@9.12.0"
 }

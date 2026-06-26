@@ -53,6 +53,8 @@ export function QuotePage() {
         signature: quote.signature,
       });
       setSubmitResult(response);
+      const status = await rfqClient.getQuote(quote.quoteId);
+      setQuoteStatus(status);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Submit failed");
     }

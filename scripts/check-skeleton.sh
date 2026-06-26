@@ -3,6 +3,9 @@ set -eu
 
 test -s package.json
 test -s pnpm-workspace.yaml
+test -s .github/workflows/backend-ci.yml
+test -s .github/workflows/contract-ci.yml
+test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/execution/execution.service.ts
@@ -59,6 +62,7 @@ grep -q 'rfq_hedge_intents_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfqClient.quote' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.submit' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getQuote' frontend/src/pages/QuotePage.tsx
+grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
 grep -q 'export { RFQClient' sdk/src/index.ts
 grep -q 'rfqSettlementAbi' sdk/src/index.ts
 grep -q 'buildSubmitQuoteArgs' sdk/src/index.ts
@@ -78,6 +82,11 @@ grep -q 'testSubmitQuoteRejectsReplay' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUntrustedSigner' contracts/test/RFQSettlement.t.sol
 grep -q 'contract-test' Makefile
 grep -q 'forge test' .github/workflows/contract-ci.yml
+grep -q 'make backend-typecheck' .github/workflows/backend-ci.yml
+grep -q 'make sdk-typecheck' .github/workflows/backend-ci.yml
+grep -q 'make frontend-build' .github/workflows/backend-ci.yml
+grep -q 'make docs-check' .github/workflows/docs-ci.yml
+grep -q 'typescript-check' Makefile
 grep -q 'examples/quote-request.json' scripts/smoke-api.sh
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml

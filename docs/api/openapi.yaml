@@ -55,7 +55,12 @@ paths:
   /submit:
     post:
       operationId: submitQuote
-      summary: Submit a signed quote through the backend relay path
+      summary: Submit a signed quote through the backend relay or simulated settlement path
+      description: >
+        The first runnable skeleton applies a simulated settlement, updates inventory,
+        queues a hedge intent, records metrics, and returns HTTP 202 with an optional
+        txHash. Production deployments should treat RFQSettlement QuoteSettled events as
+        the final settlement source of truth.
       tags:
         - Submit
       requestBody:
@@ -206,8 +211,10 @@ components:
           type: string
           enum:
             - accepted
+          description: The backend accepted the submit request for execution or simulated settlement.
         txHash:
           type: string
+          description: Simulated or relayed transaction hash.
     SignedQuote:
       type: object
       required:

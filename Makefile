@@ -1,4 +1,4 @@
-.PHONY: help docs-check tree workspace-check skeleton-check contract-build contract-test smoke-api
+.PHONY: help docs-check tree workspace-check skeleton-check backend-typecheck sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -8,6 +8,10 @@ help:
 	@echo "  tree        Print the first three levels of repository files"
 	@echo "  workspace-check  Verify expected workspace manifests exist"
 	@echo "  skeleton-check  Verify required skeleton entrypoints exist"
+	@echo "  backend-typecheck  Typecheck backend package"
+	@echo "  sdk-typecheck  Typecheck SDK package"
+	@echo "  frontend-build  Build frontend package"
+	@echo "  typescript-check  Run backend, SDK, and frontend checks"
 	@echo "  contract-build  Build Foundry contracts"
 	@echo "  contract-test   Run Foundry contract tests offline"
 	@echo "  smoke-api       Exercise health, quote, submit, and metrics endpoints"
@@ -30,6 +34,17 @@ workspace-check:
 
 skeleton-check:
 	@sh scripts/check-skeleton.sh
+
+backend-typecheck:
+	@pnpm --dir backend typecheck
+
+sdk-typecheck:
+	@pnpm --dir sdk typecheck
+
+frontend-build:
+	@pnpm --dir frontend build
+
+typescript-check: backend-typecheck sdk-typecheck frontend-build
 
 contract-build:
 	@cd contracts && forge build

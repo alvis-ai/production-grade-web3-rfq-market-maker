@@ -4,15 +4,34 @@ on:
   pull_request:
     paths:
       - "backend/**"
+      - "frontend/**"
+      - "sdk/**"
+      - "package.json"
+      - "pnpm-workspace.yaml"
+      - "Makefile"
+      - "scripts/**"
       - ".github/workflows/backend-ci.yml"
   push:
     branches:
       - main
 
 jobs:
-  backend:
+  typescript:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check backend skeleton
-        run: test -d backend/src/modules
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Check repository skeleton
+        run: make skeleton-check
+      - name: Typecheck backend
+        run: make backend-typecheck
+      - name: Typecheck SDK
+        run: make sdk-typecheck
+      - name: Build frontend
+        run: make frontend-build

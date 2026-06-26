@@ -15,11 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check required first-batch documents
-        run: |
-          test -s README.md
-          test -s book/Volume1-SystemArchitecture/Chapter01-Why-RFQ.md
-          test -s docs/adr/ADR-0001-Use-RFQ-Instead-Of-AMM.md
-          test -s docs/diagrams/system-overview.md
-          test -s docs/diagrams/quote-sequence.md
-          test -s docs/interview/rfq-questions.md
+      - name: Check repository skeleton
+        run: make skeleton-check
+      - name: Check documentation coverage
+        run: make docs-check
