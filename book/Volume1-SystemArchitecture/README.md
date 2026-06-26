@@ -16,14 +16,14 @@
 ## Chapters
 
 1. [Chapter 01: Why RFQ](Chapter01-Why-RFQ.md)
-2. Chapter 02: Prop AMM Evolution
-3. Chapter 03: Requirements
-4. Chapter 04: System Overview
-5. Chapter 05: Business Flow
-6. Chapter 06: C4 Architecture
-7. Chapter 07: Microservices
-8. Chapter 08: Failure Recovery
-9. Chapter 09: Architecture Review
+2. [Chapter 02: Prop AMM Evolution](Chapter02-Prop-AMM-Evolution.md)
+3. [Chapter 03: Requirements](Chapter03-Requirements.md)
+4. [Chapter 04: System Overview](Chapter04-System-Overview.md)
+5. [Chapter 05: Business Flow](Chapter05-Business-Flow.md)
+6. [Chapter 06: C4 Architecture](Chapter06-C4-Architecture.md)
+7. [Chapter 07: Microservices](Chapter07-Microservices.md)
+8. [Chapter 08: Failure Recovery](Chapter08-Failure-Recovery.md)
+9. [Chapter 09: Architecture Review](Chapter09-Architecture-Review.md)
 
 ## Architecture Principles
 
