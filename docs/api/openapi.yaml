@@ -1,0 +1,280 @@
+openapi: 3.1.0
+info:
+  title: Production-Grade Web3 RFQ Market Maker API
+  version: 0.1.0
+  description: API draft for RFQ quote, submit, health, and metrics flows.
+servers:
+  - url: http://localhost:3000
+paths:
+  /quote:
+    post:
+      operationId: createQuote
+      summary: Request an RFQ quote
+      tags:
+        - Quote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteRequest"
+            examples:
+              default:
+                value:
+                  chainId: 1
+                  user: "0x0000000000000000000000000000000000000001"
+                  tokenIn: "0x0000000000000000000000000000000000000002"
+                  tokenOut: "0x0000000000000000000000000000000000000003"
+                  amountIn: "1000000000"
+                  slippageBps: 50
+      responses:
+        "200":
+          description: Signed quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Risk rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /submit:
+    post:
+      operationId: submitQuote
+      summary: Submit a signed quote through the backend relay path
+      tags:
+        - Submit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitQuoteRequest"
+      responses:
+        "202":
+          description: Submit accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmitQuoteResponse"
+        "400":
+          description: Invalid submit request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /quote/{quoteId}:
+    get:
+      operationId: getQuote
+      summary: Get quote status by id
+      tags:
+        - Quote
+      parameters:
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Quote status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteStatus"
+        "404":
+          description: Quote not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      tags:
+        - System
+      responses:
+        "200":
+          description: Service health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /metrics:
+    get:
+      operationId: getMetrics
+      summary: Prometheus metrics endpoint
+      tags:
+        - System
+      responses:
+        "200":
+          description: Prometheus text exposition
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  schemas:
+    Address:
+      type: string
+      pattern: "^0x[a-fA-F0-9]{40}$"
+    UIntString:
+      type: string
+      pattern: "^[0-9]+$"
+    QuoteRequest:
+      type: object
+      required:
+        - chainId
+        - user
+        - tokenIn
+        - tokenOut
+        - amountIn
+        - slippageBps
+      properties:
+        chainId:
+          type: integer
+          minimum: 1
+        user:
+          $ref: "#/components/schemas/Address"
+        tokenIn:
+          $ref: "#/components/schemas/Address"
+        tokenOut:
+          $ref: "#/components/schemas/Address"
+        amountIn:
+          $ref: "#/components/schemas/UIntString"
+        slippageBps:
+          type: integer
+          minimum: 0
+          maximum: 10000
+    QuoteResponse:
+      type: object
+      required:
+        - quoteId
+        - snapshotId
+        - amountOut
+        - minAmountOut
+        - deadline
+        - nonce
+        - signature
+      properties:
+        quoteId:
+          type: string
+        snapshotId:
+          type: string
+        amountOut:
+          $ref: "#/components/schemas/UIntString"
+        minAmountOut:
+          $ref: "#/components/schemas/UIntString"
+        deadline:
+          type: integer
+        nonce:
+          $ref: "#/components/schemas/UIntString"
+        signature:
+          type: string
+          pattern: "^0x[a-fA-F0-9]+$"
+    SubmitQuoteRequest:
+      type: object
+      required:
+        - quote
+        - signature
+      properties:
+        quote:
+          $ref: "#/components/schemas/SignedQuote"
+        signature:
+          type: string
+    SubmitQuoteResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - accepted
+        txHash:
+          type: string
+    SignedQuote:
+      type: object
+      required:
+        - user
+        - tokenIn
+        - tokenOut
+        - amountIn
+        - amountOut
+        - minAmountOut
+        - nonce
+        - deadline
+        - chainId
+      properties:
+        user:
+          $ref: "#/components/schemas/Address"
+        tokenIn:
+          $ref: "#/components/schemas/Address"
+        tokenOut:
+          $ref: "#/components/schemas/Address"
+        amountIn:
+          $ref: "#/components/schemas/UIntString"
+        amountOut:
+          $ref: "#/components/schemas/UIntString"
+        minAmountOut:
+          $ref: "#/components/schemas/UIntString"
+        nonce:
+          $ref: "#/components/schemas/UIntString"
+        deadline:
+          type: integer
+        chainId:
+          type: integer
+    QuoteStatus:
+      type: object
+      required:
+        - quoteId
+        - status
+      properties:
+        quoteId:
+          type: string
+        status:
+          type: string
+          enum:
+            - requested
+            - rejected
+            - signed
+            - expired
+            - submitted
+            - settled
+            - failed
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
