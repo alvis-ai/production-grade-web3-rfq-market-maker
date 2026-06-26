@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Hedge Service 负责成交后风险再平衡。RFQSettlement 确认成交后，Inventory Service 计算 exposure delta。如果库存偏离目标，Hedge Service 选择 venue 和 route，提交对冲订单，并把结果反馈到库存、PnL 和后续风险。
+Hedge Service 负责成交后风险再平衡。RFQSettlement 确认成交后，Inventory Service 计算 exposure delta。如果库存偏离目标，Hedge Service 选择 venue 和 route，提交对冲订单，并把结果反馈到库存、PnL 和后续风险。当前参考实现会在 `/submit` 模拟结算后立即创建 hedge intent，用于验证 post-trade path。
 
 ## Learning Objectives
 
@@ -35,7 +35,7 @@ Hedge Service 负责成交后风险再平衡。RFQSettlement 确认成交后，I
 - hedge 操作必须幂等。
 - external venue credential 必须隔离。
 - hedge failure 必须告警。
-- hedge 不阻塞链上 settlement。
+- hedge 不阻塞链上 settlement；第一阶段 skeleton 中 hedge intent 只表示已进入异步队列。
 
 ## Existing Solutions
 

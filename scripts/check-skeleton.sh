@@ -39,12 +39,23 @@ grep -q 'server.get("/quote/:quoteId"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts
 grep -q 'validateQuoteRequest' backend/src/main.ts
 grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
+grep -q 'new InventoryService' backend/src/main.ts
+grep -q 'new HedgeService' backend/src/main.ts
+grep -q 'recordSettlement' backend/src/main.ts
+grep -q 'reply.code(202)' backend/src/main.ts
+grep -q '"submitted"' backend/src/main.ts
+grep -q '"settled"' backend/src/main.ts
 grep -q 'StaticMarketDataService' backend/src/main.ts
 grep -q 'InternalInventoryRoutingEngine' backend/src/main.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
+grep -q 'getQuoteIdForSignedQuote' backend/src/modules/quote/quote.service.ts
+grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
+grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
 grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_settlements_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_hedge_intents_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfqClient.quote' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.submit' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getQuote' frontend/src/pages/QuotePage.tsx

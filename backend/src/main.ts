@@ -1,5 +1,7 @@
 import Fastify from "fastify";
 import { SkeletonExecutionService } from "./modules/execution/execution.service.js";
+import { HedgeService } from "./modules/hedge/hedge.service.js";
+import { InventoryService } from "./modules/inventory/inventory.service.js";
 import { StaticMarketDataService } from "./modules/market-data/market-data.service.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { StaticPricingEngine } from "./modules/pricing/pricing.engine.js";
@@ -13,7 +15,12 @@ import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.j
 
 export function buildServer() {
   const server = Fastify({ logger: true });
-  const executionService = new SkeletonExecutionService();
+  const hedgeService = new HedgeService();
+  const inventoryService = new InventoryService();
+  const executionService = new SkeletonExecutionService({
+    hedgeService,
+    inventoryService,
+  });
   const metricsService = new MetricsService();
   const quoteService = new QuoteService({
     marketDataService: new StaticMarketDataService(),
@@ -52,8 +59,16 @@ export function buildServer() {
     metricsService.recordSubmitRequest();
     try {
       const submitRequest = validateSubmitQuoteRequest(request.body);
-      const response = await executionService.submitQuote(submitRequest);
-      return response;
+      const result = await executionService.submitQuote(submitRequest);
+      metricsService.recordSubmitAccepted();
+      metricsService.recordSettlement();
+      metricsService.recordHedgeIntent();
+      const quoteId = quoteService.getQuoteIdForSignedQuote(submitRequest.quote);
+      if (quoteId) {
+        quoteService.markQuoteStatus(quoteId, "submitted", result.response.txHash);
+        quoteService.markQuoteStatus(quoteId, "settled", result.response.txHash);
+      }
+      return reply.code(202).send(result.response);
     } catch (error) {
       metricsService.recordSubmitError();
       return sendError(reply, toAPIError(error));

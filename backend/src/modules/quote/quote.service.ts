@@ -22,6 +22,7 @@ export interface QuoteServiceDeps {
 
 export class QuoteService {
   private readonly quoteStatuses = new Map<string, QuoteStatusResponse>();
+  private readonly quoteIdsByUserNonce = new Map<string, string>();
 
   constructor(private readonly deps: QuoteServiceDeps) {}
 
@@ -67,6 +68,7 @@ export class QuoteService {
       deadline,
       chainId: request.chainId,
     };
+    this.quoteIdsByUserNonce.set(this.userNonceKey(signedQuote.user, signedQuote.nonce), quoteId);
 
     const signature = await this.deps.signerService.signQuote({
       quote: signedQuote,
@@ -113,5 +115,13 @@ export class QuoteService {
       status,
       txHash,
     });
+  }
+
+  getQuoteIdForSignedQuote(quote: SignedQuote): string | undefined {
+    return this.quoteIdsByUserNonce.get(this.userNonceKey(quote.user, quote.nonce));
+  }
+
+  private userNonceKey(user: string, nonce: string): string {
+    return `${user.toLowerCase()}:${nonce}`;
   }
 }
