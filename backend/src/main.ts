@@ -47,3 +47,29 @@ export function buildServer() {
 
   return server;
 }
+
+export async function startServer() {
+  const server = buildServer();
+  const processLike = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  const port = Number(processLike?.env?.PORT ?? 3000);
+  await server.listen({ host: "0.0.0.0", port });
+  return server;
+}
+
+const processLike = (
+  globalThis as {
+    process?: {
+      argv?: string[];
+      exitCode?: number;
+    };
+  }
+).process;
+
+if (processLike?.argv?.[1] && import.meta.url.endsWith(processLike.argv[1])) {
+  startServer().catch((error: unknown) => {
+    console.error(error);
+    if (processLike) {
+      processLike.exitCode = 1;
+    }
+  });
+}

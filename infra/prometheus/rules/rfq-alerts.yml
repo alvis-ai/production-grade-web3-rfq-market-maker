@@ -1,0 +1,29 @@
+groups:
+  - name: rfq-core
+    rules:
+      - alert: RFQBackendDown
+        expr: up{job="rfq-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ backend metrics endpoint is down
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQQuoteTrafficStopped
+        expr: increase(rfq_quote_requests_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ quote request counter has not increased
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSubmitTrafficSpike
+        expr: increase(rfq_submit_requests_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ submit request volume is above skeleton threshold
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
