@@ -1,12 +1,12 @@
 # Production-Grade Web3 RFQ Market Maker
 
-从零构建生产级 RFQ / Prop AMM 做市系统。这个仓库的目标不是只展示一个最小 demo，而是沉淀一套可以用于 GitHub 作品集、高级 Web3 工程师面试、技术设计文档和可运行参考实现的完整工程。
+## Project Description
 
-## Project Purpose
+这是一个 Web3 RFQ / Prop AMM 做市系统参考工程，覆盖从链下报价到链上结算的完整业务链路。系统以 RFQ 报价为入口，通过市场数据、定价、库存风控、EIP-712 签名、合约校验、成交结算、库存更新、对冲和指标观测共同保证报价与执行的一致性。
 
-本项目围绕专业做市场景中的核心问题展开：如何在链上结算的约束下，将报价、风控、签名、执行、库存、对冲和观测打通，并保证报价和成交之间的一致性。
+项目内容包括系统设计文档、ADR、Mermaid 架构图、OpenAPI 接口定义、数据库模型、后端 RFQ 服务、Solidity 结算合约、前端交易页面、TypeScript SDK 和部署配置。
 
-核心链路固定为：
+## Core Flow
 
 ```text
 /quote
@@ -22,35 +22,41 @@
   -> metrics / PnL
 ```
 
-## System Scope
+## System Components
 
-第一阶段只初始化仓库骨架和核心设计文档，不实现后端、前端或合约代码。后续阶段会逐步补齐：
+- **RFQ API**: 接收报价请求，聚合市场数据、定价、风控和签名结果。
+- **Market Data Service**: 维护外部价格源、链上流动性和归一化价格快照。
+- **Pricing Engine**: 基于 mid price、spread、size impact、volatility premium 和库存偏移生成报价。
+- **Risk Engine**: 校验库存、delta、gamma、VaR、position limits 和 toxic flow 风险。
+- **EIP-712 Signer**: 只对通过风控的短生命周期 quote 进行签名。
+- **RFQSettlement Contract**: 在链上校验签名、nonce、deadline、token whitelist 和成交边界。
+- **Inventory Service**: 记录成交后的库存变化，并向定价和对冲模块提供状态。
+- **Hedge Engine**: 根据库存敞口触发外部交易场所或链上路径的对冲动作。
+- **Observability**: 暴露 quote、submit、settlement、PnL 和风险状态相关指标。
+- **Frontend / SDK**: 提供交易表单、报价状态展示和 TypeScript 客户端封装。
 
-- RFQ Quote API
-- Pricing Engine
-- Risk Engine
-- Market Data Service
-- EIP-712 Signer
-- RFQ Settlement Smart Contract
-- Execution Engine
-- Inventory Service
-- Hedge Engine
-- Routing Engine
-- Metrics / Observability
-- Frontend Trading UI
-- TypeScript SDK
-- Docker / Kubernetes deployment
+## Repository Layout
 
-## Technology Direction
+```text
+backend/     TypeScript / Fastify RFQ service
+contracts/   Solidity RFQ settlement contracts and Foundry tests
+frontend/    React quote UI
+sdk/         TypeScript SDK and EIP-712 helpers
+docs/        ADRs, API specs, diagrams, database schema, security docs
+book/        Long-form engineering design volumes
+infra/       Docker, Kubernetes, Helm, Prometheus and Grafana configuration
+```
 
-- Backend: Node.js, TypeScript, NestJS or Fastify, PostgreSQL, Redis, Kafka or Redpanda, ClickHouse
+## Technology Stack
+
+- Backend: Node.js, TypeScript, Fastify, PostgreSQL, Redis, Redpanda, ClickHouse
 - Smart Contract: Solidity, Foundry, OpenZeppelin, EIP-712, SafeERC20, ReentrancyGuard, Pausable, AccessControl
 - Frontend: React, Vite, TypeScript, Wagmi, Viem, RainbowKit, TanStack Query
 - Infra: Docker Compose, Kubernetes, Helm, GitHub Actions, Prometheus, Grafana
 
-## API Direction
+## API Surface
 
-未来 API 将至少包括：
+The OpenAPI specification lives in [`docs/api/openapi.yaml`](docs/api/openapi.yaml). Core endpoints:
 
 ```http
 POST /quote
@@ -60,7 +66,7 @@ GET /health
 GET /metrics
 ```
 
-Example quote request:
+Example `POST /quote` request:
 
 ```json
 {
@@ -73,7 +79,7 @@ Example quote request:
 }
 ```
 
-Example quote response:
+Example `POST /quote` response:
 
 ```json
 {
@@ -87,7 +93,7 @@ Example quote response:
 }
 ```
 
-## Smart Contract Direction
+## Smart Contract Surface
 
 核心合约为 `RFQSettlement`，关键入口为：
 
@@ -113,15 +119,18 @@ function submitQuote(
 9. Every critical component should be testable.
 10. Every diagram should be reproducible with Mermaid.
 
-## First Batch Documents
+## Documentation Index
 
 - [Volume 1: System Architecture](book/Volume1-SystemArchitecture/README.md)
-- [Chapter 1: Why RFQ](book/Volume1-SystemArchitecture/Chapter01-Why-RFQ.md)
-- [ADR-0001: Use RFQ Instead Of Pure AMM](docs/adr/ADR-0001-Use-RFQ-Instead-Of-AMM.md)
+- [Volume 2: Market Data And Pricing](book/Volume2-MarketData-And-Pricing/README.md)
+- [Volume 3: Risk Engine](book/Volume3-RiskEngine/README.md)
+- [Volume 4: Smart Contracts](book/Volume4-SmartContracts/README.md)
 - [System Overview Diagram](docs/diagrams/system-overview.md)
 - [Quote Sequence Diagram](docs/diagrams/quote-sequence.md)
-- [RFQ Interview Questions](docs/interview/rfq-questions.md)
-
-## Repository Status
-
-This repository is in the first documentation and skeleton phase. The current commit establishes the architecture vocabulary, directory layout, first design decision, and core RFQ reasoning before implementation begins.
+- [Submit Sequence Diagram](docs/diagrams/submit-sequence.md)
+- [Risk State Machine](docs/diagrams/risk-state-machine.md)
+- [API Specification](docs/api/openapi.yaml)
+- [Database Schema](docs/database/schema.sql)
+- [Threat Model](docs/security/threat-model.md)
+- [Audit Checklist](docs/security/audit-checklist.md)
+- [Interview Notes](docs/interview/README.md)
