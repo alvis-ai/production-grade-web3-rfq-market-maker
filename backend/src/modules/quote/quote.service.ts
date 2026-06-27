@@ -118,11 +118,16 @@ export class QuoteService {
 
   async requireSubmittableSignedQuote(quote: SignedQuote, signature: `0x${string}`): Promise<string> {
     const record = await this.deps.quoteRepository.findSignedQuoteByUserNonce(quote.user, quote.nonce);
-    if (!record || !isExactSignedQuote(record, quote, signature)) {
+    if (!record || !isExactSignedQuote(record, quote)) {
       throw new APIError("QUOTE_NOT_FOUND", "Signed quote not found", 404);
     }
     if (record.status === "submitted" || record.status === "settled") {
       throw new APIError("QUOTE_ALREADY_USED", "Quote already used", 409);
+    }
+
+    const isValidSignature = await this.deps.signerService.verifyQuoteSignature(quote, signature);
+    if (!isValidSignature) {
+      throw new APIError("INVALID_SIGNATURE", "Quote signature is not from the trusted signer", 409);
     }
 
     return record.quoteId;
@@ -140,10 +145,8 @@ function isExactSignedQuote(
     minAmountOut?: string;
     nonce?: string;
     deadline?: number;
-    signature?: `0x${string}`;
   },
   quote: SignedQuote,
-  signature: `0x${string}`,
 ): boolean {
   return (
     record.chainId === quote.chainId &&
@@ -154,7 +157,6 @@ function isExactSignedQuote(
     record.amountOut === quote.amountOut &&
     record.minAmountOut === quote.minAmountOut &&
     record.nonce === quote.nonce &&
-    record.deadline === quote.deadline &&
-    record.signature?.toLowerCase() === signature.toLowerCase()
+    record.deadline === quote.deadline
   );
 }

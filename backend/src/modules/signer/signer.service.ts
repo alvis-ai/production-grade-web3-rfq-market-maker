@@ -1,3 +1,4 @@
+import { recoverTypedDataAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type { PrivateKeyAccount } from "viem/accounts";
 import type { SignedQuote } from "../../shared/types/rfq.js";
@@ -28,6 +29,7 @@ export interface SignQuoteInput {
 
 export interface SignerService {
   signQuote(input: SignQuoteInput): Promise<`0x${string}`>;
+  verifyQuoteSignature(quote: SignedQuote, signature: `0x${string}`): Promise<boolean>;
 }
 
 export interface LocalEIP712SignerConfig {
@@ -43,28 +45,46 @@ export class LocalEIP712SignerService implements SignerService {
   }
 
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
-    return this.account.signTypedData({
+    return this.account.signTypedData(buildQuoteTypedData(input.quote, this.config.settlementAddress));
+  }
+
+  async verifyQuoteSignature(quote: SignedQuote, signature: `0x${string}`): Promise<boolean> {
+    let recovered: `0x${string}`;
+    try {
+      recovered = await recoverTypedDataAddress({
+        ...buildQuoteTypedData(quote, this.config.settlementAddress),
+        signature,
+      });
+    } catch {
+      return false;
+    }
+
+    return recovered.toLowerCase() === this.account.address.toLowerCase();
+  }
+}
+
+function buildQuoteTypedData(quote: SignedQuote, settlementAddress: `0x${string}`) {
+  return {
       domain: {
         name: RFQ_EIP712_DOMAIN_NAME,
         version: RFQ_EIP712_DOMAIN_VERSION,
-        chainId: input.quote.chainId,
-        verifyingContract: this.config.settlementAddress,
+        chainId: quote.chainId,
+        verifyingContract: settlementAddress,
       },
       types: quoteTypes,
       primaryType: "Quote",
       message: {
-        user: input.quote.user,
-        tokenIn: input.quote.tokenIn,
-        tokenOut: input.quote.tokenOut,
-        amountIn: BigInt(input.quote.amountIn),
-        amountOut: BigInt(input.quote.amountOut),
-        minAmountOut: BigInt(input.quote.minAmountOut),
-        nonce: BigInt(input.quote.nonce),
-        deadline: BigInt(input.quote.deadline),
-        chainId: BigInt(input.quote.chainId),
+        user: quote.user,
+        tokenIn: quote.tokenIn,
+        tokenOut: quote.tokenOut,
+        amountIn: BigInt(quote.amountIn),
+        amountOut: BigInt(quote.amountOut),
+        minAmountOut: BigInt(quote.minAmountOut),
+        nonce: BigInt(quote.nonce),
+        deadline: BigInt(quote.deadline),
+        chainId: BigInt(quote.chainId),
       },
-    });
-  }
+    } as const;
 }
 
 export class PlaceholderSignerService implements SignerService {
@@ -72,5 +92,9 @@ export class PlaceholderSignerService implements SignerService {
     const seed = `${input.quoteId}:${input.snapshotId}:${input.quote.nonce}`;
     const hex = toFixedHex(seed, 130);
     return `0x${hex}`;
+  }
+
+  async verifyQuoteSignature(): Promise<boolean> {
+    return false;
   }
 }

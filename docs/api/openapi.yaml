@@ -329,6 +329,7 @@ components:
             - PRICING_UNAVAILABLE
             - RISK_REJECTED
             - SIGNER_UNAVAILABLE
+            - INVALID_SIGNATURE
             - QUOTE_NOT_FOUND
             - QUOTE_EXPIRED
             - QUOTE_ALREADY_USED

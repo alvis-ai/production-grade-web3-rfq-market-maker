@@ -252,6 +252,49 @@ test("RFQ API rejects unissued submit quotes before simulated settlement", async
   }
 });
 
+test("RFQ API rejects issued quotes with invalid trusted signer signature", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(quote.statusCode, 200);
+
+    const response = await injectJson(server, "POST", "/submit", {
+      quote: {
+        user: baseQuoteRequest.user,
+        tokenIn: baseQuoteRequest.tokenIn,
+        tokenOut: baseQuoteRequest.tokenOut,
+        amountIn: baseQuoteRequest.amountIn,
+        amountOut: quote.body.amountOut,
+        minAmountOut: quote.body.minAmountOut,
+        nonce: quote.body.nonce,
+        deadline: quote.body.deadline,
+        chainId: baseQuoteRequest.chainId,
+      },
+      signature: fixedSignature(),
+    });
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "INVALID_SIGNATURE");
+    assert.match(response.body.traceId, /^tr_/);
+
+    const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.body.status, "signed");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_submit_requests_total 1/);
+    assert.match(metrics.payload, /rfq_submit_errors_total 1/);
+    assert.match(metrics.payload, /rfq_submit_accepted_total 0/);
+    assert.match(metrics.payload, /rfq_settlements_total 0/);
+    assert.doesNotMatch(metrics.payload, /rfq_inventory_balance\{chain_id=/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rejects replayed submit quotes", async () => {
   const server = buildServer({ logger: false });
   await server.ready();
