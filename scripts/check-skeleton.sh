@@ -14,6 +14,9 @@ test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
 test -s backend/test/settlement-event.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
+grep -q 'marketDataService: MarketDataService' backend/src/modules/health/readiness.service.ts
+grep -q 'checkMarketData' backend/src/modules/health/readiness.service.ts
+grep -q 'maxSnapshotAgeMs' backend/src/modules/health/readiness.service.ts
 grep -q 'pnl: "ok"' backend/src/modules/health/readiness.service.ts
 grep -q 'settlementEventStore: "ok"' backend/src/modules/health/readiness.service.ts
 test -s backend/src/modules/quote/quote.service.ts
@@ -63,6 +66,7 @@ grep -q 'server.get("/settlements/:settlementEventId"' backend/src/main.ts
 grep -q 'server.get("/hedges/:hedgeOrderId"' backend/src/main.ts
 grep -q 'server.get("/pnl"' backend/src/main.ts
 grep -q 'server.get("/ready"' backend/src/main.ts
+grep -q 'readiness.status === "degraded"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts
 grep -q 'validateQuoteRequest' backend/src/main.ts
 grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
@@ -179,6 +183,7 @@ grep -q 'async getHedge' sdk/src/client.ts
 grep -q 'async pnl' sdk/src/client.ts
 grep -q 'async health' sdk/src/client.ts
 grep -q 'async ready' sdk/src/client.ts
+grep -q 'isReadinessResponse' sdk/src/client.ts
 grep -q 'async metrics' sdk/src/client.ts
 grep -q 'traceId: string' sdk/src/types.ts
 grep -q 'client.health' sdk/test/sdk.test.mjs
@@ -186,6 +191,7 @@ grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs
 grep -q 'client.pnl' sdk/test/sdk.test.mjs
 grep -q 'client.ready' sdk/test/sdk.test.mjs
+grep -q 'degraded readiness payloads' sdk/test/sdk.test.mjs
 grep -q 'client.metrics' sdk/test/sdk.test.mjs
 grep -q 'function submitQuote' contracts/src/RFQSettlement.sol
 grep -q 'function setTokenWhitelist' contracts/src/RFQSettlement.sol
@@ -228,6 +234,7 @@ grep -q 'Market data snapshot used for the quote' docs/api/openapi.yaml
 grep -q 'stale' docs/api/openapi.yaml
 grep -q 'getReadiness' docs/api/openapi.yaml
 grep -q 'ReadinessResponse' docs/api/openapi.yaml
+grep -q 'not ready because at least one quote dependency is degraded' docs/api/openapi.yaml
 grep -q 'getHedgeIntent' docs/api/openapi.yaml
 grep -q 'HedgeIntentStatus' docs/api/openapi.yaml
 grep -q 'HEDGE_NOT_FOUND' docs/api/openapi.yaml
@@ -269,6 +276,7 @@ grep -q 'buildServer' backend/test/api.test.mjs
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'SLIPPAGE_TOO_WIDE' backend/test/api.test.mjs
 grep -q 'stale market data' backend/test/api.test.mjs
+grep -q 'degrades readiness when market data is stale' backend/test/api.test.mjs
 grep -q 'toxic-flow users' backend/test/api.test.mjs
 grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/test/api.test.mjs
 grep -q 'TOKEN_IN_INVENTORY_LIMIT_EXCEEDED' backend/test/api.test.mjs

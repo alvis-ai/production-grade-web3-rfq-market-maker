@@ -98,7 +98,20 @@ export class RFQClient {
   async ready(): Promise<ReadinessResponse> {
     const response = await fetch(`${this.baseUrl}/ready`);
 
-    await assertOk(response, "RFQ readiness check failed");
+    if (!response.ok) {
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = undefined;
+      }
+
+      if (isReadinessResponse(payload)) {
+        return payload;
+      }
+
+      throw clientErrorFromResponse(response, payload, "RFQ readiness check failed");
+    }
 
     return (await response.json()) as ReadinessResponse;
   }
@@ -122,10 +135,37 @@ async function assertOk(response: Response, fallbackMessage: string): Promise<vo
     error = undefined;
   }
 
-  throw new RFQClientError(
+  throw clientErrorFromResponse(response, error, fallbackMessage);
+}
+
+function clientErrorFromResponse(response: Response, payload: unknown, fallbackMessage: string): RFQClientError {
+  const error = isRFQErrorResponse(payload) ? payload : undefined;
+  return new RFQClientError(
     error?.message ?? fallbackMessage,
     response.status,
     error?.code,
     error?.traceId,
+  );
+}
+
+function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {
+  if (!value || typeof value !== "object") return false;
+
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.code === "string" &&
+    typeof record.message === "string" &&
+    typeof record.traceId === "string"
+  );
+}
+
+function isReadinessResponse(value: unknown): value is ReadinessResponse {
+  if (!value || typeof value !== "object") return false;
+
+  const record = value as Record<string, unknown>;
+  return (
+    (record.status === "ready" || record.status === "degraded") &&
+    !!record.components &&
+    typeof record.components === "object"
   );
 }

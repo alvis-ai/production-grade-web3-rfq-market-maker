@@ -146,6 +146,35 @@ test("RFQ API returns structured errors for missing settlement events", async ()
   }
 });
 
+test("RFQ API degrades readiness when market data is stale", async () => {
+  const server = buildServer({
+    logger: false,
+    marketDataService: {
+      async getSnapshot() {
+        return {
+          snapshotId: "snapshot_stale",
+          midPrice: "1",
+          liquidityUsd: "10000000000000",
+          volatilityBps: 25,
+          observedAt: new Date(Date.now() - 60_000).toISOString(),
+        };
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/ready");
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.status, "degraded");
+    assert.equal(response.body.components.marketData, "degraded");
+    assert.equal(response.body.components.signer, "ok");
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API returns structured errors for missing hedge intents", async () => {
   const server = buildServer({ logger: false });
   await server.ready();

@@ -281,6 +281,25 @@ test("RFQClient throws structured RFQClientError for API errors", async () => {
   }
 });
 
+test("RFQClient returns degraded readiness payloads from HTTP 503", async () => {
+  const readinessResponse = {
+    status: "degraded",
+    components: {
+      marketData: "degraded",
+      signer: "ok",
+    },
+  };
+  const restoreFetch = installFetch(async () => jsonResponse(503, readinessResponse));
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    assert.deepEqual(await client.ready(), readinessResponse);
+  } finally {
+    restoreFetch();
+  }
+});
+
 function installFetch(fetchImpl) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = fetchImpl;

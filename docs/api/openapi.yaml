@@ -298,6 +298,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: Service is alive but not ready because at least one quote dependency is degraded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
   /metrics:
     get:
       operationId: getMetrics
