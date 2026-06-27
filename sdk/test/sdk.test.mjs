@@ -110,6 +110,7 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
   const submitResponse = {
     status: "accepted",
     txHash: `0x${"22".repeat(32)}`,
+    settlementEventId: "se_1_22222222_0",
     hedgeOrderId: "h_1_00000003_000001",
     pnlId: "pnl_q_test",
   };
@@ -128,6 +129,20 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     amount: quote.amountOut,
     reason: "inventory_rebalance",
     createdAt: "2026-06-27T00:00:00.000Z",
+  };
+  const settlementResponse = {
+    settlementEventId: submitResponse.settlementEventId,
+    status: "applied",
+    quoteId: "q_test",
+    chainId: quote.chainId,
+    txHash: submitResponse.txHash,
+    logIndex: 0,
+    user: quote.user,
+    tokenIn: quote.tokenIn,
+    tokenOut: quote.tokenOut,
+    amountIn: quote.amountIn,
+    amountOut: quote.amountOut,
+    observedAt: "2026-06-27T00:00:00.000Z",
   };
   const pnlResponse = {
     status: "ok",
@@ -177,6 +192,9 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     if (url.endsWith("/hedges/h_1_00000003_000001")) {
       return jsonResponse(200, hedgeResponse);
     }
+    if (url.endsWith("/settlements/se_1_22222222_0")) {
+      return jsonResponse(200, settlementResponse);
+    }
     if (url.endsWith("/pnl")) {
       return jsonResponse(200, pnlResponse);
     }
@@ -206,21 +224,23 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     assert.deepEqual(await client.submit({ quote, signature }), submitResponse);
     assert.deepEqual(await client.getQuote("q_test"), statusResponse);
     assert.deepEqual(await client.getHedge(submitResponse.hedgeOrderId), hedgeResponse);
+    assert.deepEqual(await client.getSettlement(submitResponse.settlementEventId), settlementResponse);
     assert.deepEqual(await client.pnl(), pnlResponse);
     assert.deepEqual(await client.health(), healthResponse);
     assert.deepEqual(await client.ready(), readinessResponse);
     assert.equal(await client.metrics(), metricsResponse);
 
-    assert.equal(calls.length, 8);
+    assert.equal(calls.length, 9);
     assert.equal(calls[0].url, "http://127.0.0.1:3000/quote");
     assert.equal(calls[0].init.headers["content-type"], "application/json");
     assert.deepEqual(JSON.parse(calls[1].init.body), { quote, signature });
     assert.equal(calls[2].url, "http://127.0.0.1:3000/quote/q_test");
     assert.equal(calls[3].url, "http://127.0.0.1:3000/hedges/h_1_00000003_000001");
-    assert.equal(calls[4].url, "http://127.0.0.1:3000/pnl");
-    assert.equal(calls[5].url, "http://127.0.0.1:3000/health");
-    assert.equal(calls[6].url, "http://127.0.0.1:3000/ready");
-    assert.equal(calls[7].url, "http://127.0.0.1:3000/metrics");
+    assert.equal(calls[4].url, "http://127.0.0.1:3000/settlements/se_1_22222222_0");
+    assert.equal(calls[5].url, "http://127.0.0.1:3000/pnl");
+    assert.equal(calls[6].url, "http://127.0.0.1:3000/health");
+    assert.equal(calls[7].url, "http://127.0.0.1:3000/ready");
+    assert.equal(calls[8].url, "http://127.0.0.1:3000/metrics");
   } finally {
     restoreFetch();
   }

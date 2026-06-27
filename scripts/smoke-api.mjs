@@ -39,6 +39,7 @@ const submitResponse = await request("POST", "/submit", {
 });
 assertEqual(submitResponse.status, "accepted", "submit status");
 assertHex(submitResponse.txHash, "txHash");
+assertString(submitResponse.settlementEventId, "settlementEventId");
 assertString(submitResponse.hedgeOrderId, "hedgeOrderId");
 assertEqual(submitResponse.pnlId, `pnl_${quoteResponse.quoteId}`, "pnlId");
 
@@ -53,6 +54,13 @@ assertString(replayError.payload.traceId, "replay traceId");
 const quoteStatus = await request("GET", `/quote/${encodeURIComponent(quoteResponse.quoteId)}`);
 assertEqual(quoteStatus.status, "settled", "quote status");
 assertEqual(quoteStatus.txHash, submitResponse.txHash, "quote txHash");
+
+const settlementStatus = await request("GET", `/settlements/${encodeURIComponent(submitResponse.settlementEventId)}`);
+assertEqual(settlementStatus.status, "applied", "settlement status");
+assertEqual(settlementStatus.settlementEventId, submitResponse.settlementEventId, "settlement event id");
+assertEqual(settlementStatus.quoteId, quoteResponse.quoteId, "settlement quote id");
+assertEqual(settlementStatus.txHash, submitResponse.txHash, "settlement txHash");
+assertEqual(settlementStatus.logIndex, 0, "settlement log index");
 
 const hedgeStatus = await request("GET", `/hedges/${encodeURIComponent(submitResponse.hedgeOrderId)}`);
 assertEqual(hedgeStatus.status, "queued", "hedge status");
@@ -100,6 +108,8 @@ console.log(
       quoteId: quoteResponse.quoteId,
       status: quoteStatus.status,
       txHash: submitResponse.txHash,
+      settlementEventId: submitResponse.settlementEventId,
+      settlementStatus: settlementStatus.status,
       hedgeOrderId: submitResponse.hedgeOrderId,
       hedgeStatus: hedgeStatus.status,
       pnlId: submitResponse.pnlId,

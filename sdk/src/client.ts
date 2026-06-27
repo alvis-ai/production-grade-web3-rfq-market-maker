@@ -7,6 +7,7 @@ import type {
   QuoteStatus,
   ReadinessResponse,
   RFQErrorResponse,
+  SettlementEventStatus,
   SubmitQuoteRequest,
   SubmitQuoteResponse,
 } from "./types.js";
@@ -68,6 +69,14 @@ export class RFQClient {
     await assertOk(response, "RFQ hedge status failed");
 
     return (await response.json()) as HedgeIntentStatus;
+  }
+
+  async getSettlement(settlementEventId: string): Promise<SettlementEventStatus> {
+    const response = await fetch(`${this.baseUrl}/settlements/${encodeURIComponent(settlementEventId)}`);
+
+    await assertOk(response, "RFQ settlement event status failed");
+
+    return (await response.json()) as SettlementEventStatus;
   }
 
   async pnl(): Promise<PnlSummary> {

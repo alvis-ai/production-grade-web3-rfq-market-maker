@@ -30,6 +30,7 @@
 | `QUOTE_EXPIRED` | 409 | quote 已过期 | 重新询价 |
 | `QUOTE_ALREADY_USED` | 409 | quote nonce 已使用 | 重新询价 |
 | `HEDGE_NOT_FOUND` | 404 | hedgeOrderId 不存在或已不在当前执行存储中 | 查询 submit 响应返回的 hedgeOrderId，必要时重新提交 |
+| `SETTLEMENT_EVENT_NOT_FOUND` | 404 | settlementEventId 不存在或当前执行存储尚未消费该事件 | 查询 submit 响应返回的 settlementEventId，或等待索引器消费链上事件 |
 | `SETTLEMENT_REVERTED` | 502 | 链上结算回滚 | 查看交易状态并重新询价 |
 | `RATE_LIMITED` | 429 | 请求频率过高 | 降低请求频率 |
 | `INTERNAL_ERROR` | 500 | 未分类内部错误 | 使用 traceId 联系维护者 |

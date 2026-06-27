@@ -1,0 +1,44 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { InventoryService } from "../dist/modules/inventory/inventory.service.js";
+import { SettlementEventService } from "../dist/modules/settlement/settlement-event.service.js";
+
+const quote = {
+  user: "0x0000000000000000000000000000000000000001",
+  tokenIn: "0x0000000000000000000000000000000000000002",
+  tokenOut: "0x0000000000000000000000000000000000000003",
+  amountIn: "1000",
+  amountOut: "990",
+  minAmountOut: "980",
+  nonce: "1",
+  deadline: 1893456000,
+  chainId: 1,
+};
+
+test("SettlementEventService applies each chain event idempotently", () => {
+  const inventory = new InventoryService();
+  const settlements = new SettlementEventService(inventory);
+  const input = {
+    quoteId: "q_test",
+    quote,
+    txHash: `0x${"22".repeat(32)}`,
+    logIndex: 7,
+  };
+
+  const first = settlements.applySettlementEvent(input);
+  assert.equal(first.duplicate, false);
+  assert.equal(first.event.status, "applied");
+  assert.equal(first.event.settlementEventId, "se_1_22222222_7");
+  assert.equal(first.event.quoteId, "q_test");
+  assert.equal(first.event.logIndex, 7);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 1000n);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -990n);
+
+  const replay = settlements.applySettlementEvent(input);
+  assert.equal(replay.duplicate, true);
+  assert.equal(replay.event.settlementEventId, first.event.settlementEventId);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 1000n);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -990n);
+
+  assert.deepEqual(settlements.getSettlementEvent(first.event.settlementEventId), first.event);
+});

@@ -23,6 +23,7 @@ export type {
   QuoteResponse,
   QuoteStatus,
   RFQErrorResponse,
+  SettlementEventStatus,
   SubmitQuoteRequest,
   SubmitQuoteResponse,
   UIntString,

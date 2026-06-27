@@ -6,6 +6,7 @@ import type {
   QuoteRequest,
   QuoteResponse,
   QuoteStatus,
+  SettlementEventStatus,
   SubmitQuoteResponse,
 } from "@rfq-market-maker/sdk";
 import { QuoteForm } from "../components/QuoteForm";
@@ -26,6 +27,7 @@ export function QuotePage() {
   const [request, setRequest] = useState<QuoteRequest>(defaultRequest);
   const [quote, setQuote] = useState<QuoteResponse>();
   const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>();
+  const [settlementStatus, setSettlementStatus] = useState<SettlementEventStatus>();
   const [hedgeStatus, setHedgeStatus] = useState<HedgeIntentStatus>();
   const [pnlSummary, setPnlSummary] = useState<PnlSummary>();
   const [submitResult, setSubmitResult] = useState<SubmitQuoteResponse>();
@@ -44,6 +46,7 @@ export function QuotePage() {
     setError(undefined);
     setSubmitResult(undefined);
     setQuoteStatus(undefined);
+    setSettlementStatus(undefined);
     setHedgeStatus(undefined);
     setPnlSummary(undefined);
     try {
@@ -68,6 +71,9 @@ export function QuotePage() {
       setSubmitResult(response);
       const status = await rfqClient.getQuote(quote.quoteId);
       setQuoteStatus(status);
+      if (response.settlementEventId) {
+        setSettlementStatus(await rfqClient.getSettlement(response.settlementEventId));
+      }
       if (response.hedgeOrderId) {
         setHedgeStatus(await rfqClient.getHedge(response.hedgeOrderId));
       }
@@ -103,6 +109,7 @@ export function QuotePage() {
           <QuoteStatusPanel
             quote={quote}
             quoteStatus={quoteStatus}
+            settlementStatus={settlementStatus}
             hedgeStatus={hedgeStatus}
             pnlSummary={pnlSummary}
             submitResult={submitResult}

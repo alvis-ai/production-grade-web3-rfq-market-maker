@@ -108,7 +108,7 @@ Quote 状态包括 requested、rejected、signed、expired、submitted、settled
 
 ## API Design
 
-公开接口第一批固定为 `POST /quote`、`POST /submit`、`GET /quote/:id`、`GET /hedges/:id`、`GET /pnl`、`GET /health`、`GET /ready`、`GET /metrics`。接口字段以字符串表示大整数，避免 JavaScript number 精度问题。
+公开接口第一批固定为 `POST /quote`、`POST /submit`、`GET /quote/:id`、`GET /settlements/:id`、`GET /hedges/:id`、`GET /pnl`、`GET /health`、`GET /ready`、`GET /metrics`。接口字段以字符串表示大整数，避免 JavaScript number 精度问题。
 
 ## Engineering Decisions
 

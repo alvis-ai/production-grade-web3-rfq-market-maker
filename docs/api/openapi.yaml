@@ -203,6 +203,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /settlements/{settlementEventId}:
+    get:
+      operationId: getSettlementEvent
+      summary: Get settlement event status by id
+      description: >
+        Returns the simulated settlement event consumed by the backend to update
+        inventory. Production deployments should derive these records from
+        RFQSettlement events using a chain id, transaction hash, and log index
+        idempotency key.
+      tags:
+        - Settlement
+      parameters:
+        - name: settlementEventId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Settlement event status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettlementEventStatus"
+        "404":
+          description: Settlement event not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          headers:
+            Retry-After:
+              description: Seconds until the client should retry.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /pnl:
     get:
       operationId: getPnlSummary
@@ -363,6 +404,9 @@ components:
           type: string
           pattern: "^0x[a-fA-F0-9]+$"
           description: Simulated or relayed transaction hash.
+        settlementEventId:
+          type: string
+          description: Settlement event id consumed to update inventory.
         hedgeOrderId:
           type: string
           description: Hedge intent id queued after simulated settlement updates inventory.
@@ -473,6 +517,51 @@ components:
             - inventory_rebalance
             - risk_reduction
         createdAt:
+          type: string
+          format: date-time
+    SettlementEventStatus:
+      type: object
+      required:
+        - settlementEventId
+        - status
+        - quoteId
+        - chainId
+        - txHash
+        - logIndex
+        - user
+        - tokenIn
+        - tokenOut
+        - amountIn
+        - amountOut
+        - observedAt
+      properties:
+        settlementEventId:
+          type: string
+        status:
+          type: string
+          enum:
+            - applied
+        quoteId:
+          type: string
+        chainId:
+          type: integer
+        txHash:
+          type: string
+          pattern: "^0x[a-fA-F0-9]+$"
+        logIndex:
+          type: integer
+          minimum: 0
+        user:
+          $ref: "#/components/schemas/Address"
+        tokenIn:
+          $ref: "#/components/schemas/Address"
+        tokenOut:
+          $ref: "#/components/schemas/Address"
+        amountIn:
+          $ref: "#/components/schemas/UIntString"
+        amountOut:
+          $ref: "#/components/schemas/UIntString"
+        observedAt:
           type: string
           format: date-time
     PnlTradeRecord:
@@ -587,6 +676,7 @@ components:
             - QUOTE_EXPIRED
             - QUOTE_ALREADY_USED
             - HEDGE_NOT_FOUND
+            - SETTLEMENT_EVENT_NOT_FOUND
             - SETTLEMENT_REVERTED
             - RATE_LIMITED
             - INTERNAL_ERROR

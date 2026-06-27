@@ -50,6 +50,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(submit.statusCode, 202);
     assert.equal(submit.body.status, "accepted");
     assert.match(submit.body.txHash, /^0x[0-9a-fA-F]+$/);
+    assert.match(submit.body.settlementEventId, /^se_/);
     assert.match(submit.body.hedgeOrderId, /^h_/);
     assert.equal(submit.body.pnlId, `pnl_${quote.body.quoteId}`);
 
@@ -57,6 +58,21 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(status.statusCode, 200);
     assert.equal(status.body.status, "settled");
     assert.equal(status.body.txHash, submit.body.txHash);
+
+    const settlement = await injectJson(server, "GET", `/settlements/${submit.body.settlementEventId}`);
+    assert.equal(settlement.statusCode, 200);
+    assert.equal(settlement.body.settlementEventId, submit.body.settlementEventId);
+    assert.equal(settlement.body.status, "applied");
+    assert.equal(settlement.body.quoteId, quote.body.quoteId);
+    assert.equal(settlement.body.chainId, baseQuoteRequest.chainId);
+    assert.equal(settlement.body.txHash, submit.body.txHash);
+    assert.equal(settlement.body.logIndex, 0);
+    assert.equal(settlement.body.user, baseQuoteRequest.user);
+    assert.equal(settlement.body.tokenIn, baseQuoteRequest.tokenIn);
+    assert.equal(settlement.body.tokenOut, baseQuoteRequest.tokenOut);
+    assert.equal(settlement.body.amountIn, baseQuoteRequest.amountIn);
+    assert.equal(settlement.body.amountOut, quote.body.amountOut);
+    assert.match(settlement.body.observedAt, /^\d{4}-\d{2}-\d{2}T/);
 
     const hedge = await injectJson(server, "GET", `/hedges/${submit.body.hedgeOrderId}`);
     assert.equal(hedge.statusCode, 200);
@@ -108,6 +124,22 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
       metrics.payload,
       new RegExp(`rfq_realized_pnl_token_out\\{chain_id="1",token="${baseQuoteRequest.tokenOut}"\\} 1600000`),
     );
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API returns structured errors for missing settlement events", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/settlements/se_missing");
+
+    assert.equal(response.statusCode, 404);
+    assert.equal(response.body.code, "SETTLEMENT_EVENT_NOT_FOUND");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
   } finally {
     await server.close();
   }

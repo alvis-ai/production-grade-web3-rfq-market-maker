@@ -41,6 +41,7 @@ export interface SubmitQuoteRequest {
 export interface SubmitQuoteResponse {
   status: "accepted";
   txHash?: `0x${string}`;
+  settlementEventId?: string;
   hedgeOrderId?: string;
   pnlId?: string;
 }
@@ -84,6 +85,21 @@ export interface HedgeIntentStatus {
   amount: UIntString;
   reason: "inventory_rebalance" | "risk_reduction";
   createdAt: string;
+}
+
+export interface SettlementEventStatus {
+  settlementEventId: string;
+  status: "applied";
+  quoteId: string;
+  chainId: number;
+  txHash: `0x${string}`;
+  logIndex: number;
+  user: Address;
+  tokenIn: Address;
+  tokenOut: Address;
+  amountIn: UIntString;
+  amountOut: UIntString;
+  observedAt: string;
 }
 
 export interface PnlTradeRecord {

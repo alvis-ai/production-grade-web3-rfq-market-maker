@@ -12,8 +12,10 @@ test -s backend/src/main.ts
 test -s backend/test/api.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
+test -s backend/test/settlement-event.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
 grep -q 'pnl: "ok"' backend/src/modules/health/readiness.service.ts
+grep -q 'settlementEventStore: "ok"' backend/src/modules/health/readiness.service.ts
 test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
@@ -22,6 +24,7 @@ test -s backend/src/modules/inventory/inventory.service.ts
 test -s backend/src/modules/hedge/hedge.service.ts
 test -s backend/src/modules/metrics/metrics.service.ts
 test -s backend/src/modules/pnl/pnl.service.ts
+test -s backend/src/modules/settlement/settlement-event.service.ts
 test -s backend/src/modules/market-data/market-data.service.ts
 test -s backend/src/modules/rate-limit/rate-limit.service.ts
 test -s backend/src/shared/errors/api-error.ts
@@ -56,6 +59,7 @@ test -s scripts/smoke-api.sh
 grep -q 'server.post("/quote"' backend/src/main.ts
 grep -q 'server.post("/submit"' backend/src/main.ts
 grep -q 'server.get("/quote/:quoteId"' backend/src/main.ts
+grep -q 'server.get("/settlements/:settlementEventId"' backend/src/main.ts
 grep -q 'server.get("/hedges/:hedgeOrderId"' backend/src/main.ts
 grep -q 'server.get("/pnl"' backend/src/main.ts
 grep -q 'server.get("/ready"' backend/src/main.ts
@@ -88,6 +92,7 @@ grep -q 'x-trace-id' backend/src/main.ts
 grep -q 'requestTraceId' backend/src/main.ts
 grep -q 'traceId: string' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_NOT_FOUND' backend/src/shared/errors/api-error.ts
+grep -q 'SETTLEMENT_EVENT_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
@@ -111,6 +116,10 @@ grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
 grep -q 'requireSubmittableSignedQuote' backend/src/modules/quote/quote.service.ts
 grep -q 'findSignedQuoteByUserNonce' backend/src/modules/quote/quote.repository.ts
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
+grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts
+grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
 grep -q 'hedgeOrderId: hedgeResult.hedgeOrderId' backend/src/modules/execution/execution.service.ts
 grep -q 'getHedgeIntent' backend/src/modules/hedge/hedge.service.ts
@@ -136,9 +145,11 @@ grep -q 'RFQClientError' frontend/src/lib/errors.ts
 grep -q 'traceId' frontend/src/lib/errors.ts
 grep -q 'toUIError' frontend/src/pages/QuotePage.tsx
 grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
+grep -q 'rfqClient.getSettlement' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.pnl' frontend/src/pages/QuotePage.tsx
 grep -q 'Hedge Status' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'Settlement Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Realized PnL' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'role="alert"' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'error-box' frontend/src/app/styles.css
@@ -156,6 +167,7 @@ grep -q 'submitQuote' sdk/src/abi.ts
 grep -q 'setTokenWhitelist' sdk/src/abi.ts
 grep -q 'async submit' sdk/src/client.ts
 grep -q 'async getQuote' sdk/src/client.ts
+grep -q 'async getSettlement' sdk/src/client.ts
 grep -q 'async getHedge' sdk/src/client.ts
 grep -q 'async pnl' sdk/src/client.ts
 grep -q 'async health' sdk/src/client.ts
@@ -163,6 +175,7 @@ grep -q 'async ready' sdk/src/client.ts
 grep -q 'async metrics' sdk/src/client.ts
 grep -q 'traceId: string' sdk/src/types.ts
 grep -q 'client.health' sdk/test/sdk.test.mjs
+grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs
 grep -q 'client.pnl' sdk/test/sdk.test.mjs
 grep -q 'client.ready' sdk/test/sdk.test.mjs
@@ -210,6 +223,9 @@ grep -q 'ReadinessResponse' docs/api/openapi.yaml
 grep -q 'getHedgeIntent' docs/api/openapi.yaml
 grep -q 'HedgeIntentStatus' docs/api/openapi.yaml
 grep -q 'HEDGE_NOT_FOUND' docs/api/openapi.yaml
+grep -q 'getSettlementEvent' docs/api/openapi.yaml
+grep -q 'SettlementEventStatus' docs/api/openapi.yaml
+grep -q 'SETTLEMENT_EVENT_NOT_FOUND' docs/api/openapi.yaml
 grep -q 'getPnlSummary' docs/api/openapi.yaml
 grep -q 'PnlSummary' docs/api/openapi.yaml
 grep -q 'PnlTradeRecord' docs/api/openapi.yaml
@@ -228,6 +244,7 @@ grep -q 'scripts/smoke-api.mjs' scripts/smoke-api-local.sh
 grep -q '/health' scripts/smoke-api.mjs
 grep -q '/ready' scripts/smoke-api-local.sh
 grep -q 'readiness status' scripts/smoke-api.mjs
+grep -q 'settlement status' scripts/smoke-api.mjs
 grep -q 'hedge status' scripts/smoke-api.mjs
 grep -q 'pnl status' scripts/smoke-api.mjs
 grep -q 'rfq_pnl_trades_total 1' scripts/smoke-api.mjs
@@ -254,6 +271,7 @@ grep -q 'rate limits quote requests by client' backend/test/api.test.mjs
 grep -q 'rate limits submit requests before validation and settlement' backend/test/api.test.mjs
 grep -q 'rate limits quote status requests by client' backend/test/api.test.mjs
 grep -q 'signed realized PnL' backend/test/pnl.test.mjs
+grep -q 'applies each chain event idempotently' backend/test/settlement-event.test.mjs
 grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/rate-limit.test.mjs
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteLatencyP95High' infra/prometheus/rules/rfq-alerts.yml

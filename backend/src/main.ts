@@ -12,6 +12,7 @@ import { QuoteService } from "./modules/quote/quote.service.js";
 import { InMemoryRateLimiter, type RateLimitConfig, type RateLimitedEndpoint } from "./modules/rate-limit/rate-limit.service.js";
 import { BasicRiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "./modules/routing/routing.engine.js";
+import { SettlementEventService } from "./modules/settlement/settlement-event.service.js";
 import { LocalEIP712SignerService } from "./modules/signer/signer.service.js";
 import { APIError, toAPIError } from "./shared/errors/api-error.js";
 import { validateQuoteRequest } from "./shared/validation/quote-request.js";
@@ -27,9 +28,11 @@ export function buildServer(options: BuildServerOptions = {}) {
   const hedgeService = new HedgeService();
   const readinessService = new ReadinessService();
   const inventoryService = new InventoryService();
+  const settlementEventService = new SettlementEventService(inventoryService);
   const executionService = new SkeletonExecutionService({
     hedgeService,
     inventoryService,
+    settlementEventService,
   });
   const metricsService = new MetricsService();
   const pnlService = new PnlService();
@@ -63,6 +66,24 @@ export function buildServer(options: BuildServerOptions = {}) {
     }
 
     return pnlService.summary();
+  });
+  server.get("/settlements/:settlementEventId", async (request, reply) => {
+    const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
+    if (!rateLimitResult.allowed) {
+      return rateLimitResult.response;
+    }
+
+    const { settlementEventId } = request.params as { settlementEventId: string };
+    const status = settlementEventService.getSettlementEvent(settlementEventId);
+    if (!status) {
+      return sendError(
+        reply,
+        requestTraceId(request),
+        new APIError("SETTLEMENT_EVENT_NOT_FOUND", "Settlement event not found", 404),
+      );
+    }
+
+    return status;
   });
   server.get("/quote/:quoteId", async (request, reply) => {
     const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
