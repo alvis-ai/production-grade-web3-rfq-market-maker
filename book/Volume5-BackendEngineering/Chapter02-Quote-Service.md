@@ -67,7 +67,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-Quote Service 依赖 Market Data、Pricing、Risk、Signer、Quote Repository 和 Metrics。当前代码使用 `InMemoryQuoteRepository` 跑通本地 skeleton；生产版应以同一接口替换为 PostgreSQL repository，并可用 Redis 做短 TTL quote cache。
+Quote Service 依赖 Market Data、Pricing、Risk、Signer、Quote Repository 和 Metrics。当前代码使用 `InMemoryQuoteRepository` 跑通本地 skeleton；生产版应以同一接口替换为 PostgreSQL repository，并可用 Redis 做短 TTL quote cache。当前实现会在 pricing 和 signing 之前校验 market snapshot 的 `observedAt`，超过 freshness window 的 stale market data 会返回 `MARKET_DATA_UNAVAILABLE`，避免签出过期价格。
 
 ## Sequence Diagram
 
@@ -139,6 +139,7 @@ markQuoteStatus(quoteId, status, txHash): Promise<void>
 - Risk rejected：返回 `RISK_REJECTED`。
 - Signer unavailable：返回 `SIGNER_UNAVAILABLE`。
 - Persistence failed：不返回签名。
+- Market data stale：不进入 pricing/risk/signer，直接返回 `MARKET_DATA_UNAVAILABLE`。
 
 ## Security Considerations
 

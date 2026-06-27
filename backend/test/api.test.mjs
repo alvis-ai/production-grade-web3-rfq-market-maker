@@ -186,6 +186,43 @@ test("RFQ API rejects quotes that fail pre-trade risk policy", async () => {
   }
 });
 
+test("RFQ API rejects stale market data before pricing and signing", async () => {
+  const server = buildServer({
+    logger: false,
+    marketDataService: {
+      async getSnapshot(request) {
+        return {
+          snapshotId: "snapshot_stale",
+          midPrice: "1",
+          liquidityUsd: "10000000000000",
+          volatilityBps: 25,
+          observedAt: new Date(Date.now() - 60_000).toISOString(),
+        };
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "MARKET_DATA_UNAVAILABLE");
+    assert.match(response.body.message, /stale/);
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_quote_requests_total 1/);
+    assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_responses_total 0/);
+    assert.doesNotMatch(metrics.payload, /rfq_settlements_total 1/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API prices later quotes with inventory skew after settlement", async () => {
   const server = buildServer({ logger: false });
   await server.ready();
@@ -601,7 +638,25 @@ test("RFQ API generates unique quote ids and nonces within the same millisecond"
   const originalDateNow = Date.now;
   Date.now = () => 1893456000000;
 
-  const server = buildServer({ logger: false });
+  const server = buildServer({
+    logger: false,
+    marketDataService: {
+      async getSnapshot(request) {
+        return {
+          snapshotId: [
+            "snapshot",
+            request.chainId.toString(),
+            request.tokenIn.slice(2, 10).toLowerCase(),
+            request.tokenOut.slice(2, 10).toLowerCase(),
+          ].join("_"),
+          midPrice: "1",
+          liquidityUsd: "10000000000000",
+          volatilityBps: 25,
+          observedAt: new Date(Date.now()).toISOString(),
+        };
+      },
+    },
+  });
   await server.ready();
 
   try {

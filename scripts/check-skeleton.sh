@@ -94,6 +94,9 @@ grep -q 'traceId: string' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'SETTLEMENT_EVENT_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
+grep -q 'assertFreshSnapshot' backend/src/modules/quote/quote.service.ts
+grep -q 'maxSnapshotAgeMs' backend/src/modules/quote/quote.service.ts
+grep -q 'MARKET_DATA_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveSigned' backend/src/modules/quote/quote.service.ts
@@ -218,6 +221,7 @@ grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/opena
 grep -q 'Signed quote not found' docs/api/openapi.yaml
 grep -q 'Quote expired or already used' docs/api/openapi.yaml
 grep -q 'Market data snapshot used for the quote' docs/api/openapi.yaml
+grep -q 'stale' docs/api/openapi.yaml
 grep -q 'getReadiness' docs/api/openapi.yaml
 grep -q 'ReadinessResponse' docs/api/openapi.yaml
 grep -q 'getHedgeIntent' docs/api/openapi.yaml
@@ -260,6 +264,7 @@ grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'SLIPPAGE_TOO_WIDE' backend/test/api.test.mjs
+grep -q 'stale market data' backend/test/api.test.mjs
 grep -q 'TOKEN_IN_INVENTORY_LIMIT_EXCEEDED' backend/test/api.test.mjs
 grep -q 'trace ids' backend/test/api.test.mjs
 grep -q 'settlement shape' backend/test/api.test.mjs

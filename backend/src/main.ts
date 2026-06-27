@@ -3,7 +3,7 @@ import { SkeletonExecutionService } from "./modules/execution/execution.service.
 import { HedgeService } from "./modules/hedge/hedge.service.js";
 import { ReadinessService } from "./modules/health/readiness.service.js";
 import { InventoryService } from "./modules/inventory/inventory.service.js";
-import { StaticMarketDataService } from "./modules/market-data/market-data.service.js";
+import { StaticMarketDataService, type MarketDataService } from "./modules/market-data/market-data.service.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { PnlService } from "./modules/pnl/pnl.service.js";
 import { FormulaPricingEngine } from "./modules/pricing/pricing.engine.js";
@@ -20,6 +20,7 @@ import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.j
 
 export interface BuildServerOptions {
   logger?: boolean;
+  marketDataService?: MarketDataService;
   rateLimit?: Partial<RateLimitConfig> | false;
 }
 
@@ -46,7 +47,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     });
   const quoteService = new QuoteService({
     inventoryService,
-    marketDataService: new StaticMarketDataService(),
+    marketDataService: options.marketDataService ?? new StaticMarketDataService(),
     pricingEngine: new FormulaPricingEngine(),
     quoteRepository: new InMemoryQuoteRepository(),
     riskEngine: new BasicRiskEngine(),

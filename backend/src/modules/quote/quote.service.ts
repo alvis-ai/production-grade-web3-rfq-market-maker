@@ -3,6 +3,7 @@ import type {
   QuoteRequest,
   QuoteResponse,
   QuoteStatusResponse,
+  MarketSnapshot,
   SignedQuote,
 } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
@@ -25,13 +26,25 @@ export interface QuoteServiceDeps {
   signerService: SignerService;
 }
 
+export interface QuoteServiceConfig {
+  maxSnapshotAgeMs: number;
+}
+
+export const defaultQuoteServiceConfig: QuoteServiceConfig = {
+  maxSnapshotAgeMs: 5_000,
+};
+
 export class QuoteService {
   private readonly identityGenerator = new QuoteIdentityGenerator();
 
-  constructor(private readonly deps: QuoteServiceDeps) {}
+  constructor(
+    private readonly deps: QuoteServiceDeps,
+    private readonly config: QuoteServiceConfig = defaultQuoteServiceConfig,
+  ) {}
 
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
     const snapshot = await this.deps.marketDataService.getSnapshot(request);
+    assertFreshSnapshot(snapshot, this.config.maxSnapshotAgeMs);
     const routePlan = await this.deps.routingEngine.selectRoute({ request, snapshot });
     const inventorySkewBps = this.deps.inventoryService.calculateQuoteSkewBps({
       chainId: request.chainId,
@@ -150,6 +163,22 @@ export class QuoteService {
     }
 
     return record.quoteId;
+  }
+}
+
+function assertFreshSnapshot(snapshot: MarketSnapshot, maxSnapshotAgeMs: number): void {
+  const observedAtMs = Date.parse(snapshot.observedAt);
+  if (!Number.isFinite(observedAtMs)) {
+    throw new APIError("MARKET_DATA_UNAVAILABLE", "Market data snapshot timestamp is invalid", 503);
+  }
+
+  const ageMs = Date.now() - observedAtMs;
+  if (ageMs < 0) {
+    return;
+  }
+
+  if (ageMs > maxSnapshotAgeMs) {
+    throw new APIError("MARKET_DATA_UNAVAILABLE", "Market data snapshot is stale", 503);
   }
 }
 
