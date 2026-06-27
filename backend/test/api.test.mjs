@@ -111,6 +111,11 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.match(metrics.payload, /rfq_quote_requests_total 1/);
     assert.match(metrics.payload, /rfq_quote_latency_seconds_count 1/);
     assert.match(metrics.payload, /rfq_quote_latency_seconds_bucket\{le="\+Inf"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="verify"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_errors_total\{operation="sign"\} 0/);
+    assert.match(metrics.payload, /rfq_signer_latency_seconds_count\{operation="sign"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_latency_seconds_count\{operation="verify"\} 1/);
     assert.match(metrics.payload, /rfq_submit_accepted_total 1/);
     assert.match(metrics.payload, /rfq_submit_latency_seconds_count 1/);
     assert.match(metrics.payload, /rfq_submit_latency_seconds_bucket\{le="\+Inf"\} 1/);
@@ -129,6 +134,42 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
       metrics.payload,
       new RegExp(`rfq_realized_pnl_token_out\\{chain_id="1",token="${baseQuoteRequest.tokenOut}"\\} 1600000`),
     );
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API records signer errors and rejects quote when signing is unavailable", async () => {
+  const server = buildServer({
+    logger: false,
+    signerService: {
+      async signQuote() {
+        throw new Error("signer offline");
+      },
+      async verifyQuoteSignature() {
+        return false;
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "SIGNER_UNAVAILABLE");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_quote_requests_total 1/);
+    assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_responses_total 0/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_errors_total\{operation="sign"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="verify"\} 0/);
+    assert.match(metrics.payload, /rfq_signer_latency_seconds_count\{operation="sign"\} 1/);
   } finally {
     await server.close();
   }

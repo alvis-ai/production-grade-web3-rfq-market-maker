@@ -14,7 +14,7 @@ import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js"
 import { InternalInventoryRoutingEngine } from "./modules/routing/routing.engine.js";
 import { SettlementEventService } from "./modules/settlement/settlement-event.service.js";
 import { LocalSettlementVerifier, type SettlementVerifier } from "./modules/settlement/settlement-verifier.service.js";
-import { LocalEIP712SignerService } from "./modules/signer/signer.service.js";
+import { LocalEIP712SignerService, ObservedSignerService, type SignerService } from "./modules/signer/signer.service.js";
 import { APIError, toAPIError } from "./shared/errors/api-error.js";
 import { validateQuoteRequest } from "./shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.js";
@@ -24,6 +24,7 @@ export interface BuildServerOptions {
   marketDataService?: MarketDataService;
   riskEngine?: RiskEngine;
   settlementVerifier?: SettlementVerifier;
+  signerService?: SignerService;
   rateLimit?: Partial<RateLimitConfig> | false;
 }
 
@@ -57,7 +58,10 @@ export function buildServer(options: BuildServerOptions = {}) {
     quoteRepository: new InMemoryQuoteRepository(),
     riskEngine: options.riskEngine ?? new BasicRiskEngine(),
     routingEngine: new InternalInventoryRoutingEngine(),
-    signerService: new LocalEIP712SignerService(readSignerConfig()),
+    signerService: new ObservedSignerService(
+      options.signerService ?? new LocalEIP712SignerService(readSignerConfig()),
+      metricsService,
+    ),
   });
 
   server.get("/health", async () => ({ status: "ok" }));

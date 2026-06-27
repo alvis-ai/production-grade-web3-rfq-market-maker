@@ -94,6 +94,7 @@ grep -q 'StaticMarketDataService' backend/src/main.ts
 grep -q 'InternalInventoryRoutingEngine' backend/src/main.ts
 grep -q 'BasicRiskEngine' backend/src/main.ts
 grep -q 'LocalEIP712SignerService' backend/src/main.ts
+grep -q 'ObservedSignerService' backend/src/main.ts
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' backend/src/main.ts
 grep -q 'RFQ_SETTLEMENT_ADDRESS' backend/src/main.ts
 grep -q 'HOST' backend/src/main.ts
@@ -127,6 +128,8 @@ grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/src/modules/risk/risk.engine.ts
 grep -q 'toxicFlowScores' backend/src/modules/risk/risk.engine.ts
 grep -q 'restrictedUsers' backend/src/modules/risk/risk.engine.ts
 grep -q 'class LocalEIP712SignerService' backend/src/modules/signer/signer.service.ts
+grep -q 'class ObservedSignerService' backend/src/modules/signer/signer.service.ts
+grep -q 'SIGNER_UNAVAILABLE' backend/src/modules/signer/signer.service.ts
 grep -q 'privateKeyToAccount' backend/src/modules/signer/signer.service.ts
 grep -q 'ProductionGradeRFQ' backend/src/modules/signer/signer.service.ts
 grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
@@ -151,6 +154,9 @@ grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_latency_seconds' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_rejections_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_submit_latency_seconds' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_signer_requests_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_signer_errors_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_signer_latency_seconds' backend/src/modules/metrics/metrics.service.ts
 grep -q 'recordQuoteLatency' backend/src/main.ts
 grep -q 'recordQuoteRejection' backend/src/main.ts
 grep -q 'recordSubmitLatency' backend/src/main.ts
@@ -241,7 +247,7 @@ grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/opena
 grep -q 'Signed quote not found' docs/api/openapi.yaml
 grep -q 'settlement verification' docs/api/openapi.yaml
 grep -q 'Market data snapshot used for the quote' docs/api/openapi.yaml
-grep -q 'Market data unavailable, stale, invalid' docs/api/openapi.yaml
+grep -q 'Market data unavailable, stale, invalid, signer unavailable' docs/api/openapi.yaml
 grep -q 'stale' docs/api/openapi.yaml
 grep -q 'getReadiness' docs/api/openapi.yaml
 grep -q 'ReadinessResponse' docs/api/openapi.yaml
@@ -279,11 +285,15 @@ grep -q 'rfq_submit_accepted_total 1' scripts/smoke-api.mjs
 grep -q 'QUOTE_ALREADY_USED' scripts/smoke-api.mjs
 grep -q 'rfq_submit_errors_total 1' scripts/smoke-api.mjs
 grep -q 'rfq_quote_latency_seconds_count 1' scripts/smoke-api.mjs
+grep -q 'rfq_signer_requests_total{operation="sign"} 1' scripts/smoke-api.mjs
+grep -q 'rfq_signer_latency_seconds_count{operation="verify"} 1' scripts/smoke-api.mjs
 grep -q 'rfq_submit_latency_seconds_count 2' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' backend/test/api.test.mjs
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
+grep -q 'signing is unavailable' backend/test/api.test.mjs
+grep -q 'rfq_signer_errors_total' backend/test/api.test.mjs
 grep -q 'settlement constraints before simulated settlement' backend/test/api.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
@@ -312,6 +322,8 @@ grep -q 'toxic-flow score threshold' backend/test/risk.test.mjs
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteRiskRejectSpike' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQSignerErrors' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQSignerLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml
 grep -q 'path: /ready' infra/k8s/backend-deployment.yaml
 grep -q 'path: /ready' infra/helm/rfq-market-maker/templates/deployment.yaml

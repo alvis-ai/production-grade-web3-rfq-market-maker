@@ -97,7 +97,7 @@ stateDiagram-v2
 
 ## Data Model
 
-Key metrics include `rfq_quote_latency_seconds`, `rfq_submit_latency_seconds`, `rfq_quote_rejections_total`, `rfq_signer_latency_seconds`, `rfq_settlement_event_lag_seconds`, `rfq_inventory_exposure_usd`, `rfq_hedge_lag_seconds`.
+Key metrics include `rfq_quote_latency_seconds`, `rfq_submit_latency_seconds`, `rfq_quote_rejections_total`, `rfq_signer_requests_total`, `rfq_signer_errors_total`, `rfq_signer_latency_seconds`, `rfq_settlement_event_lag_seconds`, `rfq_inventory_exposure_usd`, `rfq_hedge_lag_seconds`.
 
 ## API Design
 
@@ -106,6 +106,7 @@ Key metrics include `rfq_quote_latency_seconds`, `rfq_submit_latency_seconds`, `
 ## Engineering Decisions
 
 - No quoteId/user address labels in Prometheus.
+- Signer metrics use only the low-cardinality `operation` label: `sign` or `verify`.
 - Use ClickHouse for quote-level analysis.
 - Every critical alert links to runbook.
 

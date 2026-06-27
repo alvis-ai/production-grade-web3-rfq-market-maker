@@ -6,6 +6,8 @@ export interface InventoryMetricPosition {
   balance: bigint;
 }
 
+export type SignerMetricOperation = "sign" | "verify";
+
 const latencyBucketsSeconds = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
 
 interface HistogramState {
@@ -21,11 +23,14 @@ export class MetricsService {
   private submitRequests = 0;
   private submitAccepted = 0;
   private submitErrors = 0;
+  private readonly signerRequests = new Map<SignerMetricOperation, number>();
+  private readonly signerErrors = new Map<SignerMetricOperation, number>();
   private settlements = 0;
   private hedgeIntents = 0;
   private pnlTrades = 0;
   private readonly quoteLatency = createHistogramState();
   private readonly submitLatency = createHistogramState();
+  private readonly signerLatency = new Map<SignerMetricOperation, HistogramState>();
   private readonly quoteRejections = new Map<string, number>();
   private readonly inventoryBalances = new Map<string, InventoryMetricPosition>();
   private readonly realizedPnl = new Map<string, bigint>();
@@ -65,6 +70,18 @@ export class MetricsService {
 
   recordSubmitLatency(seconds: number): void {
     recordHistogram(this.submitLatency, seconds);
+  }
+
+  recordSignerRequest(operation: SignerMetricOperation): void {
+    this.signerRequests.set(operation, (this.signerRequests.get(operation) ?? 0) + 1);
+  }
+
+  recordSignerError(operation: SignerMetricOperation): void {
+    this.signerErrors.set(operation, (this.signerErrors.get(operation) ?? 0) + 1);
+  }
+
+  recordSignerLatency(operation: SignerMetricOperation, seconds: number): void {
+    recordHistogram(this.getSignerLatency(operation), seconds);
   }
 
   recordSettlement(): void {
@@ -114,6 +131,15 @@ export class MetricsService {
       "# HELP rfq_submit_latency_seconds RFQ submit request latency in seconds.",
       "# TYPE rfq_submit_latency_seconds histogram",
       ...renderHistogram("rfq_submit_latency_seconds", this.submitLatency),
+      "# HELP rfq_signer_requests_total Total signer operations by operation type.",
+      "# TYPE rfq_signer_requests_total counter",
+      ...this.renderSignerCounter("rfq_signer_requests_total", this.signerRequests),
+      "# HELP rfq_signer_errors_total Total signer operation errors by operation type.",
+      "# TYPE rfq_signer_errors_total counter",
+      ...this.renderSignerCounter("rfq_signer_errors_total", this.signerErrors),
+      "# HELP rfq_signer_latency_seconds Signer operation latency in seconds.",
+      "# TYPE rfq_signer_latency_seconds histogram",
+      ...this.renderSignerLatency(),
       "# HELP rfq_settlements_total Total simulated settlements applied to inventory.",
       "# TYPE rfq_settlements_total counter",
       `rfq_settlements_total ${this.settlements}`,
@@ -160,10 +186,35 @@ export class MetricsService {
       });
   }
 
+  private renderSignerCounter(name: string, counter: ReadonlyMap<SignerMetricOperation, number>): string[] {
+    return signerMetricOperations.map((operation) => {
+      return `${name}{operation="${operation}"} ${counter.get(operation) ?? 0}`;
+    });
+  }
+
+  private renderSignerLatency(): string[] {
+    return signerMetricOperations.flatMap((operation) => {
+      return renderLabeledHistogram("rfq_signer_latency_seconds", { operation }, this.getSignerLatency(operation));
+    });
+  }
+
+  private getSignerLatency(operation: SignerMetricOperation): HistogramState {
+    const existing = this.signerLatency.get(operation);
+    if (existing) {
+      return existing;
+    }
+
+    const created = createHistogramState();
+    this.signerLatency.set(operation, created);
+    return created;
+  }
+
   private inventoryKey(chainId: number, token: Address): string {
     return `${chainId}:${token.toLowerCase()}`;
   }
 }
+
+const signerMetricOperations: readonly SignerMetricOperation[] = ["sign", "verify"];
 
 function createHistogramState(): HistogramState {
   return {
@@ -198,6 +249,33 @@ function renderHistogram(name: string, state: HistogramState): string[] {
   ];
 }
 
+function renderLabeledHistogram(
+  name: string,
+  labels: Readonly<Record<string, string>>,
+  state: HistogramState,
+): string[] {
+  const labelPrefix = renderMetricLabels(labels, false);
+  const bucketLines = latencyBucketsSeconds.map((bucket, index) => {
+    return `${name}_bucket${renderMetricLabels({ ...labels, le: bucket.toString() })} ${state.buckets[index]}`;
+  });
+
+  return [
+    ...bucketLines,
+    `${name}_bucket${renderMetricLabels({ ...labels, le: "+Inf" })} ${state.count}`,
+    `${name}_sum${labelPrefix} ${formatMetricNumber(state.sum)}`,
+    `${name}_count${labelPrefix} ${state.count}`,
+  ];
+}
+
+function renderMetricLabels(labels: Readonly<Record<string, string>>, required = true): string {
+  const entries = Object.entries(labels);
+  if (entries.length === 0 && !required) {
+    return "";
+  }
+
+  return `{${entries.map(([key, value]) => `${key}="${metricLabelString(value)}"`).join(",")}}`;
+}
+
 function formatMetricNumber(value: number): string {
   if (Number.isInteger(value)) {
     return value.toString();
@@ -209,4 +287,8 @@ function formatMetricNumber(value: number): string {
 function metricLabelValue(value: string): string {
   const normalized = value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_");
   return normalized.length > 0 ? normalized : "UNKNOWN";
+}
+
+function metricLabelString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
 }

@@ -2,7 +2,9 @@ import { recoverTypedDataAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type { PrivateKeyAccount } from "viem/accounts";
 import type { SignedQuote } from "../../shared/types/rfq.js";
+import { APIError } from "../../shared/errors/api-error.js";
 import { toFixedHex } from "../../shared/types/hex.js";
+import type { MetricsService, SignerMetricOperation } from "../metrics/metrics.service.js";
 
 const RFQ_EIP712_DOMAIN_NAME = "ProductionGradeRFQ";
 const RFQ_EIP712_DOMAIN_VERSION = "1";
@@ -60,6 +62,38 @@ export class LocalEIP712SignerService implements SignerService {
     }
 
     return recovered.toLowerCase() === this.account.address.toLowerCase();
+  }
+}
+
+export class ObservedSignerService implements SignerService {
+  constructor(
+    private readonly inner: SignerService,
+    private readonly metricsService: MetricsService,
+  ) {}
+
+  async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
+    return this.observe("sign", () => this.inner.signQuote(input));
+  }
+
+  async verifyQuoteSignature(quote: SignedQuote, signature: `0x${string}`): Promise<boolean> {
+    return this.observe("verify", () => this.inner.verifyQuoteSignature(quote, signature));
+  }
+
+  private async observe<T>(operation: SignerMetricOperation, callback: () => Promise<T>): Promise<T> {
+    const startedAt = Date.now();
+    this.metricsService.recordSignerRequest(operation);
+    try {
+      return await callback();
+    } catch (error) {
+      this.metricsService.recordSignerError(operation);
+      if (error instanceof APIError) {
+        throw error;
+      }
+
+      throw new APIError("SIGNER_UNAVAILABLE", "Signer service unavailable", 503);
+    } finally {
+      this.metricsService.recordSignerLatency(operation, (Date.now() - startedAt) / 1000);
+    }
   }
 }
 
