@@ -154,6 +154,10 @@ export class QuoteService {
     await this.deps.quoteRepository.markStatus(quoteId, status, txHash);
   }
 
+  async markQuoteFailed(quoteId: string, errorCode: string): Promise<void> {
+    await this.deps.quoteRepository.markFailed(quoteId, errorCode);
+  }
+
   async requireSubmittableSignedQuote(quote: SignedQuote, signature: `0x${string}`): Promise<string> {
     const record = await this.deps.quoteRepository.findSignedQuoteByUserNonce(quote.user, quote.nonce);
     if (!record || !isExactSignedQuote(record, quote)) {

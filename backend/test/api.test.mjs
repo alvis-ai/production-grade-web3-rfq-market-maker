@@ -792,7 +792,8 @@ test("RFQ API verifies settlement constraints before simulated settlement", asyn
 
     const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
     assert.equal(status.statusCode, 200);
-    assert.equal(status.body.status, "signed");
+    assert.equal(status.body.status, "failed");
+    assert.equal(status.body.errorCode, "SETTLEMENT_REVERTED");
 
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);

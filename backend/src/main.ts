@@ -158,6 +158,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.post("/submit", async (request, reply) => {
     const startedAt = Date.now();
+    let quoteId: string | undefined;
     metricsService.recordSubmitRequest();
     try {
       const rateLimitResult = enforceRateLimit(rateLimiter, "submit", request, reply);
@@ -167,7 +168,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       }
 
       const submitRequest = validateSubmitQuoteRequest(request.body);
-      const quoteId = await quoteService.requireSubmittableSignedQuote(submitRequest.quote, submitRequest.signature);
+      quoteId = await quoteService.requireSubmittableSignedQuote(submitRequest.quote, submitRequest.signature);
       const result = await executionService.submitQuote(submitRequest, { quoteId });
       const pnlRecord = pnlService.recordSettlement({ quoteId, quote: submitRequest.quote });
       metricsService.recordSubmitAccepted();
@@ -184,7 +185,12 @@ export function buildServer(options: BuildServerOptions = {}) {
       });
     } catch (error) {
       metricsService.recordSubmitError();
-      return sendError(reply, requestTraceId(request), toAPIError(error));
+      const apiError = toAPIError(error);
+      if (quoteId && apiError.code === "SETTLEMENT_REVERTED") {
+        await quoteService.markQuoteFailed(quoteId, apiError.code);
+      }
+
+      return sendError(reply, requestTraceId(request), apiError);
     } finally {
       metricsService.recordSubmitLatency(elapsedSeconds(startedAt));
     }

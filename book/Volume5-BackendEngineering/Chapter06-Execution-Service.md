@@ -105,6 +105,7 @@ stateDiagram-v2
   HedgeQueued --> Settled
   SubmitRequested --> PayloadReturned
   SubmitRequested --> Relayed
+  SubmitRequested --> Failed: settlement verification rejected
   Relayed --> TxPending
   TxPending --> Settled
   TxPending --> Reverted
@@ -123,7 +124,7 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 
 - Settlement event is source of truth.
 - 第一阶段 `/submit` uses `LocalSettlementVerifier` to mirror RFQSettlement chainId、deadline、token whitelist、token pair 和 amount shape checks before simulated settlement.
-- Settlement verification failure returns `SETTLEMENT_REVERTED` and must not update inventory, queue hedge intent, record PnL, or mark the quote settled.
+- Settlement verification failure returns `SETTLEMENT_REVERTED`, marks the quote `failed`, and must not update inventory, queue hedge intent, record PnL, or mark the quote settled.
 - 第一阶段 `/submit` uses simulated settlement to exercise inventory and hedge flow.
 - 生产版 `/submit` does not imply settled until chain event confirmation.
 - Relay mode is optional.

@@ -164,6 +164,8 @@ grep -q 'rfq_signer_latency_seconds' backend/src/modules/metrics/metrics.service
 grep -q 'recordQuoteLatency' backend/src/main.ts
 grep -q 'recordQuoteRejection' backend/src/main.ts
 grep -q 'recordSubmitLatency' backend/src/main.ts
+grep -q 'quoteService.markQuoteFailed' backend/src/main.ts
+grep -q 'SETTLEMENT_REVERTED' backend/src/main.ts
 grep -q 'rfq_settlements_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_hedge_intents_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_inventory_balance' backend/src/modules/metrics/metrics.service.ts
@@ -300,6 +302,7 @@ grep -q 'marks requested quotes as failed when signer is unavailable' backend/te
 grep -q 'signing is unavailable' backend/test/api.test.mjs
 grep -q 'rfq_signer_errors_total' backend/test/api.test.mjs
 grep -q 'settlement constraints before simulated settlement' backend/test/api.test.mjs
+grep -q 'errorCode, "SETTLEMENT_REVERTED"' backend/test/api.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'SLIPPAGE_TOO_WIDE' backend/test/api.test.mjs
