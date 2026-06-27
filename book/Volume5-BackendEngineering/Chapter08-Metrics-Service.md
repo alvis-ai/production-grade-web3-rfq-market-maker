@@ -102,6 +102,7 @@ Prometheus metrics:
 - `rfq_quote_requests_total`
 - `rfq_quote_rejections_total`
 - `rfq_quote_latency_seconds`
+- `rfq_submit_latency_seconds`
 - `rfq_signer_latency_seconds`
 - `rfq_settlement_events_total`
 - `rfq_inventory_exposure_usd`
@@ -118,6 +119,7 @@ ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, st
 - No high-cardinality quoteId labels in Prometheus.
 - Use ClickHouse for quote-level analysis.
 - Metrics failures must not break quote path.
+- 当前后端实现已暴露 quote 和 submit latency histogram，使用固定 bucket，不带 user、quoteId 或 wallet label。
 
 ## Failure Scenarios
 

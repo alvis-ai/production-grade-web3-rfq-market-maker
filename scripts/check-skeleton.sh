@@ -105,6 +105,10 @@ grep -q 'findSignedQuoteByUserNonce' backend/src/modules/quote/quote.repository.
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
 grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_quote_latency_seconds' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_submit_latency_seconds' backend/src/modules/metrics/metrics.service.ts
+grep -q 'recordQuoteLatency' backend/src/main.ts
+grep -q 'recordSubmitLatency' backend/src/main.ts
 grep -q 'rfq_settlements_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_hedge_intents_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_inventory_balance' backend/src/modules/metrics/metrics.service.ts
@@ -189,6 +193,8 @@ grep -q '/health' scripts/smoke-api-local.sh
 grep -q 'rfq_submit_accepted_total 1' scripts/smoke-api.mjs
 grep -q 'QUOTE_ALREADY_USED' scripts/smoke-api.mjs
 grep -q 'rfq_submit_errors_total 1' scripts/smoke-api.mjs
+grep -q 'rfq_quote_latency_seconds_count 1' scripts/smoke-api.mjs
+grep -q 'rfq_submit_latency_seconds_count 2' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' backend/test/api.test.mjs
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
@@ -205,6 +211,7 @@ grep -q 'rate limits submit requests before validation and settlement' backend/t
 grep -q 'rate limits quote status requests by client' backend/test/api.test.mjs
 grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/rate-limit.test.mjs
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQQuoteLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml
 grep -q 'name: rfq-market-maker' infra/helm/rfq-market-maker/Chart.yaml
 

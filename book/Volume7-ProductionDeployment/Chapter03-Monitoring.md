@@ -97,7 +97,7 @@ stateDiagram-v2
 
 ## Data Model
 
-Key metrics include `rfq_quote_latency_seconds`, `rfq_quote_rejections_total`, `rfq_signer_latency_seconds`, `rfq_settlement_event_lag_seconds`, `rfq_inventory_exposure_usd`, `rfq_hedge_lag_seconds`.
+Key metrics include `rfq_quote_latency_seconds`, `rfq_submit_latency_seconds`, `rfq_quote_rejections_total`, `rfq_signer_latency_seconds`, `rfq_settlement_event_lag_seconds`, `rfq_inventory_exposure_usd`, `rfq_hedge_lag_seconds`.
 
 ## API Design
 
@@ -112,6 +112,7 @@ Key metrics include `rfq_quote_latency_seconds`, `rfq_quote_rejections_total`, `
 ## Failure Scenarios
 
 - Signer latency p99 spikes：reduce quote traffic or disable signing.
+- Quote latency p95 spikes：check market data, pricing, risk and signer dependency latency.
 - Inventory exposure over limit：tighten risk limits.
 - Event lag grows：pause risky pairs.
 - Hedge failure spike：widen spread and page operator.

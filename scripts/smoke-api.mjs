@@ -49,8 +49,10 @@ assertEqual(quoteStatus.txHash, submitResponse.txHash, "quote txHash");
 
 const metrics = await requestText("GET", "/metrics");
 assertIncludes(metrics, "rfq_quote_requests_total 1", "quote request metric");
+assertIncludes(metrics, "rfq_quote_latency_seconds_count 1", "quote latency metric");
 assertIncludes(metrics, "rfq_submit_accepted_total 1", "submit accepted metric");
 assertIncludes(metrics, "rfq_submit_errors_total 1", "submit error metric");
+assertIncludes(metrics, "rfq_submit_latency_seconds_count 2", "submit latency metric");
 assertIncludes(metrics, "rfq_settlements_total 1", "settlement metric");
 assertIncludes(metrics, "rfq_hedge_intents_total 1", "hedge metric");
 assertIncludes(

@@ -53,7 +53,11 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);
     assert.match(metrics.payload, /rfq_quote_requests_total 1/);
+    assert.match(metrics.payload, /rfq_quote_latency_seconds_count 1/);
+    assert.match(metrics.payload, /rfq_quote_latency_seconds_bucket\{le="\+Inf"\} 1/);
     assert.match(metrics.payload, /rfq_submit_accepted_total 1/);
+    assert.match(metrics.payload, /rfq_submit_latency_seconds_count 1/);
+    assert.match(metrics.payload, /rfq_submit_latency_seconds_bucket\{le="\+Inf"\} 1/);
     assert.match(metrics.payload, /rfq_settlements_total 1/);
     assert.match(metrics.payload, /rfq_hedge_intents_total 1/);
     assert.match(
@@ -170,6 +174,7 @@ test("RFQ API rate limits quote requests by client", async () => {
     assert.match(metrics.payload, /rfq_quote_requests_total 2/);
     assert.match(metrics.payload, /rfq_quote_responses_total 1/);
     assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_latency_seconds_count 2/);
   } finally {
     await server.close();
   }
@@ -221,6 +226,7 @@ test("RFQ API rate limits submit requests before validation and settlement", asy
     assert.match(metrics.payload, /rfq_submit_requests_total 2/);
     assert.match(metrics.payload, /rfq_submit_errors_total 2/);
     assert.match(metrics.payload, /rfq_submit_accepted_total 0/);
+    assert.match(metrics.payload, /rfq_submit_latency_seconds_count 2/);
     assert.match(metrics.payload, /rfq_settlements_total 0/);
   } finally {
     await server.close();

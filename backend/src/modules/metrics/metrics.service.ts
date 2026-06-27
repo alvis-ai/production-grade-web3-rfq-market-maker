@@ -6,6 +6,14 @@ export interface InventoryMetricPosition {
   balance: bigint;
 }
 
+const latencyBucketsSeconds = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
+
+interface HistogramState {
+  sum: number;
+  count: number;
+  buckets: number[];
+}
+
 export class MetricsService {
   private quoteRequests = 0;
   private quoteResponses = 0;
@@ -15,6 +23,8 @@ export class MetricsService {
   private submitErrors = 0;
   private settlements = 0;
   private hedgeIntents = 0;
+  private readonly quoteLatency = createHistogramState();
+  private readonly submitLatency = createHistogramState();
   private readonly inventoryBalances = new Map<string, InventoryMetricPosition>();
 
   recordQuoteRequest(): void {
@@ -29,6 +39,10 @@ export class MetricsService {
     this.quoteErrors += 1;
   }
 
+  recordQuoteLatency(seconds: number): void {
+    recordHistogram(this.quoteLatency, seconds);
+  }
+
   recordSubmitRequest(): void {
     this.submitRequests += 1;
   }
@@ -39,6 +53,10 @@ export class MetricsService {
 
   recordSubmitError(): void {
     this.submitErrors += 1;
+  }
+
+  recordSubmitLatency(seconds: number): void {
+    recordHistogram(this.submitLatency, seconds);
   }
 
   recordSettlement(): void {
@@ -64,6 +82,9 @@ export class MetricsService {
       "# HELP rfq_quote_errors_total Total quote errors returned by the skeleton API.",
       "# TYPE rfq_quote_errors_total counter",
       `rfq_quote_errors_total ${this.quoteErrors}`,
+      "# HELP rfq_quote_latency_seconds RFQ quote request latency in seconds.",
+      "# TYPE rfq_quote_latency_seconds histogram",
+      ...renderHistogram("rfq_quote_latency_seconds", this.quoteLatency),
       "# HELP rfq_submit_requests_total Total submit requests accepted by the skeleton API.",
       "# TYPE rfq_submit_requests_total counter",
       `rfq_submit_requests_total ${this.submitRequests}`,
@@ -73,6 +94,9 @@ export class MetricsService {
       "# HELP rfq_submit_errors_total Total submit errors returned by the skeleton API.",
       "# TYPE rfq_submit_errors_total counter",
       `rfq_submit_errors_total ${this.submitErrors}`,
+      "# HELP rfq_submit_latency_seconds RFQ submit request latency in seconds.",
+      "# TYPE rfq_submit_latency_seconds histogram",
+      ...renderHistogram("rfq_submit_latency_seconds", this.submitLatency),
       "# HELP rfq_settlements_total Total simulated settlements applied to inventory.",
       "# TYPE rfq_settlements_total counter",
       `rfq_settlements_total ${this.settlements}`,
@@ -101,4 +125,45 @@ export class MetricsService {
   private inventoryKey(chainId: number, token: Address): string {
     return `${chainId}:${token.toLowerCase()}`;
   }
+}
+
+function createHistogramState(): HistogramState {
+  return {
+    sum: 0,
+    count: 0,
+    buckets: latencyBucketsSeconds.map(() => 0),
+  };
+}
+
+function recordHistogram(state: HistogramState, value: number): void {
+  const normalized = Math.max(0, value);
+  state.count += 1;
+  state.sum += normalized;
+
+  for (let index = 0; index < latencyBucketsSeconds.length; index += 1) {
+    if (normalized <= latencyBucketsSeconds[index]!) {
+      state.buckets[index] += 1;
+    }
+  }
+}
+
+function renderHistogram(name: string, state: HistogramState): string[] {
+  const lines = latencyBucketsSeconds.map((bucket, index) => {
+    return `${name}_bucket{le="${bucket}"} ${state.buckets[index]}`;
+  });
+
+  return [
+    ...lines,
+    `${name}_bucket{le="+Inf"} ${state.count}`,
+    `${name}_sum ${formatMetricNumber(state.sum)}`,
+    `${name}_count ${state.count}`,
+  ];
+}
+
+function formatMetricNumber(value: number): string {
+  if (Number.isInteger(value)) {
+    return value.toString();
+  }
+
+  return value.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
 }

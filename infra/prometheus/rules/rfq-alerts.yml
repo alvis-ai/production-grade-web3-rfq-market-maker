@@ -27,3 +27,12 @@ groups:
         annotations:
           summary: RFQ submit request volume is above skeleton threshold
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQQuoteLatencyP95High
+        expr: histogram_quantile(0.95, rate(rfq_quote_latency_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ quote p95 latency is above 1 second
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md

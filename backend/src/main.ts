@@ -66,6 +66,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     return status;
   });
   server.post("/quote", async (request, reply) => {
+    const startedAt = Date.now();
     metricsService.recordQuoteRequest();
     try {
       const rateLimitResult = enforceRateLimit(rateLimiter, "quote", request, reply);
@@ -81,9 +82,12 @@ export function buildServer(options: BuildServerOptions = {}) {
     } catch (error) {
       metricsService.recordQuoteError();
       return sendError(reply, requestTraceId(request), toAPIError(error));
+    } finally {
+      metricsService.recordQuoteLatency(elapsedSeconds(startedAt));
     }
   });
   server.post("/submit", async (request, reply) => {
+    const startedAt = Date.now();
     metricsService.recordSubmitRequest();
     try {
       const rateLimitResult = enforceRateLimit(rateLimiter, "submit", request, reply);
@@ -106,6 +110,8 @@ export function buildServer(options: BuildServerOptions = {}) {
     } catch (error) {
       metricsService.recordSubmitError();
       return sendError(reply, requestTraceId(request), toAPIError(error));
+    } finally {
+      metricsService.recordSubmitLatency(elapsedSeconds(startedAt));
     }
   });
 
@@ -148,6 +154,10 @@ function sendError(
 
 function requestTraceId(request: FastifyRequest): string {
   return `tr_${request.id}`;
+}
+
+function elapsedSeconds(startedAt: number): number {
+  return (Date.now() - startedAt) / 1000;
 }
 
 function clientIdForRateLimit(request: FastifyRequest): string {
