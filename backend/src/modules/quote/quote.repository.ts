@@ -32,6 +32,7 @@ export interface QuoteRepository {
   saveRejected(input: SaveRejectedQuoteInput): Promise<void>;
   saveSigned(input: SaveSignedQuoteInput): Promise<void>;
   findStatus(quoteId: string): Promise<QuoteStatusResponse | undefined>;
+  markFailed(quoteId: string, errorCode: string): Promise<void>;
   markStatus(quoteId: string, status: QuoteLifecycleStatus, txHash?: `0x${string}`): Promise<void>;
   findQuoteIdByUserNonce(user: Address, nonce: UIntString): Promise<string | undefined>;
   findSignedQuoteByUserNonce(user: Address, nonce: UIntString): Promise<QuoteRecord | undefined>;
@@ -129,6 +130,19 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       txHash: record.txHash,
       errorCode: record.rejectCode,
     };
+  }
+
+  async markFailed(quoteId: string, errorCode: string): Promise<void> {
+    const current = this.records.get(quoteId);
+    if (!current) {
+      return;
+    }
+
+    this.records.set(quoteId, {
+      ...current,
+      status: "failed",
+      rejectCode: errorCode,
+    });
   }
 
   async markStatus(quoteId: string, status: QuoteLifecycleStatus, txHash?: `0x${string}`): Promise<void> {

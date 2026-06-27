@@ -104,11 +104,17 @@ export class QuoteService {
       chainId: request.chainId,
     };
 
-    const signature = await this.deps.signerService.signQuote({
-      quote: signedQuote,
-      quoteId,
-      snapshotId: snapshot.snapshotId,
-    });
+    let signature: `0x${string}`;
+    try {
+      signature = await this.deps.signerService.signQuote({
+        quote: signedQuote,
+        quoteId,
+        snapshotId: snapshot.snapshotId,
+      });
+    } catch (error) {
+      await this.deps.quoteRepository.markFailed(quoteId, quoteFailureCode(error));
+      throw error;
+    }
 
     await this.deps.quoteRepository.saveSigned({
       quoteId,
@@ -164,6 +170,14 @@ export class QuoteService {
 
     return record.quoteId;
   }
+}
+
+function quoteFailureCode(error: unknown): string {
+  if (error instanceof APIError) {
+    return error.code;
+  }
+
+  return "INTERNAL_ERROR";
 }
 
 function assertUsableSnapshot(snapshot: MarketSnapshot, maxSnapshotAgeMs: number): void {

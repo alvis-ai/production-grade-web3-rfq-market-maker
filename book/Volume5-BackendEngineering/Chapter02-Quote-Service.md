@@ -107,8 +107,10 @@ stateDiagram-v2
   Priced --> RiskRejected
   Priced --> RiskApproved
   RiskApproved --> Signed
+  RiskApproved --> Failed: signer unavailable
   Signed --> Returned
   RiskRejected --> Returned
+  Failed --> Returned
 ```
 
 ## Data Model
@@ -130,14 +132,14 @@ markQuoteStatus(quoteId, status, txHash): Promise<void>
 - Risk before signing 是强制顺序。
 - Quote Service 生成 quoteId。
 - Rejected quote 也要记录。
-- Signer failure 映射为 503。
+- Signer failure 映射为 503，并将已 requested 的 quote 标记为 `failed`，`errorCode` 记录 `SIGNER_UNAVAILABLE`，避免状态长期停留在 `requested`。
 - Quote persistence 通过 `QuoteRepository` 抽象，避免编排层直接绑定 PostgreSQL 或内存 Map。
 
 ## Failure Scenarios
 
 - Pricing unavailable：返回 `PRICING_UNAVAILABLE`。
 - Risk rejected：返回 `RISK_REJECTED`。
-- Signer unavailable：返回 `SIGNER_UNAVAILABLE`。
+- Signer unavailable：返回 `SIGNER_UNAVAILABLE`，quote 状态变为 `failed`。
 - Persistence failed：不返回签名。
 - Market data stale：不进入 pricing/risk/signer，直接返回 `MARKET_DATA_UNAVAILABLE`。
 

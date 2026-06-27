@@ -10,6 +10,7 @@ test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/test/api.test.mjs
+test -s backend/test/quote-service.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
 test -s backend/test/settlement-event.test.mjs
@@ -111,9 +112,12 @@ grep -q 'MARKET_DATA_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveSigned' backend/src/modules/quote/quote.service.ts
+grep -q 'quoteRepository.markFailed' backend/src/modules/quote/quote.service.ts
+grep -q 'quoteFailureCode' backend/src/modules/quote/quote.service.ts
 grep -q 'class QuoteIdentityGenerator' backend/src/modules/quote/quote-identity.ts
 grep -q 'randomUint64' backend/src/modules/quote/quote-identity.ts
 grep -q 'class InMemoryQuoteRepository' backend/src/modules/quote/quote.repository.ts
+grep -q 'markFailed' backend/src/modules/quote/quote.repository.ts
 grep -q 'class BasicRiskEngine' backend/src/modules/risk/risk.engine.ts
 grep -q 'class InMemoryRateLimiter' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxQuoteRequests' backend/src/modules/rate-limit/rate-limit.service.ts
@@ -292,6 +296,7 @@ grep -q 'rfq_inventory_balance' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' backend/test/api.test.mjs
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
+grep -q 'marks requested quotes as failed when signer is unavailable' backend/test/quote-service.test.mjs
 grep -q 'signing is unavailable' backend/test/api.test.mjs
 grep -q 'rfq_signer_errors_total' backend/test/api.test.mjs
 grep -q 'settlement constraints before simulated settlement' backend/test/api.test.mjs
