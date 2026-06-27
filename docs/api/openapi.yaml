@@ -56,6 +56,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          headers:
+            Retry-After:
+              description: Seconds until the client should retry.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: Dependency unavailable
           content:
@@ -104,6 +115,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          headers:
+            Retry-After:
+              description: Seconds until the client should retry.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /quote/{quoteId}:
     get:
       operationId: getQuote
@@ -125,6 +147,17 @@ paths:
                 $ref: "#/components/schemas/QuoteStatus"
         "404":
           description: Quote not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          headers:
+            Retry-After:
+              description: Seconds until the client should retry.
+              schema:
+                type: integer
           content:
             application/json:
               schema:

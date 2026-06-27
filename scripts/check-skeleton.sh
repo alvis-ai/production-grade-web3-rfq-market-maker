@@ -10,6 +10,7 @@ test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/test/api.test.mjs
+test -s backend/test/rate-limit.test.mjs
 test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
@@ -18,6 +19,7 @@ test -s backend/src/modules/inventory/inventory.service.ts
 test -s backend/src/modules/hedge/hedge.service.ts
 test -s backend/src/modules/metrics/metrics.service.ts
 test -s backend/src/modules/market-data/market-data.service.ts
+test -s backend/src/modules/rate-limit/rate-limit.service.ts
 test -s backend/src/shared/errors/api-error.ts
 test -s backend/src/modules/routing/routing.engine.ts
 test -s backend/src/shared/validation/quote-request.ts
@@ -53,6 +55,9 @@ grep -q 'server.get("/quote/:quoteId"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts
 grep -q 'validateQuoteRequest' backend/src/main.ts
 grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
+grep -q 'InMemoryRateLimiter' backend/src/main.ts
+grep -q 'RATE_LIMITED' backend/src/main.ts
+grep -q 'retry-after' backend/src/main.ts
 grep -q 'signature must be 65 bytes' backend/src/shared/validation/submit-request.ts
 grep -q 'readPositiveUint' backend/src/shared/validation/submit-request.ts
 grep -q 'greater than or equal to quote.minAmountOut' backend/src/shared/validation/submit-request.ts
@@ -83,6 +88,10 @@ grep -q 'class QuoteIdentityGenerator' backend/src/modules/quote/quote-identity.
 grep -q 'randomUint64' backend/src/modules/quote/quote-identity.ts
 grep -q 'class InMemoryQuoteRepository' backend/src/modules/quote/quote.repository.ts
 grep -q 'class BasicRiskEngine' backend/src/modules/risk/risk.engine.ts
+grep -q 'class InMemoryRateLimiter' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'maxQuoteRequests' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'maxSubmitRequests' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'maxStatusRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'CHAIN_NOT_ENABLED' backend/src/modules/risk/risk.engine.ts
 grep -q 'TOKEN_NOT_ALLOWED' backend/src/modules/risk/risk.engine.ts
 grep -q 'AMOUNT_IN_LIMIT_EXCEEDED' backend/src/modules/risk/risk.engine.ts
@@ -191,6 +200,10 @@ grep -q 'expired submit quotes' backend/test/api.test.mjs
 grep -q 'unissued submit quotes' backend/test/api.test.mjs
 grep -q 'replayed submit quotes' backend/test/api.test.mjs
 grep -q 'same millisecond' backend/test/api.test.mjs
+grep -q 'rate limits quote requests by client' backend/test/api.test.mjs
+grep -q 'rate limits submit requests before validation and settlement' backend/test/api.test.mjs
+grep -q 'rate limits quote status requests by client' backend/test/api.test.mjs
+grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/rate-limit.test.mjs
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml
 grep -q 'name: rfq-market-maker' infra/helm/rfq-market-maker/Chart.yaml

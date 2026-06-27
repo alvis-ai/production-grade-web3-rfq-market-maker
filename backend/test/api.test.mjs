@@ -141,6 +141,119 @@ test("RFQ API rejects quotes that would exceed projected inventory limits", asyn
   }
 });
 
+test("RFQ API rate limits quote requests by client", async () => {
+  const server = buildServer({
+    logger: false,
+    rateLimit: {
+      windowMs: 60_000,
+      maxQuoteRequests: 1,
+      maxSubmitRequests: 100,
+      maxStatusRequests: 100,
+    },
+  });
+  await server.ready();
+
+  try {
+    const firstQuote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(firstQuote.statusCode, 200);
+    assert.equal(firstQuote.headers["x-ratelimit-remaining"], "0");
+
+    const secondQuote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(secondQuote.statusCode, 429);
+    assert.equal(secondQuote.body.code, "RATE_LIMITED");
+    assert.equal(secondQuote.headers["retry-after"], "60");
+    assert.match(secondQuote.body.traceId, /^tr_/);
+    assert.equal(secondQuote.headers["x-trace-id"], secondQuote.body.traceId);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_quote_requests_total 2/);
+    assert.match(metrics.payload, /rfq_quote_responses_total 1/);
+    assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API rate limits submit requests before validation and settlement", async () => {
+  const server = buildServer({
+    logger: false,
+    rateLimit: {
+      windowMs: 60_000,
+      maxQuoteRequests: 100,
+      maxSubmitRequests: 1,
+      maxStatusRequests: 100,
+    },
+  });
+  await server.ready();
+
+  try {
+    const quote = {
+      user: baseQuoteRequest.user,
+      tokenIn: baseQuoteRequest.tokenIn,
+      tokenOut: baseQuoteRequest.tokenOut,
+      amountIn: baseQuoteRequest.amountIn,
+      amountOut: "1000000000",
+      minAmountOut: "995000000",
+      nonce: "1",
+      deadline: Math.floor(Date.now() / 1000) + 30,
+      chainId: baseQuoteRequest.chainId,
+    };
+
+    const firstSubmit = await injectJson(server, "POST", "/submit", {
+      quote,
+      signature: fixedSignature(),
+    });
+    assert.equal(firstSubmit.statusCode, 404);
+    assert.equal(firstSubmit.body.code, "QUOTE_NOT_FOUND");
+
+    const secondSubmit = await injectJson(server, "POST", "/submit", {
+      quote,
+      signature: fixedSignature(),
+    });
+    assert.equal(secondSubmit.statusCode, 429);
+    assert.equal(secondSubmit.body.code, "RATE_LIMITED");
+    assert.equal(secondSubmit.headers["retry-after"], "60");
+    assert.match(secondSubmit.body.traceId, /^tr_/);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_submit_requests_total 2/);
+    assert.match(metrics.payload, /rfq_submit_errors_total 2/);
+    assert.match(metrics.payload, /rfq_submit_accepted_total 0/);
+    assert.match(metrics.payload, /rfq_settlements_total 0/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API rate limits quote status requests by client", async () => {
+  const server = buildServer({
+    logger: false,
+    rateLimit: {
+      windowMs: 60_000,
+      maxQuoteRequests: 100,
+      maxSubmitRequests: 100,
+      maxStatusRequests: 1,
+    },
+  });
+  await server.ready();
+
+  try {
+    const firstStatus = await injectJson(server, "GET", "/quote/q_missing");
+    assert.equal(firstStatus.statusCode, 404);
+    assert.equal(firstStatus.body.code, "QUOTE_NOT_FOUND");
+
+    const secondStatus = await injectJson(server, "GET", "/quote/q_missing");
+    assert.equal(secondStatus.statusCode, 429);
+    assert.equal(secondStatus.body.code, "RATE_LIMITED");
+    assert.equal(secondStatus.headers["retry-after"], "60");
+    assert.match(secondStatus.body.traceId, /^tr_/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API includes trace ids on validation and not found errors", async () => {
   const server = buildServer({ logger: false });
   await server.ready();

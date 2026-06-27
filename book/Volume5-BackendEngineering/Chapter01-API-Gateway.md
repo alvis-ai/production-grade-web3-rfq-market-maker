@@ -112,11 +112,12 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 - Gateway 不直接调用 Signer。
 - Gateway 不返回内部 risk threshold。
 - traceId 必须贯穿后端调用链。
+- 当前 Fastify 实现使用 `InMemoryRateLimiter` 保护 `/quote`、`/submit` 和 `/quote/:id`；生产部署可替换为 Redis-backed distributed rate limit，并保持 `RATE_LIMITED` 错误契约不变。
 
 ## Failure Scenarios
 
 - 请求格式错误：返回 `INVALID_REQUEST`。
-- 限流：返回 `RATE_LIMITED`。
+- 限流：返回 HTTP 429、`RATE_LIMITED` 和 `Retry-After`。
 - Quote Service 超时：返回 503。
 - 内部异常：返回 `INTERNAL_ERROR` 和 traceId。
 

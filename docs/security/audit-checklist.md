@@ -22,7 +22,7 @@
 - [ ] Signer Service cannot be called directly from public API.
 - [ ] Quote persistence includes snapshotId and riskPolicyVersion.
 - [ ] Rejected quotes are logged without returning signatures.
-- [ ] Rate limits protect public endpoints.
+- [x] Rate limits protect public trading endpoints.
 - [ ] All errors include traceId.
 - [ ] Sensitive thresholds are not exposed to users.
 

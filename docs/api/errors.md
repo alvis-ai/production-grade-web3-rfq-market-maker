@@ -38,4 +38,5 @@
 - 对外错误码保持稳定，不直接暴露内部 policy threshold。
 - 所有错误响应必须包含 `traceId`。
 - 风控拒绝应记录内部 `reasonCode` 和 `policyVersion`，但对外只返回通用说明。
+- `RATE_LIMITED` 响应必须返回 HTTP 429，并带 `Retry-After` header。
 - 依赖不可用使用 503，业务状态冲突使用 409。

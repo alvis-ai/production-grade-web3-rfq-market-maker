@@ -7,6 +7,7 @@ import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { FormulaPricingEngine } from "./modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "./modules/quote/quote.repository.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
+import { InMemoryRateLimiter, type RateLimitConfig, type RateLimitedEndpoint } from "./modules/rate-limit/rate-limit.service.js";
 import { BasicRiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "./modules/routing/routing.engine.js";
 import { LocalEIP712SignerService } from "./modules/signer/signer.service.js";
@@ -16,6 +17,7 @@ import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.j
 
 export interface BuildServerOptions {
   logger?: boolean;
+  rateLimit?: Partial<RateLimitConfig> | false;
 }
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -27,6 +29,14 @@ export function buildServer(options: BuildServerOptions = {}) {
     inventoryService,
   });
   const metricsService = new MetricsService();
+  const rateLimiter = options.rateLimit === false
+    ? undefined
+    : new InMemoryRateLimiter({
+      windowMs: options.rateLimit?.windowMs ?? 60_000,
+      maxQuoteRequests: options.rateLimit?.maxQuoteRequests ?? 120,
+      maxSubmitRequests: options.rateLimit?.maxSubmitRequests ?? 60,
+      maxStatusRequests: options.rateLimit?.maxStatusRequests ?? 300,
+    });
   const quoteService = new QuoteService({
     inventoryService,
     marketDataService: new StaticMarketDataService(),
@@ -42,6 +52,11 @@ export function buildServer(options: BuildServerOptions = {}) {
     return reply.type("text/plain").send(metricsService.renderPrometheus());
   });
   server.get("/quote/:quoteId", async (request, reply) => {
+    const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
+    if (!rateLimitResult.allowed) {
+      return rateLimitResult.response;
+    }
+
     const { quoteId } = request.params as { quoteId: string };
     const status = await quoteService.getQuoteStatus(quoteId);
     if (!status) {
@@ -53,6 +68,12 @@ export function buildServer(options: BuildServerOptions = {}) {
   server.post("/quote", async (request, reply) => {
     metricsService.recordQuoteRequest();
     try {
+      const rateLimitResult = enforceRateLimit(rateLimiter, "quote", request, reply);
+      if (!rateLimitResult.allowed) {
+        metricsService.recordQuoteError();
+        return rateLimitResult.response;
+      }
+
       const quoteRequest = validateQuoteRequest(request.body);
       const response = await quoteService.createQuote(quoteRequest);
       metricsService.recordQuoteResponse();
@@ -65,6 +86,12 @@ export function buildServer(options: BuildServerOptions = {}) {
   server.post("/submit", async (request, reply) => {
     metricsService.recordSubmitRequest();
     try {
+      const rateLimitResult = enforceRateLimit(rateLimiter, "submit", request, reply);
+      if (!rateLimitResult.allowed) {
+        metricsService.recordSubmitError();
+        return rateLimitResult.response;
+      }
+
       const submitRequest = validateSubmitQuoteRequest(request.body);
       const quoteId = await quoteService.requireSubmittableSignedQuote(submitRequest.quote, submitRequest.signature);
       const result = await executionService.submitQuote(submitRequest);
@@ -85,6 +112,32 @@ export function buildServer(options: BuildServerOptions = {}) {
   return server;
 }
 
+function enforceRateLimit(
+  rateLimiter: InMemoryRateLimiter | undefined,
+  endpoint: RateLimitedEndpoint,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): { allowed: true } | { allowed: false; response: FastifyReply } {
+  if (!rateLimiter) {
+    return { allowed: true };
+  }
+
+  const decision = rateLimiter.check({
+    endpoint,
+    clientId: clientIdForRateLimit(request),
+  });
+  if (decision.allowed) {
+    reply.header("x-ratelimit-remaining", decision.remaining.toString());
+    return { allowed: true };
+  }
+
+  const error = new APIError("RATE_LIMITED", "Too many requests", 429);
+  return {
+    allowed: false,
+    response: sendError(reply.header("retry-after", decision.retryAfterSeconds.toString()), requestTraceId(request), error),
+  };
+}
+
 function sendError(
   reply: FastifyReply,
   traceId: string,
@@ -95,6 +148,15 @@ function sendError(
 
 function requestTraceId(request: FastifyRequest): string {
   return `tr_${request.id}`;
+}
+
+function clientIdForRateLimit(request: FastifyRequest): string {
+  const forwardedFor = request.headers["x-forwarded-for"];
+  if (typeof forwardedFor === "string" && forwardedFor.trim().length > 0) {
+    return forwardedFor.split(",")[0]?.trim().toLowerCase() ?? request.ip;
+  }
+
+  return request.ip;
 }
 
 function readSignerConfig() {
