@@ -9,7 +9,7 @@ import type {
 import { APIError } from "../../shared/errors/api-error.js";
 import type { InventoryService } from "../inventory/inventory.service.js";
 import { getMarketSnapshotIssue, type MarketDataService } from "../market-data/market-data.service.js";
-import type { PricingEngine } from "../pricing/pricing.engine.js";
+import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
 import type { QuoteRepository } from "./quote.repository.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
 import type { RoutingEngine } from "../routing/routing.engine.js";
@@ -51,12 +51,17 @@ export class QuoteService {
       token: request.tokenOut,
     });
 
-    const pricing = await this.deps.pricingEngine.price({
-      request,
-      snapshot,
-      routePlan,
-      inventorySkewBps,
-    });
+    let pricing: PricingResult;
+    try {
+      pricing = await this.deps.pricingEngine.price({
+        request,
+        snapshot,
+        routePlan,
+        inventorySkewBps,
+      });
+    } catch (error) {
+      throw pricingFailure(error);
+    }
     const inventoryProjection = this.deps.inventoryService.projectSettlement({
       chainId: request.chainId,
       tokenIn: request.tokenIn,
@@ -185,6 +190,14 @@ function quoteFailureCode(error: unknown): string {
   }
 
   return "INTERNAL_ERROR";
+}
+
+function pricingFailure(error: unknown): APIError {
+  if (error instanceof APIError) {
+    return error;
+  }
+
+  return new APIError("PRICING_UNAVAILABLE", "Pricing engine unavailable", 503);
 }
 
 function assertUsableSnapshot(snapshot: MarketSnapshot, maxSnapshotAgeMs: number): void {

@@ -6,7 +6,7 @@ import { InventoryService } from "./modules/inventory/inventory.service.js";
 import { StaticMarketDataService, type MarketDataService } from "./modules/market-data/market-data.service.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { PnlService } from "./modules/pnl/pnl.service.js";
-import { FormulaPricingEngine } from "./modules/pricing/pricing.engine.js";
+import { FormulaPricingEngine, type PricingEngine } from "./modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "./modules/quote/quote.repository.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
 import { InMemoryRateLimiter, type RateLimitConfig, type RateLimitedEndpoint } from "./modules/rate-limit/rate-limit.service.js";
@@ -22,6 +22,7 @@ import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.j
 export interface BuildServerOptions {
   logger?: boolean;
   marketDataService?: MarketDataService;
+  pricingEngine?: PricingEngine;
   riskEngine?: RiskEngine;
   settlementVerifier?: SettlementVerifier;
   signerService?: SignerService;
@@ -54,7 +55,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const quoteService = new QuoteService({
     inventoryService,
     marketDataService,
-    pricingEngine: new FormulaPricingEngine(),
+    pricingEngine: options.pricingEngine ?? new FormulaPricingEngine(),
     quoteRepository: new InMemoryQuoteRepository(),
     riskEngine: options.riskEngine ?? new BasicRiskEngine(),
     routingEngine: new InternalInventoryRoutingEngine(),

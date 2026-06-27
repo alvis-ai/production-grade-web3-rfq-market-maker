@@ -138,7 +138,7 @@ markQuoteStatus(quoteId, status, txHash): Promise<void>
 
 ## Failure Scenarios
 
-- Pricing unavailable：返回 `PRICING_UNAVAILABLE`。
+- Pricing unavailable：返回 `PRICING_UNAVAILABLE`，不调用 Signer，不返回签名。
 - Risk rejected：返回 `RISK_REJECTED`。
 - Signer unavailable：返回 `SIGNER_UNAVAILABLE`，quote 状态变为 `failed`。
 - Persistence failed：不返回签名。
