@@ -13,6 +13,7 @@ import { InMemoryRateLimiter, type RateLimitConfig, type RateLimitedEndpoint } f
 import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "./modules/routing/routing.engine.js";
 import { SettlementEventService } from "./modules/settlement/settlement-event.service.js";
+import { LocalSettlementVerifier, type SettlementVerifier } from "./modules/settlement/settlement-verifier.service.js";
 import { LocalEIP712SignerService } from "./modules/signer/signer.service.js";
 import { APIError, toAPIError } from "./shared/errors/api-error.js";
 import { validateQuoteRequest } from "./shared/validation/quote-request.js";
@@ -22,6 +23,7 @@ export interface BuildServerOptions {
   logger?: boolean;
   marketDataService?: MarketDataService;
   riskEngine?: RiskEngine;
+  settlementVerifier?: SettlementVerifier;
   rateLimit?: Partial<RateLimitConfig> | false;
 }
 
@@ -36,6 +38,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     hedgeService,
     inventoryService,
     settlementEventService,
+    settlementVerifier: options.settlementVerifier ?? new LocalSettlementVerifier(),
   });
   const metricsService = new MetricsService();
   const pnlService = new PnlService();

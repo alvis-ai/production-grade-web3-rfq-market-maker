@@ -13,6 +13,7 @@ test -s backend/test/api.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
 test -s backend/test/settlement-event.test.mjs
+test -s backend/test/settlement-verifier.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
 grep -q 'marketDataService: MarketDataService' backend/src/modules/health/readiness.service.ts
 grep -q 'checkMarketData' backend/src/modules/health/readiness.service.ts
@@ -28,6 +29,7 @@ test -s backend/src/modules/hedge/hedge.service.ts
 test -s backend/src/modules/metrics/metrics.service.ts
 test -s backend/src/modules/pnl/pnl.service.ts
 test -s backend/src/modules/settlement/settlement-event.service.ts
+test -s backend/src/modules/settlement/settlement-verifier.service.ts
 test -s backend/src/modules/market-data/market-data.service.ts
 test -s backend/src/modules/rate-limit/rate-limit.service.ts
 test -s backend/src/shared/errors/api-error.ts
@@ -128,9 +130,13 @@ grep -q 'requireSubmittableSignedQuote' backend/src/modules/quote/quote.service.
 grep -q 'findSignedQuoteByUserNonce' backend/src/modules/quote/quote.repository.ts
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts
+grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.service.ts
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'TOKEN_NOT_WHITELISTED' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
 grep -q 'hedgeOrderId: hedgeResult.hedgeOrderId' backend/src/modules/execution/execution.service.ts
 grep -q 'getHedgeIntent' backend/src/modules/hedge/hedge.service.ts
@@ -229,7 +235,7 @@ grep -q 'typescript-check' Makefile
 grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml
 grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/openapi.yaml
 grep -q 'Signed quote not found' docs/api/openapi.yaml
-grep -q 'Quote expired or already used' docs/api/openapi.yaml
+grep -q 'settlement verification' docs/api/openapi.yaml
 grep -q 'Market data snapshot used for the quote' docs/api/openapi.yaml
 grep -q 'stale' docs/api/openapi.yaml
 grep -q 'getReadiness' docs/api/openapi.yaml
@@ -273,6 +279,8 @@ grep -q 'rfq_inventory_balance' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' backend/test/api.test.mjs
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
+grep -q 'settlement constraints before simulated settlement' backend/test/api.test.mjs
+grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'SLIPPAGE_TOO_WIDE' backend/test/api.test.mjs
 grep -q 'stale market data' backend/test/api.test.mjs
