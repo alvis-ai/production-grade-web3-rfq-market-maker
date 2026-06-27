@@ -39,3 +39,5 @@ jobs:
         run: make sdk-test
       - name: Build frontend
         run: make frontend-build
+      - name: Smoke API
+        run: make smoke-api-local

@@ -1,4 +1,4 @@
-.PHONY: help docs-check tree workspace-check skeleton-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api
+.PHONY: help docs-check tree workspace-check skeleton-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -18,6 +18,7 @@ help:
 	@echo "  contract-build  Build Foundry contracts"
 	@echo "  contract-test   Run Foundry contract tests offline"
 	@echo "  smoke-api       Exercise health, quote, submit, and metrics endpoints"
+	@echo "  smoke-api-local Build, start backend locally, run smoke-api, and stop backend"
 
 docs-check:
 	@echo "Mermaid blocks:"
@@ -66,3 +67,6 @@ contract-test: contract-build
 
 smoke-api:
 	@sh scripts/smoke-api.sh
+
+smoke-api-local: backend-build
+	@sh scripts/smoke-api-local.sh

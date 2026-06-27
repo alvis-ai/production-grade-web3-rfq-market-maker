@@ -123,9 +123,7 @@ The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK 
 Local API smoke path:
 
 ```sh
-make backend-build
-node backend/dist/main.js
-make smoke-api
+make smoke-api-local
 ```
 
 ## TypeScript SDK

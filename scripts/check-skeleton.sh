@@ -35,6 +35,7 @@ test -s contracts/test/RFQSettlement.t.sol
 test -s examples/quote-request.json
 test -s examples/submit-request.json
 test -s scripts/smoke-api.mjs
+test -s scripts/smoke-api-local.sh
 test -s infra/docker/backend.Dockerfile
 test -s infra/docker/frontend.Dockerfile
 test -s infra/prometheus/prometheus.yml
@@ -137,12 +138,14 @@ grep -q 'testSubmitQuoteRejectsAmountOutBelowMinimum' contracts/test/RFQSettleme
 grep -q 'contract-test' Makefile
 grep -q 'backend-build' Makefile
 grep -q 'backend-test' Makefile
+grep -q 'smoke-api-local' Makefile
 grep -q 'forge test' .github/workflows/contract-ci.yml
 grep -q 'make backend-typecheck' .github/workflows/backend-ci.yml
 grep -q 'make backend-test' .github/workflows/backend-ci.yml
 grep -q 'make sdk-typecheck' .github/workflows/backend-ci.yml
 grep -q 'make sdk-test' .github/workflows/backend-ci.yml
 grep -q 'make frontend-build' .github/workflows/backend-ci.yml
+grep -q 'make smoke-api-local' .github/workflows/backend-ci.yml
 grep -q 'make docs-check' .github/workflows/docs-ci.yml
 grep -q 'typescript-check' Makefile
 grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml
@@ -160,6 +163,8 @@ grep -q 'HOST=127.0.0.1' .env.example
 grep -q '"viem"' backend/package.json
 grep -q '"@types/react"' frontend/package.json
 grep -q 'scripts/smoke-api.mjs' scripts/smoke-api.sh
+grep -q 'scripts/smoke-api.mjs' scripts/smoke-api-local.sh
+grep -q '/health' scripts/smoke-api-local.sh
 grep -q 'rfq_submit_accepted_total 1' scripts/smoke-api.mjs
 grep -q 'QUOTE_ALREADY_USED' scripts/smoke-api.mjs
 grep -q 'rfq_submit_errors_total 1' scripts/smoke-api.mjs

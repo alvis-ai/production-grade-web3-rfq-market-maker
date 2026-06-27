@@ -12,6 +12,8 @@
     "frontend:build": "make frontend-build",
     "sdk:test": "make sdk-test",
     "sdk:typecheck": "make sdk-typecheck",
+    "smoke:api": "make smoke-api",
+    "smoke:api:local": "make smoke-api-local",
     "typescript:check": "make typescript-check",
     "contract:build": "make contract-build",
     "contract:test": "make contract-test"
