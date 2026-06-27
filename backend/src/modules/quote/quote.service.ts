@@ -12,7 +12,7 @@ import { getMarketSnapshotIssue, type MarketDataService } from "../market-data/m
 import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
 import type { QuoteRepository } from "./quote.repository.js";
 import type { RiskDecision, RiskEngine, RiskInput } from "../risk/risk.engine.js";
-import type { RoutingEngine } from "../routing/routing.engine.js";
+import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
 
@@ -45,7 +45,12 @@ export class QuoteService {
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
     const snapshot = await this.deps.marketDataService.getSnapshot(request);
     assertUsableSnapshot(snapshot, this.config.maxSnapshotAgeMs);
-    const routePlan = await this.deps.routingEngine.selectRoute({ request, snapshot });
+    let routePlan: RoutePlan;
+    try {
+      routePlan = await this.deps.routingEngine.selectRoute({ request, snapshot });
+    } catch (error) {
+      throw routingFailure(error);
+    }
     const inventorySkewBps = this.deps.inventoryService.calculateQuoteSkewBps({
       chainId: request.chainId,
       token: request.tokenOut,
@@ -210,6 +215,14 @@ function pricingFailure(error: unknown): APIError {
   }
 
   return new APIError("PRICING_UNAVAILABLE", "Pricing engine unavailable", 503);
+}
+
+function routingFailure(error: unknown): APIError {
+  if (error instanceof APIError) {
+    return error;
+  }
+
+  return new APIError("ROUTING_UNAVAILABLE", "Routing engine unavailable", 503);
 }
 
 function assertUsableSnapshot(snapshot: MarketSnapshot, maxSnapshotAgeMs: number): void {

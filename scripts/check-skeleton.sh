@@ -96,6 +96,7 @@ grep -q '"submitted"' backend/src/main.ts
 grep -q '"settled"' backend/src/main.ts
 grep -q 'StaticMarketDataService' backend/src/main.ts
 grep -q 'pricingEngine?: PricingEngine' backend/src/main.ts
+grep -q 'routingEngine?: RoutingEngine' backend/src/main.ts
 grep -q 'InternalInventoryRoutingEngine' backend/src/main.ts
 grep -q 'BasicRiskEngine' backend/src/main.ts
 grep -q 'LocalEIP712SignerService' backend/src/main.ts
@@ -113,6 +114,8 @@ grep -q 'assertUsableSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'getMarketSnapshotIssue' backend/src/modules/quote/quote.service.ts
 grep -q 'maxSnapshotAgeMs' backend/src/modules/quote/quote.service.ts
 grep -q 'MARKET_DATA_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
+grep -q 'ROUTING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
+grep -q 'routingFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'PRICING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'pricingFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'evaluateRisk' backend/src/modules/quote/quote.service.ts
@@ -267,7 +270,8 @@ grep -q 'settlement verification' docs/api/openapi.yaml
 grep -q 'SETTLEMENT_UNAVAILABLE' docs/api/openapi.yaml
 grep -q 'SETTLEMENT_UNAVAILABLE' docs/api/errors.md
 grep -q 'Market data snapshot used for the quote' docs/api/openapi.yaml
-grep -q 'Market data unavailable, stale, invalid, signer unavailable' docs/api/openapi.yaml
+grep -q 'routing unavailable' docs/api/openapi.yaml
+grep -q 'ROUTING_UNAVAILABLE' docs/api/errors.md
 
 grep -q 'risk engine is unavailable' backend/test/api.test.mjs
 grep -q 'RISK_ENGINE_UNAVAILABLE' backend/test/api.test.mjs
@@ -336,6 +340,9 @@ grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'SLIPPAGE_TOO_WIDE' backend/test/api.test.mjs
 grep -q 'stale market data' backend/test/api.test.mjs
 grep -q 'invalid market data before pricing and signing' backend/test/api.test.mjs
+grep -q 'routing engine failures' backend/test/api.test.mjs
+grep -q 'ROUTING_UNAVAILABLE' backend/test/api.test.mjs
+grep -q 'ROUTING_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'pricing engine failures' backend/test/api.test.mjs
 grep -q 'market data shape is invalid' backend/test/api.test.mjs
 grep -q 'degrades readiness when market data is stale' backend/test/api.test.mjs

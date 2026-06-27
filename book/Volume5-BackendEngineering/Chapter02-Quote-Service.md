@@ -139,6 +139,7 @@ markQuoteStatus(quoteId, status, txHash): Promise<void>
 
 ## Failure Scenarios
 
+- Routing unavailable：返回 `ROUTING_UNAVAILABLE`，不进入 pricing/risk/signer，不返回签名。
 - Pricing unavailable：返回 `PRICING_UNAVAILABLE`，不调用 Signer，不返回签名。
 - Risk rejected：返回 `RISK_REJECTED`。
 - Risk engine unavailable：返回 `RISK_REJECTED`，记录 `RISK_ENGINE_UNAVAILABLE`，不调用 Signer，不返回签名。

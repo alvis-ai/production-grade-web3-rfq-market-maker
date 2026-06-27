@@ -68,7 +68,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: Market data unavailable, stale, invalid, signer unavailable, or another quote dependency unavailable
+          description: Market data unavailable, stale, invalid, routing unavailable, signer unavailable, or another quote dependency unavailable
           content:
             application/json:
               schema:
@@ -683,6 +683,7 @@ components:
             - AMOUNT_TOO_SMALL
             - AMOUNT_TOO_LARGE
             - MARKET_DATA_UNAVAILABLE
+            - ROUTING_UNAVAILABLE
             - PRICING_UNAVAILABLE
             - RISK_REJECTED
             - SIGNER_UNAVAILABLE

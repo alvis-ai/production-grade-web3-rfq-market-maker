@@ -62,7 +62,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-Pricing Service 依赖 Market Data 和 Inventory projection，但不直接访问 Signer。
+Pricing Service 依赖 Market Data、Routing plan 和 Inventory projection，但不直接访问 Signer。Routing Engine 选择报价路径失败时，Quote Service 应在调用 Pricing Service 前返回 `ROUTING_UNAVAILABLE`。
 
 ## Sequence Diagram
 
@@ -109,10 +109,12 @@ price(input: PricingInput): Promise<PricingResult>
 - Pricing Service 不调用 Signer。
 - PricingResult 进入 Risk Service。
 - pricingVersion 写入 quote record。
+- Routing failure 是 quote dependency failure，不应落入通用 500，也不应继续执行 pricing/risk/signer。
 
 ## Failure Scenarios
 
 - Snapshot stale：pricing failed。
+- Routing unavailable：return `ROUTING_UNAVAILABLE` before pricing。
 - Decimals missing：pricing failed。
 - amountOut zero：pricing failed。
 - Guardrail exceeded：pricing failed or risk rejected。

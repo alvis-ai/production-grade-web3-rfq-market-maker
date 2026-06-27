@@ -11,7 +11,7 @@ import { InMemoryQuoteRepository } from "./modules/quote/quote.repository.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
 import { InMemoryRateLimiter, type RateLimitConfig, type RateLimitedEndpoint } from "./modules/rate-limit/rate-limit.service.js";
 import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
-import { InternalInventoryRoutingEngine } from "./modules/routing/routing.engine.js";
+import { InternalInventoryRoutingEngine, type RoutingEngine } from "./modules/routing/routing.engine.js";
 import { SettlementEventService } from "./modules/settlement/settlement-event.service.js";
 import { LocalSettlementVerifier, type SettlementVerifier } from "./modules/settlement/settlement-verifier.service.js";
 import { LocalEIP712SignerService, ObservedSignerService, type SignerService } from "./modules/signer/signer.service.js";
@@ -24,6 +24,7 @@ export interface BuildServerOptions {
   marketDataService?: MarketDataService;
   pricingEngine?: PricingEngine;
   riskEngine?: RiskEngine;
+  routingEngine?: RoutingEngine;
   hedgeService?: HedgeIntentService;
   settlementVerifier?: SettlementVerifier;
   signerService?: SignerService;
@@ -60,7 +61,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     pricingEngine: options.pricingEngine ?? new FormulaPricingEngine(),
     quoteRepository: new InMemoryQuoteRepository(),
     riskEngine: options.riskEngine ?? new BasicRiskEngine(),
-    routingEngine: new InternalInventoryRoutingEngine(),
+    routingEngine: options.routingEngine ?? new InternalInventoryRoutingEngine(),
     signerService: new ObservedSignerService(signerService, metricsService),
   });
 
