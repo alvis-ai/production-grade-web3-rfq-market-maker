@@ -28,6 +28,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   const metricsService = new MetricsService();
   const quoteService = new QuoteService({
+    inventoryService,
     marketDataService: new StaticMarketDataService(),
     pricingEngine: new FormulaPricingEngine(),
     quoteRepository: new InMemoryQuoteRepository(),

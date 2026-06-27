@@ -1,4 +1,5 @@
 import type { QuoteRequest } from "../../shared/types/rfq.js";
+import type { InventoryProjection } from "../inventory/inventory.service.js";
 import type { PricingResult } from "../pricing/pricing.engine.js";
 
 export type RiskDecisionStatus = "approved" | "rejected";
@@ -12,6 +13,7 @@ export interface RiskDecision {
 export interface RiskInput {
   request: QuoteRequest;
   pricing: PricingResult;
+  inventoryProjection?: InventoryProjection;
 }
 
 export interface RiskEngine {
@@ -25,6 +27,7 @@ export interface BasicRiskPolicy {
   maxAmountIn: bigint;
   minAmountOut: bigint;
   maxSlippageBps: number;
+  maxAbsoluteInventory: bigint;
 }
 
 export const defaultBasicRiskPolicy: BasicRiskPolicy = {
@@ -37,6 +40,7 @@ export const defaultBasicRiskPolicy: BasicRiskPolicy = {
   maxAmountIn: 10_000_000_000_000_000_000_000n,
   minAmountOut: 1n,
   maxSlippageBps: 500,
+  maxAbsoluteInventory: 2_000_000_000n,
 };
 
 export class BasicRiskEngine implements RiskEngine {
@@ -69,6 +73,16 @@ export class BasicRiskEngine implements RiskEngine {
       return this.reject("SLIPPAGE_TOO_WIDE");
     }
 
+    if (input.inventoryProjection) {
+      if (abs(input.inventoryProjection.tokenIn.balance) > this.policy.maxAbsoluteInventory) {
+        return this.reject("TOKEN_IN_INVENTORY_LIMIT_EXCEEDED");
+      }
+
+      if (abs(input.inventoryProjection.tokenOut.balance) > this.policy.maxAbsoluteInventory) {
+        return this.reject("TOKEN_OUT_INVENTORY_LIMIT_EXCEEDED");
+      }
+    }
+
     return {
       status: "approved",
       policyVersion: this.policy.policyVersion,
@@ -95,4 +109,8 @@ export class AllowAllRiskEngine implements RiskEngine {
       policyVersion: "allow-all-skeleton-v0",
     };
   }
+}
+
+function abs(value: bigint): bigint {
+  return value < 0n ? -value : value;
 }

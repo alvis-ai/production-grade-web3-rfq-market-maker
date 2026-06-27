@@ -101,7 +101,7 @@ stateDiagram-v2
 
 ## Data Model
 
-`RiskLimitPolicy` 包含 `policyVersion`、`chainId`、`tokenAddress`、`maxPosition`、`softPosition`、`maxNotionalUsd`、`maxUserNotionalUsd`、`enabled`。当前后端 skeleton 的 `BasicRiskPolicy` 先落地 `enabledChainIds`、`tokenAllowlist`、`maxAmountIn`、`minAmountOut` 和 `maxSlippageBps`，后续再扩展为数据库驱动的多维限额。
+`RiskLimitPolicy` 包含 `policyVersion`、`chainId`、`tokenAddress`、`maxPosition`、`softPosition`、`maxNotionalUsd`、`maxUserNotionalUsd`、`enabled`。当前后端 `BasicRiskPolicy` 已落地 `enabledChainIds`、`tokenAllowlist`、`maxAmountIn`、`minAmountOut`、`maxSlippageBps` 和 `maxAbsoluteInventory`。Quote Service 会把本次 quote 的 projected tokenIn/tokenOut position 传给 Risk Engine；任一方向超过 hard limit 都会拒绝签名。后续再扩展为数据库驱动的多维限额。
 
 ## API Design
 

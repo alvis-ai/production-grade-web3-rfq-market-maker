@@ -103,13 +103,14 @@ stateDiagram-v2
 
 ## API Design
 
-Inventory Service 对内部提供 `getExposure(chainId, token)` 和 `applySettlementEvent(event)`。公开 API 不暴露完整库存。
+Inventory Service 对内部提供 `getPosition(chainId, token)`、`projectSettlement(input)`、`calculateQuoteSkewBps(input)` 和 `applySettlement(event)`。公开 API 不暴露完整库存。
 
 ## Engineering Decisions
 
 - 库存以链上 settlement event 为准。
 - Hedge 结果也应更新库存或 pending exposure。
 - Hard limit 由 Risk Engine 强制拒绝签名。
+- 当前后端实现中，成交后的库存会影响下一次 `/quote` 的 `inventorySkewBps`；本次 quote 的 projected inventory 会在签名前进入 Risk Engine。
 
 ## Failure Scenarios
 

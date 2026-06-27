@@ -93,6 +93,54 @@ test("RFQ API rejects quotes that fail pre-trade risk policy", async () => {
   }
 });
 
+test("RFQ API prices later quotes with inventory skew after settlement", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const firstQuote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(firstQuote.statusCode, 200);
+    assert.equal(firstQuote.body.amountOut, "998400000");
+
+    const submit = await injectJson(server, "POST", "/submit", {
+      quote: quotePayloadFromResponse(firstQuote.body),
+      signature: firstQuote.body.signature,
+    });
+    assert.equal(submit.statusCode, 202);
+
+    const secondQuote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(secondQuote.statusCode, 200);
+    assert.equal(secondQuote.body.amountOut, "996500000");
+    assert.equal(secondQuote.body.minAmountOut, "991517500");
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API rejects quotes that would exceed projected inventory limits", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", {
+      ...baseQuoteRequest,
+      amountIn: "2100000000",
+    });
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "RISK_REJECTED");
+    assert.match(response.body.traceId, /^tr_/);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_quote_requests_total 1/);
+    assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_responses_total 0/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API includes trace ids on validation and not found errors", async () => {
   const server = buildServer({ logger: false });
   await server.ready();
@@ -388,6 +436,20 @@ async function injectJson(server, method, url, payload) {
 
 function fixedSignature() {
   return `0x${"11".repeat(65)}`;
+}
+
+function quotePayloadFromResponse(quote) {
+  return {
+    user: baseQuoteRequest.user,
+    tokenIn: baseQuoteRequest.tokenIn,
+    tokenOut: baseQuoteRequest.tokenOut,
+    amountIn: baseQuoteRequest.amountIn,
+    amountOut: quote.amountOut,
+    minAmountOut: quote.minAmountOut,
+    nonce: quote.nonce,
+    deadline: quote.deadline,
+    chainId: baseQuoteRequest.chainId,
+  };
 }
 
 function uppercaseHex(value) {

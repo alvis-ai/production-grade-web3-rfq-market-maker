@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Risk Service 是签名前风控服务。它接收 QuoteRequest 和 PricingResult，读取库存、限额、VaR 和 toxic flow 信号，输出 RiskDecision。只有 RiskDecision 为 approved 时，Quote Service 才能调用 Signer Service。当前后端实现提供 `BasicRiskEngine`，先覆盖 chain allowlist、token allowlist、amount limit、min amount out 和 max slippage 等硬 gate。
+Risk Service 是签名前风控服务。它接收 QuoteRequest、PricingResult 和 projected inventory，读取库存、限额、VaR 和 toxic flow 信号，输出 RiskDecision。只有 RiskDecision 为 approved 时，Quote Service 才能调用 Signer Service。当前后端实现提供 `BasicRiskEngine`，覆盖 chain allowlist、token allowlist、amount limit、min amount out、max slippage 和 projected token inventory hard limit 等硬 gate。
 
 ## Learning Objectives
 
@@ -24,7 +24,7 @@ Volume3 定义了风险模型。后端需要把模型实现为可测试 pipeline
 ### Functional Requirements
 
 - 校验市场状态、定价结果、库存、限额、VaR、toxic flow。
-- 第一阶段代码至少校验 enabled chain、token allowlist、max amount、min output、max slippage。
+- 第一阶段代码至少校验 enabled chain、token allowlist、max amount、min output、max slippage 和 projected inventory hard limit。
 - 输出 approved 或 rejected。
 - 输出 reasonCode 和 policyVersion。
 - 持久化 risk decision。
@@ -37,7 +37,7 @@ Volume3 定义了风险模型。后端需要把模型实现为可测试 pipeline
 
 ## Existing Solutions
 
-简单系统只做 amount limit。当前 skeleton 使用 `BasicRiskEngine` 作为可配置硬 gate。生产系统需要在同一接口下扩展库存、VaR、toxic flow 和外部依赖健康检查。
+简单系统只做 amount limit。当前实现使用 `BasicRiskEngine` 作为可配置硬 gate，并在 Quote Service 中传入本次 quote 成交后的 tokenIn/tokenOut 库存投影。生产系统需要在同一接口下继续扩展 VaR、toxic flow 和外部依赖健康检查。
 
 ## Trade-Off Analysis
 
@@ -95,7 +95,7 @@ stateDiagram-v2
 
 ## Data Model
 
-`RiskDecision` includes `status`, `reasonCode`, `policyVersion`, `checks`, `createdAt`, `traceId`. 当前实现输出稳定 reasonCode：`CHAIN_NOT_ENABLED`、`TOKEN_NOT_ALLOWED`、`AMOUNT_IN_LIMIT_EXCEEDED`、`AMOUNT_OUT_TOO_SMALL`、`SLIPPAGE_TOO_WIDE`。
+`RiskDecision` includes `status`, `reasonCode`, `policyVersion`, `checks`, `createdAt`, `traceId`. 当前实现输出稳定 reasonCode：`CHAIN_NOT_ENABLED`、`TOKEN_NOT_ALLOWED`、`AMOUNT_IN_LIMIT_EXCEEDED`、`AMOUNT_OUT_TOO_SMALL`、`SLIPPAGE_TOO_WIDE`、`TOKEN_IN_INVENTORY_LIMIT_EXCEEDED`、`TOKEN_OUT_INVENTORY_LIMIT_EXCEEDED`。
 
 ## API Design
 

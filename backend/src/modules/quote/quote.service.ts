@@ -6,6 +6,7 @@ import type {
   SignedQuote,
 } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
+import type { InventoryService } from "../inventory/inventory.service.js";
 import type { MarketDataService } from "../market-data/market-data.service.js";
 import type { PricingEngine } from "../pricing/pricing.engine.js";
 import type { QuoteRepository } from "./quote.repository.js";
@@ -15,6 +16,7 @@ import type { SignerService } from "../signer/signer.service.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
 
 export interface QuoteServiceDeps {
+  inventoryService: InventoryService;
   marketDataService: MarketDataService;
   pricingEngine: PricingEngine;
   quoteRepository: QuoteRepository;
@@ -31,12 +33,23 @@ export class QuoteService {
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
     const snapshot = await this.deps.marketDataService.getSnapshot(request);
     const routePlan = await this.deps.routingEngine.selectRoute({ request, snapshot });
+    const inventorySkewBps = this.deps.inventoryService.calculateQuoteSkewBps({
+      chainId: request.chainId,
+      token: request.tokenOut,
+    });
 
     const pricing = await this.deps.pricingEngine.price({
       request,
       snapshot,
       routePlan,
-      inventorySkewBps: 0,
+      inventorySkewBps,
+    });
+    const inventoryProjection = this.deps.inventoryService.projectSettlement({
+      chainId: request.chainId,
+      tokenIn: request.tokenIn,
+      tokenOut: request.tokenOut,
+      amountIn: request.amountIn,
+      amountOut: pricing.amountOut,
     });
 
     const identity = this.identityGenerator.next();
@@ -47,7 +60,7 @@ export class QuoteService {
       request,
     });
 
-    const risk = await this.deps.riskEngine.evaluate({ request, pricing });
+    const risk = await this.deps.riskEngine.evaluate({ request, pricing, inventoryProjection });
     if (risk.status !== "approved") {
       await this.deps.quoteRepository.saveRejected({
         quoteId,
