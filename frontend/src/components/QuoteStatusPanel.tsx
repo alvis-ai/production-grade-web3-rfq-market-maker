@@ -1,10 +1,11 @@
 import type { QuoteResponse, QuoteStatus, SubmitQuoteResponse } from "@rfq-market-maker/sdk";
+import type { UIError } from "../lib/errors";
 
 interface QuoteStatusPanelProps {
   quote?: QuoteResponse;
   quoteStatus?: QuoteStatus;
   submitResult?: SubmitQuoteResponse;
-  error?: string;
+  error?: UIError;
   canSubmit: boolean;
   onSubmit: () => void;
   onRefresh: () => void;
@@ -52,7 +53,33 @@ export function QuoteStatusPanel({
           <dd>{submitResult?.txHash ?? quoteStatus?.txHash ?? "-"}</dd>
         </div>
       </dl>
-      {error ? <p className="error-text">{error}</p> : null}
+      {error ? (
+        <div className="error-box" role="alert">
+          <p>{error.message}</p>
+          {error.code || error.status || error.traceId ? (
+            <dl>
+              {error.code ? (
+                <div>
+                  <dt>Code</dt>
+                  <dd>{error.code}</dd>
+                </div>
+              ) : null}
+              {error.status ? (
+                <div>
+                  <dt>HTTP</dt>
+                  <dd>{error.status}</dd>
+                </div>
+              ) : null}
+              {error.traceId ? (
+                <div>
+                  <dt>Trace</dt>
+                  <dd>{error.traceId}</dd>
+                </div>
+              ) : null}
+            </dl>
+          ) : null}
+        </div>
+      ) : null}
       <div className="action-row">
         <button type="button" disabled={!canSubmit} onClick={onSubmit}>
           Submit Quote

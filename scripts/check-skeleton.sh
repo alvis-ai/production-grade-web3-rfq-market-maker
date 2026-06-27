@@ -23,6 +23,7 @@ test -s backend/src/modules/routing/routing.engine.ts
 test -s backend/src/shared/validation/quote-request.ts
 test -s backend/src/shared/validation/submit-request.ts
 test -s frontend/src/lib/rfq.ts
+test -s frontend/src/lib/errors.ts
 test -s frontend/src/pages/QuotePage.tsx
 test -s sdk/src/abi.ts
 test -s sdk/src/eip712.ts
@@ -98,7 +99,12 @@ grep -q 'rfq_inventory_balance' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfqClient.quote' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.submit' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getQuote' frontend/src/pages/QuotePage.tsx
+grep -q 'RFQClientError' frontend/src/lib/errors.ts
+grep -q 'traceId' frontend/src/lib/errors.ts
+grep -q 'toUIError' frontend/src/pages/QuotePage.tsx
 grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
+grep -q 'role="alert"' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'error-box' frontend/src/app/styles.css
 grep -q 'export { RFQClient' sdk/src/index.ts
 grep -q 'rfqSettlementAbi' sdk/src/index.ts
 grep -q 'buildSubmitQuoteArgs' sdk/src/index.ts

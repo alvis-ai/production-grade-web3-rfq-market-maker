@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Quote, QuoteRequest, QuoteResponse, QuoteStatus, SubmitQuoteResponse } from "@rfq-market-maker/sdk";
 import { QuoteForm } from "../components/QuoteForm";
 import { QuoteStatusPanel } from "../components/QuoteStatusPanel";
+import { toUIError, type UIError } from "../lib/errors";
 import { buildQuoteFromResponse, rfqClient } from "../lib/rfq";
 
 const defaultRequest: QuoteRequest = {
@@ -18,7 +19,7 @@ export function QuotePage() {
   const [quote, setQuote] = useState<QuoteResponse>();
   const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>();
   const [submitResult, setSubmitResult] = useState<SubmitQuoteResponse>();
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<UIError>();
   const [isLoading, setIsLoading] = useState(false);
 
   const signedQuote = useMemo<Quote | undefined>(() => {
@@ -38,7 +39,7 @@ export function QuotePage() {
       setQuote(response);
     } catch (caught) {
       setQuote(undefined);
-      setError(caught instanceof Error ? caught.message : "Quote request failed");
+      setError(toUIError(caught, "Quote request failed"));
     } finally {
       setIsLoading(false);
     }
@@ -56,7 +57,7 @@ export function QuotePage() {
       const status = await rfqClient.getQuote(quote.quoteId);
       setQuoteStatus(status);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Submit failed");
+      setError(toUIError(caught, "Submit failed"));
     }
   }
 
@@ -67,7 +68,7 @@ export function QuotePage() {
       const status = await rfqClient.getQuote(quote.quoteId);
       setQuoteStatus(status);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Status refresh failed");
+      setError(toUIError(caught, "Status refresh failed"));
     }
   }
 

@@ -140,7 +140,7 @@ button:disabled {
   margin-top: 18px;
 }
 
-.error-text {
+.error-box {
   background: #fff2f0;
   border: 1px solid #f1b5ad;
   border-radius: 6px;
@@ -148,6 +148,35 @@ button:disabled {
   font-size: 13px;
   margin: 16px 0 0;
   padding: 10px 12px;
+}
+
+.error-box p {
+  font-weight: 700;
+  margin: 0;
+}
+
+.error-box dl {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+}
+
+.error-box dl div {
+  border: 0;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 56px minmax(0, 1fr);
+  padding: 0;
+}
+
+.error-box dt {
+  color: #9a493f;
+  font-weight: 700;
+}
+
+.error-box dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 760px) {
