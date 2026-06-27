@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { SkeletonExecutionService } from "./modules/execution/execution.service.js";
 import { HedgeService } from "./modules/hedge/hedge.service.js";
 import { InventoryService } from "./modules/inventory/inventory.service.js";
@@ -44,7 +44,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     const { quoteId } = request.params as { quoteId: string };
     const status = await quoteService.getQuoteStatus(quoteId);
     if (!status) {
-      return sendError(reply, new APIError("QUOTE_NOT_FOUND", "Quote not found", 404));
+      return sendError(reply, requestTraceId(request), new APIError("QUOTE_NOT_FOUND", "Quote not found", 404));
     }
 
     return status;
@@ -58,7 +58,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       return response;
     } catch (error) {
       metricsService.recordQuoteError();
-      return sendError(reply, toAPIError(error));
+      return sendError(reply, requestTraceId(request), toAPIError(error));
     }
   });
   server.post("/submit", async (request, reply) => {
@@ -77,7 +77,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       return reply.code(202).send(result.response);
     } catch (error) {
       metricsService.recordSubmitError();
-      return sendError(reply, toAPIError(error));
+      return sendError(reply, requestTraceId(request), toAPIError(error));
     }
   });
 
@@ -85,14 +85,15 @@ export function buildServer(options: BuildServerOptions = {}) {
 }
 
 function sendError(
-  reply: {
-    code: (statusCode: number) => {
-      send: (payload: unknown) => unknown;
-    };
-  },
+  reply: FastifyReply,
+  traceId: string,
   error: APIError,
 ) {
-  return reply.code(error.statusCode).send(error.toResponse());
+  return reply.header("x-trace-id", traceId).code(error.statusCode).send(error.toResponse(traceId));
+}
+
+function requestTraceId(request: FastifyRequest): string {
+  return `tr_${request.id}`;
 }
 
 function readSignerConfig() {

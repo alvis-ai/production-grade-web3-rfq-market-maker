@@ -73,11 +73,37 @@ test("RFQ API rejects quotes that fail pre-trade risk policy", async () => {
 
     assert.equal(response.statusCode, 409);
     assert.equal(response.body.code, "RISK_REJECTED");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
 
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);
     assert.match(metrics.payload, /rfq_quote_requests_total 1/);
     assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API includes trace ids on validation and not found errors", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const invalid = await injectJson(server, "POST", "/quote", {
+      ...baseQuoteRequest,
+      tokenIn: "not-an-address",
+    });
+    assert.equal(invalid.statusCode, 400);
+    assert.equal(invalid.body.code, "INVALID_REQUEST");
+    assert.match(invalid.body.traceId, /^tr_/);
+    assert.equal(invalid.headers["x-trace-id"], invalid.body.traceId);
+
+    const notFound = await injectJson(server, "GET", "/quote/q_missing");
+    assert.equal(notFound.statusCode, 404);
+    assert.equal(notFound.body.code, "QUOTE_NOT_FOUND");
+    assert.match(notFound.body.traceId, /^tr_/);
+    assert.equal(notFound.headers["x-trace-id"], notFound.body.traceId);
   } finally {
     await server.close();
   }
@@ -124,6 +150,7 @@ async function injectJson(server, method, url, payload) {
 
   return {
     statusCode: response.statusCode,
+    headers: response.headers,
     body: response.payload ? JSON.parse(response.payload) : undefined,
   };
 }

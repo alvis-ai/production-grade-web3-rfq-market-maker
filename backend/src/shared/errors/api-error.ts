@@ -32,11 +32,11 @@ export class APIError extends Error {
     this.name = "APIError";
   }
 
-  toResponse(): ErrorResponse {
+  toResponse(traceId = this.traceId): ErrorResponse {
     return {
       code: this.code,
       message: this.message,
-      traceId: this.traceId,
+      traceId,
     };
   }
 }

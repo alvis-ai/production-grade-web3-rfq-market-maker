@@ -63,6 +63,8 @@ grep -q 'LocalEIP712SignerService' backend/src/main.ts
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' backend/src/main.ts
 grep -q 'RFQ_SETTLEMENT_ADDRESS' backend/src/main.ts
 grep -q 'HOST' backend/src/main.ts
+grep -q 'x-trace-id' backend/src/main.ts
+grep -q 'requestTraceId' backend/src/main.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
@@ -135,6 +137,7 @@ grep -q 'rfq_submit_accepted_total 1' scripts/smoke-api.mjs
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
+grep -q 'trace ids' backend/test/api.test.mjs
 grep -q 'same millisecond' backend/test/api.test.mjs
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml
