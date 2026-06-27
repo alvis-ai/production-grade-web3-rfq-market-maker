@@ -34,7 +34,9 @@ export function buildServer(options: BuildServerOptions = {}) {
   const server = Fastify({ logger: options.logger ?? true });
   const hedgeService = options.hedgeService ?? new HedgeService();
   const marketDataService = options.marketDataService ?? new StaticMarketDataService();
-  const readinessService = new ReadinessService({ marketDataService });
+  const metricsService = new MetricsService();
+  const signerService = options.signerService ?? new LocalEIP712SignerService(readSignerConfig());
+  const readinessService = new ReadinessService({ marketDataService, signerService });
   const inventoryService = new InventoryService();
   const settlementEventService = new SettlementEventService(inventoryService);
   const executionService = new SkeletonExecutionService({
@@ -43,7 +45,6 @@ export function buildServer(options: BuildServerOptions = {}) {
     settlementEventService,
     settlementVerifier: options.settlementVerifier ?? new LocalSettlementVerifier(),
   });
-  const metricsService = new MetricsService();
   const pnlService = new PnlService();
   const rateLimiter = options.rateLimit === false
     ? undefined
@@ -60,10 +61,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     quoteRepository: new InMemoryQuoteRepository(),
     riskEngine: options.riskEngine ?? new BasicRiskEngine(),
     routingEngine: new InternalInventoryRoutingEngine(),
-    signerService: new ObservedSignerService(
-      options.signerService ?? new LocalEIP712SignerService(readSignerConfig()),
-      metricsService,
-    ),
+    signerService: new ObservedSignerService(signerService, metricsService),
   });
 
   server.get("/health", async () => ({ status: "ok" }));

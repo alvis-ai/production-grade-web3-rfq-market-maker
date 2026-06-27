@@ -17,8 +17,11 @@ test -s backend/test/settlement-event.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
 grep -q 'marketDataService: MarketDataService' backend/src/modules/health/readiness.service.ts
+grep -q 'signerService: SignerService' backend/src/modules/health/readiness.service.ts
 grep -q 'checkMarketData' backend/src/modules/health/readiness.service.ts
+grep -q 'checkSigner' backend/src/modules/health/readiness.service.ts
 grep -q 'maxSnapshotAgeMs' backend/src/modules/health/readiness.service.ts
+grep -q 'readiness_probe' backend/src/modules/health/readiness.service.ts
 grep -q 'pnl: "ok"' backend/src/modules/health/readiness.service.ts
 grep -q 'settlementEventStore: "ok"' backend/src/modules/health/readiness.service.ts
 test -s backend/src/modules/quote/quote.service.ts
@@ -273,6 +276,7 @@ grep -q 'stale' docs/api/openapi.yaml
 grep -q 'getReadiness' docs/api/openapi.yaml
 grep -q 'ReadinessResponse' docs/api/openapi.yaml
 grep -q 'not ready because at least one quote dependency is degraded' docs/api/openapi.yaml
+grep -q 'signer sign/verify capability' docs/api/openapi.yaml
 grep -q 'getHedgeIntent' docs/api/openapi.yaml
 grep -q 'HedgeIntentStatus' docs/api/openapi.yaml
 grep -q 'HEDGE_NOT_FOUND' docs/api/openapi.yaml
@@ -335,6 +339,9 @@ grep -q 'invalid market data before pricing and signing' backend/test/api.test.m
 grep -q 'pricing engine failures' backend/test/api.test.mjs
 grep -q 'market data shape is invalid' backend/test/api.test.mjs
 grep -q 'degrades readiness when market data is stale' backend/test/api.test.mjs
+grep -q 'degrades readiness when signer probe fails' backend/test/api.test.mjs
+grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'toxic-flow users' backend/test/api.test.mjs
 grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/test/api.test.mjs
 grep -q 'TOKEN_IN_INVENTORY_LIMIT_EXCEEDED' backend/test/api.test.mjs

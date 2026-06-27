@@ -249,6 +249,32 @@ test("RFQ API degrades readiness when market data shape is invalid", async () =>
   }
 });
 
+test("RFQ API degrades readiness when signer probe fails", async () => {
+  const server = buildServer({
+    logger: false,
+    signerService: {
+      async signQuote() {
+        throw new Error("signer readiness probe failed");
+      },
+      async verifyQuoteSignature() {
+        return false;
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/ready");
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.status, "degraded");
+    assert.equal(response.body.components.marketData, "ok");
+    assert.equal(response.body.components.signer, "degraded");
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API returns structured errors for missing hedge intents", async () => {
   const server = buildServer({ logger: false });
   await server.ready();

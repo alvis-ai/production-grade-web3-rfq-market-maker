@@ -112,7 +112,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 - Gateway 不直接调用 Signer。
 - Gateway 不返回内部 risk threshold。
 - traceId 必须贯穿后端调用链。
-- `/ready` 当前检查 market data freshness，stale snapshot 会让 `marketData` 组件变为 `degraded`，用于阻止 Kubernetes 在错误价格输入下继续导流。
+- `/ready` 当前检查 market data freshness 和 signer probe。stale snapshot 会让 `marketData` 组件变为 `degraded`；signer 无法签名或签名无法被同一 trusted signer 验证时，`signer` 组件变为 `degraded`，用于阻止 Kubernetes 在错误价格输入或不可签名状态下继续导流。
 - 当前 Fastify 实现使用 `InMemoryRateLimiter` 保护 `/quote`、`/submit`、`/quote/:id`、`/settlements/:id`、`/hedges/:id` 和 `/pnl`；生产部署可替换为 Redis-backed distributed rate limit，并保持 `RATE_LIMITED` 错误契约不变。
 
 ## Failure Scenarios
@@ -120,6 +120,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 - 请求格式错误：返回 `INVALID_REQUEST`。
 - 限流：返回 HTTP 429、`RATE_LIMITED` 和 `Retry-After`。
 - Market data stale：`/ready` 返回 HTTP 503/degraded，`POST /quote` 返回 `MARKET_DATA_UNAVAILABLE`。
+- Signer readiness probe failed：`/ready` 返回 HTTP 503/degraded，`POST /quote` 仍会在实际签名时返回 `SIGNER_UNAVAILABLE`。
 - Quote Service 超时：返回 503。
 - 内部异常：返回 `INTERNAL_ERROR` 和 traceId。
 
@@ -133,7 +134,7 @@ Gateway 应保持薄层，不执行重计算。序列化和校验必须足够快
 
 ## Testing Strategy
 
-测试 request validation、error mapping、rate limit、health、readiness、metrics、`/quote` 路由、settlement event 查询、hedge intent 查询和 PnL summary 查询。
+测试 request validation、error mapping、rate limit、health、readiness market data degraded、readiness signer degraded、metrics、`/quote` 路由、settlement event 查询、hedge intent 查询和 PnL summary 查询。
 
 ## Interview Notes
 
