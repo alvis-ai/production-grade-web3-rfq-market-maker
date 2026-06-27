@@ -35,6 +35,7 @@ test -s contracts/test/RFQSettlement.t.sol
 test -s contracts/test/Deploy.t.sol
 test -s examples/quote-request.json
 test -s examples/submit-request.json
+test -s scripts/check-eip712-consistency.mjs
 test -s scripts/smoke-api.mjs
 test -s scripts/smoke-api-local.sh
 test -s infra/docker/backend.Dockerfile
@@ -145,15 +146,19 @@ grep -q 'testDeployInitializesTrustedSignerAndWhitelist' contracts/test/Deploy.t
 grep -q 'contract-test' Makefile
 grep -q 'backend-build' Makefile
 grep -q 'backend-test' Makefile
+grep -q 'eip712-check' Makefile
 grep -q 'smoke-api-local' Makefile
 grep -q 'forge test' .github/workflows/contract-ci.yml
 grep -q 'make backend-typecheck' .github/workflows/backend-ci.yml
 grep -q 'make backend-test' .github/workflows/backend-ci.yml
+grep -q 'make eip712-check' .github/workflows/backend-ci.yml
 grep -q 'make sdk-typecheck' .github/workflows/backend-ci.yml
 grep -q 'make sdk-test' .github/workflows/backend-ci.yml
 grep -q 'make frontend-build' .github/workflows/backend-ci.yml
 grep -q 'make smoke-api-local' .github/workflows/backend-ci.yml
 grep -q 'make docs-check' .github/workflows/docs-ci.yml
+grep -q 'QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
+grep -q 'backend signer Quote fields must match SDK Quote fields' scripts/check-eip712-consistency.mjs
 grep -q 'typescript-check' Makefile
 grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml
 grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/openapi.yaml

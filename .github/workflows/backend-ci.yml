@@ -29,6 +29,8 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       - name: Check repository skeleton
         run: make skeleton-check
+      - name: Check EIP-712 schema consistency
+        run: make eip712-check
       - name: Typecheck backend
         run: make backend-typecheck
       - name: Test backend

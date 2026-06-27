@@ -20,6 +20,8 @@ jobs:
       - name: Check formatting
         working-directory: contracts
         run: forge fmt --check
+      - name: Check EIP-712 schema consistency
+        run: make eip712-check
       - name: Build contracts
         working-directory: contracts
         run: forge build

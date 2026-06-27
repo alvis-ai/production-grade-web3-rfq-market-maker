@@ -1,4 +1,4 @@
-.PHONY: help docs-check tree workspace-check skeleton-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
+.PHONY: help docs-check tree workspace-check skeleton-check eip712-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -8,6 +8,7 @@ help:
 	@echo "  tree        Print the first three levels of repository files"
 	@echo "  workspace-check  Verify expected workspace manifests exist"
 	@echo "  skeleton-check  Verify required skeleton entrypoints exist"
+	@echo "  eip712-check  Verify backend, SDK, and contract EIP-712 schemas match"
 	@echo "  backend-build  Build backend package"
 	@echo "  backend-test  Run backend API tests"
 	@echo "  backend-typecheck  Typecheck backend package"
@@ -38,6 +39,9 @@ workspace-check:
 
 skeleton-check:
 	@sh scripts/check-skeleton.sh
+
+eip712-check:
+	@node scripts/check-eip712-consistency.mjs
 
 backend-build:
 	@CI=true pnpm --dir backend build

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "docs:check": "make docs-check",
+    "eip712:check": "make eip712-check",
     "skeleton:check": "make skeleton-check",
     "backend:build": "make backend-build",
     "backend:test": "make backend-test",
