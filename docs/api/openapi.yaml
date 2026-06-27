@@ -301,10 +301,28 @@ components:
       required:
         - code
         - message
+        - traceId
       properties:
         code:
           type: string
+          enum:
+            - INVALID_REQUEST
+            - UNSUPPORTED_CHAIN
+            - UNSUPPORTED_TOKEN
+            - AMOUNT_TOO_SMALL
+            - AMOUNT_TOO_LARGE
+            - MARKET_DATA_UNAVAILABLE
+            - PRICING_UNAVAILABLE
+            - RISK_REJECTED
+            - SIGNER_UNAVAILABLE
+            - QUOTE_NOT_FOUND
+            - QUOTE_EXPIRED
+            - QUOTE_ALREADY_USED
+            - SETTLEMENT_REVERTED
+            - RATE_LIMITED
+            - INTERNAL_ERROR
         message:
           type: string
         traceId:
           type: string
+          pattern: "^tr_.+"

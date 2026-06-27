@@ -70,6 +70,7 @@ grep -q 'RFQ_SETTLEMENT_ADDRESS' backend/src/main.ts
 grep -q 'HOST' backend/src/main.ts
 grep -q 'x-trace-id' backend/src/main.ts
 grep -q 'requestTraceId' backend/src/main.ts
+grep -q 'traceId: string' backend/src/shared/errors/api-error.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
@@ -137,6 +138,8 @@ grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml
 grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/openapi.yaml
 grep -q 'Signed quote not found' docs/api/openapi.yaml
 grep -q 'Quote expired or already used' docs/api/openapi.yaml
+grep -q 'QUOTE_ALREADY_USED' docs/api/openapi.yaml
+grep -q 'pattern: "^tr_.+"' docs/api/openapi.yaml
 grep -q 'allowBuilds' pnpm-workspace.yaml
 grep -q 'onlyBuiltDependencies' pnpm-workspace.yaml
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' .env.example

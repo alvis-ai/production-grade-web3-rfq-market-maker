@@ -18,7 +18,7 @@ export type RFQErrorCode =
 export interface ErrorResponse {
   code: RFQErrorCode;
   message: string;
-  traceId?: string;
+  traceId: string;
 }
 
 export class APIError extends Error {
@@ -32,7 +32,7 @@ export class APIError extends Error {
     this.name = "APIError";
   }
 
-  toResponse(traceId = this.traceId): ErrorResponse {
+  toResponse(traceId: string): ErrorResponse {
     return {
       code: this.code,
       message: this.message,
