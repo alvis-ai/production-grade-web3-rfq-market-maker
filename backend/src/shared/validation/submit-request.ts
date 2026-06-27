@@ -16,15 +16,32 @@ export function validateSubmitQuoteRequest(input: unknown): SubmitQuoteRequest {
   if (!HEX_PATTERN.test(signature)) {
     throw new APIError("INVALID_REQUEST", "signature must be hex encoded", 400);
   }
+  if (signature.length !== 132) {
+    throw new APIError("INVALID_REQUEST", "signature must be 65 bytes", 400);
+  }
+
+  const user = readAddress(quote.user, "quote.user");
+  const tokenIn = readAddress(quote.tokenIn, "quote.tokenIn");
+  const tokenOut = readAddress(quote.tokenOut, "quote.tokenOut");
+  if (tokenIn.toLowerCase() === tokenOut.toLowerCase()) {
+    throw new APIError("INVALID_REQUEST", "quote.tokenIn and quote.tokenOut must be different", 400);
+  }
+
+  const amountIn = readPositiveUint(quote.amountIn, "quote.amountIn");
+  const amountOut = readPositiveUint(quote.amountOut, "quote.amountOut");
+  const minAmountOut = readPositiveUint(quote.minAmountOut, "quote.minAmountOut");
+  if (BigInt(amountOut) < BigInt(minAmountOut)) {
+    throw new APIError("INVALID_REQUEST", "quote.amountOut must be greater than or equal to quote.minAmountOut", 400);
+  }
 
   return {
     quote: {
-      user: readAddress(quote.user, "quote.user"),
-      tokenIn: readAddress(quote.tokenIn, "quote.tokenIn"),
-      tokenOut: readAddress(quote.tokenOut, "quote.tokenOut"),
-      amountIn: readUint(quote.amountIn, "quote.amountIn"),
-      amountOut: readUint(quote.amountOut, "quote.amountOut"),
-      minAmountOut: readUint(quote.minAmountOut, "quote.minAmountOut"),
+      user,
+      tokenIn,
+      tokenOut,
+      amountIn,
+      amountOut,
+      minAmountOut,
       nonce: readUint(quote.nonce, "quote.nonce"),
       deadline: readPositiveInteger(quote.deadline, "quote.deadline"),
       chainId: readPositiveInteger(quote.chainId, "quote.chainId"),
@@ -46,6 +63,15 @@ function readUint(input: unknown, field: string): string {
   const value = String(input ?? "");
   if (!UINT_PATTERN.test(value)) {
     throw new APIError("INVALID_REQUEST", `${field} must be a uint string`, 400);
+  }
+
+  return value;
+}
+
+function readPositiveUint(input: unknown, field: string): string {
+  const value = readUint(input, field);
+  if (BigInt(value) <= 0n) {
+    throw new APIError("INVALID_REQUEST", `${field} must be a positive uint string`, 400);
   }
 
   return value;

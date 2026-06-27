@@ -192,6 +192,9 @@ components:
         signature:
           type: string
           pattern: "^0x[a-fA-F0-9]+$"
+          minLength: 132
+          maxLength: 132
+          description: 65-byte EIP-712 signature encoded as 0x-prefixed hex.
     SubmitQuoteRequest:
       type: object
       required:
@@ -202,6 +205,10 @@ components:
           $ref: "#/components/schemas/SignedQuote"
         signature:
           type: string
+          pattern: "^0x[a-fA-F0-9]{130}$"
+          minLength: 132
+          maxLength: 132
+          description: 65-byte EIP-712 signature encoded as 0x-prefixed hex.
     SubmitQuoteResponse:
       type: object
       required:
@@ -217,6 +224,10 @@ components:
           description: Simulated or relayed transaction hash.
     SignedQuote:
       type: object
+      description: >
+        EIP-712 quote payload submitted for settlement. tokenIn and tokenOut must be
+        different addresses, amountIn/amountOut/minAmountOut must be positive uint
+        strings, and amountOut must be greater than or equal to minAmountOut.
       required:
         - user
         - tokenIn

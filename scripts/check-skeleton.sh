@@ -49,6 +49,9 @@ grep -q 'server.get("/quote/:quoteId"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts
 grep -q 'validateQuoteRequest' backend/src/main.ts
 grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
+grep -q 'signature must be 65 bytes' backend/src/shared/validation/submit-request.ts
+grep -q 'readPositiveUint' backend/src/shared/validation/submit-request.ts
+grep -q 'greater than or equal to quote.minAmountOut' backend/src/shared/validation/submit-request.ts
 grep -q 'InMemoryQuoteRepository' backend/src/main.ts
 grep -q 'new InventoryService' backend/src/main.ts
 grep -q 'new HedgeService' backend/src/main.ts
@@ -126,6 +129,8 @@ grep -q 'make sdk-test' .github/workflows/backend-ci.yml
 grep -q 'make frontend-build' .github/workflows/backend-ci.yml
 grep -q 'make docs-check' .github/workflows/docs-ci.yml
 grep -q 'typescript-check' Makefile
+grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml
+grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/openapi.yaml
 grep -q 'allowBuilds' pnpm-workspace.yaml
 grep -q 'onlyBuiltDependencies' pnpm-workspace.yaml
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' .env.example
@@ -138,6 +143,7 @@ grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'trace ids' backend/test/api.test.mjs
+grep -q 'settlement shape' backend/test/api.test.mjs
 grep -q 'same millisecond' backend/test/api.test.mjs
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml

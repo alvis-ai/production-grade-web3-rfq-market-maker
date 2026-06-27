@@ -109,6 +109,69 @@ test("RFQ API includes trace ids on validation and not found errors", async () =
   }
 });
 
+test("RFQ API rejects submit payloads that violate settlement shape", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const quote = {
+      user: baseQuoteRequest.user,
+      tokenIn: baseQuoteRequest.tokenIn,
+      tokenOut: baseQuoteRequest.tokenOut,
+      amountIn: baseQuoteRequest.amountIn,
+      amountOut: "1000000000",
+      minAmountOut: "995000000",
+      nonce: "1",
+      deadline: Math.floor(Date.now() / 1000) + 30,
+      chainId: baseQuoteRequest.chainId,
+    };
+
+    const invalidSignature = await injectJson(server, "POST", "/submit", {
+      quote,
+      signature: "0x1234",
+    });
+    assert.equal(invalidSignature.statusCode, 400);
+    assert.equal(invalidSignature.body.code, "INVALID_REQUEST");
+    assert.match(invalidSignature.body.message, /65 bytes/);
+    assert.match(invalidSignature.body.traceId, /^tr_/);
+
+    const sameTokenPair = await injectJson(server, "POST", "/submit", {
+      quote: {
+        ...quote,
+        tokenOut: quote.tokenIn,
+      },
+      signature: fixedSignature(),
+    });
+    assert.equal(sameTokenPair.statusCode, 400);
+    assert.equal(sameTokenPair.body.code, "INVALID_REQUEST");
+    assert.match(sameTokenPair.body.message, /tokenIn and quote\.tokenOut must be different/);
+
+    const zeroAmount = await injectJson(server, "POST", "/submit", {
+      quote: {
+        ...quote,
+        amountIn: "0",
+      },
+      signature: fixedSignature(),
+    });
+    assert.equal(zeroAmount.statusCode, 400);
+    assert.equal(zeroAmount.body.code, "INVALID_REQUEST");
+    assert.match(zeroAmount.body.message, /positive uint string/);
+
+    const belowMinimum = await injectJson(server, "POST", "/submit", {
+      quote: {
+        ...quote,
+        amountOut: "994999999",
+      },
+      signature: fixedSignature(),
+    });
+    assert.equal(belowMinimum.statusCode, 400);
+    assert.equal(belowMinimum.body.code, "INVALID_REQUEST");
+    assert.match(belowMinimum.body.message, /greater than or equal/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API generates unique quote ids and nonces within the same millisecond", async () => {
   const originalDateNow = Date.now;
   Date.now = () => 1893456000000;
@@ -153,4 +216,8 @@ async function injectJson(server, method, url, payload) {
     headers: response.headers,
     body: response.payload ? JSON.parse(response.payload) : undefined,
   };
+}
+
+function fixedSignature() {
+  return `0x${"11".repeat(65)}`;
 }
