@@ -32,6 +32,7 @@ test -s sdk/src/settlement.ts
 test -s sdk/test/sdk.test.mjs
 test -s contracts/src/RFQSettlement.sol
 test -s contracts/test/RFQSettlement.t.sol
+test -s contracts/test/Deploy.t.sol
 test -s examples/quote-request.json
 test -s examples/submit-request.json
 test -s scripts/smoke-api.mjs
@@ -135,6 +136,10 @@ grep -q 'testSubmitQuoteRejectsExpiredQuote' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsWrongChainId' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUnwhitelistedToken' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsAmountOutBelowMinimum' contracts/test/RFQSettlement.t.sol
+grep -q 'contract DeployRFQSettlement' contracts/script/Deploy.s.sol
+grep -q 'RFQ_TRUSTED_SIGNER' contracts/script/Deploy.s.sol
+grep -q 'RFQ_TOKEN_WHITELIST_JSON' contracts/script/Deploy.s.sol
+grep -q 'testDeployInitializesTrustedSignerAndWhitelist' contracts/test/Deploy.t.sol
 grep -q 'contract-test' Makefile
 grep -q 'backend-build' Makefile
 grep -q 'backend-test' Makefile

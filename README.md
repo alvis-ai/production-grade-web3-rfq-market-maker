@@ -107,6 +107,15 @@ function submitQuote(
 
 核心保护包括 EIP-712 verification、trusted signer、nonce replay protection、deadline expiry、token whitelist、pause、reentrancy protection 和 SafeERC20。
 
+Local deployment script:
+
+```sh
+cd contracts
+RFQ_TRUSTED_SIGNER=0x0000000000000000000000000000000000000001 \
+RFQ_TOKEN_WHITELIST_JSON='{"tokens":["0x0000000000000000000000000000000000000002"]}' \
+forge script script/Deploy.s.sol:DeployRFQSettlement
+```
+
 ## Local Configuration
 
 Copy `.env.example` for local backend configuration. The included signer key is the public Anvil development key and must only be used on local chains.
