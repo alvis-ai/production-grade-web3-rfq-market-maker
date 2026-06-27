@@ -35,6 +35,14 @@ const submitResponse = await request("POST", "/submit", {
 assertEqual(submitResponse.status, "accepted", "submit status");
 assertHex(submitResponse.txHash, "txHash");
 
+const replayError = await requestError("POST", "/submit", {
+  quote: signedQuote,
+  signature: quoteResponse.signature,
+});
+assertEqual(replayError.status, 409, "replay HTTP status");
+assertEqual(replayError.payload.code, "QUOTE_ALREADY_USED", "replay error code");
+assertString(replayError.payload.traceId, "replay traceId");
+
 const quoteStatus = await request("GET", `/quote/${encodeURIComponent(quoteResponse.quoteId)}`);
 assertEqual(quoteStatus.status, "settled", "quote status");
 assertEqual(quoteStatus.txHash, submitResponse.txHash, "quote txHash");
@@ -42,8 +50,19 @@ assertEqual(quoteStatus.txHash, submitResponse.txHash, "quote txHash");
 const metrics = await requestText("GET", "/metrics");
 assertIncludes(metrics, "rfq_quote_requests_total 1", "quote request metric");
 assertIncludes(metrics, "rfq_submit_accepted_total 1", "submit accepted metric");
+assertIncludes(metrics, "rfq_submit_errors_total 1", "submit error metric");
 assertIncludes(metrics, "rfq_settlements_total 1", "settlement metric");
 assertIncludes(metrics, "rfq_hedge_intents_total 1", "hedge metric");
+assertIncludes(
+  metrics,
+  `rfq_inventory_balance{chain_id="${quoteRequest.chainId}",token="${quoteRequest.tokenIn.toLowerCase()}"} ${quoteRequest.amountIn}`,
+  "tokenIn inventory metric",
+);
+assertIncludes(
+  metrics,
+  `rfq_inventory_balance{chain_id="${quoteRequest.chainId}",token="${quoteRequest.tokenOut.toLowerCase()}"} -${quoteResponse.amountOut}`,
+  "tokenOut inventory metric",
+);
 
 console.log(
   JSON.stringify(
@@ -52,6 +71,7 @@ console.log(
       quoteId: quoteResponse.quoteId,
       status: quoteStatus.status,
       txHash: submitResponse.txHash,
+      replayTraceId: replayError.payload.traceId,
     },
     null,
     2,
@@ -72,6 +92,25 @@ async function request(method, path, body) {
   }
 
   return payload;
+}
+
+async function requestError(method, path, body) {
+  const response = await fetch(`${apiUrl}${path}`, {
+    method,
+    headers: body ? { "content-type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : undefined;
+
+  if (response.ok) {
+    throw new Error(`${method} ${path} unexpectedly succeeded: ${text}`);
+  }
+
+  return {
+    status: response.status,
+    payload,
+  };
 }
 
 async function requestText(method, path) {

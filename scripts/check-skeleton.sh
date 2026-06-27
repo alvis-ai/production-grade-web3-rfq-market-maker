@@ -159,6 +159,9 @@ grep -q '"viem"' backend/package.json
 grep -q '"@types/react"' frontend/package.json
 grep -q 'scripts/smoke-api.mjs' scripts/smoke-api.sh
 grep -q 'rfq_submit_accepted_total 1' scripts/smoke-api.mjs
+grep -q 'QUOTE_ALREADY_USED' scripts/smoke-api.mjs
+grep -q 'rfq_submit_errors_total 1' scripts/smoke-api.mjs
+grep -q 'rfq_inventory_balance' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' backend/test/api.test.mjs
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
