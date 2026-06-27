@@ -180,6 +180,42 @@ test("RFQ API rejects submit payloads that violate settlement shape", async () =
   }
 });
 
+test("RFQ API rejects expired submit quotes before simulated settlement", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/submit", {
+      quote: {
+        user: baseQuoteRequest.user,
+        tokenIn: baseQuoteRequest.tokenIn,
+        tokenOut: baseQuoteRequest.tokenOut,
+        amountIn: baseQuoteRequest.amountIn,
+        amountOut: "1000000000",
+        minAmountOut: "995000000",
+        nonce: "1",
+        deadline: Math.floor(Date.now() / 1000) - 1,
+        chainId: baseQuoteRequest.chainId,
+      },
+      signature: fixedSignature(),
+    });
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "QUOTE_EXPIRED");
+    assert.match(response.body.traceId, /^tr_/);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_submit_requests_total 1/);
+    assert.match(metrics.payload, /rfq_submit_errors_total 1/);
+    assert.match(metrics.payload, /rfq_submit_accepted_total 0/);
+    assert.match(metrics.payload, /rfq_settlements_total 0/);
+    assert.doesNotMatch(metrics.payload, /rfq_inventory_balance\{chain_id=/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API generates unique quote ids and nonces within the same millisecond", async () => {
   const originalDateNow = Date.now;
   Date.now = () => 1893456000000;

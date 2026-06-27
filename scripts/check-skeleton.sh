@@ -52,6 +52,7 @@ grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
 grep -q 'signature must be 65 bytes' backend/src/shared/validation/submit-request.ts
 grep -q 'readPositiveUint' backend/src/shared/validation/submit-request.ts
 grep -q 'greater than or equal to quote.minAmountOut' backend/src/shared/validation/submit-request.ts
+grep -q 'QUOTE_EXPIRED' backend/src/shared/validation/submit-request.ts
 grep -q 'InMemoryQuoteRepository' backend/src/main.ts
 grep -q 'new InventoryService' backend/src/main.ts
 grep -q 'new HedgeService' backend/src/main.ts
@@ -147,6 +148,7 @@ grep -q 'buildServer' backend/test/api.test.mjs
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'trace ids' backend/test/api.test.mjs
 grep -q 'settlement shape' backend/test/api.test.mjs
+grep -q 'expired submit quotes' backend/test/api.test.mjs
 grep -q 'same millisecond' backend/test/api.test.mjs
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml

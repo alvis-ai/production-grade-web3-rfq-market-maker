@@ -33,6 +33,10 @@ export function validateSubmitQuoteRequest(input: unknown): SubmitQuoteRequest {
   if (BigInt(amountOut) < BigInt(minAmountOut)) {
     throw new APIError("INVALID_REQUEST", "quote.amountOut must be greater than or equal to quote.minAmountOut", 400);
   }
+  const deadline = readPositiveInteger(quote.deadline, "quote.deadline");
+  if (deadline < Math.floor(Date.now() / 1000)) {
+    throw new APIError("QUOTE_EXPIRED", "Quote expired", 409);
+  }
 
   return {
     quote: {
@@ -43,7 +47,7 @@ export function validateSubmitQuoteRequest(input: unknown): SubmitQuoteRequest {
       amountOut,
       minAmountOut,
       nonce: readUint(quote.nonce, "quote.nonce"),
-      deadline: readPositiveInteger(quote.deadline, "quote.deadline"),
+      deadline,
       chainId: readPositiveInteger(quote.chainId, "quote.chainId"),
     },
     signature: signature as `0x${string}`,
