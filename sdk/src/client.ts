@@ -1,4 +1,5 @@
 import type {
+  HealthResponse,
   QuoteRequest,
   QuoteResponse,
   QuoteStatus,
@@ -56,6 +57,22 @@ export class RFQClient {
     await assertOk(response, "RFQ quote status failed");
 
     return (await response.json()) as QuoteStatus;
+  }
+
+  async health(): Promise<HealthResponse> {
+    const response = await fetch(`${this.baseUrl}/health`);
+
+    await assertOk(response, "RFQ health check failed");
+
+    return (await response.json()) as HealthResponse;
+  }
+
+  async metrics(): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/metrics`);
+
+    await assertOk(response, "RFQ metrics request failed");
+
+    return response.text();
   }
 }
 

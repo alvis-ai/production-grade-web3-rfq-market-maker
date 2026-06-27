@@ -70,7 +70,7 @@ test("buildSubmitQuoteArgs converts string integer fields to settlement bigint f
   });
 });
 
-test("RFQClient sends quote, submit, and status requests with expected shapes", async () => {
+test("RFQClient sends quote, submit, status, health, and metrics requests with expected shapes", async () => {
   const calls = [];
   const quoteResponse = {
     quoteId: "q_test",
@@ -90,6 +90,12 @@ test("RFQClient sends quote, submit, and status requests with expected shapes", 
     status: "settled",
     txHash: submitResponse.txHash,
   };
+  const healthResponse = { status: "ok" };
+  const metricsResponse = [
+    "# TYPE rfq_quote_requests_total counter",
+    "rfq_quote_requests_total 1",
+    "",
+  ].join("\n");
 
   const restoreFetch = installFetch(async (url, init = {}) => {
     calls.push({ url, init });
@@ -102,7 +108,13 @@ test("RFQClient sends quote, submit, and status requests with expected shapes", 
     if (url.endsWith("/quote/q_test")) {
       return jsonResponse(200, statusResponse);
     }
-    return jsonResponse(404, { code: "NOT_FOUND", message: "not found" });
+    if (url.endsWith("/health")) {
+      return jsonResponse(200, healthResponse);
+    }
+    if (url.endsWith("/metrics")) {
+      return textResponse(200, metricsResponse);
+    }
+    return jsonResponse(404, { code: "NOT_FOUND", message: "not found", traceId: "trace_not_found" });
   });
 
   try {
@@ -118,12 +130,16 @@ test("RFQClient sends quote, submit, and status requests with expected shapes", 
     }), quoteResponse);
     assert.deepEqual(await client.submit({ quote, signature }), submitResponse);
     assert.deepEqual(await client.getQuote("q_test"), statusResponse);
+    assert.deepEqual(await client.health(), healthResponse);
+    assert.equal(await client.metrics(), metricsResponse);
 
-    assert.equal(calls.length, 3);
+    assert.equal(calls.length, 5);
     assert.equal(calls[0].url, "http://127.0.0.1:3000/quote");
     assert.equal(calls[0].init.headers["content-type"], "application/json");
     assert.deepEqual(JSON.parse(calls[1].init.body), { quote, signature });
     assert.equal(calls[2].url, "http://127.0.0.1:3000/quote/q_test");
+    assert.equal(calls[3].url, "http://127.0.0.1:3000/health");
+    assert.equal(calls[4].url, "http://127.0.0.1:3000/metrics");
   } finally {
     restoreFetch();
   }
@@ -177,6 +193,19 @@ function jsonResponse(status, payload) {
     ok: status >= 200 && status < 300,
     status,
     async json() {
+      return payload;
+    },
+  };
+}
+
+function textResponse(status, payload) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    async json() {
+      throw new Error("text response does not support json");
+    },
+    async text() {
       return payload;
     },
   };

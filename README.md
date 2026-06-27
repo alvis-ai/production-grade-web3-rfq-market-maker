@@ -128,6 +128,20 @@ node backend/dist/main.js
 make smoke-api
 ```
 
+## TypeScript SDK
+
+`@rfq-market-maker/sdk` exposes `RFQClient` for the current API surface:
+
+```ts
+const client = new RFQClient("http://localhost:3000");
+
+await client.quote(request);
+await client.submit({ quote, signature });
+await client.getQuote("q_...");
+await client.health();
+await client.metrics();
+```
+
 ## Design Principles
 
 1. Quote and execution consistency is the core invariant.

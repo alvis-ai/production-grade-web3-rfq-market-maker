@@ -111,6 +111,11 @@ grep -q 'submitQuote' sdk/src/abi.ts
 grep -q 'setTokenWhitelist' sdk/src/abi.ts
 grep -q 'async submit' sdk/src/client.ts
 grep -q 'async getQuote' sdk/src/client.ts
+grep -q 'async health' sdk/src/client.ts
+grep -q 'async metrics' sdk/src/client.ts
+grep -q 'traceId: string' sdk/src/types.ts
+grep -q 'client.health' sdk/test/sdk.test.mjs
+grep -q 'client.metrics' sdk/test/sdk.test.mjs
 grep -q 'function submitQuote' contracts/src/RFQSettlement.sol
 grep -q 'function setTokenWhitelist' contracts/src/RFQSettlement.sol
 grep -q 'function setPaused' contracts/src/RFQSettlement.sol

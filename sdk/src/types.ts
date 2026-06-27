@@ -42,6 +42,10 @@ export interface SubmitQuoteResponse {
   txHash?: `0x${string}`;
 }
 
+export interface HealthResponse {
+  status: "ok";
+}
+
 export type QuoteLifecycleStatus =
   | "requested"
   | "rejected"
@@ -63,5 +67,5 @@ export interface QuoteStatus {
 export interface RFQErrorResponse {
   code: string;
   message: string;
-  traceId?: string;
+  traceId: string;
 }
