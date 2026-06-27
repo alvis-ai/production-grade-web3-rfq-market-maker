@@ -35,5 +35,7 @@ jobs:
         run: make backend-test
       - name: Typecheck SDK
         run: make sdk-typecheck
+      - name: Test SDK
+        run: make sdk-test
       - name: Build frontend
         run: make frontend-build

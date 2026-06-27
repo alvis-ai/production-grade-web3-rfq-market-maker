@@ -10,6 +10,7 @@
     "backend:test": "make backend-test",
     "backend:typecheck": "make backend-typecheck",
     "frontend:build": "make frontend-build",
+    "sdk:test": "make sdk-test",
     "sdk:typecheck": "make sdk-typecheck",
     "typescript:check": "make typescript-check",
     "contract:build": "make contract-build",

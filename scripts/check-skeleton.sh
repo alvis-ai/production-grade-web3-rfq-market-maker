@@ -27,6 +27,7 @@ test -s sdk/src/abi.ts
 test -s sdk/src/eip712.ts
 test -s sdk/src/index.ts
 test -s sdk/src/settlement.ts
+test -s sdk/test/sdk.test.mjs
 test -s contracts/src/RFQSettlement.sol
 test -s contracts/test/RFQSettlement.t.sol
 test -s examples/quote-request.json
@@ -90,6 +91,9 @@ grep -q 'rfqSettlementAbi' sdk/src/index.ts
 grep -q 'buildSubmitQuoteArgs' sdk/src/index.ts
 grep -q 'buildQuoteTypedData' sdk/src/eip712.ts
 grep -q 'ProductionGradeRFQ' sdk/src/eip712.ts
+grep -q 'RFQClientError' sdk/test/sdk.test.mjs
+grep -q 'buildQuoteTypedData' sdk/test/sdk.test.mjs
+grep -q 'buildSubmitQuoteArgs' sdk/test/sdk.test.mjs
 grep -q 'submitQuote' sdk/src/abi.ts
 grep -q 'setTokenWhitelist' sdk/src/abi.ts
 grep -q 'async submit' sdk/src/client.ts
@@ -109,6 +113,7 @@ grep -q 'forge test' .github/workflows/contract-ci.yml
 grep -q 'make backend-typecheck' .github/workflows/backend-ci.yml
 grep -q 'make backend-test' .github/workflows/backend-ci.yml
 grep -q 'make sdk-typecheck' .github/workflows/backend-ci.yml
+grep -q 'make sdk-test' .github/workflows/backend-ci.yml
 grep -q 'make frontend-build' .github/workflows/backend-ci.yml
 grep -q 'make docs-check' .github/workflows/docs-ci.yml
 grep -q 'typescript-check' Makefile

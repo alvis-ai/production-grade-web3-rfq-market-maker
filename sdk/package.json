@@ -10,6 +10,8 @@
     }
   },
   "scripts": {
+    "build": "tsc",
+    "test": "pnpm build && node --test test/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
