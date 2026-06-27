@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { recoverTypedDataAddress, verifyTypedData } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import {
   RFQClient,
   RFQClientError,
@@ -23,6 +25,7 @@ const quote = {
 
 const verifyingContract = "0x0000000000000000000000000000000000000004";
 const signature = `0x${"11".repeat(65)}`;
+const signerPrivateKey = "0x59c6995e998f97a5a0044966f094538d9dae1ffc26a3b6d86dae8e3a0b97e6a0";
 
 test("buildRFQDomain and buildQuoteTypedData preserve EIP-712 quote schema", () => {
   assert.deepEqual(buildRFQDomain(quote.chainId, verifyingContract), {
@@ -50,6 +53,29 @@ test("buildRFQDomain and buildQuoteTypedData preserve EIP-712 quote schema", () 
       "deadline:uint256",
       "chainId:uint256",
     ],
+  );
+});
+
+test("buildQuoteTypedData produces viem-verifiable EIP-712 payloads", async () => {
+  const account = privateKeyToAccount(signerPrivateKey);
+  const typedData = buildQuoteTypedData(quote, verifyingContract);
+  const signed = await account.signTypedData(typedData);
+
+  assert.match(signed, /^0x[0-9a-fA-F]{130}$/);
+  assert.equal(
+    (await recoverTypedDataAddress({
+      ...typedData,
+      signature: signed,
+    })).toLowerCase(),
+    account.address.toLowerCase(),
+  );
+  assert.equal(
+    await verifyTypedData({
+      ...typedData,
+      address: account.address,
+      signature: signed,
+    }),
+    true,
   );
 });
 

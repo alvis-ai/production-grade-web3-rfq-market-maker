@@ -115,6 +115,8 @@ grep -q 'ProductionGradeRFQ' sdk/src/eip712.ts
 grep -q 'RFQClientError' sdk/test/sdk.test.mjs
 grep -q 'buildQuoteTypedData' sdk/test/sdk.test.mjs
 grep -q 'buildSubmitQuoteArgs' sdk/test/sdk.test.mjs
+grep -q 'recoverTypedDataAddress' sdk/test/sdk.test.mjs
+grep -q 'verifyTypedData' sdk/test/sdk.test.mjs
 grep -q 'submitQuote' sdk/src/abi.ts
 grep -q 'setTokenWhitelist' sdk/src/abi.ts
 grep -q 'async submit' sdk/src/client.ts
