@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer } from "../dist/main.js";
+import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
 import { BasicRiskEngine, defaultBasicRiskPolicy } from "../dist/modules/risk/risk.engine.js";
 import {
   LocalSettlementVerifier,
@@ -344,6 +345,62 @@ test("RFQ API keeps settlement accepted when hedge intent creation fails", async
     assert.match(metrics.payload, /rfq_hedge_intents_total 0/);
     assert.match(metrics.payload, /rfq_hedge_intent_errors_total\{reason="HEDGE_INTENT_FAILED"\} 1/);
     assert.match(metrics.payload, /rfq_pnl_trades_total 1/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API keeps settlement accepted when post-settlement quote status persistence fails", async () => {
+  class FailingStatusQuoteRepository extends InMemoryQuoteRepository {
+    async markStatus() {
+      throw new Error("quote status store offline");
+    }
+  }
+
+  const server = buildServer({
+    logger: false,
+    quoteRepository: new FailingStatusQuoteRepository(),
+  });
+  await server.ready();
+
+  try {
+    const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(quote.statusCode, 200);
+
+    const submitPayload = {
+      quote: quotePayloadFromResponse(quote.body),
+      signature: quote.body.signature,
+    };
+    const submit = await injectJson(server, "POST", "/submit", submitPayload);
+
+    assert.equal(submit.statusCode, 202);
+    assert.equal(submit.body.status, "accepted");
+    assert.match(submit.body.settlementEventId, /^se_/);
+    assert.match(submit.body.hedgeOrderId, /^h_/);
+    assert.equal(submit.body.pnlId, `pnl_${quote.body.quoteId}`);
+
+    const replay = await injectJson(server, "POST", "/submit", submitPayload);
+    assert.equal(replay.statusCode, 202);
+    assert.equal(replay.body.status, "accepted");
+    assert.equal(replay.body.settlementEventId, submit.body.settlementEventId);
+    assert.equal(replay.body.hedgeOrderId, undefined);
+    assert.equal(replay.body.pnlId, undefined);
+
+    const pnl = await injectJson(server, "GET", "/pnl");
+    assert.equal(pnl.statusCode, 200);
+    assert.equal(pnl.body.totalTrades, 1);
+    assert.equal(pnl.body.trades[0].quoteId, quote.body.quoteId);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_submit_requests_total 2/);
+    assert.match(metrics.payload, /rfq_submit_accepted_total 2/);
+    assert.match(metrics.payload, /rfq_submit_errors_total 0/);
+    assert.match(metrics.payload, /rfq_settlements_total 1/);
+    assert.match(metrics.payload, /rfq_hedge_intents_total 1/);
+    assert.match(metrics.payload, /rfq_pnl_trades_total 1/);
+    assert.match(metrics.payload, /rfq_quote_status_update_errors_total\{target_status="SUBMITTED"\} 2/);
+    assert.match(metrics.payload, /rfq_quote_status_update_errors_total\{target_status="SETTLED"\} 2/);
   } finally {
     await server.close();
   }

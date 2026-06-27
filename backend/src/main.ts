@@ -172,23 +172,28 @@ export function buildServer(options: BuildServerOptions = {}) {
       const submitRequest = validateSubmitQuoteRequest(request.body);
       quoteId = await quoteService.requireSubmittableSignedQuote(submitRequest.quote, submitRequest.signature);
       const result = await executionService.submitQuote(submitRequest, { quoteId });
-      const pnlRecord = pnlService.recordSettlement({ quoteId, quote: submitRequest.quote });
+      const pnlRecord = result.settlementEventResult.duplicate
+        ? undefined
+        : pnlService.recordSettlement({ quoteId, quote: submitRequest.quote });
       metricsService.recordSubmitAccepted();
-      metricsService.recordSettlement();
-      if (result.hedgeResult) {
-        metricsService.recordHedgeIntent();
+      if (!result.settlementEventResult.duplicate) {
+        metricsService.recordSettlement();
+        if (result.hedgeResult) {
+          metricsService.recordHedgeIntent();
+        }
+        if (result.hedgeFailure) {
+          metricsService.recordHedgeIntentError(result.hedgeFailure.reasonCode);
+        }
+        if (pnlRecord) {
+          metricsService.recordPnlTrade(pnlRecord);
+        }
+        metricsService.recordInventoryPosition(result.inventoryPositions.tokenIn);
+        metricsService.recordInventoryPosition(result.inventoryPositions.tokenOut);
       }
-      if (result.hedgeFailure) {
-        metricsService.recordHedgeIntentError(result.hedgeFailure.reasonCode);
-      }
-      metricsService.recordPnlTrade(pnlRecord);
-      metricsService.recordInventoryPosition(result.inventoryPositions.tokenIn);
-      metricsService.recordInventoryPosition(result.inventoryPositions.tokenOut);
-      await quoteService.markQuoteStatus(quoteId, "submitted", result.response.txHash);
-      await quoteService.markQuoteStatus(quoteId, "settled", result.response.txHash);
+      await markPostSettlementQuoteStatus(quoteService, metricsService, quoteId, result.response.txHash);
       return reply.code(202).send({
         ...result.response,
-        pnlId: pnlRecord.pnlId,
+        pnlId: pnlRecord?.pnlId,
       });
     } catch (error) {
       metricsService.recordSubmitError();
@@ -238,6 +243,25 @@ function sendError(
   error: APIError,
 ) {
   return reply.header("x-trace-id", traceId).code(error.statusCode).send(error.toResponse(traceId));
+}
+
+async function markPostSettlementQuoteStatus(
+  quoteService: QuoteService,
+  metricsService: MetricsService,
+  quoteId: string,
+  txHash?: `0x${string}`,
+): Promise<void> {
+  try {
+    await quoteService.markQuoteStatus(quoteId, "submitted", txHash);
+  } catch {
+    metricsService.recordQuoteStatusUpdateError("submitted");
+  }
+
+  try {
+    await quoteService.markQuoteStatus(quoteId, "settled", txHash);
+  } catch {
+    metricsService.recordQuoteStatusUpdateError("settled");
+  }
 }
 
 function requestTraceId(request: FastifyRequest): string {

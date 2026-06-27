@@ -90,6 +90,8 @@ grep -q 'InMemoryQuoteRepository' backend/src/main.ts
 grep -q 'new InventoryService' backend/src/main.ts
 grep -q 'new HedgeService' backend/src/main.ts
 grep -q 'recordSettlement' backend/src/main.ts
+grep -q 'settlementEventResult.duplicate' backend/src/main.ts
+grep -q 'markPostSettlementQuoteStatus' backend/src/main.ts
 grep -q 'recordInventoryPosition' backend/src/main.ts
 grep -q 'reply.code(202)' backend/src/main.ts
 grep -q '"submitted"' backend/src/main.ts
@@ -188,6 +190,8 @@ grep -q 'rfq_settlements_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_hedge_intents_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_hedge_intent_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'recordHedgeIntentError' backend/src/main.ts
+grep -q 'rfq_quote_status_update_errors_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'recordQuoteStatusUpdateError' backend/src/main.ts
 grep -q 'rfq_inventory_balance' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_pnl_trades_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_realized_pnl_token_out' backend/src/modules/metrics/metrics.service.ts
@@ -331,6 +335,10 @@ grep -q 'rfq_inventory_balance' backend/test/api.test.mjs
 grep -q 'hedge intent creation fails' backend/test/api.test.mjs
 grep -q 'HEDGE_INTENT_FAILED' backend/test/api.test.mjs
 grep -q 'HEDGE_INTENT_FAILED' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
+grep -q 'post-settlement quote status persistence fails' backend/test/api.test.mjs
+grep -q 'rfq_quote_status_update_errors_total' backend/test/api.test.mjs
+grep -q 'Duplicate settlement events are idempotent' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'rfq_quote_status_update_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
 grep -q 'marks requested quotes as failed when signer is unavailable' backend/test/quote-service.test.mjs

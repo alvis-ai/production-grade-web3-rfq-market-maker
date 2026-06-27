@@ -28,6 +28,7 @@ export class MetricsService {
   private settlements = 0;
   private hedgeIntents = 0;
   private readonly hedgeIntentErrors = new Map<string, number>();
+  private readonly quoteStatusUpdateErrors = new Map<string, number>();
   private pnlTrades = 0;
   private readonly quoteLatency = createHistogramState();
   private readonly submitLatency = createHistogramState();
@@ -98,6 +99,11 @@ export class MetricsService {
     this.hedgeIntentErrors.set(reason, (this.hedgeIntentErrors.get(reason) ?? 0) + 1);
   }
 
+  recordQuoteStatusUpdateError(targetStatus: string): void {
+    const status = metricLabelValue(targetStatus);
+    this.quoteStatusUpdateErrors.set(status, (this.quoteStatusUpdateErrors.get(status) ?? 0) + 1);
+  }
+
   recordInventoryPosition(position: InventoryMetricPosition): void {
     this.inventoryBalances.set(this.inventoryKey(position.chainId, position.token), position);
   }
@@ -155,6 +161,9 @@ export class MetricsService {
       "# HELP rfq_hedge_intent_errors_total Total hedge intent creation errors after settlement by stable reason.",
       "# TYPE rfq_hedge_intent_errors_total counter",
       ...this.renderHedgeIntentErrors(),
+      "# HELP rfq_quote_status_update_errors_total Total quote status persistence errors by target status.",
+      "# TYPE rfq_quote_status_update_errors_total counter",
+      ...this.renderQuoteStatusUpdateErrors(),
       "# HELP rfq_inventory_balance Current simulated inventory balance by chain and token.",
       "# TYPE rfq_inventory_balance gauge",
       ...this.renderInventoryBalances(),
@@ -190,6 +199,12 @@ export class MetricsService {
     return [...this.hedgeIntentErrors.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([reason, count]) => `rfq_hedge_intent_errors_total{reason="${reason}"} ${count}`);
+  }
+
+  private renderQuoteStatusUpdateErrors(): string[] {
+    return [...this.quoteStatusUpdateErrors.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([status, count]) => `rfq_quote_status_update_errors_total{target_status="${status}"} ${count}`);
   }
 
   private renderRealizedPnl(): string[] {
