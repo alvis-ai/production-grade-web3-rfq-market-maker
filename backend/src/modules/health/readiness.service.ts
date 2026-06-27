@@ -1,3 +1,6 @@
+import type { MarketDataService } from "../market-data/market-data.service.js";
+import type { QuoteRequest } from "../../shared/types/rfq.js";
+
 export type ReadinessComponentStatus = "ok" | "degraded";
 
 export interface ReadinessResponse {
@@ -5,10 +8,37 @@ export interface ReadinessResponse {
   components: Record<string, ReadinessComponentStatus>;
 }
 
+export interface ReadinessServiceDeps {
+  marketDataService: MarketDataService;
+}
+
+export interface ReadinessServiceConfig {
+  maxSnapshotAgeMs: number;
+  probeRequest: QuoteRequest;
+}
+
+export const defaultReadinessServiceConfig: ReadinessServiceConfig = {
+  maxSnapshotAgeMs: 5_000,
+  probeRequest: {
+    chainId: 1,
+    user: "0x0000000000000000000000000000000000000001",
+    tokenIn: "0x0000000000000000000000000000000000000002",
+    tokenOut: "0x0000000000000000000000000000000000000003",
+    amountIn: "1000000000",
+    slippageBps: 50,
+  },
+};
+
 export class ReadinessService {
-  check(): ReadinessResponse {
+  constructor(
+    private readonly deps: ReadinessServiceDeps,
+    private readonly config: ReadinessServiceConfig = defaultReadinessServiceConfig,
+  ) {}
+
+  async check(): Promise<ReadinessResponse> {
+    const marketDataStatus = await this.checkMarketData();
     const components = {
-      marketData: "ok",
+      marketData: marketDataStatus,
       pricing: "ok",
       risk: "ok",
       signer: "ok",
@@ -20,9 +50,30 @@ export class ReadinessService {
       metrics: "ok",
     } as const;
 
+    const hasDegradedComponent = Object.values(components).some((status) => status === "degraded");
+
     return {
-      status: "ready",
+      status: hasDegradedComponent ? "degraded" : "ready",
       components,
     };
+  }
+
+  private async checkMarketData(): Promise<ReadinessComponentStatus> {
+    try {
+      const snapshot = await this.deps.marketDataService.getSnapshot(this.config.probeRequest);
+      const observedAtMs = Date.parse(snapshot.observedAt);
+      if (!Number.isFinite(observedAtMs)) {
+        return "degraded";
+      }
+
+      const ageMs = Date.now() - observedAtMs;
+      if (ageMs < 0) {
+        return "ok";
+      }
+
+      return ageMs <= this.config.maxSnapshotAgeMs ? "ok" : "degraded";
+    } catch {
+      return "degraded";
+    }
   }
 }

@@ -28,7 +28,8 @@ export interface BuildServerOptions {
 export function buildServer(options: BuildServerOptions = {}) {
   const server = Fastify({ logger: options.logger ?? true });
   const hedgeService = new HedgeService();
-  const readinessService = new ReadinessService();
+  const marketDataService = options.marketDataService ?? new StaticMarketDataService();
+  const readinessService = new ReadinessService({ marketDataService });
   const inventoryService = new InventoryService();
   const settlementEventService = new SettlementEventService(inventoryService);
   const executionService = new SkeletonExecutionService({
@@ -45,10 +46,10 @@ export function buildServer(options: BuildServerOptions = {}) {
       maxQuoteRequests: options.rateLimit?.maxQuoteRequests ?? 120,
       maxSubmitRequests: options.rateLimit?.maxSubmitRequests ?? 60,
       maxStatusRequests: options.rateLimit?.maxStatusRequests ?? 300,
-    });
+  });
   const quoteService = new QuoteService({
     inventoryService,
-    marketDataService: options.marketDataService ?? new StaticMarketDataService(),
+    marketDataService,
     pricingEngine: new FormulaPricingEngine(),
     quoteRepository: new InMemoryQuoteRepository(),
     riskEngine: options.riskEngine ?? new BasicRiskEngine(),
@@ -57,7 +58,14 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
 
   server.get("/health", async () => ({ status: "ok" }));
-  server.get("/ready", async () => readinessService.check());
+  server.get("/ready", async (_request, reply) => {
+    const readiness = await readinessService.check();
+    if (readiness.status === "degraded") {
+      return reply.code(503).send(readiness);
+    }
+
+    return readiness;
+  });
   server.get("/metrics", async (_request, reply) => {
     return reply.type("text/plain").send(metricsService.renderPrometheus());
   });
