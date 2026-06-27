@@ -1,4 +1,4 @@
-import type { MarketDataService } from "../market-data/market-data.service.js";
+import { getMarketSnapshotIssue, type MarketDataService } from "../market-data/market-data.service.js";
 import type { QuoteRequest } from "../../shared/types/rfq.js";
 
 export type ReadinessComponentStatus = "ok" | "degraded";
@@ -61,17 +61,7 @@ export class ReadinessService {
   private async checkMarketData(): Promise<ReadinessComponentStatus> {
     try {
       const snapshot = await this.deps.marketDataService.getSnapshot(this.config.probeRequest);
-      const observedAtMs = Date.parse(snapshot.observedAt);
-      if (!Number.isFinite(observedAtMs)) {
-        return "degraded";
-      }
-
-      const ageMs = Date.now() - observedAtMs;
-      if (ageMs < 0) {
-        return "ok";
-      }
-
-      return ageMs <= this.config.maxSnapshotAgeMs ? "ok" : "degraded";
+      return getMarketSnapshotIssue(snapshot, this.config.maxSnapshotAgeMs) ? "degraded" : "ok";
     } catch {
       return "degraded";
     }

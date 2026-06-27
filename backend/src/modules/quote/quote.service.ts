@@ -8,7 +8,7 @@ import type {
 } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
 import type { InventoryService } from "../inventory/inventory.service.js";
-import type { MarketDataService } from "../market-data/market-data.service.js";
+import { getMarketSnapshotIssue, type MarketDataService } from "../market-data/market-data.service.js";
 import type { PricingEngine } from "../pricing/pricing.engine.js";
 import type { QuoteRepository } from "./quote.repository.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
@@ -44,7 +44,7 @@ export class QuoteService {
 
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
     const snapshot = await this.deps.marketDataService.getSnapshot(request);
-    assertFreshSnapshot(snapshot, this.config.maxSnapshotAgeMs);
+    assertUsableSnapshot(snapshot, this.config.maxSnapshotAgeMs);
     const routePlan = await this.deps.routingEngine.selectRoute({ request, snapshot });
     const inventorySkewBps = this.deps.inventoryService.calculateQuoteSkewBps({
       chainId: request.chainId,
@@ -166,19 +166,10 @@ export class QuoteService {
   }
 }
 
-function assertFreshSnapshot(snapshot: MarketSnapshot, maxSnapshotAgeMs: number): void {
-  const observedAtMs = Date.parse(snapshot.observedAt);
-  if (!Number.isFinite(observedAtMs)) {
-    throw new APIError("MARKET_DATA_UNAVAILABLE", "Market data snapshot timestamp is invalid", 503);
-  }
-
-  const ageMs = Date.now() - observedAtMs;
-  if (ageMs < 0) {
-    return;
-  }
-
-  if (ageMs > maxSnapshotAgeMs) {
-    throw new APIError("MARKET_DATA_UNAVAILABLE", "Market data snapshot is stale", 503);
+function assertUsableSnapshot(snapshot: MarketSnapshot, maxSnapshotAgeMs: number): void {
+  const issue = getMarketSnapshotIssue(snapshot, maxSnapshotAgeMs);
+  if (issue) {
+    throw new APIError("MARKET_DATA_UNAVAILABLE", `Market data ${issue}`, 503);
   }
 }
 
