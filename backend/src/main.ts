@@ -65,17 +65,15 @@ export function buildServer(options: BuildServerOptions = {}) {
     metricsService.recordSubmitRequest();
     try {
       const submitRequest = validateSubmitQuoteRequest(request.body);
+      const quoteId = await quoteService.requireSubmittableSignedQuote(submitRequest.quote, submitRequest.signature);
       const result = await executionService.submitQuote(submitRequest);
       metricsService.recordSubmitAccepted();
       metricsService.recordSettlement();
       metricsService.recordHedgeIntent();
       metricsService.recordInventoryPosition(result.inventoryPositions.tokenIn);
       metricsService.recordInventoryPosition(result.inventoryPositions.tokenOut);
-      const quoteId = await quoteService.getQuoteIdForSignedQuote(submitRequest.quote);
-      if (quoteId) {
-        await quoteService.markQuoteStatus(quoteId, "submitted", result.response.txHash);
-        await quoteService.markQuoteStatus(quoteId, "settled", result.response.txHash);
-      }
+      await quoteService.markQuoteStatus(quoteId, "submitted", result.response.txHash);
+      await quoteService.markQuoteStatus(quoteId, "settled", result.response.txHash);
       return reply.code(202).send(result.response);
     } catch (error) {
       metricsService.recordSubmitError();

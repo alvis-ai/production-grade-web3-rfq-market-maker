@@ -86,7 +86,8 @@ grep -q 'class LocalEIP712SignerService' backend/src/modules/signer/signer.servi
 grep -q 'privateKeyToAccount' backend/src/modules/signer/signer.service.ts
 grep -q 'ProductionGradeRFQ' backend/src/modules/signer/signer.service.ts
 grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
-grep -q 'getQuoteIdForSignedQuote' backend/src/modules/quote/quote.service.ts
+grep -q 'requireSubmittableSignedQuote' backend/src/modules/quote/quote.service.ts
+grep -q 'findSignedQuoteByUserNonce' backend/src/modules/quote/quote.repository.ts
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
 grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/metrics.service.ts
@@ -134,6 +135,8 @@ grep -q 'make docs-check' .github/workflows/docs-ci.yml
 grep -q 'typescript-check' Makefile
 grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml
 grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/openapi.yaml
+grep -q 'Signed quote not found' docs/api/openapi.yaml
+grep -q 'Quote expired or already used' docs/api/openapi.yaml
 grep -q 'allowBuilds' pnpm-workspace.yaml
 grep -q 'onlyBuiltDependencies' pnpm-workspace.yaml
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' .env.example
@@ -149,6 +152,8 @@ grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'trace ids' backend/test/api.test.mjs
 grep -q 'settlement shape' backend/test/api.test.mjs
 grep -q 'expired submit quotes' backend/test/api.test.mjs
+grep -q 'unissued submit quotes' backend/test/api.test.mjs
+grep -q 'replayed submit quotes' backend/test/api.test.mjs
 grep -q 'same millisecond' backend/test/api.test.mjs
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml

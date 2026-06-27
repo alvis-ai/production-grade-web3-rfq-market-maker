@@ -34,6 +34,7 @@ export interface QuoteRepository {
   findStatus(quoteId: string): Promise<QuoteStatusResponse | undefined>;
   markStatus(quoteId: string, status: QuoteLifecycleStatus, txHash?: `0x${string}`): Promise<void>;
   findQuoteIdByUserNonce(user: Address, nonce: UIntString): Promise<string | undefined>;
+  findSignedQuoteByUserNonce(user: Address, nonce: UIntString): Promise<QuoteRecord | undefined>;
 }
 
 export interface SaveRequestedQuoteInput {
@@ -145,6 +146,13 @@ export class InMemoryQuoteRepository implements QuoteRepository {
 
   async findQuoteIdByUserNonce(user: Address, nonce: UIntString): Promise<string | undefined> {
     return this.quoteIdsByUserNonce.get(this.userNonceKey(user, nonce));
+  }
+
+  async findSignedQuoteByUserNonce(user: Address, nonce: UIntString): Promise<QuoteRecord | undefined> {
+    const quoteId = await this.findQuoteIdByUserNonce(user, nonce);
+    if (!quoteId) return undefined;
+
+    return this.records.get(quoteId);
   }
 
   private userNonceKey(user: Address, nonce: UIntString): string {

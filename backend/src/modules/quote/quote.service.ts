@@ -116,7 +116,45 @@ export class QuoteService {
     await this.deps.quoteRepository.markStatus(quoteId, status, txHash);
   }
 
-  async getQuoteIdForSignedQuote(quote: SignedQuote): Promise<string | undefined> {
-    return this.deps.quoteRepository.findQuoteIdByUserNonce(quote.user, quote.nonce);
+  async requireSubmittableSignedQuote(quote: SignedQuote, signature: `0x${string}`): Promise<string> {
+    const record = await this.deps.quoteRepository.findSignedQuoteByUserNonce(quote.user, quote.nonce);
+    if (!record || !isExactSignedQuote(record, quote, signature)) {
+      throw new APIError("QUOTE_NOT_FOUND", "Signed quote not found", 404);
+    }
+    if (record.status === "submitted" || record.status === "settled") {
+      throw new APIError("QUOTE_ALREADY_USED", "Quote already used", 409);
+    }
+
+    return record.quoteId;
   }
+}
+
+function isExactSignedQuote(
+  record: {
+    chainId: number;
+    user: string;
+    tokenIn: string;
+    tokenOut: string;
+    amountIn: string;
+    amountOut?: string;
+    minAmountOut?: string;
+    nonce?: string;
+    deadline?: number;
+    signature?: `0x${string}`;
+  },
+  quote: SignedQuote,
+  signature: `0x${string}`,
+): boolean {
+  return (
+    record.chainId === quote.chainId &&
+    record.user.toLowerCase() === quote.user.toLowerCase() &&
+    record.tokenIn.toLowerCase() === quote.tokenIn.toLowerCase() &&
+    record.tokenOut.toLowerCase() === quote.tokenOut.toLowerCase() &&
+    record.amountIn === quote.amountIn &&
+    record.amountOut === quote.amountOut &&
+    record.minAmountOut === quote.minAmountOut &&
+    record.nonce === quote.nonce &&
+    record.deadline === quote.deadline &&
+    record.signature?.toLowerCase() === signature.toLowerCase()
+  );
 }
