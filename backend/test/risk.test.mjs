@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { BasicRiskEngine } from "../dist/modules/risk/risk.engine.js";
+import { BasicRiskEngine, defaultBasicRiskPolicy } from "../dist/modules/risk/risk.engine.js";
 
 const baseRequest = {
   chainId: 1,
@@ -63,4 +63,38 @@ test("BasicRiskEngine rejects projected token-out inventory over hard limit", as
 
   assert.equal(decision.status, "rejected");
   assert.equal(decision.reasonCode, "TOKEN_OUT_INVENTORY_LIMIT_EXCEEDED");
+});
+
+test("BasicRiskEngine rejects restricted toxic-flow users", async () => {
+  const decision = await new BasicRiskEngine({
+    ...defaultBasicRiskPolicy,
+    restrictedUsers: [baseRequest.user],
+  }).evaluate({
+    request: baseRequest,
+    pricing: basePricing,
+  });
+
+  assert.equal(decision.status, "rejected");
+  assert.equal(decision.reasonCode, "TOXIC_FLOW_RESTRICTED_USER");
+  assert.equal(decision.policyVersion, "basic-risk-v1");
+});
+
+test("BasicRiskEngine rejects users above toxic-flow score threshold", async () => {
+  const decision = await new BasicRiskEngine({
+    ...defaultBasicRiskPolicy,
+    maxToxicScoreBps: 8000,
+    toxicFlowScores: [
+      {
+        user: baseRequest.user,
+        scoreBps: 9000,
+      },
+    ],
+  }).evaluate({
+    request: baseRequest,
+    pricing: basePricing,
+  });
+
+  assert.equal(decision.status, "rejected");
+  assert.equal(decision.reasonCode, "TOXIC_FLOW_SCORE_EXCEEDED");
+  assert.equal(decision.policyVersion, "basic-risk-v1");
 });

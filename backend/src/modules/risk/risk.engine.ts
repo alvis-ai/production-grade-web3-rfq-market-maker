@@ -24,10 +24,18 @@ export interface BasicRiskPolicy {
   policyVersion: string;
   enabledChainIds: readonly number[];
   tokenAllowlist: readonly `0x${string}`[];
+  restrictedUsers: readonly `0x${string}`[];
+  toxicFlowScores: readonly ToxicFlowScore[];
+  maxToxicScoreBps: number;
   maxAmountIn: bigint;
   minAmountOut: bigint;
   maxSlippageBps: number;
   maxAbsoluteInventory: bigint;
+}
+
+export interface ToxicFlowScore {
+  user: `0x${string}`;
+  scoreBps: number;
 }
 
 export const defaultBasicRiskPolicy: BasicRiskPolicy = {
@@ -37,6 +45,9 @@ export const defaultBasicRiskPolicy: BasicRiskPolicy = {
     "0x0000000000000000000000000000000000000002",
     "0x0000000000000000000000000000000000000003",
   ],
+  restrictedUsers: [],
+  toxicFlowScores: [],
+  maxToxicScoreBps: 8_000,
   maxAmountIn: 10_000_000_000_000_000_000_000n,
   minAmountOut: 1n,
   maxSlippageBps: 500,
@@ -46,10 +57,14 @@ export const defaultBasicRiskPolicy: BasicRiskPolicy = {
 export class BasicRiskEngine implements RiskEngine {
   private readonly allowedTokens: ReadonlySet<string>;
   private readonly enabledChainIds: ReadonlySet<number>;
+  private readonly restrictedUsers: ReadonlySet<string>;
+  private readonly toxicFlowScores: ReadonlyMap<string, number>;
 
   constructor(private readonly policy: BasicRiskPolicy = defaultBasicRiskPolicy) {
     this.allowedTokens = new Set(policy.tokenAllowlist.map((token) => token.toLowerCase()));
     this.enabledChainIds = new Set(policy.enabledChainIds);
+    this.restrictedUsers = new Set(policy.restrictedUsers.map((user) => user.toLowerCase()));
+    this.toxicFlowScores = new Map(policy.toxicFlowScores.map((score) => [score.user.toLowerCase(), score.scoreBps]));
   }
 
   async evaluate(input: RiskInput): Promise<RiskDecision> {
@@ -67,6 +82,15 @@ export class BasicRiskEngine implements RiskEngine {
 
     if (BigInt(input.pricing.amountOut) < this.policy.minAmountOut) {
       return this.reject("AMOUNT_OUT_TOO_SMALL");
+    }
+
+    if (this.restrictedUsers.has(input.request.user.toLowerCase())) {
+      return this.reject("TOXIC_FLOW_RESTRICTED_USER");
+    }
+
+    const toxicScoreBps = this.toxicFlowScores.get(input.request.user.toLowerCase()) ?? 0;
+    if (toxicScoreBps > this.policy.maxToxicScoreBps) {
+      return this.reject("TOXIC_FLOW_SCORE_EXCEEDED");
     }
 
     if (input.request.slippageBps > this.policy.maxSlippageBps) {

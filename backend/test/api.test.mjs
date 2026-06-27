@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer } from "../dist/main.js";
+import { BasicRiskEngine, defaultBasicRiskPolicy } from "../dist/modules/risk/risk.engine.js";
 
 const baseQuoteRequest = {
   chainId: 1,
@@ -218,6 +219,40 @@ test("RFQ API rejects stale market data before pricing and signing", async () =>
     assert.match(metrics.payload, /rfq_quote_errors_total 1/);
     assert.match(metrics.payload, /rfq_quote_responses_total 0/);
     assert.doesNotMatch(metrics.payload, /rfq_settlements_total 1/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API rejects toxic-flow users before signing", async () => {
+  const server = buildServer({
+    logger: false,
+    riskEngine: new BasicRiskEngine({
+      ...defaultBasicRiskPolicy,
+      toxicFlowScores: [
+        {
+          user: baseQuoteRequest.user,
+          scoreBps: 9500,
+        },
+      ],
+    }),
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "RISK_REJECTED");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_quote_requests_total 1/);
+    assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_responses_total 0/);
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="TOXIC_FLOW_SCORE_EXCEEDED"\} 1/);
   } finally {
     await server.close();
   }

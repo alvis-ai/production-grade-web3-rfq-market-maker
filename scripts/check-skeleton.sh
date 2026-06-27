@@ -112,6 +112,10 @@ grep -q 'CHAIN_NOT_ENABLED' backend/src/modules/risk/risk.engine.ts
 grep -q 'TOKEN_NOT_ALLOWED' backend/src/modules/risk/risk.engine.ts
 grep -q 'AMOUNT_IN_LIMIT_EXCEEDED' backend/src/modules/risk/risk.engine.ts
 grep -q 'SLIPPAGE_TOO_WIDE' backend/src/modules/risk/risk.engine.ts
+grep -q 'TOXIC_FLOW_RESTRICTED_USER' backend/src/modules/risk/risk.engine.ts
+grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/src/modules/risk/risk.engine.ts
+grep -q 'toxicFlowScores' backend/src/modules/risk/risk.engine.ts
+grep -q 'restrictedUsers' backend/src/modules/risk/risk.engine.ts
 grep -q 'class LocalEIP712SignerService' backend/src/modules/signer/signer.service.ts
 grep -q 'privateKeyToAccount' backend/src/modules/signer/signer.service.ts
 grep -q 'ProductionGradeRFQ' backend/src/modules/signer/signer.service.ts
@@ -265,6 +269,8 @@ grep -q 'buildServer' backend/test/api.test.mjs
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'SLIPPAGE_TOO_WIDE' backend/test/api.test.mjs
 grep -q 'stale market data' backend/test/api.test.mjs
+grep -q 'toxic-flow users' backend/test/api.test.mjs
+grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/test/api.test.mjs
 grep -q 'TOKEN_IN_INVENTORY_LIMIT_EXCEEDED' backend/test/api.test.mjs
 grep -q 'trace ids' backend/test/api.test.mjs
 grep -q 'settlement shape' backend/test/api.test.mjs
@@ -278,6 +284,8 @@ grep -q 'rate limits quote status requests by client' backend/test/api.test.mjs
 grep -q 'signed realized PnL' backend/test/pnl.test.mjs
 grep -q 'applies each chain event idempotently' backend/test/settlement-event.test.mjs
 grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/rate-limit.test.mjs
+grep -q 'restricted toxic-flow users' backend/test/risk.test.mjs
+grep -q 'toxic-flow score threshold' backend/test/risk.test.mjs
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteRiskRejectSpike' infra/prometheus/rules/rfq-alerts.yml

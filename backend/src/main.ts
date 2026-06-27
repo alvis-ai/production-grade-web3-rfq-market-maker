@@ -10,7 +10,7 @@ import { FormulaPricingEngine } from "./modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "./modules/quote/quote.repository.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
 import { InMemoryRateLimiter, type RateLimitConfig, type RateLimitedEndpoint } from "./modules/rate-limit/rate-limit.service.js";
-import { BasicRiskEngine } from "./modules/risk/risk.engine.js";
+import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "./modules/routing/routing.engine.js";
 import { SettlementEventService } from "./modules/settlement/settlement-event.service.js";
 import { LocalEIP712SignerService } from "./modules/signer/signer.service.js";
@@ -21,6 +21,7 @@ import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.j
 export interface BuildServerOptions {
   logger?: boolean;
   marketDataService?: MarketDataService;
+  riskEngine?: RiskEngine;
   rateLimit?: Partial<RateLimitConfig> | false;
 }
 
@@ -50,7 +51,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     marketDataService: options.marketDataService ?? new StaticMarketDataService(),
     pricingEngine: new FormulaPricingEngine(),
     quoteRepository: new InMemoryQuoteRepository(),
-    riskEngine: new BasicRiskEngine(),
+    riskEngine: options.riskEngine ?? new BasicRiskEngine(),
     routingEngine: new InternalInventoryRoutingEngine(),
     signerService: new LocalEIP712SignerService(readSignerConfig()),
   });

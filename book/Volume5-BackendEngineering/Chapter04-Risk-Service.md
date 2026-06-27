@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Risk Service 是签名前风控服务。它接收 QuoteRequest、PricingResult 和 projected inventory，读取库存、限额、VaR 和 toxic flow 信号，输出 RiskDecision。只有 RiskDecision 为 approved 时，Quote Service 才能调用 Signer Service。当前后端实现提供 `BasicRiskEngine`，覆盖 chain allowlist、token allowlist、amount limit、min amount out、max slippage 和 projected token inventory hard limit 等硬 gate。
+Risk Service 是签名前风控服务。它接收 QuoteRequest、PricingResult 和 projected inventory，读取库存、限额、VaR 和 toxic flow 信号，输出 RiskDecision。只有 RiskDecision 为 approved 时，Quote Service 才能调用 Signer Service。当前后端实现提供 `BasicRiskEngine`，覆盖 chain allowlist、token allowlist、amount limit、min amount out、max slippage、toxic-flow user gate 和 projected token inventory hard limit 等硬 gate。
 
 ## Learning Objectives
 
@@ -37,7 +37,7 @@ Volume3 定义了风险模型。后端需要把模型实现为可测试 pipeline
 
 ## Existing Solutions
 
-简单系统只做 amount limit。当前实现使用 `BasicRiskEngine` 作为可配置硬 gate，并在 Quote Service 中传入本次 quote 成交后的 tokenIn/tokenOut 库存投影。生产系统需要在同一接口下继续扩展 VaR、toxic flow 和外部依赖健康检查。
+简单系统只做 amount limit。当前实现使用 `BasicRiskEngine` 作为可配置硬 gate，并在 Quote Service 中传入本次 quote 成交后的 tokenIn/tokenOut 库存投影。`BasicRiskEngine` 也支持 restricted user 和 per-user toxic score gate，用于表达第一版可解释 toxic-flow 防护。生产系统需要在同一接口下继续扩展 VaR、动态 toxic score cache 和外部依赖健康检查。
 
 ## Trade-Off Analysis
 
@@ -95,7 +95,7 @@ stateDiagram-v2
 
 ## Data Model
 
-`RiskDecision` includes `status`, `reasonCode`, `policyVersion`, `checks`, `createdAt`, `traceId`. 当前实现输出稳定 reasonCode：`CHAIN_NOT_ENABLED`、`TOKEN_NOT_ALLOWED`、`AMOUNT_IN_LIMIT_EXCEEDED`、`AMOUNT_OUT_TOO_SMALL`、`SLIPPAGE_TOO_WIDE`、`TOKEN_IN_INVENTORY_LIMIT_EXCEEDED`、`TOKEN_OUT_INVENTORY_LIMIT_EXCEEDED`。
+`RiskDecision` includes `status`, `reasonCode`, `policyVersion`, `checks`, `createdAt`, `traceId`. 当前实现输出稳定 reasonCode：`CHAIN_NOT_ENABLED`、`TOKEN_NOT_ALLOWED`、`AMOUNT_IN_LIMIT_EXCEEDED`、`AMOUNT_OUT_TOO_SMALL`、`SLIPPAGE_TOO_WIDE`、`TOXIC_FLOW_RESTRICTED_USER`、`TOXIC_FLOW_SCORE_EXCEEDED`、`TOKEN_IN_INVENTORY_LIMIT_EXCEEDED`、`TOKEN_OUT_INVENTORY_LIMIT_EXCEEDED`。
 
 ## API Design
 
