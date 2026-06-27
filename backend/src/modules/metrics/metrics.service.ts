@@ -1,3 +1,11 @@
+import type { Address } from "../../shared/types/rfq.js";
+
+export interface InventoryMetricPosition {
+  chainId: number;
+  token: Address;
+  balance: bigint;
+}
+
 export class MetricsService {
   private quoteRequests = 0;
   private quoteResponses = 0;
@@ -7,6 +15,7 @@ export class MetricsService {
   private submitErrors = 0;
   private settlements = 0;
   private hedgeIntents = 0;
+  private readonly inventoryBalances = new Map<string, InventoryMetricPosition>();
 
   recordQuoteRequest(): void {
     this.quoteRequests += 1;
@@ -40,8 +49,12 @@ export class MetricsService {
     this.hedgeIntents += 1;
   }
 
+  recordInventoryPosition(position: InventoryMetricPosition): void {
+    this.inventoryBalances.set(this.inventoryKey(position.chainId, position.token), position);
+  }
+
   renderPrometheus(): string {
-    return [
+    const lines = [
       "# HELP rfq_quote_requests_total Total quote requests handled by the skeleton API.",
       "# TYPE rfq_quote_requests_total counter",
       `rfq_quote_requests_total ${this.quoteRequests}`,
@@ -66,7 +79,26 @@ export class MetricsService {
       "# HELP rfq_hedge_intents_total Total hedge intents queued after settlement.",
       "# TYPE rfq_hedge_intents_total counter",
       `rfq_hedge_intents_total ${this.hedgeIntents}`,
+      "# HELP rfq_inventory_balance Current simulated inventory balance by chain and token.",
+      "# TYPE rfq_inventory_balance gauge",
+      ...this.renderInventoryBalances(),
       "",
-    ].join("\n");
+    ];
+
+    return lines.join("\n");
+  }
+
+  private renderInventoryBalances(): string[] {
+    return [...this.inventoryBalances.values()]
+      .sort((left, right) =>
+        this.inventoryKey(left.chainId, left.token).localeCompare(this.inventoryKey(right.chainId, right.token)),
+      )
+      .map((position) => {
+        return `rfq_inventory_balance{chain_id="${position.chainId}",token="${position.token.toLowerCase()}"} ${position.balance.toString()}`;
+      });
+  }
+
+  private inventoryKey(chainId: number, token: Address): string {
+    return `${chainId}:${token.toLowerCase()}`;
   }
 }

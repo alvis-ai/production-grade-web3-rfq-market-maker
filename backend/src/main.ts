@@ -69,6 +69,8 @@ export function buildServer(options: BuildServerOptions = {}) {
       metricsService.recordSubmitAccepted();
       metricsService.recordSettlement();
       metricsService.recordHedgeIntent();
+      metricsService.recordInventoryPosition(result.inventoryPositions.tokenIn);
+      metricsService.recordInventoryPosition(result.inventoryPositions.tokenOut);
       const quoteId = await quoteService.getQuoteIdForSignedQuote(submitRequest.quote);
       if (quoteId) {
         await quoteService.markQuoteStatus(quoteId, "submitted", result.response.txHash);

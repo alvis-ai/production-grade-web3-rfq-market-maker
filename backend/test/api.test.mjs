@@ -56,6 +56,14 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.match(metrics.payload, /rfq_submit_accepted_total 1/);
     assert.match(metrics.payload, /rfq_settlements_total 1/);
     assert.match(metrics.payload, /rfq_hedge_intents_total 1/);
+    assert.match(
+      metrics.payload,
+      new RegExp(`rfq_inventory_balance\\{chain_id="1",token="${baseQuoteRequest.tokenIn}"\\} ${baseQuoteRequest.amountIn}`),
+    );
+    assert.match(
+      metrics.payload,
+      new RegExp(`rfq_inventory_balance\\{chain_id="1",token="${baseQuoteRequest.tokenOut}"\\} -${quote.body.amountOut}`),
+    );
   } finally {
     await server.close();
   }
