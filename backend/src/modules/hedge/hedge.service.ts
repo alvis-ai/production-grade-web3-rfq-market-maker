@@ -15,7 +15,12 @@ export interface HedgeResult {
   record: HedgeIntentStatusResponse;
 }
 
-export class HedgeService {
+export interface HedgeIntentService {
+  createHedgeIntent(intent: HedgeIntent): HedgeResult;
+  getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined;
+}
+
+export class HedgeService implements HedgeIntentService {
   private readonly intents = new Map<string, HedgeIntentStatusResponse>();
   private sequence = 0;
 

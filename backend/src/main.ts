@@ -1,6 +1,6 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { SkeletonExecutionService } from "./modules/execution/execution.service.js";
-import { HedgeService } from "./modules/hedge/hedge.service.js";
+import { HedgeService, type HedgeIntentService } from "./modules/hedge/hedge.service.js";
 import { ReadinessService } from "./modules/health/readiness.service.js";
 import { InventoryService } from "./modules/inventory/inventory.service.js";
 import { StaticMarketDataService, type MarketDataService } from "./modules/market-data/market-data.service.js";
@@ -24,6 +24,7 @@ export interface BuildServerOptions {
   marketDataService?: MarketDataService;
   pricingEngine?: PricingEngine;
   riskEngine?: RiskEngine;
+  hedgeService?: HedgeIntentService;
   settlementVerifier?: SettlementVerifier;
   signerService?: SignerService;
   rateLimit?: Partial<RateLimitConfig> | false;
@@ -31,7 +32,7 @@ export interface BuildServerOptions {
 
 export function buildServer(options: BuildServerOptions = {}) {
   const server = Fastify({ logger: options.logger ?? true });
-  const hedgeService = new HedgeService();
+  const hedgeService = options.hedgeService ?? new HedgeService();
   const marketDataService = options.marketDataService ?? new StaticMarketDataService();
   const readinessService = new ReadinessService({ marketDataService });
   const inventoryService = new InventoryService();
@@ -174,7 +175,12 @@ export function buildServer(options: BuildServerOptions = {}) {
       const pnlRecord = pnlService.recordSettlement({ quoteId, quote: submitRequest.quote });
       metricsService.recordSubmitAccepted();
       metricsService.recordSettlement();
-      metricsService.recordHedgeIntent();
+      if (result.hedgeResult) {
+        metricsService.recordHedgeIntent();
+      }
+      if (result.hedgeFailure) {
+        metricsService.recordHedgeIntentError(result.hedgeFailure.reasonCode);
+      }
       metricsService.recordPnlTrade(pnlRecord);
       metricsService.recordInventoryPosition(result.inventoryPositions.tokenIn);
       metricsService.recordInventoryPosition(result.inventoryPositions.tokenOut);

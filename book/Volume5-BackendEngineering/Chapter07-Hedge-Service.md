@@ -17,7 +17,7 @@ Hedge Service 负责成交后风险再平衡。RFQSettlement 确认成交后，I
 
 ## Problem Statement
 
-如果成交后不对冲，库存可能持续偏离目标。如果对冲失败不反馈风险，后续 quote 可能继续放大风险。
+如果成交后不对冲，库存可能持续偏离目标。如果对冲失败不反馈风险，后续 quote 可能继续放大风险。当前后端实现把 hedge intent 创建失败视为 post-trade 风险事件，而不是 settlement 失败：`/submit` 仍返回 accepted、保留 settlement event、更新 inventory 和 PnL，但不返回 `hedgeOrderId`，并记录 `rfq_hedge_intent_errors_total{reason="HEDGE_INTENT_FAILED"}`。
 
 ## Requirements
 
@@ -29,6 +29,7 @@ Hedge Service 负责成交后风险再平衡。RFQSettlement 确认成交后，I
 - 提交 hedge order。
 - 记录 hedge cost、status 和 latency。
 - 反馈给 Inventory 和 Risk。
+- hedge intent 创建失败时保留 settlement 结果，并输出稳定 reasonCode。
 
 ### Non-Functional Requirements
 
@@ -36,6 +37,7 @@ Hedge Service 负责成交后风险再平衡。RFQSettlement 确认成交后，I
 - external venue credential 必须隔离。
 - hedge failure 必须告警。
 - hedge 不阻塞链上 settlement；第一阶段 skeleton 中 hedge intent 只表示已进入异步队列。
+- hedge failure metric 必须区分于 submit error metric，避免把 post-trade 风险事件误报为 settlement 回滚。
 
 ## Existing Solutions
 
@@ -109,7 +111,7 @@ Hedge Service uses internal event APIs. It does not expose public user API.
 
 ## Engineering Decisions
 
-- Hedge failure does not revert settlement.
+- Hedge failure does not revert settlement; current backend records `HEDGE_INTENT_FAILED` and leaves `hedgeOrderId` absent from the accepted submit response.
 - Hedge result updates risk state.
 - Hedge credentials isolated from Quote Service.
 
@@ -119,6 +121,7 @@ Hedge Service uses internal event APIs. It does not expose public user API.
 - Partial fill：update residual exposure。
 - Hedge cost too high：risk limit tightened。
 - Credential failure：alert and disable venue。
+- Hedge intent creation failed：settlement remains accepted, inventory and PnL remain updated, metric `rfq_hedge_intent_errors_total` increments, and follow-up risk policy should tighten output-token exposure.
 
 ## Security Considerations
 
@@ -130,7 +133,7 @@ Hedge lag is key metric. The service should prioritize high exposure intents.
 
 ## Testing Strategy
 
-测试 hedge skipped、route selected、venue reject、partial fill、idempotent retry 和 metrics emission。
+测试 hedge skipped、route selected、venue reject、partial fill、idempotent retry、hedge intent creation failed does not rollback settlement 和 metrics emission。
 
 ## Interview Notes
 

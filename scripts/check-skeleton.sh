@@ -155,7 +155,7 @@ grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlemen
 grep -q 'TOKEN_NOT_WHITELISTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
-grep -q 'hedgeOrderId: hedgeResult.hedgeOrderId' backend/src/modules/execution/execution.service.ts
+grep -q 'hedgeOrderId: hedgeResult?.hedgeOrderId' backend/src/modules/execution/execution.service.ts
 grep -q 'getHedgeIntent' backend/src/modules/hedge/hedge.service.ts
 grep -q 'class PnlService' backend/src/modules/pnl/pnl.service.ts
 grep -q 'recordSettlement' backend/src/modules/pnl/pnl.service.ts
@@ -174,6 +174,8 @@ grep -q 'quoteService.markQuoteFailed' backend/src/main.ts
 grep -q 'SETTLEMENT_REVERTED' backend/src/main.ts
 grep -q 'rfq_settlements_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_hedge_intents_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_hedge_intent_errors_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'recordHedgeIntentError' backend/src/main.ts
 grep -q 'rfq_inventory_balance' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_pnl_trades_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_realized_pnl_token_out' backend/src/modules/metrics/metrics.service.ts
@@ -271,6 +273,7 @@ grep -q 'not ready because at least one quote dependency is degraded' docs/api/o
 grep -q 'getHedgeIntent' docs/api/openapi.yaml
 grep -q 'HedgeIntentStatus' docs/api/openapi.yaml
 grep -q 'HEDGE_NOT_FOUND' docs/api/openapi.yaml
+grep -q 'Hedge intent creation failure does not roll back settlement' docs/api/openapi.yaml
 grep -q 'getSettlementEvent' docs/api/openapi.yaml
 grep -q 'SettlementEventStatus' docs/api/openapi.yaml
 grep -q 'SETTLEMENT_EVENT_NOT_FOUND' docs/api/openapi.yaml
@@ -307,6 +310,9 @@ grep -q 'rfq_signer_latency_seconds_count{operation="verify"} 1' scripts/smoke-a
 grep -q 'rfq_submit_latency_seconds_count 2' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' backend/test/api.test.mjs
+grep -q 'hedge intent creation fails' backend/test/api.test.mjs
+grep -q 'HEDGE_INTENT_FAILED' backend/test/api.test.mjs
+grep -q 'HEDGE_INTENT_FAILED' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
 grep -q 'marks requested quotes as failed when signer is unavailable' backend/test/quote-service.test.mjs

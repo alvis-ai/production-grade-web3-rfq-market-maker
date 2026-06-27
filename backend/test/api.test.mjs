@@ -265,6 +265,64 @@ test("RFQ API returns structured errors for missing hedge intents", async () => 
   }
 });
 
+test("RFQ API keeps settlement accepted when hedge intent creation fails", async () => {
+  const server = buildServer({
+    logger: false,
+    hedgeService: {
+      createHedgeIntent() {
+        throw new Error("hedge venue offline");
+      },
+      getHedgeIntent() {
+        return undefined;
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(quote.statusCode, 200);
+
+    const submit = await injectJson(server, "POST", "/submit", {
+      quote: quotePayloadFromResponse(quote.body),
+      signature: quote.body.signature,
+    });
+
+    assert.equal(submit.statusCode, 202);
+    assert.equal(submit.body.status, "accepted");
+    assert.match(submit.body.txHash, /^0x[0-9a-fA-F]+$/);
+    assert.match(submit.body.settlementEventId, /^se_/);
+    assert.equal(submit.body.hedgeOrderId, undefined);
+    assert.equal(submit.body.pnlId, `pnl_${quote.body.quoteId}`);
+
+    const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.body.status, "settled");
+    assert.equal(status.body.txHash, submit.body.txHash);
+
+    const settlement = await injectJson(server, "GET", `/settlements/${submit.body.settlementEventId}`);
+    assert.equal(settlement.statusCode, 200);
+    assert.equal(settlement.body.status, "applied");
+    assert.equal(settlement.body.quoteId, quote.body.quoteId);
+
+    const pnl = await injectJson(server, "GET", "/pnl");
+    assert.equal(pnl.statusCode, 200);
+    assert.equal(pnl.body.totalTrades, 1);
+    assert.equal(pnl.body.trades[0].quoteId, quote.body.quoteId);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_submit_accepted_total 1/);
+    assert.match(metrics.payload, /rfq_submit_errors_total 0/);
+    assert.match(metrics.payload, /rfq_settlements_total 1/);
+    assert.match(metrics.payload, /rfq_hedge_intents_total 0/);
+    assert.match(metrics.payload, /rfq_hedge_intent_errors_total\{reason="HEDGE_INTENT_FAILED"\} 1/);
+    assert.match(metrics.payload, /rfq_pnl_trades_total 1/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rejects quotes that fail pre-trade risk policy", async () => {
   const server = buildServer({ logger: false });
   await server.ready();

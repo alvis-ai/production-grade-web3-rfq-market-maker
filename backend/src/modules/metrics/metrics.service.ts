@@ -27,6 +27,7 @@ export class MetricsService {
   private readonly signerErrors = new Map<SignerMetricOperation, number>();
   private settlements = 0;
   private hedgeIntents = 0;
+  private readonly hedgeIntentErrors = new Map<string, number>();
   private pnlTrades = 0;
   private readonly quoteLatency = createHistogramState();
   private readonly submitLatency = createHistogramState();
@@ -92,6 +93,11 @@ export class MetricsService {
     this.hedgeIntents += 1;
   }
 
+  recordHedgeIntentError(reasonCode: string): void {
+    const reason = metricLabelValue(reasonCode);
+    this.hedgeIntentErrors.set(reason, (this.hedgeIntentErrors.get(reason) ?? 0) + 1);
+  }
+
   recordInventoryPosition(position: InventoryMetricPosition): void {
     this.inventoryBalances.set(this.inventoryKey(position.chainId, position.token), position);
   }
@@ -146,6 +152,9 @@ export class MetricsService {
       "# HELP rfq_hedge_intents_total Total hedge intents queued after settlement.",
       "# TYPE rfq_hedge_intents_total counter",
       `rfq_hedge_intents_total ${this.hedgeIntents}`,
+      "# HELP rfq_hedge_intent_errors_total Total hedge intent creation errors after settlement by stable reason.",
+      "# TYPE rfq_hedge_intent_errors_total counter",
+      ...this.renderHedgeIntentErrors(),
       "# HELP rfq_inventory_balance Current simulated inventory balance by chain and token.",
       "# TYPE rfq_inventory_balance gauge",
       ...this.renderInventoryBalances(),
@@ -175,6 +184,12 @@ export class MetricsService {
     return [...this.quoteRejections.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([reason, count]) => `rfq_quote_rejections_total{reason="${reason}"} ${count}`);
+  }
+
+  private renderHedgeIntentErrors(): string[] {
+    return [...this.hedgeIntentErrors.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([reason, count]) => `rfq_hedge_intent_errors_total{reason="${reason}"} ${count}`);
   }
 
   private renderRealizedPnl(): string[] {
