@@ -5,12 +5,16 @@ import type { HedgeService } from "../hedge/hedge.service.js";
 import type { InventoryPosition, InventoryService, SettlementDelta } from "../inventory/inventory.service.js";
 
 export interface ExecutionService {
-  submitQuote(request: SubmitQuoteRequest): Promise<ExecutionResult>;
+  submitQuote(request: SubmitQuoteRequest, context: ExecutionContext): Promise<ExecutionResult>;
 }
 
 export interface ExecutionServiceDeps {
   hedgeService: HedgeService;
   inventoryService: InventoryService;
+}
+
+export interface ExecutionContext {
+  quoteId: string;
 }
 
 export interface ExecutionResult {
@@ -26,7 +30,7 @@ export interface ExecutionResult {
 export class SkeletonExecutionService implements ExecutionService {
   constructor(private readonly deps: ExecutionServiceDeps) {}
 
-  async submitQuote(request: SubmitQuoteRequest): Promise<ExecutionResult> {
+  async submitQuote(request: SubmitQuoteRequest, context: ExecutionContext): Promise<ExecutionResult> {
     const txSeed = `${request.quote.user}:${request.quote.nonce}:${request.signature}`;
     const txHash = `0x${toFixedHex(txSeed, 64)}` as `0x${string}`;
     const settlementDelta: SettlementDelta = {
@@ -41,6 +45,7 @@ export class SkeletonExecutionService implements ExecutionService {
     const tokenInPosition = this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenIn);
     const tokenOutPosition = this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut);
     const hedgeResult = this.deps.hedgeService.createHedgeIntent({
+      quoteId: context.quoteId,
       chainId: request.quote.chainId,
       token: request.quote.tokenOut,
       side: "buy",
@@ -52,6 +57,7 @@ export class SkeletonExecutionService implements ExecutionService {
       response: {
         status: "accepted",
         txHash,
+        hedgeOrderId: hedgeResult.hedgeOrderId,
       },
       settlementDelta,
       inventoryPositions: {

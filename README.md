@@ -63,6 +63,7 @@ The OpenAPI specification lives in [`docs/api/openapi.yaml`](docs/api/openapi.ya
 POST /quote
 POST /submit
 GET /quote/:id
+GET /hedges/:id
 GET /health
 GET /ready
 GET /metrics
@@ -146,7 +147,9 @@ const client = new RFQClient("http://localhost:3000");
 await client.quote(request);
 await client.submit({ quote, signature });
 await client.getQuote("q_...");
+await client.getHedge("h_...");
 await client.health();
+await client.ready();
 await client.metrics();
 ```
 

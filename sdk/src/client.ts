@@ -1,4 +1,5 @@
 import type {
+  HedgeIntentStatus,
   HealthResponse,
   QuoteRequest,
   QuoteResponse,
@@ -58,6 +59,14 @@ export class RFQClient {
     await assertOk(response, "RFQ quote status failed");
 
     return (await response.json()) as QuoteStatus;
+  }
+
+  async getHedge(hedgeOrderId: string): Promise<HedgeIntentStatus> {
+    const response = await fetch(`${this.baseUrl}/hedges/${encodeURIComponent(hedgeOrderId)}`);
+
+    await assertOk(response, "RFQ hedge status failed");
+
+    return (await response.json()) as HedgeIntentStatus;
   }
 
   async health(): Promise<HealthResponse> {

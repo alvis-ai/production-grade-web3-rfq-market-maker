@@ -138,7 +138,7 @@ stateDiagram-v2
 
 ## API Design
 
-`POST /quote` 返回 signed quote。`POST /submit` 可以作为 relay 或 tx payload 生成入口。`GET /quote/:id` 返回 quote 当前状态。内部事件接口不对用户公开。
+`POST /quote` 返回 signed quote。`POST /submit` 可以作为 relay 或 tx payload 生成入口，并在模拟执行路径返回 `hedgeOrderId`。`GET /quote/:id` 返回 quote 当前状态，`GET /hedges/:id` 返回对冲意图状态。内部事件接口不对用户公开。
 
 ## Engineering Decisions
 

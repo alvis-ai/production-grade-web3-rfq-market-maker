@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import type { Quote, QuoteRequest, QuoteResponse, QuoteStatus, SubmitQuoteResponse } from "@rfq-market-maker/sdk";
+import type {
+  HedgeIntentStatus,
+  Quote,
+  QuoteRequest,
+  QuoteResponse,
+  QuoteStatus,
+  SubmitQuoteResponse,
+} from "@rfq-market-maker/sdk";
 import { QuoteForm } from "../components/QuoteForm";
 import { QuoteStatusPanel } from "../components/QuoteStatusPanel";
 import { toUIError, type UIError } from "../lib/errors";
@@ -18,6 +25,7 @@ export function QuotePage() {
   const [request, setRequest] = useState<QuoteRequest>(defaultRequest);
   const [quote, setQuote] = useState<QuoteResponse>();
   const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>();
+  const [hedgeStatus, setHedgeStatus] = useState<HedgeIntentStatus>();
   const [submitResult, setSubmitResult] = useState<SubmitQuoteResponse>();
   const [error, setError] = useState<UIError>();
   const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +42,7 @@ export function QuotePage() {
     setError(undefined);
     setSubmitResult(undefined);
     setQuoteStatus(undefined);
+    setHedgeStatus(undefined);
     try {
       const response = await rfqClient.quote(request);
       setQuote(response);
@@ -56,6 +65,9 @@ export function QuotePage() {
       setSubmitResult(response);
       const status = await rfqClient.getQuote(quote.quoteId);
       setQuoteStatus(status);
+      if (response.hedgeOrderId) {
+        setHedgeStatus(await rfqClient.getHedge(response.hedgeOrderId));
+      }
     } catch (caught) {
       setError(toUIError(caught, "Submit failed"));
     }
@@ -87,6 +99,7 @@ export function QuotePage() {
           <QuoteStatusPanel
             quote={quote}
             quoteStatus={quoteStatus}
+            hedgeStatus={hedgeStatus}
             submitResult={submitResult}
             error={error}
             canSubmit={canSubmit}

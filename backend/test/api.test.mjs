@@ -50,11 +50,24 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(submit.statusCode, 202);
     assert.equal(submit.body.status, "accepted");
     assert.match(submit.body.txHash, /^0x[0-9a-fA-F]+$/);
+    assert.match(submit.body.hedgeOrderId, /^h_/);
 
     const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
     assert.equal(status.statusCode, 200);
     assert.equal(status.body.status, "settled");
     assert.equal(status.body.txHash, submit.body.txHash);
+
+    const hedge = await injectJson(server, "GET", `/hedges/${submit.body.hedgeOrderId}`);
+    assert.equal(hedge.statusCode, 200);
+    assert.equal(hedge.body.hedgeOrderId, submit.body.hedgeOrderId);
+    assert.equal(hedge.body.status, "queued");
+    assert.equal(hedge.body.quoteId, quote.body.quoteId);
+    assert.equal(hedge.body.chainId, baseQuoteRequest.chainId);
+    assert.equal(hedge.body.token, baseQuoteRequest.tokenOut);
+    assert.equal(hedge.body.side, "buy");
+    assert.equal(hedge.body.amount, quote.body.amountOut);
+    assert.equal(hedge.body.reason, "inventory_rebalance");
+    assert.match(hedge.body.createdAt, /^\d{4}-\d{2}-\d{2}T/);
 
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);
@@ -74,6 +87,22 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
       metrics.payload,
       new RegExp(`rfq_inventory_balance\\{chain_id="1",token="${baseQuoteRequest.tokenOut}"\\} -${quote.body.amountOut}`),
     );
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API returns structured errors for missing hedge intents", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/hedges/h_missing");
+
+    assert.equal(response.statusCode, 404);
+    assert.equal(response.body.code, "HEDGE_NOT_FOUND");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
   } finally {
     await server.close();
   }

@@ -115,7 +115,7 @@ stateDiagram-v2
 
 ## API Design
 
-OpenAPI 已定义 `/quote`、`/submit`、`/quote/:id`、`/health`、`/ready` 和 `/metrics`。后续实现必须避免 API 与文档分叉。
+OpenAPI 已定义 `/quote`、`/submit`、`/quote/:id`、`/hedges/:id`、`/health`、`/ready` 和 `/metrics`。后续实现必须避免 API 与文档分叉。
 
 ## Engineering Decisions
 

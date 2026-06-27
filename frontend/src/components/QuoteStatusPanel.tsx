@@ -1,9 +1,10 @@
-import type { QuoteResponse, QuoteStatus, SubmitQuoteResponse } from "@rfq-market-maker/sdk";
+import type { HedgeIntentStatus, QuoteResponse, QuoteStatus, SubmitQuoteResponse } from "@rfq-market-maker/sdk";
 import type { UIError } from "../lib/errors";
 
 interface QuoteStatusPanelProps {
   quote?: QuoteResponse;
   quoteStatus?: QuoteStatus;
+  hedgeStatus?: HedgeIntentStatus;
   submitResult?: SubmitQuoteResponse;
   error?: UIError;
   canSubmit: boolean;
@@ -14,6 +15,7 @@ interface QuoteStatusPanelProps {
 export function QuoteStatusPanel({
   quote,
   quoteStatus,
+  hedgeStatus,
   submitResult,
   error,
   canSubmit,
@@ -51,6 +53,14 @@ export function QuoteStatusPanel({
         <div>
           <dt>Tx Hash</dt>
           <dd>{submitResult?.txHash ?? quoteStatus?.txHash ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Hedge ID</dt>
+          <dd>{submitResult?.hedgeOrderId ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Hedge Status</dt>
+          <dd>{hedgeStatus?.status ?? "-"}</dd>
         </div>
       </dl>
       {error ? (

@@ -68,6 +68,20 @@ export function buildServer(options: BuildServerOptions = {}) {
 
     return status;
   });
+  server.get("/hedges/:hedgeOrderId", async (request, reply) => {
+    const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
+    if (!rateLimitResult.allowed) {
+      return rateLimitResult.response;
+    }
+
+    const { hedgeOrderId } = request.params as { hedgeOrderId: string };
+    const status = hedgeService.getHedgeIntent(hedgeOrderId);
+    if (!status) {
+      return sendError(reply, requestTraceId(request), new APIError("HEDGE_NOT_FOUND", "Hedge intent not found", 404));
+    }
+
+    return status;
+  });
   server.post("/quote", async (request, reply) => {
     const startedAt = Date.now();
     metricsService.recordQuoteRequest();
@@ -106,7 +120,7 @@ export function buildServer(options: BuildServerOptions = {}) {
 
       const submitRequest = validateSubmitQuoteRequest(request.body);
       const quoteId = await quoteService.requireSubmittableSignedQuote(submitRequest.quote, submitRequest.signature);
-      const result = await executionService.submitQuote(submitRequest);
+      const result = await executionService.submitQuote(submitRequest, { quoteId });
       metricsService.recordSubmitAccepted();
       metricsService.recordSettlement();
       metricsService.recordHedgeIntent();

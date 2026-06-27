@@ -39,6 +39,7 @@ const submitResponse = await request("POST", "/submit", {
 });
 assertEqual(submitResponse.status, "accepted", "submit status");
 assertHex(submitResponse.txHash, "txHash");
+assertString(submitResponse.hedgeOrderId, "hedgeOrderId");
 
 const replayError = await requestError("POST", "/submit", {
   quote: signedQuote,
@@ -51,6 +52,13 @@ assertString(replayError.payload.traceId, "replay traceId");
 const quoteStatus = await request("GET", `/quote/${encodeURIComponent(quoteResponse.quoteId)}`);
 assertEqual(quoteStatus.status, "settled", "quote status");
 assertEqual(quoteStatus.txHash, submitResponse.txHash, "quote txHash");
+
+const hedgeStatus = await request("GET", `/hedges/${encodeURIComponent(submitResponse.hedgeOrderId)}`);
+assertEqual(hedgeStatus.status, "queued", "hedge status");
+assertEqual(hedgeStatus.hedgeOrderId, submitResponse.hedgeOrderId, "hedge order id");
+assertEqual(hedgeStatus.quoteId, quoteResponse.quoteId, "hedge quote id");
+assertEqual(hedgeStatus.token, quoteRequest.tokenOut, "hedge token");
+assertEqual(hedgeStatus.amount, quoteResponse.amountOut, "hedge amount");
 
 const metrics = await requestText("GET", "/metrics");
 assertIncludes(metrics, "rfq_quote_requests_total 1", "quote request metric");
@@ -78,6 +86,8 @@ console.log(
       quoteId: quoteResponse.quoteId,
       status: quoteStatus.status,
       txHash: submitResponse.txHash,
+      hedgeOrderId: submitResponse.hedgeOrderId,
+      hedgeStatus: hedgeStatus.status,
       readiness: readiness.status,
       replayTraceId: replayError.payload.traceId,
     },

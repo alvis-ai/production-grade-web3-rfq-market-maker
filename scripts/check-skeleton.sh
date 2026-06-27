@@ -53,6 +53,7 @@ test -s scripts/smoke-api.sh
 grep -q 'server.post("/quote"' backend/src/main.ts
 grep -q 'server.post("/submit"' backend/src/main.ts
 grep -q 'server.get("/quote/:quoteId"' backend/src/main.ts
+grep -q 'server.get("/hedges/:hedgeOrderId"' backend/src/main.ts
 grep -q 'server.get("/ready"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts
 grep -q 'validateQuoteRequest' backend/src/main.ts
@@ -82,6 +83,7 @@ grep -q 'HOST' backend/src/main.ts
 grep -q 'x-trace-id' backend/src/main.ts
 grep -q 'requestTraceId' backend/src/main.ts
 grep -q 'traceId: string' backend/src/shared/errors/api-error.ts
+grep -q 'HEDGE_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
@@ -106,6 +108,8 @@ grep -q 'requireSubmittableSignedQuote' backend/src/modules/quote/quote.service.
 grep -q 'findSignedQuoteByUserNonce' backend/src/modules/quote/quote.repository.ts
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
+grep -q 'hedgeOrderId: hedgeResult.hedgeOrderId' backend/src/modules/execution/execution.service.ts
+grep -q 'getHedgeIntent' backend/src/modules/hedge/hedge.service.ts
 grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_latency_seconds' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_rejections_total' backend/src/modules/metrics/metrics.service.ts
@@ -123,6 +127,8 @@ grep -q 'RFQClientError' frontend/src/lib/errors.ts
 grep -q 'traceId' frontend/src/lib/errors.ts
 grep -q 'toUIError' frontend/src/pages/QuotePage.tsx
 grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
+grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx
+grep -q 'Hedge Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'role="alert"' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'error-box' frontend/src/app/styles.css
 grep -q 'export { RFQClient' sdk/src/index.ts
@@ -139,11 +145,13 @@ grep -q 'submitQuote' sdk/src/abi.ts
 grep -q 'setTokenWhitelist' sdk/src/abi.ts
 grep -q 'async submit' sdk/src/client.ts
 grep -q 'async getQuote' sdk/src/client.ts
+grep -q 'async getHedge' sdk/src/client.ts
 grep -q 'async health' sdk/src/client.ts
 grep -q 'async ready' sdk/src/client.ts
 grep -q 'async metrics' sdk/src/client.ts
 grep -q 'traceId: string' sdk/src/types.ts
 grep -q 'client.health' sdk/test/sdk.test.mjs
+grep -q 'client.getHedge' sdk/test/sdk.test.mjs
 grep -q 'client.ready' sdk/test/sdk.test.mjs
 grep -q 'client.metrics' sdk/test/sdk.test.mjs
 grep -q 'function submitQuote' contracts/src/RFQSettlement.sol
@@ -186,6 +194,9 @@ grep -q 'Quote expired or already used' docs/api/openapi.yaml
 grep -q 'Market data snapshot used for the quote' docs/api/openapi.yaml
 grep -q 'getReadiness' docs/api/openapi.yaml
 grep -q 'ReadinessResponse' docs/api/openapi.yaml
+grep -q 'getHedgeIntent' docs/api/openapi.yaml
+grep -q 'HedgeIntentStatus' docs/api/openapi.yaml
+grep -q 'HEDGE_NOT_FOUND' docs/api/openapi.yaml
 grep -q 'Internal rejection reason for rejected quote records' docs/api/openapi.yaml
 grep -q 'QUOTE_ALREADY_USED' docs/api/openapi.yaml
 grep -q 'pattern: "^tr_.+"' docs/api/openapi.yaml
@@ -200,6 +211,7 @@ grep -q 'scripts/smoke-api.mjs' scripts/smoke-api-local.sh
 grep -q '/health' scripts/smoke-api.mjs
 grep -q '/ready' scripts/smoke-api-local.sh
 grep -q 'readiness status' scripts/smoke-api.mjs
+grep -q 'hedge status' scripts/smoke-api.mjs
 grep -q 'rfq_submit_accepted_total 1' scripts/smoke-api.mjs
 grep -q 'QUOTE_ALREADY_USED' scripts/smoke-api.mjs
 grep -q 'rfq_submit_errors_total 1' scripts/smoke-api.mjs

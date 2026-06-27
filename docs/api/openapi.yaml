@@ -162,6 +162,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /hedges/{hedgeOrderId}:
+    get:
+      operationId: getHedgeIntent
+      summary: Get hedge intent status by id
+      description: >
+        Returns the queued hedge intent created after a submit request updates
+        inventory. The initial reference implementation records hedge intent
+        metadata in memory; production deployments should back this endpoint with
+        a durable execution store.
+      tags:
+        - Hedge
+      parameters:
+        - name: hedgeOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Hedge intent status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HedgeIntentStatus"
+        "404":
+          description: Hedge intent not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          headers:
+            Retry-After:
+              description: Seconds until the client should retry.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /health:
     get:
       operationId: getHealth
@@ -291,6 +332,9 @@ components:
           type: string
           pattern: "^0x[a-fA-F0-9]+$"
           description: Simulated or relayed transaction hash.
+        hedgeOrderId:
+          type: string
+          description: Hedge intent id queued after simulated settlement updates inventory.
     SignedQuote:
       type: object
       description: >
@@ -357,6 +401,46 @@ components:
         errorCode:
           type: string
           description: Internal rejection reason for rejected quote records when available.
+    HedgeIntentStatus:
+      type: object
+      required:
+        - hedgeOrderId
+        - status
+        - quoteId
+        - chainId
+        - token
+        - side
+        - amount
+        - reason
+        - createdAt
+      properties:
+        hedgeOrderId:
+          type: string
+        status:
+          type: string
+          enum:
+            - queued
+        quoteId:
+          type: string
+        chainId:
+          type: integer
+        token:
+          $ref: "#/components/schemas/Address"
+        side:
+          type: string
+          enum:
+            - buy
+            - sell
+        amount:
+          $ref: "#/components/schemas/UIntString"
+        reason:
+          type: string
+          enum:
+            - inventory_rebalance
+            - risk_reduction
+        createdAt:
+          type: string
+          format: date-time
     HealthResponse:
       type: object
       required:
@@ -407,6 +491,7 @@ components:
             - QUOTE_NOT_FOUND
             - QUOTE_EXPIRED
             - QUOTE_ALREADY_USED
+            - HEDGE_NOT_FOUND
             - SETTLEMENT_REVERTED
             - RATE_LIMITED
             - INTERNAL_ERROR

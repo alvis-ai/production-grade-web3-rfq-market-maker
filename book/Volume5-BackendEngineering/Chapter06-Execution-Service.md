@@ -110,11 +110,11 @@ stateDiagram-v2
 
 ## Data Model
 
-Execution state includes `quoteId`, `txHash`, `status`, `submittedAt`, `confirmedAt`, `revertReason`, `blockNumber`.
+Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submittedAt`, `confirmedAt`, `revertReason`, `blockNumber`.
 
 ## API Design
 
-`POST /submit` returns HTTP 202 with `accepted` and optionally `txHash` or transaction request. `GET /quote/:id` exposes quote settlement state when the backend can map `user:nonce` back to the issued quote.
+`POST /submit` returns HTTP 202 with `accepted`, optionally `txHash`, and a queued `hedgeOrderId` in the simulated settlement path. `GET /quote/:id` exposes quote settlement state when the backend can map `user:nonce` back to the issued quote. `GET /hedges/:id` exposes the hedge intent created after inventory update.
 
 ## Engineering Decisions
 

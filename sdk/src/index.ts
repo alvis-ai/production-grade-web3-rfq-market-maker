@@ -12,6 +12,7 @@ export type { RFQDomain } from "./eip712.js";
 export type { SettlementQuote, SubmitQuoteArgs } from "./settlement.js";
 export type {
   Address,
+  HedgeIntentStatus,
   HealthResponse,
   Quote,
   QuoteLifecycleStatus,

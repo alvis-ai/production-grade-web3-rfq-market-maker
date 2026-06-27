@@ -40,6 +40,7 @@ export interface SubmitQuoteRequest {
 export interface SubmitQuoteResponse {
   status: "accepted";
   txHash?: `0x${string}`;
+  hedgeOrderId?: string;
 }
 
 export interface HealthResponse {
@@ -69,6 +70,18 @@ export interface QuoteStatus {
   deadline?: number;
   txHash?: `0x${string}`;
   errorCode?: string;
+}
+
+export interface HedgeIntentStatus {
+  hedgeOrderId: string;
+  status: "queued";
+  quoteId: string;
+  chainId: number;
+  token: Address;
+  side: "buy" | "sell";
+  amount: UIntString;
+  reason: "inventory_rebalance" | "risk_reduction";
+  createdAt: string;
 }
 
 export interface RFQErrorResponse {

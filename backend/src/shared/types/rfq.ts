@@ -40,6 +40,7 @@ export interface SubmitQuoteRequest {
 export interface SubmitQuoteResponse {
   status: "accepted";
   txHash?: `0x${string}`;
+  hedgeOrderId?: string;
 }
 
 export type QuoteLifecycleStatus =
@@ -66,4 +67,16 @@ export interface MarketSnapshot {
   liquidityUsd: string;
   volatilityBps: number;
   observedAt: string;
+}
+
+export interface HedgeIntentStatusResponse {
+  hedgeOrderId: string;
+  status: "queued";
+  quoteId: string;
+  chainId: number;
+  token: Address;
+  side: "buy" | "sell";
+  amount: UIntString;
+  reason: "inventory_rebalance" | "risk_reduction";
+  createdAt: string;
 }

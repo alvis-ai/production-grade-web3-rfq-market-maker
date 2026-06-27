@@ -100,11 +100,11 @@ stateDiagram-v2
 
 ## Data Model
 
-Submit state includes `quote`, `signature`, `txHash`, `walletChainId`, `status`, `error`, `receipt`。
+Submit state includes `quote`, `signature`, `txHash`, `hedgeOrderId`, `walletChainId`, `status`, `error`, `receipt`。
 
 ## API Design
 
-Direct submit does not require backend `/submit`; relay mode uses `POST /submit`。Both modes should converge on `GET /quote/:id` for status.
+Direct submit does not require backend `/submit`; relay mode uses `POST /submit`。Both modes should converge on `GET /quote/:id` for quote status. When relay mode returns `hedgeOrderId`, the UI and SDK can call `GET /hedges/:id` to show the queued hedge intent.
 
 ## Engineering Decisions
 
