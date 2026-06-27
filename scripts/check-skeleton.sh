@@ -11,6 +11,7 @@ test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/test/api.test.mjs
 test -s backend/test/rate-limit.test.mjs
+test -s backend/src/modules/health/readiness.service.ts
 test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
@@ -52,6 +53,7 @@ test -s scripts/smoke-api.sh
 grep -q 'server.post("/quote"' backend/src/main.ts
 grep -q 'server.post("/submit"' backend/src/main.ts
 grep -q 'server.get("/quote/:quoteId"' backend/src/main.ts
+grep -q 'server.get("/ready"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts
 grep -q 'validateQuoteRequest' backend/src/main.ts
 grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
@@ -138,9 +140,11 @@ grep -q 'setTokenWhitelist' sdk/src/abi.ts
 grep -q 'async submit' sdk/src/client.ts
 grep -q 'async getQuote' sdk/src/client.ts
 grep -q 'async health' sdk/src/client.ts
+grep -q 'async ready' sdk/src/client.ts
 grep -q 'async metrics' sdk/src/client.ts
 grep -q 'traceId: string' sdk/src/types.ts
 grep -q 'client.health' sdk/test/sdk.test.mjs
+grep -q 'client.ready' sdk/test/sdk.test.mjs
 grep -q 'client.metrics' sdk/test/sdk.test.mjs
 grep -q 'function submitQuote' contracts/src/RFQSettlement.sol
 grep -q 'function setTokenWhitelist' contracts/src/RFQSettlement.sol
@@ -180,6 +184,8 @@ grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/opena
 grep -q 'Signed quote not found' docs/api/openapi.yaml
 grep -q 'Quote expired or already used' docs/api/openapi.yaml
 grep -q 'Market data snapshot used for the quote' docs/api/openapi.yaml
+grep -q 'getReadiness' docs/api/openapi.yaml
+grep -q 'ReadinessResponse' docs/api/openapi.yaml
 grep -q 'Internal rejection reason for rejected quote records' docs/api/openapi.yaml
 grep -q 'QUOTE_ALREADY_USED' docs/api/openapi.yaml
 grep -q 'pattern: "^tr_.+"' docs/api/openapi.yaml
@@ -191,7 +197,9 @@ grep -q '"viem"' backend/package.json
 grep -q '"@types/react"' frontend/package.json
 grep -q 'scripts/smoke-api.mjs' scripts/smoke-api.sh
 grep -q 'scripts/smoke-api.mjs' scripts/smoke-api-local.sh
-grep -q '/health' scripts/smoke-api-local.sh
+grep -q '/health' scripts/smoke-api.mjs
+grep -q '/ready' scripts/smoke-api-local.sh
+grep -q 'readiness status' scripts/smoke-api.mjs
 grep -q 'rfq_submit_accepted_total 1' scripts/smoke-api.mjs
 grep -q 'QUOTE_ALREADY_USED' scripts/smoke-api.mjs
 grep -q 'rfq_submit_errors_total 1' scripts/smoke-api.mjs
@@ -218,6 +226,8 @@ grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteRiskRejectSpike' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml
+grep -q 'path: /ready' infra/k8s/backend-deployment.yaml
+grep -q 'path: /ready' infra/helm/rfq-market-maker/templates/deployment.yaml
 grep -q 'name: rfq-market-maker' infra/helm/rfq-market-maker/Chart.yaml
 
 echo "skeleton check passed"

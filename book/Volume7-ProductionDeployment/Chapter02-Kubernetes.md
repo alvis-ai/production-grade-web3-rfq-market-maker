@@ -111,7 +111,7 @@ No public API changes. Ingress exposes only public endpoints.
 
 - Helm manages manifests.
 - Signer has separate service account and network policy.
-- Readiness checks dependency health enough to prevent bad rollout.
+- Readiness 使用 `/ready` 检查关键组件状态，liveness 使用 `/health` 检查进程存活，避免坏版本进入流量。
 
 ## Failure Scenarios
 

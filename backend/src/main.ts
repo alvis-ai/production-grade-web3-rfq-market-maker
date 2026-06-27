@@ -1,6 +1,7 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { SkeletonExecutionService } from "./modules/execution/execution.service.js";
 import { HedgeService } from "./modules/hedge/hedge.service.js";
+import { ReadinessService } from "./modules/health/readiness.service.js";
 import { InventoryService } from "./modules/inventory/inventory.service.js";
 import { StaticMarketDataService } from "./modules/market-data/market-data.service.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
@@ -23,6 +24,7 @@ export interface BuildServerOptions {
 export function buildServer(options: BuildServerOptions = {}) {
   const server = Fastify({ logger: options.logger ?? true });
   const hedgeService = new HedgeService();
+  const readinessService = new ReadinessService();
   const inventoryService = new InventoryService();
   const executionService = new SkeletonExecutionService({
     hedgeService,
@@ -48,6 +50,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
 
   server.get("/health", async () => ({ status: "ok" }));
+  server.get("/ready", async () => readinessService.check());
   server.get("/metrics", async (_request, reply) => {
     return reply.type("text/plain").send(metricsService.renderPrometheus());
   });

@@ -46,6 +46,13 @@ export interface HealthResponse {
   status: "ok";
 }
 
+export type ReadinessComponentStatus = "ok" | "degraded";
+
+export interface ReadinessResponse {
+  status: "ready" | "degraded";
+  components: Record<string, ReadinessComponentStatus>;
+}
+
 export type QuoteLifecycleStatus =
   | "requested"
   | "rejected"

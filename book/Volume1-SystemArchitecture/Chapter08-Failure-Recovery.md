@@ -103,7 +103,7 @@ stateDiagram-v2
 
 ## API Design
 
-`GET /health` 应区分 liveness 和 readiness。`GET /metrics` 暴露延迟、错误率、依赖状态和业务风险指标。管理员接口后续应支持暂停 quote 或降低限额，但必须有权限控制。
+`GET /health` 只表示 liveness，`GET /ready` 表示 readiness 和关键组件状态。`GET /metrics` 暴露延迟、错误率、依赖状态和业务风险指标。管理员接口后续应支持暂停 quote 或降低限额，但必须有权限控制。
 
 ## Engineering Decisions
 

@@ -175,6 +175,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+  /ready:
+    get:
+      operationId: getReadiness
+      summary: Readiness check
+      tags:
+        - System
+      responses:
+        "200":
+          description: Service readiness and dependency state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
   /metrics:
     get:
       operationId: getMetrics
@@ -353,6 +366,24 @@ components:
           type: string
           enum:
             - ok
+    ReadinessResponse:
+      type: object
+      required:
+        - status
+        - components
+      properties:
+        status:
+          type: string
+          enum:
+            - ready
+            - degraded
+        components:
+          type: object
+          additionalProperties:
+            type: string
+            enum:
+              - ok
+              - degraded
     ErrorResponse:
       type: object
       required:

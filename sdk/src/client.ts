@@ -3,6 +3,7 @@ import type {
   QuoteRequest,
   QuoteResponse,
   QuoteStatus,
+  ReadinessResponse,
   RFQErrorResponse,
   SubmitQuoteRequest,
   SubmitQuoteResponse,
@@ -65,6 +66,14 @@ export class RFQClient {
     await assertOk(response, "RFQ health check failed");
 
     return (await response.json()) as HealthResponse;
+  }
+
+  async ready(): Promise<ReadinessResponse> {
+    const response = await fetch(`${this.baseUrl}/ready`);
+
+    await assertOk(response, "RFQ readiness check failed");
+
+    return (await response.json()) as ReadinessResponse;
   }
 
   async metrics(): Promise<string> {

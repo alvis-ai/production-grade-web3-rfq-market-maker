@@ -21,7 +21,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 attempt=0
-until node -e "fetch(process.env.API_URL + '/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"; do
+until node -e "fetch(process.env.API_URL + '/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"; do
   attempt=$((attempt + 1))
   if ! kill -0 "$server_pid" 2>/dev/null; then
     cat "$LOG_FILE" >&2 || true

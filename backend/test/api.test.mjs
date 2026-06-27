@@ -20,6 +20,12 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(health.statusCode, 200);
     assert.equal(health.body.status, "ok");
 
+    const ready = await injectJson(server, "GET", "/ready");
+    assert.equal(ready.statusCode, 200);
+    assert.equal(ready.body.status, "ready");
+    assert.equal(ready.body.components.signer, "ok");
+    assert.equal(ready.body.components.marketData, "ok");
+
     const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
     assert.equal(quote.statusCode, 200);
     assert.match(quote.body.quoteId, /^q_/);

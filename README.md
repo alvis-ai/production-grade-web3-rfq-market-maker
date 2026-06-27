@@ -64,6 +64,7 @@ POST /quote
 POST /submit
 GET /quote/:id
 GET /health
+GET /ready
 GET /metrics
 ```
 

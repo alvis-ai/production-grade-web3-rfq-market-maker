@@ -8,6 +8,11 @@ const quoteRequest = JSON.parse(await readFile("examples/quote-request.json", "u
 const health = await request("GET", "/health");
 assertEqual(health.status, "ok", "health status");
 
+const readiness = await request("GET", "/ready");
+assertEqual(readiness.status, "ready", "readiness status");
+assertEqual(readiness.components.signer, "ok", "readiness signer component");
+assertEqual(readiness.components.marketData, "ok", "readiness market data component");
+
 const quoteResponse = await request("POST", "/quote", quoteRequest);
 assertString(quoteResponse.quoteId, "quoteId");
 assertString(quoteResponse.snapshotId, "snapshotId");
@@ -73,6 +78,7 @@ console.log(
       quoteId: quoteResponse.quoteId,
       status: quoteStatus.status,
       txHash: submitResponse.txHash,
+      readiness: readiness.status,
       replayTraceId: replayError.payload.traceId,
     },
     null,

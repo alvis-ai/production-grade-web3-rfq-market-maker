@@ -117,6 +117,13 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     txHash: submitResponse.txHash,
   };
   const healthResponse = { status: "ok" };
+  const readinessResponse = {
+    status: "ready",
+    components: {
+      signer: "ok",
+      marketData: "ok",
+    },
+  };
   const metricsResponse = [
     "# TYPE rfq_quote_requests_total counter",
     "rfq_quote_requests_total 1",
@@ -136,6 +143,9 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     }
     if (url.endsWith("/health")) {
       return jsonResponse(200, healthResponse);
+    }
+    if (url.endsWith("/ready")) {
+      return jsonResponse(200, readinessResponse);
     }
     if (url.endsWith("/metrics")) {
       return textResponse(200, metricsResponse);
@@ -157,15 +167,17 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     assert.deepEqual(await client.submit({ quote, signature }), submitResponse);
     assert.deepEqual(await client.getQuote("q_test"), statusResponse);
     assert.deepEqual(await client.health(), healthResponse);
+    assert.deepEqual(await client.ready(), readinessResponse);
     assert.equal(await client.metrics(), metricsResponse);
 
-    assert.equal(calls.length, 5);
+    assert.equal(calls.length, 6);
     assert.equal(calls[0].url, "http://127.0.0.1:3000/quote");
     assert.equal(calls[0].init.headers["content-type"], "application/json");
     assert.deepEqual(JSON.parse(calls[1].init.body), { quote, signature });
     assert.equal(calls[2].url, "http://127.0.0.1:3000/quote/q_test");
     assert.equal(calls[3].url, "http://127.0.0.1:3000/health");
-    assert.equal(calls[4].url, "http://127.0.0.1:3000/metrics");
+    assert.equal(calls[4].url, "http://127.0.0.1:3000/ready");
+    assert.equal(calls[5].url, "http://127.0.0.1:3000/metrics");
   } finally {
     restoreFetch();
   }
