@@ -1,4 +1,4 @@
-import type { Address } from "../../shared/types/rfq.js";
+import type { Address, PnlTradeRecord } from "../../shared/types/rfq.js";
 
 export interface InventoryMetricPosition {
   chainId: number;
@@ -23,10 +23,12 @@ export class MetricsService {
   private submitErrors = 0;
   private settlements = 0;
   private hedgeIntents = 0;
+  private pnlTrades = 0;
   private readonly quoteLatency = createHistogramState();
   private readonly submitLatency = createHistogramState();
   private readonly quoteRejections = new Map<string, number>();
   private readonly inventoryBalances = new Map<string, InventoryMetricPosition>();
+  private readonly realizedPnl = new Map<string, bigint>();
 
   recordQuoteRequest(): void {
     this.quoteRequests += 1;
@@ -77,6 +79,12 @@ export class MetricsService {
     this.inventoryBalances.set(this.inventoryKey(position.chainId, position.token), position);
   }
 
+  recordPnlTrade(record: PnlTradeRecord): void {
+    this.pnlTrades += 1;
+    const key = this.inventoryKey(record.chainId, record.tokenOut);
+    this.realizedPnl.set(key, (this.realizedPnl.get(key) ?? 0n) + BigInt(record.grossPnlTokenOut));
+  }
+
   renderPrometheus(): string {
     const lines = [
       "# HELP rfq_quote_requests_total Total quote requests handled by the skeleton API.",
@@ -115,6 +123,12 @@ export class MetricsService {
       "# HELP rfq_inventory_balance Current simulated inventory balance by chain and token.",
       "# TYPE rfq_inventory_balance gauge",
       ...this.renderInventoryBalances(),
+      "# HELP rfq_pnl_trades_total Total realized PnL trade records produced by the skeleton API.",
+      "# TYPE rfq_pnl_trades_total counter",
+      `rfq_pnl_trades_total ${this.pnlTrades}`,
+      "# HELP rfq_realized_pnl_token_out Total realized spread PnL by chain and output token.",
+      "# TYPE rfq_realized_pnl_token_out gauge",
+      ...this.renderRealizedPnl(),
       "",
     ];
 
@@ -135,6 +149,15 @@ export class MetricsService {
     return [...this.quoteRejections.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([reason, count]) => `rfq_quote_rejections_total{reason="${reason}"} ${count}`);
+  }
+
+  private renderRealizedPnl(): string[] {
+    return [...this.realizedPnl.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, value]) => {
+        const [chainId, token] = key.split(":");
+        return `rfq_realized_pnl_token_out{chain_id="${chainId}",token="${token}"} ${value.toString()}`;
+      });
   }
 
   private inventoryKey(chainId: number, token: Address): string {

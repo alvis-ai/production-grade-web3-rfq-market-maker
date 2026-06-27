@@ -1,5 +1,6 @@
 export type Address = `0x${string}`;
 export type UIntString = string;
+export type IntString = string;
 
 export interface QuoteRequest {
   chainId: number;
@@ -41,6 +42,7 @@ export interface SubmitQuoteResponse {
   status: "accepted";
   txHash?: `0x${string}`;
   hedgeOrderId?: string;
+  pnlId?: string;
 }
 
 export interface HealthResponse {
@@ -82,6 +84,27 @@ export interface HedgeIntentStatus {
   amount: UIntString;
   reason: "inventory_rebalance" | "risk_reduction";
   createdAt: string;
+}
+
+export interface PnlTradeRecord {
+  pnlId: string;
+  quoteId: string;
+  chainId: number;
+  tokenIn: Address;
+  tokenOut: Address;
+  amountIn: UIntString;
+  amountOut: UIntString;
+  grossPnlTokenOut: IntString;
+  grossPnlBps: number;
+  model: "simulated_mid_price_v1";
+  realizedAt: string;
+}
+
+export interface PnlSummary {
+  status: "ok";
+  totalTrades: number;
+  grossPnlTokenOut: IntString;
+  trades: PnlTradeRecord[];
 }
 
 export interface RFQErrorResponse {

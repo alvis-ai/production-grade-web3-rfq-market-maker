@@ -107,6 +107,8 @@ Prometheus metrics:
 - `rfq_settlement_events_total`
 - `rfq_inventory_exposure_usd`
 - `rfq_hedge_lag_seconds`
+- `rfq_pnl_trades_total`
+- `rfq_realized_pnl_token_out`
 
 ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, status and timestamps.
 
@@ -121,6 +123,7 @@ ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, st
 - Metrics failures must not break quote path.
 - 当前后端实现已暴露 quote 和 submit latency histogram，使用固定 bucket，不带 user、quoteId 或 wallet label。
 - `rfq_quote_rejections_total` 只使用稳定内部 `reasonCode` 作为 label，不暴露阈值、金额、地址或 quoteId。
+- 当前后端实现已暴露 `rfq_pnl_trades_total` 和 `rfq_realized_pnl_token_out`，用于验证 `/submit -> settlement -> inventory -> hedge -> PnL` 闭环；生产版应将 quote-level PnL 归因写入 ClickHouse。
 
 ## Failure Scenarios
 

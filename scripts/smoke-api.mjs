@@ -40,6 +40,7 @@ const submitResponse = await request("POST", "/submit", {
 assertEqual(submitResponse.status, "accepted", "submit status");
 assertHex(submitResponse.txHash, "txHash");
 assertString(submitResponse.hedgeOrderId, "hedgeOrderId");
+assertEqual(submitResponse.pnlId, `pnl_${quoteResponse.quoteId}`, "pnlId");
 
 const replayError = await requestError("POST", "/submit", {
   quote: signedQuote,
@@ -60,6 +61,13 @@ assertEqual(hedgeStatus.quoteId, quoteResponse.quoteId, "hedge quote id");
 assertEqual(hedgeStatus.token, quoteRequest.tokenOut, "hedge token");
 assertEqual(hedgeStatus.amount, quoteResponse.amountOut, "hedge amount");
 
+const pnl = await request("GET", "/pnl");
+assertEqual(pnl.status, "ok", "pnl status");
+assertEqual(pnl.totalTrades, 1, "pnl trade count");
+assertEqual(pnl.grossPnlTokenOut, "1600000", "gross pnl");
+assertEqual(pnl.trades[0].pnlId, submitResponse.pnlId, "pnl trade id");
+assertEqual(pnl.trades[0].quoteId, quoteResponse.quoteId, "pnl quote id");
+
 const metrics = await requestText("GET", "/metrics");
 assertIncludes(metrics, "rfq_quote_requests_total 1", "quote request metric");
 assertIncludes(metrics, "rfq_quote_latency_seconds_count 1", "quote latency metric");
@@ -68,6 +76,12 @@ assertIncludes(metrics, "rfq_submit_errors_total 1", "submit error metric");
 assertIncludes(metrics, "rfq_submit_latency_seconds_count 2", "submit latency metric");
 assertIncludes(metrics, "rfq_settlements_total 1", "settlement metric");
 assertIncludes(metrics, "rfq_hedge_intents_total 1", "hedge metric");
+assertIncludes(metrics, "rfq_pnl_trades_total 1", "pnl trade metric");
+assertIncludes(
+  metrics,
+  `rfq_realized_pnl_token_out{chain_id="${quoteRequest.chainId}",token="${quoteRequest.tokenOut.toLowerCase()}"} 1600000`,
+  "realized pnl metric",
+);
 assertIncludes(
   metrics,
   `rfq_inventory_balance{chain_id="${quoteRequest.chainId}",token="${quoteRequest.tokenIn.toLowerCase()}"} ${quoteRequest.amountIn}`,
@@ -88,6 +102,8 @@ console.log(
       txHash: submitResponse.txHash,
       hedgeOrderId: submitResponse.hedgeOrderId,
       hedgeStatus: hedgeStatus.status,
+      pnlId: submitResponse.pnlId,
+      grossPnlTokenOut: pnl.grossPnlTokenOut,
       readiness: readiness.status,
       replayTraceId: replayError.payload.traceId,
     },

@@ -1,6 +1,7 @@
 import type {
   HedgeIntentStatus,
   HealthResponse,
+  PnlSummary,
   QuoteRequest,
   QuoteResponse,
   QuoteStatus,
@@ -67,6 +68,14 @@ export class RFQClient {
     await assertOk(response, "RFQ hedge status failed");
 
     return (await response.json()) as HedgeIntentStatus;
+  }
+
+  async pnl(): Promise<PnlSummary> {
+    const response = await fetch(`${this.baseUrl}/pnl`);
+
+    await assertOk(response, "RFQ PnL summary failed");
+
+    return (await response.json()) as PnlSummary;
   }
 
   async health(): Promise<HealthResponse> {

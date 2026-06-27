@@ -111,6 +111,7 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     status: "accepted",
     txHash: `0x${"22".repeat(32)}`,
     hedgeOrderId: "h_1_00000003_000001",
+    pnlId: "pnl_q_test",
   };
   const statusResponse = {
     quoteId: "q_test",
@@ -127,6 +128,26 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     amount: quote.amountOut,
     reason: "inventory_rebalance",
     createdAt: "2026-06-27T00:00:00.000Z",
+  };
+  const pnlResponse = {
+    status: "ok",
+    totalTrades: 1,
+    grossPnlTokenOut: "1600000",
+    trades: [
+      {
+        pnlId: submitResponse.pnlId,
+        quoteId: "q_test",
+        chainId: quote.chainId,
+        tokenIn: quote.tokenIn,
+        tokenOut: quote.tokenOut,
+        amountIn: quote.amountIn,
+        amountOut: quote.amountOut,
+        grossPnlTokenOut: "1600000",
+        grossPnlBps: 16,
+        model: "simulated_mid_price_v1",
+        realizedAt: "2026-06-27T00:00:00.000Z",
+      },
+    ],
   };
   const healthResponse = { status: "ok" };
   const readinessResponse = {
@@ -156,6 +177,9 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     if (url.endsWith("/hedges/h_1_00000003_000001")) {
       return jsonResponse(200, hedgeResponse);
     }
+    if (url.endsWith("/pnl")) {
+      return jsonResponse(200, pnlResponse);
+    }
     if (url.endsWith("/health")) {
       return jsonResponse(200, healthResponse);
     }
@@ -182,19 +206,21 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     assert.deepEqual(await client.submit({ quote, signature }), submitResponse);
     assert.deepEqual(await client.getQuote("q_test"), statusResponse);
     assert.deepEqual(await client.getHedge(submitResponse.hedgeOrderId), hedgeResponse);
+    assert.deepEqual(await client.pnl(), pnlResponse);
     assert.deepEqual(await client.health(), healthResponse);
     assert.deepEqual(await client.ready(), readinessResponse);
     assert.equal(await client.metrics(), metricsResponse);
 
-    assert.equal(calls.length, 7);
+    assert.equal(calls.length, 8);
     assert.equal(calls[0].url, "http://127.0.0.1:3000/quote");
     assert.equal(calls[0].init.headers["content-type"], "application/json");
     assert.deepEqual(JSON.parse(calls[1].init.body), { quote, signature });
     assert.equal(calls[2].url, "http://127.0.0.1:3000/quote/q_test");
     assert.equal(calls[3].url, "http://127.0.0.1:3000/hedges/h_1_00000003_000001");
-    assert.equal(calls[4].url, "http://127.0.0.1:3000/health");
-    assert.equal(calls[5].url, "http://127.0.0.1:3000/ready");
-    assert.equal(calls[6].url, "http://127.0.0.1:3000/metrics");
+    assert.equal(calls[4].url, "http://127.0.0.1:3000/pnl");
+    assert.equal(calls[5].url, "http://127.0.0.1:3000/health");
+    assert.equal(calls[6].url, "http://127.0.0.1:3000/ready");
+    assert.equal(calls[7].url, "http://127.0.0.1:3000/metrics");
   } finally {
     restoreFetch();
   }

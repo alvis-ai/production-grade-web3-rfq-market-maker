@@ -5,6 +5,7 @@ import { ReadinessService } from "./modules/health/readiness.service.js";
 import { InventoryService } from "./modules/inventory/inventory.service.js";
 import { StaticMarketDataService } from "./modules/market-data/market-data.service.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
+import { PnlService } from "./modules/pnl/pnl.service.js";
 import { FormulaPricingEngine } from "./modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "./modules/quote/quote.repository.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
@@ -31,6 +32,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     inventoryService,
   });
   const metricsService = new MetricsService();
+  const pnlService = new PnlService();
   const rateLimiter = options.rateLimit === false
     ? undefined
     : new InMemoryRateLimiter({
@@ -53,6 +55,14 @@ export function buildServer(options: BuildServerOptions = {}) {
   server.get("/ready", async () => readinessService.check());
   server.get("/metrics", async (_request, reply) => {
     return reply.type("text/plain").send(metricsService.renderPrometheus());
+  });
+  server.get("/pnl", async (request, reply) => {
+    const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
+    if (!rateLimitResult.allowed) {
+      return rateLimitResult.response;
+    }
+
+    return pnlService.summary();
   });
   server.get("/quote/:quoteId", async (request, reply) => {
     const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
@@ -121,14 +131,19 @@ export function buildServer(options: BuildServerOptions = {}) {
       const submitRequest = validateSubmitQuoteRequest(request.body);
       const quoteId = await quoteService.requireSubmittableSignedQuote(submitRequest.quote, submitRequest.signature);
       const result = await executionService.submitQuote(submitRequest, { quoteId });
+      const pnlRecord = pnlService.recordSettlement({ quoteId, quote: submitRequest.quote });
       metricsService.recordSubmitAccepted();
       metricsService.recordSettlement();
       metricsService.recordHedgeIntent();
+      metricsService.recordPnlTrade(pnlRecord);
       metricsService.recordInventoryPosition(result.inventoryPositions.tokenIn);
       metricsService.recordInventoryPosition(result.inventoryPositions.tokenOut);
       await quoteService.markQuoteStatus(quoteId, "submitted", result.response.txHash);
       await quoteService.markQuoteStatus(quoteId, "settled", result.response.txHash);
-      return reply.code(202).send(result.response);
+      return reply.code(202).send({
+        ...result.response,
+        pnlId: pnlRecord.pnlId,
+      });
     } catch (error) {
       metricsService.recordSubmitError();
       return sendError(reply, requestTraceId(request), toAPIError(error));

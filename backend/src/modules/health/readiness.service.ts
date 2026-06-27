@@ -15,6 +15,7 @@ export class ReadinessService {
       quoteRepository: "ok",
       inventory: "ok",
       execution: "ok",
+      pnl: "ok",
       metrics: "ok",
     } as const;
 

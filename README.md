@@ -64,6 +64,7 @@ POST /quote
 POST /submit
 GET /quote/:id
 GET /hedges/:id
+GET /pnl
 GET /health
 GET /ready
 GET /metrics
@@ -148,6 +149,7 @@ await client.quote(request);
 await client.submit({ quote, signature });
 await client.getQuote("q_...");
 await client.getHedge("h_...");
+await client.pnl();
 await client.health();
 await client.ready();
 await client.metrics();

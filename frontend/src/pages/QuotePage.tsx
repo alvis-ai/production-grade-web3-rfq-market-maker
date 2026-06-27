@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type {
   HedgeIntentStatus,
+  PnlSummary,
   Quote,
   QuoteRequest,
   QuoteResponse,
@@ -26,6 +27,7 @@ export function QuotePage() {
   const [quote, setQuote] = useState<QuoteResponse>();
   const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>();
   const [hedgeStatus, setHedgeStatus] = useState<HedgeIntentStatus>();
+  const [pnlSummary, setPnlSummary] = useState<PnlSummary>();
   const [submitResult, setSubmitResult] = useState<SubmitQuoteResponse>();
   const [error, setError] = useState<UIError>();
   const [isLoading, setIsLoading] = useState(false);
@@ -43,6 +45,7 @@ export function QuotePage() {
     setSubmitResult(undefined);
     setQuoteStatus(undefined);
     setHedgeStatus(undefined);
+    setPnlSummary(undefined);
     try {
       const response = await rfqClient.quote(request);
       setQuote(response);
@@ -68,6 +71,7 @@ export function QuotePage() {
       if (response.hedgeOrderId) {
         setHedgeStatus(await rfqClient.getHedge(response.hedgeOrderId));
       }
+      setPnlSummary(await rfqClient.pnl());
     } catch (caught) {
       setError(toUIError(caught, "Submit failed"));
     }
@@ -100,6 +104,7 @@ export function QuotePage() {
             quote={quote}
             quoteStatus={quoteStatus}
             hedgeStatus={hedgeStatus}
+            pnlSummary={pnlSummary}
             submitResult={submitResult}
             error={error}
             canSubmit={canSubmit}

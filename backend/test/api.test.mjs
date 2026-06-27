@@ -51,6 +51,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(submit.body.status, "accepted");
     assert.match(submit.body.txHash, /^0x[0-9a-fA-F]+$/);
     assert.match(submit.body.hedgeOrderId, /^h_/);
+    assert.equal(submit.body.pnlId, `pnl_${quote.body.quoteId}`);
 
     const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
     assert.equal(status.statusCode, 200);
@@ -69,6 +70,21 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(hedge.body.reason, "inventory_rebalance");
     assert.match(hedge.body.createdAt, /^\d{4}-\d{2}-\d{2}T/);
 
+    const pnl = await injectJson(server, "GET", "/pnl");
+    assert.equal(pnl.statusCode, 200);
+    assert.equal(pnl.body.status, "ok");
+    assert.equal(pnl.body.totalTrades, 1);
+    assert.equal(pnl.body.grossPnlTokenOut, "1600000");
+    assert.equal(pnl.body.trades.length, 1);
+    assert.equal(pnl.body.trades[0].pnlId, submit.body.pnlId);
+    assert.equal(pnl.body.trades[0].quoteId, quote.body.quoteId);
+    assert.equal(pnl.body.trades[0].amountIn, baseQuoteRequest.amountIn);
+    assert.equal(pnl.body.trades[0].amountOut, quote.body.amountOut);
+    assert.equal(pnl.body.trades[0].grossPnlTokenOut, "1600000");
+    assert.equal(pnl.body.trades[0].grossPnlBps, 16);
+    assert.equal(pnl.body.trades[0].model, "simulated_mid_price_v1");
+    assert.match(pnl.body.trades[0].realizedAt, /^\d{4}-\d{2}-\d{2}T/);
+
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);
     assert.match(metrics.payload, /rfq_quote_requests_total 1/);
@@ -86,6 +102,11 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.match(
       metrics.payload,
       new RegExp(`rfq_inventory_balance\\{chain_id="1",token="${baseQuoteRequest.tokenOut}"\\} -${quote.body.amountOut}`),
+    );
+    assert.match(metrics.payload, /rfq_pnl_trades_total 1/);
+    assert.match(
+      metrics.payload,
+      new RegExp(`rfq_realized_pnl_token_out\\{chain_id="1",token="${baseQuoteRequest.tokenOut}"\\} 1600000`),
     );
   } finally {
     await server.close();
