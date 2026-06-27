@@ -128,6 +128,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Settlement verifier, chain RPC, or another settlement dependency is unavailable before settlement is applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /quote/{quoteId}:
     get:
       operationId: getQuote
@@ -686,6 +692,7 @@ components:
             - QUOTE_FAILED
             - HEDGE_NOT_FOUND
             - SETTLEMENT_EVENT_NOT_FOUND
+            - SETTLEMENT_UNAVAILABLE
             - SETTLEMENT_REVERTED
             - RATE_LIMITED
             - INTERNAL_ERROR

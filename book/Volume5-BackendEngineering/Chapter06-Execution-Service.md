@@ -125,6 +125,7 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 - Settlement event is source of truth.
 - 第一阶段 `/submit` uses `LocalSettlementVerifier` to mirror RFQSettlement chainId、deadline、token whitelist、token pair 和 amount shape checks before simulated settlement.
 - Settlement verification failure returns `SETTLEMENT_REVERTED`, marks the quote `failed`, and must not update inventory, queue hedge intent, record PnL, or mark the quote settled.
+- Settlement verifier dependency failure returns `SETTLEMENT_UNAVAILABLE` with HTTP 503, keeps the quote `signed`, and must not update inventory, queue hedge intent, record PnL, or mark the quote failed. This path is retryable until the signed quote expires.
 - `/submit` rejects `failed` quotes with `QUOTE_FAILED` before execution, so terminal settlement failures cannot be replayed into the execution path.
 - 第一阶段 `/submit` uses simulated settlement to exercise inventory and hedge flow.
 - 生产版 `/submit` does not imply settled until chain event confirmation.
@@ -135,7 +136,7 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 - User never broadcasts tx：quote expires。
 - Relay tx reverted：status failed。
 - Settlement verification rejects token whitelist or chain mismatch：return `SETTLEMENT_REVERTED` before inventory update。
-- Chain RPC unavailable：return dependency error。
+- Chain RPC unavailable：return `SETTLEMENT_UNAVAILABLE` before inventory update; quote remains retryable if TTL is still valid。
 - Event lag：status pending until indexed。
 
 ## Security Considerations
@@ -148,7 +149,7 @@ Execution path can be asynchronous. RPC latency should not block quote generatio
 
 ## Testing Strategy
 
-测试 payload generation、relay failure、tx revert、event confirmation、duplicate submit 和 quote expired。
+测试 payload generation、relay failure、tx revert、settlement verifier unavailable、event confirmation、duplicate submit 和 quote expired。
 
 ## Interview Notes
 

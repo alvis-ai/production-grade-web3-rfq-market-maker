@@ -1,4 +1,5 @@
 import type { SubmitQuoteRequest, SubmitQuoteResponse } from "../../shared/types/rfq.js";
+import { APIError } from "../../shared/errors/api-error.js";
 import { toFixedHex } from "../../shared/types/hex.js";
 import type { HedgeResult } from "../hedge/hedge.service.js";
 import type { HedgeIntentService } from "../hedge/hedge.service.js";
@@ -41,10 +42,7 @@ export class SkeletonExecutionService implements ExecutionService {
   constructor(private readonly deps: ExecutionServiceDeps) {}
 
   async submitQuote(request: SubmitQuoteRequest, context: ExecutionContext): Promise<ExecutionResult> {
-    const settlementVerification = await this.deps.settlementVerifier.verify({
-      quoteId: context.quoteId,
-      request,
-    });
+    const settlementVerification = await this.verifySettlement(request, context);
     const txSeed = `${request.quote.user}:${request.quote.nonce}:${request.signature}`;
     const txHash = `0x${toFixedHex(txSeed, 64)}` as `0x${string}`;
     const settlementEventResult = this.deps.settlementEventService.applySettlementEvent({
@@ -99,4 +97,26 @@ export class SkeletonExecutionService implements ExecutionService {
       };
     }
   }
+
+  private async verifySettlement(
+    request: SubmitQuoteRequest,
+    context: ExecutionContext,
+  ): Promise<SettlementVerificationResult> {
+    try {
+      return await this.deps.settlementVerifier.verify({
+        quoteId: context.quoteId,
+        request,
+      });
+    } catch (error) {
+      throw settlementVerificationFailure(error);
+    }
+  }
+}
+
+function settlementVerificationFailure(error: unknown): APIError {
+  if (error instanceof APIError) {
+    return error;
+  }
+
+  return new APIError("SETTLEMENT_UNAVAILABLE", "Settlement verifier unavailable", 503);
 }

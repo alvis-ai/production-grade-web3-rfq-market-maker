@@ -148,6 +148,7 @@ grep -q 'findSignedQuoteByUserNonce' backend/src/modules/quote/quote.repository.
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts
 grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.service.ts
+grep -q 'SETTLEMENT_UNAVAILABLE' backend/src/modules/execution/execution.service.ts
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
@@ -260,6 +261,8 @@ grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml
 grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/openapi.yaml
 grep -q 'Signed quote not found' docs/api/openapi.yaml
 grep -q 'settlement verification' docs/api/openapi.yaml
+grep -q 'SETTLEMENT_UNAVAILABLE' docs/api/openapi.yaml
+grep -q 'SETTLEMENT_UNAVAILABLE' docs/api/errors.md
 grep -q 'Market data snapshot used for the quote' docs/api/openapi.yaml
 grep -q 'Market data unavailable, stale, invalid, signer unavailable' docs/api/openapi.yaml
 
@@ -319,6 +322,9 @@ grep -q 'marks requested quotes as failed when signer is unavailable' backend/te
 grep -q 'signing is unavailable' backend/test/api.test.mjs
 grep -q 'rfq_signer_errors_total' backend/test/api.test.mjs
 grep -q 'settlement constraints before simulated settlement' backend/test/api.test.mjs
+grep -q 'settlement verifier failures' backend/test/api.test.mjs
+grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/api.test.mjs
+grep -q 'SETTLEMENT_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'errorCode, "SETTLEMENT_REVERTED"' backend/test/api.test.mjs
 grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs
