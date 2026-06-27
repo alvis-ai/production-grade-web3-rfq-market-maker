@@ -83,6 +83,37 @@ test("RFQ API rejects quotes that fail pre-trade risk policy", async () => {
   }
 });
 
+test("RFQ API generates unique quote ids and nonces within the same millisecond", async () => {
+  const originalDateNow = Date.now;
+  Date.now = () => 1893456000000;
+
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const responses = [];
+    for (let index = 0; index < 5; index += 1) {
+      responses.push(await injectJson(server, "POST", "/quote", baseQuoteRequest));
+    }
+
+    const quoteIds = new Set();
+    const nonces = new Set();
+    for (const response of responses) {
+      assert.equal(response.statusCode, 200);
+      assert.match(response.body.quoteId, /^q_[0-9]+$/);
+      assert.match(response.body.nonce, /^[0-9]+$/);
+      quoteIds.add(response.body.quoteId);
+      nonces.add(response.body.nonce);
+    }
+
+    assert.equal(quoteIds.size, responses.length);
+    assert.equal(nonces.size, responses.length);
+  } finally {
+    await server.close();
+    Date.now = originalDateNow;
+  }
+});
+
 async function injectJson(server, method, url, payload) {
   const response = await server.inject({
     method,

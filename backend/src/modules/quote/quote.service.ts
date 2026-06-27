@@ -12,6 +12,7 @@ import type { QuoteRepository } from "./quote.repository.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
 import type { RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
+import { QuoteIdentityGenerator } from "./quote-identity.js";
 
 export interface QuoteServiceDeps {
   marketDataService: MarketDataService;
@@ -23,6 +24,8 @@ export interface QuoteServiceDeps {
 }
 
 export class QuoteService {
+  private readonly identityGenerator = new QuoteIdentityGenerator();
+
   constructor(private readonly deps: QuoteServiceDeps) {}
 
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
@@ -36,7 +39,8 @@ export class QuoteService {
       inventorySkewBps: 0,
     });
 
-    const quoteId = `q_${Date.now().toString()}`;
+    const identity = this.identityGenerator.next();
+    const quoteId = identity.quoteId;
     await this.deps.quoteRepository.saveRequested({
       quoteId,
       snapshotId: snapshot.snapshotId,
@@ -56,7 +60,6 @@ export class QuoteService {
     }
 
     const deadline = Math.floor(Date.now() / 1000) + 30;
-    const nonce = Date.now().toString();
     const signedQuote: SignedQuote = {
       user: request.user,
       tokenIn: request.tokenIn,
@@ -64,7 +67,7 @@ export class QuoteService {
       amountIn: request.amountIn,
       amountOut: pricing.amountOut,
       minAmountOut: pricing.minAmountOut,
-      nonce,
+      nonce: identity.nonce,
       deadline,
       chainId: request.chainId,
     };
@@ -90,7 +93,7 @@ export class QuoteService {
       amountOut: pricing.amountOut,
       minAmountOut: pricing.minAmountOut,
       deadline,
-      nonce,
+      nonce: identity.nonce,
       signature,
     };
   }

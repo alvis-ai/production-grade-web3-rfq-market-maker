@@ -11,6 +11,7 @@ test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/test/api.test.mjs
 test -s backend/src/modules/quote/quote.service.ts
+test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
 test -s backend/src/modules/execution/execution.service.ts
 test -s backend/src/modules/inventory/inventory.service.ts
@@ -66,6 +67,8 @@ grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveSigned' backend/src/modules/quote/quote.service.ts
+grep -q 'class QuoteIdentityGenerator' backend/src/modules/quote/quote-identity.ts
+grep -q 'randomUint64' backend/src/modules/quote/quote-identity.ts
 grep -q 'class InMemoryQuoteRepository' backend/src/modules/quote/quote.repository.ts
 grep -q 'class BasicRiskEngine' backend/src/modules/risk/risk.engine.ts
 grep -q 'CHAIN_NOT_ENABLED' backend/src/modules/risk/risk.engine.ts
@@ -128,6 +131,7 @@ grep -q 'rfq_submit_accepted_total 1' scripts/smoke-api.mjs
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
+grep -q 'same millisecond' backend/test/api.test.mjs
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml
 grep -q 'name: rfq-market-maker' infra/helm/rfq-market-maker/Chart.yaml
