@@ -30,6 +30,7 @@ test -s contracts/src/RFQSettlement.sol
 test -s contracts/test/RFQSettlement.t.sol
 test -s examples/quote-request.json
 test -s examples/submit-request.json
+test -s scripts/smoke-api.mjs
 test -s infra/docker/backend.Dockerfile
 test -s infra/docker/frontend.Dockerfile
 test -s infra/prometheus/prometheus.yml
@@ -58,6 +59,7 @@ grep -q 'BasicRiskEngine' backend/src/main.ts
 grep -q 'LocalEIP712SignerService' backend/src/main.ts
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' backend/src/main.ts
 grep -q 'RFQ_SETTLEMENT_ADDRESS' backend/src/main.ts
+grep -q 'HOST' backend/src/main.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
@@ -100,6 +102,7 @@ grep -q 'testSubmitQuoteTransfersTokensAndConsumesNonce' contracts/test/RFQSettl
 grep -q 'testSubmitQuoteRejectsReplay' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUntrustedSigner' contracts/test/RFQSettlement.t.sol
 grep -q 'contract-test' Makefile
+grep -q 'backend-build' Makefile
 grep -q 'forge test' .github/workflows/contract-ci.yml
 grep -q 'make backend-typecheck' .github/workflows/backend-ci.yml
 grep -q 'make sdk-typecheck' .github/workflows/backend-ci.yml
@@ -109,9 +112,12 @@ grep -q 'typescript-check' Makefile
 grep -q 'allowBuilds' pnpm-workspace.yaml
 grep -q 'onlyBuiltDependencies' pnpm-workspace.yaml
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' .env.example
+grep -q 'HOST=127.0.0.1' .env.example
 grep -q '"viem"' backend/package.json
 grep -q '"@types/react"' frontend/package.json
-grep -q 'examples/quote-request.json' scripts/smoke-api.sh
+grep -q 'scripts/smoke-api.mjs' scripts/smoke-api.sh
+grep -q 'rfq_submit_accepted_total 1' scripts/smoke-api.mjs
+grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml
 grep -q 'name: rfq-market-maker' infra/helm/rfq-market-maker/Chart.yaml

@@ -105,7 +105,8 @@ export async function startServer() {
   const server = buildServer();
   const processLike = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
   const port = Number(processLike?.env?.PORT ?? 3000);
-  await server.listen({ host: "0.0.0.0", port });
+  const host = processLike?.env?.HOST ?? "127.0.0.1";
+  await server.listen({ host, port });
   return server;
 }
 

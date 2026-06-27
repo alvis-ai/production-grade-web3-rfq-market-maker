@@ -6,6 +6,7 @@
   "scripts": {
     "docs:check": "make docs-check",
     "skeleton:check": "make skeleton-check",
+    "backend:build": "make backend-build",
     "backend:typecheck": "make backend-typecheck",
     "frontend:build": "make frontend-build",
     "sdk:typecheck": "make sdk-typecheck",

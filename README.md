@@ -112,11 +112,21 @@ function submitQuote(
 Copy `.env.example` for local backend configuration. The included signer key is the public Anvil development key and must only be used on local chains.
 
 ```text
+HOST=127.0.0.1
+PORT=3000
 RFQ_SIGNER_PRIVATE_KEY=0x...
 RFQ_SETTLEMENT_ADDRESS=0x...
 ```
 
 The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract.
+
+Local API smoke path:
+
+```sh
+make backend-build
+node backend/dist/main.js
+make smoke-api
+```
 
 ## Design Principles
 
