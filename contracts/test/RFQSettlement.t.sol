@@ -11,6 +11,7 @@ interface Vm {
         returns (uint8 v, bytes32 r, bytes32 s);
     function prank(address caller) external;
     function expectRevert(bytes4 selector) external;
+    function warp(uint256 timestamp) external;
 }
 
 contract MockERC20 {
@@ -118,6 +119,75 @@ contract RFQSettlementTest {
         vm.prank(user);
         vm.expectRevert(RFQSettlement.NotOwner.selector);
         settlement.setTokenWhitelist(address(tokenIn), false);
+    }
+
+    function testSubmitQuoteRejectsExpiredQuote() public {
+        vm.warp(1_000);
+        IRFQSettlement.Quote memory quote = _quote(5);
+        quote.deadline = block.timestamp - 1;
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.QuoteExpired.selector);
+        settlement.submitQuote(quote, signature);
+    }
+
+    function testSubmitQuoteRejectsWrongChainId() public {
+        IRFQSettlement.Quote memory quote = _quote(6);
+        quote.chainId = block.chainid + 1;
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.InvalidChainId.selector);
+        settlement.submitQuote(quote, signature);
+    }
+
+    function testSubmitQuoteRejectsCallerDifferentFromQuoteUser() public {
+        IRFQSettlement.Quote memory quote = _quote(7);
+        bytes memory signature = _sign(quote);
+
+        vm.expectRevert(RFQSettlement.InvalidQuoteUser.selector);
+        settlement.submitQuote(quote, signature);
+    }
+
+    function testSubmitQuoteRejectsUnwhitelistedToken() public {
+        IRFQSettlement.Quote memory quote = _quote(8);
+        settlement.setTokenWhitelist(address(tokenOut), false);
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.TokenNotWhitelisted.selector);
+        settlement.submitQuote(quote, signature);
+    }
+
+    function testSubmitQuoteRejectsInvalidTokenPair() public {
+        IRFQSettlement.Quote memory quote = _quote(9);
+        quote.tokenOut = quote.tokenIn;
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.InvalidTokenPair.selector);
+        settlement.submitQuote(quote, signature);
+    }
+
+    function testSubmitQuoteRejectsAmountOutBelowMinimum() public {
+        IRFQSettlement.Quote memory quote = _quote(10);
+        quote.minAmountOut = quote.amountOut + 1;
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.AmountOutBelowMinimum.selector);
+        settlement.submitQuote(quote, signature);
+    }
+
+    function testSubmitQuoteRejectsZeroAmounts() public {
+        IRFQSettlement.Quote memory quote = _quote(11);
+        quote.amountIn = 0;
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.InvalidAmount.selector);
+        settlement.submitQuote(quote, signature);
     }
 
     function _quote(uint256 nonce) private view returns (IRFQSettlement.Quote memory) {

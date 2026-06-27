@@ -109,6 +109,10 @@ grep -q 'transferFrom' contracts/src/RFQSettlement.sol
 grep -q 'testSubmitQuoteTransfersTokensAndConsumesNonce' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsReplay' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUntrustedSigner' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsExpiredQuote' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsWrongChainId' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsUnwhitelistedToken' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsAmountOutBelowMinimum' contracts/test/RFQSettlement.t.sol
 grep -q 'contract-test' Makefile
 grep -q 'backend-build' Makefile
 grep -q 'backend-test' Makefile
