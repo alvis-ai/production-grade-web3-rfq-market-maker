@@ -9,7 +9,7 @@ import { InMemoryQuoteRepository } from "./modules/quote/quote.repository.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
 import { BasicRiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "./modules/routing/routing.engine.js";
-import { PlaceholderSignerService } from "./modules/signer/signer.service.js";
+import { LocalEIP712SignerService } from "./modules/signer/signer.service.js";
 import { APIError, toAPIError } from "./shared/errors/api-error.js";
 import { validateQuoteRequest } from "./shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.js";
@@ -29,7 +29,7 @@ export function buildServer() {
     quoteRepository: new InMemoryQuoteRepository(),
     riskEngine: new BasicRiskEngine(),
     routingEngine: new InternalInventoryRoutingEngine(),
-    signerService: new PlaceholderSignerService(),
+    signerService: new LocalEIP712SignerService(readSignerConfig()),
   });
 
   server.get("/health", async () => ({ status: "ok" }));
@@ -89,6 +89,16 @@ function sendError(
   error: APIError,
 ) {
   return reply.code(error.statusCode).send(error.toResponse());
+}
+
+function readSignerConfig() {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  return {
+    privateKey: (env?.RFQ_SIGNER_PRIVATE_KEY ??
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as `0x${string}`,
+    settlementAddress: (env?.RFQ_SETTLEMENT_ADDRESS ??
+      "0x0000000000000000000000000000000000000004") as `0x${string}`,
+  };
 }
 
 export async function startServer() {

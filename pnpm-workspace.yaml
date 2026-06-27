@@ -2,3 +2,13 @@ packages:
   - "backend"
   - "frontend"
   - "sdk"
+allowBuilds:
+  bufferutil: true
+  esbuild: true
+  keccak: true
+  utf-8-validate: true
+onlyBuiltDependencies:
+  - bufferutil
+  - esbuild
+  - keccak
+  - utf-8-validate

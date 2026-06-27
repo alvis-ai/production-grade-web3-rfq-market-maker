@@ -107,6 +107,17 @@ function submitQuote(
 
 核心保护包括 EIP-712 verification、trusted signer、nonce replay protection、deadline expiry、token whitelist、pause、reentrancy protection 和 SafeERC20。
 
+## Local Configuration
+
+Copy `.env.example` for local backend configuration. The included signer key is the public Anvil development key and must only be used on local chains.
+
+```text
+RFQ_SIGNER_PRIVATE_KEY=0x...
+RFQ_SETTLEMENT_ADDRESS=0x...
+```
+
+The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract.
+
 ## Design Principles
 
 1. Quote and execution consistency is the core invariant.

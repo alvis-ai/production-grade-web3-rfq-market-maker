@@ -8,6 +8,7 @@ Signer key management is a critical security domain for RFQ systems. A trusted s
 - The signer must only sign quotes approved by Risk Engine.
 - Signing requests must include quoteId, snapshotId, riskPolicyVersion and traceId.
 - Private keys must not be stored in application source code or `.env` committed to git.
+- `.env.example` contains a public Anvil development key only; it must never be reused outside local development.
 - Key rotation must be possible without redeploying all services.
 
 ## Recommended Production Model
@@ -32,11 +33,11 @@ flowchart LR
 
 ## Rotation Procedure
 
-1. Add new signer to contract allowlist.
+1. Configure Signer Service with the new key and verify its address.
 2. Deploy Signer Service config using the new key.
 3. Stop issuing quotes from the old key.
 4. Wait for old quotes to expire.
-5. Remove old signer from contract allowlist.
+5. Call `RFQSettlement.setTrustedSigner(newSigner)`.
 6. Archive audit logs for both keys.
 
 ## Incident Response
@@ -44,7 +45,7 @@ flowchart LR
 If signer compromise is suspected:
 
 1. Pause settlement if blast radius is unclear.
-2. Remove compromised signer from contract.
+2. Replace compromised signer with a clean signer using `RFQSettlement.setTrustedSigner`.
 3. Stop Signer Service.
 4. Invalidate in-flight quotes by waiting out TTL.
 5. Reconcile settlement events and inventory.

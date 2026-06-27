@@ -3,6 +3,8 @@ set -eu
 
 test -s package.json
 test -s pnpm-workspace.yaml
+test -s pnpm-lock.yaml
+test -s .env.example
 test -s .github/workflows/backend-ci.yml
 test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
@@ -53,6 +55,9 @@ grep -q '"settled"' backend/src/main.ts
 grep -q 'StaticMarketDataService' backend/src/main.ts
 grep -q 'InternalInventoryRoutingEngine' backend/src/main.ts
 grep -q 'BasicRiskEngine' backend/src/main.ts
+grep -q 'LocalEIP712SignerService' backend/src/main.ts
+grep -q 'RFQ_SIGNER_PRIVATE_KEY' backend/src/main.ts
+grep -q 'RFQ_SETTLEMENT_ADDRESS' backend/src/main.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
@@ -63,6 +68,9 @@ grep -q 'CHAIN_NOT_ENABLED' backend/src/modules/risk/risk.engine.ts
 grep -q 'TOKEN_NOT_ALLOWED' backend/src/modules/risk/risk.engine.ts
 grep -q 'AMOUNT_IN_LIMIT_EXCEEDED' backend/src/modules/risk/risk.engine.ts
 grep -q 'SLIPPAGE_TOO_WIDE' backend/src/modules/risk/risk.engine.ts
+grep -q 'class LocalEIP712SignerService' backend/src/modules/signer/signer.service.ts
+grep -q 'privateKeyToAccount' backend/src/modules/signer/signer.service.ts
+grep -q 'ProductionGradeRFQ' backend/src/modules/signer/signer.service.ts
 grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
 grep -q 'getQuoteIdForSignedQuote' backend/src/modules/quote/quote.service.ts
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
@@ -98,6 +106,11 @@ grep -q 'make sdk-typecheck' .github/workflows/backend-ci.yml
 grep -q 'make frontend-build' .github/workflows/backend-ci.yml
 grep -q 'make docs-check' .github/workflows/docs-ci.yml
 grep -q 'typescript-check' Makefile
+grep -q 'allowBuilds' pnpm-workspace.yaml
+grep -q 'onlyBuiltDependencies' pnpm-workspace.yaml
+grep -q 'RFQ_SIGNER_PRIVATE_KEY' .env.example
+grep -q '"viem"' backend/package.json
+grep -q '"@types/react"' frontend/package.json
 grep -q 'examples/quote-request.json' scripts/smoke-api.sh
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml

@@ -38,7 +38,7 @@ Signed quote 是链上结算授权。Signer 如果被滥用，攻击者可以构
 
 ## Existing Solutions
 
-本地私钥适合开发，不适合生产。KMS/HSM 更适合生产 signer。第一版 skeleton 可用 placeholder，后续接真实 signer。
+本地私钥适合开发，不适合生产。KMS/HSM 更适合生产 signer。当前后端 skeleton 已提供 `LocalEIP712SignerService`，使用 `viem/accounts` 对 `ProductionGradeRFQ` EIP-712 typed data 签名；`PlaceholderSignerService` 仅作为测试 fallback。
 
 ## Trade-Off Analysis
 
@@ -112,7 +112,8 @@ signQuote(input: SignQuoteInput): Promise<`0x${string}`>
 
 - Signer 不做风险判断。
 - Signer 验证 approved context。
-- Production signer 使用 KMS/HSM。
+- 当前 skeleton 使用本地 EIP-712 signer，配置来自 `RFQ_SIGNER_PRIVATE_KEY` 和 `RFQ_SETTLEMENT_ADDRESS`。
+- Production signer 使用 KMS/HSM，并保持同一 `signQuote` 接口。
 - Key rotation 写入 runbook。
 
 ## Failure Scenarios
@@ -132,7 +133,7 @@ KMS latency 进入 quote p99，需要监控 signer latency 和 queue depth。
 
 ## Testing Strategy
 
-测试 typed data、policy mismatch、KMS failure、audit failure、wrong domain 和 rotation process。
+测试 typed data、wrong domain、wrong verifying contract、policy mismatch、KMS failure、audit failure 和 rotation process。
 
 ## Interview Notes
 

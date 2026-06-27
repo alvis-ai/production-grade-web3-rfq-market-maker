@@ -10,7 +10,8 @@
     "test": "node --test"
   },
   "dependencies": {
-    "fastify": "^4.28.1"
+    "fastify": "^4.28.1",
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "typescript": "^5.5.0"

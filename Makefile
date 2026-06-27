@@ -36,13 +36,13 @@ skeleton-check:
 	@sh scripts/check-skeleton.sh
 
 backend-typecheck:
-	@pnpm --dir backend typecheck
+	@CI=true pnpm --dir backend typecheck
 
 sdk-typecheck:
-	@pnpm --dir sdk typecheck
+	@CI=true pnpm --dir sdk typecheck
 
 frontend-build:
-	@pnpm --dir frontend build
+	@CI=true pnpm --dir frontend build
 
 typescript-check: backend-typecheck sdk-typecheck frontend-build
 
