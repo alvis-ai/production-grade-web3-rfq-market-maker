@@ -14,8 +14,12 @@ import { APIError, toAPIError } from "./shared/errors/api-error.js";
 import { validateQuoteRequest } from "./shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.js";
 
-export function buildServer() {
-  const server = Fastify({ logger: true });
+export interface BuildServerOptions {
+  logger?: boolean;
+}
+
+export function buildServer(options: BuildServerOptions = {}) {
+  const server = Fastify({ logger: options.logger ?? true });
   const hedgeService = new HedgeService();
   const inventoryService = new InventoryService();
   const executionService = new SkeletonExecutionService({

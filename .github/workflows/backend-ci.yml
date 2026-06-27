@@ -31,6 +31,8 @@ jobs:
         run: make skeleton-check
       - name: Typecheck backend
         run: make backend-typecheck
+      - name: Test backend
+        run: make backend-test
       - name: Typecheck SDK
         run: make sdk-typecheck
       - name: Build frontend

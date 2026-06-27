@@ -1,4 +1,4 @@
-.PHONY: help docs-check tree workspace-check skeleton-check backend-build backend-typecheck sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api
+.PHONY: help docs-check tree workspace-check skeleton-check backend-build backend-test backend-typecheck sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -9,6 +9,7 @@ help:
 	@echo "  workspace-check  Verify expected workspace manifests exist"
 	@echo "  skeleton-check  Verify required skeleton entrypoints exist"
 	@echo "  backend-build  Build backend package"
+	@echo "  backend-test  Run backend API tests"
 	@echo "  backend-typecheck  Typecheck backend package"
 	@echo "  sdk-typecheck  Typecheck SDK package"
 	@echo "  frontend-build  Build frontend package"
@@ -38,6 +39,9 @@ skeleton-check:
 
 backend-build:
 	@CI=true pnpm --dir backend build
+
+backend-test: backend-build
+	@CI=true pnpm --dir backend test
 
 backend-typecheck:
 	@CI=true pnpm --dir backend typecheck
