@@ -11,7 +11,7 @@ import type { InventoryService } from "../inventory/inventory.service.js";
 import { getMarketSnapshotIssue, type MarketDataService } from "../market-data/market-data.service.js";
 import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
 import type { QuoteRepository } from "./quote.repository.js";
-import type { RiskEngine } from "../risk/risk.engine.js";
+import type { RiskDecision, RiskEngine, RiskInput } from "../risk/risk.engine.js";
 import type { RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
@@ -78,7 +78,7 @@ export class QuoteService {
       request,
     });
 
-    const risk = await this.deps.riskEngine.evaluate({ request, pricing, inventoryProjection });
+    const risk = await this.evaluateRisk({ request, pricing, inventoryProjection });
     if (risk.status !== "approved") {
       await this.deps.quoteRepository.saveRejected({
         quoteId,
@@ -153,6 +153,18 @@ export class QuoteService {
     }
 
     return status;
+  }
+
+  private async evaluateRisk(input: RiskInput): Promise<RiskDecision> {
+    try {
+      return await this.deps.riskEngine.evaluate(input);
+    } catch {
+      return {
+        status: "rejected",
+        reasonCode: "RISK_ENGINE_UNAVAILABLE",
+        policyVersion: "risk-engine-unavailable",
+      } as const;
+    }
   }
 
   async markQuoteStatus(quoteId: string, status: QuoteLifecycleStatus, txHash?: `0x${string}`): Promise<void> {

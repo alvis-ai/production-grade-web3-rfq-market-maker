@@ -112,6 +112,8 @@ grep -q 'maxSnapshotAgeMs' backend/src/modules/quote/quote.service.ts
 grep -q 'MARKET_DATA_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'PRICING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'pricingFailure' backend/src/modules/quote/quote.service.ts
+grep -q 'evaluateRisk' backend/src/modules/quote/quote.service.ts
+grep -q 'RISK_ENGINE_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveSigned' backend/src/modules/quote/quote.service.ts
@@ -258,6 +260,10 @@ grep -q 'Signed quote not found' docs/api/openapi.yaml
 grep -q 'settlement verification' docs/api/openapi.yaml
 grep -q 'Market data snapshot used for the quote' docs/api/openapi.yaml
 grep -q 'Market data unavailable, stale, invalid, signer unavailable' docs/api/openapi.yaml
+
+grep -q 'risk engine is unavailable' backend/test/api.test.mjs
+grep -q 'RISK_ENGINE_UNAVAILABLE' backend/test/api.test.mjs
+grep -q 'RISK_ENGINE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'stale' docs/api/openapi.yaml
 grep -q 'getReadiness' docs/api/openapi.yaml
 grep -q 'ReadinessResponse' docs/api/openapi.yaml

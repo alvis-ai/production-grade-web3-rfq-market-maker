@@ -430,6 +430,37 @@ test("RFQ API rejects toxic-flow users before signing", async () => {
   }
 });
 
+test("RFQ API fails closed when risk engine is unavailable", async () => {
+  const server = buildServer({
+    logger: false,
+    riskEngine: {
+      async evaluate() {
+        throw new Error("risk backend offline");
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "RISK_REJECTED");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_quote_requests_total 1/);
+    assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_responses_total 0/);
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="RISK_ENGINE_UNAVAILABLE"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API prices later quotes with inventory skew after settlement", async () => {
   const server = buildServer({ logger: false });
   await server.ready();

@@ -132,6 +132,7 @@ markQuoteStatus(quoteId, status, txHash): Promise<void>
 - Risk before signing 是强制顺序。
 - Quote Service 生成 quoteId。
 - Rejected quote 也要记录。
+- Risk Engine 抛错时按 fail-closed 处理，返回 `RISK_REJECTED`，内部拒绝原因为 `RISK_ENGINE_UNAVAILABLE`，不调用 Signer。
 - Signer failure 映射为 503，并将已 requested 的 quote 标记为 `failed`，`errorCode` 记录 `SIGNER_UNAVAILABLE`，避免状态长期停留在 `requested`。
 - `failed` quote 是终态，后续 `/submit` 必须返回 `QUOTE_FAILED`，不能重新进入 settlement path。
 - Quote persistence 通过 `QuoteRepository` 抽象，避免编排层直接绑定 PostgreSQL 或内存 Map。
@@ -140,6 +141,7 @@ markQuoteStatus(quoteId, status, txHash): Promise<void>
 
 - Pricing unavailable：返回 `PRICING_UNAVAILABLE`，不调用 Signer，不返回签名。
 - Risk rejected：返回 `RISK_REJECTED`。
+- Risk engine unavailable：返回 `RISK_REJECTED`，记录 `RISK_ENGINE_UNAVAILABLE`，不调用 Signer，不返回签名。
 - Signer unavailable：返回 `SIGNER_UNAVAILABLE`，quote 状态变为 `failed`。
 - Persistence failed：不返回签名。
 - Market data stale：不进入 pricing/risk/signer，直接返回 `MARKET_DATA_UNAVAILABLE`。
