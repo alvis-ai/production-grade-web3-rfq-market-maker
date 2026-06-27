@@ -512,6 +512,50 @@ test("RFQ API maps routing engine failures to dependency errors before pricing a
   }
 });
 
+test("RFQ API maps quote store failures before signing", async () => {
+  const server = buildServer({
+    logger: false,
+    quoteRepository: {
+      async saveRequested() {
+        throw new Error("quote store offline");
+      },
+      async saveRejected() {},
+      async saveSigned() {},
+      async findStatus() {
+        return undefined;
+      },
+      async markFailed() {},
+      async markStatus() {},
+      async findQuoteIdByUserNonce() {
+        return undefined;
+      },
+      async findSignedQuoteByUserNonce() {
+        return undefined;
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "QUOTE_STORE_UNAVAILABLE");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_quote_requests_total 1/);
+    assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_responses_total 0/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+    assert.match(metrics.payload, /rfq_settlements_total 0/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API maps pricing engine failures to dependency errors before signing", async () => {
   const server = buildServer({
     logger: false,

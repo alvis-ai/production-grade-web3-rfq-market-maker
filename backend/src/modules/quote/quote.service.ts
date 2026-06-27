@@ -5,12 +5,20 @@ import type {
   QuoteStatusResponse,
   MarketSnapshot,
   SignedQuote,
+  Address,
+  UIntString,
 } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
 import type { InventoryService } from "../inventory/inventory.service.js";
 import { getMarketSnapshotIssue, type MarketDataService } from "../market-data/market-data.service.js";
 import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
-import type { QuoteRepository } from "./quote.repository.js";
+import type {
+  QuoteRepository,
+  QuoteRecord,
+  SaveRejectedQuoteInput,
+  SaveRequestedQuoteInput,
+  SaveSignedQuoteInput,
+} from "./quote.repository.js";
 import type { RiskDecision, RiskEngine, RiskInput } from "../risk/risk.engine.js";
 import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
@@ -76,7 +84,7 @@ export class QuoteService {
 
     const identity = this.identityGenerator.next();
     const quoteId = identity.quoteId;
-    await this.deps.quoteRepository.saveRequested({
+    await this.saveRequestedQuote({
       quoteId,
       snapshotId: snapshot.snapshotId,
       request,
@@ -84,7 +92,7 @@ export class QuoteService {
 
     const risk = await this.evaluateRisk({ request, pricing, inventoryProjection });
     if (risk.status !== "approved") {
-      await this.deps.quoteRepository.saveRejected({
+      await this.saveRejectedQuote({
         quoteId,
         snapshotId: snapshot.snapshotId,
         request,
@@ -125,7 +133,7 @@ export class QuoteService {
       throw error;
     }
 
-    await this.deps.quoteRepository.saveSigned({
+    await this.saveSignedQuote({
       quoteId,
       snapshotId: snapshot.snapshotId,
       quote: signedQuote,
@@ -146,7 +154,7 @@ export class QuoteService {
   }
 
   async getQuoteStatus(quoteId: string): Promise<QuoteStatusResponse | undefined> {
-    const status = await this.deps.quoteRepository.findStatus(quoteId);
+    const status = await this.findQuoteStatus(quoteId);
     if (!status) return undefined;
 
     if (status.status === "signed" && status.deadline && status.deadline < Math.floor(Date.now() / 1000)) {
@@ -171,6 +179,66 @@ export class QuoteService {
     return snapshot;
   }
 
+  private async saveRequestedQuote(input: SaveRequestedQuoteInput): Promise<void> {
+    try {
+      await this.deps.quoteRepository.saveRequested(input);
+    } catch (error) {
+      throw quoteStoreFailure(error);
+    }
+  }
+
+  private async saveRejectedQuote(input: SaveRejectedQuoteInput): Promise<void> {
+    try {
+      await this.deps.quoteRepository.saveRejected(input);
+    } catch (error) {
+      throw quoteStoreFailure(error);
+    }
+  }
+
+  private async saveSignedQuote(input: SaveSignedQuoteInput): Promise<void> {
+    try {
+      await this.deps.quoteRepository.saveSigned(input);
+    } catch (error) {
+      throw quoteStoreFailure(error);
+    }
+  }
+
+  private async findQuoteStatus(quoteId: string): Promise<QuoteStatusResponse | undefined> {
+    try {
+      return await this.deps.quoteRepository.findStatus(quoteId);
+    } catch (error) {
+      throw quoteStoreFailure(error);
+    }
+  }
+
+  private async markStoredQuoteStatus(
+    quoteId: string,
+    status: QuoteLifecycleStatus,
+    txHash?: `0x${string}`,
+  ): Promise<void> {
+    try {
+      await this.deps.quoteRepository.markStatus(quoteId, status, txHash);
+    } catch (error) {
+      throw quoteStoreFailure(error);
+    }
+  }
+
+  private async markStoredQuoteFailed(quoteId: string, errorCode: string): Promise<void> {
+    try {
+      await this.deps.quoteRepository.markFailed(quoteId, errorCode);
+    } catch (error) {
+      throw quoteStoreFailure(error);
+    }
+  }
+
+  private async findSignedQuoteByUserNonce(user: Address, nonce: UIntString): Promise<QuoteRecord | undefined> {
+    try {
+      return await this.deps.quoteRepository.findSignedQuoteByUserNonce(user, nonce);
+    } catch (error) {
+      throw quoteStoreFailure(error);
+    }
+  }
+
   private async evaluateRisk(input: RiskInput): Promise<RiskDecision> {
     try {
       return await this.deps.riskEngine.evaluate(input);
@@ -184,15 +252,15 @@ export class QuoteService {
   }
 
   async markQuoteStatus(quoteId: string, status: QuoteLifecycleStatus, txHash?: `0x${string}`): Promise<void> {
-    await this.deps.quoteRepository.markStatus(quoteId, status, txHash);
+    await this.markStoredQuoteStatus(quoteId, status, txHash);
   }
 
   async markQuoteFailed(quoteId: string, errorCode: string): Promise<void> {
-    await this.deps.quoteRepository.markFailed(quoteId, errorCode);
+    await this.markStoredQuoteFailed(quoteId, errorCode);
   }
 
   async requireSubmittableSignedQuote(quote: SignedQuote, signature: `0x${string}`): Promise<string> {
-    const record = await this.deps.quoteRepository.findSignedQuoteByUserNonce(quote.user, quote.nonce);
+    const record = await this.findSignedQuoteByUserNonce(quote.user, quote.nonce);
     if (!record || !isExactSignedQuote(record, quote)) {
       throw new APIError("QUOTE_NOT_FOUND", "Signed quote not found", 404);
     }
@@ -226,6 +294,14 @@ function marketDataFailure(error: unknown): APIError {
   }
 
   return new APIError("MARKET_DATA_UNAVAILABLE", "Market data unavailable", 503);
+}
+
+function quoteStoreFailure(error: unknown): APIError {
+  if (error instanceof APIError) {
+    return error;
+  }
+
+  return new APIError("QUOTE_STORE_UNAVAILABLE", "Quote store unavailable", 503);
 }
 
 function pricingFailure(error: unknown): APIError {

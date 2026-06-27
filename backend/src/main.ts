@@ -7,7 +7,7 @@ import { StaticMarketDataService, type MarketDataService } from "./modules/marke
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { PnlService } from "./modules/pnl/pnl.service.js";
 import { FormulaPricingEngine, type PricingEngine } from "./modules/pricing/pricing.engine.js";
-import { InMemoryQuoteRepository } from "./modules/quote/quote.repository.js";
+import { InMemoryQuoteRepository, type QuoteRepository } from "./modules/quote/quote.repository.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
 import { InMemoryRateLimiter, type RateLimitConfig, type RateLimitedEndpoint } from "./modules/rate-limit/rate-limit.service.js";
 import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
@@ -23,6 +23,7 @@ export interface BuildServerOptions {
   logger?: boolean;
   marketDataService?: MarketDataService;
   pricingEngine?: PricingEngine;
+  quoteRepository?: QuoteRepository;
   riskEngine?: RiskEngine;
   routingEngine?: RoutingEngine;
   hedgeService?: HedgeIntentService;
@@ -59,7 +60,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     inventoryService,
     marketDataService,
     pricingEngine: options.pricingEngine ?? new FormulaPricingEngine(),
-    quoteRepository: new InMemoryQuoteRepository(),
+    quoteRepository: options.quoteRepository ?? new InMemoryQuoteRepository(),
     riskEngine: options.riskEngine ?? new BasicRiskEngine(),
     routingEngine: options.routingEngine ?? new InternalInventoryRoutingEngine(),
     signerService: new ObservedSignerService(signerService, metricsService),

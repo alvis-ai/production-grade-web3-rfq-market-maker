@@ -96,6 +96,7 @@ grep -q '"submitted"' backend/src/main.ts
 grep -q '"settled"' backend/src/main.ts
 grep -q 'StaticMarketDataService' backend/src/main.ts
 grep -q 'pricingEngine?: PricingEngine' backend/src/main.ts
+grep -q 'quoteRepository?: QuoteRepository' backend/src/main.ts
 grep -q 'routingEngine?: RoutingEngine' backend/src/main.ts
 grep -q 'InternalInventoryRoutingEngine' backend/src/main.ts
 grep -q 'BasicRiskEngine' backend/src/main.ts
@@ -126,6 +127,8 @@ grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveSigned' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.markFailed' backend/src/modules/quote/quote.service.ts
+grep -q 'quoteStoreFailure' backend/src/modules/quote/quote.service.ts
+grep -q 'QUOTE_STORE_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteFailureCode' backend/src/modules/quote/quote.service.ts
 grep -q 'class QuoteIdentityGenerator' backend/src/modules/quote/quote-identity.ts
 grep -q 'randomUint64' backend/src/modules/quote/quote-identity.ts
@@ -274,6 +277,8 @@ grep -q 'SETTLEMENT_UNAVAILABLE' docs/api/errors.md
 grep -q 'Market data snapshot used for the quote' docs/api/openapi.yaml
 grep -q 'routing unavailable' docs/api/openapi.yaml
 grep -q 'ROUTING_UNAVAILABLE' docs/api/errors.md
+grep -q 'QUOTE_STORE_UNAVAILABLE' docs/api/openapi.yaml
+grep -q 'QUOTE_STORE_UNAVAILABLE' docs/api/errors.md
 
 grep -q 'risk engine is unavailable' backend/test/api.test.mjs
 grep -q 'RISK_ENGINE_UNAVAILABLE' backend/test/api.test.mjs
@@ -346,6 +351,9 @@ grep -q 'invalid market data before pricing and signing' backend/test/api.test.m
 grep -q 'routing engine failures' backend/test/api.test.mjs
 grep -q 'ROUTING_UNAVAILABLE' backend/test/api.test.mjs
 grep -q 'ROUTING_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'quote store failures' backend/test/api.test.mjs
+grep -q 'QUOTE_STORE_UNAVAILABLE' backend/test/api.test.mjs
+grep -q 'QUOTE_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'pricing engine failures' backend/test/api.test.mjs
 grep -q 'market data shape is invalid' backend/test/api.test.mjs
 grep -q 'degrades readiness when market data is stale' backend/test/api.test.mjs
