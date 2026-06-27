@@ -81,7 +81,12 @@ export function buildServer(options: BuildServerOptions = {}) {
       return response;
     } catch (error) {
       metricsService.recordQuoteError();
-      return sendError(reply, requestTraceId(request), toAPIError(error));
+      const apiError = toAPIError(error);
+      if (apiError.code === "RISK_REJECTED") {
+        metricsService.recordQuoteRejection(apiError.internalReasonCode ?? "RISK_REJECTED");
+      }
+
+      return sendError(reply, requestTraceId(request), apiError);
     } finally {
       metricsService.recordQuoteLatency(elapsedSeconds(startedAt));
     }

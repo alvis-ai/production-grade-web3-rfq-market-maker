@@ -28,6 +28,7 @@ export class APIError extends Error {
     message: string,
     readonly statusCode: number,
     readonly traceId?: string,
+    readonly internalReasonCode?: string,
   ) {
     super(message);
     this.name = "APIError";

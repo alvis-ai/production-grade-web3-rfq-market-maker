@@ -92,6 +92,7 @@ test("RFQ API rejects quotes that fail pre-trade risk policy", async () => {
     assert.equal(metrics.statusCode, 200);
     assert.match(metrics.payload, /rfq_quote_requests_total 1/);
     assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="SLIPPAGE_TOO_WIDE"\} 1/);
   } finally {
     await server.close();
   }
@@ -140,6 +141,7 @@ test("RFQ API rejects quotes that would exceed projected inventory limits", asyn
     assert.match(metrics.payload, /rfq_quote_requests_total 1/);
     assert.match(metrics.payload, /rfq_quote_errors_total 1/);
     assert.match(metrics.payload, /rfq_quote_responses_total 0/);
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="TOKEN_IN_INVENTORY_LIMIT_EXCEEDED"\} 1/);
   } finally {
     await server.close();
   }

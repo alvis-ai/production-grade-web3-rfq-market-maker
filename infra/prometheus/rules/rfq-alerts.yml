@@ -36,3 +36,12 @@ groups:
         annotations:
           summary: RFQ quote p95 latency is above 1 second
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQQuoteRiskRejectSpike
+        expr: sum(increase(rfq_quote_rejections_total[5m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ quote risk rejection volume is elevated
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md

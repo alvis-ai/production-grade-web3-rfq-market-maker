@@ -120,6 +120,7 @@ ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, st
 - Use ClickHouse for quote-level analysis.
 - Metrics failures must not break quote path.
 - 当前后端实现已暴露 quote 和 submit latency histogram，使用固定 bucket，不带 user、quoteId 或 wallet label。
+- `rfq_quote_rejections_total` 只使用稳定内部 `reasonCode` 作为 label，不暴露阈值、金额、地址或 quoteId。
 
 ## Failure Scenarios
 

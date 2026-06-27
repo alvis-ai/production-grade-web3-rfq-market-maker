@@ -113,6 +113,7 @@ Key metrics include `rfq_quote_latency_seconds`, `rfq_submit_latency_seconds`, `
 
 - Signer latency p99 spikes：reduce quote traffic or disable signing.
 - Quote latency p95 spikes：check market data, pricing, risk and signer dependency latency.
+- Risk reject spike：check market volatility, inventory limits, token allowlist and toxic flow signals.
 - Inventory exposure over limit：tighten risk limits.
 - Event lag grows：pause risky pairs.
 - Hedge failure spike：widen spread and page operator.

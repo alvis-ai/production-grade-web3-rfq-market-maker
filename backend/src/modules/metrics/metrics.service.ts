@@ -25,6 +25,7 @@ export class MetricsService {
   private hedgeIntents = 0;
   private readonly quoteLatency = createHistogramState();
   private readonly submitLatency = createHistogramState();
+  private readonly quoteRejections = new Map<string, number>();
   private readonly inventoryBalances = new Map<string, InventoryMetricPosition>();
 
   recordQuoteRequest(): void {
@@ -41,6 +42,11 @@ export class MetricsService {
 
   recordQuoteLatency(seconds: number): void {
     recordHistogram(this.quoteLatency, seconds);
+  }
+
+  recordQuoteRejection(reasonCode: string): void {
+    const reason = metricLabelValue(reasonCode);
+    this.quoteRejections.set(reason, (this.quoteRejections.get(reason) ?? 0) + 1);
   }
 
   recordSubmitRequest(): void {
@@ -85,6 +91,9 @@ export class MetricsService {
       "# HELP rfq_quote_latency_seconds RFQ quote request latency in seconds.",
       "# TYPE rfq_quote_latency_seconds histogram",
       ...renderHistogram("rfq_quote_latency_seconds", this.quoteLatency),
+      "# HELP rfq_quote_rejections_total Total risk-rejected quote requests by stable internal reason.",
+      "# TYPE rfq_quote_rejections_total counter",
+      ...this.renderQuoteRejections(),
       "# HELP rfq_submit_requests_total Total submit requests accepted by the skeleton API.",
       "# TYPE rfq_submit_requests_total counter",
       `rfq_submit_requests_total ${this.submitRequests}`,
@@ -120,6 +129,12 @@ export class MetricsService {
       .map((position) => {
         return `rfq_inventory_balance{chain_id="${position.chainId}",token="${position.token.toLowerCase()}"} ${position.balance.toString()}`;
       });
+  }
+
+  private renderQuoteRejections(): string[] {
+    return [...this.quoteRejections.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([reason, count]) => `rfq_quote_rejections_total{reason="${reason}"} ${count}`);
   }
 
   private inventoryKey(chainId: number, token: Address): string {
@@ -166,4 +181,9 @@ function formatMetricNumber(value: number): string {
   }
 
   return value.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function metricLabelValue(value: string): string {
+  const normalized = value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+  return normalized.length > 0 ? normalized : "UNKNOWN";
 }

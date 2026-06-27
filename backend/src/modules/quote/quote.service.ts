@@ -69,7 +69,13 @@ export class QuoteService {
         rejectCode: risk.reasonCode ?? "RISK_REJECTED",
         riskPolicyVersion: risk.policyVersion,
       });
-      throw new APIError("RISK_REJECTED", "Quote rejected by risk policy", 409);
+      throw new APIError(
+        "RISK_REJECTED",
+        "Quote rejected by risk policy",
+        409,
+        undefined,
+        risk.reasonCode ?? "RISK_REJECTED",
+      );
     }
 
     const deadline = Math.floor(Date.now() / 1000) + 30;
