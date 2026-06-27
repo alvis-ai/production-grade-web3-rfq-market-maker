@@ -43,8 +43,7 @@ export class QuoteService {
   ) {}
 
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
-    const snapshot = await this.deps.marketDataService.getSnapshot(request);
-    assertUsableSnapshot(snapshot, this.config.maxSnapshotAgeMs);
+    const snapshot = await this.getUsableSnapshot(request);
     let routePlan: RoutePlan;
     try {
       routePlan = await this.deps.routingEngine.selectRoute({ request, snapshot });
@@ -160,6 +159,18 @@ export class QuoteService {
     return status;
   }
 
+  private async getUsableSnapshot(request: QuoteRequest): Promise<MarketSnapshot> {
+    let snapshot: MarketSnapshot;
+    try {
+      snapshot = await this.deps.marketDataService.getSnapshot(request);
+    } catch (error) {
+      throw marketDataFailure(error);
+    }
+
+    assertUsableSnapshot(snapshot, this.config.maxSnapshotAgeMs);
+    return snapshot;
+  }
+
   private async evaluateRisk(input: RiskInput): Promise<RiskDecision> {
     try {
       return await this.deps.riskEngine.evaluate(input);
@@ -207,6 +218,14 @@ function quoteFailureCode(error: unknown): string {
   }
 
   return "INTERNAL_ERROR";
+}
+
+function marketDataFailure(error: unknown): APIError {
+  if (error instanceof APIError) {
+    return error;
+  }
+
+  return new APIError("MARKET_DATA_UNAVAILABLE", "Market data unavailable", 503);
 }
 
 function pricingFailure(error: unknown): APIError {

@@ -119,7 +119,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 
 - 请求格式错误：返回 `INVALID_REQUEST`。
 - 限流：返回 HTTP 429、`RATE_LIMITED` 和 `Retry-After`。
-- Market data stale：`/ready` 返回 HTTP 503/degraded，`POST /quote` 返回 `MARKET_DATA_UNAVAILABLE`。
+- Market data unavailable、invalid 或 stale：`/ready` 返回 HTTP 503/degraded，`POST /quote` 返回 `MARKET_DATA_UNAVAILABLE`。
 - Signer readiness probe failed：`/ready` 返回 HTTP 503/degraded，`POST /quote` 仍会在实际签名时返回 `SIGNER_UNAVAILABLE`。
 - Quote Service 超时：返回 503。
 - 内部异常：返回 `INTERNAL_ERROR` 和 traceId。

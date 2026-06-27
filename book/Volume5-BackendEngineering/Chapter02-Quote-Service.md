@@ -145,7 +145,7 @@ markQuoteStatus(quoteId, status, txHash): Promise<void>
 - Risk engine unavailable：返回 `RISK_REJECTED`，记录 `RISK_ENGINE_UNAVAILABLE`，不调用 Signer，不返回签名。
 - Signer unavailable：返回 `SIGNER_UNAVAILABLE`，quote 状态变为 `failed`。
 - Persistence failed：不返回签名。
-- Market data stale：不进入 pricing/risk/signer，直接返回 `MARKET_DATA_UNAVAILABLE`。
+- Market data unavailable、invalid 或 stale：不进入 routing/pricing/risk/signer，直接返回 `MARKET_DATA_UNAVAILABLE`。
 
 ## Security Considerations
 

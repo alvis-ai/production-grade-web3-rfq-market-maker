@@ -411,6 +411,38 @@ test("RFQ API rejects stale market data before pricing and signing", async () =>
   }
 });
 
+test("RFQ API maps market data failures to dependency errors before routing and signing", async () => {
+  const server = buildServer({
+    logger: false,
+    marketDataService: {
+      async getSnapshot() {
+        throw new Error("market data backend offline");
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "MARKET_DATA_UNAVAILABLE");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_quote_requests_total 1/);
+    assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_responses_total 0/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+    assert.match(metrics.payload, /rfq_settlements_total 0/);
+    assert.doesNotMatch(metrics.payload, /rfq_inventory_balance\{chain_id=/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rejects invalid market data before pricing and signing", async () => {
   const server = buildServer({
     logger: false,

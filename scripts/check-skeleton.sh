@@ -110,6 +110,8 @@ grep -q 'traceId: string' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'SETTLEMENT_EVENT_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
+grep -q 'getUsableSnapshot' backend/src/modules/quote/quote.service.ts
+grep -q 'marketDataFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'assertUsableSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'getMarketSnapshotIssue' backend/src/modules/quote/quote.service.ts
 grep -q 'maxSnapshotAgeMs' backend/src/modules/quote/quote.service.ts
@@ -339,6 +341,7 @@ grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' back
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'SLIPPAGE_TOO_WIDE' backend/test/api.test.mjs
 grep -q 'stale market data' backend/test/api.test.mjs
+grep -q 'market data failures' backend/test/api.test.mjs
 grep -q 'invalid market data before pricing and signing' backend/test/api.test.mjs
 grep -q 'routing engine failures' backend/test/api.test.mjs
 grep -q 'ROUTING_UNAVAILABLE' backend/test/api.test.mjs
