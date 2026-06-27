@@ -149,6 +149,8 @@ grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml
 grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/openapi.yaml
 grep -q 'Signed quote not found' docs/api/openapi.yaml
 grep -q 'Quote expired or already used' docs/api/openapi.yaml
+grep -q 'Market data snapshot used for the quote' docs/api/openapi.yaml
+grep -q 'Internal rejection reason for rejected quote records' docs/api/openapi.yaml
 grep -q 'QUOTE_ALREADY_USED' docs/api/openapi.yaml
 grep -q 'pattern: "^tr_.+"' docs/api/openapi.yaml
 grep -q 'allowBuilds' pnpm-workspace.yaml

@@ -233,6 +233,7 @@ components:
           description: The backend accepted the submit request for execution or simulated settlement.
         txHash:
           type: string
+          pattern: "^0x[a-fA-F0-9]+$"
           description: Simulated or relayed transaction hash.
     SignedQuote:
       type: object
@@ -287,6 +288,19 @@ components:
             - submitted
             - settled
             - failed
+        snapshotId:
+          type: string
+          description: Market data snapshot used for the quote when available.
+        deadline:
+          type: integer
+          description: Unix timestamp after which a signed quote is no longer submittable.
+        txHash:
+          type: string
+          pattern: "^0x[a-fA-F0-9]+$"
+          description: Simulated or relayed transaction hash after submit.
+        errorCode:
+          type: string
+          description: Internal rejection reason for rejected quote records when available.
     HealthResponse:
       type: object
       required:
