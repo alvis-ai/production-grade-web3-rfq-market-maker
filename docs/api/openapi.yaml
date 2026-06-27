@@ -681,6 +681,7 @@ components:
             - QUOTE_NOT_FOUND
             - QUOTE_EXPIRED
             - QUOTE_ALREADY_USED
+            - QUOTE_FAILED
             - HEDGE_NOT_FOUND
             - SETTLEMENT_EVENT_NOT_FOUND
             - SETTLEMENT_REVERTED

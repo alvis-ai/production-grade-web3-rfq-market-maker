@@ -29,6 +29,7 @@
 | `QUOTE_NOT_FOUND` | 404 | quoteId 不存在 | 重新询价 |
 | `QUOTE_EXPIRED` | 409 | quote 已过期 | 重新询价 |
 | `QUOTE_ALREADY_USED` | 409 | quote nonce 已使用 | 重新询价 |
+| `QUOTE_FAILED` | 409 | quote 已进入失败终态，不能再次提交 | 重新询价 |
 | `HEDGE_NOT_FOUND` | 404 | hedgeOrderId 不存在或已不在当前执行存储中 | 查询 submit 响应返回的 hedgeOrderId，必要时重新提交 |
 | `SETTLEMENT_EVENT_NOT_FOUND` | 404 | settlementEventId 不存在或当前执行存储尚未消费该事件 | 查询 submit 响应返回的 settlementEventId，或等待索引器消费链上事件 |
 | `SETTLEMENT_REVERTED` | 409 | settlement verification 或链上结算拒绝该 quote | 查看交易状态并重新询价 |

@@ -166,6 +166,9 @@ export class QuoteService {
     if (record.status === "submitted" || record.status === "settled") {
       throw new APIError("QUOTE_ALREADY_USED", "Quote already used", 409);
     }
+    if (record.status === "failed") {
+      throw new APIError("QUOTE_FAILED", "Quote already failed", 409);
+    }
 
     const isValidSignature = await this.deps.signerService.verifyQuoteSignature(quote, signature);
     if (!isValidSignature) {

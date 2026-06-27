@@ -133,6 +133,7 @@ markQuoteStatus(quoteId, status, txHash): Promise<void>
 - Quote Service 生成 quoteId。
 - Rejected quote 也要记录。
 - Signer failure 映射为 503，并将已 requested 的 quote 标记为 `failed`，`errorCode` 记录 `SIGNER_UNAVAILABLE`，避免状态长期停留在 `requested`。
+- `failed` quote 是终态，后续 `/submit` 必须返回 `QUOTE_FAILED`，不能重新进入 settlement path。
 - Quote persistence 通过 `QuoteRepository` 抽象，避免编排层直接绑定 PostgreSQL 或内存 Map。
 
 ## Failure Scenarios
