@@ -14,7 +14,7 @@ export class StaticMarketDataService implements MarketDataService {
         request.tokenOut.slice(2, 10).toLowerCase(),
       ].join("_"),
       midPrice: "1",
-      liquidityUsd: "1000000",
+      liquidityUsd: "10000000000000",
       volatilityBps: 25,
       observedAt: new Date().toISOString(),
     };

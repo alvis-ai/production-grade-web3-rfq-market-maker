@@ -94,6 +94,8 @@ stateDiagram-v2
 
 `PricingResult` includes amount fields and component bps fields. It should match backend `pricing.engine.ts` and later extend with volatility and hedge cost.
 
+当前实现返回 `amountOut`、`minAmountOut`、`spreadBps`、`sizeImpactBps`、`inventorySkewBps` 和 `pricingVersion`。其中 `spreadBps` 表示已经聚合后的总报价调整，包括 base spread、internal inventory buffer、volatility premium、size impact 和 inventory skew。
+
 ## API Design
 
 Internal interface:

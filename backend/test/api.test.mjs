@@ -23,8 +23,8 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
     assert.equal(quote.statusCode, 200);
     assert.match(quote.body.quoteId, /^q_/);
-    assert.equal(quote.body.amountOut, baseQuoteRequest.amountIn);
-    assert.equal(quote.body.minAmountOut, "995000000");
+    assert.equal(quote.body.amountOut, "998400000");
+    assert.equal(quote.body.minAmountOut, "993408000");
     assert.match(quote.body.signature, /^0x[0-9a-fA-F]+$/);
 
     const submit = await injectJson(server, "POST", "/submit", {

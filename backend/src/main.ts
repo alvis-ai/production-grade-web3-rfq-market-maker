@@ -4,7 +4,7 @@ import { HedgeService } from "./modules/hedge/hedge.service.js";
 import { InventoryService } from "./modules/inventory/inventory.service.js";
 import { StaticMarketDataService } from "./modules/market-data/market-data.service.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
-import { StaticPricingEngine } from "./modules/pricing/pricing.engine.js";
+import { FormulaPricingEngine } from "./modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "./modules/quote/quote.repository.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
 import { BasicRiskEngine } from "./modules/risk/risk.engine.js";
@@ -29,7 +29,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const metricsService = new MetricsService();
   const quoteService = new QuoteService({
     marketDataService: new StaticMarketDataService(),
-    pricingEngine: new StaticPricingEngine(),
+    pricingEngine: new FormulaPricingEngine(),
     quoteRepository: new InMemoryQuoteRepository(),
     riskEngine: new BasicRiskEngine(),
     routingEngine: new InternalInventoryRoutingEngine(),
