@@ -350,6 +350,10 @@ grep -q 'allowBuilds' pnpm-workspace.yaml
 grep -q 'onlyBuiltDependencies' pnpm-workspace.yaml
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' .env.example
 grep -q 'HOST=127.0.0.1' .env.example
+grep -q 'Production Configuration' README.md
+grep -q 'rfq-backend-secrets' README.md
+grep -q '32-byte hex string' README.md
+grep -q '20-byte hex address' README.md
 grep -q '"viem"' backend/package.json
 grep -q '"@types/react"' frontend/package.json
 grep -q 'scripts/smoke-api.mjs' scripts/smoke-api.sh
@@ -469,6 +473,10 @@ grep -q 'rfq_pnl_trades_total' infra/grafana/provisioning/dashboards/rfq-overvie
 grep -q 'Post-Settlement Persistence Drift' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'settlement-to-quote reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'settlement-to-PnL reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'rfq-backend-secrets' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
+grep -q 'Missing or malformed signer Secret' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
+grep -q '32-byte hex string' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
+grep -q '20-byte hex address' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml
 grep -q 'path: /ready' infra/k8s/backend-deployment.yaml
 grep -q 'secretRef' infra/k8s/backend-deployment.yaml

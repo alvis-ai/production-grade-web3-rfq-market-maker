@@ -103,6 +103,12 @@ stateDiagram-v2
 
 Kubernetes config includes Deployment, Service, ConfigMap, Secret, ServiceAccount, NetworkPolicy, HorizontalPodAutoscaler and PodDisruptionBudget.
 
+The current runnable backend manifests use:
+
+- `rfq-backend-config` ConfigMap for non-secret runtime settings such as `HOST=0.0.0.0`, `PORT=3000` and `NODE_ENV=production`.
+- `rfq-backend-secrets` Secret for `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS`.
+- Helm `signerSecret` values to reference the Secret name and key names without embedding private values into chart templates.
+
 ## API Design
 
 No public API changes. Ingress exposes only public endpoints.
@@ -112,12 +118,14 @@ No public API changes. Ingress exposes only public endpoints.
 - Helm manages manifests.
 - Signer has separate service account and network policy.
 - Readiness 使用 `/ready` 检查关键组件状态，liveness 使用 `/health` 检查进程存活，避免坏版本进入流量。
+- `NODE_ENV=production` requires explicit signer configuration. `RFQ_SIGNER_PRIVATE_KEY` must be a 32-byte hex string and `RFQ_SETTLEMENT_ADDRESS` must be a 20-byte hex address; placeholder Secret values must be replaced before deploy.
 
 ## Failure Scenarios
 
 - Bad deployment：rollback Helm release.
 - Signer pod crashloop：disable quote signing and page operator.
 - Dependency unavailable：readiness fails.
+- Missing or malformed signer Secret：backend fails fast before serving traffic.
 
 ## Security Considerations
 

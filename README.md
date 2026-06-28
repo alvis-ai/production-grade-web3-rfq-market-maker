@@ -133,6 +133,20 @@ RFQ_SETTLEMENT_ADDRESS=0x...
 
 The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract.
 
+## Production Configuration
+
+When `NODE_ENV=production`, the backend refuses to start unless `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` are explicitly configured. The signer private key must be a 32-byte hex string and the settlement address must be a 20-byte hex address.
+
+Kubernetes deployments load these values from `rfq-backend-secrets`. Replace the placeholders in `infra/k8s/backend-secret.yaml` before applying manifests, or create the same Secret out of band:
+
+```sh
+kubectl -n rfq-market-maker create secret generic rfq-backend-secrets \
+  --from-literal=RFQ_SIGNER_PRIVATE_KEY=0x... \
+  --from-literal=RFQ_SETTLEMENT_ADDRESS=0x...
+```
+
+The Helm chart expects the same keys through `signerSecret.name`, `signerSecret.privateKeyKey` and `signerSecret.settlementAddressKey`.
+
 Local API smoke path:
 
 ```sh
