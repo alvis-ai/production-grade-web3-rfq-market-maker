@@ -71,6 +71,7 @@ test -s scripts/smoke-api.sh
 grep -q 'server.post("/quote"' backend/src/main.ts
 grep -q 'server.post("/submit"' backend/src/main.ts
 grep -q 'server.get("/quote/:quoteId"' backend/src/main.ts
+grep -q 'quoteService.getQuoteStatus' backend/src/main.ts
 grep -q 'server.get("/settlements/:settlementEventId"' backend/src/main.ts
 grep -q 'server.get("/hedges/:hedgeOrderId"' backend/src/main.ts
 grep -q 'server.get("/pnl"' backend/src/main.ts
@@ -366,8 +367,10 @@ grep -q 'routing engine failures' backend/test/api.test.mjs
 grep -q 'ROUTING_UNAVAILABLE' backend/test/api.test.mjs
 grep -q 'ROUTING_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'quote store failures' backend/test/api.test.mjs
+grep -q 'quote status store failures' backend/test/api.test.mjs
 grep -q 'QUOTE_STORE_UNAVAILABLE' backend/test/api.test.mjs
 grep -q 'QUOTE_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Quote status store unavailable' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'pricing engine failures' backend/test/api.test.mjs
 grep -q 'market data shape is invalid' backend/test/api.test.mjs
 grep -q 'degrades readiness when market data is stale' backend/test/api.test.mjs

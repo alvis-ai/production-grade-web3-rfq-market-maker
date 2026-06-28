@@ -170,6 +170,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Quote status store unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /hedges/{hedgeOrderId}:
     get:
       operationId: getHedgeIntent

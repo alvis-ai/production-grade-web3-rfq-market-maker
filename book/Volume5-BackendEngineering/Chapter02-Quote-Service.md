@@ -148,6 +148,7 @@ markQuoteStatus(quoteId, status, txHash): Promise<void>
 - Signer unavailable：返回 `SIGNER_UNAVAILABLE`，quote 状态 best-effort 变为 `failed`。
 - Failed status persistence unavailable after signer failure：仍返回 `SIGNER_UNAVAILABLE`，quote 可暂时停留在 `requested`，后续由 reconciliation 处理。
 - Persistence failed：返回 `QUOTE_STORE_UNAVAILABLE`；如果发生在签名前，不调用 Signer，不返回签名。
+- Status lookup persistence failed：`GET /quote/:id` 返回 `QUOTE_STORE_UNAVAILABLE`，保留 traceId，避免状态页或 SDK 收到非结构化 500。
 - Market data unavailable、invalid 或 stale：不进入 routing/pricing/risk/signer，直接返回 `MARKET_DATA_UNAVAILABLE`。
 
 ## Security Considerations

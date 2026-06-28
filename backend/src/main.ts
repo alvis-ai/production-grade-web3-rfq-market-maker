@@ -105,18 +105,22 @@ export function buildServer(options: BuildServerOptions = {}) {
     return status;
   });
   server.get("/quote/:quoteId", async (request, reply) => {
-    const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
-    if (!rateLimitResult.allowed) {
-      return rateLimitResult.response;
-    }
+    try {
+      const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
+      if (!rateLimitResult.allowed) {
+        return rateLimitResult.response;
+      }
 
-    const { quoteId } = request.params as { quoteId: string };
-    const status = await quoteService.getQuoteStatus(quoteId);
-    if (!status) {
-      return sendError(reply, requestTraceId(request), new APIError("QUOTE_NOT_FOUND", "Quote not found", 404));
-    }
+      const { quoteId } = request.params as { quoteId: string };
+      const status = await quoteService.getQuoteStatus(quoteId);
+      if (!status) {
+        return sendError(reply, requestTraceId(request), new APIError("QUOTE_NOT_FOUND", "Quote not found", 404));
+      }
 
-    return status;
+      return status;
+    } catch (error) {
+      return sendError(reply, requestTraceId(request), toAPIError(error));
+    }
   });
   server.get("/hedges/:hedgeOrderId", async (request, reply) => {
     const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);

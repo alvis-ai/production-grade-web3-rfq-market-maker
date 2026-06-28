@@ -668,6 +668,31 @@ test("RFQ API maps quote store failures before signing", async () => {
   }
 });
 
+test("RFQ API maps quote status store failures to structured errors", async () => {
+  class FailingStatusQuoteRepository extends InMemoryQuoteRepository {
+    async findStatus() {
+      throw new Error("quote status store offline");
+    }
+  }
+
+  const server = buildServer({
+    logger: false,
+    quoteRepository: new FailingStatusQuoteRepository(),
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/quote/q_missing");
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "QUOTE_STORE_UNAVAILABLE");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API maps pricing engine failures to dependency errors before signing", async () => {
   const server = buildServer({
     logger: false,
