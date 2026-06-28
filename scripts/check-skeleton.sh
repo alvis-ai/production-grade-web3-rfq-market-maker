@@ -91,6 +91,8 @@ grep -q 'dockerfile: infra/docker/frontend.Dockerfile' docker-compose.yml
 grep -q 'VITE_RFQ_API_BASE_URL: http://localhost:3000' docker-compose.yml
 grep -q 'pg_isready -U rfq -d rfq_market_maker' docker-compose.yml
 grep -q './docs/database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro' docker-compose.yml
+grep -q 'redis-cli' docker-compose.yml
+grep -q "clickhouse-client --query 'SELECT 1'" docker-compose.yml
 grep -q 'backend:3000' infra/prometheus/prometheus.yml
 grep -q 'node_modules' .dockerignore
 grep -q '.pnpm-store' .dockerignore
@@ -695,5 +697,6 @@ grep -q 'prometheus.io/scrape' infra/helm/rfq-market-maker/values.yaml
 grep -q 'prometheus.io/path' infra/helm/rfq-market-maker/values.yaml
 grep -q 'name: rfq-market-maker' infra/helm/rfq-market-maker/Chart.yaml
 grep -q '/docker-entrypoint-initdb.d/001-schema.sql' book/Volume7-ProductionDeployment/Chapter01-Docker.md
+grep -q 'Redis uses `redis-cli ping`' book/Volume7-ProductionDeployment/Chapter01-Docker.md
 
 echo "skeleton check passed"
