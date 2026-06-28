@@ -36,6 +36,8 @@ jobs:
         run: make skeleton-check
       - name: Check EIP-712 schema consistency
         run: make eip712-check
+      - name: Check API error code consistency
+        run: make api-error-check
       - name: Typecheck backend
         run: make backend-typecheck
       - name: Test backend
