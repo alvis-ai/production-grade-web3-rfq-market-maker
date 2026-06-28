@@ -231,6 +231,15 @@ grep -q 'rfq_submit_latency_seconds' backend/src/modules/metrics/metrics.service
 grep -q 'rfq_signer_requests_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_signer_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_signer_latency_seconds' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_readiness_status' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_dependency_status' backend/src/modules/metrics/metrics.service.ts
+grep -q 'recordReadiness' backend/src/main.ts
+grep -q 'rfq_readiness_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'rfq_dependency_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'rfq_readiness_status' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+grep -q 'rfq_dependency_status' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+grep -q 'RFQReadinessDegraded' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'rfq_readiness_status{status="degraded"} == 1' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'recordQuoteLatency' backend/src/main.ts
 grep -q 'recordQuoteRejection' backend/src/main.ts
 grep -q 'recordSubmitLatency' backend/src/main.ts

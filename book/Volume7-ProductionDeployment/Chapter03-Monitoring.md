@@ -97,7 +97,7 @@ stateDiagram-v2
 
 ## Data Model
 
-Key metrics include `rfq_quote_latency_seconds`, `rfq_submit_latency_seconds`, `rfq_quote_rejections_total`, `rfq_signer_requests_total`, `rfq_signer_errors_total`, `rfq_signer_latency_seconds`, `rfq_settlements_total`, `rfq_hedge_intents_total`, `rfq_hedge_intent_errors_total`, `rfq_inventory_balance`, `rfq_pnl_trades_total`, `rfq_pnl_record_errors_total`, `rfq_realized_pnl_token_out`.
+Key metrics include `rfq_quote_latency_seconds`, `rfq_submit_latency_seconds`, `rfq_quote_rejections_total`, `rfq_signer_requests_total`, `rfq_signer_errors_total`, `rfq_signer_latency_seconds`, `rfq_readiness_status`, `rfq_dependency_status`, `rfq_settlements_total`, `rfq_hedge_intents_total`, `rfq_hedge_intent_errors_total`, `rfq_inventory_balance`, `rfq_pnl_trades_total`, `rfq_pnl_record_errors_total`, `rfq_realized_pnl_token_out`.
 
 ## API Design
 
@@ -107,12 +107,15 @@ Key metrics include `rfq_quote_latency_seconds`, `rfq_submit_latency_seconds`, `
 
 - No quoteId/user address labels in Prometheus.
 - Signer metrics use only the low-cardinality `operation` label: `sign` or `verify`.
+- Readiness metrics mirror the last `/ready` probe with fixed labels: `rfq_readiness_status{status="ready|degraded"}` and `rfq_dependency_status{component="marketData|pricing|risk|signer|quoteRepository|inventory|execution|settlementEventStore|pnl|metrics",status="ok|degraded"}`.
+- Readiness alerting should page on sustained degraded status, then route by the degraded component instead of relying on a single generic health alarm.
 - Use ClickHouse for quote-level analysis.
 - Every critical alert links to runbook.
 
 ## Failure Scenarios
 
 - Signer latency p99 spikes：reduce quote traffic or disable signing.
+- Readiness is degraded：inspect `rfq_dependency_status` and follow the component-specific runbook before restarting healthy pods.
 - Quote latency p95 spikes：check market data, pricing, risk and signer dependency latency.
 - Risk reject spike：check market volatility, inventory limits, token allowlist and toxic flow signals.
 - Inventory exposure over limit：tighten risk limits.

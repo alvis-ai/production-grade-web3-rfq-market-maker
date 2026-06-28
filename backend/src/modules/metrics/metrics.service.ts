@@ -1,3 +1,4 @@
+import type { ReadinessResponse } from "../health/readiness.service.js";
 import type { Address, PnlTradeRecord } from "../../shared/types/rfq.js";
 
 export interface InventoryMetricPosition {
@@ -7,6 +8,8 @@ export interface InventoryMetricPosition {
 }
 
 export type SignerMetricOperation = "sign" | "verify";
+type ReadinessMetricStatus = ReadinessResponse["status"];
+type DependencyMetricStatus = "ok" | "degraded";
 
 const latencyBucketsSeconds = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
 
@@ -34,6 +37,8 @@ export class MetricsService {
   private readonly quoteLatency = createHistogramState();
   private readonly submitLatency = createHistogramState();
   private readonly signerLatency = new Map<SignerMetricOperation, HistogramState>();
+  private readinessStatus?: ReadinessMetricStatus;
+  private readonly dependencyStatuses = new Map<string, DependencyMetricStatus>();
   private readonly quoteRejections = new Map<string, number>();
   private readonly inventoryBalances = new Map<string, InventoryMetricPosition>();
   private readonly realizedPnl = new Map<string, bigint>();
@@ -85,6 +90,13 @@ export class MetricsService {
 
   recordSignerLatency(operation: SignerMetricOperation, seconds: number): void {
     recordHistogram(this.getSignerLatency(operation), seconds);
+  }
+
+  recordReadiness(readiness: ReadinessResponse): void {
+    this.readinessStatus = readiness.status;
+    for (const component of readinessDependencyComponents) {
+      this.dependencyStatuses.set(component, readiness.components[component]);
+    }
   }
 
   recordSettlement(): void {
@@ -158,6 +170,12 @@ export class MetricsService {
       "# HELP rfq_signer_latency_seconds Signer operation latency in seconds.",
       "# TYPE rfq_signer_latency_seconds histogram",
       ...this.renderSignerLatency(),
+      "# HELP rfq_readiness_status Last readiness status reported by the readiness probe.",
+      "# TYPE rfq_readiness_status gauge",
+      ...this.renderReadinessStatus(),
+      "# HELP rfq_dependency_status Last readiness dependency status by component.",
+      "# TYPE rfq_dependency_status gauge",
+      ...this.renderDependencyStatuses(),
       "# HELP rfq_settlements_total Total simulated settlements applied to inventory.",
       "# TYPE rfq_settlements_total counter",
       `rfq_settlements_total ${this.settlements}`,
@@ -243,6 +261,21 @@ export class MetricsService {
     });
   }
 
+  private renderReadinessStatus(): string[] {
+    return readinessMetricStatuses.map((status) => {
+      return `rfq_readiness_status{status="${status}"} ${this.readinessStatus === status ? 1 : 0}`;
+    });
+  }
+
+  private renderDependencyStatuses(): string[] {
+    return readinessDependencyComponents.flatMap((component) => {
+      const currentStatus = this.dependencyStatuses.get(component);
+      return dependencyMetricStatuses.map((status) => {
+        return `rfq_dependency_status{component="${component}",status="${status}"} ${currentStatus === status ? 1 : 0}`;
+      });
+    });
+  }
+
   private getSignerLatency(operation: SignerMetricOperation): HistogramState {
     const existing = this.signerLatency.get(operation);
     if (existing) {
@@ -260,6 +293,20 @@ export class MetricsService {
 }
 
 const signerMetricOperations: readonly SignerMetricOperation[] = ["sign", "verify"];
+const readinessMetricStatuses: readonly ReadinessMetricStatus[] = ["ready", "degraded"];
+const dependencyMetricStatuses: readonly DependencyMetricStatus[] = ["ok", "degraded"];
+const readinessDependencyComponents = [
+  "marketData",
+  "pricing",
+  "risk",
+  "signer",
+  "quoteRepository",
+  "inventory",
+  "execution",
+  "settlementEventStore",
+  "pnl",
+  "metrics",
+] as const;
 
 function createHistogramState(): HistogramState {
   return {

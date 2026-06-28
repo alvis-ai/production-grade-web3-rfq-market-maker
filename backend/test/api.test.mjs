@@ -424,6 +424,10 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);
     assertTraceHeader(metrics);
+    assert.match(metrics.payload, /rfq_readiness_status\{status="ready"\} 1/);
+    assert.match(metrics.payload, /rfq_readiness_status\{status="degraded"\} 0/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="marketData",status="ok"\} 1/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="signer",status="ok"\} 1/);
     assert.match(metrics.payload, /rfq_quote_requests_total 1/);
     assert.match(metrics.payload, /rfq_quote_latency_seconds_count 1/);
     assert.match(metrics.payload, /rfq_quote_latency_seconds_bucket\{le="\+Inf"\} 1/);
@@ -612,6 +616,13 @@ test("RFQ API degrades readiness when market data is stale", async () => {
     assert.equal(response.body.status, "degraded");
     assert.equal(response.body.components.marketData, "degraded");
     assert.equal(response.body.components.signer, "ok");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_readiness_status\{status="ready"\} 0/);
+    assert.match(metrics.payload, /rfq_readiness_status\{status="degraded"\} 1/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="marketData",status="degraded"\} 1/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="signer",status="ok"\} 1/);
   } finally {
     await server.close();
   }
@@ -667,6 +678,13 @@ test("RFQ API degrades readiness when signer probe fails", async () => {
     assert.equal(response.body.status, "degraded");
     assert.equal(response.body.components.marketData, "ok");
     assert.equal(response.body.components.signer, "degraded");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_readiness_status\{status="ready"\} 0/);
+    assert.match(metrics.payload, /rfq_readiness_status\{status="degraded"\} 1/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="marketData",status="ok"\} 1/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="signer",status="degraded"\} 1/);
   } finally {
     await server.close();
   }

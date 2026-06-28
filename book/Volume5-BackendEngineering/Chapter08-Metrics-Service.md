@@ -104,6 +104,8 @@ Prometheus metrics:
 - `rfq_quote_latency_seconds`
 - `rfq_submit_latency_seconds`
 - `rfq_signer_latency_seconds`
+- `rfq_readiness_status`
+- `rfq_dependency_status`
 - `rfq_settlements_total`
 - `rfq_hedge_intents_total`
 - `rfq_hedge_intent_errors_total`
@@ -129,10 +131,13 @@ ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, st
 - `rfq_quote_status_update_errors_total` 使用低基数 `target_status` label，记录 settlement 已接受后 quote 状态落库失败，或 settlement rejection 后 failed 状态落库失败的次数；该指标用于触发 reconciliation，而不是让已应用 settlement 回滚或掩盖原始拒绝原因。
 - 当前后端实现已暴露 `rfq_pnl_trades_total` 和 `rfq_realized_pnl_token_out`，用于验证 `/submit -> settlement -> inventory -> hedge -> PnL` 闭环；生产版应将 quote-level PnL 归因写入 ClickHouse。
 - `rfq_pnl_record_errors_total` 使用低基数 `reason` label，记录 settlement 已应用后 PnL 归因写入失败；该指标用于触发 settlement-to-PnL reconciliation，不能让已应用 settlement 返回错误。
+- 当前后端实现已暴露 `rfq_readiness_status{status="ready|degraded"}` 和 `rfq_dependency_status{component="...",status="ok|degraded"}`，用于把最近一次 `/ready` 探测结果转成 Prometheus gauge。组件 label 固定为 marketData、pricing、risk、signer、quoteRepository、inventory、execution、settlementEventStore、pnl 和 metrics，不能使用动态下游地址、错误消息或实例 ID。
+- `rfq_readiness_status` 只表达最近一次 readiness 业务探测结果，不替代进程存活、HTTP availability 或 Kubernetes liveness。生产告警应同时查看 `/health` 可达性、`up`、HTTP error rate 和业务依赖状态。
 
 ## Failure Scenarios
 
 - Prometheus scrape fails：service continues。
+- `rfq_readiness_status{status="degraded"} == 1`：检查 `rfq_dependency_status` 中具体 degraded 组件，并按 market data、signer、settlement store、PnL store 等 runbook 分流。
 - ClickHouse unavailable：buffer or drop per policy。
 - Quote status update metric rises：run settlement-to-quote reconciliation。
 - PnL record error metric rises：run settlement-to-PnL reconciliation。

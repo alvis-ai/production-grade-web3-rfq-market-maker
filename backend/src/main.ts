@@ -124,6 +124,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/ready", async (_request, reply) => {
     const readiness = await readinessService.check();
+    metricsService.recordReadiness(readiness);
     if (readiness.status === "degraded") {
       return reply.code(503).send(readiness);
     }
