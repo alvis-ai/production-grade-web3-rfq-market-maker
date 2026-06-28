@@ -267,6 +267,8 @@ grep -q 'async ready' sdk/src/client.ts
 grep -q 'isReadinessResponse' sdk/src/client.ts
 grep -q 'async metrics' sdk/src/client.ts
 grep -q 'traceId: string' sdk/src/types.ts
+grep -q 'export type RFQErrorCode' sdk/src/types.ts
+grep -q 'code: RFQErrorCode' sdk/src/types.ts
 grep -q 'client.health' sdk/test/sdk.test.mjs
 grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs
@@ -316,6 +318,7 @@ grep -q 'make docs-check' .github/workflows/docs-ci.yml
 grep -q 'QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
 grep -q 'backend signer Quote fields must match SDK Quote fields' scripts/check-eip712-consistency.mjs
 grep -q 'OpenAPI ErrorResponse enum must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
+grep -q 'SDK RFQErrorCode union must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
 grep -q 'docs/api/errors.md table must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
 grep -q 'typescript-check' Makefile
 grep -q 'api-error-check' Makefile

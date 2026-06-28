@@ -22,6 +22,7 @@ export type {
   QuoteRequest,
   QuoteResponse,
   QuoteStatus,
+  RFQErrorCode,
   RFQErrorResponse,
   SettlementEventStatus,
   SubmitQuoteRequest,
