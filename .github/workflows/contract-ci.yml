@@ -4,6 +4,12 @@ on:
   pull_request:
     paths:
       - "contracts/**"
+      - "backend/src/modules/signer/signer.service.ts"
+      - "sdk/src/abi.ts"
+      - "sdk/src/eip712.ts"
+      - "scripts/check-contract-abi-consistency.mjs"
+      - "scripts/check-eip712-consistency.mjs"
+      - "Makefile"
       - ".github/workflows/contract-ci.yml"
   push:
     branches:

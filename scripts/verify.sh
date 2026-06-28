@@ -17,6 +17,7 @@ run_step make metrics-check
 run_step make runbook-check
 run_step make grafana-check
 run_step make deployment-check
+run_step make ci-check
 run_step make compose-check
 run_step make eip712-check
 run_step make contract-abi-check

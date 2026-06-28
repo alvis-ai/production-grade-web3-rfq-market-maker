@@ -11,6 +11,7 @@ on:
       - "scripts/check-api-error-consistency.mjs"
       - "scripts/check-api-route-consistency.mjs"
       - "scripts/check-api-schema-consistency.mjs"
+      - "scripts/check-ci-workflows-consistency.mjs"
       - "scripts/check-config-consistency.mjs"
       - "scripts/check-database-schema-consistency.mjs"
       - "scripts/check-deployment-manifests-consistency.mjs"
@@ -29,6 +30,8 @@ on:
       - "infra/k8s/**"
       - "infra/helm/**"
       - ".github/workflows/docs-ci.yml"
+      - ".github/workflows/backend-ci.yml"
+      - ".github/workflows/contract-ci.yml"
   push:
     branches:
       - main
@@ -72,3 +75,5 @@ jobs:
         run: make grafana-check
       - name: Check deployment manifest consistency
         run: make deployment-check
+      - name: Check CI workflow consistency
+        run: make ci-check

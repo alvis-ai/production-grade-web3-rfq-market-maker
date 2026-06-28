@@ -8,6 +8,7 @@ on:
       - "sdk/**"
       - "infra/**"
       - "package.json"
+      - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "Makefile"
       - "scripts/**"

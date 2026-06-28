@@ -13,6 +13,7 @@
     "runbook:check": "make runbook-check",
     "grafana:check": "make grafana-check",
     "deployment:check": "make deployment-check",
+    "ci:check": "make ci-check",
     "compose:check": "make compose-check",
     "examples:check": "make examples-check",
     "config:check": "make config-check",

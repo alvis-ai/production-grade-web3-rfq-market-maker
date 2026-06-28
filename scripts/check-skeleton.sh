@@ -68,6 +68,7 @@ test -s scripts/check-metrics-consistency.mjs
 test -s scripts/check-runbook-consistency.mjs
 test -s scripts/check-grafana-dashboard-consistency.mjs
 test -s scripts/check-deployment-manifests-consistency.mjs
+test -s scripts/check-ci-workflows-consistency.mjs
 test -s scripts/check-eip712-consistency.mjs
 test -s scripts/check-contract-abi-consistency.mjs
 test -s scripts/check-api-error-consistency.mjs
@@ -417,6 +418,7 @@ grep -q 'make metrics-check' scripts/verify.sh
 grep -q 'make runbook-check' scripts/verify.sh
 grep -q 'make grafana-check' scripts/verify.sh
 grep -q 'make deployment-check' scripts/verify.sh
+grep -q 'make ci-check' scripts/verify.sh
 grep -q 'make compose-check' scripts/verify.sh
 grep -q 'make eip712-check' scripts/verify.sh
 grep -q 'make contract-abi-check' scripts/verify.sh
@@ -450,6 +452,8 @@ grep -q 'grafana-check' Makefile
 grep -q 'grafana:check' package.json
 grep -q 'deployment-check' Makefile
 grep -q 'deployment:check' package.json
+grep -q 'ci-check' Makefile
+grep -q 'ci:check' package.json
 grep -q 'eip712-check' Makefile
 grep -q 'api-schema-check' Makefile
 grep -q 'api:schema:check' package.json
@@ -460,8 +464,15 @@ grep -q 'database:schema:check' package.json
 grep -q 'smoke-api-local' Makefile
 grep -q 'forge test' .github/workflows/contract-ci.yml
 grep -q 'make contract-abi-check' .github/workflows/contract-ci.yml
+grep -q 'make eip712-check' .github/workflows/contract-ci.yml
+grep -Fq '"sdk/src/abi.ts"' .github/workflows/contract-ci.yml
+grep -Fq '"sdk/src/eip712.ts"' .github/workflows/contract-ci.yml
+grep -Fq '"backend/src/modules/signer/signer.service.ts"' .github/workflows/contract-ci.yml
+grep -Fq '"scripts/check-contract-abi-consistency.mjs"' .github/workflows/contract-ci.yml
+grep -Fq '"scripts/check-eip712-consistency.mjs"' .github/workflows/contract-ci.yml
 grep -q 'pnpm install --frozen-lockfile' .github/workflows/backend-ci.yml
 grep -q 'make verify' .github/workflows/backend-ci.yml
+grep -Fq '"pnpm-lock.yaml"' .github/workflows/backend-ci.yml
 grep -q 'actions/setup-node@v4' .github/workflows/backend-ci.yml
 grep -q 'node-version: "22"' .github/workflows/backend-ci.yml
 grep -Fq '"infra/**"' .github/workflows/backend-ci.yml
@@ -489,6 +500,7 @@ grep -q 'make metrics-check' .github/workflows/docs-ci.yml
 grep -q 'make runbook-check' .github/workflows/docs-ci.yml
 grep -q 'make grafana-check' .github/workflows/docs-ci.yml
 grep -q 'make deployment-check' .github/workflows/docs-ci.yml
+grep -q 'make ci-check' .github/workflows/docs-ci.yml
 grep -Fq '"examples/**"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-api-schema-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-api-route-consistency.mjs"' .github/workflows/docs-ci.yml
@@ -500,6 +512,7 @@ grep -Fq '"scripts/check-metrics-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-runbook-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-grafana-dashboard-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-deployment-manifests-consistency.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"scripts/check-ci-workflows-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/prometheus/**"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/grafana/**"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/k8s/**"' .github/workflows/docs-ci.yml

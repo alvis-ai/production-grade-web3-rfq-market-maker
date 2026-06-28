@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check api-error-check api-schema-check api-route-check database-schema-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
+.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check api-error-check api-schema-check api-route-check database-schema-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -13,6 +13,7 @@ help:
 	@echo "  runbook-check  Verify alert rules have actionable runbook coverage"
 	@echo "  grafana-check  Verify Grafana dashboards cover backend metrics"
 	@echo "  deployment-check  Verify Kubernetes and Helm deployment manifests"
+	@echo "  ci-check  Verify GitHub Actions workflow coverage"
 	@echo "  tree        Print the first three levels of repository files"
 	@echo "  workspace-check  Verify expected workspace manifests exist"
 	@echo "  skeleton-check  Verify required skeleton entrypoints exist"
@@ -66,6 +67,9 @@ grafana-check:
 
 deployment-check:
 	@node scripts/check-deployment-manifests-consistency.mjs
+
+ci-check:
+	@node scripts/check-ci-workflows-consistency.mjs
 
 tree:
 	@find . -maxdepth 3 -type f | sort
