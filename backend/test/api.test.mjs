@@ -17,6 +17,37 @@ const baseQuoteRequest = {
   slippageBps: 50,
 };
 
+test("production startup requires explicit signer configuration", () => {
+  const originalEnv = {
+    NODE_ENV: process.env.NODE_ENV,
+    RFQ_SIGNER_PRIVATE_KEY: process.env.RFQ_SIGNER_PRIVATE_KEY,
+    RFQ_SETTLEMENT_ADDRESS: process.env.RFQ_SETTLEMENT_ADDRESS,
+  };
+
+  try {
+    process.env.NODE_ENV = "production";
+    delete process.env.RFQ_SIGNER_PRIVATE_KEY;
+    delete process.env.RFQ_SETTLEMENT_ADDRESS;
+
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=production/,
+    );
+
+    process.env.RFQ_SIGNER_PRIVATE_KEY =
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_SETTLEMENT_ADDRESS is required when NODE_ENV=production/,
+    );
+  } finally {
+    restoreEnv("NODE_ENV", originalEnv.NODE_ENV);
+    restoreEnv("RFQ_SIGNER_PRIVATE_KEY", originalEnv.RFQ_SIGNER_PRIVATE_KEY);
+    restoreEnv("RFQ_SETTLEMENT_ADDRESS", originalEnv.RFQ_SETTLEMENT_ADDRESS);
+  }
+});
+
 test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
   const server = buildServer({ logger: false });
   await server.ready();
@@ -1667,4 +1698,13 @@ function quotePayloadFromResponse(quote) {
 
 function uppercaseHex(value) {
   return `0x${value.slice(2).toUpperCase()}`;
+}
+
+function restoreEnv(name, value) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+
+  process.env[name] = value;
 }

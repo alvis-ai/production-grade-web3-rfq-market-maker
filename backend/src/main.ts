@@ -352,12 +352,24 @@ function clientIdForRateLimit(request: FastifyRequest): string {
 
 function readSignerConfig() {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const isProduction = env?.NODE_ENV === "production";
+  const privateKey = env?.RFQ_SIGNER_PRIVATE_KEY;
+  const settlementAddress = env?.RFQ_SETTLEMENT_ADDRESS;
+  if (isProduction) {
+    requireProductionEnv(privateKey, "RFQ_SIGNER_PRIVATE_KEY");
+    requireProductionEnv(settlementAddress, "RFQ_SETTLEMENT_ADDRESS");
+  }
+
   return {
-    privateKey: (env?.RFQ_SIGNER_PRIVATE_KEY ??
-      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as `0x${string}`,
-    settlementAddress: (env?.RFQ_SETTLEMENT_ADDRESS ??
-      "0x0000000000000000000000000000000000000004") as `0x${string}`,
+    privateKey: (privateKey ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as `0x${string}`,
+    settlementAddress: (settlementAddress ?? "0x0000000000000000000000000000000000000004") as `0x${string}`,
   };
+}
+
+function requireProductionEnv(value: string | undefined, name: string): void {
+  if (!value || value.trim().length === 0) {
+    throw new Error(`${name} is required when NODE_ENV=production`);
+  }
 }
 
 export async function startServer() {

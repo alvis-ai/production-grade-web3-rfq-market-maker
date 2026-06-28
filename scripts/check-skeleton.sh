@@ -109,6 +109,8 @@ grep -q 'LocalEIP712SignerService' backend/src/main.ts
 grep -q 'ObservedSignerService' backend/src/main.ts
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' backend/src/main.ts
 grep -q 'RFQ_SETTLEMENT_ADDRESS' backend/src/main.ts
+grep -q 'requireProductionEnv' backend/src/main.ts
+grep -q 'NODE_ENV=production' backend/src/main.ts
 grep -q 'HOST' backend/src/main.ts
 grep -q 'x-trace-id' backend/src/main.ts
 grep -q 'requestTraceId' backend/src/main.ts
@@ -376,6 +378,8 @@ grep -q 'Duplicate settlement events are idempotent' book/Volume5-BackendEnginee
 grep -q 'rfq_quote_status_update_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
+grep -q 'production startup requires explicit signer configuration' backend/test/api.test.mjs
+grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=production' backend/test/api.test.mjs
 grep -q 'marks requested quotes as failed when signer is unavailable' backend/test/quote-service.test.mjs
 grep -q 'preserves signer errors when marking failed quotes fails' backend/test/quote-service.test.mjs
 grep -q 'signing is unavailable' backend/test/api.test.mjs
