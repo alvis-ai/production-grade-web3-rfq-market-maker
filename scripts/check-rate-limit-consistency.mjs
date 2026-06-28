@@ -6,9 +6,12 @@ import assert from "node:assert/strict";
 const rateLimiterSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const mainSource = await readFile("backend/src/main.ts", "utf8");
 const apiTestSource = await readFile("backend/test/api.test.mjs", "utf8");
+const sdkClientSource = await readFile("sdk/src/client.ts", "utf8");
+const sdkTestSource = await readFile("sdk/test/sdk.test.mjs", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const errorDocsSource = await readFile("docs/api/errors.md", "utf8");
 const gatewayChapterSource = await readFile("book/Volume5-BackendEngineering/Chapter01-API-Gateway.md", "utf8");
+const readmeSource = await readFile("README.md", "utf8");
 
 const defaults = extractDefaultRateLimitConfig(rateLimiterSource);
 
@@ -47,6 +50,20 @@ assertContains(apiTestSource, [
   'assert.equal(secondStatus.body.code, "RATE_LIMITED")',
 ], "backend/test/api.test.mjs");
 
+assertContains(sdkClientSource, [
+  "readonly retryAfterSeconds?: number",
+  "retryAfterSeconds(response)",
+  'response.headers.get("retry-after")',
+  "Number.isInteger(seconds) && seconds > 0",
+], "sdk/src/client.ts");
+
+assertContains(sdkTestSource, [
+  "exposes Retry-After seconds for rate limited responses",
+  'code: "RATE_LIMITED"',
+  '"retry-after": "60"',
+  "assert.equal(error.retryAfterSeconds, 60)",
+], "sdk/test/sdk.test.mjs");
+
 for (const path of ["/quote:", "/submit:", "/quote/{quoteId}:", "/hedges/{hedgeOrderId}:", "/settlements/{settlementEventId}:", "/pnl:"]) {
   const pathBlock = extractOpenapiPathBlock(openapiSource, path);
   assert.ok(pathBlock.includes('"429":'), `OpenAPI ${path} must document HTTP 429`);
@@ -70,6 +87,13 @@ assertContains(gatewayChapterSource, [
   "status 300 requests / 60 seconds",
   "`RATE_LIMITED`、HTTP 429 和 `Retry-After`",
 ], "book/Volume5-BackendEngineering/Chapter01-API-Gateway.md");
+
+assertContains(readmeSource, [
+  "`RFQClientError` preserves structured API errors.",
+  "HTTP 429 `RATE_LIMITED`",
+  "`retryAfterSeconds`",
+  "`Retry-After` header",
+], "README.md");
 
 console.log("Rate limit consistency check passed");
 

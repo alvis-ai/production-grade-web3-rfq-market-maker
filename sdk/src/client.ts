@@ -24,6 +24,7 @@ export class RFQClientError extends Error {
     readonly status: number,
     readonly code: RFQClientErrorCode = "RFQ_CLIENT_ERROR",
     readonly traceId?: string,
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = "RFQClientError";
@@ -151,7 +152,16 @@ function clientErrorFromResponse(response: Response, payload: unknown, fallbackM
     response.status,
     error?.code,
     error?.traceId,
+    retryAfterSeconds(response),
   );
+}
+
+function retryAfterSeconds(response: Response): number | undefined {
+  const value = response.headers.get("retry-after");
+  if (!value) return undefined;
+
+  const seconds = Number(value);
+  return Number.isInteger(seconds) && seconds > 0 ? seconds : undefined;
 }
 
 function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {

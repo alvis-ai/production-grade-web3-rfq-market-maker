@@ -203,6 +203,8 @@ await client.ready();
 await client.metrics();
 ```
 
+`RFQClientError` preserves structured API errors. For HTTP 429 `RATE_LIMITED` responses, the SDK exposes `retryAfterSeconds` from the `Retry-After` header so callers can back off without parsing headers directly.
+
 The SDK also exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs`, and `buildTreasuryTransferArgs` for viem/wagmi contract calls.
 
 ## Design Principles

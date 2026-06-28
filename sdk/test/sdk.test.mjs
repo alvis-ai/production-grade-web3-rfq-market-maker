@@ -298,6 +298,46 @@ test("RFQClient throws structured RFQClientError for API errors", async () => {
   }
 });
 
+test("RFQClient exposes Retry-After seconds for rate limited responses", async () => {
+  const restoreFetch = installFetch(async () =>
+    jsonResponse(
+      429,
+      {
+        code: "RATE_LIMITED",
+        message: "Too many requests",
+        traceId: "trace_rate_limited",
+      },
+      { "retry-after": "60" },
+    ),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.quote({
+        chainId: quote.chainId,
+        user: quote.user,
+        tokenIn: quote.tokenIn,
+        tokenOut: quote.tokenOut,
+        amountIn: quote.amountIn,
+        slippageBps: 50,
+      }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 429);
+        assert.equal(error.code, "RATE_LIMITED");
+        assert.equal(error.message, "Too many requests");
+        assert.equal(error.traceId, "trace_rate_limited");
+        assert.equal(error.retryAfterSeconds, 60);
+        return true;
+      },
+    );
+  } finally {
+    restoreFetch();
+  }
+});
+
 test("RFQClient falls back for unknown API error codes", async () => {
   const restoreFetch = installFetch(async () =>
     jsonResponse(500, {
@@ -353,25 +393,36 @@ function installFetch(fetchImpl) {
   };
 }
 
-function jsonResponse(status, payload) {
+function jsonResponse(status, payload, headers = {}) {
   return {
     ok: status >= 200 && status < 300,
     status,
+    headers: responseHeaders(headers),
     async json() {
       return payload;
     },
   };
 }
 
-function textResponse(status, payload) {
+function textResponse(status, payload, headers = {}) {
   return {
     ok: status >= 200 && status < 300,
     status,
+    headers: responseHeaders(headers),
     async json() {
       throw new Error("text response does not support json");
     },
     async text() {
       return payload;
+    },
+  };
+}
+
+function responseHeaders(headers) {
+  const normalized = new Map(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
+  return {
+    get(name) {
+      return normalized.get(name.toLowerCase()) ?? null;
     },
   };
 }

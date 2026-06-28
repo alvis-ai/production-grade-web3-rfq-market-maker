@@ -365,6 +365,8 @@ grep -q 'export type RFQErrorCode' sdk/src/types.ts
 grep -q 'code: RFQErrorCode' sdk/src/types.ts
 grep -q 'rfqErrorCodeSet.has' sdk/src/client.ts
 grep -q 'RFQClientErrorCode' sdk/src/client.ts
+grep -q 'retryAfterSeconds' sdk/src/client.ts
+grep -q 'response.headers.get("retry-after")' sdk/src/client.ts
 grep -q 'client.health' sdk/test/sdk.test.mjs
 grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs
@@ -372,6 +374,8 @@ grep -q 'client.pnl' sdk/test/sdk.test.mjs
 grep -q 'client.ready' sdk/test/sdk.test.mjs
 grep -q 'degraded readiness payloads' sdk/test/sdk.test.mjs
 grep -q 'falls back for unknown API error codes' sdk/test/sdk.test.mjs
+grep -q 'exposes Retry-After seconds for rate limited responses' sdk/test/sdk.test.mjs
+grep -q 'retryAfterSeconds' README.md
 grep -q 'client.metrics' sdk/test/sdk.test.mjs
 grep -q 'function submitQuote' contracts/src/RFQSettlement.sol
 grep -q 'function setTokenWhitelist' contracts/src/RFQSettlement.sol
@@ -525,6 +529,8 @@ grep -Fq '"infra/k8s/**"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/helm/**"' .github/workflows/docs-ci.yml
 grep -Fq '"backend/src/modules/rate-limit/rate-limit.service.ts"' .github/workflows/docs-ci.yml
 grep -Fq '"backend/src/main.ts"' .github/workflows/docs-ci.yml
+grep -Fq '"sdk/src/client.ts"' .github/workflows/docs-ci.yml
+grep -Fq '"sdk/test/sdk.test.mjs"' .github/workflows/docs-ci.yml
 grep -q 'QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
 grep -q 'backend signer Quote fields must match SDK Quote fields' scripts/check-eip712-consistency.mjs
 grep -q 'OpenAPI ErrorResponse enum must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
@@ -533,6 +539,10 @@ grep -q 'SDK rfqErrorCodes constant array not found' scripts/check-api-error-con
 grep -q 'docs/api/errors.md table must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
 grep -q 'defaultRateLimitConfig' scripts/check-rate-limit-consistency.mjs
 grep -q 'Retry-After' scripts/check-rate-limit-consistency.mjs
+grep -q 'sdk/src/client.ts' scripts/check-rate-limit-consistency.mjs
+grep -q 'retryAfterSeconds' scripts/check-rate-limit-consistency.mjs
+grep -q 'sdk/src/client.ts' scripts/check-ci-workflows-consistency.mjs
+grep -q 'make rate-limit-check' scripts/check-ci-workflows-consistency.mjs
 grep -q 'typescript-check' Makefile
 grep -q 'api-error-check' Makefile
 grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml
