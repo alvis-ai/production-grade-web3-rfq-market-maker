@@ -14,6 +14,7 @@ on:
       - "scripts/check-config-consistency.mjs"
       - "scripts/check-database-schema-consistency.mjs"
       - "scripts/check-examples-consistency.mjs"
+      - "scripts/check-security-docs-consistency.mjs"
       - "scripts/check-skeleton.sh"
       - "Makefile"
       - "package.json"
@@ -55,3 +56,5 @@ jobs:
         run: make book-template-check
       - name: Check ADR consistency
         run: make adr-check
+      - name: Check security docs consistency
+        run: make security-check

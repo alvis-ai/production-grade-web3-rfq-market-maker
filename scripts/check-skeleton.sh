@@ -63,6 +63,7 @@ test -s scripts/check-examples-consistency.mjs
 test -s scripts/check-config-consistency.mjs
 test -s scripts/check-book-template-consistency.mjs
 test -s scripts/check-adr-consistency.mjs
+test -s scripts/check-security-docs-consistency.mjs
 test -s scripts/check-eip712-consistency.mjs
 test -s scripts/check-contract-abi-consistency.mjs
 test -s scripts/check-api-error-consistency.mjs
@@ -407,6 +408,7 @@ grep -q 'make config-check' scripts/verify.sh
 grep -q 'make docs-check' scripts/verify.sh
 grep -q 'make book-template-check' scripts/verify.sh
 grep -q 'make adr-check' scripts/verify.sh
+grep -q 'make security-check' scripts/verify.sh
 grep -q 'make compose-check' scripts/verify.sh
 grep -q 'make eip712-check' scripts/verify.sh
 grep -q 'make contract-abi-check' scripts/verify.sh
@@ -430,6 +432,8 @@ grep -q 'book-template-check' Makefile
 grep -q 'book:template:check' package.json
 grep -q 'adr-check' Makefile
 grep -q 'adr:check' package.json
+grep -q 'security-check' Makefile
+grep -q 'security:check' package.json
 grep -q 'eip712-check' Makefile
 grep -q 'api-schema-check' Makefile
 grep -q 'api:schema:check' package.json
@@ -464,12 +468,14 @@ grep -q 'make database-schema-check' .github/workflows/docs-ci.yml
 grep -q 'make docs-check' .github/workflows/docs-ci.yml
 grep -q 'make book-template-check' .github/workflows/docs-ci.yml
 grep -q 'make adr-check' .github/workflows/docs-ci.yml
+grep -q 'make security-check' .github/workflows/docs-ci.yml
 grep -Fq '"examples/**"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-api-schema-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-api-route-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-database-schema-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-examples-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-config-consistency.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"scripts/check-security-docs-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/k8s/**"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/helm/**"' .github/workflows/docs-ci.yml
 grep -q 'QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
