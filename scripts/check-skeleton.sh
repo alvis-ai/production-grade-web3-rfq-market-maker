@@ -169,6 +169,7 @@ grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.t
 grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.service.ts
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/src/modules/execution/execution.service.ts
 grep -q 'SettlementEventStore' backend/src/modules/execution/execution.service.ts
+grep -q 'settlementEventStoreFailure' backend/src/modules/execution/execution.service.ts
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
@@ -372,6 +373,8 @@ grep -q 'settlement verifier failures' backend/test/api.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/api.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'settlement event store failures' backend/test/api.test.mjs
+grep -q 'settlement event write failures' backend/test/api.test.mjs
+grep -q 'Settlement event store write failure' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'errorCode, "SETTLEMENT_REVERTED"' backend/test/api.test.mjs
 grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api.test.mjs

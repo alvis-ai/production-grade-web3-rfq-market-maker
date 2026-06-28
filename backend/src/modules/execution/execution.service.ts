@@ -45,7 +45,7 @@ export class SkeletonExecutionService implements ExecutionService {
     const settlementVerification = await this.verifySettlement(request, context);
     const txSeed = `${request.quote.user}:${request.quote.nonce}:${request.signature}`;
     const txHash = `0x${toFixedHex(txSeed, 64)}` as `0x${string}`;
-    const settlementEventResult = this.deps.settlementEventService.applySettlementEvent({
+    const settlementEventResult = this.applySettlementEvent({
       quoteId: context.quoteId,
       quote: request.quote,
       txHash,
@@ -74,6 +74,14 @@ export class SkeletonExecutionService implements ExecutionService {
       hedgeResult,
       hedgeFailure,
     };
+  }
+
+  private applySettlementEvent(input: Parameters<SettlementEventStore["applySettlementEvent"]>[0]): ApplySettlementEventResult {
+    try {
+      return this.deps.settlementEventService.applySettlementEvent(input);
+    } catch (error) {
+      throw settlementEventStoreFailure(error);
+    }
   }
 
   private createHedgeIntent(
@@ -121,4 +129,12 @@ function settlementVerificationFailure(error: unknown): APIError {
   }
 
   return new APIError("SETTLEMENT_UNAVAILABLE", "Settlement verifier unavailable", 503);
+}
+
+function settlementEventStoreFailure(error: unknown): APIError {
+  if (error instanceof APIError) {
+    return error;
+  }
+
+  return new APIError("SETTLEMENT_EVENT_STORE_UNAVAILABLE", "Settlement event store unavailable", 503);
 }
