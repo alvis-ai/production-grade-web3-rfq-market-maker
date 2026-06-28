@@ -11,6 +11,7 @@ test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/test/api.test.mjs
+test -s backend/test/hedge.test.mjs
 test -s backend/test/quote-service.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
@@ -268,8 +269,12 @@ grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlemen
 grep -q 'TOKEN_NOT_WHITELISTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
+grep -q 'recordHedgeFailure' backend/src/modules/execution/execution.service.ts
 grep -q 'hedgeOrderId: hedgeResult?.hedgeOrderId' backend/src/modules/execution/execution.service.ts
 grep -q 'getHedgeIntent' backend/src/modules/hedge/hedge.service.ts
+grep -q 'quoteRiskPenaltyBps' backend/src/modules/hedge/hedge.service.ts
+grep -q 'failurePenaltyBps' backend/src/modules/hedge/hedge.service.ts
+grep -q 'hedgeRiskPenaltyBps' backend/src/modules/quote/quote.service.ts
 grep -q 'interface PnlStore' backend/src/modules/pnl/pnl.service.ts
 grep -q 'class PnlService' backend/src/modules/pnl/pnl.service.ts
 grep -q 'recordSettlement' backend/src/modules/pnl/pnl.service.ts
@@ -675,8 +680,12 @@ grep -q 'rfq_submit_latency_seconds_count 2' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' backend/test/api.test.mjs
 grep -q 'hedge intent creation fails' backend/test/api.test.mjs
+grep -q 'lastPenaltyRead' backend/test/api.test.mjs
+grep -q 'QuoteService includes hedge risk penalty in pricing input' backend/test/quote-service.test.mjs
+grep -q 'HedgeService accumulates bounded quote risk penalty after hedge failures' backend/test/hedge.test.mjs
 grep -q 'hedge status store failures' backend/test/api.test.mjs
 grep -q 'HEDGE_INTENT_FAILED' backend/test/api.test.mjs
+grep -q 'quote risk penalty' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'HEDGE_INTENT_FAILED' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'HEDGE_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'post-settlement quote status persistence fails' backend/test/api.test.mjs

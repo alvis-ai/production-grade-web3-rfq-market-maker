@@ -1,5 +1,7 @@
 import type { Address, HedgeIntentStatusResponse, UIntString } from "../../shared/types/rfq.js";
 
+export type HedgeFailureReasonCode = "HEDGE_INTENT_FAILED";
+
 export interface HedgeIntent {
   quoteId: string;
   chainId: number;
@@ -15,14 +17,34 @@ export interface HedgeResult {
   record: HedgeIntentStatusResponse;
 }
 
+export interface HedgeRiskInput {
+  chainId: number;
+  token: Address;
+}
+
 export interface HedgeIntentService {
   createHedgeIntent(intent: HedgeIntent): HedgeResult;
   getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined;
+  recordHedgeFailure?(intent: HedgeIntent, reasonCode: HedgeFailureReasonCode): void;
+  quoteRiskPenaltyBps?(input: HedgeRiskInput): number;
 }
+
+export interface HedgeServiceConfig {
+  failurePenaltyBps: number;
+  maxFailurePenaltyBps: number;
+}
+
+export const defaultHedgeServiceConfig: HedgeServiceConfig = {
+  failurePenaltyBps: 25,
+  maxFailurePenaltyBps: 150,
+};
 
 export class HedgeService implements HedgeIntentService {
   private readonly intents = new Map<string, HedgeIntentStatusResponse>();
+  private readonly failurePressure = new Map<string, number>();
   private sequence = 0;
+
+  constructor(private readonly config: HedgeServiceConfig = defaultHedgeServiceConfig) {}
 
   createHedgeIntent(intent: HedgeIntent): HedgeResult {
     this.sequence += 1;
@@ -54,5 +76,19 @@ export class HedgeService implements HedgeIntentService {
 
   getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined {
     return this.intents.get(hedgeOrderId);
+  }
+
+  recordHedgeFailure(intent: HedgeIntent, _reasonCode: HedgeFailureReasonCode): void {
+    const key = this.key(intent.chainId, intent.token);
+    const current = this.failurePressure.get(key) ?? 0;
+    this.failurePressure.set(key, Math.min(current + this.config.failurePenaltyBps, this.config.maxFailurePenaltyBps));
+  }
+
+  quoteRiskPenaltyBps(input: HedgeRiskInput): number {
+    return this.failurePressure.get(this.key(input.chainId, input.token)) ?? 0;
+  }
+
+  private key(chainId: number, token: Address): string {
+    return `${chainId}:${token.toLowerCase()}`;
   }
 }

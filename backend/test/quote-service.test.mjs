@@ -139,6 +139,53 @@ test("QuoteService preserves signer errors when marking failed quotes fails", as
   assert.equal(status.errorCode, undefined);
 });
 
+test("QuoteService includes hedge risk penalty in pricing input", async () => {
+  let observedInventorySkewBps;
+  const service = new QuoteService({
+    inventoryService: new InventoryService(),
+    marketDataService: new StaticMarketDataService(),
+    pricingEngine: {
+      async price(input) {
+        observedInventorySkewBps = input.inventorySkewBps;
+        return {
+          amountOut: "998400000",
+          minAmountOut: "993408000",
+          spreadBps: input.inventorySkewBps,
+          sizeImpactBps: 1,
+          inventorySkewBps: input.inventorySkewBps,
+          pricingVersion: "test-pricing",
+        };
+      },
+    },
+    hedgeService: {
+      createHedgeIntent() {
+        throw new Error("unused");
+      },
+      getHedgeIntent() {
+        return undefined;
+      },
+      quoteRiskPenaltyBps() {
+        return 75;
+      },
+    },
+    quoteRepository: new InMemoryQuoteRepository(),
+    riskEngine: new BasicRiskEngine(),
+    routingEngine: new InternalInventoryRoutingEngine(),
+    signerService: {
+      async signQuote() {
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() {
+        return true;
+      },
+    },
+  });
+
+  await service.createQuote(request);
+
+  assert.equal(observedInventorySkewBps, 75);
+});
+
 function fixedSignature() {
   return `0x${"11".repeat(65)}`;
 }

@@ -12,6 +12,7 @@ import { APIError } from "../../shared/errors/api-error.js";
 import type { InventoryService } from "../inventory/inventory.service.js";
 import { getMarketSnapshotIssue, type MarketDataService } from "../market-data/market-data.service.js";
 import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
+import type { HedgeIntentService } from "../hedge/hedge.service.js";
 import type {
   QuoteRepository,
   QuoteRecord,
@@ -28,6 +29,7 @@ export interface QuoteServiceDeps {
   inventoryService: InventoryService;
   marketDataService: MarketDataService;
   pricingEngine: PricingEngine;
+  hedgeService?: HedgeIntentService;
   quoteRepository: QuoteRepository;
   riskEngine: RiskEngine;
   routingEngine: RoutingEngine;
@@ -64,6 +66,10 @@ export class QuoteService {
       chainId: request.chainId,
       token: request.tokenOut,
     });
+    const hedgeRiskPenaltyBps = this.deps.hedgeService?.quoteRiskPenaltyBps?.({
+      chainId: request.chainId,
+      token: request.tokenOut,
+    }) ?? 0;
 
     let pricing: PricingResult;
     try {
@@ -71,7 +77,7 @@ export class QuoteService {
         request,
         snapshot,
         routePlan,
-        inventorySkewBps,
+        inventorySkewBps: inventorySkewBps + hedgeRiskPenaltyBps,
       });
     } catch (error) {
       throw pricingFailure(error);

@@ -100,6 +100,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const quoteService = new QuoteService({
     inventoryService,
     marketDataService,
+    hedgeService,
     pricingEngine: options.pricingEngine ?? new FormulaPricingEngine(),
     quoteRepository: options.quoteRepository ?? new InMemoryQuoteRepository(),
     riskEngine: options.riskEngine ?? new BasicRiskEngine(),

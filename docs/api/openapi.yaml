@@ -88,8 +88,10 @@ paths:
         attempts to queue a hedge intent, records metrics, and returns HTTP 202 with an
         optional txHash. Hedge intent creation failure does not roll back settlement;
         the response remains accepted but omits hedgeOrderId and the metrics endpoint
-        increments rfq_hedge_intent_errors_total. Production deployments should treat
-        RFQSettlement QuoteSettled events as the final settlement source of truth.
+        increments rfq_hedge_intent_errors_total. The reference backend also records
+        a bounded output-token quote risk penalty so follow-up quotes become more
+        conservative after post-trade hedge failures. Production deployments should
+        treat RFQSettlement QuoteSettled events as the final settlement source of truth.
       tags:
         - Submit
       requestBody:
@@ -461,7 +463,7 @@ components:
           description: Settlement event id consumed to update inventory.
         hedgeOrderId:
           type: string
-          description: Hedge intent id queued after simulated settlement updates inventory. Omitted when post-trade hedge intent creation fails after settlement has already been accepted.
+          description: Hedge intent id queued after simulated settlement updates inventory. Omitted when post-trade hedge intent creation fails after settlement has already been accepted; the reference backend then tightens follow-up quotes through output-token quote risk penalty.
         pnlId:
           type: string
           description: PnL record id created after simulated settlement.

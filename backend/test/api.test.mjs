@@ -733,6 +733,8 @@ test("RFQ API maps hedge status store failures to structured errors", async () =
 });
 
 test("RFQ API keeps settlement accepted when hedge intent creation fails", async () => {
+  let failurePressureBps = 0;
+  let lastPenaltyRead = 0;
   const server = buildServer({
     logger: false,
     hedgeService: {
@@ -741,6 +743,14 @@ test("RFQ API keeps settlement accepted when hedge intent creation fails", async
       },
       getHedgeIntent() {
         return undefined;
+      },
+      recordHedgeFailure(_intent, reasonCode) {
+        assert.equal(reasonCode, "HEDGE_INTENT_FAILED");
+        failurePressureBps = 75;
+      },
+      quoteRiskPenaltyBps() {
+        lastPenaltyRead = failurePressureBps;
+        return failurePressureBps;
       },
     },
   });
@@ -776,6 +786,11 @@ test("RFQ API keeps settlement accepted when hedge intent creation fails", async
     assert.equal(pnl.statusCode, 200);
     assert.equal(pnl.body.totalTrades, 1);
     assert.equal(pnl.body.trades[0].quoteId, quote.body.quoteId);
+
+    const followupQuote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(followupQuote.statusCode, 200);
+    assert.equal(lastPenaltyRead, 75);
+    assert.ok(BigInt(followupQuote.body.amountOut) < BigInt(quote.body.amountOut));
 
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);

@@ -1,8 +1,8 @@
 import type { SubmitQuoteRequest, SubmitQuoteResponse } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
 import { toFixedHex } from "../../shared/types/hex.js";
-import type { HedgeResult } from "../hedge/hedge.service.js";
-import type { HedgeIntentService } from "../hedge/hedge.service.js";
+import type { HedgeIntent, HedgeResult } from "../hedge/hedge.service.js";
+import type { HedgeIntentService, HedgeFailureReasonCode } from "../hedge/hedge.service.js";
 import type { InventoryPosition, InventoryService } from "../inventory/inventory.service.js";
 import type { ApplySettlementEventResult, SettlementEventStore } from "../settlement/settlement-event.service.js";
 import type { SettlementVerificationResult, SettlementVerifier } from "../settlement/settlement-verifier.service.js";
@@ -35,7 +35,7 @@ export interface ExecutionResult {
 }
 
 export interface HedgeFailure {
-  reasonCode: "HEDGE_INTENT_FAILED";
+  reasonCode: HedgeFailureReasonCode;
 }
 
 export class SkeletonExecutionService implements ExecutionService {
@@ -88,18 +88,21 @@ export class SkeletonExecutionService implements ExecutionService {
     request: SubmitQuoteRequest,
     context: ExecutionContext,
   ): { hedgeResult: HedgeResult; hedgeFailure?: undefined } | { hedgeResult?: undefined; hedgeFailure: HedgeFailure } {
+    const intent: HedgeIntent = {
+      quoteId: context.quoteId,
+      chainId: request.quote.chainId,
+      token: request.quote.tokenOut,
+      side: "buy",
+      amount: request.quote.amountOut,
+      reason: "inventory_rebalance",
+    };
+
     try {
       return {
-        hedgeResult: this.deps.hedgeService.createHedgeIntent({
-          quoteId: context.quoteId,
-          chainId: request.quote.chainId,
-          token: request.quote.tokenOut,
-          side: "buy",
-          amount: request.quote.amountOut,
-          reason: "inventory_rebalance",
-        }),
+        hedgeResult: this.deps.hedgeService.createHedgeIntent(intent),
       };
     } catch {
+      this.deps.hedgeService.recordHedgeFailure?.(intent, "HEDGE_INTENT_FAILED");
       return {
         hedgeFailure: {
           reasonCode: "HEDGE_INTENT_FAILED",
