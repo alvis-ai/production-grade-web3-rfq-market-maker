@@ -198,6 +198,7 @@ grep -q 'recordSubmitLatency' backend/src/main.ts
 grep -q 'quoteService.markQuoteFailed' backend/src/main.ts
 grep -q 'SETTLEMENT_REVERTED' backend/src/main.ts
 grep -q 'rfq_settlements_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_settlements_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_hedge_intents_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_hedge_intent_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'recordHedgeIntentError' backend/src/main.ts

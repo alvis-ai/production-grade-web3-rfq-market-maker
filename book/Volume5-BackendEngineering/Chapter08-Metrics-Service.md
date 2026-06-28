@@ -104,7 +104,7 @@ Prometheus metrics:
 - `rfq_quote_latency_seconds`
 - `rfq_submit_latency_seconds`
 - `rfq_signer_latency_seconds`
-- `rfq_settlement_events_total`
+- `rfq_settlements_total`
 - `rfq_inventory_exposure_usd`
 - `rfq_hedge_lag_seconds`
 - `rfq_quote_status_update_errors_total`
