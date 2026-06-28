@@ -113,6 +113,7 @@ grep -q 'x-trace-id' backend/src/main.ts
 grep -q 'requestTraceId' backend/src/main.ts
 grep -q 'traceId: string' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_NOT_FOUND' backend/src/shared/errors/api-error.ts
+grep -q 'HEDGE_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
 grep -q 'SETTLEMENT_EVENT_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'getUsableSnapshot' backend/src/modules/quote/quote.service.ts
@@ -298,6 +299,8 @@ grep -q 'signer sign/verify capability' docs/api/openapi.yaml
 grep -q 'getHedgeIntent' docs/api/openapi.yaml
 grep -q 'HedgeIntentStatus' docs/api/openapi.yaml
 grep -q 'HEDGE_NOT_FOUND' docs/api/openapi.yaml
+grep -q 'HEDGE_STORE_UNAVAILABLE' docs/api/openapi.yaml
+grep -q 'HEDGE_STORE_UNAVAILABLE' docs/api/errors.md
 grep -q 'Hedge intent creation failure does not roll back settlement' docs/api/openapi.yaml
 grep -q 'getSettlementEvent' docs/api/openapi.yaml
 grep -q 'SettlementEventStatus' docs/api/openapi.yaml
@@ -336,8 +339,10 @@ grep -q 'rfq_submit_latency_seconds_count 2' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' backend/test/api.test.mjs
 grep -q 'hedge intent creation fails' backend/test/api.test.mjs
+grep -q 'hedge status store failures' backend/test/api.test.mjs
 grep -q 'HEDGE_INTENT_FAILED' backend/test/api.test.mjs
 grep -q 'HEDGE_INTENT_FAILED' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
+grep -q 'HEDGE_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'post-settlement quote status persistence fails' backend/test/api.test.mjs
 grep -q 'rfq_quote_status_update_errors_total' backend/test/api.test.mjs
 grep -q 'Duplicate settlement events are idempotent' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md

@@ -217,6 +217,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Hedge status store unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /settlements/{settlementEventId}:
     get:
       operationId: getSettlementEvent
@@ -700,6 +706,7 @@ components:
             - QUOTE_ALREADY_USED
             - QUOTE_FAILED
             - HEDGE_NOT_FOUND
+            - HEDGE_STORE_UNAVAILABLE
             - SETTLEMENT_EVENT_NOT_FOUND
             - SETTLEMENT_UNAVAILABLE
             - SETTLEMENT_REVERTED

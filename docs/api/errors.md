@@ -33,6 +33,7 @@
 | `QUOTE_ALREADY_USED` | 409 | quote nonce 已使用 | 重新询价 |
 | `QUOTE_FAILED` | 409 | quote 已进入失败终态，不能再次提交 | 重新询价 |
 | `HEDGE_NOT_FOUND` | 404 | hedgeOrderId 不存在或已不在当前执行存储中 | 查询 submit 响应返回的 hedgeOrderId，必要时重新提交 |
+| `HEDGE_STORE_UNAVAILABLE` | 503 | hedge execution store 或 hedge intent 查询依赖不可用 | 稍后重试，必要时通过 submit 响应和执行日志核对 hedge 状态 |
 | `SETTLEMENT_EVENT_NOT_FOUND` | 404 | settlementEventId 不存在或当前执行存储尚未消费该事件 | 查询 submit 响应返回的 settlementEventId，或等待索引器消费链上事件 |
 | `SETTLEMENT_UNAVAILABLE` | 503 | settlement verifier、链 RPC 或结算依赖不可用，尚未判定 quote 是否可结算 | 稍后重试同一 signed quote，过期后重新询价 |
 | `SETTLEMENT_REVERTED` | 409 | settlement verification 或链上结算拒绝该 quote | 查看交易状态并重新询价 |

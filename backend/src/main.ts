@@ -123,18 +123,22 @@ export function buildServer(options: BuildServerOptions = {}) {
     }
   });
   server.get("/hedges/:hedgeOrderId", async (request, reply) => {
-    const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
-    if (!rateLimitResult.allowed) {
-      return rateLimitResult.response;
-    }
+    try {
+      const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
+      if (!rateLimitResult.allowed) {
+        return rateLimitResult.response;
+      }
 
-    const { hedgeOrderId } = request.params as { hedgeOrderId: string };
-    const status = hedgeService.getHedgeIntent(hedgeOrderId);
-    if (!status) {
-      return sendError(reply, requestTraceId(request), new APIError("HEDGE_NOT_FOUND", "Hedge intent not found", 404));
-    }
+      const { hedgeOrderId } = request.params as { hedgeOrderId: string };
+      const status = hedgeService.getHedgeIntent(hedgeOrderId);
+      if (!status) {
+        return sendError(reply, requestTraceId(request), new APIError("HEDGE_NOT_FOUND", "Hedge intent not found", 404));
+      }
 
-    return status;
+      return status;
+    } catch (error) {
+      return sendError(reply, requestTraceId(request), hedgeStatusFailure(error));
+    }
   });
   server.post("/quote", async (request, reply) => {
     const startedAt = Date.now();
@@ -247,6 +251,14 @@ function sendError(
   error: APIError,
 ) {
   return reply.header("x-trace-id", traceId).code(error.statusCode).send(error.toResponse(traceId));
+}
+
+function hedgeStatusFailure(error: unknown): APIError {
+  if (error instanceof APIError) {
+    return error;
+  }
+
+  return new APIError("HEDGE_STORE_UNAVAILABLE", "Hedge store unavailable", 503);
 }
 
 async function markPostSettlementQuoteStatus(

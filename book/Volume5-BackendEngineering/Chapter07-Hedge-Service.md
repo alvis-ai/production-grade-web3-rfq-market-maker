@@ -122,6 +122,7 @@ Hedge Service uses internal event APIs. It does not expose public user API.
 - Hedge cost too high：risk limit tightened。
 - Credential failure：alert and disable venue。
 - Hedge intent creation failed：settlement remains accepted, inventory and PnL remain updated, metric `rfq_hedge_intent_errors_total` increments, and follow-up risk policy should tighten output-token exposure.
+- Hedge status store unavailable：`GET /hedges/:id` returns `HEDGE_STORE_UNAVAILABLE` with traceId, so clients can retry status lookup instead of treating the hedge as missing.
 
 ## Security Considerations
 
@@ -133,7 +134,7 @@ Hedge lag is key metric. The service should prioritize high exposure intents.
 
 ## Testing Strategy
 
-测试 hedge skipped、route selected、venue reject、partial fill、idempotent retry、hedge intent creation failed does not rollback settlement 和 metrics emission。
+测试 hedge skipped、route selected、venue reject、partial fill、idempotent retry、hedge intent creation failed does not rollback settlement、hedge status store unavailable 和 metrics emission。
 
 ## Interview Notes
 

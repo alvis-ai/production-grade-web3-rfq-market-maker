@@ -347,6 +347,32 @@ test("RFQ API returns structured errors for missing hedge intents", async () => 
   }
 });
 
+test("RFQ API maps hedge status store failures to structured errors", async () => {
+  const server = buildServer({
+    logger: false,
+    hedgeService: {
+      createHedgeIntent() {
+        throw new Error("not used");
+      },
+      getHedgeIntent() {
+        throw new Error("hedge store offline");
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/hedges/h_missing");
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "HEDGE_STORE_UNAVAILABLE");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API keeps settlement accepted when hedge intent creation fails", async () => {
   const server = buildServer({
     logger: false,
