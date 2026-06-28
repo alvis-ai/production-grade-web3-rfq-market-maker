@@ -199,16 +199,28 @@ grep -q 'quoteService.markQuoteFailed' backend/src/main.ts
 grep -q 'SETTLEMENT_REVERTED' backend/src/main.ts
 grep -q 'rfq_settlements_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_settlements_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'rfq_settlements_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_hedge_intents_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_hedge_intents_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'rfq_hedge_intents_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_hedge_intent_errors_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_hedge_intent_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'rfq_hedge_intent_errors_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'recordHedgeIntentError' backend/src/main.ts
 grep -q 'rfq_quote_status_update_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'recordQuoteStatusUpdateError' backend/src/main.ts
 grep -q 'rfq_inventory_balance' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_inventory_balance' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'rfq_inventory_balance' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_pnl_trades_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_pnl_record_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'recordPnlRecordError' backend/src/main.ts
 grep -q 'rfq_realized_pnl_token_out' backend/src/modules/metrics/metrics.service.ts
+! grep -q 'rfq_settlement_event_lag_seconds' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+! grep -q 'rfq_inventory_exposure_usd' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+! grep -q 'rfq_inventory_exposure_usd' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+! grep -q 'rfq_hedge_lag_seconds' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+! grep -q 'rfq_hedge_lag_seconds' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfqClient.quote' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.submit' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getQuote' frontend/src/pages/QuotePage.tsx
