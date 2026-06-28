@@ -5,6 +5,21 @@ on:
     paths:
       - "book/**"
       - "docs/**"
+      - "examples/**"
+      - "backend/src/shared/types/rfq.ts"
+      - "sdk/src/types.ts"
+      - "scripts/check-api-error-consistency.mjs"
+      - "scripts/check-api-schema-consistency.mjs"
+      - "scripts/check-config-consistency.mjs"
+      - "scripts/check-database-schema-consistency.mjs"
+      - "scripts/check-examples-consistency.mjs"
+      - "scripts/check-skeleton.sh"
+      - "Makefile"
+      - "package.json"
+      - ".env.example"
+      - "docker-compose.yml"
+      - "infra/k8s/**"
+      - "infra/helm/**"
       - ".github/workflows/docs-ci.yml"
   push:
     branches:
@@ -18,7 +33,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check repository skeleton
         run: make skeleton-check
+      - name: Check API examples
+        run: make examples-check
+      - name: Check runtime configuration consistency
+        run: make config-check
       - name: Check API error code consistency
         run: make api-error-check
+      - name: Check API schema consistency
+        run: make api-schema-check
+      - name: Check database schema consistency
+        run: make database-schema-check
       - name: Check documentation coverage
         run: make docs-check

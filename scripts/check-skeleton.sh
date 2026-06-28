@@ -438,7 +438,18 @@ grep -q '      - master' .github/workflows/backend-ci.yml
 grep -q '      - master' .github/workflows/docs-ci.yml
 grep -q '      - master' .github/workflows/contract-ci.yml
 grep -q 'make api-error-check' .github/workflows/docs-ci.yml
+grep -q 'make examples-check' .github/workflows/docs-ci.yml
+grep -q 'make config-check' .github/workflows/docs-ci.yml
+grep -q 'make api-schema-check' .github/workflows/docs-ci.yml
+grep -q 'make database-schema-check' .github/workflows/docs-ci.yml
 grep -q 'make docs-check' .github/workflows/docs-ci.yml
+grep -Fq '"examples/**"' .github/workflows/docs-ci.yml
+grep -Fq '"scripts/check-api-schema-consistency.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"scripts/check-database-schema-consistency.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"scripts/check-examples-consistency.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"scripts/check-config-consistency.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"infra/k8s/**"' .github/workflows/docs-ci.yml
+grep -Fq '"infra/helm/**"' .github/workflows/docs-ci.yml
 grep -q 'QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
 grep -q 'backend signer Quote fields must match SDK Quote fields' scripts/check-eip712-consistency.mjs
 grep -q 'OpenAPI ErrorResponse enum must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
