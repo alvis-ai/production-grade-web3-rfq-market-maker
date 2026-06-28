@@ -430,6 +430,8 @@ grep -q 'forge test' .github/workflows/contract-ci.yml
 grep -q 'make contract-abi-check' .github/workflows/contract-ci.yml
 grep -q 'pnpm install --frozen-lockfile' .github/workflows/backend-ci.yml
 grep -q 'make verify' .github/workflows/backend-ci.yml
+grep -q 'actions/setup-node@v4' .github/workflows/backend-ci.yml
+grep -q 'node-version: "22"' .github/workflows/backend-ci.yml
 grep -Fq '"infra/**"' .github/workflows/backend-ci.yml
 grep -Fq '"docker-compose.yml"' .github/workflows/backend-ci.yml
 grep -Fq '".env.example"' .github/workflows/backend-ci.yml
@@ -437,6 +439,10 @@ grep -Fq '"README.md"' .github/workflows/backend-ci.yml
 grep -q '      - master' .github/workflows/backend-ci.yml
 grep -q '      - master' .github/workflows/docs-ci.yml
 grep -q '      - master' .github/workflows/contract-ci.yml
+grep -q 'actions/setup-node@v4' .github/workflows/docs-ci.yml
+grep -q 'node-version: "22"' .github/workflows/docs-ci.yml
+grep -q 'actions/setup-node@v4' .github/workflows/contract-ci.yml
+grep -q 'node-version: "22"' .github/workflows/contract-ci.yml
 grep -q 'make api-error-check' .github/workflows/docs-ci.yml
 grep -q 'make examples-check' .github/workflows/docs-ci.yml
 grep -q 'make config-check' .github/workflows/docs-ci.yml
