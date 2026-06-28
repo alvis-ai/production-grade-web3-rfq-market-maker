@@ -25,6 +25,7 @@ test("production startup requires explicit signer configuration", () => {
     RFQ_QUOTE_TTL_SECONDS: process.env.RFQ_QUOTE_TTL_SECONDS,
     RFQ_BODY_LIMIT_BYTES: process.env.RFQ_BODY_LIMIT_BYTES,
     RFQ_CORS_ALLOWED_ORIGINS: process.env.RFQ_CORS_ALLOWED_ORIGINS,
+    RFQ_ENABLE_HSTS: process.env.RFQ_ENABLE_HSTS,
   };
 
   try {
@@ -34,6 +35,7 @@ test("production startup requires explicit signer configuration", () => {
     delete process.env.RFQ_QUOTE_TTL_SECONDS;
     delete process.env.RFQ_BODY_LIMIT_BYTES;
     delete process.env.RFQ_CORS_ALLOWED_ORIGINS;
+    delete process.env.RFQ_ENABLE_HSTS;
 
     assert.throws(
       () => buildServer({ logger: false }),
@@ -71,6 +73,7 @@ test("production startup requires explicit signer configuration", () => {
     restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalEnv.RFQ_QUOTE_TTL_SECONDS);
     restoreEnv("RFQ_BODY_LIMIT_BYTES", originalEnv.RFQ_BODY_LIMIT_BYTES);
     restoreEnv("RFQ_CORS_ALLOWED_ORIGINS", originalEnv.RFQ_CORS_ALLOWED_ORIGINS);
+    restoreEnv("RFQ_ENABLE_HSTS", originalEnv.RFQ_ENABLE_HSTS);
   }
 });
 
@@ -138,6 +141,49 @@ test("RFQ API rejects invalid RFQ_CORS_ALLOWED_ORIGINS at startup", () => {
     );
   } finally {
     restoreEnv("RFQ_CORS_ALLOWED_ORIGINS", originalOrigins);
+  }
+});
+
+test("RFQ API rejects invalid RFQ_ENABLE_HSTS at startup", () => {
+  const originalHsts = process.env.RFQ_ENABLE_HSTS;
+
+  try {
+    process.env.RFQ_ENABLE_HSTS = "sometimes";
+
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_ENABLE_HSTS must be true or false/,
+    );
+  } finally {
+    restoreEnv("RFQ_ENABLE_HSTS", originalHsts);
+  }
+});
+
+test("RFQ API emits baseline security headers on successful responses", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const response = await server.inject({ method: "GET", url: "/health" });
+
+    assert.equal(response.statusCode, 200);
+    assertSecurityHeaders(response, { hsts: false });
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API emits HSTS when enabled", async () => {
+  const server = buildServer({ logger: false, enableHsts: true });
+  await server.ready();
+
+  try {
+    const response = await server.inject({ method: "GET", url: "/health" });
+
+    assert.equal(response.statusCode, 200);
+    assertSecurityHeaders(response, { hsts: true });
+  } finally {
+    await server.close();
   }
 });
 
@@ -1373,6 +1419,7 @@ test("RFQ API includes trace ids on validation and not found errors", async () =
     assert.equal(invalid.body.code, "INVALID_REQUEST");
     assert.match(invalid.body.traceId, /^tr_/);
     assert.equal(invalid.headers["x-trace-id"], invalid.body.traceId);
+    assertSecurityHeaders(invalid, { hsts: false });
 
     const notFound = await injectJson(server, "GET", "/quote/q_missing");
     assert.equal(notFound.statusCode, 404);
@@ -1932,6 +1979,19 @@ function quotePayloadFromResponse(quote) {
 
 function assertTraceHeader(response) {
   assert.match(String(response.headers["x-trace-id"]), /^tr_/);
+}
+
+function assertSecurityHeaders(response, { hsts }) {
+  assert.equal(response.headers["cache-control"], "no-store");
+  assert.equal(response.headers["x-content-type-options"], "nosniff");
+  assert.equal(response.headers["x-frame-options"], "DENY");
+  assert.equal(response.headers["referrer-policy"], "no-referrer");
+  assert.equal(response.headers["permissions-policy"], "camera=(), microphone=(), geolocation=()");
+  if (hsts) {
+    assert.equal(response.headers["strict-transport-security"], "max-age=31536000; includeSubDomains");
+  } else {
+    assert.equal(response.headers["strict-transport-security"], undefined);
+  }
 }
 
 function uppercaseHex(value) {

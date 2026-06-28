@@ -22,6 +22,7 @@ import type { PnlTradeRecord } from "./shared/types/rfq.js";
 
 const defaultBodyLimitBytes = 32_768;
 const defaultCorsAllowedOrigins = ["http://localhost:5173"];
+const defaultEnableHsts = false;
 
 export interface BuildServerOptions {
   logger?: boolean;
@@ -39,6 +40,7 @@ export interface BuildServerOptions {
   quoteTtlSeconds?: number;
   bodyLimitBytes?: number;
   corsAllowedOrigins?: readonly string[] | false;
+  enableHsts?: boolean;
 }
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -49,8 +51,10 @@ export function buildServer(options: BuildServerOptions = {}) {
   const corsAllowedOrigins = options.corsAllowedOrigins === false
     ? []
     : options.corsAllowedOrigins ?? readCorsAllowedOrigins();
+  const enableHsts = options.enableHsts ?? readEnableHsts();
   server.addHook("onRequest", async (request, reply) => {
     reply.header("x-trace-id", requestTraceId(request));
+    applySecurityHeaders(reply, enableHsts);
     applyCorsHeaders(request, reply, corsAllowedOrigins);
   });
   server.setErrorHandler((error, request, reply) => {
@@ -315,6 +319,17 @@ function applyCorsHeaders(
   reply.header("access-control-max-age", "600");
 }
 
+function applySecurityHeaders(reply: FastifyReply, enableHsts: boolean): void {
+  reply.header("cache-control", "no-store");
+  reply.header("x-content-type-options", "nosniff");
+  reply.header("x-frame-options", "DENY");
+  reply.header("referrer-policy", "no-referrer");
+  reply.header("permissions-policy", "camera=(), microphone=(), geolocation=()");
+  if (enableHsts) {
+    reply.header("strict-transport-security", "max-age=31536000; includeSubDomains");
+  }
+}
+
 function isCorsOriginAllowed(request: FastifyRequest, allowedOrigins: readonly string[]): boolean {
   const origin = requestOrigin(request);
   return !origin || allowedOrigins.includes(origin);
@@ -516,6 +531,24 @@ function readCorsAllowedOrigins(): string[] {
   }
 
   return origins;
+}
+
+function readEnableHsts(): boolean {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const configured = env?.RFQ_ENABLE_HSTS;
+  if (!configured || configured.trim().length === 0) {
+    return defaultEnableHsts;
+  }
+
+  const normalized = configured.trim().toLowerCase();
+  if (normalized === "true") {
+    return true;
+  }
+  if (normalized === "false") {
+    return false;
+  }
+
+  throw new Error("RFQ_ENABLE_HSTS must be true or false");
 }
 
 export async function startServer() {
