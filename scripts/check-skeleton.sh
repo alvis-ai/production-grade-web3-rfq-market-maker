@@ -311,6 +311,7 @@ grep -Fq '"README.md"' .github/workflows/backend-ci.yml
 grep -q '      - master' .github/workflows/backend-ci.yml
 grep -q '      - master' .github/workflows/docs-ci.yml
 grep -q '      - master' .github/workflows/contract-ci.yml
+grep -q 'make api-error-check' .github/workflows/docs-ci.yml
 grep -q 'make docs-check' .github/workflows/docs-ci.yml
 grep -q 'QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
 grep -q 'backend signer Quote fields must match SDK Quote fields' scripts/check-eip712-consistency.mjs

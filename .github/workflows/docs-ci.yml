@@ -18,5 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check repository skeleton
         run: make skeleton-check
+      - name: Check API error code consistency
+        run: make api-error-check
       - name: Check documentation coverage
         run: make docs-check
