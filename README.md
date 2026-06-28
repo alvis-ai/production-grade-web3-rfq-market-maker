@@ -142,6 +142,21 @@ The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK 
 
 The frontend reads `VITE_RFQ_API_BASE_URL` at Vite build/dev-server time and shows the active API endpoint in the trading console header.
 
+## Local Docker Stack
+
+The local compose stack can run the reference backend, static frontend, Prometheus, Grafana and data dependencies:
+
+```sh
+docker compose up --build
+```
+
+Local ports:
+
+- Backend API: `http://localhost:3000`
+- Frontend console: `http://localhost:5173`
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3001`
+
 ## Production Configuration
 
 When `NODE_ENV=production`, the backend refuses to start unless `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` are explicitly configured. The signer private key must be a 32-byte hex string and the settlement address must be a 20-byte hex address.

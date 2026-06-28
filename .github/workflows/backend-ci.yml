@@ -34,6 +34,8 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       - name: Check repository skeleton
         run: make skeleton-check
+      - name: Check Docker Compose config
+        run: make compose-check
       - name: Check EIP-712 schema consistency
         run: make eip712-check
       - name: Check contract ABI consistency

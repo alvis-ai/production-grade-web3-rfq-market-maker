@@ -67,7 +67,16 @@ test -s infra/docker/backend.Dockerfile
 test -s infra/docker/frontend.Dockerfile
 grep -q 'ENV HOST=0.0.0.0' infra/docker/backend.Dockerfile
 grep -q 'ENV PORT=3000' infra/docker/backend.Dockerfile
-grep -q 'host.docker.internal:host-gateway' docker-compose.yml
+grep -q 'FROM nginx:1.27-alpine AS runtime' infra/docker/frontend.Dockerfile
+grep -q 'VITE_RFQ_API_BASE_URL' infra/docker/frontend.Dockerfile
+grep -q 'COPY sdk/src sdk/src' infra/docker/frontend.Dockerfile
+grep -q 'pnpm --filter @rfq-market-maker/frontend build' infra/docker/frontend.Dockerfile
+grep -q 'backend:' docker-compose.yml
+grep -q 'frontend:' docker-compose.yml
+grep -q 'dockerfile: infra/docker/backend.Dockerfile' docker-compose.yml
+grep -q 'dockerfile: infra/docker/frontend.Dockerfile' docker-compose.yml
+grep -q 'VITE_RFQ_API_BASE_URL: http://localhost:3000' docker-compose.yml
+grep -q 'backend:3000' infra/prometheus/prometheus.yml
 test -s infra/prometheus/prometheus.yml
 test -s infra/prometheus/rules/rfq-alerts.yml
 test -s infra/grafana/provisioning/datasources/prometheus.yml
@@ -362,6 +371,8 @@ grep -q 'testDeployInitializesTrustedSignerAndWhitelist' contracts/test/Deploy.t
 grep -q 'treasury settlement mismatch' contracts/test/Deploy.t.sol
 grep -q 'contract-test' Makefile
 grep -q 'contract-abi-check' Makefile
+grep -q 'compose-check' Makefile
+grep -q 'compose:check' package.json
 grep -q 'backend-build' Makefile
 grep -q 'backend-test' Makefile
 grep -q 'eip712-check' Makefile
@@ -370,6 +381,7 @@ grep -q 'forge test' .github/workflows/contract-ci.yml
 grep -q 'make contract-abi-check' .github/workflows/contract-ci.yml
 grep -q 'make backend-typecheck' .github/workflows/backend-ci.yml
 grep -q 'make backend-test' .github/workflows/backend-ci.yml
+grep -q 'make compose-check' .github/workflows/backend-ci.yml
 grep -q 'make eip712-check' .github/workflows/backend-ci.yml
 grep -q 'make contract-abi-check' .github/workflows/backend-ci.yml
 grep -q 'make api-error-check' .github/workflows/backend-ci.yml
