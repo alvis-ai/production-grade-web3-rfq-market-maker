@@ -21,7 +21,7 @@
 | `UNSUPPORTED_TOKEN` | 400 | token 不在 whitelist | 更换资产 |
 | `AMOUNT_TOO_SMALL` | 400 | amount 小于系统最小交易量 | 提高交易数量 |
 | `AMOUNT_TOO_LARGE` | 400 | amount 超过单笔最大交易量 | 降低交易数量 |
-| `MARKET_DATA_UNAVAILABLE` | 503 | 市场数据不可用或过期 | 稍后重试 |
+| `MARKET_DATA_UNAVAILABLE` | 503 | 市场数据不可用、过期、明显来自未来或快照字段无效 | 稍后重试 |
 | `ROUTING_UNAVAILABLE` | 503 | Routing Engine 无法选择报价路径 | 稍后重试 |
 | `PRICING_UNAVAILABLE` | 503 | Pricing Engine 无法生成报价 | 稍后重试 |
 | `RISK_REJECTED` | 409 | 风控策略拒绝签名 | 降低数量或稍后重试 |

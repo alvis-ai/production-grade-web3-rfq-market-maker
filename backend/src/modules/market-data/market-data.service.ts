@@ -21,7 +21,13 @@ export class StaticMarketDataService implements MarketDataService {
   }
 }
 
-export function getMarketSnapshotIssue(snapshot: MarketSnapshot, maxSnapshotAgeMs: number): string | undefined {
+export const defaultMaxSnapshotFutureSkewMs = 1_000;
+
+export function getMarketSnapshotIssue(
+  snapshot: MarketSnapshot,
+  maxSnapshotAgeMs: number,
+  maxSnapshotFutureSkewMs = defaultMaxSnapshotFutureSkewMs,
+): string | undefined {
   if (snapshot.snapshotId.trim().length === 0) {
     return "snapshot id is missing";
   }
@@ -44,11 +50,11 @@ export function getMarketSnapshotIssue(snapshot: MarketSnapshot, maxSnapshotAgeM
   }
 
   const ageMs = Date.now() - observedAtMs;
-  if (ageMs <= maxSnapshotAgeMs) {
-    return undefined;
+  if (ageMs < -maxSnapshotFutureSkewMs) {
+    return "snapshot timestamp is too far in the future";
   }
 
-  if (ageMs < 0) {
+  if (ageMs <= maxSnapshotAgeMs) {
     return undefined;
   }
 

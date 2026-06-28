@@ -10,7 +10,11 @@ import type {
 } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
 import type { InventoryService } from "../inventory/inventory.service.js";
-import { getMarketSnapshotIssue, type MarketDataService } from "../market-data/market-data.service.js";
+import {
+  defaultMaxSnapshotFutureSkewMs,
+  getMarketSnapshotIssue,
+  type MarketDataService,
+} from "../market-data/market-data.service.js";
 import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
 import type { HedgeIntentService } from "../hedge/hedge.service.js";
 import type {
@@ -38,11 +42,13 @@ export interface QuoteServiceDeps {
 
 export interface QuoteServiceConfig {
   maxSnapshotAgeMs: number;
+  maxSnapshotFutureSkewMs: number;
   quoteTtlSeconds: number;
 }
 
 export const defaultQuoteServiceConfig: QuoteServiceConfig = {
   maxSnapshotAgeMs: 5_000,
+  maxSnapshotFutureSkewMs: defaultMaxSnapshotFutureSkewMs,
   quoteTtlSeconds: 30,
 };
 
@@ -183,7 +189,7 @@ export class QuoteService {
       throw marketDataFailure(error);
     }
 
-    assertUsableSnapshot(snapshot, this.config.maxSnapshotAgeMs);
+    assertUsableSnapshot(snapshot, this.config.maxSnapshotAgeMs, this.config.maxSnapshotFutureSkewMs);
     return snapshot;
   }
 
@@ -344,8 +350,12 @@ function routingFailure(error: unknown): APIError {
   return new APIError("ROUTING_UNAVAILABLE", "Routing engine unavailable", 503);
 }
 
-function assertUsableSnapshot(snapshot: MarketSnapshot, maxSnapshotAgeMs: number): void {
-  const issue = getMarketSnapshotIssue(snapshot, maxSnapshotAgeMs);
+function assertUsableSnapshot(
+  snapshot: MarketSnapshot,
+  maxSnapshotAgeMs: number,
+  maxSnapshotFutureSkewMs: number,
+): void {
+  const issue = getMarketSnapshotIssue(snapshot, maxSnapshotAgeMs, maxSnapshotFutureSkewMs);
   if (issue) {
     throw new APIError("MARKET_DATA_UNAVAILABLE", `Market data ${issue}`, 503);
   }

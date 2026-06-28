@@ -24,6 +24,7 @@ grep -q 'signerService: SignerService' backend/src/modules/health/readiness.serv
 grep -q 'checkMarketData' backend/src/modules/health/readiness.service.ts
 grep -q 'checkSigner' backend/src/modules/health/readiness.service.ts
 grep -q 'maxSnapshotAgeMs' backend/src/modules/health/readiness.service.ts
+grep -q 'maxSnapshotFutureSkewMs' backend/src/modules/health/readiness.service.ts
 grep -q 'readiness_probe' backend/src/modules/health/readiness.service.ts
 grep -q 'pnl: "ok"' backend/src/modules/health/readiness.service.ts
 grep -q 'settlementEventStore: "ok"' backend/src/modules/health/readiness.service.ts
@@ -39,6 +40,8 @@ test -s backend/src/modules/settlement/settlement-event.service.ts
 test -s backend/src/modules/settlement/settlement-verifier.service.ts
 test -s backend/src/modules/market-data/market-data.service.ts
 grep -q 'getMarketSnapshotIssue' backend/src/modules/market-data/market-data.service.ts
+grep -q 'defaultMaxSnapshotFutureSkewMs' backend/src/modules/market-data/market-data.service.ts
+grep -q 'snapshot timestamp is too far in the future' backend/src/modules/market-data/market-data.service.ts
 grep -q 'mid price is invalid' backend/src/modules/market-data/market-data.service.ts
 grep -q 'liquidity is invalid' backend/src/modules/market-data/market-data.service.ts
 test -s backend/src/modules/rate-limit/rate-limit.service.ts
@@ -212,6 +215,7 @@ grep -q 'marketDataFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'assertUsableSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'getMarketSnapshotIssue' backend/src/modules/quote/quote.service.ts
 grep -q 'maxSnapshotAgeMs' backend/src/modules/quote/quote.service.ts
+grep -q 'maxSnapshotFutureSkewMs' backend/src/modules/quote/quote.service.ts
 grep -q 'MARKET_DATA_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'ROUTING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'routingFailure' backend/src/modules/quote/quote.service.ts
@@ -739,6 +743,7 @@ grep -q 'risk rejection when rejected quote persistence fails' backend/test/api.
 grep -q 'Rejected quote persistence unavailable' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'SLIPPAGE_TOO_WIDE' backend/test/api.test.mjs
 grep -q 'stale market data' backend/test/api.test.mjs
+grep -q 'market data timestamps too far in the future' backend/test/api.test.mjs
 grep -q 'market data failures' backend/test/api.test.mjs
 grep -q 'invalid market data before pricing and signing' backend/test/api.test.mjs
 grep -q 'routing engine failures' backend/test/api.test.mjs
@@ -752,6 +757,7 @@ grep -q 'Quote status store unavailable' book/Volume5-BackendEngineering/Chapter
 grep -q 'pricing engine failures' backend/test/api.test.mjs
 grep -q 'market data shape is invalid' backend/test/api.test.mjs
 grep -q 'degrades readiness when market data is stale' backend/test/api.test.mjs
+grep -q 'degrades readiness when market data timestamp is too far in the future' backend/test/api.test.mjs
 grep -q 'degrades readiness when signer probe fails' backend/test/api.test.mjs
 grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md

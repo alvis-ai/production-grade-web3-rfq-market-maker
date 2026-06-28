@@ -1,4 +1,8 @@
-import { getMarketSnapshotIssue, type MarketDataService } from "../market-data/market-data.service.js";
+import {
+  defaultMaxSnapshotFutureSkewMs,
+  getMarketSnapshotIssue,
+  type MarketDataService,
+} from "../market-data/market-data.service.js";
 import type { QuoteRequest, SignedQuote } from "../../shared/types/rfq.js";
 import type { SignerService } from "../signer/signer.service.js";
 
@@ -16,12 +20,14 @@ export interface ReadinessServiceDeps {
 
 export interface ReadinessServiceConfig {
   maxSnapshotAgeMs: number;
+  maxSnapshotFutureSkewMs: number;
   probeRequest: QuoteRequest;
   probeQuote: SignedQuote;
 }
 
 export const defaultReadinessServiceConfig: ReadinessServiceConfig = {
   maxSnapshotAgeMs: 5_000,
+  maxSnapshotFutureSkewMs: defaultMaxSnapshotFutureSkewMs,
   probeRequest: {
     chainId: 1,
     user: "0x0000000000000000000000000000000000000001",
@@ -76,7 +82,11 @@ export class ReadinessService {
   private async checkMarketData(): Promise<ReadinessComponentStatus> {
     try {
       const snapshot = await this.deps.marketDataService.getSnapshot(this.config.probeRequest);
-      return getMarketSnapshotIssue(snapshot, this.config.maxSnapshotAgeMs) ? "degraded" : "ok";
+      return getMarketSnapshotIssue(
+        snapshot,
+        this.config.maxSnapshotAgeMs,
+        this.config.maxSnapshotFutureSkewMs,
+      ) ? "degraded" : "ok";
     } catch {
       return "degraded";
     }
