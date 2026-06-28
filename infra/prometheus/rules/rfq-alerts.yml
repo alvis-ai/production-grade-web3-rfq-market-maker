@@ -63,3 +63,30 @@ groups:
         annotations:
           summary: RFQ signer p95 latency is above 500ms
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQHedgeIntentErrors
+        expr: sum(increase(rfq_hedge_intent_errors_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ hedge intent creation errors detected after settlement
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQQuoteStatusUpdateErrors
+        expr: sum(increase(rfq_quote_status_update_errors_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ quote status persistence errors detected after settlement
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQPnlRecordErrors
+        expr: sum(increase(rfq_pnl_record_errors_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ PnL attribution record errors detected after settlement
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md

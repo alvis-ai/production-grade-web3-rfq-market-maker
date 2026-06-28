@@ -27,6 +27,7 @@ Runbook 是故障发生时的操作手册。RFQ 系统需要覆盖 signer incide
 - 提供 market data stale runbook。
 - 提供 indexer lag runbook。
 - 提供 hedge failure runbook。
+- 提供 post-settlement reconciliation runbook。
 - 提供 emergency pause procedure。
 
 ### Non-Functional Requirements
@@ -144,6 +145,16 @@ Future admin APIs may support disabling quote signing, lowering limits, disablin
 2. Route to backup venue if available.
 3. Tighten risk limits.
 4. Record residual exposure.
+
+### Post-Settlement Persistence Drift
+
+Alerts: `RFQQuoteStatusUpdateErrors`, `RFQHedgeIntentErrors`, `RFQPnlRecordErrors`.
+
+1. Treat the settlement event as source of truth and do not revert or replay contract settlement from the API path.
+2. Start settlement-to-quote reconciliation for `rfq_quote_status_update_errors_total` and repair `submitted` or `settled` status from settlement events.
+3. Start settlement-to-hedge reconciliation for `rfq_hedge_intent_errors_total`; if hedge intent creation keeps failing, tighten quote limits for the affected output token.
+4. Start settlement-to-PnL reconciliation for `rfq_pnl_record_errors_total` and rebuild missing realized PnL rows from settlement events and market snapshots.
+5. Verify `/settlements/:settlementEventId`, `/quote/:quoteId`, `/hedges/:hedgeOrderId`, `/pnl` and `GET /metrics` before closing the incident.
 
 ## Security Considerations
 

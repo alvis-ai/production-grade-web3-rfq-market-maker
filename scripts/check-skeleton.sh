@@ -440,6 +440,15 @@ grep -q 'RFQQuoteLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteRiskRejectSpike' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQSignerErrors' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQSignerLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQHedgeIntentErrors' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'rfq_hedge_intent_errors_total' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQQuoteStatusUpdateErrors' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'rfq_quote_status_update_errors_total' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQPnlRecordErrors' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'rfq_pnl_record_errors_total' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'Post-Settlement Persistence Drift' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'settlement-to-quote reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'settlement-to-PnL reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml
 grep -q 'path: /ready' infra/k8s/backend-deployment.yaml
 grep -q 'path: /ready' infra/helm/rfq-market-maker/templates/deployment.yaml
