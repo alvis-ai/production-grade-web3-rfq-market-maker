@@ -119,6 +119,7 @@ grep -q 'requireProductionAddress' backend/src/main.ts
 grep -q 'NODE_ENV=production' backend/src/main.ts
 grep -q 'HOST' backend/src/main.ts
 grep -q 'x-trace-id' backend/src/main.ts
+grep -q 'server.addHook("onRequest"' backend/src/main.ts
 grep -q 'requestTraceId' backend/src/main.ts
 grep -q 'traceId: string' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_NOT_FOUND' backend/src/shared/errors/api-error.ts
@@ -363,6 +364,10 @@ grep -q 'PNL_STORE_UNAVAILABLE' docs/api/errors.md
 grep -q 'getPnlSummary' docs/api/openapi.yaml
 grep -q 'PnlSummary' docs/api/openapi.yaml
 grep -q 'PnlTradeRecord' docs/api/openapi.yaml
+grep -q 'Every response includes an x-trace-id header' docs/api/openapi.yaml
+grep -q 'Every HTTP response includes an `x-trace-id` header' README.md
+grep -q 'assertTraceHeader' backend/test/api.test.mjs
+grep -q 'onRequest` hook' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'IntString' docs/api/openapi.yaml
 grep -q 'Internal rejection reason for rejected quote records' docs/api/openapi.yaml
 grep -q 'QUOTE_ALREADY_USED' docs/api/openapi.yaml

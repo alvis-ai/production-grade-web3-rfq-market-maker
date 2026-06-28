@@ -37,6 +37,10 @@ export interface BuildServerOptions {
 
 export function buildServer(options: BuildServerOptions = {}) {
   const server = Fastify({ logger: options.logger ?? true });
+  server.addHook("onRequest", async (request, reply) => {
+    reply.header("x-trace-id", requestTraceId(request));
+  });
+
   const hedgeService = options.hedgeService ?? new HedgeService();
   const marketDataService = options.marketDataService ?? new StaticMarketDataService();
   const metricsService = new MetricsService();

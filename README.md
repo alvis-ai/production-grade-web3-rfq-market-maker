@@ -59,6 +59,8 @@ infra/       Docker, Kubernetes, Helm, Prometheus and Grafana configuration
 
 The OpenAPI specification lives in [`docs/api/openapi.yaml`](docs/api/openapi.yaml). Core endpoints:
 
+Every HTTP response includes an `x-trace-id` header for request correlation. Structured error responses also include the same value in `traceId`, so SDKs, frontend error panels, logs, and metrics can be joined during incident triage.
+
 ```http
 POST /quote
 POST /submit

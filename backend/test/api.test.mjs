@@ -72,16 +72,19 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
   try {
     const health = await injectJson(server, "GET", "/health");
     assert.equal(health.statusCode, 200);
+    assertTraceHeader(health);
     assert.equal(health.body.status, "ok");
 
     const ready = await injectJson(server, "GET", "/ready");
     assert.equal(ready.statusCode, 200);
+    assertTraceHeader(ready);
     assert.equal(ready.body.status, "ready");
     assert.equal(ready.body.components.signer, "ok");
     assert.equal(ready.body.components.marketData, "ok");
 
     const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
     assert.equal(quote.statusCode, 200);
+    assertTraceHeader(quote);
     assert.match(quote.body.quoteId, /^q_/);
     assert.equal(quote.body.amountOut, "998400000");
     assert.equal(quote.body.minAmountOut, "993408000");
@@ -102,6 +105,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
       signature: uppercaseHex(quote.body.signature),
     });
     assert.equal(submit.statusCode, 202);
+    assertTraceHeader(submit);
     assert.equal(submit.body.status, "accepted");
     assert.match(submit.body.txHash, /^0x[0-9a-fA-F]+$/);
     assert.match(submit.body.settlementEventId, /^se_/);
@@ -110,11 +114,13 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
 
     const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
     assert.equal(status.statusCode, 200);
+    assertTraceHeader(status);
     assert.equal(status.body.status, "settled");
     assert.equal(status.body.txHash, submit.body.txHash);
 
     const settlement = await injectJson(server, "GET", `/settlements/${submit.body.settlementEventId}`);
     assert.equal(settlement.statusCode, 200);
+    assertTraceHeader(settlement);
     assert.equal(settlement.body.settlementEventId, submit.body.settlementEventId);
     assert.equal(settlement.body.status, "applied");
     assert.equal(settlement.body.quoteId, quote.body.quoteId);
@@ -130,6 +136,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
 
     const hedge = await injectJson(server, "GET", `/hedges/${submit.body.hedgeOrderId}`);
     assert.equal(hedge.statusCode, 200);
+    assertTraceHeader(hedge);
     assert.equal(hedge.body.hedgeOrderId, submit.body.hedgeOrderId);
     assert.equal(hedge.body.status, "queued");
     assert.equal(hedge.body.quoteId, quote.body.quoteId);
@@ -142,6 +149,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
 
     const pnl = await injectJson(server, "GET", "/pnl");
     assert.equal(pnl.statusCode, 200);
+    assertTraceHeader(pnl);
     assert.equal(pnl.body.status, "ok");
     assert.equal(pnl.body.totalTrades, 1);
     assert.equal(pnl.body.grossPnlTokenOut, "1600000");
@@ -157,6 +165,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
 
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);
+    assertTraceHeader(metrics);
     assert.match(metrics.payload, /rfq_quote_requests_total 1/);
     assert.match(metrics.payload, /rfq_quote_latency_seconds_count 1/);
     assert.match(metrics.payload, /rfq_quote_latency_seconds_bucket\{le="\+Inf"\} 1/);
@@ -1711,6 +1720,10 @@ function quotePayloadFromResponse(quote) {
     deadline: quote.deadline,
     chainId: baseQuoteRequest.chainId,
   };
+}
+
+function assertTraceHeader(response) {
+  assert.match(String(response.headers["x-trace-id"]), /^tr_/);
 }
 
 function uppercaseHex(value) {

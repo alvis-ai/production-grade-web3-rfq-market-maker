@@ -111,7 +111,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 
 - Gateway 不直接调用 Signer。
 - Gateway 不返回内部 risk threshold。
-- traceId 必须贯穿后端调用链。
+- traceId 必须贯穿后端调用链；当前 Fastify gateway 在 `onRequest` hook 中为所有 HTTP 响应写入 `x-trace-id`，错误响应 body 的 `traceId` 必须与该 header 保持一致。
 - `/ready` 当前检查 market data freshness 和 signer probe。stale snapshot 会让 `marketData` 组件变为 `degraded`；signer 无法签名或签名无法被同一 trusted signer 验证时，`signer` 组件变为 `degraded`，用于阻止 Kubernetes 在错误价格输入或不可签名状态下继续导流。
 - 当前 Fastify 实现使用 `InMemoryRateLimiter` 保护 `/quote`、`/submit`、`/quote/:id`、`/settlements/:id`、`/hedges/:id` 和 `/pnl`；生产部署可替换为 Redis-backed distributed rate limit，并保持 `RATE_LIMITED` 错误契约不变。
 
@@ -138,7 +138,7 @@ Gateway 应保持薄层，不执行重计算。序列化和校验必须足够快
 
 ## Testing Strategy
 
-测试 request validation、error mapping、rate limit、health、readiness market data degraded、readiness signer degraded、metrics、`/quote` 路由、settlement event 查询、hedge intent 查询和 PnL summary 查询。
+测试 request validation、error mapping、rate limit、health、readiness market data degraded、readiness signer degraded、metrics、`/quote` 路由、settlement event 查询、hedge intent 查询、PnL summary 查询，以及成功和失败响应的 `x-trace-id` 传播。
 
 ## Interview Notes
 
