@@ -65,6 +65,7 @@ test -s scripts/check-eip712-consistency.mjs
 test -s scripts/check-contract-abi-consistency.mjs
 test -s scripts/check-api-error-consistency.mjs
 test -s scripts/check-api-schema-consistency.mjs
+test -s scripts/check-api-route-consistency.mjs
 test -s scripts/check-database-schema-consistency.mjs
 test -s scripts/verify.sh
 test -s scripts/smoke-api.mjs
@@ -407,6 +408,7 @@ grep -q 'make eip712-check' scripts/verify.sh
 grep -q 'make contract-abi-check' scripts/verify.sh
 grep -q 'make api-error-check' scripts/verify.sh
 grep -q 'make api-schema-check' scripts/verify.sh
+grep -q 'make api-route-check' scripts/verify.sh
 grep -q 'make database-schema-check' scripts/verify.sh
 grep -q 'make backend-test' scripts/verify.sh
 grep -q 'make sdk-test' scripts/verify.sh
@@ -423,6 +425,8 @@ grep -q 'config:check' package.json
 grep -q 'eip712-check' Makefile
 grep -q 'api-schema-check' Makefile
 grep -q 'api:schema:check' package.json
+grep -q 'api-route-check' Makefile
+grep -q 'api:route:check' package.json
 grep -q 'database-schema-check' Makefile
 grep -q 'database:schema:check' package.json
 grep -q 'smoke-api-local' Makefile
@@ -447,10 +451,12 @@ grep -q 'make api-error-check' .github/workflows/docs-ci.yml
 grep -q 'make examples-check' .github/workflows/docs-ci.yml
 grep -q 'make config-check' .github/workflows/docs-ci.yml
 grep -q 'make api-schema-check' .github/workflows/docs-ci.yml
+grep -q 'make api-route-check' .github/workflows/docs-ci.yml
 grep -q 'make database-schema-check' .github/workflows/docs-ci.yml
 grep -q 'make docs-check' .github/workflows/docs-ci.yml
 grep -Fq '"examples/**"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-api-schema-consistency.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"scripts/check-api-route-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-database-schema-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-examples-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-config-consistency.mjs"' .github/workflows/docs-ci.yml

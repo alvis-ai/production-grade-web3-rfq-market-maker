@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check api-error-check api-schema-check database-schema-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
+.PHONY: help verify docs-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check api-error-check api-schema-check api-route-check database-schema-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -16,6 +16,7 @@ help:
 	@echo "  contract-abi-check  Verify SDK contract ABIs match Solidity integration surfaces"
 	@echo "  api-error-check  Verify backend, OpenAPI, and error docs share error codes"
 	@echo "  api-schema-check  Verify backend, SDK, and OpenAPI schemas match"
+	@echo "  api-route-check  Verify backend, SDK, OpenAPI, and smoke routes match"
 	@echo "  database-schema-check  Verify database schema matches API state surfaces"
 	@echo "  backend-build  Build backend package"
 	@echo "  backend-test  Run backend API tests"
@@ -71,6 +72,9 @@ api-error-check:
 
 api-schema-check:
 	@node scripts/check-api-schema-consistency.mjs
+
+api-route-check:
+	@node scripts/check-api-route-consistency.mjs
 
 database-schema-check:
 	@node scripts/check-database-schema-consistency.mjs

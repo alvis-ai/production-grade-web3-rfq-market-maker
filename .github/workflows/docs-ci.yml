@@ -9,6 +9,7 @@ on:
       - "backend/src/shared/types/rfq.ts"
       - "sdk/src/types.ts"
       - "scripts/check-api-error-consistency.mjs"
+      - "scripts/check-api-route-consistency.mjs"
       - "scripts/check-api-schema-consistency.mjs"
       - "scripts/check-config-consistency.mjs"
       - "scripts/check-database-schema-consistency.mjs"
@@ -44,6 +45,8 @@ jobs:
         run: make api-error-check
       - name: Check API schema consistency
         run: make api-schema-check
+      - name: Check API route consistency
+        run: make api-route-check
       - name: Check database schema consistency
         run: make database-schema-check
       - name: Check documentation coverage
