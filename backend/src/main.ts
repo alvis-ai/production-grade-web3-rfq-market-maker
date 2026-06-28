@@ -356,8 +356,8 @@ function readSignerConfig() {
   const privateKey = env?.RFQ_SIGNER_PRIVATE_KEY;
   const settlementAddress = env?.RFQ_SETTLEMENT_ADDRESS;
   if (isProduction) {
-    requireProductionEnv(privateKey, "RFQ_SIGNER_PRIVATE_KEY");
-    requireProductionEnv(settlementAddress, "RFQ_SETTLEMENT_ADDRESS");
+    requireProductionPrivateKey(privateKey);
+    requireProductionAddress(settlementAddress, "RFQ_SETTLEMENT_ADDRESS");
   }
 
   return {
@@ -366,9 +366,25 @@ function readSignerConfig() {
   };
 }
 
-function requireProductionEnv(value: string | undefined, name: string): void {
+function requireProductionEnv(value: string | undefined, name: string): string {
   if (!value || value.trim().length === 0) {
     throw new Error(`${name} is required when NODE_ENV=production`);
+  }
+
+  return value;
+}
+
+function requireProductionPrivateKey(value: string | undefined): void {
+  const privateKey = requireProductionEnv(value, "RFQ_SIGNER_PRIVATE_KEY");
+  if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
+    throw new Error("RFQ_SIGNER_PRIVATE_KEY must be a 32-byte hex string when NODE_ENV=production");
+  }
+}
+
+function requireProductionAddress(value: string | undefined, name: string): void {
+  const address = requireProductionEnv(value, name);
+  if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+    throw new Error(`${name} must be a 20-byte hex address when NODE_ENV=production`);
   }
 }
 

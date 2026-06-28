@@ -41,6 +41,23 @@ test("production startup requires explicit signer configuration", () => {
       () => buildServer({ logger: false }),
       /RFQ_SETTLEMENT_ADDRESS is required when NODE_ENV=production/,
     );
+
+    process.env.RFQ_SIGNER_PRIVATE_KEY = "replace-with-production-signer-private-key";
+    process.env.RFQ_SETTLEMENT_ADDRESS = "0x0000000000000000000000000000000000000004";
+
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_SIGNER_PRIVATE_KEY must be a 32-byte hex string when NODE_ENV=production/,
+    );
+
+    process.env.RFQ_SIGNER_PRIVATE_KEY =
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+    process.env.RFQ_SETTLEMENT_ADDRESS = "replace-with-rfq-settlement-address";
+
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address when NODE_ENV=production/,
+    );
   } finally {
     restoreEnv("NODE_ENV", originalEnv.NODE_ENV);
     restoreEnv("RFQ_SIGNER_PRIVATE_KEY", originalEnv.RFQ_SIGNER_PRIVATE_KEY);
