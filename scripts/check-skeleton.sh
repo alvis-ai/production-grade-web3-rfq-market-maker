@@ -48,6 +48,7 @@ test -s frontend/src/lib/rfq.ts
 test -s frontend/src/lib/config.ts
 test -s frontend/src/lib/errors.ts
 test -s frontend/src/vite-env.d.ts
+test -s frontend/src/app/web3.tsx
 test -s frontend/src/pages/QuotePage.tsx
 test -s sdk/src/abi.ts
 test -s sdk/src/eip712.ts
@@ -91,6 +92,8 @@ grep -q 'FROM nginx:1.27-alpine AS runtime' infra/docker/frontend.Dockerfile
 grep -q 'COPY package.json pnpm-lock.yaml pnpm-workspace.yaml' infra/docker/frontend.Dockerfile
 grep -q -- '--frozen-lockfile' infra/docker/frontend.Dockerfile
 grep -q 'VITE_RFQ_API_BASE_URL' infra/docker/frontend.Dockerfile
+grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS' infra/docker/frontend.Dockerfile
+grep -q 'VITE_WALLETCONNECT_PROJECT_ID' infra/docker/frontend.Dockerfile
 grep -q 'COPY sdk/src sdk/src' infra/docker/frontend.Dockerfile
 grep -q 'pnpm --filter @rfq-market-maker/frontend build' infra/docker/frontend.Dockerfile
 grep -q 'HEALTHCHECK' infra/docker/frontend.Dockerfile
@@ -102,6 +105,8 @@ grep -q 'condition: service_healthy' docker-compose.yml
 grep -q 'dockerfile: infra/docker/backend.Dockerfile' docker-compose.yml
 grep -q 'dockerfile: infra/docker/frontend.Dockerfile' docker-compose.yml
 grep -q 'VITE_RFQ_API_BASE_URL: http://localhost:3000' docker-compose.yml
+grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS: 0x0000000000000000000000000000000000000004' docker-compose.yml
+grep -q 'VITE_WALLETCONNECT_PROJECT_ID: "00000000000000000000000000000000"' docker-compose.yml
 grep -q 'pg_isready -U rfq -d rfq_market_maker' docker-compose.yml
 grep -q './docs/database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro' docker-compose.yml
 grep -q 'redis-cli' docker-compose.yml
@@ -326,11 +331,25 @@ grep -q 'rfqClient.getSettlement' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.pnl' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqApiBaseUrl' frontend/src/pages/QuotePage.tsx
+grep -q 'ConnectButton' frontend/src/pages/QuotePage.tsx
+grep -q 'useWriteContract' frontend/src/pages/QuotePage.tsx
+grep -q 'buildSubmitQuoteArgs' frontend/src/pages/QuotePage.tsx
+grep -q 'rfqSettlementAbi' frontend/src/pages/QuotePage.tsx
+grep -q 'writeContractAsync' frontend/src/pages/QuotePage.tsx
 grep -q 'VITE_RFQ_API_BASE_URL' frontend/src/lib/config.ts
+grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS' frontend/src/lib/config.ts
+grep -q 'VITE_WALLETCONNECT_PROJECT_ID' frontend/src/lib/config.ts
+grep -q 'normalizeAddress' frontend/src/lib/config.ts
+grep -q 'WagmiProvider' frontend/src/app/web3.tsx
+grep -q 'RainbowKitProvider' frontend/src/app/web3.tsx
+grep -q 'QueryClientProvider' frontend/src/app/web3.tsx
+grep -q 'Web3Provider' frontend/src/app/main.tsx
 grep -q 'new RFQClient(rfqApiBaseUrl)' frontend/src/lib/rfq.ts
 grep -q 'Hedge Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Settlement Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Realized PnL' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'Submit Onchain' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'Contract Call' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'role="alert"' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Retry After' frontend/src/components/QuoteStatusPanel.tsx
 grep -q '{error.retryAfterSeconds}s' frontend/src/components/QuoteStatusPanel.tsx
@@ -611,6 +630,8 @@ grep -q 'RFQ_BODY_LIMIT_BYTES=32768' .env.example
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS=http://localhost:5173' .env.example
 grep -q 'RFQ_ENABLE_HSTS=false' .env.example
 grep -q 'VITE_RFQ_API_BASE_URL=http://localhost:3000' .env.example
+grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS=0x0000000000000000000000000000000000000004' .env.example
+grep -q 'VITE_WALLETCONNECT_PROJECT_ID=00000000000000000000000000000000' .env.example
 grep -q 'HOST=127.0.0.1' .env.example
 grep -q 'Production Configuration' README.md
 grep -q 'rfq-backend-secrets' README.md

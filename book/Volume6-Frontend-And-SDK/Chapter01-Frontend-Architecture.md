@@ -2,7 +2,7 @@
 
 ## Abstract
 
-前端是 RFQ 系统的用户操作面。它不负责定价和风控，但必须准确表达 quote 状态、deadline、minAmountOut、钱包网络、交易提交和错误反馈。第一版前端使用 React + Vite + TypeScript，后续接入 Wagmi、Viem、RainbowKit 和 TanStack Query。
+前端是 RFQ 系统的用户操作面。它不负责定价和风控，但必须准确表达 quote 状态、deadline、minAmountOut、钱包网络、交易提交和错误反馈。第一版前端使用 React + Vite + TypeScript，并接入 Wagmi、Viem、RainbowKit 和 TanStack Query 作为钱包与链上交易基础。
 
 ## Learning Objectives
 
@@ -65,7 +65,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-前端按 `app/`、`pages/`、`components/`、`hooks/`、`lib/` 组织。SDK 位于独立 package，前端通过 SDK 调用 API。当前实现通过 `VITE_RFQ_API_BASE_URL` 配置 `RFQClient` 的 base URL，默认值为 `http://localhost:3000`，并在交易台 header 展示当前 API endpoint，方便本地、Docker 和部署环境排查。
+前端按 `app/`、`pages/`、`components/`、`hooks/`、`lib/` 组织。SDK 位于独立 package，前端通过 SDK 调用 API，并通过 SDK 导出的 `rfqSettlementAbi` 与 `buildSubmitQuoteArgs` 构造 `RFQSettlement.submitQuote` 的钱包交易。当前实现通过 `VITE_RFQ_API_BASE_URL` 配置 `RFQClient` 的 base URL，默认值为 `http://localhost:3000`，并在交易台 header 展示当前 API endpoint，方便本地、Docker 和部署环境排查。
 
 ## Sequence Diagram
 
@@ -106,13 +106,15 @@ stateDiagram-v2
 
 ## API Design
 
-前端只通过 SDK 调用 `quote(request)` 和后续 `submit` helper。公开 API 由 `docs/api/openapi.yaml` 定义。
+前端通过 SDK 调用 `quote(request)`、API relay `submit(request)`、状态查询方法，以及链上路径所需的 `buildSubmitQuoteArgs(quote, signature)`。公开 API 由 `docs/api/openapi.yaml` 定义；链上写入由 Wagmi `writeContract` 调用 `RFQSettlement.submitQuote`。
 
 ## Engineering Decisions
 
 - React/Vite 作为第一版前端。
 - SDK 是 API 和 EIP-712 的唯一客户端抽象。
-- `VITE_RFQ_API_BASE_URL` 是前端 API endpoint 的唯一配置入口，`frontend/src/lib/config.ts` 负责规范化 trailing slash。
+- `VITE_RFQ_API_BASE_URL` 是前端 API endpoint 配置入口，`frontend/src/lib/config.ts` 负责规范化 trailing slash。
+- `VITE_RFQ_SETTLEMENT_ADDRESS` 是浏览器侧合约写入目标；未配置时链上提交按钮保持禁用，但 API relay 路径仍可用于本地 smoke。
+- `VITE_WALLETCONNECT_PROJECT_ID` 由 RainbowKit 使用，本地默认值只用于构建和离线开发。
 - 前端不重新实现 Pricing 或 Risk。
 
 ## Failure Scenarios

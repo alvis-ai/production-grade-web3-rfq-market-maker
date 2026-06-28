@@ -10,7 +10,11 @@ COPY sdk/package.json sdk/package.json
 COPY sdk/tsconfig.json sdk/tsconfig.json
 COPY sdk/src sdk/src
 ARG VITE_RFQ_API_BASE_URL=http://localhost:3000
+ARG VITE_RFQ_SETTLEMENT_ADDRESS=0x0000000000000000000000000000000000000004
+ARG VITE_WALLETCONNECT_PROJECT_ID=00000000000000000000000000000000
 ENV VITE_RFQ_API_BASE_URL=$VITE_RFQ_API_BASE_URL
+ENV VITE_RFQ_SETTLEMENT_ADDRESS=$VITE_RFQ_SETTLEMENT_ADDRESS
+ENV VITE_WALLETCONNECT_PROJECT_ID=$VITE_WALLETCONNECT_PROJECT_ID
 RUN corepack enable \
   && pnpm install --filter @rfq-market-maker/frontend --frozen-lockfile \
   && pnpm --filter @rfq-market-maker/frontend build

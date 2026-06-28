@@ -17,7 +17,13 @@ interface QuoteStatusPanelProps {
   submitResult?: SubmitQuoteResponse;
   error?: UIError;
   canSubmit: boolean;
+  canSubmitOnchain: boolean;
+  walletAddress?: string;
+  activeChainId?: number;
+  settlementAddress?: string;
+  chainTxHash?: `0x${string}`;
   onSubmit: () => void;
+  onSubmitOnchain: () => void;
   onRefresh: () => void;
 }
 
@@ -30,7 +36,13 @@ export function QuoteStatusPanel({
   submitResult,
   error,
   canSubmit,
+  canSubmitOnchain,
+  walletAddress,
+  activeChainId,
+  settlementAddress,
+  chainTxHash,
   onSubmit,
+  onSubmitOnchain,
   onRefresh,
 }: QuoteStatusPanelProps) {
   return (
@@ -63,7 +75,7 @@ export function QuoteStatusPanel({
         </div>
         <div>
           <dt>Tx Hash</dt>
-          <dd>{submitResult?.txHash ?? quoteStatus?.txHash ?? "-"}</dd>
+          <dd>{chainTxHash ?? submitResult?.txHash ?? quoteStatus?.txHash ?? "-"}</dd>
         </div>
         <div>
           <dt>Settlement ID</dt>
@@ -88,6 +100,22 @@ export function QuoteStatusPanel({
         <div>
           <dt>Realized PnL</dt>
           <dd>{pnlSummary?.grossPnlTokenOut ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Wallet</dt>
+          <dd>{walletAddress ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Chain ID</dt>
+          <dd>{activeChainId ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Settlement</dt>
+          <dd>{settlementAddress ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Contract Call</dt>
+          <dd>{quote ? "submitQuote(Quote, signature)" : "-"}</dd>
         </div>
       </dl>
       {error ? (
@@ -125,7 +153,10 @@ export function QuoteStatusPanel({
       ) : null}
       <div className="action-row">
         <button type="button" disabled={!canSubmit} onClick={onSubmit}>
-          Submit Quote
+          Submit API
+        </button>
+        <button type="button" disabled={!canSubmitOnchain} onClick={onSubmitOnchain}>
+          Submit Onchain
         </button>
         <button type="button" className="secondary-button" disabled={!quote} onClick={onRefresh}>
           Refresh

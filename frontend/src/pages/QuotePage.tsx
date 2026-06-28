@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   HedgeIntentStatus,
   PnlSummary,
@@ -9,10 +9,13 @@ import type {
   SettlementEventStatus,
   SubmitQuoteResponse,
 } from "@rfq-market-maker/sdk";
+import { buildSubmitQuoteArgs, rfqSettlementAbi } from "@rfq-market-maker/sdk";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount, useChainId, useWriteContract } from "wagmi";
 import { QuoteForm } from "../components/QuoteForm";
 import { QuoteStatusPanel } from "../components/QuoteStatusPanel";
 import { toUIError, type UIError } from "../lib/errors";
-import { rfqApiBaseUrl } from "../lib/config";
+import { rfqApiBaseUrl, rfqSettlementAddress } from "../lib/config";
 import { buildQuoteFromResponse, rfqClient } from "../lib/rfq";
 
 const defaultRequest: QuoteRequest = {
@@ -32,8 +35,22 @@ export function QuotePage() {
   const [hedgeStatus, setHedgeStatus] = useState<HedgeIntentStatus>();
   const [pnlSummary, setPnlSummary] = useState<PnlSummary>();
   const [submitResult, setSubmitResult] = useState<SubmitQuoteResponse>();
+  const [chainTxHash, setChainTxHash] = useState<`0x${string}`>();
   const [error, setError] = useState<UIError>();
   const [isLoading, setIsLoading] = useState(false);
+  const { address } = useAccount();
+  const activeChainId = useChainId();
+  const { writeContractAsync, isPending: isOnchainSubmitPending } = useWriteContract();
+
+  useEffect(() => {
+    if (!address) return;
+
+    setRequest((current) => ({
+      ...current,
+      user: address,
+      chainId: activeChainId,
+    }));
+  }, [activeChainId, address]);
 
   const signedQuote = useMemo<Quote | undefined>(() => {
     if (!quote) return undefined;
@@ -41,6 +58,7 @@ export function QuotePage() {
   }, [quote, request]);
 
   const canSubmit = Boolean(signedQuote && quote && quote.deadline >= Math.floor(Date.now() / 1000));
+  const canSubmitOnchain = Boolean(canSubmit && rfqSettlementAddress && address);
 
   async function requestQuote() {
     setIsLoading(true);
@@ -50,6 +68,7 @@ export function QuotePage() {
     setSettlementStatus(undefined);
     setHedgeStatus(undefined);
     setPnlSummary(undefined);
+    setChainTxHash(undefined);
     try {
       const response = await rfqClient.quote(request);
       setQuote(response);
@@ -84,6 +103,23 @@ export function QuotePage() {
     }
   }
 
+  async function submitQuoteOnchain() {
+    if (!quote || !signedQuote || !rfqSettlementAddress) return;
+
+    setError(undefined);
+    try {
+      const txHash = await writeContractAsync({
+        address: rfqSettlementAddress,
+        abi: rfqSettlementAbi,
+        functionName: "submitQuote",
+        args: buildSubmitQuoteArgs(signedQuote, quote.signature),
+      });
+      setChainTxHash(txHash);
+    } catch (caught) {
+      setError(toUIError(caught, "Onchain submit failed"));
+    }
+  }
+
   async function refreshStatus() {
     if (!quote) return;
     setError(undefined);
@@ -104,6 +140,7 @@ export function QuotePage() {
             <h1>Production RFQ Trading Console</h1>
           </div>
           <div className="header-status">
+            <ConnectButton />
             <div className="status-pill">Reference</div>
             <div className="api-endpoint" title={rfqApiBaseUrl}>
               API {rfqApiBaseUrl}
@@ -121,7 +158,13 @@ export function QuotePage() {
             submitResult={submitResult}
             error={error}
             canSubmit={canSubmit}
+            canSubmitOnchain={canSubmitOnchain && !isOnchainSubmitPending}
+            walletAddress={address}
+            activeChainId={activeChainId}
+            settlementAddress={rfqSettlementAddress}
+            chainTxHash={chainTxHash}
             onSubmit={submitQuote}
+            onSubmitOnchain={submitQuoteOnchain}
             onRefresh={refreshStatus}
           />
         </div>

@@ -42,7 +42,7 @@ RFQ quote 包含 signature、deadline 和 nonce。前端提交前必须确认 wa
 
 ## Trade-Off Analysis
 
-Direct wallet submit 简单可信，relay submit UX 更好但复杂。第一版以前者为主，后续支持 relay。
+Direct wallet submit 简单可信，relay submit 便于本地 smoke 和后端参考链路。第一版同时保留两条路径：`Submit Onchain` 使用 Wagmi 调用 `RFQSettlement.submitQuote`，`Submit API` 使用 `/submit` 触发后端模拟 settlement、inventory、hedge 和 PnL 链路。
 
 ## System Design
 
@@ -64,7 +64,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-Submit Flow 使用 Viem/Wagmi 编码交易，钱包负责签名和广播。
+Submit Flow 使用 Viem/Wagmi 编码交易，钱包负责签名和广播。前端不手写 ABI tuple，而是复用 SDK 的 `rfqSettlementAbi` 和 `buildSubmitQuoteArgs`，保证浏览器、SDK 测试和合约 ABI 的参数结构一致。
 
 ## Sequence Diagram
 
@@ -108,7 +108,8 @@ Direct submit does not require backend `/submit`; relay mode uses `POST /submit`
 
 ## Engineering Decisions
 
-- Direct wallet submit is default.
+- Direct wallet submit and API relay submit share the same signed quote payload.
+- Direct wallet submit uses `VITE_RFQ_SETTLEMENT_ADDRESS` as the write target.
 - Submit disabled after deadline.
 - tx confirmed is not equal to indexed settled until status refresh confirms.
 
