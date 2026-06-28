@@ -1,7 +1,8 @@
 import { RFQClient } from "@rfq-market-maker/sdk";
 import type { Quote, QuoteRequest, QuoteResponse } from "@rfq-market-maker/sdk";
+import { rfqApiBaseUrl } from "./config";
 
-export const rfqClient = new RFQClient("http://localhost:3000");
+export const rfqClient = new RFQClient(rfqApiBaseUrl);
 
 export function buildQuoteFromResponse(request: QuoteRequest, response: QuoteResponse): Quote {
   return {

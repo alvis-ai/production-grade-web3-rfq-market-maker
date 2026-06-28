@@ -34,6 +34,7 @@
 - 前端不持有私钥。
 - 前端不绕过 SDK typed data helper。
 - 状态展示必须清晰，避免用户提交过期 quote。
+- API endpoint 必须可配置，不能在前端代码中硬编码部署地址。
 - 移动端布局必须可用。
 
 ## Existing Solutions
@@ -64,7 +65,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-前端按 `app/`、`pages/`、`components/`、`hooks/`、`lib/` 组织。SDK 位于独立 package，前端通过 SDK 调用 API。
+前端按 `app/`、`pages/`、`components/`、`hooks/`、`lib/` 组织。SDK 位于独立 package，前端通过 SDK 调用 API。当前实现通过 `VITE_RFQ_API_BASE_URL` 配置 `RFQClient` 的 base URL，默认值为 `http://localhost:3000`，并在交易台 header 展示当前 API endpoint，方便本地、Docker 和部署环境排查。
 
 ## Sequence Diagram
 
@@ -111,6 +112,7 @@ stateDiagram-v2
 
 - React/Vite 作为第一版前端。
 - SDK 是 API 和 EIP-712 的唯一客户端抽象。
+- `VITE_RFQ_API_BASE_URL` 是前端 API endpoint 的唯一配置入口，`frontend/src/lib/config.ts` 负责规范化 trailing slash。
 - 前端不重新实现 Pricing 或 Risk。
 
 ## Failure Scenarios

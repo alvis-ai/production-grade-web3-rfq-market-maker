@@ -32,6 +32,7 @@ button:disabled {
 .workspace-header {
   align-items: center;
   display: flex;
+  gap: 16px;
   justify-content: space-between;
   margin-bottom: 24px;
 }
@@ -58,6 +59,23 @@ button:disabled {
   color: #1d5b4e;
   font-weight: 700;
   padding: 8px 12px;
+}
+
+.header-status {
+  align-items: flex-end;
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  min-width: 0;
+}
+
+.api-endpoint {
+  color: #5b6b67;
+  font-size: 12px;
+  max-width: min(420px, 42vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-grid {
@@ -186,7 +204,18 @@ button:disabled {
 
   .workspace-header {
     align-items: flex-start;
+    flex-direction: column;
     gap: 12px;
+  }
+
+  .header-status {
+    align-items: flex-start;
+    justify-items: start;
+    width: 100%;
+  }
+
+  .api-endpoint {
+    max-width: 100%;
   }
 
   .workspace-grid {

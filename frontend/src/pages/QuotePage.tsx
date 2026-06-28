@@ -12,6 +12,7 @@ import type {
 import { QuoteForm } from "../components/QuoteForm";
 import { QuoteStatusPanel } from "../components/QuoteStatusPanel";
 import { toUIError, type UIError } from "../lib/errors";
+import { rfqApiBaseUrl } from "../lib/config";
 import { buildQuoteFromResponse, rfqClient } from "../lib/rfq";
 
 const defaultRequest: QuoteRequest = {
@@ -102,7 +103,12 @@ export function QuotePage() {
             <p className="eyebrow">RFQ / Prop AMM</p>
             <h1>Production RFQ Trading Console</h1>
           </div>
-          <div className="status-pill">Skeleton</div>
+          <div className="header-status">
+            <div className="status-pill">Reference</div>
+            <div className="api-endpoint" title={rfqApiBaseUrl}>
+              API {rfqApiBaseUrl}
+            </div>
+          </div>
         </header>
         <div className="workspace-grid">
           <QuoteForm request={request} isLoading={isLoading} onChange={setRequest} onSubmit={requestQuote} />

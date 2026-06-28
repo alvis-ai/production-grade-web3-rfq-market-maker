@@ -44,7 +44,9 @@ test -s backend/src/modules/routing/routing.engine.ts
 test -s backend/src/shared/validation/quote-request.ts
 test -s backend/src/shared/validation/submit-request.ts
 test -s frontend/src/lib/rfq.ts
+test -s frontend/src/lib/config.ts
 test -s frontend/src/lib/errors.ts
+test -s frontend/src/vite-env.d.ts
 test -s frontend/src/pages/QuotePage.tsx
 test -s sdk/src/abi.ts
 test -s sdk/src/eip712.ts
@@ -280,6 +282,9 @@ grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getSettlement' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.pnl' frontend/src/pages/QuotePage.tsx
+grep -q 'rfqApiBaseUrl' frontend/src/pages/QuotePage.tsx
+grep -q 'VITE_RFQ_API_BASE_URL' frontend/src/lib/config.ts
+grep -q 'new RFQClient(rfqApiBaseUrl)' frontend/src/lib/rfq.ts
 grep -q 'Hedge Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Settlement Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Realized PnL' frontend/src/components/QuoteStatusPanel.tsx
@@ -449,6 +454,7 @@ grep -q 'RFQ_QUOTE_TTL_SECONDS=30' .env.example
 grep -q 'RFQ_BODY_LIMIT_BYTES=32768' .env.example
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS=http://localhost:5173' .env.example
 grep -q 'RFQ_ENABLE_HSTS=false' .env.example
+grep -q 'VITE_RFQ_API_BASE_URL=http://localhost:3000' .env.example
 grep -q 'HOST=127.0.0.1' .env.example
 grep -q 'Production Configuration' README.md
 grep -q 'rfq-backend-secrets' README.md

@@ -133,11 +133,14 @@ RFQ_QUOTE_TTL_SECONDS=30
 RFQ_BODY_LIMIT_BYTES=32768
 RFQ_CORS_ALLOWED_ORIGINS=http://localhost:5173
 RFQ_ENABLE_HSTS=false
+VITE_RFQ_API_BASE_URL=http://localhost:3000
 RFQ_SIGNER_PRIVATE_KEY=0x...
 RFQ_SETTLEMENT_ADDRESS=0x...
 ```
 
 The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract. `RFQ_QUOTE_TTL_SECONDS` controls the signed quote lifetime and must be an integer from 1 to 3600; keep it short enough to limit stale price execution. `RFQ_BODY_LIMIT_BYTES` controls the maximum JSON request body size and must be an integer from 1024 to 1048576. `RFQ_CORS_ALLOWED_ORIGINS` is a comma-separated allowlist of browser origins that may call the API. `RFQ_ENABLE_HSTS` must only be enabled when the public API is served through HTTPS.
+
+The frontend reads `VITE_RFQ_API_BASE_URL` at Vite build/dev-server time and shows the active API endpoint in the trading console header.
 
 ## Production Configuration
 
