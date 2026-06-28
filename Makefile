@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check tree workspace-check skeleton-check compose-check eip712-check contract-abi-check api-error-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
+.PHONY: help verify docs-check tree workspace-check skeleton-check compose-check eip712-check contract-abi-check api-error-check database-schema-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -13,6 +13,7 @@ help:
 	@echo "  eip712-check  Verify backend, SDK, and contract EIP-712 schemas match"
 	@echo "  contract-abi-check  Verify SDK contract ABIs match Solidity integration surfaces"
 	@echo "  api-error-check  Verify backend, OpenAPI, and error docs share error codes"
+	@echo "  database-schema-check  Verify database schema matches API state surfaces"
 	@echo "  backend-build  Build backend package"
 	@echo "  backend-test  Run backend API tests"
 	@echo "  backend-typecheck  Typecheck backend package"
@@ -58,6 +59,9 @@ contract-abi-check:
 
 api-error-check:
 	@node scripts/check-api-error-consistency.mjs
+
+database-schema-check:
+	@node scripts/check-database-schema-consistency.mjs
 
 backend-build:
 	@CI=true pnpm --dir backend build

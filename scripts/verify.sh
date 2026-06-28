@@ -12,6 +12,7 @@ run_step make compose-check
 run_step make eip712-check
 run_step make contract-abi-check
 run_step make api-error-check
+run_step make database-schema-check
 run_step make backend-test
 run_step make sdk-test
 run_step make frontend-build

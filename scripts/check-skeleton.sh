@@ -62,6 +62,7 @@ test -s examples/submit-request.json
 test -s scripts/check-eip712-consistency.mjs
 test -s scripts/check-contract-abi-consistency.mjs
 test -s scripts/check-api-error-consistency.mjs
+test -s scripts/check-database-schema-consistency.mjs
 test -s scripts/verify.sh
 test -s scripts/smoke-api.mjs
 test -s scripts/smoke-api-local.sh
@@ -395,6 +396,7 @@ grep -q 'make compose-check' scripts/verify.sh
 grep -q 'make eip712-check' scripts/verify.sh
 grep -q 'make contract-abi-check' scripts/verify.sh
 grep -q 'make api-error-check' scripts/verify.sh
+grep -q 'make database-schema-check' scripts/verify.sh
 grep -q 'make backend-test' scripts/verify.sh
 grep -q 'make sdk-test' scripts/verify.sh
 grep -q 'make frontend-build' scripts/verify.sh
@@ -404,6 +406,8 @@ grep -q 'forge not found; skipping contract-test' scripts/verify.sh
 grep -q 'backend-build' Makefile
 grep -q 'backend-test' Makefile
 grep -q 'eip712-check' Makefile
+grep -q 'database-schema-check' Makefile
+grep -q 'database:schema:check' package.json
 grep -q 'smoke-api-local' Makefile
 grep -q 'forge test' .github/workflows/contract-ci.yml
 grep -q 'make contract-abi-check' .github/workflows/contract-ci.yml

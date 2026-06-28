@@ -7,6 +7,7 @@ erDiagram
   QUOTES ||--o{ RISK_DECISIONS : has
   QUOTES ||--o{ SETTLEMENT_EVENTS : settles
   SETTLEMENT_EVENTS ||--o{ HEDGE_ORDERS : triggers
+  QUOTES ||--o{ PNL_RECORDS : attributes
   MARKET_SNAPSHOTS ||--o{ QUOTES : prices
   INVENTORY_POSITIONS ||--o{ HEDGE_ORDERS : rebalances
 
@@ -74,6 +75,20 @@ erDiagram
     text venue
     text status
   }
+
+  PNL_RECORDS {
+    text id PK
+    text quote_id FK
+    bigint chain_id
+    text token_in
+    text token_out
+    numeric amount_in
+    numeric amount_out
+    numeric gross_pnl_token_out
+    integer gross_pnl_bps
+    text model
+    timestamptz realized_at
+  }
 ```
 
 ## Notes
@@ -82,3 +97,4 @@ erDiagram
 - `quotes.snapshot_id` 对应 `market_snapshots.id`，用于报价回放。
 - `risk_decisions.policy_version` 用于解释风控变更后的历史行为。
 - `inventory_positions` 是当前操作状态，不替代事件账本。
+- `pnl_records` 使用 `(quote_id, model)` 防止同一归因模型对同一成交重复入账；生产版可将明细同步到 ClickHouse 做高维分析。

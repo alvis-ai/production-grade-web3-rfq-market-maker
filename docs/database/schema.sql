@@ -91,3 +91,27 @@ CREATE TABLE hedge_orders (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE TABLE pnl_records (
+  id TEXT PRIMARY KEY,
+  quote_id TEXT NOT NULL REFERENCES quotes(id),
+  chain_id BIGINT NOT NULL,
+  token_in TEXT NOT NULL,
+  token_out TEXT NOT NULL,
+  amount_in NUMERIC(78, 0) NOT NULL,
+  amount_out NUMERIC(78, 0) NOT NULL,
+  gross_pnl_token_out NUMERIC(78, 0) NOT NULL,
+  gross_pnl_bps INTEGER NOT NULL,
+  model TEXT NOT NULL,
+  realized_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (quote_id, model)
+);
+
+CREATE INDEX idx_pnl_records_realized_at ON pnl_records (realized_at DESC);
+CREATE INDEX idx_pnl_records_chain_pair_realized_at ON pnl_records (
+  chain_id,
+  token_in,
+  token_out,
+  realized_at DESC
+);
