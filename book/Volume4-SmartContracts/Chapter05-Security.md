@@ -121,7 +121,7 @@ stateDiagram-v2
 
 ## Security Considerations
 
-不要支持不标准 token，尤其 fee-on-transfer、rebasing、黑名单 token，除非专门适配。Treasury 权限必须单独审计。
+不要支持不标准 token，尤其 fee-on-transfer、rebasing、黑名单 token，除非专门适配。Treasury 权限必须单独审计：`release` 只能由 settlement 调用，`emergencyWithdraw` 只能由 owner 调用，两条路径都必须使用安全转账和重入保护。
 
 ## Performance Considerations
 
@@ -129,7 +129,7 @@ stateDiagram-v2
 
 ## Testing Strategy
 
-测试权限、pause、token whitelist、reentrancy mock、SafeERC20 failure、signer rotation 和 emergency path。
+测试权限、pause、token whitelist、reentrancy mock、SafeERC20 failure、signer rotation、Treasury release 和 emergency withdrawal path。
 
 ## Interview Notes
 

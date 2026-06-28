@@ -15,6 +15,8 @@
 
 Smart contracts should be minimal and deterministic. 风险逻辑留在链下，链上只验证 quote 是否被授权、是否过期、是否未重放、资产是否允许、转账是否成功。
 
+`Treasury` 是独立 custody 边界：只有已配置的 `settlement` 地址可以调用 `release(token, to, amount)` 放款，`owner` 只保留 `emergencyWithdraw(token, to, amount)` 和 settlement 配置能力。这样可以把常规结算权限和应急管理权限分开审计。
+
 ```mermaid
 flowchart LR
   User[User]

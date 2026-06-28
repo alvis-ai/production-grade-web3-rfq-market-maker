@@ -69,7 +69,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-RFQSettlement 与 ERC20 token 直接交互，并通过 owner-only 管理 trusted signer、token whitelist 和 pause 状态。当前代码使用无外部依赖的最小实现表达 EIP-712、SafeERC20、ReentrancyGuard、Pausable 和 AccessControl 语义；后续接入 OpenZeppelin 后应保持同样的验证顺序和事件语义。
+RFQSettlement 与 ERC20 token 直接交互，并通过 owner-only 管理 trusted signer、token whitelist 和 pause 状态。当前代码使用无外部依赖的最小实现表达 EIP-712、SafeERC20、ReentrancyGuard、Pausable 和 AccessControl 语义；后续接入 OpenZeppelin 后应保持同样的验证顺序和事件语义。`Treasury` 合约用于表达独立 custody 边界，支持 settlement-only `release` 和 owner-only `emergencyWithdraw`，生产版可以把 RFQSettlement 的库存支付切换到该边界。
 
 ## Sequence Diagram
 

@@ -324,6 +324,16 @@ grep -q 'function setTokenWhitelist' contracts/src/RFQSettlement.sol
 grep -q 'function setPaused' contracts/src/RFQSettlement.sol
 grep -q 'ecrecover' contracts/src/RFQSettlement.sol
 grep -q 'transferFrom' contracts/src/RFQSettlement.sol
+grep -q 'contract Treasury' contracts/src/Treasury.sol
+grep -q 'function release' contracts/src/Treasury.sol
+grep -q 'function emergencyWithdraw' contracts/src/Treasury.sol
+grep -q 'onlySettlement' contracts/src/Treasury.sol
+grep -q 'TransferFailed' contracts/src/Treasury.sol
+grep -q 'testSettlementCanReleaseFunds' contracts/test/Treasury.t.sol
+grep -q 'testOnlySettlementCanReleaseFunds' contracts/test/Treasury.t.sol
+grep -q 'testOwnerCanEmergencyWithdraw' contracts/test/Treasury.t.sol
+grep -q 'testRejectsFailedTokenTransfers' contracts/test/Treasury.t.sol
+grep -q 'testRejectsReentrantRelease' contracts/test/Treasury.t.sol
 grep -q 'testSubmitQuoteTransfersTokensAndConsumesNonce' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsReplay' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUntrustedSigner' contracts/test/RFQSettlement.t.sol
