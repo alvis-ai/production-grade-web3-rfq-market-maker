@@ -446,6 +446,8 @@ grep -q 'RFQQuoteStatusUpdateErrors' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_quote_status_update_errors_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQPnlRecordErrors' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_pnl_record_errors_total' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'uid: prometheus' infra/grafana/provisioning/datasources/prometheus.yml
+grep -q '"uid": "prometheus"' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'rfq_settlements_total' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'rfq_hedge_intent_errors_total' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'rfq_quote_status_update_errors_total' infra/grafana/provisioning/dashboards/rfq-overview.json

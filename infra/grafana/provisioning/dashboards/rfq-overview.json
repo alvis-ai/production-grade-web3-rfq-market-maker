@@ -7,6 +7,7 @@
     {
       "type": "stat",
       "title": "Quote Requests",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 0, "y": 0, "w": 8, "h": 4 },
       "targets": [
         {
@@ -18,6 +19,7 @@
     {
       "type": "stat",
       "title": "Quote Responses",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 8, "y": 0, "w": 8, "h": 4 },
       "targets": [
         {
@@ -29,6 +31,7 @@
     {
       "type": "stat",
       "title": "Submit Requests",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 16, "y": 0, "w": 8, "h": 4 },
       "targets": [
         {
@@ -40,6 +43,7 @@
     {
       "type": "stat",
       "title": "Settlements",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 0, "y": 4, "w": 8, "h": 4 },
       "targets": [
         {
@@ -51,6 +55,7 @@
     {
       "type": "stat",
       "title": "Hedge Intent Errors",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 8, "y": 4, "w": 8, "h": 4 },
       "targets": [
         {
@@ -62,6 +67,7 @@
     {
       "type": "stat",
       "title": "Quote Status Update Errors",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 16, "y": 4, "w": 8, "h": 4 },
       "targets": [
         {
@@ -73,6 +79,7 @@
     {
       "type": "stat",
       "title": "PnL Record Errors",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 0, "y": 8, "w": 8, "h": 4 },
       "targets": [
         {
@@ -84,6 +91,7 @@
     {
       "type": "timeseries",
       "title": "Inventory Balance",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 8, "y": 8, "w": 8, "h": 8 },
       "targets": [
         {
@@ -95,6 +103,7 @@
     {
       "type": "timeseries",
       "title": "Realized PnL",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 16, "y": 8, "w": 8, "h": 8 },
       "targets": [
         {
@@ -106,6 +115,7 @@
     {
       "type": "stat",
       "title": "PnL Trades",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 0, "y": 12, "w": 8, "h": 4 },
       "targets": [
         {
