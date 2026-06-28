@@ -339,6 +339,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(ready.body.status, "ready");
     assert.equal(ready.body.components.signer, "ok");
     assert.equal(ready.body.components.marketData, "ok");
+    assert.equal(ready.body.components.routing, "ok");
     assert.equal(ready.body.components.pricing, "ok");
     assert.equal(ready.body.components.risk, "ok");
     assert.equal(ready.body.components.quoteRepository, "ok");
@@ -753,6 +754,38 @@ test("RFQ API degrades readiness when pricing probe fails", async () => {
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);
     assert.match(metrics.payload, /rfq_dependency_status\{component="pricing",status="degraded"\} 1/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="risk",status="ok"\} 1/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API degrades readiness when routing probe fails", async () => {
+  const server = buildServer({
+    logger: false,
+    routingEngine: {
+      async selectRoute() {
+        throw new Error("routing readiness probe failed");
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/ready");
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.status, "degraded");
+    assert.equal(response.body.components.marketData, "ok");
+    assert.equal(response.body.components.routing, "degraded");
+    assert.equal(response.body.components.pricing, "ok");
+    assert.equal(response.body.components.risk, "ok");
+    assert.equal(response.body.components.signer, "ok");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="routing",status="degraded"\} 1/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="pricing",status="ok"\} 1/);
     assert.match(metrics.payload, /rfq_dependency_status\{component="risk",status="ok"\} 1/);
   } finally {
     await server.close();

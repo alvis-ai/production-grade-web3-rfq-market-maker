@@ -80,6 +80,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const metricsService = new MetricsService();
   const signerService = options.signerService ?? new LocalEIP712SignerService(readSignerConfig());
   const quoteRepository = options.quoteRepository ?? new InMemoryQuoteRepository();
+  const routingEngine = options.routingEngine ?? new InternalInventoryRoutingEngine();
   const pricingEngine = options.pricingEngine ?? new FormulaPricingEngine();
   const riskEngine = options.riskEngine ?? new BasicRiskEngine();
   const inventoryService = new InventoryService();
@@ -106,7 +107,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     pricingEngine,
     quoteRepository,
     riskEngine,
-    routingEngine: options.routingEngine ?? new InternalInventoryRoutingEngine(),
+    routingEngine,
     signerService: new ObservedSignerService(signerService, metricsService),
   }, {
     ...defaultQuoteServiceConfig,
@@ -121,6 +122,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     pricingEngine,
     quoteRepository,
     riskEngine,
+    routingEngine,
     settlementEventService,
     signerService,
   });

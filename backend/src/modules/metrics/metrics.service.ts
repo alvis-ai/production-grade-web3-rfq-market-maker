@@ -309,6 +309,7 @@ const readinessMetricStatuses: readonly ReadinessMetricStatus[] = ["ready", "deg
 const dependencyMetricStatuses: readonly DependencyMetricStatus[] = ["ok", "degraded"];
 const readinessDependencyComponents = [
   "marketData",
+  "routing",
   "pricing",
   "risk",
   "signer",

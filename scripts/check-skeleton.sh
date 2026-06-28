@@ -20,10 +20,12 @@ test -s backend/test/settlement-event.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
 grep -q 'marketDataService: MarketDataService' backend/src/modules/health/readiness.service.ts
+grep -q 'routingEngine: RoutingEngine' backend/src/modules/health/readiness.service.ts
 grep -q 'pricingEngine: PricingEngine' backend/src/modules/health/readiness.service.ts
 grep -q 'riskEngine: RiskEngine' backend/src/modules/health/readiness.service.ts
 grep -q 'signerService: SignerService' backend/src/modules/health/readiness.service.ts
 grep -q 'checkMarketData' backend/src/modules/health/readiness.service.ts
+grep -q 'checkRouting' backend/src/modules/health/readiness.service.ts
 grep -q 'checkPricing' backend/src/modules/health/readiness.service.ts
 grep -q 'checkRisk' backend/src/modules/health/readiness.service.ts
 grep -q 'checkSigner' backend/src/modules/health/readiness.service.ts
@@ -35,6 +37,7 @@ grep -q 'probeSnapshot' backend/src/modules/health/readiness.service.ts
 grep -q 'probeRoutePlan' backend/src/modules/health/readiness.service.ts
 grep -q 'probePricing' backend/src/modules/health/readiness.service.ts
 grep -q 'pricingStatus' backend/src/modules/health/readiness.service.ts
+grep -q 'routingStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'riskStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'quoteRepositoryStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'settlementEventStoreStatus' backend/src/modules/health/readiness.service.ts
@@ -310,11 +313,14 @@ grep -q 'rfq_signer_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_signer_latency_seconds' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_readiness_status' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_dependency_status' backend/src/modules/metrics/metrics.service.ts
+grep -q '"routing"' backend/src/modules/metrics/metrics.service.ts
 grep -q 'recordReadiness' backend/src/main.ts
 grep -q 'rfq_readiness_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_dependency_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'marketData、routing、pricing' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_readiness_status' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_dependency_status' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+grep -q 'marketData|routing|pricing' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'RFQReadinessDegraded' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_readiness_status{status="degraded"} == 1' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'recordQuoteLatency' backend/src/main.ts
@@ -775,11 +781,13 @@ grep -q 'pricing engine failures' backend/test/api.test.mjs
 grep -q 'market data shape is invalid' backend/test/api.test.mjs
 grep -q 'degrades readiness when market data is stale' backend/test/api.test.mjs
 grep -q 'degrades readiness when market data timestamp is too far in the future' backend/test/api.test.mjs
+grep -q 'degrades readiness when routing probe fails' backend/test/api.test.mjs
 grep -q 'degrades readiness when pricing probe fails' backend/test/api.test.mjs
 grep -q 'degrades readiness when risk probe fails' backend/test/api.test.mjs
 grep -q 'degrades readiness when signer probe fails' backend/test/api.test.mjs
 grep -q 'degrades readiness when storage dependency probes fail' backend/test/api.test.mjs
 grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'readiness routing degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness pricing degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness risk degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness storage dependency degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md

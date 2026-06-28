@@ -12,7 +12,7 @@ import type { PnlStore } from "../pnl/pnl.service.js";
 import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
 import type { QuoteRepository } from "../quote/quote.repository.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
-import type { RoutePlan } from "../routing/routing.engine.js";
+import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
 
 export type ReadinessComponentStatus = "ok" | "degraded";
@@ -24,6 +24,7 @@ export interface ReadinessResponse {
 
 export interface ReadinessServiceDeps {
   marketDataService: MarketDataService;
+  routingEngine: RoutingEngine;
   pricingEngine: PricingEngine;
   riskEngine: RiskEngine;
   signerService: SignerService;
@@ -99,6 +100,7 @@ export class ReadinessService {
 
   async check(): Promise<ReadinessResponse> {
     const marketDataStatus = await this.checkMarketData();
+    const routingStatus = await this.checkRouting();
     const pricingStatus = await this.checkPricing();
     const riskStatus = await this.checkRisk();
     const signerStatus = await this.checkSigner();
@@ -110,6 +112,7 @@ export class ReadinessService {
     const metricsStatus = await this.checkDependency(this.deps.metricsService);
     const components = {
       marketData: marketDataStatus,
+      routing: routingStatus,
       pricing: pricingStatus,
       risk: riskStatus,
       signer: signerStatus,
@@ -152,6 +155,18 @@ export class ReadinessService {
       });
       const verified = await this.deps.signerService.verifyQuoteSignature(this.config.probeQuote, signature);
       return verified ? "ok" : "degraded";
+    } catch {
+      return "degraded";
+    }
+  }
+
+  private async checkRouting(): Promise<ReadinessComponentStatus> {
+    try {
+      await this.deps.routingEngine.selectRoute({
+        request: this.config.probeRequest,
+        snapshot: this.config.probeSnapshot,
+      });
+      return "ok";
     } catch {
       return "degraded";
     }

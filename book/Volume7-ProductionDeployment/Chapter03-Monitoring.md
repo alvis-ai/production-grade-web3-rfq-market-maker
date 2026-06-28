@@ -131,7 +131,7 @@ Key metrics include:
 
 - No quoteId/user address labels in Prometheus.
 - Signer metrics use only the low-cardinality `operation` label: `sign` or `verify`.
-- Readiness metrics mirror the last `/ready` probe with fixed labels: `rfq_readiness_status{status="ready|degraded"}` and `rfq_dependency_status{component="marketData|pricing|risk|signer|quoteRepository|inventory|execution|settlementEventStore|pnl|metrics",status="ok|degraded"}`.
+- Readiness metrics mirror the last `/ready` probe with fixed labels: `rfq_readiness_status{status="ready|degraded"}` and `rfq_dependency_status{component="marketData|routing|pricing|risk|signer|quoteRepository|inventory|execution|settlementEventStore|pnl|metrics",status="ok|degraded"}`.
 - Readiness alerting should page on sustained degraded status, then route by the degraded component instead of relying on a single generic health alarm.
 - Use ClickHouse for quote-level analysis.
 - Every critical alert links to runbook.
