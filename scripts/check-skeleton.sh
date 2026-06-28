@@ -57,6 +57,7 @@ test -s contracts/test/Deploy.t.sol
 test -s examples/quote-request.json
 test -s examples/submit-request.json
 test -s scripts/check-eip712-consistency.mjs
+test -s scripts/check-contract-abi-consistency.mjs
 test -s scripts/check-api-error-consistency.mjs
 test -s scripts/smoke-api.mjs
 test -s scripts/smoke-api-local.sh
@@ -296,6 +297,8 @@ grep -q 'buildQuoteTypedData' sdk/test/sdk.test.mjs
 grep -q 'buildSubmitQuoteArgs' sdk/test/sdk.test.mjs
 grep -q 'buildTreasuryTransferArgs' sdk/test/sdk.test.mjs
 grep -q 'emergencyWithdraw' sdk/src/abi.ts
+grep -q 'hashQuote' sdk/src/abi.ts
+grep -q 'rfqSettlementAbi' sdk/test/sdk.test.mjs
 grep -q 'recoverTypedDataAddress' sdk/test/sdk.test.mjs
 grep -q 'verifyTypedData' sdk/test/sdk.test.mjs
 grep -q 'submitQuote' sdk/src/abi.ts
@@ -353,14 +356,17 @@ grep -q 'RFQ_TOKEN_WHITELIST_JSON' contracts/script/Deploy.s.sol
 grep -q 'testDeployInitializesTrustedSignerAndWhitelist' contracts/test/Deploy.t.sol
 grep -q 'treasury settlement mismatch' contracts/test/Deploy.t.sol
 grep -q 'contract-test' Makefile
+grep -q 'contract-abi-check' Makefile
 grep -q 'backend-build' Makefile
 grep -q 'backend-test' Makefile
 grep -q 'eip712-check' Makefile
 grep -q 'smoke-api-local' Makefile
 grep -q 'forge test' .github/workflows/contract-ci.yml
+grep -q 'make contract-abi-check' .github/workflows/contract-ci.yml
 grep -q 'make backend-typecheck' .github/workflows/backend-ci.yml
 grep -q 'make backend-test' .github/workflows/backend-ci.yml
 grep -q 'make eip712-check' .github/workflows/backend-ci.yml
+grep -q 'make contract-abi-check' .github/workflows/backend-ci.yml
 grep -q 'make api-error-check' .github/workflows/backend-ci.yml
 grep -q 'make sdk-typecheck' .github/workflows/backend-ci.yml
 grep -q 'make sdk-test' .github/workflows/backend-ci.yml

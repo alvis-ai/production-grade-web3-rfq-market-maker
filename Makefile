@@ -1,4 +1,4 @@
-.PHONY: help docs-check tree workspace-check skeleton-check eip712-check api-error-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
+.PHONY: help docs-check tree workspace-check skeleton-check eip712-check contract-abi-check api-error-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -9,6 +9,7 @@ help:
 	@echo "  workspace-check  Verify expected workspace manifests exist"
 	@echo "  skeleton-check  Verify required skeleton entrypoints exist"
 	@echo "  eip712-check  Verify backend, SDK, and contract EIP-712 schemas match"
+	@echo "  contract-abi-check  Verify SDK contract ABIs match Solidity integration surfaces"
 	@echo "  api-error-check  Verify backend, OpenAPI, and error docs share error codes"
 	@echo "  backend-build  Build backend package"
 	@echo "  backend-test  Run backend API tests"
@@ -43,6 +44,9 @@ skeleton-check:
 
 eip712-check:
 	@node scripts/check-eip712-consistency.mjs
+
+contract-abi-check:
+	@node scripts/check-contract-abi-consistency.mjs
 
 api-error-check:
 	@node scripts/check-api-error-consistency.mjs

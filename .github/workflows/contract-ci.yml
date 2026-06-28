@@ -23,6 +23,8 @@ jobs:
         run: forge fmt --check
       - name: Check EIP-712 schema consistency
         run: make eip712-check
+      - name: Check contract ABI consistency
+        run: make contract-abi-check
       - name: Build contracts
         working-directory: contracts
         run: forge build

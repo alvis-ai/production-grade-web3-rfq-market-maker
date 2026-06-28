@@ -15,6 +15,29 @@ export const rfqSettlementAbi = [
   },
   {
     type: "function",
+    name: "hashQuote",
+    stateMutability: "pure",
+    inputs: [
+      {
+        name: "quote",
+        type: "tuple",
+        components: [
+          { name: "user", type: "address" },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOut", type: "uint256" },
+          { name: "minAmountOut", type: "uint256" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "chainId", type: "uint256" },
+        ],
+      },
+    ],
+    outputs: [{ name: "", type: "bytes32" }],
+  },
+  {
+    type: "function",
     name: "setPaused",
     stateMutability: "nonpayable",
     inputs: [{ name: "newPaused", type: "bool" }],

@@ -10,6 +10,7 @@ import {
   buildSubmitQuoteArgs,
   buildTreasuryTransferArgs,
   quoteTypes,
+  rfqSettlementAbi,
   treasuryAbi,
 } from "../dist/index.js";
 
@@ -96,6 +97,7 @@ test("buildSubmitQuoteArgs converts string integer fields to settlement bigint f
     deadline: 1893456000n,
     chainId: 1n,
   });
+  assert.ok(rfqSettlementAbi.some((item) => item.type === "function" && item.name === "hashQuote"));
 });
 
 test("Treasury helpers expose release and emergency withdrawal contract calls", () => {
