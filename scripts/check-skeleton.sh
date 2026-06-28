@@ -61,6 +61,8 @@ test -s scripts/smoke-api.mjs
 test -s scripts/smoke-api-local.sh
 test -s infra/docker/backend.Dockerfile
 test -s infra/docker/frontend.Dockerfile
+grep -q 'ENV HOST=0.0.0.0' infra/docker/backend.Dockerfile
+grep -q 'ENV PORT=3000' infra/docker/backend.Dockerfile
 test -s infra/prometheus/prometheus.yml
 test -s infra/prometheus/rules/rfq-alerts.yml
 test -s infra/grafana/provisioning/datasources/prometheus.yml

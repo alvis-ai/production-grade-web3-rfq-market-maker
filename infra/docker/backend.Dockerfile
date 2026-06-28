@@ -11,6 +11,8 @@ RUN corepack enable \
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=3000
 COPY package.json pnpm-workspace.yaml ./
 COPY backend/package.json backend/package.json
 RUN corepack enable && pnpm install --filter @rfq-market-maker/backend --prod --frozen-lockfile=false
