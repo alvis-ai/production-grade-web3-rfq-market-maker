@@ -15,6 +15,7 @@ run_step make adr-check
 run_step make security-check
 run_step make metrics-check
 run_step make runbook-check
+run_step make grafana-check
 run_step make compose-check
 run_step make eip712-check
 run_step make contract-abi-check

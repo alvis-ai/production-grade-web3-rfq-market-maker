@@ -11,6 +11,7 @@
     "security:check": "make security-check",
     "metrics:check": "make metrics-check",
     "runbook:check": "make runbook-check",
+    "grafana:check": "make grafana-check",
     "compose:check": "make compose-check",
     "examples:check": "make examples-check",
     "config:check": "make config-check",

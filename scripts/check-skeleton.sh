@@ -66,6 +66,7 @@ test -s scripts/check-adr-consistency.mjs
 test -s scripts/check-security-docs-consistency.mjs
 test -s scripts/check-metrics-consistency.mjs
 test -s scripts/check-runbook-consistency.mjs
+test -s scripts/check-grafana-dashboard-consistency.mjs
 test -s scripts/check-eip712-consistency.mjs
 test -s scripts/check-contract-abi-consistency.mjs
 test -s scripts/check-api-error-consistency.mjs
@@ -413,6 +414,7 @@ grep -q 'make adr-check' scripts/verify.sh
 grep -q 'make security-check' scripts/verify.sh
 grep -q 'make metrics-check' scripts/verify.sh
 grep -q 'make runbook-check' scripts/verify.sh
+grep -q 'make grafana-check' scripts/verify.sh
 grep -q 'make compose-check' scripts/verify.sh
 grep -q 'make eip712-check' scripts/verify.sh
 grep -q 'make contract-abi-check' scripts/verify.sh
@@ -442,6 +444,8 @@ grep -q 'metrics-check' Makefile
 grep -q 'metrics:check' package.json
 grep -q 'runbook-check' Makefile
 grep -q 'runbook:check' package.json
+grep -q 'grafana-check' Makefile
+grep -q 'grafana:check' package.json
 grep -q 'eip712-check' Makefile
 grep -q 'api-schema-check' Makefile
 grep -q 'api:schema:check' package.json
@@ -479,6 +483,7 @@ grep -q 'make adr-check' .github/workflows/docs-ci.yml
 grep -q 'make security-check' .github/workflows/docs-ci.yml
 grep -q 'make metrics-check' .github/workflows/docs-ci.yml
 grep -q 'make runbook-check' .github/workflows/docs-ci.yml
+grep -q 'make grafana-check' .github/workflows/docs-ci.yml
 grep -Fq '"examples/**"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-api-schema-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-api-route-consistency.mjs"' .github/workflows/docs-ci.yml
@@ -488,7 +493,9 @@ grep -Fq '"scripts/check-config-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-security-docs-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-metrics-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-runbook-consistency.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"scripts/check-grafana-dashboard-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/prometheus/**"' .github/workflows/docs-ci.yml
+grep -Fq '"infra/grafana/**"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/k8s/**"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/helm/**"' .github/workflows/docs-ci.yml
 grep -q 'QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs

@@ -1,89 +1,149 @@
 {
   "title": "RFQ Market Maker Overview",
+  "uid": "rfq-market-maker-overview",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "15s",
   "panels": [
     {
       "type": "stat",
-      "title": "Quote Requests",
+      "title": "Quote Funnel",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 4 },
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 5 },
+      "targets": [
+        { "expr": "rfq_quote_requests_total", "legendFormat": "requests", "refId": "A" },
+        { "expr": "rfq_quote_responses_total", "legendFormat": "responses", "refId": "B" },
+        { "expr": "rfq_quote_errors_total", "legendFormat": "errors", "refId": "C" },
+        { "expr": "sum(rfq_quote_rejections_total)", "legendFormat": "risk rejections", "refId": "D" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Submit Funnel",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 5 },
+      "targets": [
+        { "expr": "rfq_submit_requests_total", "legendFormat": "requests", "refId": "A" },
+        { "expr": "rfq_submit_accepted_total", "legendFormat": "accepted", "refId": "B" },
+        { "expr": "rfq_submit_errors_total", "legendFormat": "errors", "refId": "C" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Readiness",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 5 },
+      "targets": [
+        { "expr": "rfq_readiness_status", "legendFormat": "{{status}}", "refId": "A" },
+        { "expr": "sum by (status) (rfq_dependency_status)", "legendFormat": "dependencies {{status}}", "refId": "B" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Quote Latency",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 5, "w": 8, "h": 7 },
       "targets": [
         {
-          "expr": "rfq_quote_requests_total",
+          "expr": "histogram_quantile(0.95, rate(rfq_quote_latency_seconds_bucket[5m]))",
+          "legendFormat": "p95",
           "refId": "A"
+        },
+        {
+          "expr": "rate(rfq_quote_latency_seconds_sum[5m]) / rate(rfq_quote_latency_seconds_count[5m])",
+          "legendFormat": "avg",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Submit Latency",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 8, "y": 5, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(rfq_submit_latency_seconds_bucket[5m]))",
+          "legendFormat": "p95",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(rfq_submit_latency_seconds_sum[5m]) / rate(rfq_submit_latency_seconds_count[5m])",
+          "legendFormat": "avg",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Signer Operations",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 16, "y": 5, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (operation) (rate(rfq_signer_requests_total[5m]))",
+          "legendFormat": "requests {{operation}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (operation) (rate(rfq_signer_errors_total[5m]))",
+          "legendFormat": "errors {{operation}}",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(rfq_signer_latency_seconds_bucket[5m])))",
+          "legendFormat": "p95 {{operation}}",
+          "refId": "C"
         }
       ]
     },
     {
       "type": "stat",
-      "title": "Quote Responses",
+      "title": "Settlement And Hedge",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 4 },
+      "gridPos": { "x": 0, "y": 12, "w": 8, "h": 5 },
       "targets": [
-        {
-          "expr": "rfq_quote_responses_total",
-          "refId": "A"
-        }
+        { "expr": "rfq_settlements_total", "legendFormat": "settlements", "refId": "A" },
+        { "expr": "rfq_hedge_intents_total", "legendFormat": "hedge intents", "refId": "B" },
+        { "expr": "sum(rfq_hedge_intent_errors_total)", "legendFormat": "hedge errors", "refId": "C" }
       ]
     },
     {
       "type": "stat",
-      "title": "Submit Requests",
+      "title": "Persistence Errors",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 4 },
-      "targets": [
-        {
-          "expr": "rfq_submit_requests_total",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "Settlements",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 0, "y": 4, "w": 8, "h": 4 },
-      "targets": [
-        {
-          "expr": "rfq_settlements_total",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "Hedge Intent Errors",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 8, "y": 4, "w": 8, "h": 4 },
-      "targets": [
-        {
-          "expr": "sum(rfq_hedge_intent_errors_total)",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "Quote Status Update Errors",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 16, "y": 4, "w": 8, "h": 4 },
+      "gridPos": { "x": 8, "y": 12, "w": 8, "h": 5 },
       "targets": [
         {
           "expr": "sum(rfq_quote_status_update_errors_total)",
+          "legendFormat": "quote status errors",
           "refId": "A"
+        },
+        {
+          "expr": "sum(rfq_pnl_record_errors_total)",
+          "legendFormat": "PnL record errors",
+          "refId": "B"
         }
       ]
     },
     {
       "type": "stat",
-      "title": "PnL Record Errors",
+      "title": "PnL Trades",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 4 },
+      "gridPos": { "x": 16, "y": 12, "w": 8, "h": 5 },
+      "targets": [
+        { "expr": "rfq_pnl_trades_total", "legendFormat": "trades", "refId": "A" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Dependency Status",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 17, "w": 8, "h": 7 },
       "targets": [
         {
-          "expr": "sum(rfq_pnl_record_errors_total)",
+          "expr": "rfq_dependency_status",
+          "legendFormat": "{{component}} {{status}}",
           "refId": "A"
         }
       ]
@@ -92,10 +152,11 @@
       "type": "timeseries",
       "title": "Inventory Balance",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 8, "y": 8, "w": 8, "h": 8 },
+      "gridPos": { "x": 8, "y": 17, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "rfq_inventory_balance",
+          "legendFormat": "{{chain_id}} {{token}}",
           "refId": "A"
         }
       ]
@@ -104,22 +165,11 @@
       "type": "timeseries",
       "title": "Realized PnL",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 16, "y": 8, "w": 8, "h": 8 },
+      "gridPos": { "x": 16, "y": 17, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "rfq_realized_pnl_token_out",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "PnL Trades",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "x": 0, "y": 12, "w": 8, "h": 4 },
-      "targets": [
-        {
-          "expr": "rfq_pnl_trades_total",
+          "legendFormat": "{{chain_id}} {{token}}",
           "refId": "A"
         }
       ]
