@@ -108,6 +108,7 @@ No public API changes. Compose exposes service ports for local development.
 
 - Redpanda is used as Kafka-compatible local event bus.
 - Prometheus and Grafana included from the first deployment docs stage.
+- Prometheus scrapes the host backend through `host.docker.internal:3000`; Compose maps that name to `host-gateway` so the same setup works on Docker Desktop and Linux Docker.
 - Local secrets are not production secrets.
 
 ## Failure Scenarios
