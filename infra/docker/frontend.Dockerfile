@@ -1,6 +1,6 @@
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package.json pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY frontend/package.json frontend/package.json
 COPY frontend/tsconfig.json frontend/tsconfig.json
 COPY frontend/vite.config.ts frontend/vite.config.ts
@@ -12,7 +12,7 @@ COPY sdk/src sdk/src
 ARG VITE_RFQ_API_BASE_URL=http://localhost:3000
 ENV VITE_RFQ_API_BASE_URL=$VITE_RFQ_API_BASE_URL
 RUN corepack enable \
-  && pnpm install --filter @rfq-market-maker/frontend --frozen-lockfile=false \
+  && pnpm install --filter @rfq-market-maker/frontend --frozen-lockfile \
   && pnpm --filter @rfq-market-maker/frontend build
 
 FROM nginx:1.27-alpine AS runtime

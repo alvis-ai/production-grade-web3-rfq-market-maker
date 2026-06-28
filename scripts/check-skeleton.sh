@@ -4,6 +4,7 @@ set -eu
 test -s package.json
 test -s pnpm-workspace.yaml
 test -s pnpm-lock.yaml
+test -s .dockerignore
 test -s .env.example
 test -s .github/workflows/backend-ci.yml
 test -s .github/workflows/contract-ci.yml
@@ -67,9 +68,13 @@ test -s infra/docker/backend.Dockerfile
 test -s infra/docker/frontend.Dockerfile
 grep -q 'ENV HOST=0.0.0.0' infra/docker/backend.Dockerfile
 grep -q 'ENV PORT=3000' infra/docker/backend.Dockerfile
+grep -q 'COPY package.json pnpm-lock.yaml pnpm-workspace.yaml' infra/docker/backend.Dockerfile
+grep -q -- '--frozen-lockfile' infra/docker/backend.Dockerfile
 grep -q 'HEALTHCHECK' infra/docker/backend.Dockerfile
 grep -q 'http://127.0.0.1:3000/health' infra/docker/backend.Dockerfile
 grep -q 'FROM nginx:1.27-alpine AS runtime' infra/docker/frontend.Dockerfile
+grep -q 'COPY package.json pnpm-lock.yaml pnpm-workspace.yaml' infra/docker/frontend.Dockerfile
+grep -q -- '--frozen-lockfile' infra/docker/frontend.Dockerfile
 grep -q 'VITE_RFQ_API_BASE_URL' infra/docker/frontend.Dockerfile
 grep -q 'COPY sdk/src sdk/src' infra/docker/frontend.Dockerfile
 grep -q 'pnpm --filter @rfq-market-maker/frontend build' infra/docker/frontend.Dockerfile
@@ -82,6 +87,9 @@ grep -q 'dockerfile: infra/docker/backend.Dockerfile' docker-compose.yml
 grep -q 'dockerfile: infra/docker/frontend.Dockerfile' docker-compose.yml
 grep -q 'VITE_RFQ_API_BASE_URL: http://localhost:3000' docker-compose.yml
 grep -q 'backend:3000' infra/prometheus/prometheus.yml
+grep -q 'node_modules' .dockerignore
+grep -q '.pnpm-store' .dockerignore
+grep -q 'frontend/dist' .dockerignore
 test -s infra/prometheus/prometheus.yml
 test -s infra/prometheus/rules/rfq-alerts.yml
 test -s infra/grafana/provisioning/datasources/prometheus.yml
