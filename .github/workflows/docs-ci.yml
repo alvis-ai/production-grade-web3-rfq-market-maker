@@ -15,6 +15,7 @@ on:
       - "scripts/check-database-schema-consistency.mjs"
       - "scripts/check-examples-consistency.mjs"
       - "scripts/check-metrics-consistency.mjs"
+      - "scripts/check-runbook-consistency.mjs"
       - "scripts/check-security-docs-consistency.mjs"
       - "scripts/check-skeleton.sh"
       - "infra/prometheus/**"
@@ -62,3 +63,5 @@ jobs:
         run: make security-check
       - name: Check metrics consistency
         run: make metrics-check
+      - name: Check runbook consistency
+        run: make runbook-check

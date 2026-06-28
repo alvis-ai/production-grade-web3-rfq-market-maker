@@ -116,6 +116,22 @@ Future admin APIs may support disabling quote signing, lowering limits, disablin
 
 ## Failure Scenarios
 
+### Alert Routing Matrix
+
+| Alert | Primary Triage | Immediate Mitigation | Verification |
+| --- | --- | --- | --- |
+| `RFQBackendDown` | Check Prometheus `up{job="rfq-backend"}`, pod status and `/health` reachability. | Route traffic away from unhealthy pods and pause rollout if this follows deployment. | `/health`, `/ready` and `GET /metrics` return successfully from healthy pods. |
+| `RFQQuoteTrafficStopped` | Confirm whether quote demand stopped or the API stopped receiving `/quote`. | Check ingress, rate limiting, market data and signer readiness before restarting services. | `rfq_quote_requests_total` increases and sample `/quote` requests complete. |
+| `RFQSubmitTrafficSpike` | Inspect submit source, quote TTL distribution and nonce reuse signals. | Tighten rate limits and lower per-user submit burst while preserving valid settlement flow. | `rfq_submit_requests_total` returns to baseline and duplicate or invalid submit errors do not rise. |
+| `RFQQuoteLatencyP95High` | Break down market data, pricing, risk and signer latency. | Reduce quote size limits or disable slow pairs until p95 latency is stable. | `rfq_quote_latency_seconds` p95 returns under threshold for at least two windows. |
+| `RFQQuoteRiskRejectSpike` | Review risk reject reason labels, inventory exposure, volatility and token allowlist changes. | Widen spread, reduce limits or pause affected pairs instead of bypassing risk. | `rfq_quote_rejections_total` returns to expected baseline and no unsafe quote is signed. |
+| `RFQSignerErrors` | Treat signer failures as a security-sensitive incident until key health is known. | Stop signing, verify KMS/HSM or local signer health, and pause settlement if compromise is plausible. | Signer `sign` and `verify` operations pass, old quotes expire, and settlement signer allowlist is correct. |
+| `RFQSignerLatencyP95High` | Check signer dependency latency, key provider status and request queue depth. | Reduce quote traffic, shorten affected route exposure, and fail closed if deadlines become unreliable. | `rfq_signer_latency_seconds` p95 returns below threshold and quote TTL remains usable. |
+| `RFQReadinessDegraded` | Inspect `rfq_dependency_status` to identify the degraded component. | Route by component: market data, pricing, risk, signer, quote repository, inventory, execution, settlement event store, PnL or metrics. | `/ready` returns ready and all fixed dependency gauges return `ok`. |
+| `RFQHedgeIntentErrors` | Check settlement event, hedge store and venue credential health. | Tighten quote limits for exposed output token and disable failing venue if errors continue. | Hedge intents are present for new settlements and `rfq_hedge_intent_errors_total` stops increasing. |
+| `RFQQuoteStatusUpdateErrors` | Use settlement event as source of truth and inspect quote repository writes. | Run settlement-to-quote reconciliation without replaying contract settlement. | `/quote/:quoteId` reflects submitted or settled status for affected events. |
+| `RFQPnlRecordErrors` | Check PnL store health and settlement-to-PnL attribution inputs. | Run settlement-to-PnL reconciliation from settlement events and market snapshots. | `/pnl` includes repaired records and `rfq_pnl_record_errors_total` stops increasing. |
+
 ### Signer Compromise
 
 1. Disable Signer Service.
