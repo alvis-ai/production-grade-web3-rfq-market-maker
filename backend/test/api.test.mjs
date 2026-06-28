@@ -247,6 +247,32 @@ test("RFQ API returns structured errors for missing settlement events", async ()
   }
 });
 
+test("RFQ API maps settlement event store failures to structured errors", async () => {
+  const server = buildServer({
+    logger: false,
+    settlementEventService: {
+      applySettlementEvent() {
+        throw new Error("not used");
+      },
+      getSettlementEvent() {
+        throw new Error("settlement event store offline");
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/settlements/se_missing");
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "SETTLEMENT_EVENT_STORE_UNAVAILABLE");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API degrades readiness when market data is stale", async () => {
   const server = buildServer({
     logger: false,

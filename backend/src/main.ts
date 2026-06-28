@@ -12,7 +12,7 @@ import { QuoteService } from "./modules/quote/quote.service.js";
 import { InMemoryRateLimiter, type RateLimitConfig, type RateLimitedEndpoint } from "./modules/rate-limit/rate-limit.service.js";
 import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine, type RoutingEngine } from "./modules/routing/routing.engine.js";
-import { SettlementEventService } from "./modules/settlement/settlement-event.service.js";
+import { SettlementEventService, type SettlementEventStore } from "./modules/settlement/settlement-event.service.js";
 import { LocalSettlementVerifier, type SettlementVerifier } from "./modules/settlement/settlement-verifier.service.js";
 import { LocalEIP712SignerService, ObservedSignerService, type SignerService } from "./modules/signer/signer.service.js";
 import { APIError, toAPIError } from "./shared/errors/api-error.js";
@@ -27,6 +27,7 @@ export interface BuildServerOptions {
   riskEngine?: RiskEngine;
   routingEngine?: RoutingEngine;
   hedgeService?: HedgeIntentService;
+  settlementEventService?: SettlementEventStore;
   settlementVerifier?: SettlementVerifier;
   signerService?: SignerService;
   rateLimit?: Partial<RateLimitConfig> | false;
@@ -40,7 +41,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const signerService = options.signerService ?? new LocalEIP712SignerService(readSignerConfig());
   const readinessService = new ReadinessService({ marketDataService, signerService });
   const inventoryService = new InventoryService();
-  const settlementEventService = new SettlementEventService(inventoryService);
+  const settlementEventService = options.settlementEventService ?? new SettlementEventService(inventoryService);
   const executionService = new SkeletonExecutionService({
     hedgeService,
     inventoryService,
@@ -87,22 +88,26 @@ export function buildServer(options: BuildServerOptions = {}) {
     return pnlService.summary();
   });
   server.get("/settlements/:settlementEventId", async (request, reply) => {
-    const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
-    if (!rateLimitResult.allowed) {
-      return rateLimitResult.response;
-    }
+    try {
+      const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
+      if (!rateLimitResult.allowed) {
+        return rateLimitResult.response;
+      }
 
-    const { settlementEventId } = request.params as { settlementEventId: string };
-    const status = settlementEventService.getSettlementEvent(settlementEventId);
-    if (!status) {
-      return sendError(
-        reply,
-        requestTraceId(request),
-        new APIError("SETTLEMENT_EVENT_NOT_FOUND", "Settlement event not found", 404),
-      );
-    }
+      const { settlementEventId } = request.params as { settlementEventId: string };
+      const status = settlementEventService.getSettlementEvent(settlementEventId);
+      if (!status) {
+        return sendError(
+          reply,
+          requestTraceId(request),
+          new APIError("SETTLEMENT_EVENT_NOT_FOUND", "Settlement event not found", 404),
+        );
+      }
 
-    return status;
+      return status;
+    } catch (error) {
+      return sendError(reply, requestTraceId(request), settlementEventStatusFailure(error));
+    }
   });
   server.get("/quote/:quoteId", async (request, reply) => {
     try {
@@ -259,6 +264,14 @@ function hedgeStatusFailure(error: unknown): APIError {
   }
 
   return new APIError("HEDGE_STORE_UNAVAILABLE", "Hedge store unavailable", 503);
+}
+
+function settlementEventStatusFailure(error: unknown): APIError {
+  if (error instanceof APIError) {
+    return error;
+  }
+
+  return new APIError("SETTLEMENT_EVENT_STORE_UNAVAILABLE", "Settlement event store unavailable", 503);
 }
 
 async function markPostSettlementQuoteStatus(

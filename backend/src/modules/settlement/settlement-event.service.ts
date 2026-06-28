@@ -13,7 +13,12 @@ export interface ApplySettlementEventResult {
   duplicate: boolean;
 }
 
-export class SettlementEventService {
+export interface SettlementEventStore {
+  applySettlementEvent(input: ApplySettlementEventInput): ApplySettlementEventResult;
+  getSettlementEvent(settlementEventId: string): SettlementEventStatusResponse | undefined;
+}
+
+export class SettlementEventService implements SettlementEventStore {
   private readonly events = new Map<string, SettlementEventStatusResponse>();
   private readonly eventIdsByKey = new Map<string, string>();
 

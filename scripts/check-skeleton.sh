@@ -115,6 +115,7 @@ grep -q 'traceId: string' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
 grep -q 'SETTLEMENT_EVENT_NOT_FOUND' backend/src/shared/errors/api-error.ts
+grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'getUsableSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'marketDataFailure' backend/src/modules/quote/quote.service.ts
@@ -166,7 +167,9 @@ grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts
 grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.service.ts
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/src/modules/execution/execution.service.ts
+grep -q 'SettlementEventStore' backend/src/modules/execution/execution.service.ts
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlement-verifier.service.ts
@@ -305,6 +308,8 @@ grep -q 'Hedge intent creation failure does not roll back settlement' docs/api/o
 grep -q 'getSettlementEvent' docs/api/openapi.yaml
 grep -q 'SettlementEventStatus' docs/api/openapi.yaml
 grep -q 'SETTLEMENT_EVENT_NOT_FOUND' docs/api/openapi.yaml
+grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' docs/api/openapi.yaml
+grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' docs/api/errors.md
 grep -q 'getPnlSummary' docs/api/openapi.yaml
 grep -q 'PnlSummary' docs/api/openapi.yaml
 grep -q 'PnlTradeRecord' docs/api/openapi.yaml
@@ -360,6 +365,8 @@ grep -q 'target_status="FAILED"' backend/test/api.test.mjs
 grep -q 'settlement verifier failures' backend/test/api.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/api.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'settlement event store failures' backend/test/api.test.mjs
+grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'errorCode, "SETTLEMENT_REVERTED"' backend/test/api.test.mjs
 grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs

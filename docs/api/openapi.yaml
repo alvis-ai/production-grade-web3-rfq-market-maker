@@ -264,6 +264,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Settlement event store unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /pnl:
     get:
       operationId: getPnlSummary
@@ -708,6 +714,7 @@ components:
             - HEDGE_NOT_FOUND
             - HEDGE_STORE_UNAVAILABLE
             - SETTLEMENT_EVENT_NOT_FOUND
+            - SETTLEMENT_EVENT_STORE_UNAVAILABLE
             - SETTLEMENT_UNAVAILABLE
             - SETTLEMENT_REVERTED
             - RATE_LIMITED

@@ -4,7 +4,7 @@ import { toFixedHex } from "../../shared/types/hex.js";
 import type { HedgeResult } from "../hedge/hedge.service.js";
 import type { HedgeIntentService } from "../hedge/hedge.service.js";
 import type { InventoryPosition, InventoryService } from "../inventory/inventory.service.js";
-import type { ApplySettlementEventResult, SettlementEventService } from "../settlement/settlement-event.service.js";
+import type { ApplySettlementEventResult, SettlementEventStore } from "../settlement/settlement-event.service.js";
 import type { SettlementVerificationResult, SettlementVerifier } from "../settlement/settlement-verifier.service.js";
 
 export interface ExecutionService {
@@ -14,7 +14,7 @@ export interface ExecutionService {
 export interface ExecutionServiceDeps {
   hedgeService: HedgeIntentService;
   inventoryService: InventoryService;
-  settlementEventService: SettlementEventService;
+  settlementEventService: SettlementEventStore;
   settlementVerifier: SettlementVerifier;
 }
 

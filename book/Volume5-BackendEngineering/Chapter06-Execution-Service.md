@@ -142,6 +142,7 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 - Quote failed-status store unavailable after settlement rejection：return the original `SETTLEMENT_REVERTED` and emit status update error metric。
 - Chain RPC unavailable：return `SETTLEMENT_UNAVAILABLE` before inventory update; quote remains retryable if TTL is still valid。
 - Quote status store unavailable after settlement：return accepted, emit status update error metric, reconcile quote status from settlement event later。
+- Settlement event store unavailable on status lookup：`GET /settlements/:id` returns `SETTLEMENT_EVENT_STORE_UNAVAILABLE` with traceId, so clients retry indexing status instead of treating the event as missing。
 - Duplicate settlement event：skip inventory/PnL/hedge side effects and return the existing settlement event id。
 - Event lag：status pending until indexed。
 
