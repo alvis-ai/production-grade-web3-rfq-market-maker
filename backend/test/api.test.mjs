@@ -1127,6 +1127,54 @@ test("RFQ API verifies settlement constraints before simulated settlement", asyn
   }
 });
 
+test("RFQ API preserves settlement rejection when failed quote status persistence fails", async () => {
+  class FailingFailedStatusQuoteRepository extends InMemoryQuoteRepository {
+    async markFailed() {
+      throw new Error("quote failed status store offline");
+    }
+  }
+
+  const server = buildServer({
+    logger: false,
+    quoteRepository: new FailingFailedStatusQuoteRepository(),
+    settlementVerifier: new LocalSettlementVerifier({
+      ...defaultLocalSettlementVerifierPolicy,
+      tokenWhitelist: [baseQuoteRequest.tokenIn],
+    }),
+  });
+  await server.ready();
+
+  try {
+    const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(quote.statusCode, 200);
+
+    const response = await injectJson(server, "POST", "/submit", {
+      quote: quotePayloadFromResponse(quote.body),
+      signature: quote.body.signature,
+    });
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "SETTLEMENT_REVERTED");
+    assert.match(response.body.message, /not whitelisted/);
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+
+    const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.body.status, "signed");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_submit_requests_total 1/);
+    assert.match(metrics.payload, /rfq_submit_errors_total 1/);
+    assert.match(metrics.payload, /rfq_submit_accepted_total 0/);
+    assert.match(metrics.payload, /rfq_settlements_total 0/);
+    assert.match(metrics.payload, /rfq_quote_status_update_errors_total\{target_status="FAILED"\} 1/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API maps settlement verifier failures to dependency errors before settlement", async () => {
   const server = buildServer({
     logger: false,

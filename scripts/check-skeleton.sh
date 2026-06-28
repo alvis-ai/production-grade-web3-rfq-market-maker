@@ -92,6 +92,7 @@ grep -q 'new HedgeService' backend/src/main.ts
 grep -q 'recordSettlement' backend/src/main.ts
 grep -q 'settlementEventResult.duplicate' backend/src/main.ts
 grep -q 'markPostSettlementQuoteStatus' backend/src/main.ts
+grep -q 'markSettlementRejectedQuoteFailed' backend/src/main.ts
 grep -q 'recordInventoryPosition' backend/src/main.ts
 grep -q 'reply.code(202)' backend/src/main.ts
 grep -q '"submitted"' backend/src/main.ts
@@ -345,6 +346,8 @@ grep -q 'marks requested quotes as failed when signer is unavailable' backend/te
 grep -q 'signing is unavailable' backend/test/api.test.mjs
 grep -q 'rfq_signer_errors_total' backend/test/api.test.mjs
 grep -q 'settlement constraints before simulated settlement' backend/test/api.test.mjs
+grep -q 'failed quote status persistence fails' backend/test/api.test.mjs
+grep -q 'target_status="FAILED"' backend/test/api.test.mjs
 grep -q 'settlement verifier failures' backend/test/api.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/api.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md

@@ -199,7 +199,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       metricsService.recordSubmitError();
       const apiError = toAPIError(error);
       if (quoteId && apiError.code === "SETTLEMENT_REVERTED") {
-        await quoteService.markQuoteFailed(quoteId, apiError.code);
+        await markSettlementRejectedQuoteFailed(quoteService, metricsService, quoteId, apiError.code);
       }
 
       return sendError(reply, requestTraceId(request), apiError);
@@ -261,6 +261,19 @@ async function markPostSettlementQuoteStatus(
     await quoteService.markQuoteStatus(quoteId, "settled", txHash);
   } catch {
     metricsService.recordQuoteStatusUpdateError("settled");
+  }
+}
+
+async function markSettlementRejectedQuoteFailed(
+  quoteService: QuoteService,
+  metricsService: MetricsService,
+  quoteId: string,
+  errorCode: string,
+): Promise<void> {
+  try {
+    await quoteService.markQuoteFailed(quoteId, errorCode);
+  } catch {
+    metricsService.recordQuoteStatusUpdateError("failed");
   }
 }
 
