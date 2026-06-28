@@ -93,7 +93,7 @@ export function QuoteStatusPanel({
       {error ? (
         <div className="error-box" role="alert">
           <p>{error.message}</p>
-          {error.code || error.status || error.traceId ? (
+          {error.code || error.status || error.traceId || error.retryAfterSeconds ? (
             <dl>
               {error.code ? (
                 <div>
@@ -111,6 +111,12 @@ export function QuoteStatusPanel({
                 <div>
                   <dt>Trace</dt>
                   <dd>{error.traceId}</dd>
+                </div>
+              ) : null}
+              {error.retryAfterSeconds ? (
+                <div>
+                  <dt>Retry After</dt>
+                  <dd>{error.retryAfterSeconds}s</dd>
                 </div>
               ) : null}
             </dl>

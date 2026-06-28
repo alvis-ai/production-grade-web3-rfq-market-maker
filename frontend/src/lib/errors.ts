@@ -5,6 +5,7 @@ export interface UIError {
   code?: string;
   status?: number;
   traceId?: string;
+  retryAfterSeconds?: number;
 }
 
 export function toUIError(error: unknown, fallbackMessage: string): UIError {
@@ -14,6 +15,7 @@ export function toUIError(error: unknown, fallbackMessage: string): UIError {
       code: error.code,
       status: error.status,
       traceId: error.traceId,
+      retryAfterSeconds: error.retryAfterSeconds,
     };
   }
 

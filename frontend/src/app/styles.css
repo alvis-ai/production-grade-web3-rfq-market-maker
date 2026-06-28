@@ -183,7 +183,7 @@ button:disabled {
   border: 0;
   display: grid;
   gap: 4px;
-  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-columns: 88px minmax(0, 1fr);
   padding: 0;
 }
 

@@ -319,6 +319,7 @@ grep -q 'rfqClient.submit' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getQuote' frontend/src/pages/QuotePage.tsx
 grep -q 'RFQClientError' frontend/src/lib/errors.ts
 grep -q 'traceId' frontend/src/lib/errors.ts
+grep -q 'retryAfterSeconds' frontend/src/lib/errors.ts
 grep -q 'toUIError' frontend/src/pages/QuotePage.tsx
 grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getSettlement' frontend/src/pages/QuotePage.tsx
@@ -331,6 +332,8 @@ grep -q 'Hedge Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Settlement Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Realized PnL' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'role="alert"' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'Retry After' frontend/src/components/QuoteStatusPanel.tsx
+grep -q '{error.retryAfterSeconds}s' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'error-box' frontend/src/app/styles.css
 grep -q 'export { RFQClient' sdk/src/index.ts
 grep -q 'rfqSettlementAbi' sdk/src/index.ts
@@ -540,6 +543,8 @@ grep -q 'docs/api/errors.md table must match backend RFQErrorCode' scripts/check
 grep -q 'defaultRateLimitConfig' scripts/check-rate-limit-consistency.mjs
 grep -q 'Retry-After' scripts/check-rate-limit-consistency.mjs
 grep -q 'sdk/src/client.ts' scripts/check-rate-limit-consistency.mjs
+grep -q 'frontend/src/lib/errors.ts' scripts/check-rate-limit-consistency.mjs
+grep -q 'frontend/src/components/QuoteStatusPanel.tsx' scripts/check-rate-limit-consistency.mjs
 grep -q 'retryAfterSeconds' scripts/check-rate-limit-consistency.mjs
 grep -q 'sdk/src/client.ts' scripts/check-ci-workflows-consistency.mjs
 grep -q 'make rate-limit-check' scripts/check-ci-workflows-consistency.mjs

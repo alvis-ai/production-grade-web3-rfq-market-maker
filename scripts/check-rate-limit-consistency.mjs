@@ -8,6 +8,8 @@ const mainSource = await readFile("backend/src/main.ts", "utf8");
 const apiTestSource = await readFile("backend/test/api.test.mjs", "utf8");
 const sdkClientSource = await readFile("sdk/src/client.ts", "utf8");
 const sdkTestSource = await readFile("sdk/test/sdk.test.mjs", "utf8");
+const frontendErrorSource = await readFile("frontend/src/lib/errors.ts", "utf8");
+const frontendStatusPanelSource = await readFile("frontend/src/components/QuoteStatusPanel.tsx", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const errorDocsSource = await readFile("docs/api/errors.md", "utf8");
 const gatewayChapterSource = await readFile("book/Volume5-BackendEngineering/Chapter01-API-Gateway.md", "utf8");
@@ -63,6 +65,17 @@ assertContains(sdkTestSource, [
   '"retry-after": "60"',
   "assert.equal(error.retryAfterSeconds, 60)",
 ], "sdk/test/sdk.test.mjs");
+
+assertContains(frontendErrorSource, [
+  "retryAfterSeconds?: number",
+  "retryAfterSeconds: error.retryAfterSeconds",
+], "frontend/src/lib/errors.ts");
+
+assertContains(frontendStatusPanelSource, [
+  "error.retryAfterSeconds",
+  "Retry After",
+  "{error.retryAfterSeconds}s",
+], "frontend/src/components/QuoteStatusPanel.tsx");
 
 for (const path of ["/quote:", "/submit:", "/quote/{quoteId}:", "/hedges/{hedgeOrderId}:", "/settlements/{settlementEventId}:", "/pnl:"]) {
   const pathBlock = extractOpenapiPathBlock(openapiSource, path);
