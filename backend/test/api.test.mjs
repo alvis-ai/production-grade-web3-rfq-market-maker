@@ -441,6 +441,8 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.match(metrics.payload, /rfq_submit_latency_seconds_bucket\{le="\+Inf"\} 1/);
     assert.match(metrics.payload, /rfq_settlements_total 1/);
     assert.match(metrics.payload, /rfq_hedge_intents_total 1/);
+    assert.match(metrics.payload, /rfq_hedge_lag_seconds_count 1/);
+    assert.match(metrics.payload, /rfq_hedge_lag_seconds_bucket\{le="\+Inf"\} 1/);
     assert.match(
       metrics.payload,
       new RegExp(`rfq_inventory_balance\\{chain_id="1",token="${baseQuoteRequest.tokenIn}"\\} ${baseQuoteRequest.amountIn}`),
@@ -798,6 +800,7 @@ test("RFQ API keeps settlement accepted when hedge intent creation fails", async
     assert.match(metrics.payload, /rfq_submit_errors_total 0/);
     assert.match(metrics.payload, /rfq_settlements_total 1/);
     assert.match(metrics.payload, /rfq_hedge_intents_total 0/);
+    assert.match(metrics.payload, /rfq_hedge_lag_seconds_count 0/);
     assert.match(metrics.payload, /rfq_hedge_intent_errors_total\{reason="HEDGE_INTENT_FAILED"\} 1/);
     assert.match(metrics.payload, /rfq_pnl_trades_total 1/);
   } finally {
@@ -913,6 +916,7 @@ test("RFQ API keeps settlement accepted when post-settlement quote status persis
     assert.match(metrics.payload, /rfq_submit_errors_total 0/);
     assert.match(metrics.payload, /rfq_settlements_total 1/);
     assert.match(metrics.payload, /rfq_hedge_intents_total 1/);
+    assert.match(metrics.payload, /rfq_hedge_lag_seconds_count 1/);
     assert.match(metrics.payload, /rfq_pnl_trades_total 1/);
     assert.match(metrics.payload, /rfq_quote_status_update_errors_total\{target_status="SUBMITTED"\} 2/);
     assert.match(metrics.payload, /rfq_quote_status_update_errors_total\{target_status="SETTLED"\} 2/);

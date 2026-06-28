@@ -32,11 +32,16 @@ export interface ExecutionResult {
   settlementVerification: SettlementVerificationResult;
   hedgeResult?: HedgeResult;
   hedgeFailure?: HedgeFailure;
+  hedgeLagSeconds?: number;
 }
 
 export interface HedgeFailure {
   reasonCode: HedgeFailureReasonCode;
 }
+
+type CreateHedgeIntentResult =
+  | { hedgeResult: HedgeResult; hedgeFailure?: undefined; hedgeLagSeconds: number }
+  | { hedgeResult?: undefined; hedgeFailure: HedgeFailure; hedgeLagSeconds?: undefined };
 
 export class SkeletonExecutionService implements ExecutionService {
   constructor(private readonly deps: ExecutionServiceDeps) {}
@@ -54,8 +59,8 @@ export class SkeletonExecutionService implements ExecutionService {
 
     const tokenInPosition = this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenIn);
     const tokenOutPosition = this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut);
-    const { hedgeResult, hedgeFailure } = settlementEventResult.duplicate
-      ? { hedgeResult: undefined, hedgeFailure: undefined }
+    const { hedgeResult, hedgeFailure, hedgeLagSeconds } = settlementEventResult.duplicate
+      ? { hedgeResult: undefined, hedgeFailure: undefined, hedgeLagSeconds: undefined }
       : this.createHedgeIntent(request, context);
 
     return {
@@ -73,6 +78,7 @@ export class SkeletonExecutionService implements ExecutionService {
       settlementVerification,
       hedgeResult,
       hedgeFailure,
+      hedgeLagSeconds,
     };
   }
 
@@ -87,7 +93,7 @@ export class SkeletonExecutionService implements ExecutionService {
   private createHedgeIntent(
     request: SubmitQuoteRequest,
     context: ExecutionContext,
-  ): { hedgeResult: HedgeResult; hedgeFailure?: undefined } | { hedgeResult?: undefined; hedgeFailure: HedgeFailure } {
+  ): CreateHedgeIntentResult {
     const intent: HedgeIntent = {
       quoteId: context.quoteId,
       chainId: request.quote.chainId,
@@ -96,10 +102,12 @@ export class SkeletonExecutionService implements ExecutionService {
       amount: request.quote.amountOut,
       reason: "inventory_rebalance",
     };
+    const startedAt = Date.now();
 
     try {
       return {
         hedgeResult: this.deps.hedgeService.createHedgeIntent(intent),
+        hedgeLagSeconds: elapsedSeconds(startedAt),
       };
     } catch {
       this.deps.hedgeService.recordHedgeFailure?.(intent, "HEDGE_INTENT_FAILED");
@@ -124,6 +132,10 @@ export class SkeletonExecutionService implements ExecutionService {
       throw settlementVerificationFailure(error);
     }
   }
+}
+
+function elapsedSeconds(startedAtMs: number): number {
+  return (Date.now() - startedAtMs) / 1000;
 }
 
 function settlementVerificationFailure(error: unknown): APIError {

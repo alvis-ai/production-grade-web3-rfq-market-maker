@@ -82,6 +82,15 @@ groups:
           summary: RFQ hedge intent creation errors detected after settlement
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQHedgeLagHigh
+        expr: histogram_quantile(0.95, rate(rfq_hedge_lag_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ hedge p95 lag is above 2 seconds
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQQuoteStatusUpdateErrors
         expr: sum(increase(rfq_quote_status_update_errors_total[5m])) > 0
         for: 1m

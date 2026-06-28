@@ -89,6 +89,7 @@ assertIncludes(metrics, "rfq_submit_errors_total 1", "submit error metric");
 assertIncludes(metrics, "rfq_submit_latency_seconds_count 2", "submit latency metric");
 assertIncludes(metrics, "rfq_settlements_total 1", "settlement metric");
 assertIncludes(metrics, "rfq_hedge_intents_total 1", "hedge metric");
+assertIncludes(metrics, "rfq_hedge_lag_seconds_count 1", "hedge lag metric");
 assertIncludes(metrics, "rfq_pnl_trades_total 1", "pnl trade metric");
 assertIncludes(
   metrics,

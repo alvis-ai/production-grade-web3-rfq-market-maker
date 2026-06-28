@@ -116,6 +116,7 @@ Prometheus metrics:
 - `rfq_settlements_total`
 - `rfq_hedge_intents_total`
 - `rfq_hedge_intent_errors_total`
+- `rfq_hedge_lag_seconds`
 - `rfq_quote_status_update_errors_total`
 - `rfq_inventory_balance`
 - `rfq_pnl_trades_total`
@@ -135,6 +136,7 @@ ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, st
 - Metrics failures must not break quote path.
 - 当前后端实现已暴露 quote 和 submit latency histogram，使用固定 bucket，不带 user、quoteId 或 wallet label。
 - `rfq_quote_rejections_total` 只使用稳定内部 `reasonCode` 作为 label，不暴露阈值、金额、地址或 quoteId。
+- `rfq_hedge_lag_seconds` 使用无高基数 label 的 histogram，当前 reference path 记录 simulated settlement accepted 到 hedge intent queued 的耗时；生产版可复用同一指标记录异步 hedge queue 和 venue submit lag。
 - `rfq_quote_status_update_errors_total` 使用低基数 `target_status` label，记录 settlement 已接受后 quote 状态落库失败，或 settlement rejection 后 failed 状态落库失败的次数；该指标用于触发 reconciliation，而不是让已应用 settlement 回滚或掩盖原始拒绝原因。
 - 当前后端实现已暴露 `rfq_pnl_trades_total` 和 `rfq_realized_pnl_token_out`，用于验证 `/submit -> settlement -> inventory -> hedge -> PnL` 闭环；生产版应将 quote-level PnL 归因写入 ClickHouse。
 - `rfq_pnl_record_errors_total` 使用低基数 `reason` label，记录 settlement 已应用后 PnL 归因写入失败；该指标用于触发 settlement-to-PnL reconciliation，不能让已应用 settlement 返回错误。

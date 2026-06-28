@@ -31,6 +31,7 @@ export class MetricsService {
   private settlements = 0;
   private hedgeIntents = 0;
   private readonly hedgeIntentErrors = new Map<string, number>();
+  private readonly hedgeLag = createHistogramState();
   private readonly quoteStatusUpdateErrors = new Map<string, number>();
   private readonly pnlRecordErrors = new Map<string, number>();
   private pnlTrades = 0;
@@ -105,6 +106,10 @@ export class MetricsService {
 
   recordHedgeIntent(): void {
     this.hedgeIntents += 1;
+  }
+
+  recordHedgeLag(seconds: number): void {
+    recordHistogram(this.hedgeLag, seconds);
   }
 
   recordHedgeIntentError(reasonCode: string): void {
@@ -185,6 +190,9 @@ export class MetricsService {
       "# HELP rfq_hedge_intent_errors_total Total hedge intent creation errors after settlement by stable reason.",
       "# TYPE rfq_hedge_intent_errors_total counter",
       ...this.renderHedgeIntentErrors(),
+      "# HELP rfq_hedge_lag_seconds Time from simulated settlement acceptance to hedge intent queued in seconds.",
+      "# TYPE rfq_hedge_lag_seconds histogram",
+      ...renderHistogram("rfq_hedge_lag_seconds", this.hedgeLag),
       "# HELP rfq_quote_status_update_errors_total Total quote status persistence errors by target status.",
       "# TYPE rfq_quote_status_update_errors_total counter",
       ...this.renderQuoteStatusUpdateErrors(),

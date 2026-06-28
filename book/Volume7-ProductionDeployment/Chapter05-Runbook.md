@@ -129,6 +129,7 @@ Future admin APIs may support disabling quote signing, lowering limits, disablin
 | `RFQSignerLatencyP95High` | Check signer dependency latency, key provider status and request queue depth. | Reduce quote traffic, shorten affected route exposure, and fail closed if deadlines become unreliable. | `rfq_signer_latency_seconds` p95 returns below threshold and quote TTL remains usable. |
 | `RFQReadinessDegraded` | Inspect `rfq_dependency_status` to identify the degraded component. | Route by component: market data, pricing, risk, signer, quote repository, inventory, execution, settlement event store, PnL or metrics. | `/ready` returns ready and all fixed dependency gauges return `ok`. |
 | `RFQHedgeIntentErrors` | Check settlement event, hedge store and venue credential health. | Tighten quote limits for exposed output token and disable failing venue if errors continue. | Hedge intents are present for new settlements and `rfq_hedge_intent_errors_total` stops increasing. |
+| `RFQHedgeLagHigh` | Check hedge queue delay, venue latency and worker backlog. | Widen spread for exposed tokens, reduce quote limits and route hedge traffic to a healthy venue. | `rfq_hedge_lag_seconds` p95 returns under threshold and new settlements receive hedge intents promptly. |
 | `RFQQuoteStatusUpdateErrors` | Use settlement event as source of truth and inspect quote repository writes. | Run settlement-to-quote reconciliation without replaying contract settlement. | `/quote/:quoteId` reflects submitted or settled status for affected events. |
 | `RFQPnlRecordErrors` | Check PnL store health and settlement-to-PnL attribution inputs. | Run settlement-to-PnL reconciliation from settlement events and market snapshots. | `/pnl` includes repaired records and `rfq_pnl_record_errors_total` stops increasing. |
 
@@ -164,13 +165,14 @@ Future admin APIs may support disabling quote signing, lowering limits, disablin
 
 ### Post-Settlement Persistence Drift
 
-Alerts: `RFQQuoteStatusUpdateErrors`, `RFQHedgeIntentErrors`, `RFQPnlRecordErrors`.
+Alerts: `RFQQuoteStatusUpdateErrors`, `RFQHedgeIntentErrors`, `RFQHedgeLagHigh`, `RFQPnlRecordErrors`.
 
 1. Treat the settlement event as source of truth and do not revert or replay contract settlement from the API path.
 2. Start settlement-to-quote reconciliation for `rfq_quote_status_update_errors_total` and repair `submitted` or `settled` status from settlement events.
 3. Start settlement-to-hedge reconciliation for `rfq_hedge_intent_errors_total`; if hedge intent creation keeps failing, tighten quote limits for the affected output token.
-4. Start settlement-to-PnL reconciliation for `rfq_pnl_record_errors_total` and rebuild missing realized PnL rows from settlement events and market snapshots.
-5. Verify `/settlements/:settlementEventId`, `/quote/:quoteId`, `/hedges/:hedgeOrderId`, `/pnl` and `GET /metrics` before closing the incident.
+4. Check `rfq_hedge_lag_seconds` and hedge worker backlog; if lag remains high, widen spread and reduce quote limits before re-enabling full traffic.
+5. Start settlement-to-PnL reconciliation for `rfq_pnl_record_errors_total` and rebuild missing realized PnL rows from settlement events and market snapshots.
+6. Verify `/settlements/:settlementEventId`, `/quote/:quoteId`, `/hedges/:hedgeOrderId`, `/pnl` and `GET /metrics` before closing the incident.
 
 ### Pod Termination Or Rollout Drain
 

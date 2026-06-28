@@ -105,7 +105,8 @@
       "targets": [
         { "expr": "rfq_settlements_total", "legendFormat": "settlements", "refId": "A" },
         { "expr": "rfq_hedge_intents_total", "legendFormat": "hedge intents", "refId": "B" },
-        { "expr": "sum(rfq_hedge_intent_errors_total)", "legendFormat": "hedge errors", "refId": "C" }
+        { "expr": "sum(rfq_hedge_intent_errors_total)", "legendFormat": "hedge errors", "refId": "C" },
+        { "expr": "histogram_quantile(0.95, rate(rfq_hedge_lag_seconds_bucket[5m]))", "legendFormat": "hedge lag p95", "refId": "D" }
       ]
     },
     {

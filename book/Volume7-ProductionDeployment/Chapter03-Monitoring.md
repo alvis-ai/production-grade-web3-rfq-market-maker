@@ -116,6 +116,7 @@ Key metrics include:
 - `rfq_settlements_total`
 - `rfq_hedge_intents_total`
 - `rfq_hedge_intent_errors_total`
+- `rfq_hedge_lag_seconds`
 - `rfq_quote_status_update_errors_total`
 - `rfq_inventory_balance`
 - `rfq_pnl_trades_total`

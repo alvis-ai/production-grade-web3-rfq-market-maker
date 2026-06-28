@@ -253,6 +253,7 @@ export function buildServer(options: BuildServerOptions = {}) {
         metricsService.recordSettlement();
         if (result.hedgeResult) {
           metricsService.recordHedgeIntent();
+          metricsService.recordHedgeLag(result.hedgeLagSeconds ?? 0);
         }
         if (result.hedgeFailure) {
           metricsService.recordHedgeIntentError(result.hedgeFailure.reasonCode);

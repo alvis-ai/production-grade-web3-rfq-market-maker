@@ -311,6 +311,10 @@ grep -q 'rfq_hedge_intent_errors_total' backend/src/modules/metrics/metrics.serv
 grep -q 'rfq_hedge_intent_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_hedge_intent_errors_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'recordHedgeIntentError' backend/src/main.ts
+grep -q 'rfq_hedge_lag_seconds' backend/src/modules/metrics/metrics.service.ts
+grep -q 'recordHedgeLag' backend/src/main.ts
+grep -q 'rfq_hedge_lag_seconds' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'rfq_hedge_lag_seconds' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_quote_status_update_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'recordQuoteStatusUpdateError' backend/src/main.ts
 grep -q 'rfq_inventory_balance' backend/src/modules/metrics/metrics.service.ts
@@ -323,8 +327,6 @@ grep -q 'rfq_realized_pnl_token_out' backend/src/modules/metrics/metrics.service
 ! grep -q 'rfq_settlement_event_lag_seconds' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 ! grep -q 'rfq_inventory_exposure_usd' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 ! grep -q 'rfq_inventory_exposure_usd' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
-! grep -q 'rfq_hedge_lag_seconds' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
-! grep -q 'rfq_hedge_lag_seconds' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfqClient.quote' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.submit' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getQuote' frontend/src/pages/QuotePage.tsx
@@ -693,6 +695,7 @@ grep -q 'rfq_signer_requests_total{operation="sign"} 1' scripts/smoke-api.mjs
 grep -q 'rfq_signer_latency_seconds_count{operation="verify"} 1' scripts/smoke-api.mjs
 grep -q 'rfq_submit_latency_seconds_count 2' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' scripts/smoke-api.mjs
+grep -q 'rfq_hedge_lag_seconds_count 1' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' backend/test/api.test.mjs
 grep -q 'hedge intent creation fails' backend/test/api.test.mjs
 grep -q 'lastPenaltyRead' backend/test/api.test.mjs
@@ -794,6 +797,9 @@ grep -q 'RFQSignerErrors' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQSignerLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQHedgeIntentErrors' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_hedge_intent_errors_total' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQHedgeLagHigh' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'rfq_hedge_lag_seconds_bucket' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQHedgeLagHigh' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQQuoteStatusUpdateErrors' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_quote_status_update_errors_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQPnlRecordErrors' infra/prometheus/rules/rfq-alerts.yml
@@ -802,6 +808,7 @@ grep -q 'uid: prometheus' infra/grafana/provisioning/datasources/prometheus.yml
 grep -q '"uid": "prometheus"' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'rfq_settlements_total' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'rfq_hedge_intent_errors_total' infra/grafana/provisioning/dashboards/rfq-overview.json
+grep -q 'rfq_hedge_lag_seconds_bucket' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'rfq_quote_status_update_errors_total' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'rfq_pnl_record_errors_total' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'rfq_inventory_balance' infra/grafana/provisioning/dashboards/rfq-overview.json
