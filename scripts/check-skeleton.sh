@@ -59,6 +59,7 @@ test -s contracts/test/RFQSettlement.t.sol
 test -s contracts/test/Deploy.t.sol
 test -s examples/quote-request.json
 test -s examples/submit-request.json
+test -s scripts/check-examples-consistency.mjs
 test -s scripts/check-eip712-consistency.mjs
 test -s scripts/check-contract-abi-consistency.mjs
 test -s scripts/check-api-error-consistency.mjs
@@ -397,6 +398,7 @@ grep -q 'compose:check' package.json
 grep -q 'verify:' Makefile
 grep -q '"verify": "make verify"' package.json
 grep -q 'make skeleton-check' scripts/verify.sh
+grep -q 'make examples-check' scripts/verify.sh
 grep -q 'make docs-check' scripts/verify.sh
 grep -q 'make compose-check' scripts/verify.sh
 grep -q 'make eip712-check' scripts/verify.sh
@@ -412,6 +414,8 @@ grep -q 'make contract-test' scripts/verify.sh
 grep -q 'forge not found; skipping contract-test' scripts/verify.sh
 grep -q 'backend-build' Makefile
 grep -q 'backend-test' Makefile
+grep -q 'examples-check' Makefile
+grep -q 'examples:check' package.json
 grep -q 'eip712-check' Makefile
 grep -q 'api-schema-check' Makefile
 grep -q 'api:schema:check' package.json
