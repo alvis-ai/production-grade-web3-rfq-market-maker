@@ -20,13 +20,22 @@ test -s backend/test/settlement-event.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
 grep -q 'marketDataService: MarketDataService' backend/src/modules/health/readiness.service.ts
+grep -q 'pricingEngine: PricingEngine' backend/src/modules/health/readiness.service.ts
+grep -q 'riskEngine: RiskEngine' backend/src/modules/health/readiness.service.ts
 grep -q 'signerService: SignerService' backend/src/modules/health/readiness.service.ts
 grep -q 'checkMarketData' backend/src/modules/health/readiness.service.ts
+grep -q 'checkPricing' backend/src/modules/health/readiness.service.ts
+grep -q 'checkRisk' backend/src/modules/health/readiness.service.ts
 grep -q 'checkSigner' backend/src/modules/health/readiness.service.ts
 grep -q 'checkDependency' backend/src/modules/health/readiness.service.ts
 grep -q 'maxSnapshotAgeMs' backend/src/modules/health/readiness.service.ts
 grep -q 'maxSnapshotFutureSkewMs' backend/src/modules/health/readiness.service.ts
 grep -q 'readiness_probe' backend/src/modules/health/readiness.service.ts
+grep -q 'probeSnapshot' backend/src/modules/health/readiness.service.ts
+grep -q 'probeRoutePlan' backend/src/modules/health/readiness.service.ts
+grep -q 'probePricing' backend/src/modules/health/readiness.service.ts
+grep -q 'pricingStatus' backend/src/modules/health/readiness.service.ts
+grep -q 'riskStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'quoteRepositoryStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'settlementEventStoreStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'pnlStatus' backend/src/modules/health/readiness.service.ts
@@ -766,9 +775,13 @@ grep -q 'pricing engine failures' backend/test/api.test.mjs
 grep -q 'market data shape is invalid' backend/test/api.test.mjs
 grep -q 'degrades readiness when market data is stale' backend/test/api.test.mjs
 grep -q 'degrades readiness when market data timestamp is too far in the future' backend/test/api.test.mjs
+grep -q 'degrades readiness when pricing probe fails' backend/test/api.test.mjs
+grep -q 'degrades readiness when risk probe fails' backend/test/api.test.mjs
 grep -q 'degrades readiness when signer probe fails' backend/test/api.test.mjs
 grep -q 'degrades readiness when storage dependency probes fail' backend/test/api.test.mjs
 grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'readiness pricing degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'readiness risk degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness storage dependency degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'toxic-flow users' backend/test/api.test.mjs

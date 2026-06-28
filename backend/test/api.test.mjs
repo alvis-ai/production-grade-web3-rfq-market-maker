@@ -339,6 +339,8 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(ready.body.status, "ready");
     assert.equal(ready.body.components.signer, "ok");
     assert.equal(ready.body.components.marketData, "ok");
+    assert.equal(ready.body.components.pricing, "ok");
+    assert.equal(ready.body.components.risk, "ok");
     assert.equal(ready.body.components.quoteRepository, "ok");
     assert.equal(ready.body.components.inventory, "ok");
     assert.equal(ready.body.components.execution, "ok");
@@ -722,6 +724,66 @@ test("RFQ API degrades readiness when signer probe fails", async () => {
     assert.match(metrics.payload, /rfq_readiness_status\{status="degraded"\} 1/);
     assert.match(metrics.payload, /rfq_dependency_status\{component="marketData",status="ok"\} 1/);
     assert.match(metrics.payload, /rfq_dependency_status\{component="signer",status="degraded"\} 1/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API degrades readiness when pricing probe fails", async () => {
+  const server = buildServer({
+    logger: false,
+    pricingEngine: {
+      async price() {
+        throw new Error("pricing readiness probe failed");
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/ready");
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.status, "degraded");
+    assert.equal(response.body.components.marketData, "ok");
+    assert.equal(response.body.components.pricing, "degraded");
+    assert.equal(response.body.components.risk, "ok");
+    assert.equal(response.body.components.signer, "ok");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="pricing",status="degraded"\} 1/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="risk",status="ok"\} 1/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API degrades readiness when risk probe fails", async () => {
+  const server = buildServer({
+    logger: false,
+    riskEngine: {
+      async evaluate() {
+        throw new Error("risk readiness probe failed");
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/ready");
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.status, "degraded");
+    assert.equal(response.body.components.marketData, "ok");
+    assert.equal(response.body.components.pricing, "ok");
+    assert.equal(response.body.components.risk, "degraded");
+    assert.equal(response.body.components.signer, "ok");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="pricing",status="ok"\} 1/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="risk",status="degraded"\} 1/);
   } finally {
     await server.close();
   }

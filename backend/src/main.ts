@@ -80,6 +80,8 @@ export function buildServer(options: BuildServerOptions = {}) {
   const metricsService = new MetricsService();
   const signerService = options.signerService ?? new LocalEIP712SignerService(readSignerConfig());
   const quoteRepository = options.quoteRepository ?? new InMemoryQuoteRepository();
+  const pricingEngine = options.pricingEngine ?? new FormulaPricingEngine();
+  const riskEngine = options.riskEngine ?? new BasicRiskEngine();
   const inventoryService = new InventoryService();
   const settlementEventService = options.settlementEventService ?? new SettlementEventService(inventoryService);
   const executionService = new SkeletonExecutionService({
@@ -101,9 +103,9 @@ export function buildServer(options: BuildServerOptions = {}) {
     inventoryService,
     marketDataService,
     hedgeService,
-    pricingEngine: options.pricingEngine ?? new FormulaPricingEngine(),
+    pricingEngine,
     quoteRepository,
-    riskEngine: options.riskEngine ?? new BasicRiskEngine(),
+    riskEngine,
     routingEngine: options.routingEngine ?? new InternalInventoryRoutingEngine(),
     signerService: new ObservedSignerService(signerService, metricsService),
   }, {
@@ -116,7 +118,9 @@ export function buildServer(options: BuildServerOptions = {}) {
     marketDataService,
     metricsService,
     pnlService,
+    pricingEngine,
     quoteRepository,
+    riskEngine,
     settlementEventService,
     signerService,
   });

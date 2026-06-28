@@ -3,13 +3,16 @@ import {
   getMarketSnapshotIssue,
   type MarketDataService,
 } from "../market-data/market-data.service.js";
-import type { QuoteRequest, SignedQuote } from "../../shared/types/rfq.js";
+import type { MarketSnapshot, QuoteRequest, SignedQuote } from "../../shared/types/rfq.js";
 import type { SignerService } from "../signer/signer.service.js";
 import type { HedgeIntentService } from "../hedge/hedge.service.js";
 import type { InventoryService } from "../inventory/inventory.service.js";
 import type { MetricsService } from "../metrics/metrics.service.js";
 import type { PnlStore } from "../pnl/pnl.service.js";
+import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
 import type { QuoteRepository } from "../quote/quote.repository.js";
+import type { RiskEngine } from "../risk/risk.engine.js";
+import type { RoutePlan } from "../routing/routing.engine.js";
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
 
 export type ReadinessComponentStatus = "ok" | "degraded";
@@ -21,6 +24,8 @@ export interface ReadinessResponse {
 
 export interface ReadinessServiceDeps {
   marketDataService: MarketDataService;
+  pricingEngine: PricingEngine;
+  riskEngine: RiskEngine;
   signerService: SignerService;
   quoteRepository: QuoteRepository;
   inventoryService: InventoryService;
@@ -34,6 +39,9 @@ export interface ReadinessServiceConfig {
   maxSnapshotAgeMs: number;
   maxSnapshotFutureSkewMs: number;
   probeRequest: QuoteRequest;
+  probeSnapshot: MarketSnapshot;
+  probeRoutePlan: RoutePlan;
+  probePricing: PricingResult;
   probeQuote: SignedQuote;
 }
 
@@ -47,6 +55,28 @@ export const defaultReadinessServiceConfig: ReadinessServiceConfig = {
     tokenOut: "0x0000000000000000000000000000000000000003",
     amountIn: "1000000000",
     slippageBps: 50,
+  },
+  probeSnapshot: {
+    snapshotId: "readiness_snapshot",
+    midPrice: "1",
+    liquidityUsd: "10000000000000",
+    volatilityBps: 25,
+    observedAt: "2026-01-01T00:00:00.000Z",
+  },
+  probeRoutePlan: {
+    routeId: "readiness_route",
+    venue: "internal_inventory",
+    tokenIn: "0x0000000000000000000000000000000000000002",
+    tokenOut: "0x0000000000000000000000000000000000000003",
+    expectedLiquidityUsd: "10000000000000",
+  },
+  probePricing: {
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    spreadBps: 16,
+    sizeImpactBps: 1,
+    inventorySkewBps: 0,
+    pricingVersion: "readiness-pricing-v1",
   },
   probeQuote: {
     user: "0x0000000000000000000000000000000000000001",
@@ -69,6 +99,8 @@ export class ReadinessService {
 
   async check(): Promise<ReadinessResponse> {
     const marketDataStatus = await this.checkMarketData();
+    const pricingStatus = await this.checkPricing();
+    const riskStatus = await this.checkRisk();
     const signerStatus = await this.checkSigner();
     const quoteRepositoryStatus = await this.checkDependency(this.deps.quoteRepository);
     const inventoryStatus = await this.checkDependency(this.deps.inventoryService);
@@ -78,8 +110,8 @@ export class ReadinessService {
     const metricsStatus = await this.checkDependency(this.deps.metricsService);
     const components = {
       marketData: marketDataStatus,
-      pricing: "ok",
-      risk: "ok",
+      pricing: pricingStatus,
+      risk: riskStatus,
       signer: signerStatus,
       quoteRepository: quoteRepositoryStatus,
       inventory: inventoryStatus,
@@ -120,6 +152,32 @@ export class ReadinessService {
       });
       const verified = await this.deps.signerService.verifyQuoteSignature(this.config.probeQuote, signature);
       return verified ? "ok" : "degraded";
+    } catch {
+      return "degraded";
+    }
+  }
+
+  private async checkPricing(): Promise<ReadinessComponentStatus> {
+    try {
+      await this.deps.pricingEngine.price({
+        request: this.config.probeRequest,
+        snapshot: this.config.probeSnapshot,
+        routePlan: this.config.probeRoutePlan,
+        inventorySkewBps: 0,
+      });
+      return "ok";
+    } catch {
+      return "degraded";
+    }
+  }
+
+  private async checkRisk(): Promise<ReadinessComponentStatus> {
+    try {
+      const decision = await this.deps.riskEngine.evaluate({
+        request: this.config.probeRequest,
+        pricing: this.config.probePricing,
+      });
+      return decision.status === "approved" ? "ok" : "degraded";
     } catch {
       return "degraded";
     }
