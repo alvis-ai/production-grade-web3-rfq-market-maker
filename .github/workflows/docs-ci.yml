@@ -6,6 +6,7 @@ on:
       - "book/**"
       - "docs/**"
       - "examples/**"
+      - "benchmark/**"
       - "backend/src/shared/types/rfq.ts"
       - "backend/src/modules/rate-limit/rate-limit.service.ts"
       - "backend/src/main.ts"

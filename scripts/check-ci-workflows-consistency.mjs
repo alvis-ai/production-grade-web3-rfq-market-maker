@@ -25,6 +25,7 @@ for (const [name, source] of Object.entries(workflows)) {
 assertContains(workflows.backend, [
   'name: Backend CI',
   '- "backend/**"',
+  '- "benchmark/**"',
   '- "frontend/**"',
   '- "sdk/**"',
   '- "infra/**"',
@@ -45,6 +46,7 @@ assertContains(workflows.docs, [
   '- "book/**"',
   '- "docs/**"',
   '- "examples/**"',
+  '- "benchmark/**"',
   '- "infra/prometheus/**"',
   '- "infra/grafana/**"',
   '- "infra/k8s/**"',

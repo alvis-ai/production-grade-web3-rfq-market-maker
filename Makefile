@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
+.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check benchmark-quote backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -27,6 +27,7 @@ help:
 	@echo "  api-schema-check  Verify backend, SDK, and OpenAPI schemas match"
 	@echo "  api-route-check  Verify backend, SDK, OpenAPI, and smoke routes match"
 	@echo "  database-schema-check  Verify database schema matches API state surfaces"
+	@echo "  benchmark-quote  Run a local POST /quote latency benchmark"
 	@echo "  backend-build  Build backend package"
 	@echo "  backend-test  Run backend API tests"
 	@echo "  backend-typecheck  Typecheck backend package"
@@ -114,6 +115,9 @@ api-route-check:
 
 database-schema-check:
 	@node scripts/check-database-schema-consistency.mjs
+
+benchmark-quote: backend-build
+	@node benchmark/quote-benchmark.mjs
 
 backend-build:
 	@CI=true pnpm --dir backend build

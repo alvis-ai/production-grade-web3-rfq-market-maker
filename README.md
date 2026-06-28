@@ -185,7 +185,15 @@ Repository quality gate:
 make verify
 ```
 
-`make verify` runs skeleton, examples, configuration, documentation, book template, ADR, security documentation, metrics consistency, runbook consistency, Grafana dashboard consistency, deployment manifest consistency, CI workflow consistency, Docker Compose, EIP-712, ABI, API rate-limit, API error-code, API schema, API route, database schema, backend, SDK, frontend and local API smoke checks through one entrypoint. If Foundry is installed locally it also runs `make contract-test`; otherwise contract tests remain enforced by the dedicated GitHub Actions contract workflow.
+`make verify` runs skeleton, examples, configuration, documentation, book template, ADR, security documentation, metrics consistency, runbook consistency, Grafana dashboard consistency, deployment manifest consistency, CI workflow consistency, Docker Compose, EIP-712, ABI, API rate-limit, API error-code, API schema, API route, database schema, quote benchmark, backend, SDK, frontend and local API smoke checks through one entrypoint. If Foundry is installed locally it also runs `make contract-test`; otherwise contract tests remain enforced by the dedicated GitHub Actions contract workflow.
+
+Local quote benchmark:
+
+```sh
+make benchmark-quote
+```
+
+The benchmark builds the backend and exercises `POST /quote` through Fastify injection without binding a network port. Defaults are 100 samples, p95 <= 50 ms and zero HTTP errors. Override with `RFQ_BENCHMARK_QUOTE_REQUESTS`, `RFQ_BENCHMARK_MAX_P95_MS` and `RFQ_BENCHMARK_MAX_ERRORS` for local profiling.
 
 ## TypeScript SDK
 

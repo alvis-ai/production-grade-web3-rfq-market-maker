@@ -6,6 +6,7 @@ test -s pnpm-workspace.yaml
 test -s pnpm-lock.yaml
 test -s .dockerignore
 test -s .env.example
+test -s benchmark/quote-benchmark.mjs
 test -s .github/workflows/backend-ci.yml
 test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
@@ -459,6 +460,7 @@ grep -q 'make api-error-check' scripts/verify.sh
 grep -q 'make api-schema-check' scripts/verify.sh
 grep -q 'make api-route-check' scripts/verify.sh
 grep -q 'make database-schema-check' scripts/verify.sh
+grep -q 'make benchmark-quote' scripts/verify.sh
 grep -q 'make backend-test' scripts/verify.sh
 grep -q 'make sdk-test' scripts/verify.sh
 grep -q 'make frontend-build' scripts/verify.sh
@@ -496,6 +498,17 @@ grep -q 'api-route-check' Makefile
 grep -q 'api:route:check' package.json
 grep -q 'database-schema-check' Makefile
 grep -q 'database:schema:check' package.json
+grep -q 'benchmark-quote' Makefile
+grep -q 'benchmark:quote' package.json
+grep -q 'make benchmark-quote' README.md
+grep -q 'RFQ_BENCHMARK_MAX_P95_MS' README.md
+grep -q 'make benchmark-quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'make benchmark-quote' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+grep -q 'RFQ_BENCHMARK_QUOTE_REQUESTS' benchmark/quote-benchmark.mjs
+grep -q 'RFQ_BENCHMARK_MAX_P95_MS' benchmark/quote-benchmark.mjs
+grep -q 'POST /quote' benchmark/quote-benchmark.mjs
+grep -q 'buildServer' benchmark/quote-benchmark.mjs
+grep -q 'rateLimit: false' benchmark/quote-benchmark.mjs
 grep -q 'smoke-api-local' Makefile
 grep -q 'forge test' .github/workflows/contract-ci.yml
 grep -q 'make contract-abi-check' .github/workflows/contract-ci.yml
@@ -538,6 +551,8 @@ grep -q 'make grafana-check' .github/workflows/docs-ci.yml
 grep -q 'make deployment-check' .github/workflows/docs-ci.yml
 grep -q 'make ci-check' .github/workflows/docs-ci.yml
 grep -Fq '"examples/**"' .github/workflows/docs-ci.yml
+grep -Fq '"benchmark/**"' .github/workflows/docs-ci.yml
+grep -Fq '"benchmark/**"' .github/workflows/backend-ci.yml
 grep -Fq '"scripts/check-api-schema-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-api-route-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-database-schema-consistency.mjs"' .github/workflows/docs-ci.yml
