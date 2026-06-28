@@ -14,7 +14,13 @@ contract DeployRFQSettlementTest {
         DeployRFQSettlement.Deployment memory deployment = script.deploy(trustedSigner, tokens);
 
         require(address(deployment.settlement) != address(0), "settlement not deployed");
+        require(address(deployment.treasury) != address(0), "treasury not deployed");
         require(deployment.settlement.owner() == address(script), "owner mismatch");
+        require(deployment.treasury.owner() == address(script), "treasury owner mismatch");
+        require(
+            deployment.treasury.settlement() == address(deployment.settlement),
+            "treasury settlement mismatch"
+        );
         require(deployment.settlement.trustedSigner() == trustedSigner, "trusted signer mismatch");
         require(deployment.settlement.tokenWhitelist(tokens[0]), "token 0 not whitelisted");
         require(deployment.settlement.tokenWhitelist(tokens[1]), "token 1 not whitelisted");

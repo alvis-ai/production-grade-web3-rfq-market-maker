@@ -8,7 +8,9 @@ import {
   buildQuoteTypedData,
   buildRFQDomain,
   buildSubmitQuoteArgs,
+  buildTreasuryTransferArgs,
   quoteTypes,
+  treasuryAbi,
 } from "../dist/index.js";
 
 const quote = {
@@ -94,6 +96,19 @@ test("buildSubmitQuoteArgs converts string integer fields to settlement bigint f
     deadline: 1893456000n,
     chainId: 1n,
   });
+});
+
+test("Treasury helpers expose release and emergency withdrawal contract calls", () => {
+  const args = buildTreasuryTransferArgs({
+    token: quote.tokenOut,
+    to: quote.user,
+    amount: quote.amountOut,
+  });
+
+  assert.deepEqual(args, [quote.tokenOut, quote.user, 1000000000n]);
+  assert.ok(treasuryAbi.some((item) => item.type === "function" && item.name === "release"));
+  assert.ok(treasuryAbi.some((item) => item.type === "function" && item.name === "emergencyWithdraw"));
+  assert.ok(treasuryAbi.some((item) => item.type === "event" && item.name === "FundsReleased"));
 });
 
 test("RFQClient sends quote, submit, status, health, and metrics requests with expected shapes", async () => {

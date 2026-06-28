@@ -111,3 +111,92 @@ export const rfqSettlementAbi = [
     ],
   },
 ] as const;
+
+export const treasuryAbi = [
+  {
+    type: "function",
+    name: "emergencyWithdraw",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "owner",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "release",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "setSettlement",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "newSettlement", type: "address" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "settlement",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "transferOwnership",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "newOwner", type: "address" }],
+    outputs: [],
+  },
+  {
+    type: "event",
+    name: "EmergencyWithdrawal",
+    inputs: [
+      { name: "owner", type: "address", indexed: true },
+      { name: "token", type: "address", indexed: true },
+      { name: "to", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "FundsReleased",
+    inputs: [
+      { name: "settlement", type: "address", indexed: true },
+      { name: "token", type: "address", indexed: true },
+      { name: "to", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "OwnerUpdated",
+    inputs: [
+      { name: "oldOwner", type: "address", indexed: true },
+      { name: "newOwner", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "SettlementUpdated",
+    inputs: [
+      { name: "oldSettlement", type: "address", indexed: true },
+      { name: "newSettlement", type: "address", indexed: true },
+    ],
+  },
+] as const;

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { RFQSettlement } from "../src/RFQSettlement.sol";
+import { Treasury } from "../src/Treasury.sol";
 
 interface Vm {
     function envAddress(string calldata name) external view returns (address);
@@ -22,6 +23,7 @@ contract DeployRFQSettlement {
 
     struct Deployment {
         RFQSettlement settlement;
+        Treasury treasury;
         address trustedSigner;
         address[] tokenWhitelist;
     }
@@ -40,13 +42,18 @@ contract DeployRFQSettlement {
         returns (Deployment memory deployment)
     {
         RFQSettlement settlement = new RFQSettlement(trustedSigner);
+        Treasury treasury = new Treasury(address(this));
+        treasury.setSettlement(address(settlement));
 
         for (uint256 index = 0; index < tokenWhitelist.length; index += 1) {
             settlement.setTokenWhitelist(tokenWhitelist[index], true);
         }
 
         return Deployment({
-            settlement: settlement, trustedSigner: trustedSigner, tokenWhitelist: tokenWhitelist
+            settlement: settlement,
+            treasury: treasury,
+            trustedSigner: trustedSigner,
+            tokenWhitelist: tokenWhitelist
         });
     }
 

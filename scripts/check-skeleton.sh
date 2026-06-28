@@ -286,12 +286,16 @@ grep -q 'role="alert"' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'error-box' frontend/src/app/styles.css
 grep -q 'export { RFQClient' sdk/src/index.ts
 grep -q 'rfqSettlementAbi' sdk/src/index.ts
+grep -q 'treasuryAbi' sdk/src/index.ts
 grep -q 'buildSubmitQuoteArgs' sdk/src/index.ts
+grep -q 'buildTreasuryTransferArgs' sdk/src/index.ts
 grep -q 'buildQuoteTypedData' sdk/src/eip712.ts
 grep -q 'ProductionGradeRFQ' sdk/src/eip712.ts
 grep -q 'RFQClientError' sdk/test/sdk.test.mjs
 grep -q 'buildQuoteTypedData' sdk/test/sdk.test.mjs
 grep -q 'buildSubmitQuoteArgs' sdk/test/sdk.test.mjs
+grep -q 'buildTreasuryTransferArgs' sdk/test/sdk.test.mjs
+grep -q 'emergencyWithdraw' sdk/src/abi.ts
 grep -q 'recoverTypedDataAddress' sdk/test/sdk.test.mjs
 grep -q 'verifyTypedData' sdk/test/sdk.test.mjs
 grep -q 'submitQuote' sdk/src/abi.ts
@@ -342,9 +346,12 @@ grep -q 'testSubmitQuoteRejectsWrongChainId' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUnwhitelistedToken' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsAmountOutBelowMinimum' contracts/test/RFQSettlement.t.sol
 grep -q 'contract DeployRFQSettlement' contracts/script/Deploy.s.sol
+grep -q 'new Treasury' contracts/script/Deploy.s.sol
+grep -q 'treasury.setSettlement' contracts/script/Deploy.s.sol
 grep -q 'RFQ_TRUSTED_SIGNER' contracts/script/Deploy.s.sol
 grep -q 'RFQ_TOKEN_WHITELIST_JSON' contracts/script/Deploy.s.sol
 grep -q 'testDeployInitializesTrustedSignerAndWhitelist' contracts/test/Deploy.t.sol
+grep -q 'treasury settlement mismatch' contracts/test/Deploy.t.sol
 grep -q 'contract-test' Makefile
 grep -q 'backend-build' Makefile
 grep -q 'backend-test' Makefile

@@ -108,12 +108,15 @@ Public SDK interface:
 const client = new RFQClient(baseUrl);
 const quote = await client.quote(request);
 const typedData = buildQuoteTypedData(quoteLikeStruct, verifyingContract);
+const submitArgs = buildSubmitQuoteArgs(quoteLikeStruct, signature);
+const treasuryArgs = buildTreasuryTransferArgs({ token, to, amount });
 ```
 
 ## Engineering Decisions
 
 - SDK uses string amounts.
 - SDK owns EIP-712 helper.
+- SDK exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs` and `buildTreasuryTransferArgs` so viem/wagmi consumers use the same contract tuple shape as the repository tests.
 - SDK exposes API errors instead of flattening everything to generic Error in production.
 
 ## Failure Scenarios
@@ -133,7 +136,7 @@ SDK should stay lightweight. It should not bundle frontend-only wallet libraries
 
 ## Testing Strategy
 
-测试 client quote request、API error parsing、typed data structure、domain builder 和 amount string handling。
+测试 client quote request、API error parsing、typed data structure、domain builder、settlement tuple conversion、Treasury tuple conversion 和 amount string handling。
 
 ## Interview Notes
 

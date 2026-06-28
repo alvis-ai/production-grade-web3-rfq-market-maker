@@ -1,4 +1,4 @@
-export { rfqSettlementAbi } from "./abi.js";
+export { rfqSettlementAbi, treasuryAbi } from "./abi.js";
 export { RFQClient, RFQClientError } from "./client.js";
 export { rfqErrorCodes } from "./types.js";
 export {
@@ -8,9 +8,9 @@ export {
   buildRFQDomain,
   quoteTypes,
 } from "./eip712.js";
-export { buildSubmitQuoteArgs, toSettlementQuote } from "./settlement.js";
+export { buildSubmitQuoteArgs, buildTreasuryTransferArgs, toSettlementQuote } from "./settlement.js";
 export type { RFQDomain } from "./eip712.js";
-export type { SettlementQuote, SubmitQuoteArgs } from "./settlement.js";
+export type { SettlementQuote, SubmitQuoteArgs, TreasuryTransferArgs, TreasuryTransferInput } from "./settlement.js";
 export type { RFQClientErrorCode } from "./client.js";
 export type {
   Address,

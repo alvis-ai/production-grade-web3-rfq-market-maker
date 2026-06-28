@@ -1,4 +1,4 @@
-import type { Address, Quote } from "./types.js";
+import type { Address, Quote, UIntString } from "./types.js";
 
 export interface SettlementQuote {
   user: Address;
@@ -13,6 +13,13 @@ export interface SettlementQuote {
 }
 
 export type SubmitQuoteArgs = readonly [SettlementQuote, `0x${string}`];
+export type TreasuryTransferArgs = readonly [Address, Address, bigint];
+
+export interface TreasuryTransferInput {
+  token: Address;
+  to: Address;
+  amount: UIntString | bigint;
+}
 
 export function toSettlementQuote(quote: Quote): SettlementQuote {
   return {
@@ -30,4 +37,8 @@ export function toSettlementQuote(quote: Quote): SettlementQuote {
 
 export function buildSubmitQuoteArgs(quote: Quote, signature: `0x${string}`): SubmitQuoteArgs {
   return [toSettlementQuote(quote), signature] as const;
+}
+
+export function buildTreasuryTransferArgs(input: TreasuryTransferInput): TreasuryTransferArgs {
+  return [input.token, input.to, BigInt(input.amount)] as const;
 }
