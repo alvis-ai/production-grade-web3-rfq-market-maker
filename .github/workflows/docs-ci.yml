@@ -53,3 +53,5 @@ jobs:
         run: make docs-check
       - name: Check book chapter template
         run: make book-template-check
+      - name: Check ADR consistency
+        run: make adr-check

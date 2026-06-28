@@ -7,6 +7,7 @@
     "verify": "make verify",
     "docs:check": "make docs-check",
     "book:template:check": "make book-template-check",
+    "adr:check": "make adr-check",
     "compose:check": "make compose-check",
     "examples:check": "make examples-check",
     "config:check": "make config-check",
