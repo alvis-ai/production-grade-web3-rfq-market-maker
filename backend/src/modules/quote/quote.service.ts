@@ -36,10 +36,12 @@ export interface QuoteServiceDeps {
 
 export interface QuoteServiceConfig {
   maxSnapshotAgeMs: number;
+  quoteTtlSeconds: number;
 }
 
 export const defaultQuoteServiceConfig: QuoteServiceConfig = {
   maxSnapshotAgeMs: 5_000,
+  quoteTtlSeconds: 30,
 };
 
 export class QuoteService {
@@ -108,7 +110,7 @@ export class QuoteService {
       );
     }
 
-    const deadline = Math.floor(Date.now() / 1000) + 30;
+    const deadline = Math.floor(Date.now() / 1000) + this.config.quoteTtlSeconds;
     const signedQuote: SignedQuote = {
       user: request.user,
       tokenIn: request.tokenIn,

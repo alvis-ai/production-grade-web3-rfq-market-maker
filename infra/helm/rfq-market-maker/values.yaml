@@ -18,6 +18,7 @@ env:
   HOST: "0.0.0.0"
   PORT: "3000"
   RFQ_LOG_LEVEL: info
+  RFQ_QUOTE_TTL_SECONDS: "30"
 
 signerSecret:
   name: rfq-backend-secrets

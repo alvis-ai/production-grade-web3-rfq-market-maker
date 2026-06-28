@@ -129,11 +129,12 @@ Copy `.env.example` for local backend configuration. The included signer key is 
 ```text
 HOST=127.0.0.1
 PORT=3000
+RFQ_QUOTE_TTL_SECONDS=30
 RFQ_SIGNER_PRIVATE_KEY=0x...
 RFQ_SETTLEMENT_ADDRESS=0x...
 ```
 
-The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract.
+The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract. `RFQ_QUOTE_TTL_SECONDS` controls the signed quote lifetime and must be an integer from 1 to 3600; keep it short enough to limit stale price execution.
 
 ## Production Configuration
 

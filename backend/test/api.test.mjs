@@ -22,12 +22,14 @@ test("production startup requires explicit signer configuration", () => {
     NODE_ENV: process.env.NODE_ENV,
     RFQ_SIGNER_PRIVATE_KEY: process.env.RFQ_SIGNER_PRIVATE_KEY,
     RFQ_SETTLEMENT_ADDRESS: process.env.RFQ_SETTLEMENT_ADDRESS,
+    RFQ_QUOTE_TTL_SECONDS: process.env.RFQ_QUOTE_TTL_SECONDS,
   };
 
   try {
     process.env.NODE_ENV = "production";
     delete process.env.RFQ_SIGNER_PRIVATE_KEY;
     delete process.env.RFQ_SETTLEMENT_ADDRESS;
+    delete process.env.RFQ_QUOTE_TTL_SECONDS;
 
     assert.throws(
       () => buildServer({ logger: false }),
@@ -62,6 +64,44 @@ test("production startup requires explicit signer configuration", () => {
     restoreEnv("NODE_ENV", originalEnv.NODE_ENV);
     restoreEnv("RFQ_SIGNER_PRIVATE_KEY", originalEnv.RFQ_SIGNER_PRIVATE_KEY);
     restoreEnv("RFQ_SETTLEMENT_ADDRESS", originalEnv.RFQ_SETTLEMENT_ADDRESS);
+    restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalEnv.RFQ_QUOTE_TTL_SECONDS);
+  }
+});
+
+test("RFQ API uses RFQ_QUOTE_TTL_SECONDS for signed quote deadlines", async () => {
+  const originalTtl = process.env.RFQ_QUOTE_TTL_SECONDS;
+  const originalDateNow = Date.now;
+  const fixedNow = originalDateNow();
+  process.env.RFQ_QUOTE_TTL_SECONDS = "120";
+  Date.now = () => fixedNow;
+
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+
+    assert.equal(quote.statusCode, 200);
+    assert.equal(quote.body.deadline, Math.floor(fixedNow / 1000) + 120);
+  } finally {
+    await server.close();
+    Date.now = originalDateNow;
+    restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalTtl);
+  }
+});
+
+test("RFQ API rejects invalid RFQ_QUOTE_TTL_SECONDS at startup", () => {
+  const originalTtl = process.env.RFQ_QUOTE_TTL_SECONDS;
+
+  try {
+    process.env.RFQ_QUOTE_TTL_SECONDS = "0";
+
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_QUOTE_TTL_SECONDS must be an integer between 1 and 3600/,
+    );
+  } finally {
+    restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalTtl);
   }
 });
 

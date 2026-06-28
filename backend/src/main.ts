@@ -8,7 +8,7 @@ import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { PnlService, type PnlStore, type RecordPnlInput } from "./modules/pnl/pnl.service.js";
 import { FormulaPricingEngine, type PricingEngine } from "./modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository, type QuoteRepository } from "./modules/quote/quote.repository.js";
-import { QuoteService } from "./modules/quote/quote.service.js";
+import { defaultQuoteServiceConfig, QuoteService } from "./modules/quote/quote.service.js";
 import { InMemoryRateLimiter, type RateLimitConfig, type RateLimitedEndpoint } from "./modules/rate-limit/rate-limit.service.js";
 import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine, type RoutingEngine } from "./modules/routing/routing.engine.js";
@@ -33,6 +33,7 @@ export interface BuildServerOptions {
   settlementVerifier?: SettlementVerifier;
   signerService?: SignerService;
   rateLimit?: Partial<RateLimitConfig> | false;
+  quoteTtlSeconds?: number;
 }
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -71,6 +72,9 @@ export function buildServer(options: BuildServerOptions = {}) {
     riskEngine: options.riskEngine ?? new BasicRiskEngine(),
     routingEngine: options.routingEngine ?? new InternalInventoryRoutingEngine(),
     signerService: new ObservedSignerService(signerService, metricsService),
+  }, {
+    ...defaultQuoteServiceConfig,
+    quoteTtlSeconds: options.quoteTtlSeconds ?? readQuoteTtlSeconds(),
   });
 
   server.get("/health", async () => ({ status: "ok" }));
@@ -390,6 +394,21 @@ function requireProductionAddress(value: string | undefined, name: string): void
   if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
     throw new Error(`${name} must be a 20-byte hex address when NODE_ENV=production`);
   }
+}
+
+function readQuoteTtlSeconds(): number {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const configured = env?.RFQ_QUOTE_TTL_SECONDS;
+  if (!configured || configured.trim().length === 0) {
+    return defaultQuoteServiceConfig.quoteTtlSeconds;
+  }
+
+  const value = Number(configured);
+  if (!Number.isInteger(value) || value <= 0 || value > 3600) {
+    throw new Error("RFQ_QUOTE_TTL_SECONDS must be an integer between 1 and 3600");
+  }
+
+  return value;
 }
 
 export async function startServer() {

@@ -113,6 +113,8 @@ grep -q 'LocalEIP712SignerService' backend/src/main.ts
 grep -q 'ObservedSignerService' backend/src/main.ts
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' backend/src/main.ts
 grep -q 'RFQ_SETTLEMENT_ADDRESS' backend/src/main.ts
+grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/src/main.ts
+grep -q 'readQuoteTtlSeconds' backend/src/main.ts
 grep -q 'requireProductionEnv' backend/src/main.ts
 grep -q 'requireProductionPrivateKey' backend/src/main.ts
 grep -q 'requireProductionAddress' backend/src/main.ts
@@ -149,6 +151,8 @@ grep -q 'markQuoteFailedBestEffort' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteStoreFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'QUOTE_STORE_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteFailureCode' backend/src/modules/quote/quote.service.ts
+grep -q 'quoteTtlSeconds' backend/src/modules/quote/quote.service.ts
+grep -q 'defaultQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
 grep -q 'class QuoteIdentityGenerator' backend/src/modules/quote/quote-identity.ts
 grep -q 'randomUint64' backend/src/modules/quote/quote-identity.ts
 grep -q 'class InMemoryQuoteRepository' backend/src/modules/quote/quote.repository.ts
@@ -376,11 +380,17 @@ grep -q 'pattern: "^tr_.+"' docs/api/openapi.yaml
 grep -q 'allowBuilds' pnpm-workspace.yaml
 grep -q 'onlyBuiltDependencies' pnpm-workspace.yaml
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' .env.example
+grep -q 'RFQ_QUOTE_TTL_SECONDS=30' .env.example
 grep -q 'HOST=127.0.0.1' .env.example
 grep -q 'Production Configuration' README.md
 grep -q 'rfq-backend-secrets' README.md
 grep -q '32-byte hex string' README.md
 grep -q '20-byte hex address' README.md
+grep -q 'RFQ_QUOTE_TTL_SECONDS' README.md
+grep -q 'RFQ_QUOTE_TTL_SECONDS' docs/api/openapi.yaml
+grep -q 'RFQ_QUOTE_TTL_SECONDS' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/test/api.test.mjs
+grep -q 'configured quote TTL' backend/test/quote-service.test.mjs
 grep -q '"viem"' backend/package.json
 grep -q '"@types/react"' frontend/package.json
 grep -q 'scripts/smoke-api.mjs' scripts/smoke-api.sh
@@ -511,6 +521,7 @@ grep -q 'rfq-backend-secrets' infra/k8s/backend-deployment.yaml
 grep -q 'kind: Secret' infra/k8s/backend-secret.yaml
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' infra/k8s/backend-secret.yaml
 grep -q 'RFQ_SETTLEMENT_ADDRESS' infra/k8s/backend-secret.yaml
+grep -q 'RFQ_QUOTE_TTL_SECONDS' infra/k8s/configmap.yaml
 grep -q 'HOST: "0.0.0.0"' infra/k8s/configmap.yaml
 grep -q 'prometheus.io/scrape' infra/k8s/backend-service.yaml
 grep -q 'prometheus.io/path' infra/k8s/backend-service.yaml
@@ -519,6 +530,7 @@ grep -q 'path: /ready' infra/helm/rfq-market-maker/templates/deployment.yaml
 grep -q 'secretKeyRef' infra/helm/rfq-market-maker/templates/deployment.yaml
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' infra/helm/rfq-market-maker/templates/deployment.yaml
 grep -q 'RFQ_SETTLEMENT_ADDRESS' infra/helm/rfq-market-maker/templates/deployment.yaml
+grep -q 'RFQ_QUOTE_TTL_SECONDS' infra/helm/rfq-market-maker/values.yaml
 grep -q 'HOST: "0.0.0.0"' infra/helm/rfq-market-maker/values.yaml
 grep -q 'signerSecret' infra/helm/rfq-market-maker/values.yaml
 grep -q 'rfq-backend-secrets' infra/helm/rfq-market-maker/values.yaml

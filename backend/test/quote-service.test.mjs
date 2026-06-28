@@ -4,7 +4,7 @@ import { InventoryService } from "../dist/modules/inventory/inventory.service.js
 import { StaticMarketDataService } from "../dist/modules/market-data/market-data.service.js";
 import { FormulaPricingEngine } from "../dist/modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
-import { QuoteService } from "../dist/modules/quote/quote.service.js";
+import { defaultQuoteServiceConfig, QuoteService } from "../dist/modules/quote/quote.service.js";
 import { BasicRiskEngine } from "../dist/modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "../dist/modules/routing/routing.engine.js";
 import { APIError } from "../dist/shared/errors/api-error.js";
@@ -17,6 +17,43 @@ const request = {
   amountIn: "1000000000",
   slippageBps: 50,
 };
+
+test("QuoteService uses configured quote TTL when generating signed quote deadlines", async () => {
+  const originalDateNow = Date.now;
+  const fixedNow = originalDateNow();
+  Date.now = () => fixedNow;
+
+  try {
+    const service = new QuoteService(
+      {
+        inventoryService: new InventoryService(),
+        marketDataService: new StaticMarketDataService(),
+        pricingEngine: new FormulaPricingEngine(),
+        quoteRepository: new InMemoryQuoteRepository(),
+        riskEngine: new BasicRiskEngine(),
+        routingEngine: new InternalInventoryRoutingEngine(),
+        signerService: {
+          async signQuote() {
+            return fixedSignature();
+          },
+          async verifyQuoteSignature() {
+            return true;
+          },
+        },
+      },
+      {
+        ...defaultQuoteServiceConfig,
+        quoteTtlSeconds: 120,
+      },
+    );
+
+    const quote = await service.createQuote(request);
+
+    assert.equal(quote.deadline, Math.floor(fixedNow / 1000) + 120);
+  } finally {
+    Date.now = originalDateNow;
+  }
+});
 
 test("QuoteService marks requested quotes as failed when signer is unavailable", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
@@ -101,3 +138,7 @@ test("QuoteService preserves signer errors when marking failed quotes fails", as
   assert.equal(status.status, "requested");
   assert.equal(status.errorCode, undefined);
 });
+
+function fixedSignature() {
+  return `0x${"11".repeat(65)}`;
+}

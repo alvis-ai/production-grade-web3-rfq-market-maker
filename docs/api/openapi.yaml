@@ -407,6 +407,7 @@ components:
           $ref: "#/components/schemas/UIntString"
         deadline:
           type: integer
+          description: Unix timestamp generated from the configured RFQ_QUOTE_TTL_SECONDS signed quote lifetime.
         nonce:
           $ref: "#/components/schemas/UIntString"
         signature:
