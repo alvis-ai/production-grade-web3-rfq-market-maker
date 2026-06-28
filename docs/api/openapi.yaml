@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Production-Grade Web3 RFQ Market Maker API
   version: 0.1.0
-  description: API draft for RFQ quote, submit, health, and metrics flows. Every response includes an x-trace-id header for request correlation; structured error bodies also include the same traceId value. Browser access is controlled by the RFQ_CORS_ALLOWED_ORIGINS allowlist. The gateway emits no-store cache control and baseline browser security headers on every response.
+  description: API draft for RFQ quote, submit, health, and metrics flows. Every response includes an x-trace-id header for request correlation; structured error bodies also include the same traceId value. Browser access is controlled by the RFQ_CORS_ALLOWED_ORIGINS allowlist. The gateway emits no-store cache control and baseline browser security headers on every response. Unknown routes and unsupported methods return the standard ErrorResponse shape.
 servers:
   - url: http://localhost:3000
 paths:

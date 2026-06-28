@@ -117,6 +117,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 - `RFQ_CORS_ALLOWED_ORIGINS` 控制浏览器来源 allowlist，默认允许本地 Vite 前端 `http://localhost:5173`。Gateway 只为匹配来源写入 `access-control-allow-origin`；预检请求来源不匹配时返回结构化 `INVALID_REQUEST`/403。
 - Gateway 为所有响应写入 baseline security headers：`cache-control: no-store`、`x-content-type-options: nosniff`、`x-frame-options: DENY`、`referrer-policy: no-referrer` 和限制性的 `permissions-policy`。`RFQ_ENABLE_HSTS` 只应在 HTTPS 入口后开启，开启后写入 `strict-transport-security`。
 - Standalone backend process registers graceful shutdown handlers for `SIGTERM` and `SIGINT`; the first signal closes Fastify and sets process exit code, while duplicate signals do not trigger duplicate close attempts.
+- Gateway uses a not-found handler so unknown routes and unsupported HTTP methods return structured `INVALID_REQUEST`/404 responses instead of Fastify default error objects.
 - `/ready` 当前检查 market data freshness 和 signer probe。stale snapshot 会让 `marketData` 组件变为 `degraded`；signer 无法签名或签名无法被同一 trusted signer 验证时，`signer` 组件变为 `degraded`，用于阻止 Kubernetes 在错误价格输入或不可签名状态下继续导流。
 - 当前 Fastify 实现使用 `InMemoryRateLimiter` 保护 `/quote`、`/submit`、`/quote/:id`、`/settlements/:id`、`/hedges/:id` 和 `/pnl`；生产部署可替换为 Redis-backed distributed rate limit，并保持 `RATE_LIMITED` 错误契约不变。
 
@@ -124,6 +125,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 
 - 请求格式错误、malformed JSON、unsupported content type 或 body too large：返回 `INVALID_REQUEST`，并按具体场景使用 HTTP 400、413 或 415。
 - CORS preflight origin 不在 allowlist：返回 `INVALID_REQUEST` 和 HTTP 403，不写入 allow-origin header。
+- Unknown route or unsupported method：返回 `INVALID_REQUEST` 和 HTTP 404，仍包含 traceId 和 security headers。
 - 限流：返回 HTTP 429、`RATE_LIMITED` 和 `Retry-After`。
 - Market data unavailable、invalid 或 stale：`/ready` 返回 HTTP 503/degraded，`POST /quote` 返回 `MARKET_DATA_UNAVAILABLE`。
 - Signer readiness probe failed：`/ready` 返回 HTTP 503/degraded，`POST /quote` 仍会在实际签名时返回 `SIGNER_UNAVAILABLE`。
@@ -144,7 +146,7 @@ Gateway 应保持薄层，不执行重计算。序列化和校验必须足够快
 
 ## Testing Strategy
 
-测试 request validation、Fastify parser error mapping、body limit、CORS allowed origin、CORS preflight rejection、security headers、HSTS toggle、graceful shutdown signal handling、error mapping、rate limit、health、readiness market data degraded、readiness signer degraded、metrics、`/quote` 路由、settlement event 查询、hedge intent 查询、PnL summary 查询，以及成功和失败响应的 `x-trace-id` 传播。
+测试 request validation、Fastify parser error mapping、not-found handler、body limit、CORS allowed origin、CORS preflight rejection、security headers、HSTS toggle、graceful shutdown signal handling、error mapping、rate limit、health、readiness market data degraded、readiness signer degraded、metrics、`/quote` 路由、settlement event 查询、hedge intent 查询、PnL summary 查询，以及成功和失败响应的 `x-trace-id` 传播。
 
 ## Interview Notes
 

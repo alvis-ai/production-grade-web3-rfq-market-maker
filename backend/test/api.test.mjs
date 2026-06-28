@@ -1487,6 +1487,32 @@ test("RFQ API includes trace ids on validation and not found errors", async () =
   }
 });
 
+test("RFQ API maps unmatched routes to structured errors", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const missingRoute = await injectJson(server, "GET", "/not-a-real-route");
+
+    assert.equal(missingRoute.statusCode, 404);
+    assert.equal(missingRoute.body.code, "INVALID_REQUEST");
+    assert.equal(missingRoute.body.message, "Route not found");
+    assert.match(missingRoute.body.traceId, /^tr_/);
+    assert.equal(missingRoute.headers["x-trace-id"], missingRoute.body.traceId);
+    assertSecurityHeaders(missingRoute, { hsts: false });
+
+    const unsupportedMethod = await injectJson(server, "PATCH", "/quote/q_missing");
+
+    assert.equal(unsupportedMethod.statusCode, 404);
+    assert.equal(unsupportedMethod.body.code, "INVALID_REQUEST");
+    assert.equal(unsupportedMethod.body.message, "Route not found");
+    assert.match(unsupportedMethod.body.traceId, /^tr_/);
+    assert.equal(unsupportedMethod.headers["x-trace-id"], unsupportedMethod.body.traceId);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API maps malformed JSON bodies to structured errors", async () => {
   const server = buildServer({ logger: false });
   await server.ready();

@@ -71,6 +71,9 @@ export function buildServer(options: BuildServerOptions = {}) {
   server.setErrorHandler((error, request, reply) => {
     return sendError(reply, requestTraceId(request), frameworkErrorToAPIError(error));
   });
+  server.setNotFoundHandler((request, reply) => {
+    return sendError(reply, requestTraceId(request), new APIError("INVALID_REQUEST", "Route not found", 404));
+  });
 
   const hedgeService = options.hedgeService ?? new HedgeService();
   const marketDataService = options.marketDataService ?? new StaticMarketDataService();

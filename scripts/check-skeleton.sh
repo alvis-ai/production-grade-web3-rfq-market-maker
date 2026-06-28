@@ -135,6 +135,8 @@ grep -q 'installGracefulShutdown' backend/src/main.ts
 grep -q 'SIGTERM' backend/src/main.ts
 grep -q 'SIGINT' backend/src/main.ts
 grep -q 'server.close' backend/src/main.ts
+grep -q 'server.setNotFoundHandler' backend/src/main.ts
+grep -q 'Route not found' backend/src/main.ts
 grep -q 'server.setErrorHandler' backend/src/main.ts
 grep -q 'frameworkErrorToAPIError' backend/src/main.ts
 grep -q 'FST_ERR_CTP_BODY_TOO_LARGE' backend/src/main.ts
@@ -402,6 +404,7 @@ grep -q 'CORS preflight' book/Volume5-BackendEngineering/Chapter01-API-Gateway.m
 grep -q 'baseline security headers' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'RFQ_ENABLE_HSTS' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'graceful shutdown signal handling' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'not-found handler' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'IntString' docs/api/openapi.yaml
 grep -q 'Internal rejection reason for rejected quote records' docs/api/openapi.yaml
 grep -q 'QUOTE_ALREADY_USED' docs/api/openapi.yaml
@@ -426,10 +429,12 @@ grep -q 'RFQ_ENABLE_HSTS' README.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' docs/api/openapi.yaml
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' docs/api/openapi.yaml
 grep -q 'baseline browser security headers' docs/api/openapi.yaml
+grep -q 'Unknown routes and unsupported methods' docs/api/openapi.yaml
 grep -q '"413":' docs/api/openapi.yaml
 grep -q 'body too large' docs/api/errors.md
 grep -q 'malformed JSON' docs/api/errors.md
 grep -q 'CORS preflight origin' docs/api/errors.md
+grep -q '未匹配路由' docs/api/errors.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/test/api.test.mjs
 grep -q 'configured quote TTL' backend/test/quote-service.test.mjs
@@ -525,6 +530,7 @@ grep -q 'RFQ_ENABLE_HSTS' backend/test/api.test.mjs
 grep -q 'assertSecurityHeaders' backend/test/api.test.mjs
 grep -q 'graceful shutdown handlers' backend/test/api.test.mjs
 grep -q 'graceful shutdown failures' backend/test/api.test.mjs
+grep -q 'unmatched routes to structured errors' backend/test/api.test.mjs
 grep -q 'settlement shape' backend/test/api.test.mjs
 grep -q 'expired submit quotes' backend/test/api.test.mjs
 grep -q 'unissued submit quotes' backend/test/api.test.mjs
