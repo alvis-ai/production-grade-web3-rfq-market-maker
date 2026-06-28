@@ -56,6 +56,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: Request body too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "429":
           description: Rate limited
           headers:
@@ -113,6 +119,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: Quote expired, already used, signature invalid, or rejected by settlement verification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: Request body too large
           content:
             application/json:
               schema:

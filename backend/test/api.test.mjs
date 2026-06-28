@@ -23,6 +23,7 @@ test("production startup requires explicit signer configuration", () => {
     RFQ_SIGNER_PRIVATE_KEY: process.env.RFQ_SIGNER_PRIVATE_KEY,
     RFQ_SETTLEMENT_ADDRESS: process.env.RFQ_SETTLEMENT_ADDRESS,
     RFQ_QUOTE_TTL_SECONDS: process.env.RFQ_QUOTE_TTL_SECONDS,
+    RFQ_BODY_LIMIT_BYTES: process.env.RFQ_BODY_LIMIT_BYTES,
   };
 
   try {
@@ -30,6 +31,7 @@ test("production startup requires explicit signer configuration", () => {
     delete process.env.RFQ_SIGNER_PRIVATE_KEY;
     delete process.env.RFQ_SETTLEMENT_ADDRESS;
     delete process.env.RFQ_QUOTE_TTL_SECONDS;
+    delete process.env.RFQ_BODY_LIMIT_BYTES;
 
     assert.throws(
       () => buildServer({ logger: false }),
@@ -65,6 +67,7 @@ test("production startup requires explicit signer configuration", () => {
     restoreEnv("RFQ_SIGNER_PRIVATE_KEY", originalEnv.RFQ_SIGNER_PRIVATE_KEY);
     restoreEnv("RFQ_SETTLEMENT_ADDRESS", originalEnv.RFQ_SETTLEMENT_ADDRESS);
     restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalEnv.RFQ_QUOTE_TTL_SECONDS);
+    restoreEnv("RFQ_BODY_LIMIT_BYTES", originalEnv.RFQ_BODY_LIMIT_BYTES);
   }
 });
 
@@ -102,6 +105,21 @@ test("RFQ API rejects invalid RFQ_QUOTE_TTL_SECONDS at startup", () => {
     );
   } finally {
     restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalTtl);
+  }
+});
+
+test("RFQ API rejects invalid RFQ_BODY_LIMIT_BYTES at startup", () => {
+  const originalBodyLimit = process.env.RFQ_BODY_LIMIT_BYTES;
+
+  try {
+    process.env.RFQ_BODY_LIMIT_BYTES = "1023";
+
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_BODY_LIMIT_BYTES must be an integer between 1024 and 1048576/,
+    );
+  } finally {
+    restoreEnv("RFQ_BODY_LIMIT_BYTES", originalBodyLimit);
   }
 });
 
@@ -1268,6 +1286,43 @@ test("RFQ API includes trace ids on validation and not found errors", async () =
   }
 });
 
+test("RFQ API maps malformed JSON bodies to structured errors", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const response = await injectRaw(server, "POST", "/quote", '{"chainId":');
+
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.body.code, "INVALID_REQUEST");
+    assert.equal(response.body.message, "Malformed JSON request body");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API maps oversized JSON bodies to structured errors", async () => {
+  const server = buildServer({ logger: false, bodyLimitBytes: 128 });
+  await server.ready();
+
+  try {
+    const response = await injectRaw(server, "POST", "/quote", JSON.stringify({
+      ...baseQuoteRequest,
+      amountIn: "1".repeat(256),
+    }));
+
+    assert.equal(response.statusCode, 413);
+    assert.equal(response.body.code, "INVALID_REQUEST");
+    assert.equal(response.body.message, "Request body too large");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rejects submit payloads that violate settlement shape", async () => {
   const server = buildServer({ logger: false });
   await server.ready();
@@ -1735,6 +1790,21 @@ async function injectJson(server, method, url, payload) {
     url,
     headers: payload ? { "content-type": "application/json" } : undefined,
     payload: payload ? JSON.stringify(payload) : undefined,
+  });
+
+  return {
+    statusCode: response.statusCode,
+    headers: response.headers,
+    body: response.payload ? JSON.parse(response.payload) : undefined,
+  };
+}
+
+async function injectRaw(server, method, url, payload) {
+  const response = await server.inject({
+    method,
+    url,
+    headers: { "content-type": "application/json" },
+    payload,
   });
 
   return {

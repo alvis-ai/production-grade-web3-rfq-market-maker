@@ -20,6 +20,8 @@ import { validateQuoteRequest } from "./shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.js";
 import type { PnlTradeRecord } from "./shared/types/rfq.js";
 
+const defaultBodyLimitBytes = 32_768;
+
 export interface BuildServerOptions {
   logger?: boolean;
   marketDataService?: MarketDataService;
@@ -34,12 +36,19 @@ export interface BuildServerOptions {
   signerService?: SignerService;
   rateLimit?: Partial<RateLimitConfig> | false;
   quoteTtlSeconds?: number;
+  bodyLimitBytes?: number;
 }
 
 export function buildServer(options: BuildServerOptions = {}) {
-  const server = Fastify({ logger: options.logger ?? true });
+  const server = Fastify({
+    logger: options.logger ?? true,
+    bodyLimit: options.bodyLimitBytes ?? readBodyLimitBytes(),
+  });
   server.addHook("onRequest", async (request, reply) => {
     reply.header("x-trace-id", requestTraceId(request));
+  });
+  server.setErrorHandler((error, request, reply) => {
+    return sendError(reply, requestTraceId(request), frameworkErrorToAPIError(error));
   });
 
   const hedgeService = options.hedgeService ?? new HedgeService();
@@ -272,6 +281,27 @@ function sendError(
   return reply.header("x-trace-id", traceId).code(error.statusCode).send(error.toResponse(traceId));
 }
 
+function frameworkErrorToAPIError(error: unknown): APIError {
+  if (error instanceof APIError) {
+    return error;
+  }
+
+  const record = error as { code?: unknown; statusCode?: unknown };
+  if (record.code === "FST_ERR_CTP_BODY_TOO_LARGE" || record.statusCode === 413) {
+    return new APIError("INVALID_REQUEST", "Request body too large", 413);
+  }
+
+  if (record.statusCode === 400) {
+    return new APIError("INVALID_REQUEST", "Malformed JSON request body", 400);
+  }
+
+  if (record.statusCode === 415) {
+    return new APIError("INVALID_REQUEST", "Request content type must be application/json", 415);
+  }
+
+  return toAPIError(error);
+}
+
 function hedgeStatusFailure(error: unknown): APIError {
   if (error instanceof APIError) {
     return error;
@@ -406,6 +436,21 @@ function readQuoteTtlSeconds(): number {
   const value = Number(configured);
   if (!Number.isInteger(value) || value <= 0 || value > 3600) {
     throw new Error("RFQ_QUOTE_TTL_SECONDS must be an integer between 1 and 3600");
+  }
+
+  return value;
+}
+
+function readBodyLimitBytes(): number {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const configured = env?.RFQ_BODY_LIMIT_BYTES;
+  if (!configured || configured.trim().length === 0) {
+    return defaultBodyLimitBytes;
+  }
+
+  const value = Number(configured);
+  if (!Number.isInteger(value) || value < 1024 || value > 1_048_576) {
+    throw new Error("RFQ_BODY_LIMIT_BYTES must be an integer between 1024 and 1048576");
   }
 
   return value;

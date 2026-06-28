@@ -19,6 +19,7 @@ env:
   PORT: "3000"
   RFQ_LOG_LEVEL: info
   RFQ_QUOTE_TTL_SECONDS: "30"
+  RFQ_BODY_LIMIT_BYTES: "32768"
 
 signerSecret:
   name: rfq-backend-secrets
