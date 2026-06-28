@@ -71,6 +71,7 @@ test -s scripts/check-deployment-manifests-consistency.mjs
 test -s scripts/check-ci-workflows-consistency.mjs
 test -s scripts/check-eip712-consistency.mjs
 test -s scripts/check-contract-abi-consistency.mjs
+test -s scripts/check-rate-limit-consistency.mjs
 test -s scripts/check-api-error-consistency.mjs
 test -s scripts/check-api-schema-consistency.mjs
 test -s scripts/check-api-route-consistency.mjs
@@ -422,6 +423,7 @@ grep -q 'make ci-check' scripts/verify.sh
 grep -q 'make compose-check' scripts/verify.sh
 grep -q 'make eip712-check' scripts/verify.sh
 grep -q 'make contract-abi-check' scripts/verify.sh
+grep -q 'make rate-limit-check' scripts/verify.sh
 grep -q 'make api-error-check' scripts/verify.sh
 grep -q 'make api-schema-check' scripts/verify.sh
 grep -q 'make api-route-check' scripts/verify.sh
@@ -455,6 +457,8 @@ grep -q 'deployment:check' package.json
 grep -q 'ci-check' Makefile
 grep -q 'ci:check' package.json
 grep -q 'eip712-check' Makefile
+grep -q 'rate-limit-check' Makefile
+grep -q 'rate-limit:check' package.json
 grep -q 'api-schema-check' Makefile
 grep -q 'api:schema:check' package.json
 grep -q 'api-route-check' Makefile
@@ -489,6 +493,7 @@ grep -q 'node-version: "22"' .github/workflows/contract-ci.yml
 grep -q 'make api-error-check' .github/workflows/docs-ci.yml
 grep -q 'make examples-check' .github/workflows/docs-ci.yml
 grep -q 'make config-check' .github/workflows/docs-ci.yml
+grep -q 'make rate-limit-check' .github/workflows/docs-ci.yml
 grep -q 'make api-schema-check' .github/workflows/docs-ci.yml
 grep -q 'make api-route-check' .github/workflows/docs-ci.yml
 grep -q 'make database-schema-check' .github/workflows/docs-ci.yml
@@ -510,6 +515,7 @@ grep -Fq '"scripts/check-config-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-security-docs-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-metrics-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-runbook-consistency.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"scripts/check-rate-limit-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-grafana-dashboard-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-deployment-manifests-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-ci-workflows-consistency.mjs"' .github/workflows/docs-ci.yml
@@ -517,12 +523,16 @@ grep -Fq '"infra/prometheus/**"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/grafana/**"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/k8s/**"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/helm/**"' .github/workflows/docs-ci.yml
+grep -Fq '"backend/src/modules/rate-limit/rate-limit.service.ts"' .github/workflows/docs-ci.yml
+grep -Fq '"backend/src/main.ts"' .github/workflows/docs-ci.yml
 grep -q 'QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
 grep -q 'backend signer Quote fields must match SDK Quote fields' scripts/check-eip712-consistency.mjs
 grep -q 'OpenAPI ErrorResponse enum must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
 grep -q 'SDK rfqErrorCodes array must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
 grep -q 'SDK rfqErrorCodes constant array not found' scripts/check-api-error-consistency.mjs
 grep -q 'docs/api/errors.md table must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
+grep -q 'defaultRateLimitConfig' scripts/check-rate-limit-consistency.mjs
+grep -q 'Retry-After' scripts/check-rate-limit-consistency.mjs
 grep -q 'typescript-check' Makefile
 grep -q 'api-error-check' Makefile
 grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml

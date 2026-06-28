@@ -21,6 +21,7 @@ run_step make ci-check
 run_step make compose-check
 run_step make eip712-check
 run_step make contract-abi-check
+run_step make rate-limit-check
 run_step make api-error-check
 run_step make api-schema-check
 run_step make api-route-check

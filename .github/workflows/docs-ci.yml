@@ -7,6 +7,8 @@ on:
       - "docs/**"
       - "examples/**"
       - "backend/src/shared/types/rfq.ts"
+      - "backend/src/modules/rate-limit/rate-limit.service.ts"
+      - "backend/src/main.ts"
       - "sdk/src/types.ts"
       - "scripts/check-api-error-consistency.mjs"
       - "scripts/check-api-route-consistency.mjs"
@@ -19,6 +21,7 @@ on:
       - "scripts/check-grafana-dashboard-consistency.mjs"
       - "scripts/check-metrics-consistency.mjs"
       - "scripts/check-runbook-consistency.mjs"
+      - "scripts/check-rate-limit-consistency.mjs"
       - "scripts/check-security-docs-consistency.mjs"
       - "scripts/check-skeleton.sh"
       - "infra/prometheus/**"
@@ -53,6 +56,8 @@ jobs:
         run: make config-check
       - name: Check API error code consistency
         run: make api-error-check
+      - name: Check API rate limit consistency
+        run: make rate-limit-check
       - name: Check API schema consistency
         run: make api-schema-check
       - name: Check API route consistency

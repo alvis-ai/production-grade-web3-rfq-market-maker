@@ -18,6 +18,7 @@
     "examples:check": "make examples-check",
     "config:check": "make config-check",
     "eip712:check": "make eip712-check",
+    "rate-limit:check": "make rate-limit-check",
     "skeleton:check": "make skeleton-check",
     "api:schema:check": "make api-schema-check",
     "api:route:check": "make api-route-check",
