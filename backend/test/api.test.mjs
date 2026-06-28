@@ -870,6 +870,62 @@ test("RFQ API rejects toxic-flow users before signing", async () => {
   }
 });
 
+test("RFQ API preserves risk rejection when rejected quote persistence fails", async () => {
+  class FailingRejectedQuoteRepository extends InMemoryQuoteRepository {
+    requestedQuoteId;
+
+    async saveRequested(input) {
+      this.requestedQuoteId = input.quoteId;
+      await super.saveRequested(input);
+    }
+
+    async saveRejected() {
+      throw new Error("rejected quote store offline");
+    }
+  }
+
+  const quoteRepository = new FailingRejectedQuoteRepository();
+  const server = buildServer({
+    logger: false,
+    quoteRepository,
+    riskEngine: new BasicRiskEngine({
+      ...defaultBasicRiskPolicy,
+      toxicFlowScores: [
+        {
+          user: baseQuoteRequest.user,
+          scoreBps: 9500,
+        },
+      ],
+    }),
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "RISK_REJECTED");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+    assert.match(quoteRepository.requestedQuoteId, /^q_/);
+
+    const status = await injectJson(server, "GET", `/quote/${quoteRepository.requestedQuoteId}`);
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.body.status, "requested");
+    assert.equal(status.body.errorCode, undefined);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_quote_requests_total 1/);
+    assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_responses_total 0/);
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="TOXIC_FLOW_SCORE_EXCEEDED"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API fails closed when risk engine is unavailable", async () => {
   const server = buildServer({
     logger: false,

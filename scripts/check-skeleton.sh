@@ -130,6 +130,7 @@ grep -q 'PRICING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'pricingFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'evaluateRisk' backend/src/modules/quote/quote.service.ts
 grep -q 'RISK_ENGINE_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
+grep -q 'saveRejectedQuoteBestEffort' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveSigned' backend/src/modules/quote/quote.service.ts
@@ -380,6 +381,8 @@ grep -q 'errorCode, "SETTLEMENT_REVERTED"' backend/test/api.test.mjs
 grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
+grep -q 'risk rejection when rejected quote persistence fails' backend/test/api.test.mjs
+grep -q 'Rejected quote persistence unavailable' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'SLIPPAGE_TOO_WIDE' backend/test/api.test.mjs
 grep -q 'stale market data' backend/test/api.test.mjs
 grep -q 'market data failures' backend/test/api.test.mjs

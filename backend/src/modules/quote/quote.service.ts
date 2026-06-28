@@ -92,7 +92,7 @@ export class QuoteService {
 
     const risk = await this.evaluateRisk({ request, pricing, inventoryProjection });
     if (risk.status !== "approved") {
-      await this.saveRejectedQuote({
+      await this.saveRejectedQuoteBestEffort({
         quoteId,
         snapshotId: snapshot.snapshotId,
         request,
@@ -192,6 +192,14 @@ export class QuoteService {
       await this.deps.quoteRepository.saveRejected(input);
     } catch (error) {
       throw quoteStoreFailure(error);
+    }
+  }
+
+  private async saveRejectedQuoteBestEffort(input: SaveRejectedQuoteInput): Promise<void> {
+    try {
+      await this.saveRejectedQuote(input);
+    } catch {
+      // Preserve the risk decision; reconciliation can recover requested quotes later.
     }
   }
 
