@@ -8,6 +8,7 @@
     "docs:check": "make docs-check",
     "compose:check": "make compose-check",
     "examples:check": "make examples-check",
+    "config:check": "make config-check",
     "eip712:check": "make eip712-check",
     "skeleton:check": "make skeleton-check",
     "api:schema:check": "make api-schema-check",

@@ -8,6 +8,7 @@ run_step() {
 
 run_step make skeleton-check
 run_step make examples-check
+run_step make config-check
 run_step make docs-check
 run_step make compose-check
 run_step make eip712-check

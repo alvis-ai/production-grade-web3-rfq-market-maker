@@ -60,6 +60,7 @@ test -s contracts/test/Deploy.t.sol
 test -s examples/quote-request.json
 test -s examples/submit-request.json
 test -s scripts/check-examples-consistency.mjs
+test -s scripts/check-config-consistency.mjs
 test -s scripts/check-eip712-consistency.mjs
 test -s scripts/check-contract-abi-consistency.mjs
 test -s scripts/check-api-error-consistency.mjs
@@ -399,6 +400,7 @@ grep -q 'verify:' Makefile
 grep -q '"verify": "make verify"' package.json
 grep -q 'make skeleton-check' scripts/verify.sh
 grep -q 'make examples-check' scripts/verify.sh
+grep -q 'make config-check' scripts/verify.sh
 grep -q 'make docs-check' scripts/verify.sh
 grep -q 'make compose-check' scripts/verify.sh
 grep -q 'make eip712-check' scripts/verify.sh
@@ -416,6 +418,8 @@ grep -q 'backend-build' Makefile
 grep -q 'backend-test' Makefile
 grep -q 'examples-check' Makefile
 grep -q 'examples:check' package.json
+grep -q 'config-check' Makefile
+grep -q 'config:check' package.json
 grep -q 'eip712-check' Makefile
 grep -q 'api-schema-check' Makefile
 grep -q 'api:schema:check' package.json

@@ -1,0 +1,172 @@
+#!/usr/bin/env node
+
+import { readFile } from "node:fs/promises";
+import assert from "node:assert/strict";
+
+const envExampleSource = await readFile(".env.example", "utf8");
+const composeSource = await readFile("docker-compose.yml", "utf8");
+const k8sConfigSource = await readFile("infra/k8s/configmap.yaml", "utf8");
+const helmValuesSource = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
+const backendSource = await readFile("backend/src/main.ts", "utf8");
+const readmeSource = await readFile("README.md", "utf8");
+
+const localExpected = {
+  HOST: "127.0.0.1",
+  PORT: "3000",
+  RFQ_QUOTE_TTL_SECONDS: "30",
+  RFQ_BODY_LIMIT_BYTES: "32768",
+  RFQ_CORS_ALLOWED_ORIGINS: "http://localhost:5173",
+  RFQ_ENABLE_HSTS: "false",
+  VITE_RFQ_API_BASE_URL: "http://localhost:3000",
+  RFQ_SIGNER_PRIVATE_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+  RFQ_SETTLEMENT_ADDRESS: "0x0000000000000000000000000000000000000004",
+};
+
+const composeExpected = {
+  HOST: "0.0.0.0",
+  PORT: "3000",
+  NODE_ENV: "production",
+  RFQ_QUOTE_TTL_SECONDS: "30",
+  RFQ_BODY_LIMIT_BYTES: "32768",
+  RFQ_CORS_ALLOWED_ORIGINS: "http://localhost:5173",
+  RFQ_ENABLE_HSTS: "false",
+  RFQ_SIGNER_PRIVATE_KEY: localExpected.RFQ_SIGNER_PRIVATE_KEY,
+  RFQ_SETTLEMENT_ADDRESS: localExpected.RFQ_SETTLEMENT_ADDRESS,
+};
+
+const productionExpected = {
+  NODE_ENV: "production",
+  HOST: "0.0.0.0",
+  PORT: "3000",
+  RFQ_LOG_LEVEL: "info",
+  RFQ_QUOTE_TTL_SECONDS: "30",
+  RFQ_BODY_LIMIT_BYTES: "32768",
+  RFQ_CORS_ALLOWED_ORIGINS: "https://app.example.com",
+  RFQ_ENABLE_HSTS: "true",
+};
+
+const envExample = parseDotEnv(envExampleSource);
+const composeBackendEnv = parseComposeBackendEnvironment(composeSource);
+const k8sConfig = parseConfigMapData(k8sConfigSource);
+const helmEnv = parseHelmEnv(helmValuesSource);
+const readmeLocalConfig = parseReadmeLocalConfig(readmeSource);
+
+assertConfig(envExample, localExpected, ".env.example");
+assertConfig(readmeLocalConfig, localExpected, "README Local Configuration block");
+assertConfig(composeBackendEnv, composeExpected, "docker-compose backend environment");
+assertConfig(k8sConfig, productionExpected, "infra/k8s/configmap.yaml data");
+assertConfig(helmEnv, productionExpected, "infra/helm/rfq-market-maker/values.yaml env");
+
+assert.ok(backendSource.includes("const defaultBodyLimitBytes = 32_768;"), "backend default body limit must be 32768");
+assert.ok(
+  backendSource.includes('const defaultCorsAllowedOrigins = ["http://localhost:5173"];'),
+  "backend default CORS origin must match local frontend URL",
+);
+assert.ok(backendSource.includes("const defaultEnableHsts = false;"), "backend default HSTS must be false");
+assert.ok(
+  backendSource.includes("RFQ_QUOTE_TTL_SECONDS must be an integer between 1 and 3600"),
+  "backend must enforce RFQ_QUOTE_TTL_SECONDS bounds",
+);
+assert.ok(
+  backendSource.includes("RFQ_BODY_LIMIT_BYTES must be an integer between 1024 and 1048576"),
+  "backend must enforce RFQ_BODY_LIMIT_BYTES bounds",
+);
+assert.ok(
+  backendSource.includes("RFQ_ENABLE_HSTS must be true or false"),
+  "backend must enforce RFQ_ENABLE_HSTS boolean parsing",
+);
+
+console.log("Config consistency check passed");
+
+function parseDotEnv(source) {
+  const result = {};
+  for (const line of source.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const index = trimmed.indexOf("=");
+    assert.ok(index > 0, `Invalid .env line: ${line}`);
+    result[trimmed.slice(0, index)] = trimmed.slice(index + 1);
+  }
+
+  return result;
+}
+
+function parseComposeBackendEnvironment(source) {
+  const lines = source.split("\n");
+  const backendStart = lines.findIndex((line) => line === "  backend:");
+  assert.ok(backendStart >= 0, "docker-compose.yml must define backend service");
+  const environmentStart = lines.findIndex((line, index) => index > backendStart && line === "    environment:");
+  assert.ok(environmentStart >= 0, "docker-compose.yml backend must define environment");
+
+  const result = {};
+  for (const line of lines.slice(environmentStart + 1)) {
+    if (/^    [a-zA-Z0-9_-]+:/.test(line)) break;
+    const match = line.match(/^      ([A-Z0-9_]+):\s*(.+)$/);
+    if (match) {
+      result[match[1]] = unquote(match[2]);
+    }
+  }
+
+  return result;
+}
+
+function parseConfigMapData(source) {
+  const lines = source.split("\n");
+  const dataStart = lines.findIndex((line) => line === "data:");
+  assert.ok(dataStart >= 0, "ConfigMap must define data");
+
+  const result = {};
+  for (const line of lines.slice(dataStart + 1)) {
+    const match = line.match(/^  ([A-Z0-9_]+):\s*(.+)$/);
+    if (match) {
+      result[match[1]] = unquote(match[2]);
+    }
+  }
+
+  return result;
+}
+
+function parseHelmEnv(source) {
+  const lines = source.split("\n");
+  const envStart = lines.findIndex((line) => line === "env:");
+  assert.ok(envStart >= 0, "Helm values must define env");
+
+  const result = {};
+  for (const line of lines.slice(envStart + 1)) {
+    if (/^[a-zA-Z][a-zA-Z0-9]*:/.test(line)) break;
+    const match = line.match(/^  ([A-Z0-9_]+):\s*(.+)$/);
+    if (match) {
+      result[match[1]] = unquote(match[2]);
+    }
+  }
+
+  return result;
+}
+
+function parseReadmeLocalConfig(source) {
+  const match = source.match(/```text\n(HOST=127\.0\.0\.1[\s\S]*?RFQ_SETTLEMENT_ADDRESS=0x\.\.\.)\n```/);
+  assert.ok(match, "README Local Configuration block not found");
+
+  const result = parseDotEnv(match[1]);
+  result.RFQ_SIGNER_PRIVATE_KEY = localExpected.RFQ_SIGNER_PRIVATE_KEY;
+  result.RFQ_SETTLEMENT_ADDRESS = localExpected.RFQ_SETTLEMENT_ADDRESS;
+  return result;
+}
+
+function assertConfig(actual, expected, label) {
+  for (const [key, value] of Object.entries(expected)) {
+    assert.equal(actual[key], value, `${label} must set ${key}=${value}`);
+  }
+}
+
+function unquote(value) {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}

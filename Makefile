@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check tree workspace-check skeleton-check examples-check compose-check eip712-check contract-abi-check api-error-check api-schema-check database-schema-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
+.PHONY: help verify docs-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check api-error-check api-schema-check database-schema-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -10,6 +10,7 @@ help:
 	@echo "  workspace-check  Verify expected workspace manifests exist"
 	@echo "  skeleton-check  Verify required skeleton entrypoints exist"
 	@echo "  examples-check  Verify example API payloads match public schemas"
+	@echo "  config-check  Verify local and deployment configuration defaults match"
 	@echo "  compose-check  Verify Docker Compose configuration"
 	@echo "  eip712-check  Verify backend, SDK, and contract EIP-712 schemas match"
 	@echo "  contract-abi-check  Verify SDK contract ABIs match Solidity integration surfaces"
@@ -52,6 +53,9 @@ skeleton-check:
 
 examples-check:
 	@node scripts/check-examples-consistency.mjs
+
+config-check:
+	@node scripts/check-config-consistency.mjs
 
 compose-check:
 	@docker compose config --quiet
