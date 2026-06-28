@@ -7,11 +7,11 @@ const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const errorDocsSource = await readFile("docs/api/errors.md", "utf8");
 
 const backendCodes = [...apiErrorSource.matchAll(/\|\s+"([A-Z0-9_]+)"/g)].map((match) => match[1]);
-const sdkCodes = extractTypeUnionCodes(sdkTypesSource, "RFQErrorCode");
+const sdkCodes = extractSdkErrorCodes(sdkTypesSource);
 const openapiCodes = extractOpenapiErrorCodes(openapiSource);
 const docsCodes = [...errorDocsSource.matchAll(/^\| `([A-Z0-9_]+)` \|/gm)].map((match) => match[1]);
 
-assert.deepEqual(sdkCodes, backendCodes, "SDK RFQErrorCode union must match backend RFQErrorCode");
+assert.deepEqual(sdkCodes, backendCodes, "SDK rfqErrorCodes array must match backend RFQErrorCode");
 assert.deepEqual(openapiCodes, backendCodes, "OpenAPI ErrorResponse enum must match backend RFQErrorCode");
 assert.deepEqual(docsCodes, backendCodes, "docs/api/errors.md table must match backend RFQErrorCode");
 
@@ -24,9 +24,9 @@ function extractOpenapiErrorCodes(source) {
   return [...match[1].matchAll(/^\s+- ([A-Z0-9_]+)$/gm)].map((item) => item[1]);
 }
 
-function extractTypeUnionCodes(source, typeName) {
-  const match = source.match(new RegExp(`export type ${typeName} =\\n([\\s\\S]*?);`));
-  assert.ok(match, `${typeName} union not found`);
+function extractSdkErrorCodes(source) {
+  const match = source.match(/export const rfqErrorCodes = \[\n([\s\S]*?)\] as const;/);
+  assert.ok(match, "SDK rfqErrorCodes constant array not found");
 
-  return [...match[1].matchAll(/^\s*\|\s+"([A-Z0-9_]+)"/gm)].map((item) => item[1]);
+  return [...match[1].matchAll(/^\s*"([A-Z0-9_]+)",$/gm)].map((item) => item[1]);
 }

@@ -1,5 +1,6 @@
 export { rfqSettlementAbi } from "./abi.js";
 export { RFQClient, RFQClientError } from "./client.js";
+export { rfqErrorCodes } from "./types.js";
 export {
   RFQ_EIP712_DOMAIN_NAME,
   RFQ_EIP712_DOMAIN_VERSION,
@@ -10,6 +11,7 @@ export {
 export { buildSubmitQuoteArgs, toSettlementQuote } from "./settlement.js";
 export type { RFQDomain } from "./eip712.js";
 export type { SettlementQuote, SubmitQuoteArgs } from "./settlement.js";
+export type { RFQClientErrorCode } from "./client.js";
 export type {
   Address,
   HedgeIntentStatus,

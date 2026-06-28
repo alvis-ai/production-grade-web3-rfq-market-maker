@@ -281,6 +281,34 @@ test("RFQClient throws structured RFQClientError for API errors", async () => {
   }
 });
 
+test("RFQClient falls back for unknown API error codes", async () => {
+  const restoreFetch = installFetch(async () =>
+    jsonResponse(500, {
+      code: "NEW_SERVER_ERROR",
+      message: "Unexpected server error",
+      traceId: "trace_unknown",
+    }),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.metrics(),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 500);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ metrics request failed");
+        assert.equal(error.traceId, undefined);
+        return true;
+      },
+    );
+  } finally {
+    restoreFetch();
+  }
+});
+
 test("RFQClient returns degraded readiness payloads from HTTP 503", async () => {
   const readinessResponse = {
     status: "degraded",

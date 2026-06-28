@@ -1,3 +1,4 @@
+import { rfqErrorCodes } from "./types.js";
 import type {
   HedgeIntentStatus,
   HealthResponse,
@@ -6,17 +7,22 @@ import type {
   QuoteResponse,
   QuoteStatus,
   ReadinessResponse,
+  RFQErrorCode,
   RFQErrorResponse,
   SettlementEventStatus,
   SubmitQuoteRequest,
   SubmitQuoteResponse,
 } from "./types.js";
 
+export type RFQClientErrorCode = RFQErrorCode | "RFQ_CLIENT_ERROR";
+
+const rfqErrorCodeSet: ReadonlySet<string> = new Set(rfqErrorCodes);
+
 export class RFQClientError extends Error {
   constructor(
     message: string,
     readonly status: number,
-    readonly code = "RFQ_CLIENT_ERROR",
+    readonly code: RFQClientErrorCode = "RFQ_CLIENT_ERROR",
     readonly traceId?: string,
   ) {
     super(message);
@@ -154,6 +160,7 @@ function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {
   const record = value as Record<string, unknown>;
   return (
     typeof record.code === "string" &&
+    rfqErrorCodeSet.has(record.code) &&
     typeof record.message === "string" &&
     typeof record.traceId === "string"
   );
