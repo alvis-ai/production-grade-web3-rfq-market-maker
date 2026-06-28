@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "verify": "make verify",
     "docs:check": "make docs-check",
     "compose:check": "make compose-check",
     "eip712:check": "make eip712-check",

@@ -177,6 +177,14 @@ Local API smoke path:
 make smoke-api-local
 ```
 
+Repository quality gate:
+
+```sh
+make verify
+```
+
+`make verify` runs skeleton, documentation, Docker Compose, EIP-712, ABI, API error-code, backend, SDK, frontend and local API smoke checks through one entrypoint. If Foundry is installed locally it also runs `make contract-test`; otherwise contract tests remain enforced by the dedicated GitHub Actions contract workflow.
+
 ## TypeScript SDK
 
 `@rfq-market-maker/sdk` exposes `RFQClient` for the current API surface:

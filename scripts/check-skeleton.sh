@@ -62,6 +62,7 @@ test -s examples/submit-request.json
 test -s scripts/check-eip712-consistency.mjs
 test -s scripts/check-contract-abi-consistency.mjs
 test -s scripts/check-api-error-consistency.mjs
+test -s scripts/verify.sh
 test -s scripts/smoke-api.mjs
 test -s scripts/smoke-api-local.sh
 test -s infra/docker/backend.Dockerfile
@@ -386,22 +387,28 @@ grep -q 'contract-test' Makefile
 grep -q 'contract-abi-check' Makefile
 grep -q 'compose-check' Makefile
 grep -q 'compose:check' package.json
+grep -q 'verify:' Makefile
+grep -q '"verify": "make verify"' package.json
+grep -q 'make skeleton-check' scripts/verify.sh
+grep -q 'make docs-check' scripts/verify.sh
+grep -q 'make compose-check' scripts/verify.sh
+grep -q 'make eip712-check' scripts/verify.sh
+grep -q 'make contract-abi-check' scripts/verify.sh
+grep -q 'make api-error-check' scripts/verify.sh
+grep -q 'make backend-test' scripts/verify.sh
+grep -q 'make sdk-test' scripts/verify.sh
+grep -q 'make frontend-build' scripts/verify.sh
+grep -q 'make smoke-api-local' scripts/verify.sh
+grep -q 'make contract-test' scripts/verify.sh
+grep -q 'forge not found; skipping contract-test' scripts/verify.sh
 grep -q 'backend-build' Makefile
 grep -q 'backend-test' Makefile
 grep -q 'eip712-check' Makefile
 grep -q 'smoke-api-local' Makefile
 grep -q 'forge test' .github/workflows/contract-ci.yml
 grep -q 'make contract-abi-check' .github/workflows/contract-ci.yml
-grep -q 'make backend-typecheck' .github/workflows/backend-ci.yml
-grep -q 'make backend-test' .github/workflows/backend-ci.yml
-grep -q 'make compose-check' .github/workflows/backend-ci.yml
-grep -q 'make eip712-check' .github/workflows/backend-ci.yml
-grep -q 'make contract-abi-check' .github/workflows/backend-ci.yml
-grep -q 'make api-error-check' .github/workflows/backend-ci.yml
-grep -q 'make sdk-typecheck' .github/workflows/backend-ci.yml
-grep -q 'make sdk-test' .github/workflows/backend-ci.yml
-grep -q 'make frontend-build' .github/workflows/backend-ci.yml
-grep -q 'make smoke-api-local' .github/workflows/backend-ci.yml
+grep -q 'pnpm install --frozen-lockfile' .github/workflows/backend-ci.yml
+grep -q 'make verify' .github/workflows/backend-ci.yml
 grep -Fq '"infra/**"' .github/workflows/backend-ci.yml
 grep -Fq '"docker-compose.yml"' .github/workflows/backend-ci.yml
 grep -Fq '".env.example"' .github/workflows/backend-ci.yml

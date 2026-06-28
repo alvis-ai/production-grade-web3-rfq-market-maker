@@ -1,9 +1,10 @@
-.PHONY: help docs-check tree workspace-check skeleton-check compose-check eip712-check contract-abi-check api-error-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
+.PHONY: help verify docs-check tree workspace-check skeleton-check compose-check eip712-check contract-abi-check api-error-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
 	@echo ""
 	@echo "Available targets:"
+	@echo "  verify      Run the repository quality gate"
 	@echo "  docs-check  Count Mermaid diagrams and RFQ interview questions"
 	@echo "  tree        Print the first three levels of repository files"
 	@echo "  workspace-check  Verify expected workspace manifests exist"
@@ -23,6 +24,9 @@ help:
 	@echo "  contract-test   Run Foundry contract tests offline"
 	@echo "  smoke-api       Exercise health, quote, submit, and metrics endpoints"
 	@echo "  smoke-api-local Build, start backend locally, run smoke-api, and stop backend"
+
+verify:
+	@sh scripts/verify.sh
 
 docs-check:
 	@echo "Mermaid blocks:"
