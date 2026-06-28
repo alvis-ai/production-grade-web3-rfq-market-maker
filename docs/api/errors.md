@@ -36,6 +36,7 @@
 | `HEDGE_STORE_UNAVAILABLE` | 503 | hedge execution store 或 hedge intent 查询依赖不可用 | 稍后重试，必要时通过 submit 响应和执行日志核对 hedge 状态 |
 | `SETTLEMENT_EVENT_NOT_FOUND` | 404 | settlementEventId 不存在或当前执行存储尚未消费该事件 | 查询 submit 响应返回的 settlementEventId，或等待索引器消费链上事件 |
 | `SETTLEMENT_EVENT_STORE_UNAVAILABLE` | 503 | settlement event store 或索引器状态查询依赖不可用 | 稍后重试，必要时通过链上交易和日志索引核对 settlement 状态 |
+| `PNL_STORE_UNAVAILABLE` | 503 | PnL store 或归因查询依赖不可用 | 稍后重试，必要时从 settlement event 和执行日志重建 PnL |
 | `SETTLEMENT_UNAVAILABLE` | 503 | settlement verifier、链 RPC 或结算依赖不可用，尚未判定 quote 是否可结算 | 稍后重试同一 signed quote，过期后重新询价 |
 | `SETTLEMENT_REVERTED` | 409 | settlement verification 或链上结算拒绝该 quote | 查看交易状态并重新询价 |
 | `RATE_LIMITED` | 429 | 请求频率过高 | 降低请求频率 |

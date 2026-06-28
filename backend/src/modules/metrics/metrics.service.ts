@@ -29,6 +29,7 @@ export class MetricsService {
   private hedgeIntents = 0;
   private readonly hedgeIntentErrors = new Map<string, number>();
   private readonly quoteStatusUpdateErrors = new Map<string, number>();
+  private readonly pnlRecordErrors = new Map<string, number>();
   private pnlTrades = 0;
   private readonly quoteLatency = createHistogramState();
   private readonly submitLatency = createHistogramState();
@@ -114,6 +115,11 @@ export class MetricsService {
     this.realizedPnl.set(key, (this.realizedPnl.get(key) ?? 0n) + BigInt(record.grossPnlTokenOut));
   }
 
+  recordPnlRecordError(reasonCode: string): void {
+    const reason = metricLabelValue(reasonCode);
+    this.pnlRecordErrors.set(reason, (this.pnlRecordErrors.get(reason) ?? 0) + 1);
+  }
+
   renderPrometheus(): string {
     const lines = [
       "# HELP rfq_quote_requests_total Total quote requests handled by the skeleton API.",
@@ -170,6 +176,9 @@ export class MetricsService {
       "# HELP rfq_pnl_trades_total Total realized PnL trade records produced by the skeleton API.",
       "# TYPE rfq_pnl_trades_total counter",
       `rfq_pnl_trades_total ${this.pnlTrades}`,
+      "# HELP rfq_pnl_record_errors_total Total realized PnL record errors after settlement by stable reason.",
+      "# TYPE rfq_pnl_record_errors_total counter",
+      ...this.renderPnlRecordErrors(),
       "# HELP rfq_realized_pnl_token_out Total realized spread PnL by chain and output token.",
       "# TYPE rfq_realized_pnl_token_out gauge",
       ...this.renderRealizedPnl(),
@@ -214,6 +223,12 @@ export class MetricsService {
         const [chainId, token] = key.split(":");
         return `rfq_realized_pnl_token_out{chain_id="${chainId}",token="${token}"} ${value.toString()}`;
       });
+  }
+
+  private renderPnlRecordErrors(): string[] {
+    return [...this.pnlRecordErrors.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([reason, count]) => `rfq_pnl_record_errors_total{reason="${reason}"} ${count}`);
   }
 
   private renderSignerCounter(name: string, counter: ReadonlyMap<SignerMetricOperation, number>): string[] {

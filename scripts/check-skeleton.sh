@@ -116,6 +116,7 @@ grep -q 'HEDGE_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
 grep -q 'SETTLEMENT_EVENT_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
+grep -q 'PNL_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'getUsableSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'marketDataFailure' backend/src/modules/quote/quote.service.ts
@@ -178,6 +179,7 @@ grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
 grep -q 'hedgeOrderId: hedgeResult?.hedgeOrderId' backend/src/modules/execution/execution.service.ts
 grep -q 'getHedgeIntent' backend/src/modules/hedge/hedge.service.ts
+grep -q 'interface PnlStore' backend/src/modules/pnl/pnl.service.ts
 grep -q 'class PnlService' backend/src/modules/pnl/pnl.service.ts
 grep -q 'recordSettlement' backend/src/modules/pnl/pnl.service.ts
 grep -q 'simulated_mid_price_v1' backend/src/modules/pnl/pnl.service.ts
@@ -201,6 +203,8 @@ grep -q 'rfq_quote_status_update_errors_total' backend/src/modules/metrics/metri
 grep -q 'recordQuoteStatusUpdateError' backend/src/main.ts
 grep -q 'rfq_inventory_balance' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_pnl_trades_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_pnl_record_errors_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'recordPnlRecordError' backend/src/main.ts
 grep -q 'rfq_realized_pnl_token_out' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfqClient.quote' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.submit' frontend/src/pages/QuotePage.tsx
@@ -310,6 +314,8 @@ grep -q 'SettlementEventStatus' docs/api/openapi.yaml
 grep -q 'SETTLEMENT_EVENT_NOT_FOUND' docs/api/openapi.yaml
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' docs/api/openapi.yaml
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' docs/api/errors.md
+grep -q 'PNL_STORE_UNAVAILABLE' docs/api/openapi.yaml
+grep -q 'PNL_STORE_UNAVAILABLE' docs/api/errors.md
 grep -q 'getPnlSummary' docs/api/openapi.yaml
 grep -q 'PnlSummary' docs/api/openapi.yaml
 grep -q 'PnlTradeRecord' docs/api/openapi.yaml
@@ -401,6 +407,10 @@ grep -q 'same millisecond' backend/test/api.test.mjs
 grep -q 'rate limits quote requests by client' backend/test/api.test.mjs
 grep -q 'rate limits submit requests before validation and settlement' backend/test/api.test.mjs
 grep -q 'rate limits quote status requests by client' backend/test/api.test.mjs
+grep -q 'PnL record creation fails' backend/test/api.test.mjs
+grep -q 'PnL summary store failures' backend/test/api.test.mjs
+grep -q 'rfq_pnl_record_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'PnL attribution after settlement is best-effort' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'signed realized PnL' backend/test/pnl.test.mjs
 grep -q 'applies each chain event idempotently' backend/test/settlement-event.test.mjs
 grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/rate-limit.test.mjs

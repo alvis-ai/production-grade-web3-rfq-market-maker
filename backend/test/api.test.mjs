@@ -457,6 +457,66 @@ test("RFQ API keeps settlement accepted when hedge intent creation fails", async
   }
 });
 
+test("RFQ API keeps settlement accepted when PnL record creation fails", async () => {
+  const server = buildServer({
+    logger: false,
+    pnlService: {
+      recordSettlement() {
+        throw new Error("pnl store offline");
+      },
+      summary() {
+        return {
+          status: "ok",
+          totalTrades: 0,
+          grossPnlTokenOut: "0",
+          trades: [],
+        };
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(quote.statusCode, 200);
+
+    const submit = await injectJson(server, "POST", "/submit", {
+      quote: quotePayloadFromResponse(quote.body),
+      signature: quote.body.signature,
+    });
+
+    assert.equal(submit.statusCode, 202);
+    assert.equal(submit.body.status, "accepted");
+    assert.match(submit.body.settlementEventId, /^se_/);
+    assert.match(submit.body.hedgeOrderId, /^h_/);
+    assert.equal(submit.body.pnlId, undefined);
+
+    const settlement = await injectJson(server, "GET", `/settlements/${submit.body.settlementEventId}`);
+    assert.equal(settlement.statusCode, 200);
+    assert.equal(settlement.body.status, "applied");
+    assert.equal(settlement.body.quoteId, quote.body.quoteId);
+
+    const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.body.status, "settled");
+
+    const pnl = await injectJson(server, "GET", "/pnl");
+    assert.equal(pnl.statusCode, 200);
+    assert.equal(pnl.body.totalTrades, 0);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_submit_accepted_total 1/);
+    assert.match(metrics.payload, /rfq_submit_errors_total 0/);
+    assert.match(metrics.payload, /rfq_settlements_total 1/);
+    assert.match(metrics.payload, /rfq_hedge_intents_total 1/);
+    assert.match(metrics.payload, /rfq_pnl_trades_total 0/);
+    assert.match(metrics.payload, /rfq_pnl_record_errors_total\{reason="PNL_RECORD_FAILED"\} 1/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API keeps settlement accepted when post-settlement quote status persistence fails", async () => {
   class FailingStatusQuoteRepository extends InMemoryQuoteRepository {
     async markStatus() {
@@ -1000,6 +1060,32 @@ test("RFQ API rate limits quote status requests by client", async () => {
     assert.equal(secondStatus.body.code, "RATE_LIMITED");
     assert.equal(secondStatus.headers["retry-after"], "60");
     assert.match(secondStatus.body.traceId, /^tr_/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API maps PnL summary store failures to structured errors", async () => {
+  const server = buildServer({
+    logger: false,
+    pnlService: {
+      recordSettlement() {
+        throw new Error("not used");
+      },
+      summary() {
+        throw new Error("pnl store offline");
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/pnl");
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "PNL_STORE_UNAVAILABLE");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
   } finally {
     await server.close();
   }

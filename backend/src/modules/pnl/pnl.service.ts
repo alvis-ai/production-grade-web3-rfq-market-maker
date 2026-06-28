@@ -5,7 +5,12 @@ export interface RecordPnlInput {
   quote: SignedQuote;
 }
 
-export class PnlService {
+export interface PnlStore {
+  recordSettlement(input: RecordPnlInput): PnlTradeRecord;
+  summary(): PnlSummaryResponse;
+}
+
+export class PnlService implements PnlStore {
   private readonly trades = new Map<string, PnlTradeRecord>();
 
   recordSettlement(input: RecordPnlInput): PnlTradeRecord {

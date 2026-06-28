@@ -124,6 +124,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 - Quote status store unavailable：`GET /quote/:id` 返回 HTTP 503、`QUOTE_STORE_UNAVAILABLE` 和 traceId，不能落入 Fastify 默认 500。
 - Hedge status store unavailable：`GET /hedges/:id` 返回 HTTP 503、`HEDGE_STORE_UNAVAILABLE` 和 traceId，区分查询依赖故障与 `HEDGE_NOT_FOUND`。
 - Settlement event store unavailable：`GET /settlements/:id` 返回 HTTP 503、`SETTLEMENT_EVENT_STORE_UNAVAILABLE` 和 traceId，区分索引器/存储故障与 `SETTLEMENT_EVENT_NOT_FOUND`。
+- PnL store unavailable：`GET /pnl` 返回 HTTP 503、`PNL_STORE_UNAVAILABLE` 和 traceId；`POST /submit` 中 settlement 已应用后的 PnL 归因写入失败不回滚 settlement。
 - Quote Service 超时：返回 503。
 - 内部异常：返回 `INTERNAL_ERROR` 和 traceId。
 

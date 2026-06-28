@@ -5,7 +5,7 @@ import { ReadinessService } from "./modules/health/readiness.service.js";
 import { InventoryService } from "./modules/inventory/inventory.service.js";
 import { StaticMarketDataService, type MarketDataService } from "./modules/market-data/market-data.service.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
-import { PnlService } from "./modules/pnl/pnl.service.js";
+import { PnlService, type PnlStore, type RecordPnlInput } from "./modules/pnl/pnl.service.js";
 import { FormulaPricingEngine, type PricingEngine } from "./modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository, type QuoteRepository } from "./modules/quote/quote.repository.js";
 import { QuoteService } from "./modules/quote/quote.service.js";
@@ -18,6 +18,7 @@ import { LocalEIP712SignerService, ObservedSignerService, type SignerService } f
 import { APIError, toAPIError } from "./shared/errors/api-error.js";
 import { validateQuoteRequest } from "./shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.js";
+import type { PnlTradeRecord } from "./shared/types/rfq.js";
 
 export interface BuildServerOptions {
   logger?: boolean;
@@ -27,6 +28,7 @@ export interface BuildServerOptions {
   riskEngine?: RiskEngine;
   routingEngine?: RoutingEngine;
   hedgeService?: HedgeIntentService;
+  pnlService?: PnlStore;
   settlementEventService?: SettlementEventStore;
   settlementVerifier?: SettlementVerifier;
   signerService?: SignerService;
@@ -48,7 +50,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     settlementEventService,
     settlementVerifier: options.settlementVerifier ?? new LocalSettlementVerifier(),
   });
-  const pnlService = new PnlService();
+  const pnlService = options.pnlService ?? new PnlService();
   const rateLimiter = options.rateLimit === false
     ? undefined
     : new InMemoryRateLimiter({
@@ -80,12 +82,16 @@ export function buildServer(options: BuildServerOptions = {}) {
     return reply.type("text/plain").send(metricsService.renderPrometheus());
   });
   server.get("/pnl", async (request, reply) => {
-    const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
-    if (!rateLimitResult.allowed) {
-      return rateLimitResult.response;
-    }
+    try {
+      const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
+      if (!rateLimitResult.allowed) {
+        return rateLimitResult.response;
+      }
 
-    return pnlService.summary();
+      return pnlService.summary();
+    } catch (error) {
+      return sendError(reply, requestTraceId(request), pnlStoreFailure(error));
+    }
   });
   server.get("/settlements/:settlementEventId", async (request, reply) => {
     try {
@@ -187,7 +193,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       const result = await executionService.submitQuote(submitRequest, { quoteId });
       const pnlRecord = result.settlementEventResult.duplicate
         ? undefined
-        : pnlService.recordSettlement({ quoteId, quote: submitRequest.quote });
+        : recordPnlSettlementBestEffort(pnlService, metricsService, { quoteId, quote: submitRequest.quote });
       metricsService.recordSubmitAccepted();
       if (!result.settlementEventResult.duplicate) {
         metricsService.recordSettlement();
@@ -272,6 +278,27 @@ function settlementEventStatusFailure(error: unknown): APIError {
   }
 
   return new APIError("SETTLEMENT_EVENT_STORE_UNAVAILABLE", "Settlement event store unavailable", 503);
+}
+
+function pnlStoreFailure(error: unknown): APIError {
+  if (error instanceof APIError) {
+    return error;
+  }
+
+  return new APIError("PNL_STORE_UNAVAILABLE", "PnL store unavailable", 503);
+}
+
+function recordPnlSettlementBestEffort(
+  pnlService: PnlStore,
+  metricsService: MetricsService,
+  input: RecordPnlInput,
+): PnlTradeRecord | undefined {
+  try {
+    return pnlService.recordSettlement(input);
+  } catch {
+    metricsService.recordPnlRecordError("PNL_RECORD_FAILED");
+    return undefined;
+  }
 }
 
 async function markPostSettlementQuoteStatus(
