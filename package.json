@@ -9,6 +9,7 @@
     "compose:check": "make compose-check",
     "eip712:check": "make eip712-check",
     "skeleton:check": "make skeleton-check",
+    "api:schema:check": "make api-schema-check",
     "database:schema:check": "make database-schema-check",
     "backend:build": "make backend-build",
     "backend:test": "make backend-test",
