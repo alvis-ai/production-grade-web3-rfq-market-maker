@@ -183,7 +183,7 @@ Repository quality gate:
 make verify
 ```
 
-`make verify` runs skeleton, examples, configuration, documentation, Docker Compose, EIP-712, ABI, API error-code, API schema, API route, database schema, backend, SDK, frontend and local API smoke checks through one entrypoint. If Foundry is installed locally it also runs `make contract-test`; otherwise contract tests remain enforced by the dedicated GitHub Actions contract workflow.
+`make verify` runs skeleton, examples, configuration, documentation, book template, Docker Compose, EIP-712, ABI, API error-code, API schema, API route, database schema, backend, SDK, frontend and local API smoke checks through one entrypoint. If Foundry is installed locally it also runs `make contract-test`; otherwise contract tests remain enforced by the dedicated GitHub Actions contract workflow.
 
 ## TypeScript SDK
 

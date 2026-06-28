@@ -51,3 +51,5 @@ jobs:
         run: make database-schema-check
       - name: Check documentation coverage
         run: make docs-check
+      - name: Check book chapter template
+        run: make book-template-check

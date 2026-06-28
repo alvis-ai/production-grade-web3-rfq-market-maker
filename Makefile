@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check api-error-check api-schema-check api-route-check database-schema-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
+.PHONY: help verify docs-check book-template-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check api-error-check api-schema-check api-route-check database-schema-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -6,6 +6,7 @@ help:
 	@echo "Available targets:"
 	@echo "  verify      Run the repository quality gate"
 	@echo "  docs-check  Count Mermaid diagrams and RFQ interview questions"
+	@echo "  book-template-check  Verify book chapters follow the standard template"
 	@echo "  tree        Print the first three levels of repository files"
 	@echo "  workspace-check  Verify expected workspace manifests exist"
 	@echo "  skeleton-check  Verify required skeleton entrypoints exist"
@@ -38,6 +39,9 @@ docs-check:
 	@grep -R "^\`\`\`mermaid" -n book docs | wc -l
 	@echo "RFQ interview questions:"
 	@grep -E "^## [0-9]+\\." docs/interview/rfq-questions.md | wc -l
+
+book-template-check:
+	@node scripts/check-book-template-consistency.mjs
 
 tree:
 	@find . -maxdepth 3 -type f | sort
