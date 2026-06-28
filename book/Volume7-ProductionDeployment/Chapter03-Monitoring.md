@@ -97,7 +97,30 @@ stateDiagram-v2
 
 ## Data Model
 
-Key metrics include `rfq_quote_latency_seconds`, `rfq_submit_latency_seconds`, `rfq_quote_rejections_total`, `rfq_signer_requests_total`, `rfq_signer_errors_total`, `rfq_signer_latency_seconds`, `rfq_readiness_status`, `rfq_dependency_status`, `rfq_settlements_total`, `rfq_hedge_intents_total`, `rfq_hedge_intent_errors_total`, `rfq_inventory_balance`, `rfq_pnl_trades_total`, `rfq_pnl_record_errors_total`, `rfq_realized_pnl_token_out`.
+Key metrics include:
+
+- `rfq_quote_requests_total`
+- `rfq_quote_responses_total`
+- `rfq_quote_errors_total`
+- `rfq_quote_latency_seconds`
+- `rfq_quote_rejections_total`
+- `rfq_submit_requests_total`
+- `rfq_submit_accepted_total`
+- `rfq_submit_errors_total`
+- `rfq_submit_latency_seconds`
+- `rfq_signer_requests_total`
+- `rfq_signer_errors_total`
+- `rfq_signer_latency_seconds`
+- `rfq_readiness_status`
+- `rfq_dependency_status`
+- `rfq_settlements_total`
+- `rfq_hedge_intents_total`
+- `rfq_hedge_intent_errors_total`
+- `rfq_quote_status_update_errors_total`
+- `rfq_inventory_balance`
+- `rfq_pnl_trades_total`
+- `rfq_pnl_record_errors_total`
+- `rfq_realized_pnl_token_out`
 
 ## API Design
 

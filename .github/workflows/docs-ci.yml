@@ -14,8 +14,10 @@ on:
       - "scripts/check-config-consistency.mjs"
       - "scripts/check-database-schema-consistency.mjs"
       - "scripts/check-examples-consistency.mjs"
+      - "scripts/check-metrics-consistency.mjs"
       - "scripts/check-security-docs-consistency.mjs"
       - "scripts/check-skeleton.sh"
+      - "infra/prometheus/**"
       - "Makefile"
       - "package.json"
       - ".env.example"
@@ -58,3 +60,5 @@ jobs:
         run: make adr-check
       - name: Check security docs consistency
         run: make security-check
+      - name: Check metrics consistency
+        run: make metrics-check

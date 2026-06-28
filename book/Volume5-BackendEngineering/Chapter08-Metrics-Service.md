@@ -100,9 +100,16 @@ stateDiagram-v2
 Prometheus metrics:
 
 - `rfq_quote_requests_total`
+- `rfq_quote_responses_total`
+- `rfq_quote_errors_total`
 - `rfq_quote_rejections_total`
 - `rfq_quote_latency_seconds`
+- `rfq_submit_requests_total`
+- `rfq_submit_accepted_total`
+- `rfq_submit_errors_total`
 - `rfq_submit_latency_seconds`
+- `rfq_signer_requests_total`
+- `rfq_signer_errors_total`
 - `rfq_signer_latency_seconds`
 - `rfq_readiness_status`
 - `rfq_dependency_status`

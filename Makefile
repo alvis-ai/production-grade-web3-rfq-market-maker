@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check api-error-check api-schema-check api-route-check database-schema-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
+.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check api-error-check api-schema-check api-route-check database-schema-check backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build typescript-check contract-build contract-test smoke-api smoke-api-local
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -9,6 +9,7 @@ help:
 	@echo "  book-template-check  Verify book chapters follow the standard template"
 	@echo "  adr-check  Verify ADR numbering and template consistency"
 	@echo "  security-check  Verify security docs cover required production controls"
+	@echo "  metrics-check  Verify backend metrics, alert rules, and monitoring docs match"
 	@echo "  tree        Print the first three levels of repository files"
 	@echo "  workspace-check  Verify expected workspace manifests exist"
 	@echo "  skeleton-check  Verify required skeleton entrypoints exist"
@@ -50,6 +51,9 @@ adr-check:
 
 security-check:
 	@node scripts/check-security-docs-consistency.mjs
+
+metrics-check:
+	@node scripts/check-metrics-consistency.mjs
 
 tree:
 	@find . -maxdepth 3 -type f | sort
