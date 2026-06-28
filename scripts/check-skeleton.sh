@@ -446,6 +446,13 @@ grep -q 'RFQQuoteStatusUpdateErrors' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_quote_status_update_errors_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQPnlRecordErrors' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_pnl_record_errors_total' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'rfq_settlements_total' infra/grafana/provisioning/dashboards/rfq-overview.json
+grep -q 'rfq_hedge_intent_errors_total' infra/grafana/provisioning/dashboards/rfq-overview.json
+grep -q 'rfq_quote_status_update_errors_total' infra/grafana/provisioning/dashboards/rfq-overview.json
+grep -q 'rfq_pnl_record_errors_total' infra/grafana/provisioning/dashboards/rfq-overview.json
+grep -q 'rfq_inventory_balance' infra/grafana/provisioning/dashboards/rfq-overview.json
+grep -q 'rfq_realized_pnl_token_out' infra/grafana/provisioning/dashboards/rfq-overview.json
+grep -q 'rfq_pnl_trades_total' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'Post-Settlement Persistence Drift' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'settlement-to-quote reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'settlement-to-PnL reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
