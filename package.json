@@ -12,6 +12,7 @@
     "metrics:check": "make metrics-check",
     "runbook:check": "make runbook-check",
     "grafana:check": "make grafana-check",
+    "deployment:check": "make deployment-check",
     "compose:check": "make compose-check",
     "examples:check": "make examples-check",
     "config:check": "make config-check",
