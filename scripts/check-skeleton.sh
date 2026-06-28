@@ -460,10 +460,12 @@ grep -q 'settlement-to-quote reconciliation' book/Volume7-ProductionDeployment/C
 grep -q 'settlement-to-PnL reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml
 grep -q 'path: /ready' infra/k8s/backend-deployment.yaml
+grep -q 'HOST: "0.0.0.0"' infra/k8s/configmap.yaml
 grep -q 'prometheus.io/scrape' infra/k8s/backend-service.yaml
 grep -q 'prometheus.io/path' infra/k8s/backend-service.yaml
 grep -q '/metrics' infra/k8s/backend-service.yaml
 grep -q 'path: /ready' infra/helm/rfq-market-maker/templates/deployment.yaml
+grep -q 'HOST: "0.0.0.0"' infra/helm/rfq-market-maker/values.yaml
 grep -q 'service.annotations' infra/helm/rfq-market-maker/templates/service.yaml
 grep -q 'prometheus.io/scrape' infra/helm/rfq-market-maker/values.yaml
 grep -q 'prometheus.io/path' infra/helm/rfq-market-maker/values.yaml
