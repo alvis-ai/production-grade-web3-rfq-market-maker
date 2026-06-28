@@ -34,10 +34,16 @@ services:
       POSTGRES_DB: rfq_market_maker
       POSTGRES_USER: rfq
       POSTGRES_PASSWORD: rfq
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rfq -d rfq_market_maker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./docs/database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
 
   redis:
     image: redis:7

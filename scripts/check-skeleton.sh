@@ -84,10 +84,13 @@ grep -q 'HEALTHCHECK' infra/docker/frontend.Dockerfile
 grep -q 'http://127.0.0.1/' infra/docker/frontend.Dockerfile
 grep -q 'backend:' docker-compose.yml
 grep -q 'frontend:' docker-compose.yml
+grep -q 'postgres:' docker-compose.yml
 grep -q 'condition: service_healthy' docker-compose.yml
 grep -q 'dockerfile: infra/docker/backend.Dockerfile' docker-compose.yml
 grep -q 'dockerfile: infra/docker/frontend.Dockerfile' docker-compose.yml
 grep -q 'VITE_RFQ_API_BASE_URL: http://localhost:3000' docker-compose.yml
+grep -q 'pg_isready -U rfq -d rfq_market_maker' docker-compose.yml
+grep -q './docs/database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro' docker-compose.yml
 grep -q 'backend:3000' infra/prometheus/prometheus.yml
 grep -q 'node_modules' .dockerignore
 grep -q '.pnpm-store' .dockerignore
@@ -691,5 +694,6 @@ grep -q 'service.annotations' infra/helm/rfq-market-maker/templates/service.yaml
 grep -q 'prometheus.io/scrape' infra/helm/rfq-market-maker/values.yaml
 grep -q 'prometheus.io/path' infra/helm/rfq-market-maker/values.yaml
 grep -q 'name: rfq-market-maker' infra/helm/rfq-market-maker/Chart.yaml
+grep -q '/docker-entrypoint-initdb.d/001-schema.sql' book/Volume7-ProductionDeployment/Chapter01-Docker.md
 
 echo "skeleton check passed"
