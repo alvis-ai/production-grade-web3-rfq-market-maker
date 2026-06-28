@@ -129,7 +129,7 @@ export class QuoteService {
         snapshotId: snapshot.snapshotId,
       });
     } catch (error) {
-      await this.deps.quoteRepository.markFailed(quoteId, quoteFailureCode(error));
+      await this.markQuoteFailedBestEffort(quoteId, quoteFailureCode(error));
       throw error;
     }
 
@@ -228,6 +228,14 @@ export class QuoteService {
       await this.deps.quoteRepository.markFailed(quoteId, errorCode);
     } catch (error) {
       throw quoteStoreFailure(error);
+    }
+  }
+
+  private async markQuoteFailedBestEffort(quoteId: string, errorCode: string): Promise<void> {
+    try {
+      await this.markStoredQuoteFailed(quoteId, errorCode);
+    } catch {
+      // Preserve the original signer failure; reconciliation can recover requested quotes later.
     }
   }
 

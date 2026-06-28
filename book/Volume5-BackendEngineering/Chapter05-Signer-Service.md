@@ -122,6 +122,7 @@ signQuote(input: SignQuoteInput): Promise<`0x${string}`>
 ## Failure Scenarios
 
 - KMS unavailable：return `SIGNER_UNAVAILABLE`，记录 `rfq_signer_errors_total{operation="sign"}`。
+- failed quote persistence unavailable after signer error：仍保留 `SIGNER_UNAVAILABLE` 作为 primary API error，避免状态存储故障掩盖 signer outage。
 - signer readiness probe failed：`/ready` returns degraded before the instance is considered routable。
 - policy mismatch：reject signing。
 - audit write failed：do not return signature。

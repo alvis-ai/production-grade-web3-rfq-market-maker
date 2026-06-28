@@ -130,6 +130,7 @@ grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveSigned' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.markFailed' backend/src/modules/quote/quote.service.ts
+grep -q 'markQuoteFailedBestEffort' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteStoreFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'QUOTE_STORE_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteFailureCode' backend/src/modules/quote/quote.service.ts
@@ -343,7 +344,9 @@ grep -q 'rfq_quote_status_update_errors_total' book/Volume5-BackendEngineering/C
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
 grep -q 'marks requested quotes as failed when signer is unavailable' backend/test/quote-service.test.mjs
+grep -q 'preserves signer errors when marking failed quotes fails' backend/test/quote-service.test.mjs
 grep -q 'signing is unavailable' backend/test/api.test.mjs
+grep -q 'preserves signer errors when failed quote persistence fails' backend/test/api.test.mjs
 grep -q 'rfq_signer_errors_total' backend/test/api.test.mjs
 grep -q 'settlement constraints before simulated settlement' backend/test/api.test.mjs
 grep -q 'failed quote status persistence fails' backend/test/api.test.mjs

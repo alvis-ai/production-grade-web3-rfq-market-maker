@@ -58,3 +58,46 @@ test("QuoteService marks requested quotes as failed when signer is unavailable",
   assert.equal(status.errorCode, "SIGNER_UNAVAILABLE");
   assert.equal(status.snapshotId, "snapshot_1_00000000_00000000");
 });
+
+test("QuoteService preserves signer errors when marking failed quotes fails", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+  let requestedQuoteId;
+  quoteRepository.saveRequested = async (input) => {
+    requestedQuoteId = input.quoteId;
+    await saveRequested(input);
+  };
+  quoteRepository.markFailed = async () => {
+    throw new Error("quote store offline");
+  };
+
+  const service = new QuoteService({
+    inventoryService: new InventoryService(),
+    marketDataService: new StaticMarketDataService(),
+    pricingEngine: new FormulaPricingEngine(),
+    quoteRepository,
+    riskEngine: new BasicRiskEngine(),
+    routingEngine: new InternalInventoryRoutingEngine(),
+    signerService: {
+      async signQuote() {
+        throw new APIError("SIGNER_UNAVAILABLE", "Signer service unavailable", 503);
+      },
+      async verifyQuoteSignature() {
+        return false;
+      },
+    },
+  });
+
+  await assert.rejects(
+    service.createQuote(request),
+    (error) => {
+      assert.equal(error.code, "SIGNER_UNAVAILABLE");
+      return true;
+    },
+  );
+
+  assert.match(requestedQuoteId, /^q_/);
+  const status = await quoteRepository.findStatus(requestedQuoteId);
+  assert.equal(status.status, "requested");
+  assert.equal(status.errorCode, undefined);
+});
