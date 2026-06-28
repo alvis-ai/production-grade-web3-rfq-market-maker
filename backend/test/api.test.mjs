@@ -339,6 +339,12 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(ready.body.status, "ready");
     assert.equal(ready.body.components.signer, "ok");
     assert.equal(ready.body.components.marketData, "ok");
+    assert.equal(ready.body.components.quoteRepository, "ok");
+    assert.equal(ready.body.components.inventory, "ok");
+    assert.equal(ready.body.components.execution, "ok");
+    assert.equal(ready.body.components.settlementEventStore, "ok");
+    assert.equal(ready.body.components.pnl, "ok");
+    assert.equal(ready.body.components.metrics, "ok");
 
     const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
     assert.equal(quote.statusCode, 200);
@@ -716,6 +722,81 @@ test("RFQ API degrades readiness when signer probe fails", async () => {
     assert.match(metrics.payload, /rfq_readiness_status\{status="degraded"\} 1/);
     assert.match(metrics.payload, /rfq_dependency_status\{component="marketData",status="ok"\} 1/);
     assert.match(metrics.payload, /rfq_dependency_status\{component="signer",status="degraded"\} 1/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API degrades readiness when storage dependency probes fail", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  quoteRepository.checkHealth = async () => {
+    throw new Error("quote store offline");
+  };
+  const server = buildServer({
+    logger: false,
+    quoteRepository,
+    hedgeService: {
+      checkHealth() {
+        throw new Error("hedge store offline");
+      },
+      createHedgeIntent() {
+        throw new Error("unused");
+      },
+      getHedgeIntent() {
+        return undefined;
+      },
+      quoteRiskPenaltyBps() {
+        return 0;
+      },
+    },
+    settlementEventService: {
+      checkHealth() {
+        throw new Error("settlement event store offline");
+      },
+      applySettlementEvent() {
+        throw new Error("unused");
+      },
+      getSettlementEvent() {
+        return undefined;
+      },
+    },
+    pnlService: {
+      checkHealth() {
+        throw new Error("pnl store offline");
+      },
+      recordSettlement() {
+        throw new Error("unused");
+      },
+      summary() {
+        return {
+          status: "ok",
+          totalTrades: 0,
+          grossPnlTokenOut: "0",
+          trades: [],
+        };
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/ready");
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.status, "degraded");
+    assert.equal(response.body.components.marketData, "ok");
+    assert.equal(response.body.components.signer, "ok");
+    assert.equal(response.body.components.quoteRepository, "degraded");
+    assert.equal(response.body.components.execution, "degraded");
+    assert.equal(response.body.components.settlementEventStore, "degraded");
+    assert.equal(response.body.components.pnl, "degraded");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="quoteRepository",status="degraded"\} 1/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="execution",status="degraded"\} 1/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="settlementEventStore",status="degraded"\} 1/);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="pnl",status="degraded"\} 1/);
   } finally {
     await server.close();
   }

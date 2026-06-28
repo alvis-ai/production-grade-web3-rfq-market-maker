@@ -5,6 +5,12 @@ import {
 } from "../market-data/market-data.service.js";
 import type { QuoteRequest, SignedQuote } from "../../shared/types/rfq.js";
 import type { SignerService } from "../signer/signer.service.js";
+import type { HedgeIntentService } from "../hedge/hedge.service.js";
+import type { InventoryService } from "../inventory/inventory.service.js";
+import type { MetricsService } from "../metrics/metrics.service.js";
+import type { PnlStore } from "../pnl/pnl.service.js";
+import type { QuoteRepository } from "../quote/quote.repository.js";
+import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
 
 export type ReadinessComponentStatus = "ok" | "degraded";
 
@@ -16,6 +22,12 @@ export interface ReadinessResponse {
 export interface ReadinessServiceDeps {
   marketDataService: MarketDataService;
   signerService: SignerService;
+  quoteRepository: QuoteRepository;
+  inventoryService: InventoryService;
+  hedgeService: HedgeIntentService;
+  settlementEventService: SettlementEventStore;
+  pnlService: PnlStore;
+  metricsService: MetricsService;
 }
 
 export interface ReadinessServiceConfig {
@@ -58,17 +70,24 @@ export class ReadinessService {
   async check(): Promise<ReadinessResponse> {
     const marketDataStatus = await this.checkMarketData();
     const signerStatus = await this.checkSigner();
+    const quoteRepositoryStatus = await this.checkDependency(this.deps.quoteRepository);
+    const inventoryStatus = await this.checkDependency(this.deps.inventoryService);
+    const hedgeStatus = await this.checkDependency(this.deps.hedgeService);
+    const settlementEventStoreStatus = await this.checkDependency(this.deps.settlementEventService);
+    const pnlStatus = await this.checkDependency(this.deps.pnlService);
+    const metricsStatus = await this.checkDependency(this.deps.metricsService);
     const components = {
       marketData: marketDataStatus,
       pricing: "ok",
       risk: "ok",
       signer: signerStatus,
-      quoteRepository: "ok",
-      inventory: "ok",
-      execution: "ok",
-      settlementEventStore: "ok",
-      pnl: "ok",
-      metrics: "ok",
+      quoteRepository: quoteRepositoryStatus,
+      inventory: inventoryStatus,
+      // The current execution readiness probe is backed by the hedge intent store.
+      execution: hedgeStatus,
+      settlementEventStore: settlementEventStoreStatus,
+      pnl: pnlStatus,
+      metrics: metricsStatus,
     } as const;
 
     const hasDegradedComponent = Object.values(components).some((status) => status === "degraded");
@@ -101,6 +120,15 @@ export class ReadinessService {
       });
       const verified = await this.deps.signerService.verifyQuoteSignature(this.config.probeQuote, signature);
       return verified ? "ok" : "degraded";
+    } catch {
+      return "degraded";
+    }
+  }
+
+  private async checkDependency(dependency: { checkHealth?: () => void | Promise<void> }): Promise<ReadinessComponentStatus> {
+    try {
+      await dependency.checkHealth?.();
+      return "ok";
     } catch {
       return "degraded";
     }

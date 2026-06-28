@@ -79,7 +79,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const marketDataService = options.marketDataService ?? new StaticMarketDataService();
   const metricsService = new MetricsService();
   const signerService = options.signerService ?? new LocalEIP712SignerService(readSignerConfig());
-  const readinessService = new ReadinessService({ marketDataService, signerService });
+  const quoteRepository = options.quoteRepository ?? new InMemoryQuoteRepository();
   const inventoryService = new InventoryService();
   const settlementEventService = options.settlementEventService ?? new SettlementEventService(inventoryService);
   const executionService = new SkeletonExecutionService({
@@ -102,13 +102,23 @@ export function buildServer(options: BuildServerOptions = {}) {
     marketDataService,
     hedgeService,
     pricingEngine: options.pricingEngine ?? new FormulaPricingEngine(),
-    quoteRepository: options.quoteRepository ?? new InMemoryQuoteRepository(),
+    quoteRepository,
     riskEngine: options.riskEngine ?? new BasicRiskEngine(),
     routingEngine: options.routingEngine ?? new InternalInventoryRoutingEngine(),
     signerService: new ObservedSignerService(signerService, metricsService),
   }, {
     ...defaultQuoteServiceConfig,
     quoteTtlSeconds: options.quoteTtlSeconds ?? readQuoteTtlSeconds(),
+  });
+  const readinessService = new ReadinessService({
+    hedgeService,
+    inventoryService,
+    marketDataService,
+    metricsService,
+    pnlService,
+    quoteRepository,
+    settlementEventService,
+    signerService,
   });
 
   server.get("/health", async () => ({ status: "ok" }));

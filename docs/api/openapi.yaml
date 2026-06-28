@@ -335,7 +335,7 @@ paths:
     get:
       operationId: getReadiness
       summary: Readiness check
-      description: Checks market data freshness and signer sign/verify capability before the instance is considered routable.
+      description: Checks market data freshness, signer sign/verify capability, and lightweight state dependency probes before the instance is considered routable.
       tags:
         - System
       responses:

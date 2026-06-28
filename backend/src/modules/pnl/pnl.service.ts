@@ -6,12 +6,17 @@ export interface RecordPnlInput {
 }
 
 export interface PnlStore {
+  checkHealth?(): void;
   recordSettlement(input: RecordPnlInput): PnlTradeRecord;
   summary(): PnlSummaryResponse;
 }
 
 export class PnlService implements PnlStore {
   private readonly trades = new Map<string, PnlTradeRecord>();
+
+  checkHealth(): void {
+    this.summary();
+  }
 
   recordSettlement(input: RecordPnlInput): PnlTradeRecord {
     const grossPnl = calculateGrossPnl(input.quote.amountIn, input.quote.amountOut);

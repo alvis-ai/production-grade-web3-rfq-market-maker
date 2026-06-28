@@ -118,7 +118,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 - Gateway 为所有响应写入 baseline security headers：`cache-control: no-store`、`x-content-type-options: nosniff`、`x-frame-options: DENY`、`referrer-policy: no-referrer` 和限制性的 `permissions-policy`。`RFQ_ENABLE_HSTS` 只应在 HTTPS 入口后开启，开启后写入 `strict-transport-security`。
 - Standalone backend process registers graceful shutdown handlers for `SIGTERM` and `SIGINT`; the first signal closes Fastify and sets process exit code, while duplicate signals do not trigger duplicate close attempts.
 - Gateway uses a not-found handler so unknown routes and unsupported HTTP methods return structured `INVALID_REQUEST`/404 responses instead of Fastify default error objects.
-- `/ready` 当前检查 market data freshness 和 signer probe。stale snapshot 会让 `marketData` 组件变为 `degraded`；signer 无法签名或签名无法被同一 trusted signer 验证时，`signer` 组件变为 `degraded`，用于阻止 Kubernetes 在错误价格输入或不可签名状态下继续导流。
+- `/ready` 当前检查 market data freshness、signer sign/verify probe，以及 quote repository、inventory、execution/hedge store、settlement event store、PnL store 和 metrics exporter 的轻量 health probe。stale snapshot 会让 `marketData` 组件变为 `degraded`；signer 无法签名或签名无法被同一 trusted signer 验证时，`signer` 组件变为 `degraded`；存储或执行依赖探针失败时对应 `quoteRepository`、`execution`、`settlementEventStore`、`pnl` 或 `metrics` 组件变为 `degraded`，用于阻止 Kubernetes 在错误价格输入、不可签名或关键状态依赖不可用时继续导流。
 - 当前 Fastify 实现使用 `InMemoryRateLimiter` 保护 `/quote`、`/submit`、`/quote/:id`、`/settlements/:id`、`/hedges/:id` 和 `/pnl`；默认窗口为 60 秒，默认限额为 quote 120 requests / 60 seconds、submit 60 requests / 60 seconds、status 300 requests / 60 seconds。生产部署可替换为 Redis-backed distributed rate limit，并保持 `RATE_LIMITED`、HTTP 429 和 `Retry-After` 错误契约不变。
 
 ## Failure Scenarios
@@ -129,6 +129,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 - 限流：返回 HTTP 429、`RATE_LIMITED` 和 `Retry-After`。
 - Market data unavailable、invalid 或 stale：`/ready` 返回 HTTP 503/degraded，`POST /quote` 返回 `MARKET_DATA_UNAVAILABLE`。
 - Signer readiness probe failed：`/ready` 返回 HTTP 503/degraded，`POST /quote` 仍会在实际签名时返回 `SIGNER_UNAVAILABLE`。
+- Storage or execution health probe failed：`/ready` 返回 HTTP 503/degraded，并通过 `rfq_dependency_status` 指明 quote repository、execution、settlement event store、PnL 或 metrics 组件；组件恢复前不应把新 quote 流量导入该实例。
 - Quote status store unavailable：`GET /quote/:id` 返回 HTTP 503、`QUOTE_STORE_UNAVAILABLE` 和 traceId，不能落入 Fastify 默认 500。
 - Hedge status store unavailable：`GET /hedges/:id` 返回 HTTP 503、`HEDGE_STORE_UNAVAILABLE` 和 traceId，区分查询依赖故障与 `HEDGE_NOT_FOUND`。
 - Settlement event store unavailable：`GET /settlements/:id` 返回 HTTP 503、`SETTLEMENT_EVENT_STORE_UNAVAILABLE` 和 traceId，区分索引器/存储故障与 `SETTLEMENT_EVENT_NOT_FOUND`。
@@ -146,7 +147,7 @@ Gateway 应保持薄层，不执行重计算。序列化和校验必须足够快
 
 ## Testing Strategy
 
-测试 request validation、Fastify parser error mapping、not-found handler、body limit、CORS allowed origin、CORS preflight rejection、security headers、HSTS toggle、graceful shutdown signal handling、error mapping、rate limit、health、readiness market data degraded、readiness signer degraded、metrics、`/quote` 路由、settlement event 查询、hedge intent 查询、PnL summary 查询，以及成功和失败响应的 `x-trace-id` 传播。
+测试 request validation、Fastify parser error mapping、not-found handler、body limit、CORS allowed origin、CORS preflight rejection、security headers、HSTS toggle、graceful shutdown signal handling、error mapping、rate limit、health、readiness market data degraded、readiness signer degraded、readiness storage dependency degraded、metrics、`/quote` 路由、settlement event 查询、hedge intent 查询、PnL summary 查询，以及成功和失败响应的 `x-trace-id` 传播。
 
 ## Interview Notes
 

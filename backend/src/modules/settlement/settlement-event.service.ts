@@ -14,6 +14,7 @@ export interface ApplySettlementEventResult {
 }
 
 export interface SettlementEventStore {
+  checkHealth?(): void;
   applySettlementEvent(input: ApplySettlementEventInput): ApplySettlementEventResult;
   getSettlementEvent(settlementEventId: string): SettlementEventStatusResponse | undefined;
 }
@@ -23,6 +24,10 @@ export class SettlementEventService implements SettlementEventStore {
   private readonly eventIdsByKey = new Map<string, string>();
 
   constructor(private readonly inventoryService: InventoryService) {}
+
+  checkHealth(): void {
+    this.getSettlementEvent("__readiness_probe__");
+  }
 
   applySettlementEvent(input: ApplySettlementEventInput): ApplySettlementEventResult {
     const logIndex = input.logIndex ?? 0;

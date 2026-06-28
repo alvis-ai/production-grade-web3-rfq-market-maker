@@ -23,6 +23,7 @@ export interface HedgeRiskInput {
 }
 
 export interface HedgeIntentService {
+  checkHealth?(): void;
   createHedgeIntent(intent: HedgeIntent): HedgeResult;
   getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined;
   recordHedgeFailure?(intent: HedgeIntent, reasonCode: HedgeFailureReasonCode): void;
@@ -45,6 +46,10 @@ export class HedgeService implements HedgeIntentService {
   private sequence = 0;
 
   constructor(private readonly config: HedgeServiceConfig = defaultHedgeServiceConfig) {}
+
+  checkHealth(): void {
+    this.getHedgeIntent("__readiness_probe__");
+  }
 
   createHedgeIntent(intent: HedgeIntent): HedgeResult {
     this.sequence += 1;

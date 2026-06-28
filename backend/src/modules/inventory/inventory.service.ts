@@ -49,6 +49,10 @@ export class InventoryService {
 
   constructor(private readonly config: InventoryServiceConfig = defaultInventoryServiceConfig) {}
 
+  checkHealth(): void {
+    this.getPosition(1, "0x0000000000000000000000000000000000000002");
+  }
+
   applySettlement(delta: SettlementDelta): void {
     this.add(delta.chainId, delta.tokenIn, BigInt(delta.amountIn));
     this.add(delta.chainId, delta.tokenOut, -BigInt(delta.amountOut));

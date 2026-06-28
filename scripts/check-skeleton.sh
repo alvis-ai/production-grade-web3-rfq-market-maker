@@ -23,20 +23,28 @@ grep -q 'marketDataService: MarketDataService' backend/src/modules/health/readin
 grep -q 'signerService: SignerService' backend/src/modules/health/readiness.service.ts
 grep -q 'checkMarketData' backend/src/modules/health/readiness.service.ts
 grep -q 'checkSigner' backend/src/modules/health/readiness.service.ts
+grep -q 'checkDependency' backend/src/modules/health/readiness.service.ts
 grep -q 'maxSnapshotAgeMs' backend/src/modules/health/readiness.service.ts
 grep -q 'maxSnapshotFutureSkewMs' backend/src/modules/health/readiness.service.ts
 grep -q 'readiness_probe' backend/src/modules/health/readiness.service.ts
-grep -q 'pnl: "ok"' backend/src/modules/health/readiness.service.ts
-grep -q 'settlementEventStore: "ok"' backend/src/modules/health/readiness.service.ts
+grep -q 'quoteRepositoryStatus' backend/src/modules/health/readiness.service.ts
+grep -q 'settlementEventStoreStatus' backend/src/modules/health/readiness.service.ts
+grep -q 'pnlStatus' backend/src/modules/health/readiness.service.ts
 test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
+grep -q 'checkHealth' backend/src/modules/quote/quote.repository.ts
 test -s backend/src/modules/execution/execution.service.ts
 test -s backend/src/modules/inventory/inventory.service.ts
+grep -q 'checkHealth' backend/src/modules/inventory/inventory.service.ts
 test -s backend/src/modules/hedge/hedge.service.ts
+grep -q 'checkHealth' backend/src/modules/hedge/hedge.service.ts
 test -s backend/src/modules/metrics/metrics.service.ts
+grep -q 'checkHealth' backend/src/modules/metrics/metrics.service.ts
 test -s backend/src/modules/pnl/pnl.service.ts
+grep -q 'checkHealth' backend/src/modules/pnl/pnl.service.ts
 test -s backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'checkHealth' backend/src/modules/settlement/settlement-event.service.ts
 test -s backend/src/modules/settlement/settlement-verifier.service.ts
 test -s backend/src/modules/market-data/market-data.service.ts
 grep -q 'getMarketSnapshotIssue' backend/src/modules/market-data/market-data.service.ts
@@ -759,7 +767,9 @@ grep -q 'market data shape is invalid' backend/test/api.test.mjs
 grep -q 'degrades readiness when market data is stale' backend/test/api.test.mjs
 grep -q 'degrades readiness when market data timestamp is too far in the future' backend/test/api.test.mjs
 grep -q 'degrades readiness when signer probe fails' backend/test/api.test.mjs
+grep -q 'degrades readiness when storage dependency probes fail' backend/test/api.test.mjs
 grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'readiness storage dependency degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'toxic-flow users' backend/test/api.test.mjs
 grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/test/api.test.mjs

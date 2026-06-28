@@ -28,6 +28,7 @@ export interface QuoteRecord {
 }
 
 export interface QuoteRepository {
+  checkHealth?(): Promise<void>;
   saveRequested(input: SaveRequestedQuoteInput): Promise<void>;
   saveRejected(input: SaveRejectedQuoteInput): Promise<void>;
   saveSigned(input: SaveSignedQuoteInput): Promise<void>;
@@ -64,6 +65,10 @@ export interface SaveSignedQuoteInput {
 export class InMemoryQuoteRepository implements QuoteRepository {
   private readonly records = new Map<string, QuoteRecord>();
   private readonly quoteIdsByUserNonce = new Map<string, string>();
+
+  async checkHealth(): Promise<void> {
+    await this.findStatus("__readiness_probe__");
+  }
 
   async saveRequested(input: SaveRequestedQuoteInput): Promise<void> {
     this.records.set(input.quoteId, {

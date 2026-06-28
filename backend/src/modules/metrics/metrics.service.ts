@@ -44,6 +44,10 @@ export class MetricsService {
   private readonly inventoryBalances = new Map<string, InventoryMetricPosition>();
   private readonly realizedPnl = new Map<string, bigint>();
 
+  checkHealth(): void {
+    this.renderPrometheus();
+  }
+
   recordQuoteRequest(): void {
     this.quoteRequests += 1;
   }
