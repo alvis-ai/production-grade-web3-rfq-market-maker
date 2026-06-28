@@ -25,6 +25,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: rfq-backend-config
+            - secretRef:
+                name: rfq-backend-secrets
           readinessProbe:
             httpGet:
               path: /ready

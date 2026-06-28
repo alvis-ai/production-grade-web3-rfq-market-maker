@@ -26,6 +26,16 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+            - name: RFQ_SIGNER_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.signerSecret.name }}
+                  key: {{ .Values.signerSecret.privateKeyKey }}
+            - name: RFQ_SETTLEMENT_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.signerSecret.name }}
+                  key: {{ .Values.signerSecret.settlementAddressKey }}
           readinessProbe:
             httpGet:
               path: /ready

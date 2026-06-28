@@ -19,6 +19,11 @@ env:
   PORT: "3000"
   RFQ_LOG_LEVEL: info
 
+signerSecret:
+  name: rfq-backend-secrets
+  privateKeyKey: RFQ_SIGNER_PRIVATE_KEY
+  settlementAddressKey: RFQ_SETTLEMENT_ADDRESS
+
 resources:
   requests:
     cpu: 100m
