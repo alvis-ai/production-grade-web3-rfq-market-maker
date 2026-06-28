@@ -24,6 +24,7 @@ test("production startup requires explicit signer configuration", () => {
     RFQ_SETTLEMENT_ADDRESS: process.env.RFQ_SETTLEMENT_ADDRESS,
     RFQ_QUOTE_TTL_SECONDS: process.env.RFQ_QUOTE_TTL_SECONDS,
     RFQ_BODY_LIMIT_BYTES: process.env.RFQ_BODY_LIMIT_BYTES,
+    RFQ_CORS_ALLOWED_ORIGINS: process.env.RFQ_CORS_ALLOWED_ORIGINS,
   };
 
   try {
@@ -32,6 +33,7 @@ test("production startup requires explicit signer configuration", () => {
     delete process.env.RFQ_SETTLEMENT_ADDRESS;
     delete process.env.RFQ_QUOTE_TTL_SECONDS;
     delete process.env.RFQ_BODY_LIMIT_BYTES;
+    delete process.env.RFQ_CORS_ALLOWED_ORIGINS;
 
     assert.throws(
       () => buildServer({ logger: false }),
@@ -68,6 +70,7 @@ test("production startup requires explicit signer configuration", () => {
     restoreEnv("RFQ_SETTLEMENT_ADDRESS", originalEnv.RFQ_SETTLEMENT_ADDRESS);
     restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalEnv.RFQ_QUOTE_TTL_SECONDS);
     restoreEnv("RFQ_BODY_LIMIT_BYTES", originalEnv.RFQ_BODY_LIMIT_BYTES);
+    restoreEnv("RFQ_CORS_ALLOWED_ORIGINS", originalEnv.RFQ_CORS_ALLOWED_ORIGINS);
   }
 });
 
@@ -120,6 +123,101 @@ test("RFQ API rejects invalid RFQ_BODY_LIMIT_BYTES at startup", () => {
     );
   } finally {
     restoreEnv("RFQ_BODY_LIMIT_BYTES", originalBodyLimit);
+  }
+});
+
+test("RFQ API rejects invalid RFQ_CORS_ALLOWED_ORIGINS at startup", () => {
+  const originalOrigins = process.env.RFQ_CORS_ALLOWED_ORIGINS;
+
+  try {
+    process.env.RFQ_CORS_ALLOWED_ORIGINS = "not-an-origin";
+
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_CORS_ALLOWED_ORIGINS must be a comma-separated list of HTTP\(S\) origins/,
+    );
+  } finally {
+    restoreEnv("RFQ_CORS_ALLOWED_ORIGINS", originalOrigins);
+  }
+});
+
+test("RFQ API emits CORS headers for allowed browser origins", async () => {
+  const server = buildServer({
+    logger: false,
+    corsAllowedOrigins: ["https://app.example.com"],
+  });
+  await server.ready();
+
+  try {
+    const response = await server.inject({
+      method: "GET",
+      url: "/health",
+      headers: { origin: "https://app.example.com" },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.headers["access-control-allow-origin"], "https://app.example.com");
+    assert.equal(response.headers.vary, "Origin");
+    assert.equal(response.headers["access-control-allow-methods"], "GET,POST,OPTIONS");
+    assert.equal(response.headers["access-control-allow-headers"], "content-type,x-trace-id");
+    assert.equal(response.headers["access-control-max-age"], "600");
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API answers CORS preflight for allowed origins", async () => {
+  const server = buildServer({
+    logger: false,
+    corsAllowedOrigins: ["https://app.example.com"],
+  });
+  await server.ready();
+
+  try {
+    const response = await server.inject({
+      method: "OPTIONS",
+      url: "/quote",
+      headers: {
+        origin: "https://app.example.com",
+        "access-control-request-method": "POST",
+      },
+    });
+
+    assert.equal(response.statusCode, 204);
+    assert.equal(response.headers["access-control-allow-origin"], "https://app.example.com");
+    assert.equal(response.headers["access-control-allow-methods"], "GET,POST,OPTIONS");
+    assert.equal(response.payload, "");
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API rejects CORS preflight for disallowed origins", async () => {
+  const server = buildServer({
+    logger: false,
+    corsAllowedOrigins: ["https://app.example.com"],
+  });
+  await server.ready();
+
+  try {
+    const response = await server.inject({
+      method: "OPTIONS",
+      url: "/quote",
+      headers: {
+        origin: "https://evil.example.com",
+        "access-control-request-method": "POST",
+      },
+    });
+    const body = JSON.parse(response.payload);
+
+    assert.equal(response.statusCode, 403);
+    assert.equal(body.code, "INVALID_REQUEST");
+    assert.equal(body.message, "CORS origin is not allowed");
+    assert.match(body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], body.traceId);
+    assert.equal(response.headers["access-control-allow-origin"], undefined);
+  } finally {
+    await server.close();
   }
 });
 

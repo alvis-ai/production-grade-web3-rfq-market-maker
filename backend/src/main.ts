@@ -21,6 +21,7 @@ import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.j
 import type { PnlTradeRecord } from "./shared/types/rfq.js";
 
 const defaultBodyLimitBytes = 32_768;
+const defaultCorsAllowedOrigins = ["http://localhost:5173"];
 
 export interface BuildServerOptions {
   logger?: boolean;
@@ -37,6 +38,7 @@ export interface BuildServerOptions {
   rateLimit?: Partial<RateLimitConfig> | false;
   quoteTtlSeconds?: number;
   bodyLimitBytes?: number;
+  corsAllowedOrigins?: readonly string[] | false;
 }
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -44,8 +46,12 @@ export function buildServer(options: BuildServerOptions = {}) {
     logger: options.logger ?? true,
     bodyLimit: options.bodyLimitBytes ?? readBodyLimitBytes(),
   });
+  const corsAllowedOrigins = options.corsAllowedOrigins === false
+    ? []
+    : options.corsAllowedOrigins ?? readCorsAllowedOrigins();
   server.addHook("onRequest", async (request, reply) => {
     reply.header("x-trace-id", requestTraceId(request));
+    applyCorsHeaders(request, reply, corsAllowedOrigins);
   });
   server.setErrorHandler((error, request, reply) => {
     return sendError(reply, requestTraceId(request), frameworkErrorToAPIError(error));
@@ -87,6 +93,17 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
 
   server.get("/health", async () => ({ status: "ok" }));
+  server.options("/*", async (request, reply) => {
+    if (!isCorsOriginAllowed(request, corsAllowedOrigins)) {
+      return sendError(
+        reply,
+        requestTraceId(request),
+        new APIError("INVALID_REQUEST", "CORS origin is not allowed", 403),
+      );
+    }
+
+    return reply.code(204).send();
+  });
   server.get("/ready", async (_request, reply) => {
     const readiness = await readinessService.check();
     if (readiness.status === "degraded") {
@@ -281,6 +298,33 @@ function sendError(
   return reply.header("x-trace-id", traceId).code(error.statusCode).send(error.toResponse(traceId));
 }
 
+function applyCorsHeaders(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  allowedOrigins: readonly string[],
+): void {
+  const origin = requestOrigin(request);
+  if (!origin || !allowedOrigins.includes(origin)) {
+    return;
+  }
+
+  reply.header("access-control-allow-origin", origin);
+  reply.header("vary", "Origin");
+  reply.header("access-control-allow-methods", "GET,POST,OPTIONS");
+  reply.header("access-control-allow-headers", "content-type,x-trace-id");
+  reply.header("access-control-max-age", "600");
+}
+
+function isCorsOriginAllowed(request: FastifyRequest, allowedOrigins: readonly string[]): boolean {
+  const origin = requestOrigin(request);
+  return !origin || allowedOrigins.includes(origin);
+}
+
+function requestOrigin(request: FastifyRequest): string | undefined {
+  const origin = request.headers.origin;
+  return typeof origin === "string" && origin.trim().length > 0 ? origin : undefined;
+}
+
 function frameworkErrorToAPIError(error: unknown): APIError {
   if (error instanceof APIError) {
     return error;
@@ -454,6 +498,24 @@ function readBodyLimitBytes(): number {
   }
 
   return value;
+}
+
+function readCorsAllowedOrigins(): string[] {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const configured = env?.RFQ_CORS_ALLOWED_ORIGINS;
+  if (!configured || configured.trim().length === 0) {
+    return defaultCorsAllowedOrigins;
+  }
+
+  const origins = configured
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+  if (origins.length === 0 || origins.some((origin) => !/^https?:\/\/[^/\s]+$/.test(origin))) {
+    throw new Error("RFQ_CORS_ALLOWED_ORIGINS must be a comma-separated list of HTTP(S) origins");
+  }
+
+  return origins;
 }
 
 export async function startServer() {

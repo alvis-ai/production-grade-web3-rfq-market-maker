@@ -118,6 +118,12 @@ grep -q 'readQuoteTtlSeconds' backend/src/main.ts
 grep -q 'RFQ_BODY_LIMIT_BYTES' backend/src/main.ts
 grep -q 'readBodyLimitBytes' backend/src/main.ts
 grep -q 'defaultBodyLimitBytes' backend/src/main.ts
+grep -q 'RFQ_CORS_ALLOWED_ORIGINS' backend/src/main.ts
+grep -q 'readCorsAllowedOrigins' backend/src/main.ts
+grep -q 'defaultCorsAllowedOrigins' backend/src/main.ts
+grep -q 'applyCorsHeaders' backend/src/main.ts
+grep -q 'access-control-allow-origin' backend/src/main.ts
+grep -Fq 'server.options("/*"' backend/src/main.ts
 grep -q 'server.setErrorHandler' backend/src/main.ts
 grep -q 'frameworkErrorToAPIError' backend/src/main.ts
 grep -q 'FST_ERR_CTP_BODY_TOO_LARGE' backend/src/main.ts
@@ -380,6 +386,8 @@ grep -q 'assertTraceHeader' backend/test/api.test.mjs
 grep -q 'onRequest` hook' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Fastify parser' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'RFQ_BODY_LIMIT_BYTES' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'RFQ_CORS_ALLOWED_ORIGINS' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'CORS preflight' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'IntString' docs/api/openapi.yaml
 grep -q 'Internal rejection reason for rejected quote records' docs/api/openapi.yaml
 grep -q 'QUOTE_ALREADY_USED' docs/api/openapi.yaml
@@ -390,6 +398,7 @@ grep -q 'onlyBuiltDependencies' pnpm-workspace.yaml
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' .env.example
 grep -q 'RFQ_QUOTE_TTL_SECONDS=30' .env.example
 grep -q 'RFQ_BODY_LIMIT_BYTES=32768' .env.example
+grep -q 'RFQ_CORS_ALLOWED_ORIGINS=http://localhost:5173' .env.example
 grep -q 'HOST=127.0.0.1' .env.example
 grep -q 'Production Configuration' README.md
 grep -q 'rfq-backend-secrets' README.md
@@ -397,10 +406,13 @@ grep -q '32-byte hex string' README.md
 grep -q '20-byte hex address' README.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' README.md
 grep -q 'RFQ_BODY_LIMIT_BYTES' README.md
+grep -q 'RFQ_CORS_ALLOWED_ORIGINS' README.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' docs/api/openapi.yaml
+grep -q 'RFQ_CORS_ALLOWED_ORIGINS' docs/api/openapi.yaml
 grep -q '"413":' docs/api/openapi.yaml
 grep -q 'body too large' docs/api/errors.md
 grep -q 'malformed JSON' docs/api/errors.md
+grep -q 'CORS preflight origin' docs/api/errors.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/test/api.test.mjs
 grep -q 'configured quote TTL' backend/test/quote-service.test.mjs
@@ -486,6 +498,10 @@ grep -q 'trace ids' backend/test/api.test.mjs
 grep -q 'malformed JSON bodies' backend/test/api.test.mjs
 grep -q 'oversized JSON bodies' backend/test/api.test.mjs
 grep -q 'RFQ_BODY_LIMIT_BYTES' backend/test/api.test.mjs
+grep -q 'CORS headers for allowed browser origins' backend/test/api.test.mjs
+grep -q 'CORS preflight for allowed origins' backend/test/api.test.mjs
+grep -q 'CORS preflight for disallowed origins' backend/test/api.test.mjs
+grep -q 'RFQ_CORS_ALLOWED_ORIGINS' backend/test/api.test.mjs
 grep -q 'settlement shape' backend/test/api.test.mjs
 grep -q 'expired submit quotes' backend/test/api.test.mjs
 grep -q 'unissued submit quotes' backend/test/api.test.mjs
@@ -539,6 +555,7 @@ grep -q 'RFQ_SIGNER_PRIVATE_KEY' infra/k8s/backend-secret.yaml
 grep -q 'RFQ_SETTLEMENT_ADDRESS' infra/k8s/backend-secret.yaml
 grep -q 'RFQ_QUOTE_TTL_SECONDS' infra/k8s/configmap.yaml
 grep -q 'RFQ_BODY_LIMIT_BYTES' infra/k8s/configmap.yaml
+grep -q 'RFQ_CORS_ALLOWED_ORIGINS' infra/k8s/configmap.yaml
 grep -q 'HOST: "0.0.0.0"' infra/k8s/configmap.yaml
 grep -q 'prometheus.io/scrape' infra/k8s/backend-service.yaml
 grep -q 'prometheus.io/path' infra/k8s/backend-service.yaml
@@ -549,6 +566,7 @@ grep -q 'RFQ_SIGNER_PRIVATE_KEY' infra/helm/rfq-market-maker/templates/deploymen
 grep -q 'RFQ_SETTLEMENT_ADDRESS' infra/helm/rfq-market-maker/templates/deployment.yaml
 grep -q 'RFQ_QUOTE_TTL_SECONDS' infra/helm/rfq-market-maker/values.yaml
 grep -q 'RFQ_BODY_LIMIT_BYTES' infra/helm/rfq-market-maker/values.yaml
+grep -q 'RFQ_CORS_ALLOWED_ORIGINS' infra/helm/rfq-market-maker/values.yaml
 grep -q 'HOST: "0.0.0.0"' infra/helm/rfq-market-maker/values.yaml
 grep -q 'signerSecret' infra/helm/rfq-market-maker/values.yaml
 grep -q 'rfq-backend-secrets' infra/helm/rfq-market-maker/values.yaml

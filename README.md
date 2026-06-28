@@ -131,11 +131,12 @@ HOST=127.0.0.1
 PORT=3000
 RFQ_QUOTE_TTL_SECONDS=30
 RFQ_BODY_LIMIT_BYTES=32768
+RFQ_CORS_ALLOWED_ORIGINS=http://localhost:5173
 RFQ_SIGNER_PRIVATE_KEY=0x...
 RFQ_SETTLEMENT_ADDRESS=0x...
 ```
 
-The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract. `RFQ_QUOTE_TTL_SECONDS` controls the signed quote lifetime and must be an integer from 1 to 3600; keep it short enough to limit stale price execution. `RFQ_BODY_LIMIT_BYTES` controls the maximum JSON request body size and must be an integer from 1024 to 1048576.
+The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract. `RFQ_QUOTE_TTL_SECONDS` controls the signed quote lifetime and must be an integer from 1 to 3600; keep it short enough to limit stale price execution. `RFQ_BODY_LIMIT_BYTES` controls the maximum JSON request body size and must be an integer from 1024 to 1048576. `RFQ_CORS_ALLOWED_ORIGINS` is a comma-separated allowlist of browser origins that may call the API.
 
 ## Production Configuration
 
