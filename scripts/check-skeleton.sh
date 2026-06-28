@@ -67,12 +67,17 @@ test -s infra/docker/backend.Dockerfile
 test -s infra/docker/frontend.Dockerfile
 grep -q 'ENV HOST=0.0.0.0' infra/docker/backend.Dockerfile
 grep -q 'ENV PORT=3000' infra/docker/backend.Dockerfile
+grep -q 'HEALTHCHECK' infra/docker/backend.Dockerfile
+grep -q 'http://127.0.0.1:3000/health' infra/docker/backend.Dockerfile
 grep -q 'FROM nginx:1.27-alpine AS runtime' infra/docker/frontend.Dockerfile
 grep -q 'VITE_RFQ_API_BASE_URL' infra/docker/frontend.Dockerfile
 grep -q 'COPY sdk/src sdk/src' infra/docker/frontend.Dockerfile
 grep -q 'pnpm --filter @rfq-market-maker/frontend build' infra/docker/frontend.Dockerfile
+grep -q 'HEALTHCHECK' infra/docker/frontend.Dockerfile
+grep -q 'http://127.0.0.1/' infra/docker/frontend.Dockerfile
 grep -q 'backend:' docker-compose.yml
 grep -q 'frontend:' docker-compose.yml
+grep -q 'condition: service_healthy' docker-compose.yml
 grep -q 'dockerfile: infra/docker/backend.Dockerfile' docker-compose.yml
 grep -q 'dockerfile: infra/docker/frontend.Dockerfile' docker-compose.yml
 grep -q 'VITE_RFQ_API_BASE_URL: http://localhost:3000' docker-compose.yml

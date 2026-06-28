@@ -114,11 +114,13 @@ No public API changes. Compose exposes backend API on `localhost:3000`, frontend
 - Prometheus and Grafana included from the first deployment docs stage.
 - Prometheus scrapes the compose `backend:3000` service directly.
 - Frontend image builds static Vite assets and serves them with Nginx; `VITE_RFQ_API_BASE_URL` is injected as a Docker build arg and defaults to `http://localhost:3000`.
+- Backend and frontend images define Docker health checks. Compose waits for the backend health check before starting frontend and Prometheus.
 - Local secrets are not production secrets.
 
 ## Failure Scenarios
 
 - Port conflict：change local ports or stop conflicting process.
+- Backend health check fails：inspect `/health`, signer configuration and container logs before relying on frontend or Prometheus.
 - Volume corruption：recreate local volume.
 - Service startup failure：inspect container logs.
 
