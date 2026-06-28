@@ -116,6 +116,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 - `RFQ_BODY_LIMIT_BYTES` 控制 gateway 接收的最大 JSON body，默认 32768 bytes，启动时必须校验为 1024 到 1048576 的整数，避免异常 payload 消耗 parser 和内存资源。
 - `RFQ_CORS_ALLOWED_ORIGINS` 控制浏览器来源 allowlist，默认允许本地 Vite 前端 `http://localhost:5173`。Gateway 只为匹配来源写入 `access-control-allow-origin`；预检请求来源不匹配时返回结构化 `INVALID_REQUEST`/403。
 - Gateway 为所有响应写入 baseline security headers：`cache-control: no-store`、`x-content-type-options: nosniff`、`x-frame-options: DENY`、`referrer-policy: no-referrer` 和限制性的 `permissions-policy`。`RFQ_ENABLE_HSTS` 只应在 HTTPS 入口后开启，开启后写入 `strict-transport-security`。
+- Standalone backend process registers graceful shutdown handlers for `SIGTERM` and `SIGINT`; the first signal closes Fastify and sets process exit code, while duplicate signals do not trigger duplicate close attempts.
 - `/ready` 当前检查 market data freshness 和 signer probe。stale snapshot 会让 `marketData` 组件变为 `degraded`；signer 无法签名或签名无法被同一 trusted signer 验证时，`signer` 组件变为 `degraded`，用于阻止 Kubernetes 在错误价格输入或不可签名状态下继续导流。
 - 当前 Fastify 实现使用 `InMemoryRateLimiter` 保护 `/quote`、`/submit`、`/quote/:id`、`/settlements/:id`、`/hedges/:id` 和 `/pnl`；生产部署可替换为 Redis-backed distributed rate limit，并保持 `RATE_LIMITED` 错误契约不变。
 
@@ -143,7 +144,7 @@ Gateway 应保持薄层，不执行重计算。序列化和校验必须足够快
 
 ## Testing Strategy
 
-测试 request validation、Fastify parser error mapping、body limit、CORS allowed origin、CORS preflight rejection、security headers、HSTS toggle、error mapping、rate limit、health、readiness market data degraded、readiness signer degraded、metrics、`/quote` 路由、settlement event 查询、hedge intent 查询、PnL summary 查询，以及成功和失败响应的 `x-trace-id` 传播。
+测试 request validation、Fastify parser error mapping、body limit、CORS allowed origin、CORS preflight rejection、security headers、HSTS toggle、graceful shutdown signal handling、error mapping、rate limit、health、readiness market data degraded、readiness signer degraded、metrics、`/quote` 路由、settlement event 查询、hedge intent 查询、PnL summary 查询，以及成功和失败响应的 `x-trace-id` 传播。
 
 ## Interview Notes
 

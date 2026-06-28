@@ -156,6 +156,16 @@ Alerts: `RFQQuoteStatusUpdateErrors`, `RFQHedgeIntentErrors`, `RFQPnlRecordError
 4. Start settlement-to-PnL reconciliation for `rfq_pnl_record_errors_total` and rebuild missing realized PnL rows from settlement events and market snapshots.
 5. Verify `/settlements/:settlementEventId`, `/quote/:quoteId`, `/hedges/:hedgeOrderId`, `/pnl` and `GET /metrics` before closing the incident.
 
+### Pod Termination Or Rollout Drain
+
+Alerts: Kubernetes rollout timeout, elevated 5xx during deployment, pods killed before graceful shutdown.
+
+1. Confirm the Deployment has `preStop` sleep and `terminationGracePeriodSeconds` configured.
+2. Verify old pods receive SIGTERM and log Fastify close without duplicate shutdown attempts.
+3. Check `/ready` endpoints are removed from service endpoints before pods exit.
+4. Watch `rfq_quote_errors_total`, `rfq_submit_errors_total` and HTTP 5xx dashboards during rollout.
+5. If forced kills occur before the grace period, pause rollout, increase drain time, and inspect slow in-flight submit or settlement dependencies.
+
 ## Security Considerations
 
 Runbook operations are privileged. Require multi-person approval for signer removal, contract pause/unpause and treasury operations.

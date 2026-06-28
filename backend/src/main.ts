@@ -1,4 +1,4 @@
-import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { SkeletonExecutionService } from "./modules/execution/execution.service.js";
 import { HedgeService, type HedgeIntentService } from "./modules/hedge/hedge.service.js";
 import { ReadinessService } from "./modules/health/readiness.service.js";
@@ -23,6 +23,17 @@ import type { PnlTradeRecord } from "./shared/types/rfq.js";
 const defaultBodyLimitBytes = 32_768;
 const defaultCorsAllowedOrigins = ["http://localhost:5173"];
 const defaultEnableHsts = false;
+
+interface RuntimeProcess {
+  argv?: string[];
+  env?: Record<string, string | undefined>;
+  exitCode?: number;
+  on?: (signal: "SIGTERM" | "SIGINT", listener: () => void) => unknown;
+}
+
+interface ShutdownLogger {
+  error: (...input: unknown[]) => void;
+}
 
 export interface BuildServerOptions {
   logger?: boolean;
@@ -551,23 +562,51 @@ function readEnableHsts(): boolean {
   throw new Error("RFQ_ENABLE_HSTS must be true or false");
 }
 
+export function installGracefulShutdown(
+  server: Pick<FastifyInstance, "close">,
+  processLike: RuntimeProcess | undefined = runtimeProcess(),
+  logger: ShutdownLogger = console,
+): void {
+  if (!processLike?.on) {
+    return;
+  }
+
+  let closing = false;
+  const shutdown = () => {
+    if (closing) {
+      return;
+    }
+    closing = true;
+
+    server.close()
+      .then(() => {
+        processLike.exitCode = 0;
+      })
+      .catch((error: unknown) => {
+        logger.error(error);
+        processLike.exitCode = 1;
+      });
+  };
+
+  processLike.on("SIGTERM", shutdown);
+  processLike.on("SIGINT", shutdown);
+}
+
 export async function startServer() {
   const server = buildServer();
-  const processLike = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  const processLike = runtimeProcess();
   const port = Number(processLike?.env?.PORT ?? 3000);
   const host = processLike?.env?.HOST ?? "127.0.0.1";
   await server.listen({ host, port });
+  installGracefulShutdown(server, processLike);
   return server;
 }
 
-const processLike = (
-  globalThis as {
-    process?: {
-      argv?: string[];
-      exitCode?: number;
-    };
-  }
-).process;
+function runtimeProcess(): RuntimeProcess | undefined {
+  return (globalThis as { process?: RuntimeProcess }).process;
+}
+
+const processLike = runtimeProcess();
 
 if (processLike?.argv?.[1] && import.meta.url.endsWith(processLike.argv[1])) {
   startServer().catch((error: unknown) => {

@@ -131,6 +131,10 @@ grep -q 'applySecurityHeaders' backend/src/main.ts
 grep -q 'cache-control' backend/src/main.ts
 grep -q 'x-content-type-options' backend/src/main.ts
 grep -q 'strict-transport-security' backend/src/main.ts
+grep -q 'installGracefulShutdown' backend/src/main.ts
+grep -q 'SIGTERM' backend/src/main.ts
+grep -q 'SIGINT' backend/src/main.ts
+grep -q 'server.close' backend/src/main.ts
 grep -q 'server.setErrorHandler' backend/src/main.ts
 grep -q 'frameworkErrorToAPIError' backend/src/main.ts
 grep -q 'FST_ERR_CTP_BODY_TOO_LARGE' backend/src/main.ts
@@ -397,6 +401,7 @@ grep -q 'RFQ_CORS_ALLOWED_ORIGINS' book/Volume5-BackendEngineering/Chapter01-API
 grep -q 'CORS preflight' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'baseline security headers' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'RFQ_ENABLE_HSTS' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'graceful shutdown signal handling' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'IntString' docs/api/openapi.yaml
 grep -q 'Internal rejection reason for rejected quote records' docs/api/openapi.yaml
 grep -q 'QUOTE_ALREADY_USED' docs/api/openapi.yaml
@@ -518,6 +523,8 @@ grep -q 'security headers on successful responses' backend/test/api.test.mjs
 grep -q 'emits HSTS when enabled' backend/test/api.test.mjs
 grep -q 'RFQ_ENABLE_HSTS' backend/test/api.test.mjs
 grep -q 'assertSecurityHeaders' backend/test/api.test.mjs
+grep -q 'graceful shutdown handlers' backend/test/api.test.mjs
+grep -q 'graceful shutdown failures' backend/test/api.test.mjs
 grep -q 'settlement shape' backend/test/api.test.mjs
 grep -q 'expired submit quotes' backend/test/api.test.mjs
 grep -q 'unissued submit quotes' backend/test/api.test.mjs
@@ -573,6 +580,8 @@ grep -q 'RFQ_QUOTE_TTL_SECONDS' infra/k8s/configmap.yaml
 grep -q 'RFQ_BODY_LIMIT_BYTES' infra/k8s/configmap.yaml
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' infra/k8s/configmap.yaml
 grep -q 'RFQ_ENABLE_HSTS' infra/k8s/configmap.yaml
+grep -q 'terminationGracePeriodSeconds: 30' infra/k8s/backend-deployment.yaml
+grep -q 'preStop' infra/k8s/backend-deployment.yaml
 grep -q 'HOST: "0.0.0.0"' infra/k8s/configmap.yaml
 grep -q 'prometheus.io/scrape' infra/k8s/backend-service.yaml
 grep -q 'prometheus.io/path' infra/k8s/backend-service.yaml
@@ -585,11 +594,19 @@ grep -q 'RFQ_QUOTE_TTL_SECONDS' infra/helm/rfq-market-maker/values.yaml
 grep -q 'RFQ_BODY_LIMIT_BYTES' infra/helm/rfq-market-maker/values.yaml
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' infra/helm/rfq-market-maker/values.yaml
 grep -q 'RFQ_ENABLE_HSTS' infra/helm/rfq-market-maker/values.yaml
+grep -q 'terminationGracePeriodSeconds' infra/helm/rfq-market-maker/values.yaml
+grep -q 'preStopSleepSeconds' infra/helm/rfq-market-maker/values.yaml
+grep -q 'preStop' infra/helm/rfq-market-maker/templates/deployment.yaml
+grep -q 'terminationGracePeriodSeconds' infra/helm/rfq-market-maker/templates/deployment.yaml
 grep -q 'HOST: "0.0.0.0"' infra/helm/rfq-market-maker/values.yaml
 grep -q 'signerSecret' infra/helm/rfq-market-maker/values.yaml
 grep -q 'rfq-backend-secrets' infra/helm/rfq-market-maker/values.yaml
 grep -q 'baseline browser security headers' docs/security/audit-checklist.md
 grep -q 'CORS origin allowlist' docs/security/audit-checklist.md
+grep -q 'Pod Termination Or Rollout Drain' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'Fastify close' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'terminationGracePeriodSeconds=30' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
+grep -q 'preStop' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'service.annotations' infra/helm/rfq-market-maker/templates/service.yaml
 grep -q 'prometheus.io/scrape' infra/helm/rfq-market-maker/values.yaml
 grep -q 'prometheus.io/path' infra/helm/rfq-market-maker/values.yaml

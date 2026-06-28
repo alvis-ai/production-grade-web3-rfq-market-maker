@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildServer } from "../dist/main.js";
+import { buildServer, installGracefulShutdown } from "../dist/main.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
 import { BasicRiskEngine, defaultBasicRiskPolicy } from "../dist/modules/risk/risk.engine.js";
 import {
@@ -185,6 +185,62 @@ test("RFQ API emits HSTS when enabled", async () => {
   } finally {
     await server.close();
   }
+});
+
+test("RFQ API registers graceful shutdown handlers for termination signals", async () => {
+  const listeners = new Map();
+  const fakeProcess = {
+    exitCode: undefined,
+    on(signal, listener) {
+      listeners.set(signal, listener);
+    },
+  };
+  let closeCount = 0;
+  const fakeServer = {
+    async close() {
+      closeCount += 1;
+    },
+  };
+
+  installGracefulShutdown(fakeServer, fakeProcess);
+
+  assert.equal(typeof listeners.get("SIGTERM"), "function");
+  assert.equal(typeof listeners.get("SIGINT"), "function");
+
+  listeners.get("SIGTERM")();
+  listeners.get("SIGINT")();
+  await flushMicrotasks();
+
+  assert.equal(closeCount, 1);
+  assert.equal(fakeProcess.exitCode, 0);
+});
+
+test("RFQ API marks graceful shutdown failures as process failures", async () => {
+  const listeners = new Map();
+  const fakeProcess = {
+    exitCode: undefined,
+    on(signal, listener) {
+      listeners.set(signal, listener);
+    },
+  };
+  const logged = [];
+  const fakeServer = {
+    async close() {
+      throw new Error("close failed");
+    },
+  };
+
+  installGracefulShutdown(fakeServer, fakeProcess, {
+    error(input) {
+      logged.push(input);
+    },
+  });
+
+  listeners.get("SIGTERM")();
+  await flushMicrotasks();
+
+  assert.equal(fakeProcess.exitCode, 1);
+  assert.match(String(logged[0]), /close failed/);
 });
 
 test("RFQ API emits CORS headers for allowed browser origins", async () => {
@@ -2005,4 +2061,9 @@ function restoreEnv(name, value) {
   }
 
   process.env[name] = value;
+}
+
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
 }

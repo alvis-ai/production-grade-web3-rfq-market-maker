@@ -108,6 +108,7 @@ The current runnable backend manifests use:
 - `rfq-backend-config` ConfigMap for non-secret runtime settings such as `HOST=0.0.0.0`, `PORT=3000` and `NODE_ENV=production`.
 - `rfq-backend-secrets` Secret for `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS`.
 - Helm `signerSecret` values to reference the Secret name and key names without embedding private values into chart templates.
+- `terminationGracePeriodSeconds=30` and a `preStop` sleep of 5 seconds to give readiness and load balancers time to stop sending new quote traffic before the backend receives SIGTERM and closes Fastify.
 
 ## API Design
 
@@ -118,6 +119,7 @@ No public API changes. Ingress exposes only public endpoints.
 - Helm manages manifests.
 - Signer has separate service account and network policy.
 - Readiness 使用 `/ready` 检查关键组件状态，liveness 使用 `/health` 检查进程存活，避免坏版本进入流量。
+- Backend pods use graceful shutdown on `SIGTERM`/`SIGINT`; Kubernetes keeps a termination grace period and preStop delay so rolling updates avoid abruptly cutting in-flight quote or submit requests.
 - `NODE_ENV=production` requires explicit signer configuration. `RFQ_SIGNER_PRIVATE_KEY` must be a 32-byte hex string and `RFQ_SETTLEMENT_ADDRESS` must be a 20-byte hex address; placeholder Secret values must be replaced before deploy.
 
 ## Failure Scenarios
@@ -126,6 +128,7 @@ No public API changes. Ingress exposes only public endpoints.
 - Signer pod crashloop：disable quote signing and page operator.
 - Dependency unavailable：readiness fails.
 - Missing or malformed signer Secret：backend fails fast before serving traffic.
+- Pod termination during rollout：preStop delay lets endpoints drain, then SIGTERM triggers Fastify close; forced kill before grace period ends should be treated as a deployment incident.
 
 ## Security Considerations
 
