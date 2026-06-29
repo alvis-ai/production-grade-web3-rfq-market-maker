@@ -739,37 +739,74 @@ test("RFQClient rejects malformed health and readiness status responses", async 
   }
 });
 
-test("RFQClient rejects malformed hedge status enum responses", async () => {
-  const restoreFetch = installFetch(async () =>
-    jsonResponse(200, {
-      hedgeOrderId: "h_1_00000003_000001",
-      status: "queued",
-      settlementEventId: "se_1_22222222_0",
-      quoteId: "q_test",
-      chainId: quote.chainId,
-      token: quote.tokenOut,
-      side: "hold",
-      amount: quote.amountOut,
-      reason: "inventory_rebalance",
-      createdAt: "2026-06-27T00:00:00.000Z",
-    }),
-  );
+test("RFQClient rejects malformed hedge status responses", async () => {
+  const hedgeResponse = {
+    hedgeOrderId: "h_1_00000003_000001",
+    status: "queued",
+    settlementEventId: "se_1_22222222_0",
+    quoteId: "q_test",
+    chainId: quote.chainId,
+    token: quote.tokenOut,
+    side: "buy",
+    amount: quote.amountOut,
+    reason: "inventory_rebalance",
+    createdAt: "2026-06-27T00:00:00.000Z",
+  };
 
-  try {
-    const client = new RFQClient("http://127.0.0.1:3000");
+  const cases = [
+    {
+      payload: { ...hedgeResponse, hedgeOrderId: "" },
+      message: "RFQ hedge status response returned malformed hedgeOrderId",
+    },
+    {
+      payload: { ...hedgeResponse, status: "filled" },
+      message: "RFQ hedge status response returned malformed status",
+    },
+    {
+      payload: { ...hedgeResponse, chainId: 0 },
+      message: "RFQ hedge status response returned malformed chainId",
+    },
+    {
+      payload: { ...hedgeResponse, token: "0x1234" },
+      message: "RFQ hedge status response returned malformed token",
+    },
+    {
+      payload: { ...hedgeResponse, side: "hold" },
+      message: "RFQ hedge status response returned malformed side",
+    },
+    {
+      payload: { ...hedgeResponse, amount: "0" },
+      message: "RFQ hedge status response returned malformed amount",
+    },
+    {
+      payload: { ...hedgeResponse, reason: "manual" },
+      message: "RFQ hedge status response returned malformed reason",
+    },
+    {
+      payload: { ...hedgeResponse, createdAt: "not-a-date" },
+      message: "RFQ hedge status response returned malformed createdAt",
+    },
+  ];
 
-    await assert.rejects(
-      client.getHedge("h_1_00000003_000001"),
-      (error) => {
-        assert.ok(error instanceof RFQClientError);
-        assert.equal(error.status, 200);
-        assert.equal(error.code, "RFQ_CLIENT_ERROR");
-        assert.equal(error.message, "RFQ hedge status response returned malformed status");
-        return true;
-      },
-    );
-  } finally {
-    restoreFetch();
+  for (const { payload, message } of cases) {
+    const restoreFetch = installFetch(async () => jsonResponse(200, payload));
+
+    try {
+      const client = new RFQClient("http://127.0.0.1:3000");
+
+      await assert.rejects(
+        client.getHedge("h_1_00000003_000001"),
+        (error) => {
+          assert.ok(error instanceof RFQClientError);
+          assert.equal(error.status, 200);
+          assert.equal(error.code, "RFQ_CLIENT_ERROR");
+          assert.equal(error.message, message);
+          return true;
+        },
+      );
+    } finally {
+      restoreFetch();
+    }
   }
 });
 

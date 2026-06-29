@@ -97,9 +97,7 @@ export class RFQClient {
     await assertOk(response, "RFQ hedge status failed");
 
     const payload = await readJsonResponse(response, "RFQ hedge status response");
-    if (!isHedgeIntentStatus(payload)) {
-      throw new RFQClientError("RFQ hedge status response returned malformed status", response.status);
-    }
+    assertHedgeIntentStatus(payload, response.status);
 
     return payload;
   }
@@ -250,6 +248,41 @@ function assertRequiredEnumField(
 function assertRequiredNonNegativeIntegerField(payload: unknown, field: string, status: number, label: string): void {
   if (!isRecord(payload) || !Number.isSafeInteger(payload[field]) || Number(payload[field]) < 0) {
     throw malformedFieldError(status, label, field);
+  }
+}
+
+function assertHedgeIntentStatus(payload: unknown, status: number): asserts payload is HedgeIntentStatus {
+  const label = "RFQ hedge status response";
+  if (!isRecord(payload)) {
+    throw malformedFieldError(status, label, "status");
+  }
+
+  for (const field of ["hedgeOrderId", "settlementEventId", "quoteId", "createdAt"] as const) {
+    if (!isNonEmptyString(payload[field])) {
+      throw malformedFieldError(status, label, field);
+    }
+  }
+  const createdAt = payload.createdAt;
+  if (!isNonEmptyString(createdAt) || Number.isNaN(Date.parse(createdAt))) {
+    throw malformedFieldError(status, label, "createdAt");
+  }
+  if (payload.status !== "queued") {
+    throw malformedFieldError(status, label, "status");
+  }
+  if (!Number.isSafeInteger(payload.chainId) || Number(payload.chainId) <= 0) {
+    throw malformedFieldError(status, label, "chainId");
+  }
+  if (!isAddressHex(payload.token)) {
+    throw malformedFieldError(status, label, "token");
+  }
+  if (payload.side !== "buy" && payload.side !== "sell") {
+    throw malformedFieldError(status, label, "side");
+  }
+  if (!isPositiveUIntString(payload.amount)) {
+    throw malformedFieldError(status, label, "amount");
+  }
+  if (payload.reason !== "inventory_rebalance" && payload.reason !== "risk_reduction") {
+    throw malformedFieldError(status, label, "reason");
   }
 }
 
@@ -410,15 +443,6 @@ function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {
 
 function isHealthResponse(value: unknown): value is HealthResponse {
   return isRecord(value) && value.status === "ok";
-}
-
-function isHedgeIntentStatus(value: unknown): value is HedgeIntentStatus {
-  return (
-    isRecord(value) &&
-    value.status === "queued" &&
-    (value.side === "buy" || value.side === "sell") &&
-    (value.reason === "inventory_rebalance" || value.reason === "risk_reduction")
-  );
 }
 
 function isReadinessResponse(value: unknown): value is ReadinessResponse {
