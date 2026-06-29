@@ -714,6 +714,9 @@ grep -q 'SettlementEventStatus' docs/api/openapi.yaml
 grep -q 'quoteHash' docs/api/openapi.yaml
 grep -q 'hashSettlementQuote' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'blockNumber?: number' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'normalizeEventOrdinal' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'non-negative safe integer' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'rejects invalid chain event ordinals before side effects' backend/test/settlement-event.test.mjs
 grep -q 'quoteHash' backend/src/shared/types/rfq.ts
 grep -q 'blockNumber: number' backend/src/shared/types/rfq.ts
 grep -q 'quoteHash' sdk/src/types.ts
@@ -723,6 +726,7 @@ grep -q 'settlement block number' scripts/smoke-api.mjs
 grep -q 'Quote Hash' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Block' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'blockNumber' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'non-negative safe integers' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'blockNumber' docs/diagrams/submit-sequence.md
 grep -q 'backend settlement quote hash fields must match RFQSettlement QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
 grep -q 'SDK settlement quote hash fields must match RFQSettlement QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs

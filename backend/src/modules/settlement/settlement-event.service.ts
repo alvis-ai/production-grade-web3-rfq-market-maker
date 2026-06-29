@@ -38,8 +38,8 @@ export class SettlementEventService implements SettlementEventStore {
   }
 
   applySettlementEvent(input: ApplySettlementEventInput): ApplySettlementEventResult {
-    const logIndex = input.logIndex ?? 0;
-    const blockNumber = input.blockNumber ?? 0;
+    const logIndex = normalizeEventOrdinal(input.logIndex, "logIndex");
+    const blockNumber = normalizeEventOrdinal(input.blockNumber, "blockNumber");
     const key = this.eventKey(input.quote.chainId, input.txHash, logIndex);
     const existingEventId = this.eventIdsByKey.get(key);
     if (existingEventId) {
@@ -47,7 +47,7 @@ export class SettlementEventService implements SettlementEventStore {
       if (!event) {
         throw new Error(`Settlement event index is inconsistent for ${existingEventId}`);
       }
-      if (!this.matchesExistingEvent(event, input, logIndex)) {
+      if (!this.matchesExistingEvent(event, input, { blockNumber, logIndex })) {
         throw new Error(`Settlement event key conflict for ${existingEventId}`);
       }
 
@@ -105,15 +105,15 @@ export class SettlementEventService implements SettlementEventStore {
   private matchesExistingEvent(
     event: SettlementEventStatusResponse,
     input: ApplySettlementEventInput,
-    logIndex: number,
+    normalized: { blockNumber: number; logIndex: number },
   ): boolean {
     return (
       event.quoteId === input.quoteId &&
       event.chainId === input.quote.chainId &&
       event.txHash.toLowerCase() === input.txHash.toLowerCase() &&
       event.quoteHash.toLowerCase() === hashSettlementQuote(input.quote).toLowerCase() &&
-      event.blockNumber === (input.blockNumber ?? 0) &&
-      event.logIndex === logIndex &&
+      event.blockNumber === normalized.blockNumber &&
+      event.logIndex === normalized.logIndex &&
       event.user.toLowerCase() === input.quote.user.toLowerCase() &&
       event.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
       event.tokenOut.toLowerCase() === input.quote.tokenOut.toLowerCase() &&
@@ -121,6 +121,15 @@ export class SettlementEventService implements SettlementEventStore {
       event.amountOut === input.quote.amountOut
     );
   }
+}
+
+function normalizeEventOrdinal(value: number | undefined, field: "blockNumber" | "logIndex"): number {
+  const normalized = value ?? 0;
+  if (!Number.isSafeInteger(normalized) || normalized < 0) {
+    throw new Error(`Settlement event ${field} must be a non-negative safe integer`);
+  }
+
+  return normalized;
 }
 
 export function hashSettlementQuote(quote: SignedQuote): `0x${string}` {

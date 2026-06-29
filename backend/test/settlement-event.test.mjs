@@ -68,6 +68,31 @@ test("SettlementEventService persists explicit chain block numbers", () => {
   assert.equal(replay.event.blockNumber, 123456);
 });
 
+test("SettlementEventService rejects invalid chain event ordinals before side effects", () => {
+  for (const invalidInput of [
+    { logIndex: -1 },
+    { logIndex: 1.5 },
+    { blockNumber: -1 },
+    { blockNumber: Number.MAX_SAFE_INTEGER + 1 },
+  ]) {
+    const inventory = new InventoryService();
+    const settlements = new SettlementEventService(inventory);
+
+    assert.throws(
+      () =>
+        settlements.applySettlementEvent({
+          quoteId: "q_test",
+          quote,
+          txHash: `0x${"55".repeat(32)}`,
+          ...invalidInput,
+        }),
+      /Settlement event (logIndex|blockNumber) must be a non-negative safe integer/,
+    );
+    assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 0n);
+    assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, 0n);
+  }
+});
+
 test("hashSettlementQuote matches RFQSettlement.hashQuote struct hashing", () => {
   assert.equal(
     hashSettlementQuote(quote),
