@@ -384,8 +384,10 @@ grep -q 'SkeletonExecutionService suppresses duplicate settlement side effects' 
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'txHash.slice(2)}_${logIndex}' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'matchesExistingEvent' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'keeps distinct events with the same tx hash prefix' backend/test/settlement-event.test.mjs
 grep -q 'rejects conflicting payloads for an existing chain event key' backend/test/settlement-event.test.mjs
 grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'TOKEN_NOT_WHITELISTED' backend/src/modules/settlement/settlement-verifier.service.ts

@@ -59,7 +59,7 @@ export class SettlementEventService implements SettlementEventStore {
     }
 
     const event: SettlementEventStatusResponse = {
-      settlementEventId: `se_${input.quote.chainId}_${txHash.slice(2, 10)}_${logIndex}`,
+      settlementEventId: `se_${input.quote.chainId}_${txHash.slice(2)}_${logIndex}`,
       status: "applied",
       quoteId: input.quoteId,
       chainId: input.quote.chainId,

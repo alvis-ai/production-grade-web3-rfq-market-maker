@@ -18,20 +18,24 @@ const quote = {
   chainId: 1,
 };
 
+const tx22 = `0x${"22".repeat(32)}`;
+const tx44 = `0x${"44".repeat(32)}`;
+const txAA = `0x${"aa".repeat(32)}`;
+
 test("SettlementEventService applies each chain event idempotently", () => {
   const inventory = new InventoryService();
   const settlements = new SettlementEventService(inventory);
   const input = {
     quoteId: "q_test",
     quote,
-    txHash: `0x${"22".repeat(32)}`,
+    txHash: tx22,
     logIndex: 7,
   };
 
   const first = settlements.applySettlementEvent(input);
   assert.equal(first.duplicate, false);
   assert.equal(first.event.status, "applied");
-  assert.equal(first.event.settlementEventId, "se_1_22222222_7");
+  assert.equal(first.event.settlementEventId, `se_1_${tx22.slice(2)}_7`);
   assert.equal(first.event.quoteId, "q_test");
   assert.equal(first.event.quoteHash, "0x4b1a6949619f6bafcefcde5376e278dd0eeff6a660a6cdccad19977866943d8e");
   assert.equal(first.event.blockNumber, 0);
@@ -54,7 +58,7 @@ test("SettlementEventService persists explicit chain block numbers", () => {
   const input = {
     quoteId: "q_test",
     quote,
-    txHash: `0x${"44".repeat(32)}`,
+    txHash: tx44,
     blockNumber: 123456,
     logIndex: 3,
   };
@@ -80,8 +84,8 @@ test("SettlementEventService normalizes transaction hashes for idempotency", () 
 
   const first = settlements.applySettlementEvent(input);
   assert.equal(first.duplicate, false);
-  assert.equal(first.event.txHash, `0x${"aa".repeat(32)}`);
-  assert.equal(first.event.settlementEventId, "se_1_aaaaaaaa_1");
+  assert.equal(first.event.txHash, txAA);
+  assert.equal(first.event.settlementEventId, `se_1_${txAA.slice(2)}_1`);
 
   const replay = settlements.applySettlementEvent({
     ...input,
@@ -91,6 +95,43 @@ test("SettlementEventService normalizes transaction hashes for idempotency", () 
   assert.equal(replay.event.settlementEventId, first.event.settlementEventId);
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 1000n);
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -990n);
+});
+
+test("SettlementEventService keeps distinct events with the same tx hash prefix", () => {
+  const inventory = new InventoryService();
+  const settlements = new SettlementEventService(inventory);
+  const firstTxHash = `0xabcdef12${"11".repeat(28)}`;
+  const secondTxHash = `0xabcdef12${"22".repeat(28)}`;
+  const secondQuote = {
+    ...quote,
+    amountIn: "2000",
+    amountOut: "1980",
+    minAmountOut: "1900",
+    nonce: "2",
+  };
+
+  const first = settlements.applySettlementEvent({
+    quoteId: "q_prefix_1",
+    quote,
+    txHash: firstTxHash,
+    logIndex: 0,
+  });
+  const second = settlements.applySettlementEvent({
+    quoteId: "q_prefix_2",
+    quote: secondQuote,
+    txHash: secondTxHash,
+    logIndex: 0,
+  });
+
+  assert.equal(first.duplicate, false);
+  assert.equal(second.duplicate, false);
+  assert.notEqual(first.event.settlementEventId, second.event.settlementEventId);
+  assert.equal(first.event.settlementEventId, `se_1_${firstTxHash.slice(2)}_0`);
+  assert.equal(second.event.settlementEventId, `se_1_${secondTxHash.slice(2)}_0`);
+  assert.deepEqual(settlements.getSettlementEvent(first.event.settlementEventId), first.event);
+  assert.deepEqual(settlements.getSettlementEvent(second.event.settlementEventId), second.event);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 3000n);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -2970n);
 });
 
 test("SettlementEventService rejects invalid transaction hashes before side effects", () => {
@@ -150,7 +191,7 @@ test("SettlementEventService rejects conflicting payloads for an existing chain 
   const input = {
     quoteId: "q_test",
     quote,
-    txHash: `0x${"22".repeat(32)}`,
+    txHash: tx22,
     logIndex: 7,
   };
 
