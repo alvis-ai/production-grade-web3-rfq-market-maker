@@ -96,7 +96,10 @@ export class ReadinessService {
   constructor(
     private readonly deps: ReadinessServiceDeps,
     private readonly config: ReadinessServiceConfig = defaultReadinessServiceConfig,
-  ) {}
+  ) {
+    assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
+    assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
+  }
 
   async check(): Promise<ReadinessResponse> {
     const marketDataStatus = await this.checkMarketData();
@@ -205,5 +208,11 @@ export class ReadinessService {
     } catch {
       return "degraded";
     }
+  }
+}
+
+function assertPositiveSafeInteger(value: number, field: keyof ReadinessServiceConfig): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Readiness service ${field} must be a positive safe integer`);
   }
 }

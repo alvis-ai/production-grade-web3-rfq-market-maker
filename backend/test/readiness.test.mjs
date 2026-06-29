@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { HedgeService } from "../dist/modules/hedge/hedge.service.js";
-import { ReadinessService } from "../dist/modules/health/readiness.service.js";
+import { ReadinessService, defaultReadinessServiceConfig } from "../dist/modules/health/readiness.service.js";
 import { InventoryService } from "../dist/modules/inventory/inventory.service.js";
 import { StaticMarketDataService } from "../dist/modules/market-data/market-data.service.js";
 import { MetricsService } from "../dist/modules/metrics/metrics.service.js";
@@ -63,23 +63,52 @@ test("ReadinessService degrades the aggregate status when a dependency probe fai
   assert.equal(readiness.components.metrics, "ok");
 });
 
-function createReadinessService(overrides = {}) {
+test("ReadinessService rejects unsafe freshness configuration at construction", () => {
+  assert.throws(
+    () =>
+      createReadinessService(
+        {},
+        {
+          ...defaultReadinessServiceConfig,
+          maxSnapshotAgeMs: 0,
+        },
+      ),
+    /Readiness service maxSnapshotAgeMs must be a positive safe integer/,
+  );
+
+  assert.throws(
+    () =>
+      createReadinessService(
+        {},
+        {
+          ...defaultReadinessServiceConfig,
+          maxSnapshotFutureSkewMs: Number.MAX_SAFE_INTEGER + 1,
+        },
+      ),
+    /Readiness service maxSnapshotFutureSkewMs must be a positive safe integer/,
+  );
+});
+
+function createReadinessService(overrides = {}, config = defaultReadinessServiceConfig) {
   const inventoryService = overrides.inventoryService ?? new InventoryService();
 
-  return new ReadinessService({
-    marketDataService: overrides.marketDataService ?? new StaticMarketDataService(),
-    routingEngine: overrides.routingEngine ?? new InternalInventoryRoutingEngine(),
-    pricingEngine: overrides.pricingEngine ?? new FormulaPricingEngine(),
-    riskEngine: overrides.riskEngine ?? new BasicRiskEngine(),
-    signerService: overrides.signerService ?? new LocalEIP712SignerService({
-      privateKey: "0x59c6995e998f97a5a0044966f094538d9dae1ffc26a3b6d86dae8e3a0b97e6a0",
-      settlementAddress: "0x0000000000000000000000000000000000000004",
-    }),
-    quoteRepository: overrides.quoteRepository ?? new InMemoryQuoteRepository(),
-    inventoryService,
-    hedgeService: overrides.hedgeService ?? new HedgeService(),
-    settlementEventService: overrides.settlementEventService ?? new SettlementEventService(inventoryService),
-    pnlService: overrides.pnlService ?? new PnlService(),
-    metricsService: overrides.metricsService ?? new MetricsService(),
-  });
+  return new ReadinessService(
+    {
+      marketDataService: overrides.marketDataService ?? new StaticMarketDataService(),
+      routingEngine: overrides.routingEngine ?? new InternalInventoryRoutingEngine(),
+      pricingEngine: overrides.pricingEngine ?? new FormulaPricingEngine(),
+      riskEngine: overrides.riskEngine ?? new BasicRiskEngine(),
+      signerService: overrides.signerService ?? new LocalEIP712SignerService({
+        privateKey: "0x59c6995e998f97a5a0044966f094538d9dae1ffc26a3b6d86dae8e3a0b97e6a0",
+        settlementAddress: "0x0000000000000000000000000000000000000004",
+      }),
+      quoteRepository: overrides.quoteRepository ?? new InMemoryQuoteRepository(),
+      inventoryService,
+      hedgeService: overrides.hedgeService ?? new HedgeService(),
+      settlementEventService: overrides.settlementEventService ?? new SettlementEventService(inventoryService),
+      pnlService: overrides.pnlService ?? new PnlService(),
+      metricsService: overrides.metricsService ?? new MetricsService(),
+    },
+    config,
+  );
 }
