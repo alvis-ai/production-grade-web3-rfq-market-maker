@@ -15,6 +15,7 @@ test -s backend/test/api.test.mjs
 test -s backend/test/hedge.test.mjs
 test -s backend/test/inventory.test.mjs
 test -s backend/test/market-data.test.mjs
+test -s backend/test/metrics.test.mjs
 test -s backend/test/quote-service.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
@@ -60,6 +61,7 @@ test -s backend/src/modules/hedge/hedge.service.ts
 grep -q 'checkHealth' backend/src/modules/hedge/hedge.service.ts
 test -s backend/src/modules/metrics/metrics.service.ts
 grep -q 'checkHealth' backend/src/modules/metrics/metrics.service.ts
+grep -q 'MetricsService sanitizes reason labels and renders core settlement metrics' backend/test/metrics.test.mjs
 test -s backend/src/modules/pnl/pnl.service.ts
 grep -q 'checkHealth' backend/src/modules/pnl/pnl.service.ts
 test -s backend/src/modules/settlement/settlement-event.service.ts
