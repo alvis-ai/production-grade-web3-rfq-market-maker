@@ -326,6 +326,8 @@ grep -q 'AMOUNT_IN_LIMIT_EXCEEDED' backend/src/modules/risk/risk.engine.ts
 grep -q 'SLIPPAGE_TOO_WIDE' backend/src/modules/risk/risk.engine.ts
 grep -q 'QUOTED_SPREAD_TOO_WIDE' backend/src/modules/risk/risk.engine.ts
 grep -q 'maxQuotedSpreadBps' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertRiskInput(input)' backend/src/modules/risk/risk.engine.ts
+grep -q 'must match request ${field}' backend/src/modules/risk/risk.engine.ts
 grep -q 'assertChainIds(policy.enabledChainIds)' backend/src/modules/risk/risk.engine.ts
 grep -q 'assertAddressList(policy.tokenAllowlist, "tokenAllowlist", true)' backend/src/modules/risk/risk.engine.ts
 grep -q 'assertBpsUpperBound(policy.maxQuotedSpreadBps, "maxQuotedSpreadBps")' backend/src/modules/risk/risk.engine.ts
@@ -1103,6 +1105,7 @@ grep -q 'restricted toxic-flow users' backend/test/risk.test.mjs
 grep -q 'toxic-flow score threshold' backend/test/risk.test.mjs
 grep -q 'quoted spreads above policy limit' backend/test/risk.test.mjs
 grep -q 'BasicRiskEngine rejects unsafe policy configuration at construction' backend/test/risk.test.mjs
+grep -q 'BasicRiskEngine rejects unsafe runtime inputs before policy evaluation' backend/test/risk.test.mjs
 grep -q 'policy config fail-fast' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'pricing spread exceeds risk guard before signing' backend/test/api.test.mjs
 grep -q 'QUOTED_SPREAD_TOO_WIDE' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md

@@ -165,3 +165,72 @@ test("BasicRiskEngine rejects unsafe policy configuration at construction", () =
     /Basic risk toxicFlowScores.scoreBps must be a non-negative safe integer/,
   );
 });
+
+test("BasicRiskEngine rejects unsafe runtime inputs before policy evaluation", async () => {
+  const engine = new BasicRiskEngine();
+
+  await assert.rejects(
+    engine.evaluate({
+      request: {
+        ...baseRequest,
+        tokenOut: baseRequest.tokenIn,
+      },
+      pricing: basePricing,
+    }),
+    /Basic risk request token pair must contain distinct tokens/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: baseRequest,
+      pricing: {
+        ...basePricing,
+        amountOut: "0",
+      },
+    }),
+    /Basic risk pricing.amountOut must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: baseRequest,
+      pricing: {
+        ...basePricing,
+        amountOut: "900",
+        minAmountOut: "901",
+      },
+    }),
+    /Basic risk pricing.amountOut must be greater than or equal to pricing.minAmountOut/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: baseRequest,
+      pricing: {
+        ...basePricing,
+        inventorySkewBps: 10_001,
+      },
+    }),
+    /Basic risk pricing.inventorySkewBps magnitude must be less than or equal to 10000 bps/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: baseRequest,
+      pricing: basePricing,
+      inventoryProjection: {
+        tokenIn: {
+          chainId: 1,
+          token: baseRequest.tokenOut,
+          balance: 1n,
+        },
+        tokenOut: {
+          chainId: 1,
+          token: baseRequest.tokenOut,
+          balance: -1n,
+        },
+      },
+    }),
+    /Basic risk inventoryProjection.tokenIn must match request tokenIn/,
+  );
+});

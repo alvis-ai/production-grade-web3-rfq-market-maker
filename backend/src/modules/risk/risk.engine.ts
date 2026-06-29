@@ -82,6 +82,7 @@ export class BasicRiskEngine implements RiskEngine {
   }
 
   async evaluate(input: RiskInput): Promise<RiskDecision> {
+    assertRiskInput(input);
     if (!this.enabledChainIds.has(input.request.chainId)) {
       return this.reject("CHAIN_NOT_ENABLED");
     }
@@ -148,7 +149,7 @@ function abs(value: bigint): bigint {
   return value < 0n ? -value : value;
 }
 
-function assertNonEmptyString(value: string, field: keyof BasicRiskPolicy): void {
+function assertNonEmptyString(value: string, field: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`Basic risk ${field} must be a non-empty string`);
   }
@@ -187,9 +188,73 @@ function assertToxicFlowScores(scores: readonly ToxicFlowScore[]): void {
   }
 }
 
-function assertAddress(value: `0x${string}`, field: string): void {
+function assertAddress(value: string, field: string): void {
   if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
     throw new Error(`Basic risk ${field} entries must be 20-byte hex addresses`);
+  }
+}
+
+function assertRiskInput(input: RiskInput): void {
+  assertPositiveSafeInteger(input.request.chainId, "request.chainId");
+  assertAddress(input.request.user, "request.user");
+  assertAddress(input.request.tokenIn, "request.tokenIn");
+  assertAddress(input.request.tokenOut, "request.tokenOut");
+  if (input.request.tokenIn.toLowerCase() === input.request.tokenOut.toLowerCase()) {
+    throw new Error("Basic risk request token pair must contain distinct tokens");
+  }
+  assertPositiveUIntString(input.request.amountIn, "request.amountIn");
+  assertBpsUpperBound(input.request.slippageBps, "request.slippageBps");
+
+  assertPositiveUIntString(input.pricing.amountOut, "pricing.amountOut");
+  assertPositiveUIntString(input.pricing.minAmountOut, "pricing.minAmountOut");
+  if (BigInt(input.pricing.amountOut) < BigInt(input.pricing.minAmountOut)) {
+    throw new Error("Basic risk pricing.amountOut must be greater than or equal to pricing.minAmountOut");
+  }
+  assertBpsUpperBound(input.pricing.spreadBps, "pricing.spreadBps");
+  assertBpsUpperBound(input.pricing.sizeImpactBps, "pricing.sizeImpactBps");
+  assertBpsMagnitude(input.pricing.inventorySkewBps, "pricing.inventorySkewBps");
+  assertNonEmptyString(input.pricing.pricingVersion, "pricing.pricingVersion");
+
+  if (input.inventoryProjection) {
+    assertInventoryPosition(input.inventoryProjection.tokenIn, input.request.chainId, input.request.tokenIn, "tokenIn");
+    assertInventoryPosition(input.inventoryProjection.tokenOut, input.request.chainId, input.request.tokenOut, "tokenOut");
+  }
+}
+
+function assertInventoryPosition(
+  position: InventoryProjection["tokenIn"],
+  expectedChainId: number,
+  expectedToken: `0x${string}`,
+  field: "tokenIn" | "tokenOut",
+): void {
+  assertPositiveSafeInteger(position.chainId, `inventoryProjection.${field}.chainId`);
+  assertAddress(position.token, `inventoryProjection.${field}.token`);
+  if (position.chainId !== expectedChainId || position.token.toLowerCase() !== expectedToken.toLowerCase()) {
+    throw new Error(`Basic risk inventoryProjection.${field} must match request ${field}`);
+  }
+  if (typeof position.balance !== "bigint") {
+    throw new Error(`Basic risk inventoryProjection.${field}.balance must be a bigint`);
+  }
+}
+
+function assertPositiveSafeInteger(value: number, field: string): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Basic risk ${field} must be a positive safe integer`);
+  }
+}
+
+function assertPositiveUIntString(value: string, field: string): void {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/.test(value) || BigInt(value) <= 0n) {
+    throw new Error(`Basic risk ${field} must be a positive uint string`);
+  }
+}
+
+function assertBpsMagnitude(value: number, field: string): void {
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(`Basic risk ${field} must be a safe integer`);
+  }
+  if (Math.abs(value) > 10_000) {
+    throw new Error(`Basic risk ${field} magnitude must be less than or equal to 10000 bps`);
   }
 }
 
@@ -199,7 +264,7 @@ function assertPositiveBigInt(value: bigint, field: keyof BasicRiskPolicy): void
   }
 }
 
-function assertBpsUpperBound(value: number, field: keyof BasicRiskPolicy | "toxicFlowScores.scoreBps"): void {
+function assertBpsUpperBound(value: number, field: string): void {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new Error(`Basic risk ${field} must be a non-negative safe integer`);
   }
