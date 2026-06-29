@@ -177,6 +177,7 @@ export class QuoteService {
     if (!status) return undefined;
 
     if (status.status === "signed" && status.deadline && status.deadline < Math.floor(Date.now() / 1000)) {
+      await this.markQuoteExpiredBestEffort(status.quoteId);
       return {
         ...status,
         status: "expired",
@@ -266,6 +267,14 @@ export class QuoteService {
     }
   }
 
+  private async markQuoteExpiredBestEffort(quoteId: string): Promise<void> {
+    try {
+      await this.markStoredQuoteStatus(quoteId, "expired");
+    } catch {
+      // Preserve the read or submit response; reconciliation can recover stale signed quotes later.
+    }
+  }
+
   private async findSignedQuoteByChainUserNonce(
     chainId: number,
     user: Address,
@@ -308,6 +317,13 @@ export class QuoteService {
     }
     if (record.status === "failed") {
       throw new APIError("QUOTE_FAILED", "Quote already failed", 409);
+    }
+    if (record.status === "expired") {
+      throw new APIError("QUOTE_EXPIRED", "Quote expired", 409);
+    }
+    if (record.deadline && record.deadline < Math.floor(Date.now() / 1000)) {
+      await this.markQuoteExpiredBestEffort(record.quoteId);
+      throw new APIError("QUOTE_EXPIRED", "Quote expired", 409);
     }
 
     const isValidSignature = await this.deps.signerService.verifyQuoteSignature(quote, signature);

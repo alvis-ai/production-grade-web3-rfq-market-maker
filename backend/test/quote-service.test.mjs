@@ -406,6 +406,28 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
     quoteRepository.markStatus("q_failed", "settled"),
     /cannot transition from terminal status failed to settled/,
   );
+
+  await quoteRepository.saveSigned({
+    quoteId: "q_expired",
+    snapshotId: "snapshot_4",
+    quote: {
+      ...signedQuote,
+      nonce: "44",
+    },
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+  await quoteRepository.markStatus("q_expired", "expired");
+  await quoteRepository.markStatus("q_expired", "expired");
+  await assert.rejects(
+    quoteRepository.markStatus("q_expired", "submitted"),
+    /cannot transition from terminal status expired to submitted/,
+  );
+  await assert.rejects(
+    quoteRepository.markFailed("q_expired", "QUOTE_EXPIRED"),
+    /cannot transition from expired to failed/,
+  );
 });
 
 test("InMemoryQuoteRepository rejects malformed quote status metadata", async () => {
@@ -529,6 +551,112 @@ test("QuoteService uses configured quote TTL when generating signed quote deadli
     const quote = await service.createQuote(request);
 
     assert.equal(quote.deadline, Math.floor(fixedNow / 1000) + 120);
+  } finally {
+    Date.now = originalDateNow;
+  }
+});
+
+test("QuoteService persists expired status when signed quote status is read after deadline", async () => {
+  const originalDateNow = Date.now;
+  let now = originalDateNow();
+  Date.now = () => now;
+  const quoteRepository = new InMemoryQuoteRepository();
+
+  try {
+    const service = new QuoteService(
+      {
+        inventoryService: new InventoryService(),
+        marketDataService: new StaticMarketDataService(),
+        pricingEngine: new FormulaPricingEngine(),
+        quoteRepository,
+        riskEngine: new BasicRiskEngine(),
+        routingEngine: new InternalInventoryRoutingEngine(),
+        signerService: {
+          async signQuote() {
+            return fixedSignature();
+          },
+          async verifyQuoteSignature() {
+            return true;
+          },
+        },
+      },
+      {
+        ...defaultQuoteServiceConfig,
+        quoteTtlSeconds: 1,
+      },
+    );
+
+    const quote = await service.createQuote(request);
+    now += 2_000;
+
+    const status = await service.getQuoteStatus(quote.quoteId);
+    const persisted = await quoteRepository.findStatus(quote.quoteId);
+
+    assert.equal(status.status, "expired");
+    assert.equal(persisted.status, "expired");
+  } finally {
+    Date.now = originalDateNow;
+  }
+});
+
+test("QuoteService rejects expired signed quotes before signature verification", async () => {
+  const originalDateNow = Date.now;
+  let now = originalDateNow();
+  Date.now = () => now;
+  const quoteRepository = new InMemoryQuoteRepository();
+  let verifyCalls = 0;
+
+  try {
+    const service = new QuoteService(
+      {
+        inventoryService: new InventoryService(),
+        marketDataService: new StaticMarketDataService(),
+        pricingEngine: new FormulaPricingEngine(),
+        quoteRepository,
+        riskEngine: new BasicRiskEngine(),
+        routingEngine: new InternalInventoryRoutingEngine(),
+        signerService: {
+          async signQuote() {
+            return fixedSignature();
+          },
+          async verifyQuoteSignature() {
+            verifyCalls += 1;
+            return true;
+          },
+        },
+      },
+      {
+        ...defaultQuoteServiceConfig,
+        quoteTtlSeconds: 1,
+      },
+    );
+
+    const quoteResponse = await service.createQuote(request);
+    const signedQuote = {
+      user: request.user,
+      tokenIn: request.tokenIn,
+      tokenOut: request.tokenOut,
+      amountIn: request.amountIn,
+      amountOut: quoteResponse.amountOut,
+      minAmountOut: quoteResponse.minAmountOut,
+      nonce: quoteResponse.nonce,
+      deadline: quoteResponse.deadline,
+      chainId: request.chainId,
+    };
+    now += 2_000;
+
+    await assert.rejects(
+      service.requireSubmittableSignedQuote(signedQuote, quoteResponse.signature),
+      (error) => {
+        assert.equal(error.code, "QUOTE_EXPIRED");
+        assert.equal(error.statusCode, 409);
+        return true;
+      },
+    );
+
+    const persisted = await quoteRepository.findStatus(quoteResponse.quoteId);
+    assert.equal(persisted.status, "expired");
+    assert.equal(verifyCalls, 0);
   } finally {
     Date.now = originalDateNow;
   }

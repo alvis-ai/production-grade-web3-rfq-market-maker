@@ -327,12 +327,20 @@ function assertSignature(value: `0x${string}`): void {
 }
 
 function assertCanMarkFailed(record: QuoteRecord): void {
-  if (record.status === "submitted" || record.status === "settled") {
+  if (record.status === "submitted" || record.status === "settled" || record.status === "expired") {
     throw new Error(`Quote ${record.quoteId} cannot transition from ${record.status} to failed`);
   }
 }
 
 function assertStatusTransition(record: QuoteRecord, nextStatus: QuoteLifecycleStatus): void {
+  if (record.status === "expired") {
+    if (nextStatus === "expired") {
+      return;
+    }
+
+    throw new Error(`Quote ${record.quoteId} cannot transition from terminal status expired to ${nextStatus}`);
+  }
+
   if (record.status === "failed" || record.status === "rejected") {
     throw new Error(`Quote ${record.quoteId} cannot transition from terminal status ${record.status} to ${nextStatus}`);
   }

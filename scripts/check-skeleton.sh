@@ -353,6 +353,8 @@ grep -q 'LocalEIP712SignerService rejects unsafe quote inputs before signing' ba
 grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
 grep -q 'requireSubmittableSignedQuote' backend/src/modules/quote/quote.service.ts
 grep -q 'QUOTE_FAILED' backend/src/modules/quote/quote.service.ts
+grep -q 'markQuoteExpiredBestEffort' backend/src/modules/quote/quote.service.ts
+grep -q 'QUOTE_EXPIRED' backend/src/modules/quote/quote.service.ts
 grep -q 'findSignedQuoteByChainUserNonce' backend/src/modules/quote/quote.repository.ts
 grep -q 'chainUserNonceKey' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertRequestedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
@@ -362,12 +364,15 @@ grep -q 'assertSignedQuoteInput(input)' backend/src/modules/quote/quote.reposito
 grep -q 'Signed quote signature must be a 65-byte hex string' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertStatusTransition(current, status)' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertCanMarkFailed(current)' backend/src/modules/quote/quote.repository.ts
+grep -q 'terminal status expired' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertNonEmptyString(errorCode, "errorCode", "Failed quote")' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertQuoteStatusMetadata(metadata)' backend/src/modules/quote/quote.repository.ts
 grep -q 'Quote status txHash must be a 32-byte hex string' backend/src/modules/quote/quote.repository.ts
 grep -q 'rejects signed quote nonce key conflicts' backend/test/quote-service.test.mjs
 grep -q 'rejects signed quote identity rewrites' backend/test/quote-service.test.mjs
 grep -q 'rejects unsafe signed quote persistence inputs' backend/test/quote-service.test.mjs
+grep -q 'persists expired status when signed quote status is read after deadline' backend/test/quote-service.test.mjs
+grep -q 'rejects expired signed quotes before signature verification' backend/test/quote-service.test.mjs
 grep -q 'rejects unsafe requested and rejected quote persistence inputs' backend/test/quote-service.test.mjs
 grep -q 'rejects terminal quote status regressions' backend/test/quote-service.test.mjs
 grep -q 'rejects malformed quote status metadata' backend/test/quote-service.test.mjs
