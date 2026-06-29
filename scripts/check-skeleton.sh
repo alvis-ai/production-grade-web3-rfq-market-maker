@@ -292,6 +292,8 @@ grep -q 'per-millisecond sequence wraps' backend/test/quote-identity.test.mjs
 grep -q 'class InMemoryQuoteRepository' backend/src/modules/quote/quote.repository.ts
 grep -q 'markFailed' backend/src/modules/quote/quote.repository.ts
 grep -q 'class BasicRiskEngine' backend/src/modules/risk/risk.engine.ts
+! grep -q 'AllowAllRiskEngine' backend/src/modules/risk/risk.engine.ts
+! grep -q 'allow-all-skeleton-v0' backend/src/modules/risk/risk.engine.ts
 grep -q 'class InMemoryRateLimiter' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxQuoteRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxSubmitRequests' backend/src/modules/rate-limit/rate-limit.service.ts

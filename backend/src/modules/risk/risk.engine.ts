@@ -132,15 +132,6 @@ export class BasicRiskEngine implements RiskEngine {
   }
 }
 
-export class AllowAllRiskEngine implements RiskEngine {
-  async evaluate(): Promise<RiskDecision> {
-    return {
-      status: "approved",
-      policyVersion: "allow-all-skeleton-v0",
-    };
-  }
-}
-
 function abs(value: bigint): bigint {
   return value < 0n ? -value : value;
 }

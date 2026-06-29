@@ -112,7 +112,7 @@ evaluate(input: RiskInput): Promise<RiskDecision>
 - Risk Service owns policyVersion.
 - Audit write failure blocks signing.
 - Rejected quotes do not receive signature.
-- 默认 `BasicRiskEngine` 比 allow-all 更接近生产路径；`AllowAllRiskEngine` 只保留为开发 fallback。
+- 默认 `BasicRiskEngine` 是签名前强制 gate；代码库不提供 allow-all 风控实现，测试需要放行时应显式注入局部 test double。
 - `maxQuotedSpreadBps` 是 pricing engine 的安全护栏；即使 pricing 依赖返回可计算 quote，只要最终 quoted spread 超过 policy，就拒绝签名。
 - Risk Engine dependency failure 必须 fail closed 为 `RISK_REJECTED` / `RISK_ENGINE_UNAVAILABLE`，并阻断签名。
 
