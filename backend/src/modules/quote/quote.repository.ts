@@ -166,6 +166,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     if (!current) {
       return;
     }
+    assertCanMarkFailed(current);
 
     this.records.set(quoteId, {
       ...current,
@@ -179,6 +180,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     if (!current) {
       return;
     }
+    assertStatusTransition(current, status);
 
     this.records.set(quoteId, {
       ...current,
@@ -275,5 +277,21 @@ function assertPositiveSafeInteger(value: number, field: string): void {
 function assertSignature(value: `0x${string}`): void {
   if (!/^0x[0-9a-fA-F]{130}$/.test(value)) {
     throw new Error("Signed quote signature must be a 65-byte hex string");
+  }
+}
+
+function assertCanMarkFailed(record: QuoteRecord): void {
+  if (record.status === "submitted" || record.status === "settled") {
+    throw new Error(`Quote ${record.quoteId} cannot transition from ${record.status} to failed`);
+  }
+}
+
+function assertStatusTransition(record: QuoteRecord, nextStatus: QuoteLifecycleStatus): void {
+  if (record.status === "failed" || record.status === "rejected") {
+    throw new Error(`Quote ${record.quoteId} cannot transition from terminal status ${record.status} to ${nextStatus}`);
+  }
+
+  if (record.status === "settled" && nextStatus !== "settled") {
+    throw new Error(`Quote ${record.quoteId} cannot transition from settled to ${nextStatus}`);
   }
 }

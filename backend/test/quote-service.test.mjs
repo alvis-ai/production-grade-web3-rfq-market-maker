@@ -264,6 +264,89 @@ test("InMemoryQuoteRepository preserves settlement metadata across status update
   assert.equal(status.pnlId, "pnl_1");
 });
 
+test("InMemoryQuoteRepository rejects terminal quote status regressions", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const signedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+    chainId: 1,
+  };
+
+  await quoteRepository.saveSigned({
+    quoteId: "q_settled",
+    snapshotId: "snapshot_1",
+    quote: signedQuote,
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+  await quoteRepository.markStatus("q_settled", "submitted", {
+    txHash: `0x${"aa".repeat(32)}`,
+    settlementEventId: "se_1",
+  });
+  await quoteRepository.markStatus("q_settled", "settled", {
+    hedgeOrderId: "h_1",
+  });
+
+  await assert.rejects(
+    quoteRepository.markStatus("q_settled", "submitted"),
+    /cannot transition from settled to submitted/,
+  );
+  await assert.rejects(
+    quoteRepository.markFailed("q_settled", "SETTLEMENT_REVERTED"),
+    /cannot transition from settled to failed/,
+  );
+
+  await quoteRepository.markStatus("q_settled", "settled", {
+    pnlId: "pnl_1",
+  });
+  const settled = await quoteRepository.findStatus("q_settled");
+  assert.equal(settled.status, "settled");
+  assert.equal(settled.txHash, `0x${"aa".repeat(32)}`);
+  assert.equal(settled.settlementEventId, "se_1");
+  assert.equal(settled.hedgeOrderId, "h_1");
+  assert.equal(settled.pnlId, "pnl_1");
+
+  await quoteRepository.saveRequested({
+    quoteId: "q_rejected",
+    snapshotId: "snapshot_2",
+    request,
+  });
+  await quoteRepository.saveRejected({
+    quoteId: "q_rejected",
+    snapshotId: "snapshot_2",
+    request,
+    rejectCode: "RISK_REJECTED",
+  });
+  await assert.rejects(
+    quoteRepository.markStatus("q_rejected", "submitted"),
+    /cannot transition from terminal status rejected to submitted/,
+  );
+
+  await quoteRepository.saveSigned({
+    quoteId: "q_failed",
+    snapshotId: "snapshot_3",
+    quote: {
+      ...signedQuote,
+      nonce: "43",
+    },
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+  await quoteRepository.markFailed("q_failed", "SIGNER_UNAVAILABLE");
+  await assert.rejects(
+    quoteRepository.markStatus("q_failed", "settled"),
+    /cannot transition from terminal status failed to settled/,
+  );
+});
+
 test("QuoteService uses configured quote TTL when generating signed quote deadlines", async () => {
   const originalDateNow = Date.now;
   const fixedNow = originalDateNow();
