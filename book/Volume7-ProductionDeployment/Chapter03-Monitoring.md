@@ -141,6 +141,7 @@ Key metrics include:
 - Submit latency alerting should inspect verification, settlement event persistence, inventory, hedge and PnL work before lowering quote availability.
 - Rate-limit alerting should inspect `endpoint` first, then separate abuse, broken client retries and real demand before changing global limits.
 - Settlement throughput alerting should compare accepted submits with new settlement events to distinguish true settlement stalls from duplicate replay traffic.
+- Hedge intent throughput alerting should compare settlements with hedge intents because hedge lag histograms are silent when no intent is created.
 - Inventory balance alerting uses token native units in the reference implementation; production exposure limits should normalize to USD, delta and venue-specific hedge capacity.
 - Realized PnL alerting uses output-token units in the reference implementation; production dashboards should reconcile this with quote-level ClickHouse attribution and treasury accounting.
 - Use ClickHouse for quote-level analysis.
@@ -158,6 +159,7 @@ Key metrics include:
 - Submit latency p95 spikes：check settlement verification, quote status persistence, inventory updates, hedge intent enqueue and PnL attribution.
 - Rate limit spike：check abusive clients, retry storms, ingress behavior and whether legitimate demand needs a controlled limit change.
 - Settlement throughput stalls：check duplicate replays, verifier output, settlement event store writes and indexer ingestion.
+- Hedge intent throughput stalls：check hedge store writes, venue routing, worker health and missing post-settlement reconciliation.
 - Inventory exposure over limit：tighten risk limits.
 - Inventory balance threshold breach：reduce quotes that add to the exposed side, hedge down the token and reconcile settlement events.
 - Negative realized PnL：pause affected pairs if pricing, market snapshots or settlement attribution cannot explain the loss.

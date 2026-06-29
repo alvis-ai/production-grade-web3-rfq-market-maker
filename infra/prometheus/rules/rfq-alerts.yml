@@ -127,6 +127,15 @@ groups:
           summary: RFQ hedge intent creation errors detected after settlement
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQHedgeIntentThroughputStalled
+        expr: increase(rfq_settlements_total[10m]) > 0 and increase(rfq_hedge_intents_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ settlements are not producing hedge intents
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQSettlementThroughputStalled
         expr: increase(rfq_submit_accepted_total[10m]) > 0 and increase(rfq_settlements_total[10m]) == 0
         for: 10m

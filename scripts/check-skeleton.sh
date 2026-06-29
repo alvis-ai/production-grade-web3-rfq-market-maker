@@ -854,6 +854,8 @@ grep -q 'RFQSignerErrors' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQSignerLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQHedgeIntentErrors' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_hedge_intent_errors_total' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQHedgeIntentThroughputStalled' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'rfq_hedge_intents_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQSettlementThroughputStalled' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_settlements_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQHedgeLagHigh' infra/prometheus/rules/rfq-alerts.yml
