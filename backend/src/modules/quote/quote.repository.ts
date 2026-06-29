@@ -112,6 +112,15 @@ export class InMemoryQuoteRepository implements QuoteRepository {
 
   async saveSigned(input: SaveSignedQuoteInput): Promise<void> {
     const current = this.records.get(input.quoteId);
+    const key = this.chainUserNonceKey(input.quote.chainId, input.quote.user, input.quote.nonce);
+    const existingQuoteId = this.quoteIdsByChainUserNonce.get(key);
+    if (existingQuoteId && existingQuoteId !== input.quoteId) {
+      throw new Error(`Signed quote nonce key already exists for ${existingQuoteId}`);
+    }
+    if (current?.nonce && !this.isSameSignedQuoteIdentity(current, input.quote)) {
+      throw new Error(`Signed quote identity cannot be changed for ${input.quoteId}`);
+    }
+
     this.records.set(input.quoteId, {
       ...(current ?? {}),
       quoteId: input.quoteId,
@@ -130,10 +139,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       status: "signed",
       signature: input.signature,
     });
-    this.quoteIdsByChainUserNonce.set(
-      this.chainUserNonceKey(input.quote.chainId, input.quote.user, input.quote.nonce),
-      input.quoteId,
-    );
+    this.quoteIdsByChainUserNonce.set(key, input.quoteId);
   }
 
   async findStatus(quoteId: string): Promise<QuoteStatusResponse | undefined> {
@@ -203,5 +209,13 @@ export class InMemoryQuoteRepository implements QuoteRepository {
 
   private chainUserNonceKey(chainId: number, user: Address, nonce: UIntString): string {
     return `${chainId}:${user.toLowerCase()}:${nonce}`;
+  }
+
+  private isSameSignedQuoteIdentity(record: QuoteRecord, quote: SignedQuote): boolean {
+    return (
+      record.chainId === quote.chainId &&
+      record.user.toLowerCase() === quote.user.toLowerCase() &&
+      record.nonce === quote.nonce
+    );
   }
 }

@@ -65,6 +65,92 @@ test("InMemoryQuoteRepository indexes signed quotes by chain, user, and nonce", 
   assert.equal(missing, undefined);
 });
 
+test("InMemoryQuoteRepository rejects signed quote nonce key conflicts", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const baseSignedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+    chainId: 1,
+  };
+
+  await quoteRepository.saveSigned({
+    quoteId: "q_original",
+    snapshotId: "snapshot_1",
+    quote: baseSignedQuote,
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      quoteId: "q_conflict",
+      snapshotId: "snapshot_2",
+      quote: {
+        ...baseSignedQuote,
+        amountOut: "997000000",
+      },
+      pricingVersion: "test-pricing",
+      riskPolicyVersion: "test-risk",
+      signature: fixedSignature(),
+    }),
+    /Signed quote nonce key already exists/,
+  );
+
+  const indexed = await quoteRepository.findSignedQuoteByChainUserNonce(1, request.user, "42");
+  assert.equal(indexed.quoteId, "q_original");
+  assert.equal(indexed.amountOut, "998400000");
+});
+
+test("InMemoryQuoteRepository rejects signed quote identity rewrites", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const baseSignedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+    chainId: 1,
+  };
+
+  await quoteRepository.saveSigned({
+    quoteId: "q_original",
+    snapshotId: "snapshot_1",
+    quote: baseSignedQuote,
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      quoteId: "q_original",
+      snapshotId: "snapshot_2",
+      quote: {
+        ...baseSignedQuote,
+        nonce: "43",
+      },
+      pricingVersion: "test-pricing",
+      riskPolicyVersion: "test-risk",
+      signature: fixedSignature(),
+    }),
+    /Signed quote identity cannot be changed/,
+  );
+
+  assert.equal(await quoteRepository.findQuoteIdByChainUserNonce(1, request.user, "43"), undefined);
+  const indexed = await quoteRepository.findSignedQuoteByChainUserNonce(1, request.user, "42");
+  assert.equal(indexed.quoteId, "q_original");
+});
+
 test("QuoteService uses configured quote TTL when generating signed quote deadlines", async () => {
   const originalDateNow = Date.now;
   const fixedNow = originalDateNow();
