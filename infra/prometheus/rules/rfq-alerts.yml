@@ -127,6 +127,15 @@ groups:
           summary: RFQ readiness probe reports degraded dependencies
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQDependencyComponentDegraded
+        expr: rfq_dependency_status{status="degraded"} == 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ readiness dependency component is degraded
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQHedgeIntentErrors
         expr: sum(increase(rfq_hedge_intent_errors_total[5m])) > 0
         for: 1m
