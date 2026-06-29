@@ -47,7 +47,14 @@ export class HedgeService implements HedgeIntentService {
   private readonly failurePressure = new Map<string, number>();
   private sequence = 0;
 
-  constructor(private readonly config: HedgeServiceConfig = defaultHedgeServiceConfig) {}
+  constructor(private readonly config: HedgeServiceConfig = defaultHedgeServiceConfig) {
+    assertPositiveBps(config.failurePenaltyBps, "failurePenaltyBps");
+    assertPositiveBps(config.maxFailurePenaltyBps, "maxFailurePenaltyBps");
+
+    if (config.failurePenaltyBps > config.maxFailurePenaltyBps) {
+      throw new Error("Hedge failurePenaltyBps must be less than or equal to maxFailurePenaltyBps");
+    }
+  }
 
   checkHealth(): void {
     this.getHedgeIntent("__readiness_probe__");
@@ -113,5 +120,15 @@ export class HedgeService implements HedgeIntentService {
 
   private key(chainId: number, token: Address): string {
     return `${chainId}:${token.toLowerCase()}`;
+  }
+}
+
+function assertPositiveBps(value: number, field: keyof HedgeServiceConfig): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Hedge ${field} must be a positive safe integer`);
+  }
+
+  if (value > 10_000) {
+    throw new Error(`Hedge ${field} must be less than or equal to 10000 bps`);
   }
 }

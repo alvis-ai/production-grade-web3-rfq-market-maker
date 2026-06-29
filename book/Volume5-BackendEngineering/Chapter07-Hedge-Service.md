@@ -115,6 +115,7 @@ Hedge Service uses internal event APIs. It does not expose public user API.
 - Hedge failure does not revert settlement; current backend records `HEDGE_INTENT_FAILED` and leaves `hedgeOrderId` absent from the accepted submit response.
 - Hedge intent creation is idempotent by `settlementEventId`; retrying the same settlement returns the existing `hedgeOrderId` instead of creating a second hedge order.
 - Hedge failure updates risk state through `recordHedgeFailure` and `quoteRiskPenaltyBps`; Quote Service reads that penalty and adds it to the pricing `inventorySkewBps` input.
+- Hedge failure penalty config is validated at construction: `failurePenaltyBps` and `maxFailurePenaltyBps` must be positive safe integers, each must be at most 10000 bps, and `failurePenaltyBps` must not exceed `maxFailurePenaltyBps`. Invalid config fails fast before `/submit` can accept a settlement whose follow-up quote risk feedback would be nonsensical.
 - Hedge credentials isolated from Quote Service.
 
 ## Failure Scenarios
@@ -136,7 +137,7 @@ Hedge lag is key metric. The service should prioritize high exposure intents.
 
 ## Testing Strategy
 
-测试 hedge skipped、route selected、venue reject、partial fill、idempotent retry、hedge intent creation failed does not rollback settlement、follow-up quote risk penalty、hedge status store unavailable 和 metrics emission。
+测试 hedge skipped、route selected、venue reject、partial fill、idempotent retry、hedge intent creation failed does not rollback settlement、follow-up quote risk penalty、failure penalty config fail-fast、hedge status store unavailable 和 metrics emission。
 
 ## Interview Notes
 

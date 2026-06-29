@@ -373,6 +373,10 @@ grep -q 'settlementEventId: submitResponse.settlementEventId' sdk/test/sdk.test.
 grep -q 'hedge settlement event id' scripts/smoke-api.mjs
 grep -q 'quoteRiskPenaltyBps' backend/src/modules/hedge/hedge.service.ts
 grep -q 'failurePenaltyBps' backend/src/modules/hedge/hedge.service.ts
+grep -q 'assertPositiveBps(config.failurePenaltyBps, "failurePenaltyBps")' backend/src/modules/hedge/hedge.service.ts
+grep -q 'failurePenaltyBps must be less than or equal to maxFailurePenaltyBps' backend/src/modules/hedge/hedge.service.ts
+grep -q 'HedgeService rejects unsafe failure penalty configuration at construction' backend/test/hedge.test.mjs
+grep -q 'failure penalty config fail-fast' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'hedgeRiskPenaltyBps' backend/src/modules/quote/quote.service.ts
 grep -q 'interface PnlStore' backend/src/modules/pnl/pnl.service.ts
 grep -q 'class PnlService' backend/src/modules/pnl/pnl.service.ts
