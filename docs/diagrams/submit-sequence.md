@@ -36,5 +36,5 @@ sequenceDiagram
 
 - 合约验证失败时不能更新 nonce 为已使用。
 - 第一阶段 skeleton 可同步模拟库存更新；生产库存更新必须以链上事件为准。
-- 事件消费必须使用 `chainId + txHash + logIndex` 幂等，并保存 `quoteHash` 作为链上 `QuoteSettled` 与链下 quote payload 的一致性锚点。
+- 事件消费必须使用 `chainId + txHash + logIndex` 幂等，并保存 `quoteHash` 和 `blockNumber` 作为链上 `QuoteSettled` 与链下 quote payload 的一致性锚点和 reorg 排查依据。
 - Hedge failure 不能回滚已经确认的 settlement，但必须进入风险和告警闭环。

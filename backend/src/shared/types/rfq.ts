@@ -95,6 +95,7 @@ export interface SettlementEventStatusResponse {
   chainId: number;
   txHash: `0x${string}`;
   quoteHash: `0x${string}`;
+  blockNumber: number;
   logIndex: number;
   user: Address;
   tokenIn: Address;

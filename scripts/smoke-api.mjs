@@ -64,6 +64,7 @@ assertEqual(settlementStatus.settlementEventId, submitResponse.settlementEventId
 assertEqual(settlementStatus.quoteId, quoteResponse.quoteId, "settlement quote id");
 assertEqual(settlementStatus.txHash, submitResponse.txHash, "settlement txHash");
 assertHex(settlementStatus.quoteHash, "settlement quoteHash");
+assertEqual(settlementStatus.blockNumber, 0, "settlement block number");
 assertEqual(settlementStatus.logIndex, 0, "settlement log index");
 
 const hedgeStatus = await request("GET", `/hedges/${encodeURIComponent(submitResponse.hedgeOrderId)}`);

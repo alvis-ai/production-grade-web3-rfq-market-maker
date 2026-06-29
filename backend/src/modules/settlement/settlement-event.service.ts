@@ -11,6 +11,7 @@ const quoteTypeHash = keccak256(
 export interface ApplySettlementEventInput {
   quoteId: string;
   txHash: `0x${string}`;
+  blockNumber?: number;
   logIndex?: number;
   quote: SignedQuote;
 }
@@ -38,6 +39,7 @@ export class SettlementEventService implements SettlementEventStore {
 
   applySettlementEvent(input: ApplySettlementEventInput): ApplySettlementEventResult {
     const logIndex = input.logIndex ?? 0;
+    const blockNumber = input.blockNumber ?? 0;
     const key = this.eventKey(input.quote.chainId, input.txHash, logIndex);
     const existingEventId = this.eventIdsByKey.get(key);
     if (existingEventId) {
@@ -62,6 +64,7 @@ export class SettlementEventService implements SettlementEventStore {
       chainId: input.quote.chainId,
       txHash: input.txHash,
       quoteHash: hashSettlementQuote(input.quote),
+      blockNumber,
       logIndex,
       user: input.quote.user,
       tokenIn: input.quote.tokenIn,
@@ -109,6 +112,7 @@ export class SettlementEventService implements SettlementEventStore {
       event.chainId === input.quote.chainId &&
       event.txHash.toLowerCase() === input.txHash.toLowerCase() &&
       event.quoteHash.toLowerCase() === hashSettlementQuote(input.quote).toLowerCase() &&
+      event.blockNumber === (input.blockNumber ?? 0) &&
       event.logIndex === logIndex &&
       event.user.toLowerCase() === input.quote.user.toLowerCase() &&
       event.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&

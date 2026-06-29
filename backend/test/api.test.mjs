@@ -397,6 +397,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(settlement.body.chainId, baseQuoteRequest.chainId);
     assert.equal(settlement.body.txHash, submit.body.txHash);
     assert.match(settlement.body.quoteHash, /^0x[0-9a-fA-F]{64}$/);
+    assert.equal(settlement.body.blockNumber, 0);
     assert.equal(settlement.body.logIndex, 0);
     assert.equal(settlement.body.user, baseQuoteRequest.user);
     assert.equal(settlement.body.tokenIn, baseQuoteRequest.tokenIn);
@@ -997,6 +998,7 @@ test("RFQ API keeps settlement accepted when hedge intent creation fails", async
     assert.equal(settlement.body.status, "applied");
     assert.equal(settlement.body.quoteId, quote.body.quoteId);
     assert.match(settlement.body.quoteHash, /^0x[0-9a-fA-F]{64}$/);
+    assert.equal(settlement.body.blockNumber, 0);
 
     const pnl = await injectJson(server, "GET", "/pnl");
     assert.equal(pnl.statusCode, 200);
@@ -1061,6 +1063,7 @@ test("RFQ API keeps settlement accepted when PnL record creation fails", async (
     assert.equal(settlement.body.status, "applied");
     assert.equal(settlement.body.quoteId, quote.body.quoteId);
     assert.match(settlement.body.quoteHash, /^0x[0-9a-fA-F]{64}$/);
+    assert.equal(settlement.body.blockNumber, 0);
 
     const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
     assert.equal(status.statusCode, 200);

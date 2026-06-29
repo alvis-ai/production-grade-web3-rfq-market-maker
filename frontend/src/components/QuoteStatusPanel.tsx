@@ -94,6 +94,10 @@ export function QuoteStatusPanel({
           <dd>{settlementStatus?.quoteHash ?? "-"}</dd>
         </div>
         <div>
+          <dt>Block</dt>
+          <dd>{settlementStatus?.blockNumber ?? "-"}</dd>
+        </div>
+        <div>
           <dt>Hedge ID</dt>
           <dd>{hedgeOrderId ?? "-"}</dd>
         </div>

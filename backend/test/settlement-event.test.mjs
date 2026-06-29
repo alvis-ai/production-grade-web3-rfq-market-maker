@@ -34,6 +34,7 @@ test("SettlementEventService applies each chain event idempotently", () => {
   assert.equal(first.event.settlementEventId, "se_1_22222222_7");
   assert.equal(first.event.quoteId, "q_test");
   assert.equal(first.event.quoteHash, "0x4b1a6949619f6bafcefcde5376e278dd0eeff6a660a6cdccad19977866943d8e");
+  assert.equal(first.event.blockNumber, 0);
   assert.equal(first.event.logIndex, 7);
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 1000n);
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -990n);
@@ -45,6 +46,26 @@ test("SettlementEventService applies each chain event idempotently", () => {
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -990n);
 
   assert.deepEqual(settlements.getSettlementEvent(first.event.settlementEventId), first.event);
+});
+
+test("SettlementEventService persists explicit chain block numbers", () => {
+  const inventory = new InventoryService();
+  const settlements = new SettlementEventService(inventory);
+  const input = {
+    quoteId: "q_test",
+    quote,
+    txHash: `0x${"44".repeat(32)}`,
+    blockNumber: 123456,
+    logIndex: 3,
+  };
+
+  const first = settlements.applySettlementEvent(input);
+  assert.equal(first.duplicate, false);
+  assert.equal(first.event.blockNumber, 123456);
+
+  const replay = settlements.applySettlementEvent(input);
+  assert.equal(replay.duplicate, true);
+  assert.equal(replay.event.blockNumber, 123456);
 });
 
 test("hashSettlementQuote matches RFQSettlement.hashQuote struct hashing", () => {

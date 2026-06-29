@@ -175,6 +175,7 @@ const settlementColumnMapping = {
   chainId: "chain_id",
   txHash: "tx_hash",
   quoteHash: "quote_hash",
+  blockNumber: "block_number",
   logIndex: "log_index",
   user: "user_address",
   tokenIn: "token_in",
