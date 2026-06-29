@@ -550,6 +550,7 @@ grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs
 grep -q 'client.pnl' sdk/test/sdk.test.mjs
 grep -q 'client.ready' sdk/test/sdk.test.mjs
+grep -q 'percent-encodes dynamic status path identifiers' sdk/test/sdk.test.mjs
 grep -q 'new RFQClient("http://127.0.0.1:3000/")' sdk/test/sdk.test.mjs
 grep -q 'degraded readiness payloads' sdk/test/sdk.test.mjs
 grep -q 'falls back for unknown API error codes' sdk/test/sdk.test.mjs

@@ -421,6 +421,72 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
   }
 });
 
+test("RFQClient percent-encodes dynamic status path identifiers", async () => {
+  const calls = [];
+  const quoteId = "q/test id";
+  const hedgeOrderId = "h/test id";
+  const settlementEventId = "se/test id";
+  const restoreFetch = installFetch(async (url) => {
+    calls.push(url);
+    if (url.endsWith(`/quote/${encodeURIComponent(quoteId)}`)) {
+      return jsonResponse(200, {
+        quoteId,
+        status: "settled",
+      });
+    }
+    if (url.endsWith(`/hedges/${encodeURIComponent(hedgeOrderId)}`)) {
+      return jsonResponse(200, {
+        hedgeOrderId,
+        status: "queued",
+        settlementEventId,
+        quoteId,
+        chainId: quote.chainId,
+        token: quote.tokenOut,
+        side: "buy",
+        amount: quote.amountOut,
+        reason: "inventory_rebalance",
+        createdAt: "2026-06-27T00:00:00.000Z",
+      });
+    }
+    if (url.endsWith(`/settlements/${encodeURIComponent(settlementEventId)}`)) {
+      return jsonResponse(200, {
+        settlementEventId,
+        status: "applied",
+        quoteId,
+        chainId: quote.chainId,
+        txHash: `0x${"22".repeat(32)}`,
+        quoteHash: `0x${"33".repeat(32)}`,
+        blockNumber: 123456,
+        logIndex: 0,
+        user: quote.user,
+        tokenIn: quote.tokenIn,
+        tokenOut: quote.tokenOut,
+        amountIn: quote.amountIn,
+        amountOut: quote.amountOut,
+        observedAt: "2026-06-27T00:00:00.000Z",
+      });
+    }
+
+    return jsonResponse(404, { code: "QUOTE_NOT_FOUND", message: "not found", traceId: "trace_not_found" });
+  });
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await client.getQuote(quoteId);
+    await client.getHedge(hedgeOrderId);
+    await client.getSettlement(settlementEventId);
+
+    assert.deepEqual(calls, [
+      "http://127.0.0.1:3000/quote/q%2Ftest%20id",
+      "http://127.0.0.1:3000/hedges/h%2Ftest%20id",
+      "http://127.0.0.1:3000/settlements/se%2Ftest%20id",
+    ]);
+  } finally {
+    restoreFetch();
+  }
+});
+
 test("RFQClient throws structured RFQClientError for API errors", async () => {
   const restoreFetch = installFetch(async () =>
     jsonResponse(409, {
