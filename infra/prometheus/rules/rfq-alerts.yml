@@ -100,6 +100,15 @@ groups:
           summary: RFQ signer operation errors detected
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQSignerSignThroughputStalled
+        expr: increase(rfq_quote_requests_total[10m]) > 0 and sum(increase(rfq_signer_requests_total{operation="sign"}[10m])) == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ quote traffic is not reaching signer sign operations
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQSignerLatencyP95High
         expr: histogram_quantile(0.95, sum by (le, operation) (rate(rfq_signer_latency_seconds_bucket[5m]))) > 0.5
         for: 5m

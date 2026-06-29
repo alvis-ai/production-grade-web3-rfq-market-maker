@@ -851,6 +851,8 @@ grep -q 'rfq_quote_responses_total' book/Volume7-ProductionDeployment/Chapter05-
 grep -q 'RFQQuoteLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteRiskRejectSpike' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQSignerErrors' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQSignerSignThroughputStalled' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'rfq_signer_requests_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQSignerLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQHedgeIntentErrors' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_hedge_intent_errors_total' infra/prometheus/rules/rfq-alerts.yml

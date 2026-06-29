@@ -139,6 +139,7 @@ Key metrics include:
 - Quote response alerting should compare requests, signed responses, errors and rejections so operators can distinguish fail-closed behavior from signer or dependency failure.
 - Submit error alerting must compare errors with accepted settlements, rate-limit counters and settlement reverts before deciding whether to pause submit traffic.
 - Submit latency alerting should inspect verification, settlement event persistence, inventory, hedge and PnL work before lowering quote availability.
+- Signer throughput alerting should compare quote demand with `sign` operations; safe quote flow must never bypass the signer.
 - Rate-limit alerting should inspect `endpoint` first, then separate abuse, broken client retries and real demand before changing global limits.
 - Settlement throughput alerting should compare accepted submits with new settlement events to distinguish true settlement stalls from duplicate replay traffic.
 - Hedge intent throughput alerting should compare settlements with hedge intents because hedge lag histograms are silent when no intent is created.
@@ -156,6 +157,7 @@ Key metrics include:
 - Quote error spike：separate invalid requests, rate limits, risk rejection, stale market data, pricing failures and signer failures.
 - Quote response stall：compare signed responses with quote errors, risk rejections and signer health before reopening traffic.
 - Risk reject spike：check market volatility, inventory limits, token allowlist and toxic flow signals.
+- Signer sign throughput stalls：check signer routing, dependency readiness and fail-closed behavior before resuming quote traffic.
 - Submit error spike：separate invalid client payloads, rate limits, expired or replayed quotes, settlement reverts and dependency failures.
 - Submit latency p95 spikes：check settlement verification, quote status persistence, inventory updates, hedge intent enqueue and PnL attribution.
 - Rate limit spike：check abusive clients, retry storms, ingress behavior and whether legitimate demand needs a controlled limit change.
