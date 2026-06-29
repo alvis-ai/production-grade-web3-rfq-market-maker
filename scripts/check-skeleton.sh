@@ -461,6 +461,8 @@ grep -q 'buildSubmitQuoteArgs' sdk/src/index.ts
 grep -q 'hashSettlementQuote' sdk/src/index.ts
 grep -q 'buildTreasuryTransferArgs' sdk/src/index.ts
 grep -q 'hashSettlementQuote' sdk/src/settlement.ts
+grep -q 'parseAddress' sdk/src/settlement.ts
+grep -q 'parseSignature' sdk/src/settlement.ts
 grep -q 'parsePositiveUInt' sdk/src/settlement.ts
 grep -q 'buildQuoteTypedData' sdk/src/eip712.ts
 grep -q 'ProductionGradeRFQ' sdk/src/eip712.ts

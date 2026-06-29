@@ -30,9 +30,9 @@ export interface TreasuryTransferInput {
 
 export function toSettlementQuote(quote: Quote): SettlementQuote {
   return {
-    user: quote.user,
-    tokenIn: quote.tokenIn,
-    tokenOut: quote.tokenOut,
+    user: parseAddress(quote.user, "quote.user"),
+    tokenIn: parseAddress(quote.tokenIn, "quote.tokenIn"),
+    tokenOut: parseAddress(quote.tokenOut, "quote.tokenOut"),
     amountIn: parsePositiveUInt(quote.amountIn, "quote.amountIn"),
     amountOut: parsePositiveUInt(quote.amountOut, "quote.amountOut"),
     minAmountOut: parsePositiveUInt(quote.minAmountOut, "quote.minAmountOut"),
@@ -43,7 +43,7 @@ export function toSettlementQuote(quote: Quote): SettlementQuote {
 }
 
 export function buildSubmitQuoteArgs(quote: Quote, signature: `0x${string}`): SubmitQuoteArgs {
-  return [toSettlementQuote(quote), signature] as const;
+  return [toSettlementQuote(quote), parseSignature(signature, "signature")] as const;
 }
 
 export function hashSettlementQuote(quote: Quote): `0x${string}` {
@@ -80,7 +80,23 @@ export function hashSettlementQuote(quote: Quote): `0x${string}` {
 }
 
 export function buildTreasuryTransferArgs(input: TreasuryTransferInput): TreasuryTransferArgs {
-  return [input.token, input.to, parseUInt(input.amount, "amount")] as const;
+  return [parseAddress(input.token, "token"), parseAddress(input.to, "to"), parseUInt(input.amount, "amount")] as const;
+}
+
+function parseAddress(value: Address, field: string): Address {
+  if (!/^0x[a-fA-F0-9]{40}$/.test(value)) {
+    throw new Error(`${field} must be a 20-byte hex address`);
+  }
+
+  return value;
+}
+
+function parseSignature(value: `0x${string}`, field: string): `0x${string}` {
+  if (!/^0x[a-fA-F0-9]{130}$/.test(value)) {
+    throw new Error(`${field} must be a 65-byte hex signature`);
+  }
+
+  return value;
 }
 
 function parsePositiveUInt(value: UIntString, field: string): bigint {

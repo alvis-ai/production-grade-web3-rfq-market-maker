@@ -107,6 +107,23 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
       buildSubmitQuoteArgs(
         {
           ...quote,
+          user: "0x1234",
+        },
+        signature,
+      ),
+    /quote\.user must be a 20-byte hex address/,
+  );
+
+  assert.throws(
+    () => buildSubmitQuoteArgs(quote, "0x1234"),
+    /signature must be a 65-byte hex signature/,
+  );
+
+  assert.throws(
+    () =>
+      buildSubmitQuoteArgs(
+        {
+          ...quote,
           amountIn: "-1",
         },
         signature,
@@ -134,6 +151,16 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
         amount: -1n,
       }),
     /amount must be a uint/,
+  );
+
+  assert.throws(
+    () =>
+      buildTreasuryTransferArgs({
+        token: "0x1234",
+        to: quote.user,
+        amount: quote.amountOut,
+      }),
+    /token must be a 20-byte hex address/,
   );
 });
 
