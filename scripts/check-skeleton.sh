@@ -298,6 +298,7 @@ grep -q 'class BasicRiskEngine' backend/src/modules/risk/risk.engine.ts
 ! grep -q 'AllowAllRiskEngine' backend/src/modules/risk/risk.engine.ts
 ! grep -q 'allow-all-skeleton-v0' backend/src/modules/risk/risk.engine.ts
 grep -q 'class InMemoryRateLimiter' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'assertPositiveSafeInteger' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxQuoteRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxSubmitRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxStatusRequests' backend/src/modules/rate-limit/rate-limit.service.ts
@@ -1019,6 +1020,8 @@ grep -q 'PnL attribution after settlement is best-effort' book/Volume5-BackendEn
 grep -q 'signed realized PnL' backend/test/pnl.test.mjs
 grep -q 'applies each chain event idempotently' backend/test/settlement-event.test.mjs
 grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/rate-limit.test.mjs
+grep -q 'InMemoryRateLimiter rejects unsafe configuration at construction' backend/test/rate-limit.test.mjs
+grep -q 'unsafe rate limit configuration at startup' backend/test/api.test.mjs
 grep -q 'restricted toxic-flow users' backend/test/risk.test.mjs
 grep -q 'toxic-flow score threshold' backend/test/risk.test.mjs
 grep -q 'quoted spreads above policy limit' backend/test/risk.test.mjs

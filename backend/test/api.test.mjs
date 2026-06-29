@@ -159,6 +159,28 @@ test("RFQ API rejects invalid RFQ_ENABLE_HSTS at startup", () => {
   }
 });
 
+test("RFQ API rejects unsafe rate limit configuration at startup", () => {
+  assert.throws(
+    () => buildServer({
+      logger: false,
+      rateLimit: {
+        windowMs: 0,
+      },
+    }),
+    /Rate limit windowMs must be a positive safe integer/,
+  );
+
+  assert.throws(
+    () => buildServer({
+      logger: false,
+      rateLimit: {
+        maxSubmitRequests: 0,
+      },
+    }),
+    /Rate limit maxSubmitRequests must be a positive safe integer/,
+  );
+});
+
 test("RFQ API emits baseline security headers on successful responses", async () => {
   const server = buildServer({ logger: false });
   await server.ready();

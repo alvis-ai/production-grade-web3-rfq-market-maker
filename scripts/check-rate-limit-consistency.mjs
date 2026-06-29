@@ -24,6 +24,15 @@ assert.deepEqual(defaults, {
   maxStatusRequests: 300,
 });
 
+assertContains(rateLimiterSource, [
+  "assertPositiveSafeInteger",
+  'assertPositiveSafeInteger(config.windowMs, "windowMs")',
+  'assertPositiveSafeInteger(config.maxQuoteRequests, "maxQuoteRequests")',
+  'assertPositiveSafeInteger(config.maxSubmitRequests, "maxSubmitRequests")',
+  'assertPositiveSafeInteger(config.maxStatusRequests, "maxStatusRequests")',
+  "Rate limit ${field} must be a positive safe integer",
+], "backend/src/modules/rate-limit/rate-limit.service.ts");
+
 assertContains(mainSource, [
   "new InMemoryRateLimiter",
   "windowMs: options.rateLimit?.windowMs ?? 60_000",
@@ -41,6 +50,7 @@ assertContains(mainSource, [
 ], "backend/src/main.ts");
 
 assertContains(apiTestSource, [
+  "RFQ API rejects unsafe rate limit configuration at startup",
   "rate limits quote requests by client",
   "rate limits submit requests before validation and settlement",
   "rate limits quote status requests by client",
@@ -98,6 +108,7 @@ assertContains(gatewayChapterSource, [
   "quote 120 requests / 60 seconds",
   "submit 60 requests / 60 seconds",
   "status 300 requests / 60 seconds",
+  "错误配置会在启动期 fail fast",
   "`RATE_LIMITED`、HTTP 429 和 `Retry-After`",
 ], "book/Volume5-BackendEngineering/Chapter01-API-Gateway.md");
 

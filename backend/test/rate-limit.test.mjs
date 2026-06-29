@@ -48,3 +48,35 @@ test("InMemoryRateLimiter enforces endpoint-specific windows", () => {
     retryAfterSeconds: 1,
   });
 });
+
+test("InMemoryRateLimiter rejects unsafe configuration at construction", () => {
+  assert.throws(
+    () => new InMemoryRateLimiter({
+      windowMs: 0,
+      maxQuoteRequests: 2,
+      maxSubmitRequests: 1,
+      maxStatusRequests: 1,
+    }),
+    /Rate limit windowMs must be a positive safe integer/,
+  );
+
+  assert.throws(
+    () => new InMemoryRateLimiter({
+      windowMs: 1000,
+      maxQuoteRequests: 0,
+      maxSubmitRequests: 1,
+      maxStatusRequests: 1,
+    }),
+    /Rate limit maxQuoteRequests must be a positive safe integer/,
+  );
+
+  assert.throws(
+    () => new InMemoryRateLimiter({
+      windowMs: 1000,
+      maxQuoteRequests: 2,
+      maxSubmitRequests: Number.MAX_SAFE_INTEGER + 1,
+      maxStatusRequests: 1,
+    }),
+    /Rate limit maxSubmitRequests must be a positive safe integer/,
+  );
+});

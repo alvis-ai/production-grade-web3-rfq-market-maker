@@ -33,7 +33,12 @@ export const defaultRateLimitConfig: RateLimitConfig = {
 export class InMemoryRateLimiter {
   private readonly buckets = new Map<string, RateLimitBucket>();
 
-  constructor(private readonly config: RateLimitConfig = defaultRateLimitConfig) {}
+  constructor(private readonly config: RateLimitConfig = defaultRateLimitConfig) {
+    assertPositiveSafeInteger(config.windowMs, "windowMs");
+    assertPositiveSafeInteger(config.maxQuoteRequests, "maxQuoteRequests");
+    assertPositiveSafeInteger(config.maxSubmitRequests, "maxSubmitRequests");
+    assertPositiveSafeInteger(config.maxStatusRequests, "maxStatusRequests");
+  }
 
   check(input: RateLimitInput, now = Date.now()): RateLimitDecision {
     const limit = this.limitFor(input.endpoint);
@@ -66,5 +71,11 @@ export class InMemoryRateLimiter {
     }
 
     return endpoint === "submit" ? this.config.maxSubmitRequests : this.config.maxStatusRequests;
+  }
+}
+
+function assertPositiveSafeInteger(value: number, field: keyof RateLimitConfig): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Rate limit ${field} must be a positive safe integer`);
   }
 }
