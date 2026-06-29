@@ -28,6 +28,15 @@ groups:
           summary: RFQ quote error volume is elevated
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQQuoteResponsesStalled
+        expr: increase(rfq_quote_requests_total[10m]) > 0 and increase(rfq_quote_responses_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ quote requests are not producing signed quote responses
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQSubmitTrafficSpike
         expr: increase(rfq_submit_requests_total[5m]) > 100
         for: 5m

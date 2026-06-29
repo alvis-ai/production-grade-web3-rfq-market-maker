@@ -136,6 +136,7 @@ Key metrics include:
 - Readiness metrics mirror the last `/ready` probe with fixed labels: `rfq_readiness_status{status="ready|degraded"}` and `rfq_dependency_status{component="marketData|routing|pricing|risk|signer|quoteRepository|inventory|execution|settlementEventStore|pnl|metrics",status="ok|degraded"}`.
 - Readiness alerting should page on sustained degraded status, then route by the degraded component instead of relying on a single generic health alarm.
 - Quote error alerting should correlate errors with risk rejection, rate limit, market data, pricing and signer metrics before changing quote availability.
+- Quote response alerting should compare requests, signed responses, errors and rejections so operators can distinguish fail-closed behavior from signer or dependency failure.
 - Submit error alerting must compare errors with accepted settlements, rate-limit counters and settlement reverts before deciding whether to pause submit traffic.
 - Submit latency alerting should inspect verification, settlement event persistence, inventory, hedge and PnL work before lowering quote availability.
 - Rate-limit alerting should inspect `endpoint` first, then separate abuse, broken client retries and real demand before changing global limits.
@@ -151,6 +152,7 @@ Key metrics include:
 - Readiness is degraded：inspect `rfq_dependency_status` and follow the component-specific runbook before restarting healthy pods.
 - Quote latency p95 spikes：check market data, pricing, risk and signer dependency latency.
 - Quote error spike：separate invalid requests, rate limits, risk rejection, stale market data, pricing failures and signer failures.
+- Quote response stall：compare signed responses with quote errors, risk rejections and signer health before reopening traffic.
 - Risk reject spike：check market volatility, inventory limits, token allowlist and toxic flow signals.
 - Submit error spike：separate invalid client payloads, rate limits, expired or replayed quotes, settlement reverts and dependency failures.
 - Submit latency p95 spikes：check settlement verification, quote status persistence, inventory updates, hedge intent enqueue and PnL attribution.

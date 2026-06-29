@@ -846,6 +846,8 @@ grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/ra
 grep -q 'restricted toxic-flow users' backend/test/risk.test.mjs
 grep -q 'toxic-flow score threshold' backend/test/risk.test.mjs
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQQuoteResponsesStalled' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'rfq_quote_responses_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQQuoteLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteRiskRejectSpike' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQSignerErrors' infra/prometheus/rules/rfq-alerts.yml
