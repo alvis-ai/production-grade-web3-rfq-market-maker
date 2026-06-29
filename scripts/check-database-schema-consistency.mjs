@@ -92,6 +92,10 @@ assert.ok(
   "settlement_events must keep the chain_id, tx_hash, log_index idempotency key",
 );
 assert.ok(
+  /CREATE\s+UNIQUE\s+INDEX\s+uq_quotes_chain_user_nonce\s+ON\s+quotes\s*\(\s*chain_id\s*,\s*user_address\s*,\s*nonce\s*\)\s*WHERE\s+nonce\s+IS\s+NOT\s+NULL\s*;/i.test(schemaSource),
+  "quotes must keep the chain_id, user_address, nonce signed-quote lookup key",
+);
+assert.ok(
   /UNIQUE\s*\(\s*quote_id\s*,\s*model\s*\)/i.test(tables.get("pnl_records").body),
   "pnl_records must keep one attribution record per quote and model",
 );
@@ -99,12 +103,13 @@ assert.ok(
 for (const indexName of [
   "idx_quotes_user_created_at",
   "idx_quotes_status_created_at",
+  "uq_quotes_chain_user_nonce",
   "idx_risk_decisions_quote_id",
   "idx_pnl_records_realized_at",
   "idx_pnl_records_chain_pair_realized_at",
 ]) {
   assert.ok(
-    new RegExp(`CREATE\\s+INDEX\\s+${indexName}\\b`, "i").test(schemaSource),
+    new RegExp(`CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+${indexName}\\b`, "i").test(schemaSource),
     `docs/database/schema.sql must define ${indexName}`,
   );
 }

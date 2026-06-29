@@ -288,6 +288,9 @@ grep -q 'findSignedQuoteByChainUserNonce' backend/src/modules/quote/quote.reposi
 grep -q 'chainUserNonceKey' backend/src/modules/quote/quote.repository.ts
 grep -q 'chainId:user:nonce' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'indexes signed quotes by chain, user, and nonce' backend/test/quote-service.test.mjs
+grep -q 'uq_quotes_chain_user_nonce' docs/database/schema.sql
+grep -q 'quotes must keep the chain_id, user_address, nonce signed-quote lookup key' scripts/check-database-schema-consistency.mjs
+grep -q 'partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`' docs/database/er-diagram.md
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts
 grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.service.ts

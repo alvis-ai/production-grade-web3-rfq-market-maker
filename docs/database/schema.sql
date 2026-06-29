@@ -21,6 +21,8 @@ CREATE TABLE quotes (
 
 CREATE INDEX idx_quotes_user_created_at ON quotes (user_address, created_at DESC);
 CREATE INDEX idx_quotes_status_created_at ON quotes (status, created_at DESC);
+CREATE UNIQUE INDEX uq_quotes_chain_user_nonce ON quotes (chain_id, user_address, nonce)
+  WHERE nonce IS NOT NULL;
 
 CREATE TABLE market_snapshots (
   id TEXT PRIMARY KEY,
