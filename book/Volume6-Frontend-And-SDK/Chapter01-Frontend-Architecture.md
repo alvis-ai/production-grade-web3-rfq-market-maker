@@ -65,7 +65,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-前端按 `app/`、`pages/`、`components/`、`hooks/`、`lib/` 组织。SDK 位于独立 package，前端通过 SDK 调用 API，并通过 SDK 导出的 `rfqSettlementAbi` 与 `buildSubmitQuoteArgs` 构造 `RFQSettlement.submitQuote` 的钱包交易。当前实现通过 `VITE_RFQ_API_BASE_URL` 配置 `RFQClient` 的 base URL，默认值为 `http://localhost:3000`，并在交易台 header 展示当前 API endpoint，方便本地、Docker 和部署环境排查。
+前端按 `app/`、`pages/`、`components/`、`hooks/`、`lib/` 组织。SDK 位于独立 package，前端通过 SDK 调用 API，并通过 SDK 导出的 `rfqSettlementAbi` 与 `buildSubmitQuoteArgs` 构造 `RFQSettlement.submitQuote` 的钱包交易。当前实现通过 `VITE_RFQ_API_BASE_URL` 配置 `RFQClient` 的 base URL，默认值为 `http://localhost:3000`，并在交易台 header 展示当前 API endpoint，方便本地、Docker 和部署环境排查。前端启动时会校验 `VITE_RFQ_API_BASE_URL` 必须是绝对 `http(s)` URL，`VITE_RFQ_SETTLEMENT_ADDRESS` 必须是 20-byte hex address；未显式配置时使用本地默认合约地址，但显式错误配置会 fail fast，避免链上提交入口静默降级。
 
 ## Sequence Diagram
 

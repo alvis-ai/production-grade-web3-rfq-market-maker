@@ -8,6 +8,7 @@ const composeSource = await readFile("docker-compose.yml", "utf8");
 const k8sConfigSource = await readFile("infra/k8s/configmap.yaml", "utf8");
 const helmValuesSource = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
 const backendSource = await readFile("backend/src/main.ts", "utf8");
+const frontendConfigSource = await readFile("frontend/src/lib/config.ts", "utf8");
 const readmeSource = await readFile("README.md", "utf8");
 
 const localExpected = {
@@ -76,6 +77,18 @@ assert.ok(
 assert.ok(
   backendSource.includes("RFQ_ENABLE_HSTS must be true or false"),
   "backend must enforce RFQ_ENABLE_HSTS boolean parsing",
+);
+assert.ok(
+  frontendConfigSource.includes("VITE_RFQ_API_BASE_URL must be an absolute http(s) URL"),
+  "frontend must reject non-URL API base configuration",
+);
+assert.ok(
+  frontendConfigSource.includes("VITE_RFQ_API_BASE_URL must use http or https"),
+  "frontend must reject non-http API base configuration",
+);
+assert.ok(
+  frontendConfigSource.includes("VITE_RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address"),
+  "frontend must reject invalid settlement address configuration",
 );
 
 console.log("Config consistency check passed");

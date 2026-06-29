@@ -552,6 +552,8 @@ grep -q 'VITE_RFQ_API_BASE_URL' frontend/src/lib/config.ts
 grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS' frontend/src/lib/config.ts
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID' frontend/src/lib/config.ts
 grep -q 'normalizeAddress' frontend/src/lib/config.ts
+grep -q 'VITE_RFQ_API_BASE_URL must be an absolute http(s) URL' frontend/src/lib/config.ts
+grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address' frontend/src/lib/config.ts
 grep -q 'WagmiProvider' frontend/src/app/web3.tsx
 grep -q 'RainbowKitProvider' frontend/src/app/web3.tsx
 grep -q 'QueryClientProvider' frontend/src/app/web3.tsx
