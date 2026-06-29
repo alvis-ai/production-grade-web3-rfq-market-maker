@@ -559,12 +559,15 @@ grep -q 'buildSubmitQuoteArgs' sdk/test/sdk.test.mjs
 grep -q 'hashSettlementQuote matches RFQSettlement.hashQuote struct hashing' sdk/test/sdk.test.mjs
 grep -q 'Settlement helpers reject invalid uint inputs before contract calls' sdk/test/sdk.test.mjs
 grep -q 'buildTreasuryTransferArgs' sdk/test/sdk.test.mjs
+grep -q 'RFQSettlement ABI exposes treasury custody controls' sdk/test/sdk.test.mjs
 grep -q 'emergencyWithdraw' sdk/src/abi.ts
 grep -q 'hashQuote' sdk/src/abi.ts
 grep -q 'rfqSettlementAbi' sdk/test/sdk.test.mjs
 grep -q 'recoverTypedDataAddress' sdk/test/sdk.test.mjs
 grep -q 'verifyTypedData' sdk/test/sdk.test.mjs
 grep -q 'submitQuote' sdk/src/abi.ts
+grep -q 'setTreasury' sdk/src/abi.ts
+grep -q 'TreasuryUpdated' sdk/src/abi.ts
 grep -q 'setTokenWhitelist' sdk/src/abi.ts
 grep -q 'async submit' sdk/src/client.ts
 grep -q 'async getQuote' sdk/src/client.ts
@@ -613,6 +616,9 @@ grep -q 'exposes Retry-After seconds for rate limited responses' sdk/test/sdk.te
 grep -q 'retryAfterSeconds' README.md
 grep -q 'client.metrics' sdk/test/sdk.test.mjs
 grep -q 'function submitQuote' contracts/src/RFQSettlement.sol
+grep -q 'ITreasuryMinimal' contracts/src/RFQSettlement.sol
+grep -q 'release(quote.tokenOut, quote.user, quote.amountOut)' contracts/src/RFQSettlement.sol
+grep -q 'function setTreasury' contracts/src/RFQSettlement.sol
 grep -q 'function setTokenWhitelist' contracts/src/RFQSettlement.sol
 grep -q 'function setPaused' contracts/src/RFQSettlement.sol
 grep -q 'ecrecover' contracts/src/RFQSettlement.sol
@@ -635,6 +641,7 @@ grep -q 'testSubmitQuoteEmitsQuoteSettledForIndexer' contracts/test/RFQSettlemen
 grep -q 'testSubmitQuoteRejectsReplay' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUntrustedSigner' contracts/test/RFQSettlement.t.sol
 grep -q 'testOwnerCanRotateTrustedSigner' contracts/test/RFQSettlement.t.sol
+grep -q 'testOwnerCanRotateTreasury' contracts/test/RFQSettlement.t.sol
 grep -q 'testOnlyOwnerCanManageAdminControls' contracts/test/RFQSettlement.t.sol
 grep -q 'testOwnerCanTransferOwnershipAndNewOwnerCanPause' contracts/test/RFQSettlement.t.sol
 grep -q 'testRejectsInvalidAdminAddresses' contracts/test/RFQSettlement.t.sol
@@ -654,6 +661,7 @@ grep -q 'RFQ_TRUSTED_SIGNER' contracts/script/Deploy.s.sol
 grep -q 'RFQ_TOKEN_WHITELIST_JSON' contracts/script/Deploy.s.sol
 grep -q 'testDeployInitializesTrustedSignerAndWhitelist' contracts/test/Deploy.t.sol
 grep -q 'treasury settlement mismatch' contracts/test/Deploy.t.sol
+grep -q 'settlement treasury mismatch' contracts/test/Deploy.t.sol
 grep -q 'contract-test' Makefile
 grep -q 'contract-abi-check' Makefile
 grep -q 'compose-check' Makefile

@@ -8,6 +8,10 @@ interface IERC20Minimal {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }
 
+interface ITreasuryMinimal {
+    function release(address token, address to, uint256 amount) external;
+}
+
 /// @notice RFQ settlement contract for validating EIP-712 signed quotes and settling token flows.
 /// @dev This dependency-free implementation mirrors the intended OpenZeppelin production surface:
 /// EIP712, SafeERC20, ReentrancyGuard, Pausable, and owner-gated administrative controls.
@@ -28,6 +32,7 @@ contract RFQSettlement is IRFQSettlement {
 
     address public owner;
     address public trustedSigner;
+    address public treasury;
     bool public paused;
     mapping(address token => bool whitelisted) public tokenWhitelist;
     mapping(address user => mapping(uint256 nonce => bool used)) public usedNonces;
@@ -69,13 +74,17 @@ contract RFQSettlement is IRFQSettlement {
         _reentrancyStatus = _NOT_ENTERED;
     }
 
-    constructor(address initialTrustedSigner) {
-        if (initialTrustedSigner == address(0)) revert InvalidAddress();
+    constructor(address initialTrustedSigner, address initialTreasury) {
+        if (initialTrustedSigner == address(0) || initialTreasury == address(0)) {
+            revert InvalidAddress();
+        }
         owner = msg.sender;
         trustedSigner = initialTrustedSigner;
+        treasury = initialTreasury;
 
         emit OwnerUpdated(address(0), msg.sender);
         emit TrustedSignerUpdated(address(0), initialTrustedSigner);
+        emit TreasuryUpdated(address(0), initialTreasury);
     }
 
     function submitQuote(Quote calldata quote, bytes calldata signature)
@@ -90,8 +99,8 @@ contract RFQSettlement is IRFQSettlement {
         _verifySignature(hashTypedData(quoteHash), signature);
 
         usedNonces[quote.user][quote.nonce] = true;
-        _safeTransferFrom(quote.tokenIn, quote.user, address(this), quote.amountIn);
-        _safeTransfer(quote.tokenOut, quote.user, quote.amountOut);
+        _safeTransferFrom(quote.tokenIn, quote.user, treasury, quote.amountIn);
+        ITreasuryMinimal(treasury).release(quote.tokenOut, quote.user, quote.amountOut);
 
         emit QuoteSettled(
             quoteHash,
@@ -110,6 +119,12 @@ contract RFQSettlement is IRFQSettlement {
         if (newTrustedSigner == address(0)) revert InvalidAddress();
         emit TrustedSignerUpdated(trustedSigner, newTrustedSigner);
         trustedSigner = newTrustedSigner;
+    }
+
+    function setTreasury(address newTreasury) external onlyOwner {
+        if (newTreasury == address(0)) revert InvalidAddress();
+        emit TreasuryUpdated(treasury, newTreasury);
+        treasury = newTreasury;
     }
 
     function setTokenWhitelist(address token, bool whitelisted) external onlyOwner {

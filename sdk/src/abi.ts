@@ -62,6 +62,13 @@ export const rfqSettlementAbi = [
   },
   {
     type: "function",
+    name: "setTreasury",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "newTreasury", type: "address" }],
+    outputs: [],
+  },
+  {
+    type: "function",
     name: "submitQuote",
     stateMutability: "nonpayable",
     inputs: [
@@ -83,6 +90,13 @@ export const rfqSettlementAbi = [
       { name: "signature", type: "bytes" },
     ],
     outputs: [{ name: "amountOut", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "treasury",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
   },
   {
     type: "function",
@@ -123,6 +137,14 @@ export const rfqSettlementAbi = [
     inputs: [
       { name: "token", type: "address", indexed: true },
       { name: "whitelisted", type: "bool", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "TreasuryUpdated",
+    inputs: [
+      { name: "oldTreasury", type: "address", indexed: true },
+      { name: "newTreasury", type: "address", indexed: true },
     ],
   },
   {

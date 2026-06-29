@@ -41,8 +41,8 @@ contract DeployRFQSettlement {
         public
         returns (Deployment memory deployment)
     {
-        RFQSettlement settlement = new RFQSettlement(trustedSigner);
         Treasury treasury = new Treasury(address(this));
+        RFQSettlement settlement = new RFQSettlement(trustedSigner, address(treasury));
         treasury.setSettlement(address(settlement));
 
         for (uint256 index = 0; index < tokenWhitelist.length; index += 1) {

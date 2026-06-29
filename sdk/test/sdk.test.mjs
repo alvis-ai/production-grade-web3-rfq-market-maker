@@ -265,6 +265,12 @@ test("Treasury helpers expose release and emergency withdrawal contract calls", 
   assert.ok(treasuryAbi.some((item) => item.type === "event" && item.name === "FundsReleased"));
 });
 
+test("RFQSettlement ABI exposes treasury custody controls", () => {
+  assert.ok(rfqSettlementAbi.some((item) => item.type === "function" && item.name === "treasury"));
+  assert.ok(rfqSettlementAbi.some((item) => item.type === "function" && item.name === "setTreasury"));
+  assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "TreasuryUpdated"));
+});
+
 test("RFQClient sends quote, submit, status, health, and metrics requests with expected shapes", async () => {
   const calls = [];
   const quoteResponse = {

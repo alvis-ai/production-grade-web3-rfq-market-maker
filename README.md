@@ -111,7 +111,7 @@ function submitQuote(
 ) external nonReentrant whenNotPaused returns (uint256 amountOut);
 ```
 
-核心保护包括 EIP-712 verification、trusted signer、nonce replay protection、deadline expiry、token whitelist、pause、reentrancy protection 和 SafeERC20。`Treasury` 作为独立 custody 边界随部署脚本一起创建，并配置为信任对应的 `RFQSettlement` 地址；常规放款走 settlement-only `release`，应急资金迁移走 owner-only `emergencyWithdraw`。
+核心保护包括 EIP-712 verification、trusted signer、nonce replay protection、deadline expiry、token whitelist、pause、reentrancy protection 和 SafeERC20。`Treasury` 作为独立 custody 边界随部署脚本一起创建，并配置为信任对应的 `RFQSettlement` 地址；`RFQSettlement` 将用户 `tokenIn` 转入 Treasury，常规 `tokenOut` 放款走 settlement-only `release`，应急资金迁移走 owner-only `emergencyWithdraw`。
 
 Local deployment script:
 

@@ -21,6 +21,10 @@ contract DeployRFQSettlementTest {
             deployment.treasury.settlement() == address(deployment.settlement),
             "treasury settlement mismatch"
         );
+        require(
+            deployment.settlement.treasury() == address(deployment.treasury),
+            "settlement treasury mismatch"
+        );
         require(deployment.settlement.trustedSigner() == trustedSigner, "trusted signer mismatch");
         require(deployment.settlement.tokenWhitelist(tokens[0]), "token 0 not whitelisted");
         require(deployment.settlement.tokenWhitelist(tokens[1]), "token 1 not whitelisted");

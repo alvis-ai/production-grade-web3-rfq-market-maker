@@ -25,6 +25,7 @@ interface IRFQSettlement {
     );
     event OwnerUpdated(address indexed oldOwner, address indexed newOwner);
     event TrustedSignerUpdated(address indexed oldSigner, address indexed newSigner);
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event TokenWhitelistUpdated(address indexed token, bool whitelisted);
     event PausedUpdated(bool paused);
 
@@ -33,6 +34,7 @@ interface IRFQSettlement {
         returns (uint256 amountOut);
 
     function setTrustedSigner(address newTrustedSigner) external;
+    function setTreasury(address newTreasury) external;
     function setTokenWhitelist(address token, bool whitelisted) external;
     function setPaused(bool newPaused) external;
     function transferOwnership(address newOwner) external;

@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { RFQSettlement } from "../src/RFQSettlement.sol";
 import { IRFQSettlement } from "../src/interfaces/IRFQSettlement.sol";
+import { Treasury } from "../src/Treasury.sol";
 
 interface Vm {
     function addr(uint256 privateKey) external returns (address);
@@ -55,6 +56,7 @@ contract RFQSettlementTest {
         0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1;
 
     RFQSettlement private settlement;
+    Treasury private treasury;
     MockERC20 private tokenIn;
     MockERC20 private tokenOut;
     address private signer;
@@ -73,14 +75,16 @@ contract RFQSettlementTest {
     function setUp() public {
         signer = vm.addr(SIGNER_KEY);
         user = vm.addr(USER_KEY);
-        settlement = new RFQSettlement(signer);
+        treasury = new Treasury(address(this));
+        settlement = new RFQSettlement(signer, address(treasury));
+        treasury.setSettlement(address(settlement));
         tokenIn = new MockERC20();
         tokenOut = new MockERC20();
 
         settlement.setTokenWhitelist(address(tokenIn), true);
         settlement.setTokenWhitelist(address(tokenOut), true);
         tokenIn.mint(user, 1_000 ether);
-        tokenOut.mint(address(settlement), 1_000 ether);
+        tokenOut.mint(address(treasury), 1_000 ether);
 
         vm.prank(user);
         tokenIn.approve(address(settlement), type(uint256).max);
@@ -95,8 +99,9 @@ contract RFQSettlementTest {
 
         require(amountOut == quote.amountOut, "amount out mismatch");
         require(settlement.usedNonces(user, quote.nonce), "nonce not consumed");
-        require(tokenIn.balanceOf(address(settlement)) == quote.amountIn, "tokenIn not received");
+        require(tokenIn.balanceOf(address(treasury)) == quote.amountIn, "tokenIn not received");
         require(tokenOut.balanceOf(user) == quote.amountOut, "tokenOut not paid");
+        require(tokenOut.balanceOf(address(treasury)) == 1_000 ether - quote.amountOut, "treasury not debited");
     }
 
     function testSubmitQuoteEmitsQuoteSettledForIndexer() public {
@@ -202,6 +207,25 @@ contract RFQSettlementTest {
         require(amountOut == quote.amountOut, "rotated signer quote rejected");
     }
 
+    function testOwnerCanRotateTreasury() public {
+        Treasury newTreasury = new Treasury(address(this));
+        newTreasury.setSettlement(address(settlement));
+        tokenOut.mint(address(newTreasury), 1_000 ether);
+
+        settlement.setTreasury(address(newTreasury));
+        require(settlement.treasury() == address(newTreasury), "treasury mismatch");
+
+        IRFQSettlement.Quote memory quote = _quote(42);
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        uint256 amountOut = settlement.submitQuote(quote, signature);
+
+        require(amountOut == quote.amountOut, "rotated treasury quote rejected");
+        require(tokenIn.balanceOf(address(newTreasury)) == quote.amountIn, "tokenIn not sent to new treasury");
+        require(tokenOut.balanceOf(user) == quote.amountOut, "tokenOut not paid from new treasury");
+    }
+
     function testOnlyOwnerCanManageAdminControls() public {
         vm.prank(user);
         vm.expectRevert(RFQSettlement.NotOwner.selector);
@@ -210,6 +234,10 @@ contract RFQSettlementTest {
         vm.prank(user);
         vm.expectRevert(RFQSettlement.NotOwner.selector);
         settlement.setTrustedSigner(vm.addr(NEW_SIGNER_KEY));
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.NotOwner.selector);
+        settlement.setTreasury(address(0x1234));
 
         vm.prank(user);
         vm.expectRevert(RFQSettlement.NotOwner.selector);
@@ -232,10 +260,16 @@ contract RFQSettlementTest {
 
     function testRejectsInvalidAdminAddresses() public {
         vm.expectRevert(RFQSettlement.InvalidAddress.selector);
-        new RFQSettlement(address(0));
+        new RFQSettlement(address(0), address(treasury));
+
+        vm.expectRevert(RFQSettlement.InvalidAddress.selector);
+        new RFQSettlement(signer, address(0));
 
         vm.expectRevert(RFQSettlement.InvalidAddress.selector);
         settlement.setTrustedSigner(address(0));
+
+        vm.expectRevert(RFQSettlement.InvalidAddress.selector);
+        settlement.setTreasury(address(0));
 
         vm.expectRevert(RFQSettlement.InvalidAddress.selector);
         settlement.setTokenWhitelist(address(0), true);
@@ -291,7 +325,7 @@ contract RFQSettlementTest {
         bytes memory signature = _sign(quote);
 
         vm.prank(user);
-        vm.expectRevert(RFQSettlement.TransferFailed.selector);
+        vm.expectRevert(Treasury.TransferFailed.selector);
         settlement.submitQuote(quote, signature);
     }
 

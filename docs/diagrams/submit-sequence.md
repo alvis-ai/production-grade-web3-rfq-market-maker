@@ -8,6 +8,7 @@ sequenceDiagram
   participant User as Trader / Wallet
   participant API as RFQ API
   participant Chain as RFQSettlement
+  participant Treasury as Treasury
   participant TokenIn as ERC20 tokenIn
   participant TokenOut as ERC20 tokenOut
   participant Indexer as Event Indexer
@@ -25,7 +26,8 @@ sequenceDiagram
   Chain->>Chain: verify EIP-712 signature
   Chain->>Chain: check trusted signer, nonce, deadline, chainId, whitelist
   Chain->>TokenIn: transferFrom(user, treasury, amountIn)
-  Chain->>TokenOut: transfer(user, amountOut)
+  Chain->>Treasury: release(tokenOut, user, amountOut)
+  Treasury->>TokenOut: transfer(user, amountOut)
   Chain-->>Indexer: emit QuoteSettled(quoteHash, user, tokenIn, ...)
   Indexer->>Inventory: idempotent inventory update
   Inventory->>Hedge: production hedge intent

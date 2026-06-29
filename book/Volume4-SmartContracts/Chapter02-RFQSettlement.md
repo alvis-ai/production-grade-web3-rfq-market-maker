@@ -69,7 +69,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-RFQSettlement 与 ERC20 token 直接交互，并通过 owner-only 管理 trusted signer、token whitelist 和 pause 状态。当前代码使用无外部依赖的最小实现表达 EIP-712、SafeERC20、ReentrancyGuard、Pausable 和 AccessControl 语义；后续接入 OpenZeppelin 后应保持同样的验证顺序和事件语义。`Treasury` 合约用于表达独立 custody 边界，支持 settlement-only `release` 和 owner-only `emergencyWithdraw`，生产版可以把 RFQSettlement 的库存支付切换到该边界。
+RFQSettlement 与 ERC20 token 和 Treasury 边界直接交互，并通过 owner-only 管理 trusted signer、treasury、token whitelist 和 pause 状态。当前代码使用无外部依赖的最小实现表达 EIP-712、SafeERC20、ReentrancyGuard、Pausable 和 AccessControl 语义；后续接入 OpenZeppelin 后应保持同样的验证顺序和事件语义。`Treasury` 合约承载独立 custody 边界：RFQSettlement 把用户 `tokenIn` 转入 Treasury，并通过 settlement-only `release` 支付 `tokenOut`；owner-only `emergencyWithdraw` 只用于应急资金迁移。
 
 ## Sequence Diagram
 
@@ -85,9 +85,10 @@ sequenceDiagram
   U->>C: submitQuote(quote, signature)
   C->>C: validate quote and signature
   C->>In: transferFrom(user, treasury, amountIn)
-  C->>Out: transfer(user, amountOut)
+  C->>T: release(tokenOut, user, amountOut)
+  T->>Out: transfer(user, amountOut)
   C-->>U: amountOut
-  C-->>T: settlement event observed off-chain
+  C-->>U: emit QuoteSettled
 ```
 
 ## State Machine
@@ -106,7 +107,7 @@ stateDiagram-v2
 
 ## Data Model
 
-On-chain state includes `trustedSigner`, `tokenWhitelist`, `usedNonces`, roles and pause state. Quote itself does not need to be permanently stored if event contains enough settlement data.
+On-chain state includes `trustedSigner`, `treasury`, `tokenWhitelist`, `usedNonces`, roles and pause state. Quote itself does not need to be permanently stored if event contains enough settlement data.
 
 ## API Design
 
@@ -123,6 +124,7 @@ function submitQuote(
 
 - 合约不重新计算价格。
 - nonce 标记在外部 token 调用之前完成，并由 nonReentrant 防止重入提交。
+- RFQSettlement 不直接保管库存资金；常规成交通过 Treasury 放款，便于把结算权限和应急管理权限分开审计。
 - `QuoteSettled` 是链下库存更新的权威事件。
 
 ## Failure Scenarios
