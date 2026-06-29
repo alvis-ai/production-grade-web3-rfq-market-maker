@@ -347,6 +347,62 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
   );
 });
 
+test("InMemoryQuoteRepository rejects malformed quote status metadata", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const signedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+    chainId: 1,
+  };
+
+  await quoteRepository.saveSigned({
+    quoteId: "q_metadata",
+    snapshotId: "snapshot_1",
+    quote: signedQuote,
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+
+  await assert.rejects(
+    quoteRepository.markStatus("q_metadata", "submitted", {
+      txHash: "0x1234",
+    }),
+    /Quote status txHash must be a 32-byte hex string/,
+  );
+  await assert.rejects(
+    quoteRepository.markStatus("q_metadata", "submitted", {
+      settlementEventId: " ",
+    }),
+    /Quote status settlementEventId must be a non-empty string/,
+  );
+  await assert.rejects(
+    quoteRepository.markStatus("q_metadata", "submitted", {
+      hedgeOrderId: "",
+    }),
+    /Quote status hedgeOrderId must be a non-empty string/,
+  );
+  await assert.rejects(
+    quoteRepository.markStatus("q_metadata", "submitted", {
+      pnlId: " ",
+    }),
+    /Quote status pnlId must be a non-empty string/,
+  );
+
+  const status = await quoteRepository.findStatus("q_metadata");
+  assert.equal(status.status, "signed");
+  assert.equal(status.txHash, undefined);
+  assert.equal(status.settlementEventId, undefined);
+  assert.equal(status.hedgeOrderId, undefined);
+  assert.equal(status.pnlId, undefined);
+});
+
 test("QuoteService uses configured quote TTL when generating signed quote deadlines", async () => {
   const originalDateNow = Date.now;
   const fixedNow = originalDateNow();

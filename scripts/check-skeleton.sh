@@ -340,14 +340,18 @@ grep -q 'assertSignedQuoteInput(input)' backend/src/modules/quote/quote.reposito
 grep -q 'Signed quote signature must be a 65-byte hex string' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertStatusTransition(current, status)' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertCanMarkFailed(current)' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertQuoteStatusMetadata(metadata)' backend/src/modules/quote/quote.repository.ts
+grep -q 'Quote status txHash must be a 32-byte hex string' backend/src/modules/quote/quote.repository.ts
 grep -q 'rejects signed quote nonce key conflicts' backend/test/quote-service.test.mjs
 grep -q 'rejects signed quote identity rewrites' backend/test/quote-service.test.mjs
 grep -q 'rejects unsafe signed quote persistence inputs' backend/test/quote-service.test.mjs
 grep -q 'rejects terminal quote status regressions' backend/test/quote-service.test.mjs
+grep -q 'rejects malformed quote status metadata' backend/test/quote-service.test.mjs
 grep -q 'preserves settlement metadata across status updates' backend/test/quote-service.test.mjs
 grep -q 'chainId:user:nonce' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'signed quote persistence validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'terminal quote status invariants' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'quote status metadata validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'indexes signed quotes by chain, user, and nonce' backend/test/quote-service.test.mjs
 grep -q 'uq_quotes_chain_user_nonce' docs/database/schema.sql
 grep -q 'quotes must keep the chain_id, user_address, nonce signed-quote lookup key' scripts/check-database-schema-consistency.mjs

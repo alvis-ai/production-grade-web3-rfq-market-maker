@@ -181,6 +181,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       return;
     }
     assertStatusTransition(current, status);
+    assertQuoteStatusMetadata(metadata);
 
     this.records.set(quoteId, {
       ...current,
@@ -293,5 +294,33 @@ function assertStatusTransition(record: QuoteRecord, nextStatus: QuoteLifecycleS
 
   if (record.status === "settled" && nextStatus !== "settled") {
     throw new Error(`Quote ${record.quoteId} cannot transition from settled to ${nextStatus}`);
+  }
+}
+
+function assertQuoteStatusMetadata(metadata: QuoteStatusMetadata | undefined): void {
+  if (!metadata) {
+    return;
+  }
+
+  if (metadata.txHash !== undefined && !/^0x[0-9a-fA-F]{64}$/.test(metadata.txHash)) {
+    throw new Error("Quote status txHash must be a 32-byte hex string");
+  }
+
+  if (metadata.settlementEventId !== undefined) {
+    assertNonEmptyMetadataString(metadata.settlementEventId, "settlementEventId");
+  }
+
+  if (metadata.hedgeOrderId !== undefined) {
+    assertNonEmptyMetadataString(metadata.hedgeOrderId, "hedgeOrderId");
+  }
+
+  if (metadata.pnlId !== undefined) {
+    assertNonEmptyMetadataString(metadata.pnlId, "pnlId");
+  }
+}
+
+function assertNonEmptyMetadataString(value: string, field: keyof QuoteStatusMetadata): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Quote status ${field} must be a non-empty string`);
   }
 }
