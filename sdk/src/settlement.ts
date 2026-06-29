@@ -29,13 +29,25 @@ export interface TreasuryTransferInput {
 }
 
 export function toSettlementQuote(quote: Quote): SettlementQuote {
+  const tokenIn = parseAddress(quote.tokenIn, "quote.tokenIn");
+  const tokenOut = parseAddress(quote.tokenOut, "quote.tokenOut");
+  const amountOut = parsePositiveUInt(quote.amountOut, "quote.amountOut");
+  const minAmountOut = parsePositiveUInt(quote.minAmountOut, "quote.minAmountOut");
+
+  if (tokenIn.toLowerCase() === tokenOut.toLowerCase()) {
+    throw new Error("quote.tokenIn and quote.tokenOut must be different");
+  }
+  if (amountOut < minAmountOut) {
+    throw new Error("quote.amountOut must be greater than or equal to quote.minAmountOut");
+  }
+
   return {
     user: parseAddress(quote.user, "quote.user"),
-    tokenIn: parseAddress(quote.tokenIn, "quote.tokenIn"),
-    tokenOut: parseAddress(quote.tokenOut, "quote.tokenOut"),
+    tokenIn,
+    tokenOut,
     amountIn: parsePositiveUInt(quote.amountIn, "quote.amountIn"),
-    amountOut: parsePositiveUInt(quote.amountOut, "quote.amountOut"),
-    minAmountOut: parsePositiveUInt(quote.minAmountOut, "quote.minAmountOut"),
+    amountOut,
+    minAmountOut,
     nonce: parseUInt(quote.nonce, "quote.nonce"),
     deadline: parsePositiveInteger(quote.deadline, "quote.deadline"),
     chainId: parsePositiveInteger(quote.chainId, "quote.chainId"),

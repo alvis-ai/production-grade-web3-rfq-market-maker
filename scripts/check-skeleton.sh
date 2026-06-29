@@ -464,8 +464,10 @@ grep -q 'hashSettlementQuote' sdk/src/settlement.ts
 grep -q 'parseAddress' sdk/src/settlement.ts
 grep -q 'parseSignature' sdk/src/settlement.ts
 grep -q 'parsePositiveUInt' sdk/src/settlement.ts
+grep -q 'quote.amountOut must be greater than or equal to quote.minAmountOut' sdk/src/settlement.ts
 grep -q 'buildQuoteTypedData' sdk/src/eip712.ts
 grep -q 'assertQuoteShape' sdk/src/eip712.ts
+grep -q 'quote.tokenIn and quote.tokenOut must be different' sdk/src/eip712.ts
 grep -q 'ProductionGradeRFQ' sdk/src/eip712.ts
 grep -q 'RFQClientError' sdk/test/sdk.test.mjs
 grep -q 'buildQuoteTypedData' sdk/test/sdk.test.mjs

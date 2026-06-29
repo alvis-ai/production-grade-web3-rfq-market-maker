@@ -112,6 +112,31 @@ test("buildQuoteTypedData rejects invalid EIP-712 domain and quote fields", () =
       ),
     /quote\.amountOut must be a positive uint string/,
   );
+
+  assert.throws(
+    () =>
+      buildQuoteTypedData(
+        {
+          ...quote,
+          tokenOut: quote.tokenIn,
+        },
+        verifyingContract,
+      ),
+    /quote\.tokenIn and quote\.tokenOut must be different/,
+  );
+
+  assert.throws(
+    () =>
+      buildQuoteTypedData(
+        {
+          ...quote,
+          amountOut: "100",
+          minAmountOut: "101",
+        },
+        verifyingContract,
+      ),
+    /quote\.amountOut must be greater than or equal to quote\.minAmountOut/,
+  );
 });
 
 test("buildSubmitQuoteArgs converts string integer fields to settlement bigint fields", () => {
@@ -172,6 +197,31 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
         signature,
       ),
     /quote\.deadline must be a positive safe integer/,
+  );
+
+  assert.throws(
+    () =>
+      buildSubmitQuoteArgs(
+        {
+          ...quote,
+          tokenOut: quote.tokenIn,
+        },
+        signature,
+      ),
+    /quote\.tokenIn and quote\.tokenOut must be different/,
+  );
+
+  assert.throws(
+    () =>
+      buildSubmitQuoteArgs(
+        {
+          ...quote,
+          amountOut: "100",
+          minAmountOut: "101",
+        },
+        signature,
+      ),
+    /quote\.amountOut must be greater than or equal to quote\.minAmountOut/,
   );
 
   assert.throws(

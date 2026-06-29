@@ -48,9 +48,15 @@ function assertQuoteShape(quote: Quote): void {
   parseAddress(quote.user, "quote.user");
   parseAddress(quote.tokenIn, "quote.tokenIn");
   parseAddress(quote.tokenOut, "quote.tokenOut");
+  if (quote.tokenIn.toLowerCase() === quote.tokenOut.toLowerCase()) {
+    throw new Error("quote.tokenIn and quote.tokenOut must be different");
+  }
   parsePositiveUInt(quote.amountIn, "quote.amountIn");
-  parsePositiveUInt(quote.amountOut, "quote.amountOut");
-  parsePositiveUInt(quote.minAmountOut, "quote.minAmountOut");
+  const amountOut = parsePositiveUInt(quote.amountOut, "quote.amountOut");
+  const minAmountOut = parsePositiveUInt(quote.minAmountOut, "quote.minAmountOut");
+  if (amountOut < minAmountOut) {
+    throw new Error("quote.amountOut must be greater than or equal to quote.minAmountOut");
+  }
   parseUInt(quote.nonce, "quote.nonce");
   parsePositiveInteger(quote.deadline, "quote.deadline");
   parsePositiveInteger(quote.chainId, "quote.chainId");
