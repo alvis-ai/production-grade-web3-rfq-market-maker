@@ -22,6 +22,7 @@ test -s backend/test/readiness.test.mjs
 test -s backend/test/routing.test.mjs
 test -s backend/test/settlement-event.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
+test -s backend/test/validation.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
 grep -q 'marketDataService: MarketDataService' backend/src/modules/health/readiness.service.ts
 grep -q 'routingEngine: RoutingEngine' backend/src/modules/health/readiness.service.ts
@@ -77,6 +78,7 @@ test -s backend/src/modules/routing/routing.engine.ts
 grep -q 'InternalInventoryRoutingEngine creates deterministic internal inventory route plans' backend/test/routing.test.mjs
 test -s backend/src/shared/validation/quote-request.ts
 test -s backend/src/shared/validation/submit-request.ts
+grep -q 'validateSubmitQuoteRequest rejects unsafe submit payloads before execution' backend/test/validation.test.mjs
 test -s frontend/src/lib/rfq.ts
 test -s frontend/src/lib/config.ts
 test -s frontend/src/lib/errors.ts
