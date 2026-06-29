@@ -59,6 +59,10 @@ test -s backend/src/modules/execution/execution.service.ts
 test -s backend/src/modules/inventory/inventory.service.ts
 grep -q 'checkHealth' backend/src/modules/inventory/inventory.service.ts
 grep -q 'InventoryService calculates bounded quote skew by inventory direction' backend/test/inventory.test.mjs
+grep -q 'assertPositiveBigInt(config.skewUnit, "skewUnit")' backend/src/modules/inventory/inventory.service.ts
+grep -q 'assertBpsUpperBound(config.maxPositiveSkewBps, "maxPositiveSkewBps")' backend/src/modules/inventory/inventory.service.ts
+grep -q 'InventoryService rejects unsafe skew configuration at construction' backend/test/inventory.test.mjs
+grep -q 'inventory skew config fail-fast' book/Volume3-RiskEngine/Chapter01-Inventory.md
 test -s backend/src/modules/hedge/hedge.service.ts
 grep -q 'checkHealth' backend/src/modules/hedge/hedge.service.ts
 test -s backend/src/modules/metrics/metrics.service.ts

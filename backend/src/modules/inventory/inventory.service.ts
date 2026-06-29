@@ -47,7 +47,11 @@ export const defaultInventoryServiceConfig: InventoryServiceConfig = {
 export class InventoryService {
   private readonly balances = new Map<string, bigint>();
 
-  constructor(private readonly config: InventoryServiceConfig = defaultInventoryServiceConfig) {}
+  constructor(private readonly config: InventoryServiceConfig = defaultInventoryServiceConfig) {
+    assertPositiveBigInt(config.skewUnit, "skewUnit");
+    assertBpsUpperBound(config.maxPositiveSkewBps, "maxPositiveSkewBps");
+    assertBpsUpperBound(config.maxNegativeSkewBps, "maxNegativeSkewBps");
+  }
 
   checkHealth(): void {
     this.getPosition(1, "0x0000000000000000000000000000000000000002");
@@ -108,4 +112,20 @@ export class InventoryService {
 
 function abs(value: bigint): bigint {
   return value < 0n ? -value : value;
+}
+
+function assertPositiveBigInt(value: bigint, field: keyof InventoryServiceConfig): void {
+  if (typeof value !== "bigint" || value <= 0n) {
+    throw new Error(`Inventory ${field} must be a positive bigint`);
+  }
+}
+
+function assertBpsUpperBound(value: number, field: keyof InventoryServiceConfig): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`Inventory ${field} must be a non-negative safe integer`);
+  }
+
+  if (value > 10_000) {
+    throw new Error(`Inventory ${field} must be less than or equal to 10000 bps`);
+  }
 }

@@ -111,6 +111,7 @@ Inventory Service 对内部提供 `getPosition(chainId, token)`、`projectSettle
 - Hedge 结果也应更新库存或 pending exposure。
 - Hard limit 由 Risk Engine 强制拒绝签名。
 - 当前后端实现中，成交后的库存会影响下一次 `/quote` 的 `inventorySkewBps`；本次 quote 的 projected inventory 会在签名前进入 Risk Engine。
+- Inventory skew config 在构造期 fail fast：`skewUnit` 必须是正 `bigint`，`maxPositiveSkewBps` 和 `maxNegativeSkewBps` 必须是 0 到 10000 bps 内的安全整数。这样可以避免库存偏斜计算出现除零、负向封顶或超过 bps 语义的报价反馈。
 
 ## Failure Scenarios
 
@@ -128,7 +129,7 @@ Quote path 读取库存应走缓存或投影表，不能扫描事件账本。
 
 ## Testing Strategy
 
-测试 settlement delta、duplicate event、hard limit、soft limit、hedge success 和 event replay。
+测试 settlement delta、duplicate event、hard limit、soft limit、hedge success、event replay 和 inventory skew config fail-fast。
 
 ## Interview Notes
 
