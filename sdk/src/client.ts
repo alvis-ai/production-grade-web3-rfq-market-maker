@@ -67,9 +67,8 @@ export class RFQClient {
     await assertOk(response, "RFQ submit failed");
 
     const payload = await readJsonResponse(response, "RFQ submit response");
-    assertRequiredEnumField(payload, "status", ["accepted"], response.status, "RFQ submit response");
-    assertOptionalBytes32Field(payload, "txHash", response.status, "RFQ submit response");
-    return payload as SubmitQuoteResponse;
+    assertSubmitQuoteResponse(payload, response.status);
+    return payload;
   }
 
   async getQuote(quoteId: string): Promise<QuoteStatus> {
@@ -272,6 +271,21 @@ function assertQuoteResponse(payload: unknown, status: number): asserts payload 
     throw malformedFieldError(status, label, "deadline");
   }
   assertRequiredSignatureField(payload, "signature", status, label);
+}
+
+function assertSubmitQuoteResponse(payload: unknown, status: number): asserts payload is SubmitQuoteResponse {
+  const label = "RFQ submit response";
+  if (!isRecord(payload)) {
+    throw malformedFieldError(status, label, "status");
+  }
+
+  assertRequiredEnumField(payload, "status", ["accepted"], status, label);
+  assertOptionalBytes32Field(payload, "txHash", status, label);
+  for (const field of ["settlementEventId", "hedgeOrderId", "pnlId"] as const) {
+    if (payload[field] !== undefined && !isNonEmptyString(payload[field])) {
+      throw malformedFieldError(status, label, field);
+    }
+  }
 }
 
 function assertQuoteStatus(payload: unknown, status: number): asserts payload is QuoteStatus {

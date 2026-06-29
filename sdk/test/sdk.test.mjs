@@ -1132,29 +1132,51 @@ test("RFQClient rejects malformed successful response fields", async () => {
     }
   }
 
-  const restoreSubmitFetch = installFetch(async () =>
-    jsonResponse(202, {
-      status: "accepted",
-      txHash: "0x1234",
-      settlementEventId: "se_1_1234_0",
-    }),
-  );
+  const submitResponse = {
+    status: "accepted",
+    txHash: `0x${"22".repeat(32)}`,
+    settlementEventId: "se_1_1234_0",
+    hedgeOrderId: "h_1_00000003_000001",
+    pnlId: "pnl_q_test",
+  };
+  const submitCases = [
+    {
+      payload: { ...submitResponse, txHash: "0x1234" },
+      message: "RFQ submit response returned malformed txHash",
+    },
+    {
+      payload: { ...submitResponse, settlementEventId: "" },
+      message: "RFQ submit response returned malformed settlementEventId",
+    },
+    {
+      payload: { ...submitResponse, hedgeOrderId: "" },
+      message: "RFQ submit response returned malformed hedgeOrderId",
+    },
+    {
+      payload: { ...submitResponse, pnlId: "" },
+      message: "RFQ submit response returned malformed pnlId",
+    },
+  ];
 
-  try {
-    const client = new RFQClient("http://127.0.0.1:3000");
+  for (const { payload, message } of submitCases) {
+    const restoreSubmitFetch = installFetch(async () => jsonResponse(202, payload));
 
-    await assert.rejects(
-      client.submit({ quote, signature }),
-      (error) => {
-        assert.ok(error instanceof RFQClientError);
-        assert.equal(error.status, 202);
-        assert.equal(error.code, "RFQ_CLIENT_ERROR");
-        assert.equal(error.message, "RFQ submit response returned malformed txHash");
-        return true;
-      },
-    );
-  } finally {
-    restoreSubmitFetch();
+    try {
+      const client = new RFQClient("http://127.0.0.1:3000");
+
+      await assert.rejects(
+        client.submit({ quote, signature }),
+        (error) => {
+          assert.ok(error instanceof RFQClientError);
+          assert.equal(error.status, 202);
+          assert.equal(error.code, "RFQ_CLIENT_ERROR");
+          assert.equal(error.message, message);
+          return true;
+        },
+      );
+    } finally {
+      restoreSubmitFetch();
+    }
   }
 
   const restoreSettlementFetch = installFetch(async () =>

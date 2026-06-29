@@ -639,6 +639,7 @@ grep -q 'RFQClient rejects unsafe base URLs at construction' sdk/test/sdk.test.m
 grep -q 'assertRequiredEnumField' sdk/src/client.ts
 grep -q 'assertRequiredNonNegativeIntegerField' sdk/src/client.ts
 grep -q 'assertQuoteResponse' sdk/src/client.ts
+grep -q 'assertSubmitQuoteResponse' sdk/src/client.ts
 grep -q 'readJsonResponse' sdk/src/client.ts
 grep -q 'malformed successful JSON responses' sdk/test/sdk.test.mjs
 grep -q 'malformed health and readiness status responses' sdk/test/sdk.test.mjs
