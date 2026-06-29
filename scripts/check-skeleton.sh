@@ -552,8 +552,7 @@ grep -q 'Enable Wallet' frontend/src/pages/QuotePage.tsx
 grep -q 'onchainAction' frontend/src/pages/QuotePage.tsx
 grep -q 'ConnectButton' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'useWriteContract' frontend/src/components/WalletSubmitControl.tsx
-grep -q 'buildSubmitQuoteArgs' frontend/src/components/WalletSubmitControl.tsx
-grep -q 'rfqSettlementAbi' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'buildSubmitQuoteWriteRequest' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'writeContractAsync' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'walletMatchesQuote' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'Connected wallet must match quote user' frontend/src/components/WalletSubmitControl.tsx
@@ -585,6 +584,7 @@ grep -q 'export { RFQClient' sdk/src/index.ts
 grep -q 'rfqSettlementAbi' sdk/src/index.ts
 grep -q 'treasuryAbi' sdk/src/index.ts
 grep -q 'buildSubmitQuoteArgs' sdk/src/index.ts
+grep -q 'buildSubmitQuoteWriteRequest' sdk/src/index.ts
 grep -q 'hashSettlementQuote' sdk/src/index.ts
 grep -q 'buildTreasuryTransferArgs' sdk/src/index.ts
 grep -q 'hashSettlementQuote' sdk/src/quote-hash.ts

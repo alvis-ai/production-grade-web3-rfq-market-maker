@@ -9,9 +9,21 @@ export {
   quoteTypes,
 } from "./eip712.js";
 export { hashSettlementQuote } from "./quote-hash.js";
-export { buildSubmitQuoteArgs, buildTreasuryTransferArgs, toSettlementQuote } from "./settlement.js";
+export {
+  buildSubmitQuoteArgs,
+  buildSubmitQuoteWriteRequest,
+  buildTreasuryTransferArgs,
+  toSettlementQuote,
+} from "./settlement.js";
 export type { RFQDomain } from "./eip712.js";
-export type { SettlementQuote, SubmitQuoteArgs, TreasuryTransferArgs, TreasuryTransferInput } from "./settlement.js";
+export type {
+  SettlementQuote,
+  SubmitQuoteArgs,
+  SubmitQuoteWriteRequest,
+  SubmitQuoteWriteRequestInput,
+  TreasuryTransferArgs,
+  TreasuryTransferInput,
+} from "./settlement.js";
 export type { RFQClientErrorCode } from "./client.js";
 export type {
   Address,

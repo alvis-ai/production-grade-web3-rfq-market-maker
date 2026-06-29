@@ -1,3 +1,4 @@
+import { rfqSettlementAbi } from "./abi.js";
 import type { Address, Quote, UIntString } from "./types.js";
 
 export interface SettlementQuote {
@@ -14,6 +15,19 @@ export interface SettlementQuote {
 
 export type SubmitQuoteArgs = readonly [SettlementQuote, `0x${string}`];
 export type TreasuryTransferArgs = readonly [Address, Address, bigint];
+
+export interface SubmitQuoteWriteRequestInput {
+  settlementAddress: Address;
+  quote: Quote;
+  signature: `0x${string}`;
+}
+
+export interface SubmitQuoteWriteRequest {
+  address: Address;
+  abi: typeof rfqSettlementAbi;
+  functionName: "submitQuote";
+  args: SubmitQuoteArgs;
+}
 
 export interface TreasuryTransferInput {
   token: Address;
@@ -50,6 +64,16 @@ export function toSettlementQuote(quote: Quote): SettlementQuote {
 
 export function buildSubmitQuoteArgs(quote: Quote, signature: `0x${string}`): SubmitQuoteArgs {
   return [toSettlementQuote(quote), parseSignature(signature, "signature")] as const;
+}
+
+export function buildSubmitQuoteWriteRequest(input: SubmitQuoteWriteRequestInput): SubmitQuoteWriteRequest {
+  assertRecord(input, "submit quote write request input");
+  return {
+    address: parseAddress(input.settlementAddress, "settlementAddress"),
+    abi: rfqSettlementAbi,
+    functionName: "submitQuote",
+    args: buildSubmitQuoteArgs(input.quote, input.signature),
+  };
 }
 
 export function buildTreasuryTransferArgs(input: TreasuryTransferInput): TreasuryTransferArgs {

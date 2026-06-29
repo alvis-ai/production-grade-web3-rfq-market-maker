@@ -8,6 +8,7 @@ import {
   buildQuoteTypedData,
   buildRFQDomain,
   buildSubmitQuoteArgs,
+  buildSubmitQuoteWriteRequest,
   buildTreasuryTransferArgs,
   hashSettlementQuote,
   quoteTypes,
@@ -160,6 +161,33 @@ test("buildSubmitQuoteArgs converts string integer fields to settlement bigint f
     chainId: 1n,
   });
   assert.ok(rfqSettlementAbi.some((item) => item.type === "function" && item.name === "hashQuote"));
+});
+
+test("buildSubmitQuoteWriteRequest builds a wagmi and viem compatible contract request", () => {
+  const request = buildSubmitQuoteWriteRequest({
+    settlementAddress: verifyingContract,
+    quote,
+    signature,
+  });
+
+  assert.equal(request.address, verifyingContract);
+  assert.equal(request.abi, rfqSettlementAbi);
+  assert.equal(request.functionName, "submitQuote");
+  assert.deepEqual(request.args, buildSubmitQuoteArgs(quote, signature));
+
+  assert.throws(
+    () => buildSubmitQuoteWriteRequest(undefined),
+    /submit quote write request input must be an object/,
+  );
+  assert.throws(
+    () =>
+      buildSubmitQuoteWriteRequest({
+        settlementAddress: "0x1234",
+        quote,
+        signature,
+      }),
+    /settlementAddress must be a 20-byte hex address/,
+  );
 });
 
 test("Settlement helpers reject invalid uint inputs before contract calls", () => {

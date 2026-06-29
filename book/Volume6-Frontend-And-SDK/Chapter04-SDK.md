@@ -2,7 +2,7 @@
 
 ## Abstract
 
-TypeScript SDK 是集成方使用 RFQ 系统的稳定接口。它封装 API client、类型定义、EIP-712 typed data helper 和后续 submit helper。SDK 的目标是减少字段不一致、签名结构错误和 amount 精度问题。
+TypeScript SDK 是集成方使用 RFQ 系统的稳定接口。它封装 API client、类型定义、EIP-712 typed data helper 和 submit helper。SDK 的目标是减少字段不一致、签名结构错误和 amount 精度问题。
 
 ## Learning Objectives
 
@@ -27,7 +27,7 @@ RFQ quote 的字段必须在后端、SDK、前端和合约之间一致。没有 
 - 提供 `RFQClient.quote()`。
 - 提供 `buildRFQDomain()`。
 - 提供 `buildQuoteTypedData()`。
-- 后续提供 submit transaction builder。
+- 提供 `buildSubmitQuoteArgs()` 和 `buildSubmitQuoteWriteRequest()`。
 
 ### Non-Functional Requirements
 
@@ -109,6 +109,11 @@ const client = new RFQClient(baseUrl);
 const quote = await client.quote(request);
 const typedData = buildQuoteTypedData(quoteLikeStruct, verifyingContract);
 const submitArgs = buildSubmitQuoteArgs(quoteLikeStruct, signature);
+const submitRequest = buildSubmitQuoteWriteRequest({
+  settlementAddress,
+  quote: quoteLikeStruct,
+  signature,
+});
 const treasuryArgs = buildTreasuryTransferArgs({ token, to, amount });
 ```
 
@@ -116,7 +121,8 @@ const treasuryArgs = buildTreasuryTransferArgs({ token, to, amount });
 
 - SDK uses string amounts.
 - SDK owns EIP-712 helper.
-- SDK exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs`, `hashSettlementQuote` and `buildTreasuryTransferArgs` so viem/wagmi consumers use the same contract tuple shape and quote-hash reconciliation rule as the repository tests.
+- SDK exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs`, `buildSubmitQuoteWriteRequest`, `hashSettlementQuote` and `buildTreasuryTransferArgs` so viem/wagmi consumers use the same contract tuple shape, write request shape and quote-hash reconciliation rule as the repository tests.
+- `buildSubmitQuoteWriteRequest()` returns `{ address, abi, functionName: "submitQuote", args }` after validating the settlement contract address, quote fields and signature, which keeps frontend and external integrators from manually duplicating contract-call wiring.
 - SDK helper functions reject non-object quote and treasury transfer inputs before field-level validation, so JavaScript consumers get stable validation errors instead of ambiguous property access exceptions.
 - SDK status helpers reject empty `quoteId`, `hedgeOrderId` and `settlementEventId` before issuing HTTP requests, preventing malformed `/quote/`, `/hedges/` or `/settlements/` calls from being mistaken for backend availability problems.
 - `RFQClient` rejects empty, relative or non-`http(s)` base URLs at construction time so integration configuration errors fail before any quote, submit or status request leaves the process.
@@ -145,7 +151,7 @@ SDK should stay lightweight. It should not bundle frontend-only wallet libraries
 
 ## Testing Strategy
 
-测试 client quote request、API error parsing、typed data structure、domain builder、settlement tuple conversion、Treasury tuple conversion、quote/submit/quote status/settlement/hedge/PnL response validation 和 amount string handling。
+测试 client quote request、API error parsing、typed data structure、domain builder、settlement tuple conversion、submit write request builder、Treasury tuple conversion、quote/submit/quote status/settlement/hedge/PnL response validation 和 amount string handling。
 
 ## Interview Notes
 

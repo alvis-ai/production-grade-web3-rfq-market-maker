@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { Address, Quote, QuoteResponse } from "@rfq-market-maker/sdk";
-import { buildSubmitQuoteArgs, rfqSettlementAbi } from "@rfq-market-maker/sdk";
+import { buildSubmitQuoteWriteRequest } from "@rfq-market-maker/sdk";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useChainId, useWriteContract } from "wagmi";
 import { Web3Provider } from "../app/web3";
@@ -78,12 +78,13 @@ function WalletSubmitInner({
     }
 
     try {
-      const txHash = await writeContractAsync({
-        address: rfqSettlementAddress,
-        abi: rfqSettlementAbi,
-        functionName: "submitQuote",
-        args: buildSubmitQuoteArgs(signedQuote, quote.signature),
-      });
+      const txHash = await writeContractAsync(
+        buildSubmitQuoteWriteRequest({
+          settlementAddress: rfqSettlementAddress,
+          quote: signedQuote,
+          signature: quote.signature,
+        }),
+      );
       onTxHash(txHash);
     } catch (caught) {
       onError(toUIError(caught, "Onchain submit failed"));
