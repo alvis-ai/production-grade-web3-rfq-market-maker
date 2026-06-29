@@ -355,6 +355,8 @@ grep -q 'rfq_hedge_lag_seconds' backend/src/modules/metrics/metrics.service.ts
 grep -q 'recordHedgeLag' backend/src/main.ts
 grep -q 'rfq_hedge_lag_seconds' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_hedge_lag_seconds' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+grep -q 'RFQInventoryExposureHigh' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'rfq_inventory_balance' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'rfq_quote_status_update_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'recordQuoteStatusUpdateError' backend/src/main.ts
 grep -q 'rfq_inventory_balance' backend/src/modules/metrics/metrics.service.ts

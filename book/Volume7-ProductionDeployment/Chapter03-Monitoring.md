@@ -139,6 +139,7 @@ Key metrics include:
 - Submit error alerting must compare errors with accepted settlements, rate-limit counters and settlement reverts before deciding whether to pause submit traffic.
 - Submit latency alerting should inspect verification, settlement event persistence, inventory, hedge and PnL work before lowering quote availability.
 - Rate-limit alerting should inspect `endpoint` first, then separate abuse, broken client retries and real demand before changing global limits.
+- Inventory balance alerting uses token native units in the reference implementation; production exposure limits should normalize to USD, delta and venue-specific hedge capacity.
 - Use ClickHouse for quote-level analysis.
 - Every critical alert links to runbook.
 
@@ -153,6 +154,7 @@ Key metrics include:
 - Submit latency p95 spikes：check settlement verification, quote status persistence, inventory updates, hedge intent enqueue and PnL attribution.
 - Rate limit spike：check abusive clients, retry storms, ingress behavior and whether legitimate demand needs a controlled limit change.
 - Inventory exposure over limit：tighten risk limits.
+- Inventory balance threshold breach：reduce quotes that add to the exposed side, hedge down the token and reconcile settlement events.
 - Event lag grows：pause risky pairs.
 - Hedge failure spike：widen spread and page operator.
 

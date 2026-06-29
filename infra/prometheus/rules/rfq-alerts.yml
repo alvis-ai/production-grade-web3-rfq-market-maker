@@ -127,6 +127,15 @@ groups:
           summary: RFQ hedge p95 lag is above 2 seconds
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQInventoryExposureHigh
+        expr: max by (chain_id, token) (abs(rfq_inventory_balance)) > 1000000000000000000000000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ simulated inventory balance exceeds skeleton exposure threshold
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQQuoteStatusUpdateErrors
         expr: sum(increase(rfq_quote_status_update_errors_total[5m])) > 0
         for: 1m
