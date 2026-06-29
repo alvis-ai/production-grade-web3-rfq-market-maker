@@ -70,3 +70,49 @@ test("SkeletonExecutionService suppresses duplicate settlement side effects", as
   assert.equal(inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut).balance, -BigInt(request.quote.amountOut));
   assert.equal(hedgeService.getHedgeIntent(first.response.hedgeOrderId), first.hedgeResult?.record);
 });
+
+test("SkeletonExecutionService rejects unsafe execution inputs before settlement side effects", async () => {
+  const inventoryService = new InventoryService();
+  const hedgeService = new HedgeService();
+  const settlementEventService = new SettlementEventService(inventoryService);
+  const executionService = new SkeletonExecutionService({
+    hedgeService,
+    inventoryService,
+    settlementEventService,
+    settlementVerifier: new LocalSettlementVerifier(),
+  });
+
+  await assert.rejects(
+    executionService.submitQuote(request, { quoteId: " " }),
+    /Execution context quoteId must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    executionService.submitQuote(
+      {
+        ...request,
+        signature: "0x1234",
+      },
+      { quoteId: "q_invalid_signature" },
+    ),
+    /signature must be 65 bytes/,
+  );
+
+  await assert.rejects(
+    executionService.submitQuote(
+      {
+        ...request,
+        quote: {
+          ...request.quote,
+          tokenOut: request.quote.tokenIn,
+        },
+      },
+      { quoteId: "q_invalid_pair" },
+    ),
+    /quote.tokenIn and quote.tokenOut must be different/,
+  );
+
+  assert.equal(inventoryService.getPosition(request.quote.chainId, request.quote.tokenIn).balance, 0n);
+  assert.equal(inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut).balance, 0n);
+  assert.equal(settlementEventService.getSettlementEvent("q_invalid_pair"), undefined);
+});

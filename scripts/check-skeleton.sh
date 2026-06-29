@@ -401,6 +401,9 @@ grep -q 'settlementEventStoreFailure' backend/src/modules/execution/execution.se
 grep -q 'keccak256(toBytes(payload))' backend/src/modules/execution/execution.service.ts
 grep -q 'buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService suppresses duplicate settlement side effects' backend/test/execution.test.mjs
+grep -q 'validateSubmitQuoteRequest(request)' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution context quoteId must be a non-empty string' backend/src/modules/execution/execution.service.ts
+grep -q 'SkeletonExecutionService rejects unsafe execution inputs before settlement side effects' backend/test/execution.test.mjs
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts

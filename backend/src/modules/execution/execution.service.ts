@@ -1,6 +1,7 @@
 import { keccak256, toBytes } from "viem";
 import type { SubmitQuoteRequest, SubmitQuoteResponse } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
+import { validateSubmitQuoteRequest } from "../../shared/validation/submit-request.js";
 import type { HedgeIntent, HedgeResult } from "../hedge/hedge.service.js";
 import type { HedgeIntentService, HedgeFailureReasonCode } from "../hedge/hedge.service.js";
 import type { InventoryPosition, InventoryService } from "../inventory/inventory.service.js";
@@ -47,20 +48,25 @@ export class SkeletonExecutionService implements ExecutionService {
   constructor(private readonly deps: ExecutionServiceDeps) {}
 
   async submitQuote(request: SubmitQuoteRequest, context: ExecutionContext): Promise<ExecutionResult> {
-    const settlementVerification = await this.verifySettlement(request, context);
-    const txHash = buildSyntheticTxHash(request, context);
+    assertExecutionContext(context);
+    const validatedRequest = validateSubmitQuoteRequest(request);
+    const settlementVerification = await this.verifySettlement(validatedRequest, context);
+    const txHash = buildSyntheticTxHash(validatedRequest, context);
     const settlementEventResult = this.applySettlementEvent({
       quoteId: context.quoteId,
-      quote: request.quote,
+      quote: validatedRequest.quote,
       txHash,
       logIndex: 0,
     });
 
-    const tokenInPosition = this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenIn);
-    const tokenOutPosition = this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut);
+    const tokenInPosition = this.deps.inventoryService.getPosition(validatedRequest.quote.chainId, validatedRequest.quote.tokenIn);
+    const tokenOutPosition = this.deps.inventoryService.getPosition(
+      validatedRequest.quote.chainId,
+      validatedRequest.quote.tokenOut,
+    );
     const { hedgeResult, hedgeFailure, hedgeLagSeconds } = settlementEventResult.duplicate
       ? { hedgeResult: undefined, hedgeFailure: undefined, hedgeLagSeconds: undefined }
-      : this.createHedgeIntent(request, context, settlementEventResult.event.settlementEventId);
+      : this.createHedgeIntent(validatedRequest, context, settlementEventResult.event.settlementEventId);
 
     return {
       response: {
@@ -136,6 +142,7 @@ export class SkeletonExecutionService implements ExecutionService {
 }
 
 export function buildSyntheticTxHash(request: SubmitQuoteRequest, context: ExecutionContext): `0x${string}` {
+  assertExecutionContext(context);
   const payload = JSON.stringify({
     quoteId: context.quoteId,
     quote: request.quote,
@@ -147,6 +154,13 @@ export function buildSyntheticTxHash(request: SubmitQuoteRequest, context: Execu
 
 function elapsedSeconds(startedAtMs: number): number {
   return (Date.now() - startedAtMs) / 1000;
+}
+
+function assertExecutionContext(context: ExecutionContext): void {
+  const quoteId = typeof context === "object" && context !== null ? (context as { quoteId?: unknown }).quoteId : undefined;
+  if (typeof quoteId !== "string" || quoteId.trim().length === 0) {
+    throw new APIError("INVALID_REQUEST", "Execution context quoteId must be a non-empty string", 400);
+  }
 }
 
 function settlementVerificationFailure(error: unknown): APIError {
