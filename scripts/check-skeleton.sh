@@ -13,6 +13,7 @@ test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/test/api.test.mjs
 test -s backend/test/hedge.test.mjs
+test -s backend/test/inventory.test.mjs
 test -s backend/test/quote-service.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
@@ -51,6 +52,7 @@ grep -q 'checkHealth' backend/src/modules/quote/quote.repository.ts
 test -s backend/src/modules/execution/execution.service.ts
 test -s backend/src/modules/inventory/inventory.service.ts
 grep -q 'checkHealth' backend/src/modules/inventory/inventory.service.ts
+grep -q 'InventoryService calculates bounded quote skew by inventory direction' backend/test/inventory.test.mjs
 test -s backend/src/modules/hedge/hedge.service.ts
 grep -q 'checkHealth' backend/src/modules/hedge/hedge.service.ts
 test -s backend/src/modules/metrics/metrics.service.ts
