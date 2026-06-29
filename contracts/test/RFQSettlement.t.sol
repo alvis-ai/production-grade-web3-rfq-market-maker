@@ -48,6 +48,7 @@ contract RFQSettlementTest {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     uint256 private constant SIGNER_KEY = 0xA11CE;
+    uint256 private constant NEW_SIGNER_KEY = 0xC0FFEE;
     uint256 private constant USER_KEY = 0xB0B;
     uint256 private constant SECP256K1N_HIGH_S =
         0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1;
@@ -147,6 +148,69 @@ contract RFQSettlementTest {
         vm.prank(user);
         vm.expectRevert(RFQSettlement.NotOwner.selector);
         settlement.setTokenWhitelist(address(tokenIn), false);
+    }
+
+    function testOwnerCanRotateTrustedSigner() public {
+        address newSigner = vm.addr(NEW_SIGNER_KEY);
+
+        settlement.setTrustedSigner(newSigner);
+        require(settlement.trustedSigner() == newSigner, "signer mismatch");
+
+        IRFQSettlement.Quote memory quote = _quote(41);
+        bytes memory oldSignature = _signWith(SIGNER_KEY, quote);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.InvalidSigner.selector);
+        settlement.submitQuote(quote, oldSignature);
+
+        bytes memory newSignature = _signWith(NEW_SIGNER_KEY, quote);
+
+        vm.prank(user);
+        uint256 amountOut = settlement.submitQuote(quote, newSignature);
+
+        require(amountOut == quote.amountOut, "rotated signer quote rejected");
+    }
+
+    function testOnlyOwnerCanManageAdminControls() public {
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.NotOwner.selector);
+        settlement.setPaused(true);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.NotOwner.selector);
+        settlement.setTrustedSigner(vm.addr(NEW_SIGNER_KEY));
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.NotOwner.selector);
+        settlement.transferOwnership(user);
+    }
+
+    function testOwnerCanTransferOwnershipAndNewOwnerCanPause() public {
+        address newOwner = address(0xC0DE);
+
+        settlement.transferOwnership(newOwner);
+        require(settlement.owner() == newOwner, "owner mismatch");
+
+        vm.expectRevert(RFQSettlement.NotOwner.selector);
+        settlement.setPaused(true);
+
+        vm.prank(newOwner);
+        settlement.setPaused(true);
+        require(settlement.paused(), "pause not updated");
+    }
+
+    function testRejectsInvalidAdminAddresses() public {
+        vm.expectRevert(RFQSettlement.InvalidAddress.selector);
+        new RFQSettlement(address(0));
+
+        vm.expectRevert(RFQSettlement.InvalidAddress.selector);
+        settlement.setTrustedSigner(address(0));
+
+        vm.expectRevert(RFQSettlement.InvalidAddress.selector);
+        settlement.setTokenWhitelist(address(0), true);
+
+        vm.expectRevert(RFQSettlement.InvalidAddress.selector);
+        settlement.transferOwnership(address(0));
     }
 
     function testSubmitQuoteRejectsExpiredQuote() public {

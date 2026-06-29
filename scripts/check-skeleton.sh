@@ -555,6 +555,10 @@ grep -q 'testRejectsReentrantRelease' contracts/test/Treasury.t.sol
 grep -q 'testSubmitQuoteTransfersTokensAndConsumesNonce' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsReplay' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUntrustedSigner' contracts/test/RFQSettlement.t.sol
+grep -q 'testOwnerCanRotateTrustedSigner' contracts/test/RFQSettlement.t.sol
+grep -q 'testOnlyOwnerCanManageAdminControls' contracts/test/RFQSettlement.t.sol
+grep -q 'testOwnerCanTransferOwnershipAndNewOwnerCanPause' contracts/test/RFQSettlement.t.sol
+grep -q 'testRejectsInvalidAdminAddresses' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsInvalidSignatureLength' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsInvalidSignatureV' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsHighSignatureS' contracts/test/RFQSettlement.t.sol
