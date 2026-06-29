@@ -75,6 +75,14 @@ assert.deepEqual(
   "OpenAPI QuoteStatus.status enum must match backend QuoteLifecycleStatus",
 );
 
+for (const schemaName of ["SubmitQuoteResponse", "QuoteStatus", "SettlementEventStatus"]) {
+  assert.equal(
+    extractOpenApiPropertyPattern(openapiSource, schemaName, "txHash"),
+    "^0x[a-fA-F0-9]{64}$",
+    `${schemaName}.txHash must be a 32-byte transaction hash`,
+  );
+}
+
 console.log(`API schema consistency check passed (${schemaMappings.length + 2} schemas)`);
 
 function extractInterfaceFields(source, interfaceName) {
@@ -173,6 +181,25 @@ function extractOpenApiEnum(source, schemaName, propertyName) {
   }
 
   return values;
+}
+
+function extractOpenApiPropertyPattern(source, schemaName, propertyName) {
+  const lines = extractOpenApiSchemaLines(source, schemaName);
+  const propertyIndex = lines.findIndex((line) => line === `        ${propertyName}:`);
+  assert.ok(propertyIndex >= 0, `Unable to find ${schemaName}.${propertyName}`);
+
+  const propertyLines = [];
+  for (const line of lines.slice(propertyIndex + 1)) {
+    if (/^        [a-zA-Z][a-zA-Z0-9]*:$/.test(line)) {
+      break;
+    }
+    propertyLines.push(line);
+  }
+
+  const patternLine = propertyLines.find((line) => line.trim().startsWith("pattern: "));
+  assert.ok(patternLine, `Unable to find pattern for ${schemaName}.${propertyName}`);
+
+  return patternLine.trim().slice("pattern: ".length).replace(/^"|"$/g, "");
 }
 
 function assertOpenApiSchemaClosed(schemaName) {

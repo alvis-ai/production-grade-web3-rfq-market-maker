@@ -459,7 +459,7 @@ components:
           description: The backend accepted the submit request for execution or simulated settlement.
         txHash:
           type: string
-          pattern: "^0x[a-fA-F0-9]+$"
+          pattern: "^0x[a-fA-F0-9]{64}$"
           description: Simulated or relayed transaction hash.
         settlementEventId:
           type: string
@@ -532,7 +532,7 @@ components:
           description: Unix timestamp after which a signed quote is no longer submittable.
         txHash:
           type: string
-          pattern: "^0x[a-fA-F0-9]+$"
+          pattern: "^0x[a-fA-F0-9]{64}$"
           description: Simulated or relayed transaction hash after submit.
         settlementEventId:
           type: string
@@ -619,7 +619,7 @@ components:
           type: integer
         txHash:
           type: string
-          pattern: "^0x[a-fA-F0-9]+$"
+          pattern: "^0x[a-fA-F0-9]{64}$"
         quoteHash:
           type: string
           pattern: "^0x[a-fA-F0-9]{64}$"

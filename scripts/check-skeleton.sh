@@ -165,6 +165,8 @@ grep -q 'assertExactFields' backend/src/shared/validation/submit-request.ts
 grep -q 'unknown request fields' backend/test/api.test.mjs
 grep -q 'additionalProperties: false' docs/api/openapi.yaml
 grep -q 'must reject unknown request fields' scripts/check-api-schema-consistency.mjs
+grep -q 'SubmitQuoteResponse", "QuoteStatus", "SettlementEventStatus' scripts/check-api-schema-consistency.mjs
+grep -q 'txHash must be a 32-byte transaction hash' scripts/check-api-schema-consistency.mjs
 grep -q 'InMemoryRateLimiter' backend/src/main.ts
 grep -q 'RATE_LIMITED' backend/src/main.ts
 grep -q 'retry-after' backend/src/main.ts
