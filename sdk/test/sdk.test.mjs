@@ -442,6 +442,25 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
   }
 });
 
+test("RFQClient rejects unsafe base URLs at construction", () => {
+  for (const [baseUrl, expectedMessage] of [
+    [" ", "RFQClient baseUrl must be a non-empty absolute http(s) URL"],
+    ["/relative", "RFQClient baseUrl must be an absolute http(s) URL"],
+    ["ftp://127.0.0.1:3000", "RFQClient baseUrl must use http or https"],
+  ]) {
+    assert.throws(
+      () => new RFQClient(baseUrl),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, expectedMessage);
+        return true;
+      },
+    );
+  }
+});
+
 test("RFQClient percent-encodes dynamic status path identifiers", async () => {
   const calls = [];
   const quoteId = "q/test id";

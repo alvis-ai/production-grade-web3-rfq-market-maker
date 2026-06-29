@@ -630,6 +630,8 @@ grep -q 'rfqErrorCodeSet.has' sdk/src/client.ts
 grep -q 'RFQClientErrorCode' sdk/src/client.ts
 grep -q 'retryAfterSeconds' sdk/src/client.ts
 grep -q 'response.headers.get("retry-after")' sdk/src/client.ts
+grep -q 'RFQClient baseUrl must be an absolute http(s) URL' sdk/src/client.ts
+grep -q 'RFQClient rejects unsafe base URLs at construction' sdk/test/sdk.test.mjs
 grep -q 'assertRequiredEnumField' sdk/src/client.ts
 grep -q 'assertRequiredNonNegativeIntegerField' sdk/src/client.ts
 grep -q 'readJsonResponse' sdk/src/client.ts

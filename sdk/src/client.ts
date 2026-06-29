@@ -275,7 +275,23 @@ function retryAfterSeconds(response: Response): number | undefined {
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.trim().replace(/\/+$/, "");
+  const normalized = baseUrl.trim();
+  if (normalized.length === 0) {
+    throw new RFQClientError("RFQClient baseUrl must be a non-empty absolute http(s) URL", 0);
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new RFQClientError("RFQClient baseUrl must be an absolute http(s) URL", 0);
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new RFQClientError("RFQClient baseUrl must use http or https", 0);
+  }
+
+  return parsed.toString().replace(/\/+$/, "");
 }
 
 function assertNonEmptyIdentifier(value: string, field: "quoteId" | "hedgeOrderId" | "settlementEventId"): string {
