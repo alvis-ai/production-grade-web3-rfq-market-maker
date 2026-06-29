@@ -380,7 +380,43 @@ test("RFQClient falls back for unknown API error codes", async () => {
   }
 });
 
-test("RFQClient rejects malformed successful hash fields", async () => {
+test("RFQClient rejects malformed successful signature and hash fields", async () => {
+  const restoreQuoteFetch = installFetch(async () =>
+    jsonResponse(200, {
+      quoteId: "q_test",
+      snapshotId: "s_test",
+      amountOut: "1000000000",
+      minAmountOut: "995000000",
+      deadline: 1893456000,
+      nonce: "42",
+      signature: "0x1234",
+    }),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.quote({
+        chainId: quote.chainId,
+        user: quote.user,
+        tokenIn: quote.tokenIn,
+        tokenOut: quote.tokenOut,
+        amountIn: quote.amountIn,
+        slippageBps: 50,
+      }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 200);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ quote response returned malformed signature");
+        return true;
+      },
+    );
+  } finally {
+    restoreQuoteFetch();
+  }
+
   const restoreSubmitFetch = installFetch(async () =>
     jsonResponse(202, {
       status: "accepted",

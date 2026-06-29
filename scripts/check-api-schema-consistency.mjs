@@ -75,6 +75,12 @@ assert.deepEqual(
   "OpenAPI QuoteStatus.status enum must match backend QuoteLifecycleStatus",
 );
 
+assert.equal(
+  extractOpenApiPropertyPattern(openapiSource, "QuoteResponse", "signature"),
+  "^0x[a-fA-F0-9]{130}$",
+  "QuoteResponse.signature must be a 65-byte EIP-712 signature",
+);
+
 for (const schemaName of ["SubmitQuoteResponse", "QuoteStatus", "SettlementEventStatus"]) {
   assert.equal(
     extractOpenApiPropertyPattern(openapiSource, schemaName, "txHash"),

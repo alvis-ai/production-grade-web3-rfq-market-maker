@@ -45,7 +45,9 @@ export class RFQClient {
 
     await assertOk(response, "RFQ quote failed");
 
-    return (await readJsonResponse(response, "RFQ quote response")) as QuoteResponse;
+    const payload = await readJsonResponse(response, "RFQ quote response");
+    assertRequiredSignatureField(payload, "signature", response.status, "RFQ quote response");
+    return payload as QuoteResponse;
   }
 
   async submit(request: SubmitQuoteRequest): Promise<SubmitQuoteResponse> {
@@ -190,12 +192,22 @@ function assertRequiredBytes32Field(payload: unknown, field: string, status: num
   }
 }
 
+function assertRequiredSignatureField(payload: unknown, field: string, status: number, label: string): void {
+  if (!isRecord(payload) || !isSignatureHex(payload[field])) {
+    throw malformedFieldError(status, label, field);
+  }
+}
+
 function malformedFieldError(status: number, label: string, field: string): RFQClientError {
   return new RFQClientError(`${label} returned malformed ${field}`, status);
 }
 
 function isBytes32Hex(value: unknown): value is `0x${string}` {
   return typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
+}
+
+function isSignatureHex(value: unknown): value is `0x${string}` {
+  return typeof value === "string" && /^0x[0-9a-fA-F]{130}$/.test(value);
 }
 
 function retryAfterSeconds(response: Response): number | undefined {

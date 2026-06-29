@@ -165,6 +165,7 @@ grep -q 'assertExactFields' backend/src/shared/validation/submit-request.ts
 grep -q 'unknown request fields' backend/test/api.test.mjs
 grep -q 'additionalProperties: false' docs/api/openapi.yaml
 grep -q 'must reject unknown request fields' scripts/check-api-schema-consistency.mjs
+grep -q 'QuoteResponse.signature must be a 65-byte EIP-712 signature' scripts/check-api-schema-consistency.mjs
 grep -q 'SubmitQuoteResponse", "QuoteStatus", "SettlementEventStatus' scripts/check-api-schema-consistency.mjs
 grep -q 'txHash must be a 32-byte transaction hash' scripts/check-api-schema-consistency.mjs
 grep -q 'InMemoryRateLimiter' backend/src/main.ts
@@ -492,7 +493,8 @@ grep -q 'RFQClientErrorCode' sdk/src/client.ts
 grep -q 'retryAfterSeconds' sdk/src/client.ts
 grep -q 'response.headers.get("retry-after")' sdk/src/client.ts
 grep -q 'isBytes32Hex' sdk/src/client.ts
-grep -q 'malformed successful hash fields' sdk/test/sdk.test.mjs
+grep -q 'isSignatureHex' sdk/src/client.ts
+grep -q 'malformed successful signature and hash fields' sdk/test/sdk.test.mjs
 grep -q 'client.health' sdk/test/sdk.test.mjs
 grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs
@@ -690,6 +692,7 @@ grep -q 'Grafana overview dashboard must query alert metric' scripts/check-grafa
 grep -q 'typescript-check' Makefile
 grep -q 'api-error-check' Makefile
 grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml
+grep -q 'Expected ${label} to be a 65-byte hex string' scripts/smoke-api.mjs
 grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/openapi.yaml
 grep -q 'Signed quote not found' docs/api/openapi.yaml
 grep -q 'settlement verification' docs/api/openapi.yaml

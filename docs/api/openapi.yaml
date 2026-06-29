@@ -428,7 +428,7 @@ components:
           $ref: "#/components/schemas/UIntString"
         signature:
           type: string
-          pattern: "^0x[a-fA-F0-9]+$"
+          pattern: "^0x[a-fA-F0-9]{130}$"
           minLength: 132
           maxLength: 132
           description: 65-byte EIP-712 signature encoded as 0x-prefixed hex.

@@ -19,7 +19,7 @@ assertString(quoteResponse.snapshotId, "snapshotId");
 assertString(quoteResponse.amountOut, "amountOut");
 assertString(quoteResponse.minAmountOut, "minAmountOut");
 assertString(quoteResponse.nonce, "nonce");
-assertHex(quoteResponse.signature, "signature");
+assertSignatureHex(quoteResponse.signature, "signature");
 
 const signedQuote = {
   user: quoteRequest.user,
@@ -194,6 +194,12 @@ function assertString(value, label) {
 function assertHex(value, label) {
   if (typeof value !== "string" || !/^0x[0-9a-fA-F]+$/.test(value)) {
     throw new Error(`Expected ${label} to be hex`);
+  }
+}
+
+function assertSignatureHex(value, label) {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(value)) {
+    throw new Error(`Expected ${label} to be a 65-byte hex string`);
   }
 }
 
