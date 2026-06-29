@@ -33,3 +33,65 @@ test("InternalInventoryRoutingEngine creates deterministic internal inventory ro
     expectedLiquidityUsd: snapshot.liquidityUsd,
   });
 });
+
+test("InternalInventoryRoutingEngine rejects unsafe route inputs before planning", async () => {
+  const engine = new InternalInventoryRoutingEngine();
+
+  await assert.rejects(
+    engine.selectRoute({
+      request: {
+        ...request,
+        chainId: 0,
+      },
+      snapshot,
+    }),
+    /Routing request.chainId must be a positive safe integer/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      request: {
+        ...request,
+        tokenOut: request.tokenIn,
+      },
+      snapshot,
+    }),
+    /Routing request token pair must contain distinct tokens/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      request: {
+        ...request,
+        amountIn: "0",
+      },
+      snapshot,
+    }),
+    /Routing request.amountIn must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      request,
+      snapshot: {
+        ...snapshot,
+        snapshotId: " ",
+      },
+    }),
+    /Routing snapshot.snapshotId must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      request,
+      snapshot: {
+        ...snapshot,
+        liquidityUsd: "0",
+      },
+    }),
+    /Routing snapshot.liquidityUsd must be a positive uint string/,
+  );
+
+  const route = await engine.selectRoute({ request, snapshot });
+  assert.equal(route.routeId, "route_8453_a0000000_b0000000");
+});

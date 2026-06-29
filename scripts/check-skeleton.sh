@@ -95,6 +95,9 @@ test -s backend/src/shared/errors/api-error.ts
 grep -q 'APIError serializes stable client responses without internal reason codes' backend/test/api-error.test.mjs
 test -s backend/src/modules/routing/routing.engine.ts
 grep -q 'InternalInventoryRoutingEngine creates deterministic internal inventory route plans' backend/test/routing.test.mjs
+grep -q 'assertRouteInput(input)' backend/src/modules/routing/routing.engine.ts
+grep -q 'Routing request token pair must contain distinct tokens' backend/src/modules/routing/routing.engine.ts
+grep -q 'InternalInventoryRoutingEngine rejects unsafe route inputs before planning' backend/test/routing.test.mjs
 test -s backend/src/shared/validation/quote-request.ts
 test -s backend/src/shared/validation/submit-request.ts
 grep -q 'validateSubmitQuoteRequest rejects unsafe submit payloads before execution' backend/test/validation.test.mjs
