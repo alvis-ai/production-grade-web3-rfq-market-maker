@@ -80,3 +80,28 @@ test("InMemoryRateLimiter rejects unsafe configuration at construction", () => {
     /Rate limit maxSubmitRequests must be a positive safe integer/,
   );
 });
+
+test("InMemoryRateLimiter rejects unsafe request inputs before writing buckets", () => {
+  const limiter = new InMemoryRateLimiter({
+    windowMs: 1000,
+    maxQuoteRequests: 2,
+    maxSubmitRequests: 1,
+    maxStatusRequests: 1,
+  });
+
+  assert.throws(
+    () => limiter.check({ endpoint: "quote", clientId: " " }),
+    /Rate limit clientId must be a non-empty string/,
+  );
+
+  assert.throws(
+    () => limiter.check({ endpoint: "metrics", clientId: "client-a" }),
+    /Rate limit endpoint must be quote, submit, or status/,
+  );
+
+  assert.deepEqual(limiter.check({ endpoint: "quote", clientId: "client-a" }, 1000), {
+    allowed: true,
+    remaining: 1,
+    retryAfterSeconds: 1,
+  });
+});

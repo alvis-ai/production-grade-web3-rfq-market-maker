@@ -308,6 +308,8 @@ grep -q 'class BasicRiskEngine' backend/src/modules/risk/risk.engine.ts
 ! grep -q 'allow-all-skeleton-v0' backend/src/modules/risk/risk.engine.ts
 grep -q 'class InMemoryRateLimiter' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'assertPositiveSafeInteger' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'assertRateLimitInput(input)' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'Rate limit clientId must be a non-empty string' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxQuoteRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxSubmitRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxStatusRequests' backend/src/modules/rate-limit/rate-limit.service.ts
@@ -1076,6 +1078,7 @@ grep -q 'signed realized PnL' backend/test/pnl.test.mjs
 grep -q 'applies each chain event idempotently' backend/test/settlement-event.test.mjs
 grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter rejects unsafe configuration at construction' backend/test/rate-limit.test.mjs
+grep -q 'InMemoryRateLimiter rejects unsafe request inputs before writing buckets' backend/test/rate-limit.test.mjs
 grep -q 'unsafe rate limit configuration at startup' backend/test/api.test.mjs
 grep -q 'assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertBpsUpperBound(config.maxTotalAdjustmentBps, "maxTotalAdjustmentBps")' backend/src/modules/pricing/pricing.engine.ts

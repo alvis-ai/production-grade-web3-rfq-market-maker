@@ -41,6 +41,7 @@ export class InMemoryRateLimiter {
   }
 
   check(input: RateLimitInput, now = Date.now()): RateLimitDecision {
+    assertRateLimitInput(input);
     const limit = this.limitFor(input.endpoint);
     const bucketKey = `${input.endpoint}:${input.clientId}`;
     const current = this.buckets.get(bucketKey);
@@ -77,5 +78,14 @@ export class InMemoryRateLimiter {
 function assertPositiveSafeInteger(value: number, field: keyof RateLimitConfig): void {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`Rate limit ${field} must be a positive safe integer`);
+  }
+}
+
+function assertRateLimitInput(input: RateLimitInput): void {
+  if (!["quote", "submit", "status"].includes(input.endpoint)) {
+    throw new Error("Rate limit endpoint must be quote, submit, or status");
+  }
+  if (typeof input.clientId !== "string" || input.clientId.trim().length === 0) {
+    throw new Error("Rate limit clientId must be a non-empty string");
   }
 }
