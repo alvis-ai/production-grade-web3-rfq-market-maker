@@ -11,6 +11,7 @@ interface Vm {
         returns (uint8 v, bytes32 r, bytes32 s);
     function prank(address caller) external;
     function expectRevert(bytes4 selector) external;
+    function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData) external;
     function warp(uint256 timestamp) external;
 }
 
@@ -59,6 +60,16 @@ contract RFQSettlementTest {
     address private signer;
     address private user;
 
+    event QuoteSettled(
+        bytes32 indexed quoteHash,
+        address indexed user,
+        address indexed tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint256 nonce
+    );
+
     function setUp() public {
         signer = vm.addr(SIGNER_KEY);
         user = vm.addr(USER_KEY);
@@ -86,6 +97,26 @@ contract RFQSettlementTest {
         require(settlement.usedNonces(user, quote.nonce), "nonce not consumed");
         require(tokenIn.balanceOf(address(settlement)) == quote.amountIn, "tokenIn not received");
         require(tokenOut.balanceOf(user) == quote.amountOut, "tokenOut not paid");
+    }
+
+    function testSubmitQuoteEmitsQuoteSettledForIndexer() public {
+        IRFQSettlement.Quote memory quote = _quote(12);
+        bytes32 quoteHash = settlement.hashQuote(quote);
+        bytes memory signature = _sign(quote);
+
+        vm.expectEmit(true, true, true, true);
+        emit QuoteSettled(
+            quoteHash,
+            quote.user,
+            quote.tokenIn,
+            quote.tokenOut,
+            quote.amountIn,
+            quote.amountOut,
+            quote.nonce
+        );
+
+        vm.prank(user);
+        settlement.submitQuote(quote, signature);
     }
 
     function testSubmitQuoteRejectsReplay() public {

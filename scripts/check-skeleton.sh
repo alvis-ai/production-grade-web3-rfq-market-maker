@@ -555,6 +555,7 @@ grep -q 'testOwnerCanEmergencyWithdraw' contracts/test/Treasury.t.sol
 grep -q 'testRejectsFailedTokenTransfers' contracts/test/Treasury.t.sol
 grep -q 'testRejectsReentrantRelease' contracts/test/Treasury.t.sol
 grep -q 'testSubmitQuoteTransfersTokensAndConsumesNonce' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteEmitsQuoteSettledForIndexer' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsReplay' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUntrustedSigner' contracts/test/RFQSettlement.t.sol
 grep -q 'testOwnerCanRotateTrustedSigner' contracts/test/RFQSettlement.t.sol
