@@ -42,3 +42,32 @@ test("SettlementEventService applies each chain event idempotently", () => {
 
   assert.deepEqual(settlements.getSettlementEvent(first.event.settlementEventId), first.event);
 });
+
+test("SettlementEventService rejects conflicting payloads for an existing chain event key", () => {
+  const inventory = new InventoryService();
+  const settlements = new SettlementEventService(inventory);
+  const input = {
+    quoteId: "q_test",
+    quote,
+    txHash: `0x${"22".repeat(32)}`,
+    logIndex: 7,
+  };
+
+  const first = settlements.applySettlementEvent(input);
+  assert.equal(first.duplicate, false);
+
+  assert.throws(
+    () =>
+      settlements.applySettlementEvent({
+        ...input,
+        quoteId: "q_conflict",
+        quote: {
+          ...quote,
+          amountOut: "900",
+        },
+      }),
+    /Settlement event key conflict/,
+  );
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 1000n);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -990n);
+});

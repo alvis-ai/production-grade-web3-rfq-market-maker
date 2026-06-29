@@ -309,6 +309,8 @@ grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'matchesExistingEvent' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'rejects conflicting payloads for an existing chain event key' backend/test/settlement-event.test.mjs
 grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'TOKEN_NOT_WHITELISTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier.service.ts

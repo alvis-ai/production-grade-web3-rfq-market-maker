@@ -38,6 +38,9 @@ export class SettlementEventService implements SettlementEventStore {
       if (!event) {
         throw new Error(`Settlement event index is inconsistent for ${existingEventId}`);
       }
+      if (!this.matchesExistingEvent(event, input, logIndex)) {
+        throw new Error(`Settlement event key conflict for ${existingEventId}`);
+      }
 
       return {
         event,
@@ -86,5 +89,23 @@ export class SettlementEventService implements SettlementEventStore {
 
   private eventKey(chainId: number, txHash: `0x${string}`, logIndex: number): string {
     return `${chainId}:${txHash.toLowerCase()}:${logIndex}`;
+  }
+
+  private matchesExistingEvent(
+    event: SettlementEventStatusResponse,
+    input: ApplySettlementEventInput,
+    logIndex: number,
+  ): boolean {
+    return (
+      event.quoteId === input.quoteId &&
+      event.chainId === input.quote.chainId &&
+      event.txHash.toLowerCase() === input.txHash.toLowerCase() &&
+      event.logIndex === logIndex &&
+      event.user.toLowerCase() === input.quote.user.toLowerCase() &&
+      event.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
+      event.tokenOut.toLowerCase() === input.quote.tokenOut.toLowerCase() &&
+      event.amountIn === input.quote.amountIn &&
+      event.amountOut === input.quote.amountOut
+    );
   }
 }
