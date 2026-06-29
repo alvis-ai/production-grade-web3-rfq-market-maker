@@ -603,6 +603,77 @@ test("RFQClient rejects malformed settlement status and ordinal responses", asyn
   }
 });
 
+test("RFQClient rejects malformed PnL summary responses", async () => {
+  const pnlResponse = {
+    status: "pending",
+    totalTrades: 1,
+    grossPnlTokenOut: "1600000",
+    trades: [
+      {
+        pnlId: "pnl_q_test",
+        quoteId: "q_test",
+        chainId: quote.chainId,
+        tokenIn: quote.tokenIn,
+        tokenOut: quote.tokenOut,
+        amountIn: quote.amountIn,
+        amountOut: quote.amountOut,
+        grossPnlTokenOut: "1600000",
+        grossPnlBps: 16,
+        model: "simulated_mid_price_v1",
+        realizedAt: "2026-06-27T00:00:00.000Z",
+      },
+    ],
+  };
+  const restoreStatusFetch = installFetch(async () => jsonResponse(200, pnlResponse));
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.pnl(),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 200);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ PnL summary response returned malformed status");
+        return true;
+      },
+    );
+  } finally {
+    restoreStatusFetch();
+  }
+
+  const restoreTradeFetch = installFetch(async () =>
+    jsonResponse(200, {
+      ...pnlResponse,
+      status: "ok",
+      trades: [
+        {
+          ...pnlResponse.trades[0],
+          model: "unknown_model",
+        },
+      ],
+    }),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.pnl(),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 200);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ PnL summary response returned malformed status");
+        return true;
+      },
+    );
+  } finally {
+    restoreTradeFetch();
+  }
+});
+
 test("RFQClient rejects malformed successful signature and hash fields", async () => {
   const restoreQuoteFetch = installFetch(async () =>
     jsonResponse(200, {

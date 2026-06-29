@@ -483,6 +483,7 @@ grep -q 'async pnl' sdk/src/client.ts
 grep -q 'async health' sdk/src/client.ts
 grep -q 'async ready' sdk/src/client.ts
 grep -q 'isHedgeIntentStatus' sdk/src/client.ts
+grep -q 'isPnlSummary' sdk/src/client.ts
 grep -q 'isHealthResponse' sdk/src/client.ts
 grep -q 'isReadinessResponse' sdk/src/client.ts
 grep -q 'isReadinessComponents' sdk/src/client.ts
@@ -503,6 +504,7 @@ grep -q 'malformed health and readiness status responses' sdk/test/sdk.test.mjs
 grep -q 'malformed hedge status enum responses' sdk/test/sdk.test.mjs
 grep -q 'malformed submit and quote status enum responses' sdk/test/sdk.test.mjs
 grep -q 'malformed settlement status and ordinal responses' sdk/test/sdk.test.mjs
+grep -q 'malformed PnL summary responses' sdk/test/sdk.test.mjs
 grep -q 'isBytes32Hex' sdk/src/client.ts
 grep -q 'isSignatureHex' sdk/src/client.ts
 grep -q 'malformed successful signature and hash fields' sdk/test/sdk.test.mjs

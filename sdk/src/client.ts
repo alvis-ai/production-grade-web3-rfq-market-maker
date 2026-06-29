@@ -116,7 +116,12 @@ export class RFQClient {
 
     await assertOk(response, "RFQ PnL summary failed");
 
-    return (await readJsonResponse(response, "RFQ PnL summary response")) as PnlSummary;
+    const payload = await readJsonResponse(response, "RFQ PnL summary response");
+    if (!isPnlSummary(payload)) {
+      throw new RFQClientError("RFQ PnL summary response returned malformed status", response.status);
+    }
+
+    return payload;
   }
 
   async health(): Promise<HealthResponse> {
@@ -284,6 +289,21 @@ function isHedgeIntentStatus(value: unknown): value is HedgeIntentStatus {
     (value.side === "buy" || value.side === "sell") &&
     (value.reason === "inventory_rebalance" || value.reason === "risk_reduction")
   );
+}
+
+function isPnlSummary(value: unknown): value is PnlSummary {
+  return (
+    isRecord(value) &&
+    value.status === "ok" &&
+    Number.isSafeInteger(value.totalTrades) &&
+    Number(value.totalTrades) >= 0 &&
+    Array.isArray(value.trades) &&
+    value.trades.every(isPnlTradeRecord)
+  );
+}
+
+function isPnlTradeRecord(value: unknown): boolean {
+  return isRecord(value) && value.model === "simulated_mid_price_v1";
 }
 
 function isReadinessResponse(value: unknown): value is ReadinessResponse {
