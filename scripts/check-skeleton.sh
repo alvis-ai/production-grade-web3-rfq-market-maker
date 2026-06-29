@@ -634,6 +634,7 @@ grep -q 'retryAfterSeconds' scripts/check-rate-limit-consistency.mjs
 grep -q 'sdk/src/client.ts' scripts/check-ci-workflows-consistency.mjs
 grep -q 'make rate-limit-check' scripts/check-ci-workflows-consistency.mjs
 grep -q 'Prometheus alert rules must cover backend metric' scripts/check-metrics-consistency.mjs
+grep -q 'Grafana overview dashboard must query alert metric' scripts/check-grafana-dashboard-consistency.mjs
 grep -q 'typescript-check' Makefile
 grep -q 'api-error-check' Makefile
 grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml

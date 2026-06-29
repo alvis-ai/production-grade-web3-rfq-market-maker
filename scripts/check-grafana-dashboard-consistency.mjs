@@ -7,8 +7,10 @@ const metricsSource = await readFile("backend/src/modules/metrics/metrics.servic
 const datasourceSource = await readFile("infra/grafana/provisioning/datasources/prometheus.yml", "utf8");
 const dashboardProviderSource = await readFile("infra/grafana/provisioning/dashboards/dashboards.yml", "utf8");
 const dashboardSource = await readFile("infra/grafana/provisioning/dashboards/rfq-overview.json", "utf8");
+const alertRulesSource = await readFile("infra/prometheus/rules/rfq-alerts.yml", "utf8");
 
 const emittedMetrics = extractEmittedMetrics(metricsSource);
+const alertMetrics = extractAlertMetrics(alertRulesSource);
 const dashboard = JSON.parse(dashboardSource);
 const expressions = extractDashboardExpressions(dashboard);
 const dashboardMetrics = new Set(expressions.flatMap(extractMetricsFromExpression));
@@ -21,6 +23,10 @@ assert.ok(expressions.length >= emittedMetrics.length, "Grafana dashboard must e
 
 for (const metric of emittedMetrics) {
   assert.ok(dashboardMetrics.has(metric), `Grafana overview dashboard must query ${metric}`);
+}
+
+for (const metric of alertMetrics) {
+  assert.ok(dashboardMetrics.has(metric), `Grafana overview dashboard must query alert metric ${metric}`);
 }
 
 for (const panel of dashboard.panels) {
@@ -42,11 +48,17 @@ assert.ok(
 );
 
 console.log(
-  `Grafana dashboard consistency check passed (${dashboard.panels.length} panels, ${emittedMetrics.length} metrics)`,
+  `Grafana dashboard consistency check passed (${dashboard.panels.length} panels, ${emittedMetrics.length} metrics, ${alertMetrics.length} alert metrics)`,
 );
 
 function extractEmittedMetrics(source) {
   return [...source.matchAll(/"# HELP (rfq_[a-z0-9_]+) /g)].map((match) => match[1]);
+}
+
+function extractAlertMetrics(source) {
+  return [...new Set([...source.matchAll(/\b(rfq_[a-z0-9_]+(?:_bucket|_sum|_count)?)\b/g)]
+    .map((match) => normalizeMetricName(match[1])))]
+    .sort();
 }
 
 function extractDashboardExpressions(dashboard) {
