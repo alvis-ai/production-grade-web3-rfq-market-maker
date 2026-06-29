@@ -461,6 +461,8 @@ grep -q 'rfqApiBaseUrl' frontend/src/pages/QuotePage.tsx
 grep -q 'lazy(() => import("../components/WalletSubmitControl"))' frontend/src/pages/QuotePage.tsx
 grep -q 'manualChunks' frontend/vite.config.ts
 grep -q 'chunkSizeWarningLimit' frontend/vite.config.ts
+grep -q 'INVALID_ANNOTATION' frontend/vite.config.ts
+grep -q 'node_modules/ox' frontend/vite.config.ts
 grep -q 'wallet-rainbowkit' frontend/vite.config.ts
 grep -q 'wallet-viem' frontend/vite.config.ts
 grep -q 'Enable Wallet' frontend/src/pages/QuotePage.tsx

@@ -6,6 +6,13 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1700,
     rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.code === "INVALID_ANNOTATION" && String(warning.id ?? "").includes("node_modules/ox")) {
+          return;
+        }
+
+        warn(warning);
+      },
       output: {
         manualChunks(id) {
           if (id.includes("node_modules/react") || id.includes("node_modules/react-dom")) {

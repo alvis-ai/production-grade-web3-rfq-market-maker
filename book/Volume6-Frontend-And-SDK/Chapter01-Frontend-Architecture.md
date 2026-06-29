@@ -116,6 +116,7 @@ stateDiagram-v2
 - `VITE_RFQ_SETTLEMENT_ADDRESS` 是浏览器侧合约写入目标；未配置时链上提交按钮保持禁用，但 API relay 路径仍可用于本地 smoke。
 - `VITE_WALLETCONNECT_PROJECT_ID` 由 RainbowKit 使用，本地默认值只用于构建和离线开发。
 - Wallet submit surface 使用 React lazy loading；Vite `manualChunks` 将 React、RFQ SDK、RainbowKit、WalletConnect、Reown、MetaMask、Coinbase 和 Wagmi/Viem runtime 分开，避免首屏 quote form 被钱包依赖阻塞。
+- Vite build 只过滤 `node_modules/ox` 的 Rollup `INVALID_ANNOTATION` 噪音；其他 warning 必须保留，避免 CI 输出掩盖真实构建风险。
 - 前端不重新实现 Pricing 或 Risk。
 
 ## Failure Scenarios
