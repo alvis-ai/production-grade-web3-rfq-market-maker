@@ -81,6 +81,18 @@ assert.equal(
   "QuoteResponse.signature must be a 65-byte EIP-712 signature",
 );
 
+for (const [schemaName, propertyName] of [
+  ["QuoteRequest", "chainId"],
+  ["SignedQuote", "chainId"],
+  ["SignedQuote", "deadline"],
+]) {
+  assert.equal(
+    extractOpenApiPropertyNumericBound(openapiSource, schemaName, propertyName, "maximum"),
+    "9007199254740991",
+    `${schemaName}.${propertyName} must document the JavaScript safe integer maximum`,
+  );
+}
+
 for (const schemaName of ["SubmitQuoteResponse", "QuoteStatus", "SettlementEventStatus"]) {
   assert.equal(
     extractOpenApiPropertyPattern(openapiSource, schemaName, "txHash"),
@@ -206,6 +218,25 @@ function extractOpenApiPropertyPattern(source, schemaName, propertyName) {
   assert.ok(patternLine, `Unable to find pattern for ${schemaName}.${propertyName}`);
 
   return patternLine.trim().slice("pattern: ".length).replace(/^"|"$/g, "");
+}
+
+function extractOpenApiPropertyNumericBound(source, schemaName, propertyName, boundName) {
+  const lines = extractOpenApiSchemaLines(source, schemaName);
+  const propertyIndex = lines.findIndex((line) => line === `        ${propertyName}:`);
+  assert.ok(propertyIndex >= 0, `Unable to find ${schemaName}.${propertyName}`);
+
+  const propertyLines = [];
+  for (const line of lines.slice(propertyIndex + 1)) {
+    if (/^        [a-zA-Z][a-zA-Z0-9]*:$/.test(line)) {
+      break;
+    }
+    propertyLines.push(line);
+  }
+
+  const boundLine = propertyLines.find((line) => line.trim().startsWith(`${boundName}: `));
+  assert.ok(boundLine, `Unable to find ${boundName} for ${schemaName}.${propertyName}`);
+
+  return boundLine.trim().slice(`${boundName}: `.length);
 }
 
 function assertOpenApiSchemaClosed(schemaName) {

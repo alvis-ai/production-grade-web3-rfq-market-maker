@@ -20,8 +20,8 @@ export function validateQuoteRequest(input: unknown): QuoteRequest {
   const amountIn = String(input.amountIn ?? "");
   const slippageBps = Number(input.slippageBps);
 
-  if (!Number.isInteger(chainId) || chainId <= 0) {
-    throw new APIError("INVALID_REQUEST", "chainId must be a positive integer", 400);
+  if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+    throw new APIError("INVALID_REQUEST", "chainId must be a positive safe integer", 400);
   }
   if (!isAddress(user)) {
     throw new APIError("INVALID_REQUEST", "user must be an EVM address", 400);

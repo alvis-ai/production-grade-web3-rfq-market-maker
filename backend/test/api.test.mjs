@@ -1784,6 +1784,14 @@ test("RFQ API includes trace ids on validation and not found errors", async () =
     assert.equal(invalid.headers["x-trace-id"], invalid.body.traceId);
     assertSecurityHeaders(invalid, { hsts: false });
 
+    const unsafeChainId = await injectJson(server, "POST", "/quote", {
+      ...baseQuoteRequest,
+      chainId: Number.MAX_SAFE_INTEGER + 1,
+    });
+    assert.equal(unsafeChainId.statusCode, 400);
+    assert.equal(unsafeChainId.body.code, "INVALID_REQUEST");
+    assert.match(unsafeChainId.body.message, /chainId must be a positive safe integer/);
+
     const notFound = await injectJson(server, "GET", "/quote/q_missing");
     assert.equal(notFound.statusCode, 404);
     assert.equal(notFound.body.code, "QUOTE_NOT_FOUND");
@@ -1965,6 +1973,28 @@ test("RFQ API rejects submit payloads that violate settlement shape", async () =
     assert.equal(belowMinimum.statusCode, 400);
     assert.equal(belowMinimum.body.code, "INVALID_REQUEST");
     assert.match(belowMinimum.body.message, /greater than or equal/);
+
+    const unsafeDeadline = await injectJson(server, "POST", "/submit", {
+      quote: {
+        ...quote,
+        deadline: Number.MAX_SAFE_INTEGER + 1,
+      },
+      signature: fixedSignature(),
+    });
+    assert.equal(unsafeDeadline.statusCode, 400);
+    assert.equal(unsafeDeadline.body.code, "INVALID_REQUEST");
+    assert.match(unsafeDeadline.body.message, /quote\.deadline must be a positive safe integer/);
+
+    const unsafeChainId = await injectJson(server, "POST", "/submit", {
+      quote: {
+        ...quote,
+        chainId: Number.MAX_SAFE_INTEGER + 1,
+      },
+      signature: fixedSignature(),
+    });
+    assert.equal(unsafeChainId.statusCode, 400);
+    assert.equal(unsafeChainId.body.code, "INVALID_REQUEST");
+    assert.match(unsafeChainId.body.message, /quote\.chainId must be a positive safe integer/);
   } finally {
     await server.close();
   }

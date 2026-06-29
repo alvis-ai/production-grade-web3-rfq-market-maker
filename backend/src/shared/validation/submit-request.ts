@@ -100,8 +100,8 @@ function readPositiveUint(input: unknown, field: string): string {
 
 function readPositiveInteger(input: unknown, field: string): number {
   const value = Number(input);
-  if (!Number.isInteger(value) || value <= 0) {
-    throw new APIError("INVALID_REQUEST", `${field} must be a positive integer`, 400);
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new APIError("INVALID_REQUEST", `${field} must be a positive safe integer`, 400);
   }
 
   return value;

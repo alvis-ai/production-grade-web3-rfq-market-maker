@@ -162,10 +162,15 @@ grep -q 'readiness.status === "degraded"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts
 grep -q 'validateQuoteRequest' backend/src/main.ts
 grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
+grep -q 'chainId must be a positive safe integer' backend/src/shared/validation/quote-request.ts
+grep -q 'positive safe integer' backend/src/shared/validation/submit-request.ts
 grep -q 'assertExactFields' backend/src/shared/validation/quote-request.ts
 grep -q 'assertExactFields' backend/src/shared/validation/submit-request.ts
 grep -q 'unknown request fields' backend/test/api.test.mjs
+grep -q 'Number.MAX_SAFE_INTEGER + 1' backend/test/api.test.mjs
 grep -q 'additionalProperties: false' docs/api/openapi.yaml
+grep -q 'maximum: 9007199254740991' docs/api/openapi.yaml
+grep -q 'JavaScript safe integer maximum' scripts/check-api-schema-consistency.mjs
 grep -q 'must reject unknown request fields' scripts/check-api-schema-consistency.mjs
 grep -q 'QuoteResponse.signature must be a 65-byte EIP-712 signature' scripts/check-api-schema-consistency.mjs
 grep -q 'SubmitQuoteResponse", "QuoteStatus", "SettlementEventStatus' scripts/check-api-schema-consistency.mjs
