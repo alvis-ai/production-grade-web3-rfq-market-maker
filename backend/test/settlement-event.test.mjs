@@ -178,10 +178,58 @@ test("SettlementEventService rejects invalid chain event ordinals before side ef
   }
 });
 
+test("SettlementEventService rejects unsafe settlement quote inputs before side effects", () => {
+  const invalidInputs = [
+    [undefined, /Settlement event input must be an object/],
+    [{ quoteId: " " }, /Settlement event quoteId must be a non-empty string/],
+    [{ quote: undefined }, /Settlement event quote must be an object/],
+    [{ quote: { ...quote, chainId: 0 } }, /Settlement event quote.chainId must be a positive safe integer/],
+    [{ quote: { ...quote, user: "0x1234" } }, /Settlement event quote.user must be a 20-byte hex address/],
+    [{ quote: { ...quote, tokenOut: quote.tokenIn } }, /Settlement event quote token pair must contain distinct tokens/],
+    [{ quote: { ...quote, amountIn: "0" } }, /Settlement event quote.amountIn must be a positive uint string/],
+    [{ quote: { ...quote, amountOut: "979" } }, /Settlement event quote.amountOut must be greater than or equal to quote.minAmountOut/],
+    [{ quote: { ...quote, nonce: "not-a-uint" } }, /Settlement event quote.nonce must be a uint string/],
+    [{ quote: { ...quote, deadline: Number.MAX_SAFE_INTEGER + 1 } }, /Settlement event quote.deadline must be a positive safe integer/],
+  ];
+
+  for (const [invalidInput, expectedError] of invalidInputs) {
+    const inventory = new InventoryService();
+    const settlements = new SettlementEventService(inventory);
+
+    assert.throws(
+      () =>
+        settlements.applySettlementEvent(
+          invalidInput === undefined
+            ? undefined
+            : {
+                quoteId: "q_test",
+                quote,
+                txHash: `0x${"66".repeat(32)}`,
+                ...invalidInput,
+              },
+        ),
+      expectedError,
+    );
+    assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 0n);
+    assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, 0n);
+  }
+});
+
 test("hashSettlementQuote matches RFQSettlement.hashQuote struct hashing", () => {
   assert.equal(
     hashSettlementQuote(quote),
     "0x4b1a6949619f6bafcefcde5376e278dd0eeff6a660a6cdccad19977866943d8e",
+  );
+});
+
+test("hashSettlementQuote rejects malformed quote fields before ABI encoding", () => {
+  assert.throws(
+    () =>
+      hashSettlementQuote({
+        ...quote,
+        tokenOut: "0x1234",
+      }),
+    /Settlement event quote.tokenOut must be a 20-byte hex address/,
   );
 });
 
@@ -205,7 +253,7 @@ test("SettlementEventService rejects conflicting payloads for an existing chain 
         quoteId: "q_conflict",
         quote: {
           ...quote,
-          amountOut: "900",
+          amountOut: "985",
         },
       }),
     /Settlement event key conflict/,
