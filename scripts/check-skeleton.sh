@@ -19,6 +19,7 @@ test -s backend/test/quote-service.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
 test -s backend/test/readiness.test.mjs
+test -s backend/test/routing.test.mjs
 test -s backend/test/settlement-event.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
@@ -73,6 +74,7 @@ grep -q 'getMarketSnapshotIssue rejects stale or future-skewed market snapshots'
 test -s backend/src/modules/rate-limit/rate-limit.service.ts
 test -s backend/src/shared/errors/api-error.ts
 test -s backend/src/modules/routing/routing.engine.ts
+grep -q 'InternalInventoryRoutingEngine creates deterministic internal inventory route plans' backend/test/routing.test.mjs
 test -s backend/src/shared/validation/quote-request.ts
 test -s backend/src/shared/validation/submit-request.ts
 test -s frontend/src/lib/rfq.ts
