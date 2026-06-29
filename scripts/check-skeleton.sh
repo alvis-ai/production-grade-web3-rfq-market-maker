@@ -14,6 +14,7 @@ test -s backend/src/main.ts
 test -s backend/test/api.test.mjs
 test -s backend/test/hedge.test.mjs
 test -s backend/test/inventory.test.mjs
+test -s backend/test/market-data.test.mjs
 test -s backend/test/quote-service.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
@@ -68,6 +69,7 @@ grep -q 'defaultMaxSnapshotFutureSkewMs' backend/src/modules/market-data/market-
 grep -q 'snapshot timestamp is too far in the future' backend/src/modules/market-data/market-data.service.ts
 grep -q 'mid price is invalid' backend/src/modules/market-data/market-data.service.ts
 grep -q 'liquidity is invalid' backend/src/modules/market-data/market-data.service.ts
+grep -q 'getMarketSnapshotIssue rejects stale or future-skewed market snapshots' backend/test/market-data.test.mjs
 test -s backend/src/modules/rate-limit/rate-limit.service.ts
 test -s backend/src/shared/errors/api-error.ts
 test -s backend/src/modules/routing/routing.engine.ts
