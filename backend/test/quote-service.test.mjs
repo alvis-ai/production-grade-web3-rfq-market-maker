@@ -151,6 +151,45 @@ test("InMemoryQuoteRepository rejects signed quote identity rewrites", async () 
   assert.equal(indexed.quoteId, "q_original");
 });
 
+test("InMemoryQuoteRepository preserves settlement metadata across status updates", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const signedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+    chainId: 1,
+  };
+
+  await quoteRepository.saveSigned({
+    quoteId: "q_status",
+    snapshotId: "snapshot_1",
+    quote: signedQuote,
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+
+  await quoteRepository.markStatus("q_status", "submitted", {
+    txHash: `0x${"aa".repeat(32)}`,
+    settlementEventId: "se_1",
+    hedgeOrderId: "h_1",
+    pnlId: "pnl_1",
+  });
+  await quoteRepository.markStatus("q_status", "settled");
+
+  const status = await quoteRepository.findStatus("q_status");
+  assert.equal(status.status, "settled");
+  assert.equal(status.txHash, `0x${"aa".repeat(32)}`);
+  assert.equal(status.settlementEventId, "se_1");
+  assert.equal(status.hedgeOrderId, "h_1");
+  assert.equal(status.pnlId, "pnl_1");
+});
+
 test("QuoteService uses configured quote TTL when generating signed quote deadlines", async () => {
   const originalDateNow = Date.now;
   const fixedNow = originalDateNow();

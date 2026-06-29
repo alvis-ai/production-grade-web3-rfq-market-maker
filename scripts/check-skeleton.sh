@@ -299,6 +299,7 @@ grep -q 'chainUserNonceKey' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote nonce key already exists' backend/src/modules/quote/quote.repository.ts
 grep -q 'rejects signed quote nonce key conflicts' backend/test/quote-service.test.mjs
 grep -q 'rejects signed quote identity rewrites' backend/test/quote-service.test.mjs
+grep -q 'preserves settlement metadata across status updates' backend/test/quote-service.test.mjs
 grep -q 'chainId:user:nonce' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'indexes signed quotes by chain, user, and nonce' backend/test/quote-service.test.mjs
 grep -q 'uq_quotes_chain_user_nonce' docs/database/schema.sql
