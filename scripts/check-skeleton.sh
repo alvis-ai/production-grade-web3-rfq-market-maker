@@ -16,6 +16,7 @@ test -s backend/test/hedge.test.mjs
 test -s backend/test/quote-service.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
+test -s backend/test/readiness.test.mjs
 test -s backend/test/settlement-event.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
@@ -42,6 +43,7 @@ grep -q 'riskStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'quoteRepositoryStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'settlementEventStoreStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'pnlStatus' backend/src/modules/health/readiness.service.ts
+grep -q 'ReadinessService degrades the aggregate status when a dependency probe fails' backend/test/readiness.test.mjs
 test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
