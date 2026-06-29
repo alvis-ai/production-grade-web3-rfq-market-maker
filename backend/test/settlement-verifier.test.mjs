@@ -123,6 +123,53 @@ test("LocalSettlementVerifier rejects settlement amountOut below minimum", async
   );
 });
 
+test("LocalSettlementVerifier rejects unsafe policy configuration at construction", () => {
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
+        verifierVersion: " ",
+      }),
+    /Local settlement verifier verifierVersion must be a non-empty string/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
+        enabledChainIds: [],
+      }),
+    /Local settlement verifier enabledChainIds must contain at least one chain id/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
+        enabledChainIds: [0],
+      }),
+    /Local settlement verifier enabledChainIds entries must be positive safe integers/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
+        tokenWhitelist: [],
+      }),
+    /Local settlement verifier tokenWhitelist must contain at least one address/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
+        tokenWhitelist: ["0x00000000000000000000000000000000000000zz"],
+      }),
+    /Local settlement verifier tokenWhitelist entries must be 20-byte hex addresses/,
+  );
+});
+
 async function assertSettlementRevert(promise, internalReasonCode) {
   await assert.rejects(promise, (error) => {
     assert.equal(error.code, "SETTLEMENT_REVERTED");

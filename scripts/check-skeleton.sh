@@ -374,6 +374,8 @@ grep -q 'rejects conflicting payloads for an existing chain event key' backend/t
 grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'TOKEN_NOT_WHITELISTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertChainIds(policy.enabledChainIds)' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertTokenWhitelist(policy.tokenWhitelist)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
 grep -q 'recordHedgeFailure' backend/src/modules/execution/execution.service.ts
 grep -q 'hedgeOrderId: hedgeResult?.hedgeOrderId' backend/src/modules/execution/execution.service.ts
@@ -971,6 +973,8 @@ grep -q 'LocalSettlementVerifier rejects expired settlement quotes' backend/test
 grep -q 'LocalSettlementVerifier rejects invalid settlement token pairs' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects invalid settlement amounts' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects settlement amountOut below minimum' backend/test/settlement-verifier.test.mjs
+grep -q 'LocalSettlementVerifier rejects unsafe policy configuration at construction' backend/test/settlement-verifier.test.mjs
+grep -q 'settlement verifier policy fail-fast' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'risk rejection when rejected quote persistence fails' backend/test/api.test.mjs
 grep -q 'Rejected quote persistence unavailable' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md

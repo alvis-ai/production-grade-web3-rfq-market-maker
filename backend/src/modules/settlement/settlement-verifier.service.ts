@@ -36,6 +36,10 @@ export class LocalSettlementVerifier implements SettlementVerifier {
   private readonly tokenWhitelist: ReadonlySet<string>;
 
   constructor(private readonly policy: LocalSettlementVerifierPolicy = defaultLocalSettlementVerifierPolicy) {
+    assertNonEmptyString(policy.verifierVersion, "verifierVersion");
+    assertChainIds(policy.enabledChainIds);
+    assertTokenWhitelist(policy.tokenWhitelist);
+
     this.enabledChainIds = new Set(policy.enabledChainIds);
     this.tokenWhitelist = new Set(policy.tokenWhitelist.map((token) => token.toLowerCase()));
   }
@@ -80,5 +84,35 @@ export class LocalSettlementVerifier implements SettlementVerifier {
 
   private reverted(reasonCode: string, message: string): APIError {
     return new APIError("SETTLEMENT_REVERTED", message, 409, undefined, reasonCode);
+  }
+}
+
+function assertNonEmptyString(value: string, field: keyof LocalSettlementVerifierPolicy): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Local settlement verifier ${field} must be a non-empty string`);
+  }
+}
+
+function assertChainIds(chainIds: readonly number[]): void {
+  if (chainIds.length === 0) {
+    throw new Error("Local settlement verifier enabledChainIds must contain at least one chain id");
+  }
+
+  for (const chainId of chainIds) {
+    if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+      throw new Error("Local settlement verifier enabledChainIds entries must be positive safe integers");
+    }
+  }
+}
+
+function assertTokenWhitelist(tokens: readonly `0x${string}`[]): void {
+  if (tokens.length === 0) {
+    throw new Error("Local settlement verifier tokenWhitelist must contain at least one address");
+  }
+
+  for (const token of tokens) {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(token)) {
+      throw new Error("Local settlement verifier tokenWhitelist entries must be 20-byte hex addresses");
+    }
   }
 }

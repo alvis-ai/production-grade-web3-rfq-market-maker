@@ -124,6 +124,7 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 
 - Settlement event is source of truth.
 - 第一阶段 `/submit` uses `LocalSettlementVerifier` to mirror RFQSettlement chainId、deadline、token whitelist、token pair 和 amount shape checks before simulated settlement.
+- `LocalSettlementVerifierPolicy` 在构造期 fail fast：`verifierVersion` 必须非空，`enabledChainIds` 和 `tokenWhitelist` 必须非空，chain id 必须是正安全整数，token whitelist entries 必须是 20-byte hex address。错误 policy 不能以空白版本、空白 allowlist 或畸形地址进入 `/submit` 结算验证路径。
 - Settlement verification failure returns `SETTLEMENT_REVERTED`, marks the quote `failed`, and must not update inventory, queue hedge intent, record PnL, or mark the quote settled.
 - If marking the quote `failed` after `SETTLEMENT_REVERTED` cannot be persisted, the API still returns the original `SETTLEMENT_REVERTED` response and emits `rfq_quote_status_update_errors_total{target_status="FAILED"}`. The persistence failure must not mask the settlement rejection reason.
 - Settlement verifier dependency failure returns `SETTLEMENT_UNAVAILABLE` with HTTP 503, keeps the quote `signed`, and must not update inventory, queue hedge intent, record PnL, or mark the quote failed. This path is retryable until the signed quote expires.
@@ -164,7 +165,7 @@ Execution path can be asynchronous. RPC latency should not block quote generatio
 
 ## Testing Strategy
 
-测试 payload generation、relay failure、tx revert、settlement verifier unavailable、event confirmation、duplicate submit、duplicate settlement side-effect suppression、post-settlement status persistence failure 和 quote expired。
+测试 payload generation、relay failure、tx revert、settlement verifier unavailable、settlement verifier policy fail-fast、event confirmation、duplicate submit、duplicate settlement side-effect suppression、post-settlement status persistence failure 和 quote expired。
 
 ## Interview Notes
 
