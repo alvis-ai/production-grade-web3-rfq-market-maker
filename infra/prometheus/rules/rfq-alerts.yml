@@ -181,6 +181,15 @@ groups:
           summary: RFQ PnL attribution record errors detected after settlement
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQPnlThroughputStalled
+        expr: increase(rfq_settlements_total[10m]) > 0 and increase(rfq_pnl_trades_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ settlements are not producing realized PnL trades
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQRealizedPnlNegative
         expr: min by (chain_id, token) (rfq_realized_pnl_token_out) < 0
         for: 5m

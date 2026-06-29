@@ -144,6 +144,7 @@ Key metrics include:
 - Hedge intent throughput alerting should compare settlements with hedge intents because hedge lag histograms are silent when no intent is created.
 - Inventory balance alerting uses token native units in the reference implementation; production exposure limits should normalize to USD, delta and venue-specific hedge capacity.
 - Realized PnL alerting uses output-token units in the reference implementation; production dashboards should reconcile this with quote-level ClickHouse attribution and treasury accounting.
+- PnL throughput alerting should compare settlements with realized PnL trades because best-effort attribution must not fail silently.
 - Use ClickHouse for quote-level analysis.
 - Every critical alert links to runbook.
 
@@ -163,6 +164,7 @@ Key metrics include:
 - Inventory exposure over limit：tighten risk limits.
 - Inventory balance threshold breach：reduce quotes that add to the exposed side, hedge down the token and reconcile settlement events.
 - Negative realized PnL：pause affected pairs if pricing, market snapshots or settlement attribution cannot explain the loss.
+- PnL throughput stalls：run settlement-to-PnL reconciliation and verify market snapshots are available for attribution.
 - Event lag grows：pause risky pairs.
 - Hedge failure spike：widen spread and page operator.
 
