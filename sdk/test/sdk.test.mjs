@@ -455,6 +455,40 @@ test("RFQClient rejects malformed health and readiness status responses", async 
   }
 });
 
+test("RFQClient rejects malformed hedge status enum responses", async () => {
+  const restoreFetch = installFetch(async () =>
+    jsonResponse(200, {
+      hedgeOrderId: "h_1_00000003_000001",
+      status: "queued",
+      settlementEventId: "se_1_22222222_0",
+      quoteId: "q_test",
+      chainId: quote.chainId,
+      token: quote.tokenOut,
+      side: "hold",
+      amount: quote.amountOut,
+      reason: "inventory_rebalance",
+      createdAt: "2026-06-27T00:00:00.000Z",
+    }),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.getHedge("h_1_00000003_000001"),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 200);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ hedge status response returned malformed status");
+        return true;
+      },
+    );
+  } finally {
+    restoreFetch();
+  }
+});
+
 test("RFQClient rejects malformed successful signature and hash fields", async () => {
   const restoreQuoteFetch = installFetch(async () =>
     jsonResponse(200, {

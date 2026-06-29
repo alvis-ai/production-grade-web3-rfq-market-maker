@@ -81,7 +81,12 @@ export class RFQClient {
 
     await assertOk(response, "RFQ hedge status failed");
 
-    return (await readJsonResponse(response, "RFQ hedge status response")) as HedgeIntentStatus;
+    const payload = await readJsonResponse(response, "RFQ hedge status response");
+    if (!isHedgeIntentStatus(payload)) {
+      throw new RFQClientError("RFQ hedge status response returned malformed status", response.status);
+    }
+
+    return payload;
   }
 
   async getSettlement(settlementEventId: string): Promise<SettlementEventStatus> {
@@ -241,6 +246,15 @@ function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {
 
 function isHealthResponse(value: unknown): value is HealthResponse {
   return isRecord(value) && value.status === "ok";
+}
+
+function isHedgeIntentStatus(value: unknown): value is HedgeIntentStatus {
+  return (
+    isRecord(value) &&
+    value.status === "queued" &&
+    (value.side === "buy" || value.side === "sell") &&
+    (value.reason === "inventory_rebalance" || value.reason === "risk_reduction")
+  );
 }
 
 function isReadinessResponse(value: unknown): value is ReadinessResponse {
