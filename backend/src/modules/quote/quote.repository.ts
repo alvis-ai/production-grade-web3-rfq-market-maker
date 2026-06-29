@@ -170,6 +170,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     if (!current) {
       return;
     }
+    assertNonEmptyString(errorCode, "errorCode", "Failed quote");
     assertCanMarkFailed(current);
 
     this.records.set(quoteId, {
