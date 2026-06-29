@@ -135,6 +135,7 @@ Key metrics include:
 - Rate-limit metrics use only the fixed `endpoint` label: `quote`, `submit` or `status`; dynamic route params must stay out of Prometheus labels.
 - Readiness metrics mirror the last `/ready` probe with fixed labels: `rfq_readiness_status{status="ready|degraded"}` and `rfq_dependency_status{component="marketData|routing|pricing|risk|signer|quoteRepository|inventory|execution|settlementEventStore|pnl|metrics",status="ok|degraded"}`.
 - Readiness alerting should page on sustained degraded status, then route by the degraded component instead of relying on a single generic health alarm.
+- Quote error alerting should correlate errors with risk rejection, rate limit, market data, pricing and signer metrics before changing quote availability.
 - Submit error alerting must compare errors with accepted settlements, rate-limit counters and settlement reverts before deciding whether to pause submit traffic.
 - Rate-limit alerting should inspect `endpoint` first, then separate abuse, broken client retries and real demand before changing global limits.
 - Use ClickHouse for quote-level analysis.
@@ -145,6 +146,7 @@ Key metrics include:
 - Signer latency p99 spikes：reduce quote traffic or disable signing.
 - Readiness is degraded：inspect `rfq_dependency_status` and follow the component-specific runbook before restarting healthy pods.
 - Quote latency p95 spikes：check market data, pricing, risk and signer dependency latency.
+- Quote error spike：separate invalid requests, rate limits, risk rejection, stale market data, pricing failures and signer failures.
 - Risk reject spike：check market volatility, inventory limits, token allowlist and toxic flow signals.
 - Submit error spike：separate invalid client payloads, rate limits, expired or replayed quotes, settlement reverts and dependency failures.
 - Rate limit spike：check abusive clients, retry storms, ingress behavior and whether legitimate demand needs a controlled limit change.

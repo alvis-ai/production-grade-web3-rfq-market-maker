@@ -19,6 +19,15 @@ groups:
           summary: RFQ quote request counter has not increased
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQQuoteErrorsSpike
+        expr: increase(rfq_quote_errors_total[5m]) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ quote error volume is elevated
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQSubmitTrafficSpike
         expr: increase(rfq_submit_requests_total[5m]) > 100
         for: 5m
