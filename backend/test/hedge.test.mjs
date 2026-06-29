@@ -92,3 +92,48 @@ test("HedgeService rejects unsafe failure penalty configuration at construction"
     /Hedge failurePenaltyBps must be less than or equal to maxFailurePenaltyBps/,
   );
 });
+
+test("HedgeService rejects unsafe intent inputs before writing hedge state", () => {
+  const service = new HedgeService();
+
+  assert.throws(
+    () => service.createHedgeIntent({ ...intent, settlementEventId: " " }),
+    /Hedge settlementEventId must be a non-empty string/,
+  );
+  assert.throws(
+    () => service.createHedgeIntent({ ...intent, token: "0x1234" }),
+    /Hedge token must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () => service.createHedgeIntent({ ...intent, amount: "0" }),
+    /Hedge amount must be a positive uint string/,
+  );
+  assert.throws(
+    () => service.createHedgeIntent({ ...intent, side: "hold" }),
+    /Hedge side must be buy or sell/,
+  );
+  assert.throws(
+    () => service.createHedgeIntent({ ...intent, reason: "manual" }),
+    /Hedge reason must be inventory_rebalance or risk_reduction/,
+  );
+
+  const valid = service.createHedgeIntent(intent);
+  assert.equal(valid.hedgeOrderId, "h_1_00000000_000001");
+});
+
+test("HedgeService rejects unsafe risk feedback inputs before recording pressure", () => {
+  const service = new HedgeService({
+    failurePenaltyBps: 40,
+    maxFailurePenaltyBps: 100,
+  });
+
+  assert.throws(
+    () => service.recordHedgeFailure({ ...intent, chainId: 0 }, "HEDGE_INTENT_FAILED"),
+    /Hedge chainId must be a positive safe integer/,
+  );
+  assert.throws(
+    () => service.quoteRiskPenaltyBps({ chainId: 1, token: "0x1234" }),
+    /Hedge token must be a 20-byte hex address/,
+  );
+  assert.equal(service.quoteRiskPenaltyBps({ chainId: intent.chainId, token: intent.token }), 0);
+});

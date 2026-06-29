@@ -61,6 +61,7 @@ export class HedgeService implements HedgeIntentService {
   }
 
   createHedgeIntent(intent: HedgeIntent): HedgeResult {
+    assertHedgeIntent(intent);
     const existingHedgeOrderId = this.hedgeOrderIdsBySettlementEvent.get(intent.settlementEventId);
     if (existingHedgeOrderId) {
       const existingRecord = this.intents.get(existingHedgeOrderId);
@@ -109,12 +110,14 @@ export class HedgeService implements HedgeIntentService {
   }
 
   recordHedgeFailure(intent: HedgeIntent, _reasonCode: HedgeFailureReasonCode): void {
+    assertHedgeIntent(intent);
     const key = this.key(intent.chainId, intent.token);
     const current = this.failurePressure.get(key) ?? 0;
     this.failurePressure.set(key, Math.min(current + this.config.failurePenaltyBps, this.config.maxFailurePenaltyBps));
   }
 
   quoteRiskPenaltyBps(input: HedgeRiskInput): number {
+    assertHedgeRiskInput(input);
     return this.failurePressure.get(this.key(input.chainId, input.token)) ?? 0;
   }
 
@@ -130,5 +133,39 @@ function assertPositiveBps(value: number, field: keyof HedgeServiceConfig): void
 
   if (value > 10_000) {
     throw new Error(`Hedge ${field} must be less than or equal to 10000 bps`);
+  }
+}
+
+function assertHedgeIntent(intent: HedgeIntent): void {
+  assertNonEmptyString(intent.settlementEventId, "settlementEventId");
+  assertNonEmptyString(intent.quoteId, "quoteId");
+  assertHedgeRiskInput(intent);
+  if (intent.side !== "buy" && intent.side !== "sell") {
+    throw new Error("Hedge side must be buy or sell");
+  }
+  assertPositiveUIntString(intent.amount, "amount");
+  if (intent.reason !== "inventory_rebalance" && intent.reason !== "risk_reduction") {
+    throw new Error("Hedge reason must be inventory_rebalance or risk_reduction");
+  }
+}
+
+function assertHedgeRiskInput(input: HedgeRiskInput): void {
+  if (!Number.isSafeInteger(input.chainId) || input.chainId <= 0) {
+    throw new Error("Hedge chainId must be a positive safe integer");
+  }
+  if (!/^0x[0-9a-fA-F]{40}$/.test(input.token)) {
+    throw new Error("Hedge token must be a 20-byte hex address");
+  }
+}
+
+function assertNonEmptyString(value: string, field: keyof Pick<HedgeIntent, "settlementEventId" | "quoteId">): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Hedge ${field} must be a non-empty string`);
+  }
+}
+
+function assertPositiveUIntString(value: string, field: keyof Pick<HedgeIntent, "amount">): void {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/.test(value) || BigInt(value) <= 0n) {
+    throw new Error(`Hedge ${field} must be a positive uint string`);
   }
 }
