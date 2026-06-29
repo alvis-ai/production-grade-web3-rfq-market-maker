@@ -153,7 +153,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/pnl", async (request, reply) => {
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
+      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply);
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -165,7 +165,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/settlements/:settlementEventId", async (request, reply) => {
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
+      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply);
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -187,7 +187,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/quote/:quoteId", async (request, reply) => {
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
+      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply);
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -205,7 +205,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/hedges/:hedgeOrderId", async (request, reply) => {
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, "status", request, reply);
+      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply);
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -225,7 +225,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     const startedAt = Date.now();
     metricsService.recordQuoteRequest();
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, "quote", request, reply);
+      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "quote", request, reply);
       if (!rateLimitResult.allowed) {
         metricsService.recordQuoteError();
         return rateLimitResult.response;
@@ -252,7 +252,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     let quoteId: string | undefined;
     metricsService.recordSubmitRequest();
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, "submit", request, reply);
+      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "submit", request, reply);
       if (!rateLimitResult.allowed) {
         metricsService.recordSubmitError();
         return rateLimitResult.response;
@@ -303,6 +303,7 @@ export function buildServer(options: BuildServerOptions = {}) {
 
 function enforceRateLimit(
   rateLimiter: InMemoryRateLimiter | undefined,
+  metricsService: MetricsService,
   endpoint: RateLimitedEndpoint,
   request: FastifyRequest,
   reply: FastifyReply,
@@ -321,6 +322,7 @@ function enforceRateLimit(
   }
 
   const error = new APIError("RATE_LIMITED", "Too many requests", 429);
+  metricsService.recordRateLimited(endpoint);
   return {
     allowed: false,
     response: sendError(reply.header("retry-after", decision.retryAfterSeconds.toString()), requestTraceId(request), error),

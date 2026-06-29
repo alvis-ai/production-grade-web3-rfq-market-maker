@@ -308,6 +308,8 @@ grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_latency_seconds' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_rejections_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_submit_latency_seconds' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_rate_limited_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'recordRateLimited' backend/src/main.ts
 grep -q 'rfq_signer_requests_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_signer_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_signer_latency_seconds' backend/src/modules/metrics/metrics.service.ts
@@ -317,10 +319,13 @@ grep -q '"routing"' backend/src/modules/metrics/metrics.service.ts
 grep -q 'recordReadiness' backend/src/main.ts
 grep -q 'rfq_readiness_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_dependency_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'rfq_rate_limited_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'marketData、routing、pricing' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_readiness_status' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_dependency_status' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+grep -q 'rfq_rate_limited_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'marketData|routing|pricing' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+grep -q 'rfq_rate_limited_total' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'RFQReadinessDegraded' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_readiness_status{status="degraded"} == 1' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'recordQuoteLatency' backend/src/main.ts
@@ -818,6 +823,9 @@ grep -q 'same millisecond' backend/test/api.test.mjs
 grep -q 'rate limits quote requests by client' backend/test/api.test.mjs
 grep -q 'rate limits submit requests before validation and settlement' backend/test/api.test.mjs
 grep -q 'rate limits quote status requests by client' backend/test/api.test.mjs
+grep -q 'rfq_rate_limited_total\\{endpoint="quote"\\} 1' backend/test/api.test.mjs
+grep -q 'rfq_rate_limited_total\\{endpoint="submit"\\} 1' backend/test/api.test.mjs
+grep -q 'rfq_rate_limited_total\\{endpoint="status"\\} 1' backend/test/api.test.mjs
 grep -q 'PnL record creation fails' backend/test/api.test.mjs
 grep -q 'PnL summary store failures' backend/test/api.test.mjs
 grep -q 'rfq_pnl_record_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md

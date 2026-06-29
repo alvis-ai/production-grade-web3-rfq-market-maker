@@ -25,7 +25,8 @@
       "targets": [
         { "expr": "rfq_submit_requests_total", "legendFormat": "requests", "refId": "A" },
         { "expr": "rfq_submit_accepted_total", "legendFormat": "accepted", "refId": "B" },
-        { "expr": "rfq_submit_errors_total", "legendFormat": "errors", "refId": "C" }
+        { "expr": "rfq_submit_errors_total", "legendFormat": "errors", "refId": "C" },
+        { "expr": "sum by (endpoint) (rfq_rate_limited_total)", "legendFormat": "rate limited {{endpoint}}", "refId": "D" }
       ]
     },
     {

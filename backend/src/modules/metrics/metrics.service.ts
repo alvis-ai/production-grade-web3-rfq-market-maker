@@ -1,5 +1,6 @@
 import type { ReadinessResponse } from "../health/readiness.service.js";
 import type { Address, PnlTradeRecord } from "../../shared/types/rfq.js";
+import type { RateLimitedEndpoint } from "../rate-limit/rate-limit.service.js";
 
 export interface InventoryMetricPosition {
   chainId: number;
@@ -26,6 +27,7 @@ export class MetricsService {
   private submitRequests = 0;
   private submitAccepted = 0;
   private submitErrors = 0;
+  private readonly rateLimited = new Map<RateLimitedEndpoint, number>();
   private readonly signerRequests = new Map<SignerMetricOperation, number>();
   private readonly signerErrors = new Map<SignerMetricOperation, number>();
   private settlements = 0;
@@ -83,6 +85,10 @@ export class MetricsService {
 
   recordSubmitLatency(seconds: number): void {
     recordHistogram(this.submitLatency, seconds);
+  }
+
+  recordRateLimited(endpoint: RateLimitedEndpoint): void {
+    this.rateLimited.set(endpoint, (this.rateLimited.get(endpoint) ?? 0) + 1);
   }
 
   recordSignerRequest(operation: SignerMetricOperation): void {
@@ -170,6 +176,9 @@ export class MetricsService {
       "# HELP rfq_submit_latency_seconds RFQ submit request latency in seconds.",
       "# TYPE rfq_submit_latency_seconds histogram",
       ...renderHistogram("rfq_submit_latency_seconds", this.submitLatency),
+      "# HELP rfq_rate_limited_total Total rate-limited requests by stable endpoint group.",
+      "# TYPE rfq_rate_limited_total counter",
+      ...this.renderRateLimited(),
       "# HELP rfq_signer_requests_total Total signer operations by operation type.",
       "# TYPE rfq_signer_requests_total counter",
       ...this.renderSignerCounter("rfq_signer_requests_total", this.signerRequests),
@@ -232,6 +241,12 @@ export class MetricsService {
     return [...this.quoteRejections.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([reason, count]) => `rfq_quote_rejections_total{reason="${reason}"} ${count}`);
+  }
+
+  private renderRateLimited(): string[] {
+    return rateLimitedEndpoints.map((endpoint) => {
+      return `rfq_rate_limited_total{endpoint="${endpoint}"} ${this.rateLimited.get(endpoint) ?? 0}`;
+    });
   }
 
   private renderHedgeIntentErrors(): string[] {
@@ -305,6 +320,7 @@ export class MetricsService {
 }
 
 const signerMetricOperations: readonly SignerMetricOperation[] = ["sign", "verify"];
+const rateLimitedEndpoints: readonly RateLimitedEndpoint[] = ["quote", "submit", "status"];
 const readinessMetricStatuses: readonly ReadinessMetricStatus[] = ["ready", "degraded"];
 const dependencyMetricStatuses: readonly DependencyMetricStatus[] = ["ok", "degraded"];
 const readinessDependencyComponents = [

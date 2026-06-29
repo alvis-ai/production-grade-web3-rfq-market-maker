@@ -108,6 +108,7 @@ Key metrics include:
 - `rfq_submit_accepted_total`
 - `rfq_submit_errors_total`
 - `rfq_submit_latency_seconds`
+- `rfq_rate_limited_total`
 - `rfq_signer_requests_total`
 - `rfq_signer_errors_total`
 - `rfq_signer_latency_seconds`
@@ -131,6 +132,7 @@ Key metrics include:
 
 - No quoteId/user address labels in Prometheus.
 - Signer metrics use only the low-cardinality `operation` label: `sign` or `verify`.
+- Rate-limit metrics use only the fixed `endpoint` label: `quote`, `submit` or `status`; dynamic route params must stay out of Prometheus labels.
 - Readiness metrics mirror the last `/ready` probe with fixed labels: `rfq_readiness_status{status="ready|degraded"}` and `rfq_dependency_status{component="marketData|routing|pricing|risk|signer|quoteRepository|inventory|execution|settlementEventStore|pnl|metrics",status="ok|degraded"}`.
 - Readiness alerting should page on sustained degraded status, then route by the degraded component instead of relying on a single generic health alarm.
 - Use ClickHouse for quote-level analysis.

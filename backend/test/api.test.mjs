@@ -1630,6 +1630,9 @@ test("RFQ API rate limits quote requests by client", async () => {
     assert.match(metrics.payload, /rfq_quote_responses_total 1/);
     assert.match(metrics.payload, /rfq_quote_errors_total 1/);
     assert.match(metrics.payload, /rfq_quote_latency_seconds_count 2/);
+    assert.match(metrics.payload, /rfq_rate_limited_total\{endpoint="quote"\} 1/);
+    assert.match(metrics.payload, /rfq_rate_limited_total\{endpoint="submit"\} 0/);
+    assert.match(metrics.payload, /rfq_rate_limited_total\{endpoint="status"\} 0/);
   } finally {
     await server.close();
   }
@@ -1682,6 +1685,9 @@ test("RFQ API rate limits submit requests before validation and settlement", asy
     assert.match(metrics.payload, /rfq_submit_errors_total 2/);
     assert.match(metrics.payload, /rfq_submit_accepted_total 0/);
     assert.match(metrics.payload, /rfq_submit_latency_seconds_count 2/);
+    assert.match(metrics.payload, /rfq_rate_limited_total\{endpoint="quote"\} 0/);
+    assert.match(metrics.payload, /rfq_rate_limited_total\{endpoint="submit"\} 1/);
+    assert.match(metrics.payload, /rfq_rate_limited_total\{endpoint="status"\} 0/);
     assert.match(metrics.payload, /rfq_settlements_total 0/);
   } finally {
     await server.close();
@@ -1710,6 +1716,12 @@ test("RFQ API rate limits quote status requests by client", async () => {
     assert.equal(secondStatus.body.code, "RATE_LIMITED");
     assert.equal(secondStatus.headers["retry-after"], "60");
     assert.match(secondStatus.body.traceId, /^tr_/);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_rate_limited_total\{endpoint="quote"\} 0/);
+    assert.match(metrics.payload, /rfq_rate_limited_total\{endpoint="submit"\} 0/);
+    assert.match(metrics.payload, /rfq_rate_limited_total\{endpoint="status"\} 1/);
   } finally {
     await server.close();
   }
