@@ -61,7 +61,7 @@ export class SkeletonExecutionService implements ExecutionService {
     const tokenOutPosition = this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut);
     const { hedgeResult, hedgeFailure, hedgeLagSeconds } = settlementEventResult.duplicate
       ? { hedgeResult: undefined, hedgeFailure: undefined, hedgeLagSeconds: undefined }
-      : this.createHedgeIntent(request, context);
+      : this.createHedgeIntent(request, context, settlementEventResult.event.settlementEventId);
 
     return {
       response: {
@@ -93,8 +93,10 @@ export class SkeletonExecutionService implements ExecutionService {
   private createHedgeIntent(
     request: SubmitQuoteRequest,
     context: ExecutionContext,
+    settlementEventId: string,
   ): CreateHedgeIntentResult {
     const intent: HedgeIntent = {
+      settlementEventId,
       quoteId: context.quoteId,
       chainId: request.quote.chainId,
       token: request.quote.tokenOut,

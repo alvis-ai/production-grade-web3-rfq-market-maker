@@ -78,6 +78,7 @@ export interface QuoteStatus {
 export interface HedgeIntentStatus {
   hedgeOrderId: string;
   status: "queued";
+  settlementEventId: string;
   quoteId: string;
   chainId: number;
   token: Address;

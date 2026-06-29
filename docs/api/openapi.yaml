@@ -541,6 +541,7 @@ components:
       required:
         - hedgeOrderId
         - status
+        - settlementEventId
         - quoteId
         - chainId
         - token
@@ -555,6 +556,8 @@ components:
           type: string
           enum:
             - queued
+        settlementEventId:
+          type: string
         quoteId:
           type: string
         chainId:

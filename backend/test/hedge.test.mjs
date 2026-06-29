@@ -3,6 +3,7 @@ import test from "node:test";
 import { HedgeService } from "../dist/modules/hedge/hedge.service.js";
 
 const intent = {
+  settlementEventId: "se_1_22222222_0",
   quoteId: "q_1",
   chainId: 1,
   token: "0x0000000000000000000000000000000000000003",

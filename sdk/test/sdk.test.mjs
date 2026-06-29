@@ -139,6 +139,7 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
   const hedgeResponse = {
     hedgeOrderId: submitResponse.hedgeOrderId,
     status: "queued",
+    settlementEventId: submitResponse.settlementEventId,
     quoteId: "q_test",
     chainId: quote.chainId,
     token: quote.tokenOut,

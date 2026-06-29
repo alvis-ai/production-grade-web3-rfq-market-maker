@@ -406,6 +406,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assertTraceHeader(hedge);
     assert.equal(hedge.body.hedgeOrderId, submit.body.hedgeOrderId);
     assert.equal(hedge.body.status, "queued");
+    assert.equal(hedge.body.settlementEventId, submit.body.settlementEventId);
     assert.equal(hedge.body.quoteId, quote.body.quoteId);
     assert.equal(hedge.body.chainId, baseQuoteRequest.chainId);
     assert.equal(hedge.body.token, baseQuoteRequest.tokenOut);

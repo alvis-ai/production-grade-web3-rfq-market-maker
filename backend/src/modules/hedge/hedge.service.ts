@@ -3,6 +3,7 @@ import type { Address, HedgeIntentStatusResponse, UIntString } from "../../share
 export type HedgeFailureReasonCode = "HEDGE_INTENT_FAILED";
 
 export interface HedgeIntent {
+  settlementEventId: string;
   quoteId: string;
   chainId: number;
   token: Address;
@@ -62,6 +63,7 @@ export class HedgeService implements HedgeIntentService {
     const record: HedgeIntentStatusResponse = {
       hedgeOrderId,
       status: "queued",
+      settlementEventId: intent.settlementEventId,
       quoteId: intent.quoteId,
       chainId: intent.chainId,
       token: intent.token,

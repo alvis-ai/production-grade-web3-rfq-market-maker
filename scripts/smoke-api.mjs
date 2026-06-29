@@ -65,6 +65,7 @@ assertEqual(settlementStatus.logIndex, 0, "settlement log index");
 const hedgeStatus = await request("GET", `/hedges/${encodeURIComponent(submitResponse.hedgeOrderId)}`);
 assertEqual(hedgeStatus.status, "queued", "hedge status");
 assertEqual(hedgeStatus.hedgeOrderId, submitResponse.hedgeOrderId, "hedge order id");
+assertEqual(hedgeStatus.settlementEventId, submitResponse.settlementEventId, "hedge settlement event id");
 assertEqual(hedgeStatus.quoteId, quoteResponse.quoteId, "hedge quote id");
 assertEqual(hedgeStatus.token, quoteRequest.tokenOut, "hedge token");
 assertEqual(hedgeStatus.amount, quoteResponse.amountOut, "hedge amount");

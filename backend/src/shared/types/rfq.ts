@@ -75,6 +75,7 @@ export interface MarketSnapshot {
 export interface HedgeIntentStatusResponse {
   hedgeOrderId: string;
   status: "queued";
+  settlementEventId: string;
   quoteId: string;
   chainId: number;
   token: Address;
