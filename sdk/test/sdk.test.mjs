@@ -430,9 +430,9 @@ test("RFQClient rejects malformed health and readiness status responses", async 
 
   const restoreReadyFetch = installFetch(async () =>
     jsonResponse(200, {
-      status: "unknown",
+      status: "ready",
       components: {
-        signer: "ok",
+        signer: "unknown",
       },
     }),
   );

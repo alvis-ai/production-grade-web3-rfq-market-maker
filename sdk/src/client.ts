@@ -248,11 +248,14 @@ function isReadinessResponse(value: unknown): value is ReadinessResponse {
 
   return (
     (value.status === "ready" || value.status === "degraded") &&
-    !!value.components &&
-    typeof value.components === "object"
+    isReadinessComponents(value.components)
   );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object";
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isReadinessComponents(value: unknown): value is ReadinessResponse["components"] {
+  return isRecord(value) && Object.values(value).every((status) => status === "ok" || status === "degraded");
 }

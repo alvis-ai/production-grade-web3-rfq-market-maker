@@ -484,6 +484,7 @@ grep -q 'async health' sdk/src/client.ts
 grep -q 'async ready' sdk/src/client.ts
 grep -q 'isHealthResponse' sdk/src/client.ts
 grep -q 'isReadinessResponse' sdk/src/client.ts
+grep -q 'isReadinessComponents' sdk/src/client.ts
 grep -q 'async metrics' sdk/src/client.ts
 grep -q 'traceId: string' sdk/src/types.ts
 grep -q 'export const rfqErrorCodes' sdk/src/types.ts
