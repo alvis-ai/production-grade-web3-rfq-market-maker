@@ -101,12 +101,8 @@ export class RFQClient {
     await assertOk(response, "RFQ settlement event status failed");
 
     const payload = await readJsonResponse(response, "RFQ settlement event status response");
-    assertRequiredEnumField(payload, "status", ["applied"], response.status, "RFQ settlement event status response");
-    assertRequiredBytes32Field(payload, "txHash", response.status, "RFQ settlement event status response");
-    assertRequiredBytes32Field(payload, "quoteHash", response.status, "RFQ settlement event status response");
-    assertRequiredNonNegativeIntegerField(payload, "blockNumber", response.status, "RFQ settlement event status response");
-    assertRequiredNonNegativeIntegerField(payload, "logIndex", response.status, "RFQ settlement event status response");
-    return payload as SettlementEventStatus;
+    assertSettlementEventStatus(payload, response.status);
+    return payload;
   }
 
   async pnl(): Promise<PnlSummary> {
@@ -347,6 +343,49 @@ function assertHedgeIntentStatus(payload: unknown, status: number): asserts payl
   }
   if (payload.reason !== "inventory_rebalance" && payload.reason !== "risk_reduction") {
     throw malformedFieldError(status, label, "reason");
+  }
+}
+
+function assertSettlementEventStatus(payload: unknown, status: number): asserts payload is SettlementEventStatus {
+  const label = "RFQ settlement event status response";
+  if (!isRecord(payload)) {
+    throw malformedFieldError(status, label, "status");
+  }
+
+  for (const field of ["settlementEventId", "quoteId", "observedAt"] as const) {
+    if (!isNonEmptyString(payload[field])) {
+      throw malformedFieldError(status, label, field);
+    }
+  }
+  const observedAt = payload.observedAt;
+  if (!isNonEmptyString(observedAt) || Number.isNaN(Date.parse(observedAt))) {
+    throw malformedFieldError(status, label, "observedAt");
+  }
+  assertRequiredEnumField(payload, "status", ["applied"], status, label);
+  if (!Number.isSafeInteger(payload.chainId) || Number(payload.chainId) <= 0) {
+    throw malformedFieldError(status, label, "chainId");
+  }
+  assertRequiredBytes32Field(payload, "txHash", status, label);
+  assertRequiredBytes32Field(payload, "quoteHash", status, label);
+  assertRequiredNonNegativeIntegerField(payload, "blockNumber", status, label);
+  assertRequiredNonNegativeIntegerField(payload, "logIndex", status, label);
+  for (const field of ["user", "tokenIn", "tokenOut"] as const) {
+    if (!isAddressHex(payload[field])) {
+      throw malformedFieldError(status, label, field);
+    }
+  }
+  const tokenIn = payload.tokenIn;
+  const tokenOut = payload.tokenOut;
+  if (!isAddressHex(tokenIn) || !isAddressHex(tokenOut)) {
+    throw malformedFieldError(status, label, "tokenOut");
+  }
+  if (tokenIn.toLowerCase() === tokenOut.toLowerCase()) {
+    throw malformedFieldError(status, label, "tokenOut");
+  }
+  for (const field of ["amountIn", "amountOut"] as const) {
+    if (!isPositiveUIntString(payload[field])) {
+      throw malformedFieldError(status, label, field);
+    }
   }
 }
 

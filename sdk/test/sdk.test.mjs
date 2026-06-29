@@ -907,10 +907,10 @@ test("RFQClient rejects malformed submit and quote status responses", async () =
   }
 });
 
-test("RFQClient rejects malformed settlement status and ordinal responses", async () => {
+test("RFQClient rejects malformed settlement status responses", async () => {
   const settlementResponse = {
     settlementEventId: "se_1_22222222_0",
-    status: "pending",
+    status: "applied",
     quoteId: "q_test",
     chainId: quote.chainId,
     txHash: `0x${"22".repeat(32)}`,
@@ -924,48 +924,77 @@ test("RFQClient rejects malformed settlement status and ordinal responses", asyn
     amountOut: quote.amountOut,
     observedAt: "2026-06-27T00:00:00.000Z",
   };
-  const restoreStatusFetch = installFetch(async () => jsonResponse(200, settlementResponse));
 
-  try {
-    const client = new RFQClient("http://127.0.0.1:3000");
+  const cases = [
+    {
+      payload: { ...settlementResponse, settlementEventId: "" },
+      message: "RFQ settlement event status response returned malformed settlementEventId",
+    },
+    {
+      payload: { ...settlementResponse, status: "pending" },
+      message: "RFQ settlement event status response returned malformed status",
+    },
+    {
+      payload: { ...settlementResponse, quoteId: "" },
+      message: "RFQ settlement event status response returned malformed quoteId",
+    },
+    {
+      payload: { ...settlementResponse, chainId: 0 },
+      message: "RFQ settlement event status response returned malformed chainId",
+    },
+    {
+      payload: { ...settlementResponse, txHash: "0x1234" },
+      message: "RFQ settlement event status response returned malformed txHash",
+    },
+    {
+      payload: { ...settlementResponse, quoteHash: "0x1234" },
+      message: "RFQ settlement event status response returned malformed quoteHash",
+    },
+    {
+      payload: { ...settlementResponse, blockNumber: -1 },
+      message: "RFQ settlement event status response returned malformed blockNumber",
+    },
+    {
+      payload: { ...settlementResponse, logIndex: -1 },
+      message: "RFQ settlement event status response returned malformed logIndex",
+    },
+    {
+      payload: { ...settlementResponse, user: "0x1234" },
+      message: "RFQ settlement event status response returned malformed user",
+    },
+    {
+      payload: { ...settlementResponse, tokenOut: quote.tokenIn },
+      message: "RFQ settlement event status response returned malformed tokenOut",
+    },
+    {
+      payload: { ...settlementResponse, amountIn: "0" },
+      message: "RFQ settlement event status response returned malformed amountIn",
+    },
+    {
+      payload: { ...settlementResponse, observedAt: "not-a-date" },
+      message: "RFQ settlement event status response returned malformed observedAt",
+    },
+  ];
 
-    await assert.rejects(
-      client.getSettlement("se_1_22222222_0"),
-      (error) => {
-        assert.ok(error instanceof RFQClientError);
-        assert.equal(error.status, 200);
-        assert.equal(error.code, "RFQ_CLIENT_ERROR");
-        assert.equal(error.message, "RFQ settlement event status response returned malformed status");
-        return true;
-      },
-    );
-  } finally {
-    restoreStatusFetch();
-  }
+  for (const { payload, message } of cases) {
+    const restoreFetch = installFetch(async () => jsonResponse(200, payload));
 
-  const restoreOrdinalFetch = installFetch(async () =>
-    jsonResponse(200, {
-      ...settlementResponse,
-      status: "applied",
-      logIndex: -1,
-    }),
-  );
+    try {
+      const client = new RFQClient("http://127.0.0.1:3000");
 
-  try {
-    const client = new RFQClient("http://127.0.0.1:3000");
-
-    await assert.rejects(
-      client.getSettlement("se_1_22222222_0"),
-      (error) => {
-        assert.ok(error instanceof RFQClientError);
-        assert.equal(error.status, 200);
-        assert.equal(error.code, "RFQ_CLIENT_ERROR");
-        assert.equal(error.message, "RFQ settlement event status response returned malformed logIndex");
-        return true;
-      },
-    );
-  } finally {
-    restoreOrdinalFetch();
+      await assert.rejects(
+        client.getSettlement("se_1_22222222_0"),
+        (error) => {
+          assert.ok(error instanceof RFQClientError);
+          assert.equal(error.status, 200);
+          assert.equal(error.code, "RFQ_CLIENT_ERROR");
+          assert.equal(error.message, message);
+          return true;
+        },
+      );
+    } finally {
+      restoreFetch();
+    }
   }
 });
 
