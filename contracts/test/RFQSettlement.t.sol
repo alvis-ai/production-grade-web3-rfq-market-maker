@@ -49,6 +49,8 @@ contract RFQSettlementTest {
 
     uint256 private constant SIGNER_KEY = 0xA11CE;
     uint256 private constant USER_KEY = 0xB0B;
+    uint256 private constant SECP256K1N_HIGH_S =
+        0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1;
 
     RFQSettlement private settlement;
     MockERC20 private tokenIn;
@@ -103,6 +105,32 @@ contract RFQSettlementTest {
 
         vm.prank(user);
         vm.expectRevert(RFQSettlement.InvalidSigner.selector);
+        settlement.submitQuote(quote, signature);
+    }
+
+    function testSubmitQuoteRejectsInvalidSignatureLength() public {
+        IRFQSettlement.Quote memory quote = _quote(31);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.InvalidSignatureLength.selector);
+        settlement.submitQuote(quote, hex"1234");
+    }
+
+    function testSubmitQuoteRejectsInvalidSignatureV() public {
+        IRFQSettlement.Quote memory quote = _quote(32);
+        bytes memory signature = _signWithV(SIGNER_KEY, quote, 29);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.InvalidSignatureV.selector);
+        settlement.submitQuote(quote, signature);
+    }
+
+    function testSubmitQuoteRejectsHighSignatureS() public {
+        IRFQSettlement.Quote memory quote = _quote(33);
+        bytes memory signature = abi.encodePacked(bytes32(uint256(1)), bytes32(SECP256K1N_HIGH_S), uint8(27));
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.InvalidSignatureS.selector);
         settlement.submitQuote(quote, signature);
     }
 
@@ -212,8 +240,18 @@ contract RFQSettlementTest {
         private
         returns (bytes memory)
     {
+        return _signWithV(privateKey, quote, 0);
+    }
+
+    function _signWithV(uint256 privateKey, IRFQSettlement.Quote memory quote, uint8 overrideV)
+        private
+        returns (bytes memory)
+    {
         bytes32 digest = settlement.hashTypedData(settlement.hashQuote(quote));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+        if (overrideV != 0) {
+            v = overrideV;
+        }
         return abi.encodePacked(r, s, v);
     }
 }

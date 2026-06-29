@@ -555,6 +555,9 @@ grep -q 'testRejectsReentrantRelease' contracts/test/Treasury.t.sol
 grep -q 'testSubmitQuoteTransfersTokensAndConsumesNonce' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsReplay' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUntrustedSigner' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsInvalidSignatureLength' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsInvalidSignatureV' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsHighSignatureS' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsExpiredQuote' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsWrongChainId' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUnwhitelistedToken' contracts/test/RFQSettlement.t.sol
