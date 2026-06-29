@@ -104,13 +104,14 @@ Submit state includes `quote`, `signature`, `txHash`, `settlementEventId`, `hedg
 
 ## API Design
 
-Direct submit does not require backend `/submit`; relay mode uses `POST /submit`。Both modes should converge on `GET /quote/:id` for quote status. When relay mode returns `settlementEventId`、`hedgeOrderId` and `pnlId`, the UI and SDK can call `GET /settlements/:id` to show settlement consumption, `GET /hedges/:id` to show the queued hedge intent and `GET /pnl` to show realized PnL summary.
+Direct submit does not require backend `/submit`; relay mode uses `POST /submit`。Both modes should converge on `GET /quote/:id` for quote status. Relay mode may return `settlementEventId`、`hedgeOrderId` and `pnlId` immediately from `/submit`, but refresh and polling must treat `QuoteStatus` as the durable source of these navigation pointers. When `GET /quote/:id` returns those IDs, the UI and SDK call `GET /settlements/:id` to show settlement consumption, `GET /hedges/:id` to show the queued hedge intent and `GET /pnl` to show realized PnL summary.
 
 ## Engineering Decisions
 
 - Direct wallet submit and API relay submit share the same signed quote payload.
 - Direct wallet submit uses `VITE_RFQ_SETTLEMENT_ADDRESS` as the write target.
 - Submit disabled after deadline.
+- Refresh hydrates settlement, hedge and PnL panels from `QuoteStatus` pointers first, with the `/submit` response only as immediate fallback.
 - tx confirmed is not equal to indexed settled until status refresh confirms.
 
 ## Failure Scenarios

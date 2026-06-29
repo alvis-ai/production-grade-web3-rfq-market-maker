@@ -45,6 +45,10 @@ export function QuoteStatusPanel({
   onSubmitOnchain,
   onRefresh,
 }: QuoteStatusPanelProps) {
+  const settlementEventId = quoteStatus?.settlementEventId ?? submitResult?.settlementEventId;
+  const hedgeOrderId = quoteStatus?.hedgeOrderId ?? submitResult?.hedgeOrderId;
+  const pnlId = quoteStatus?.pnlId ?? submitResult?.pnlId;
+
   return (
     <aside className="panel">
       <h2>Quote State</h2>
@@ -75,11 +79,11 @@ export function QuoteStatusPanel({
         </div>
         <div>
           <dt>Tx Hash</dt>
-          <dd>{chainTxHash ?? submitResult?.txHash ?? quoteStatus?.txHash ?? "-"}</dd>
+          <dd>{chainTxHash ?? quoteStatus?.txHash ?? submitResult?.txHash ?? "-"}</dd>
         </div>
         <div>
           <dt>Settlement ID</dt>
-          <dd>{submitResult?.settlementEventId ?? "-"}</dd>
+          <dd>{settlementEventId ?? "-"}</dd>
         </div>
         <div>
           <dt>Settlement Status</dt>
@@ -87,7 +91,7 @@ export function QuoteStatusPanel({
         </div>
         <div>
           <dt>Hedge ID</dt>
-          <dd>{submitResult?.hedgeOrderId ?? "-"}</dd>
+          <dd>{hedgeOrderId ?? "-"}</dd>
         </div>
         <div>
           <dt>Hedge Status</dt>
@@ -95,7 +99,7 @@ export function QuoteStatusPanel({
         </div>
         <div>
           <dt>PnL ID</dt>
-          <dd>{submitResult?.pnlId ?? "-"}</dd>
+          <dd>{pnlId ?? "-"}</dd>
         </div>
         <div>
           <dt>Realized PnL</dt>

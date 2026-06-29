@@ -91,13 +91,7 @@ export function QuotePage() {
       setSubmitResult(response);
       const status = await rfqClient.getQuote(quote.quoteId);
       setQuoteStatus(status);
-      if (response.settlementEventId) {
-        setSettlementStatus(await rfqClient.getSettlement(response.settlementEventId));
-      }
-      if (response.hedgeOrderId) {
-        setHedgeStatus(await rfqClient.getHedge(response.hedgeOrderId));
-      }
-      setPnlSummary(await rfqClient.pnl());
+      await loadPostTradeSurfaces(status, response);
     } catch (caught) {
       setError(toUIError(caught, "Submit failed"));
     }
@@ -126,8 +120,33 @@ export function QuotePage() {
     try {
       const status = await rfqClient.getQuote(quote.quoteId);
       setQuoteStatus(status);
+      await loadPostTradeSurfaces(status, submitResult);
     } catch (caught) {
       setError(toUIError(caught, "Status refresh failed"));
+    }
+  }
+
+  async function loadPostTradeSurfaces(status: QuoteStatus, fallback?: SubmitQuoteResponse) {
+    const settlementEventId = status.settlementEventId ?? fallback?.settlementEventId;
+    const hedgeOrderId = status.hedgeOrderId ?? fallback?.hedgeOrderId;
+    const pnlId = status.pnlId ?? fallback?.pnlId;
+
+    if (settlementEventId) {
+      setSettlementStatus(await rfqClient.getSettlement(settlementEventId));
+    } else {
+      setSettlementStatus(undefined);
+    }
+
+    if (hedgeOrderId) {
+      setHedgeStatus(await rfqClient.getHedge(hedgeOrderId));
+    } else {
+      setHedgeStatus(undefined);
+    }
+
+    if (pnlId) {
+      setPnlSummary(await rfqClient.pnl());
+    } else {
+      setPnlSummary(undefined);
     }
   }
 

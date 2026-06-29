@@ -404,6 +404,11 @@ grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getSettlement' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.pnl' frontend/src/pages/QuotePage.tsx
+grep -q 'loadPostTradeSurfaces(status, response)' frontend/src/pages/QuotePage.tsx
+grep -q 'loadPostTradeSurfaces(status, submitResult)' frontend/src/pages/QuotePage.tsx
+grep -q 'status.settlementEventId' frontend/src/pages/QuotePage.tsx
+grep -q 'status.hedgeOrderId' frontend/src/pages/QuotePage.tsx
+grep -q 'status.pnlId' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqApiBaseUrl' frontend/src/pages/QuotePage.tsx
 grep -q 'ConnectButton' frontend/src/pages/QuotePage.tsx
 grep -q 'useWriteContract' frontend/src/pages/QuotePage.tsx
@@ -422,6 +427,9 @@ grep -q 'new RFQClient(rfqApiBaseUrl)' frontend/src/lib/rfq.ts
 grep -q 'Hedge Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Settlement Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Realized PnL' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'quoteStatus?.settlementEventId' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'quoteStatus?.hedgeOrderId' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'quoteStatus?.pnlId' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Submit Onchain' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Contract Call' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'role="alert"' frontend/src/components/QuoteStatusPanel.tsx
