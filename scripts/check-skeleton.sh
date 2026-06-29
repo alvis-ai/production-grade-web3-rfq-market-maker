@@ -75,6 +75,7 @@ test -s frontend/src/lib/errors.ts
 test -s frontend/src/vite-env.d.ts
 test -s frontend/src/app/web3.tsx
 test -s frontend/src/pages/QuotePage.tsx
+test -s frontend/src/components/WalletSubmitControl.tsx
 test -s sdk/src/abi.ts
 test -s sdk/src/eip712.ts
 test -s sdk/src/index.ts
@@ -429,11 +430,14 @@ grep -q 'status.settlementEventId' frontend/src/pages/QuotePage.tsx
 grep -q 'status.hedgeOrderId' frontend/src/pages/QuotePage.tsx
 grep -q 'status.pnlId' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqApiBaseUrl' frontend/src/pages/QuotePage.tsx
-grep -q 'ConnectButton' frontend/src/pages/QuotePage.tsx
-grep -q 'useWriteContract' frontend/src/pages/QuotePage.tsx
-grep -q 'buildSubmitQuoteArgs' frontend/src/pages/QuotePage.tsx
-grep -q 'rfqSettlementAbi' frontend/src/pages/QuotePage.tsx
-grep -q 'writeContractAsync' frontend/src/pages/QuotePage.tsx
+grep -q 'lazy(() => import("../components/WalletSubmitControl"))' frontend/src/pages/QuotePage.tsx
+grep -q 'Enable Wallet' frontend/src/pages/QuotePage.tsx
+grep -q 'onchainAction' frontend/src/pages/QuotePage.tsx
+grep -q 'ConnectButton' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'useWriteContract' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'buildSubmitQuoteArgs' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'rfqSettlementAbi' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'writeContractAsync' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'VITE_RFQ_API_BASE_URL' frontend/src/lib/config.ts
 grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS' frontend/src/lib/config.ts
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID' frontend/src/lib/config.ts
@@ -441,7 +445,7 @@ grep -q 'normalizeAddress' frontend/src/lib/config.ts
 grep -q 'WagmiProvider' frontend/src/app/web3.tsx
 grep -q 'RainbowKitProvider' frontend/src/app/web3.tsx
 grep -q 'QueryClientProvider' frontend/src/app/web3.tsx
-grep -q 'Web3Provider' frontend/src/app/main.tsx
+grep -q 'Web3Provider' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'new RFQClient(rfqApiBaseUrl)' frontend/src/lib/rfq.ts
 grep -q 'Hedge Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Settlement Status' frontend/src/components/QuoteStatusPanel.tsx
@@ -449,7 +453,7 @@ grep -q 'Realized PnL' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'quoteStatus?.settlementEventId' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'quoteStatus?.hedgeOrderId' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'quoteStatus?.pnlId' frontend/src/components/QuoteStatusPanel.tsx
-grep -q 'Submit Onchain' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'Submit Onchain' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'Contract Call' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'role="alert"' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Retry After' frontend/src/components/QuoteStatusPanel.tsx

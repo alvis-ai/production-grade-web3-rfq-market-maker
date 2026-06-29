@@ -1,16 +1,37 @@
-import { RainbowKitProvider, getDefaultConfig } from "@rainbow-me/rainbowkit";
+import { RainbowKitProvider, connectorsForWallets } from "@rainbow-me/rainbowkit";
+import { injectedWallet, metaMaskWallet, walletConnectWallet } from "@rainbow-me/rainbowkit/wallets";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { WagmiProvider } from "wagmi";
+import { WagmiProvider, createConfig, http } from "wagmi";
 import { foundry, mainnet, sepolia } from "wagmi/chains";
 import { walletConnectProjectId } from "../lib/config";
 
 const queryClient = new QueryClient();
 
-const wagmiConfig = getDefaultConfig({
-  appName: "Production RFQ Market Maker",
-  projectId: walletConnectProjectId,
-  chains: [mainnet, sepolia, foundry],
+const appName = "Production RFQ Market Maker";
+const chains = [mainnet, sepolia, foundry] as const;
+
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: "Reference Wallets",
+      wallets: [injectedWallet, metaMaskWallet, walletConnectWallet],
+    },
+  ],
+  {
+    appName,
+    projectId: walletConnectProjectId,
+  },
+);
+
+const wagmiConfig = createConfig({
+  chains,
+  connectors,
+  transports: {
+    [mainnet.id]: http(),
+    [sepolia.id]: http(),
+    [foundry.id]: http(),
+  },
   ssr: false,
 });
 

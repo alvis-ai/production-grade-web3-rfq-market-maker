@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type {
   HedgeIntentStatus,
   PnlSummary,
@@ -17,14 +18,13 @@ interface QuoteStatusPanelProps {
   submitResult?: SubmitQuoteResponse;
   error?: UIError;
   canSubmit: boolean;
-  canSubmitOnchain: boolean;
   walletAddress?: string;
   activeChainId?: number;
   settlementAddress?: string;
   chainTxHash?: `0x${string}`;
   onSubmit: () => void;
-  onSubmitOnchain: () => void;
   onRefresh: () => void;
+  onchainAction?: ReactNode;
 }
 
 export function QuoteStatusPanel({
@@ -36,14 +36,13 @@ export function QuoteStatusPanel({
   submitResult,
   error,
   canSubmit,
-  canSubmitOnchain,
   walletAddress,
   activeChainId,
   settlementAddress,
   chainTxHash,
   onSubmit,
-  onSubmitOnchain,
   onRefresh,
+  onchainAction,
 }: QuoteStatusPanelProps) {
   const settlementEventId = quoteStatus?.settlementEventId ?? submitResult?.settlementEventId;
   const hedgeOrderId = quoteStatus?.hedgeOrderId ?? submitResult?.hedgeOrderId;
@@ -167,9 +166,7 @@ export function QuoteStatusPanel({
         <button type="button" disabled={!canSubmit} onClick={onSubmit}>
           Submit API
         </button>
-        <button type="button" disabled={!canSubmitOnchain} onClick={onSubmitOnchain}>
-          Submit Onchain
-        </button>
+        {onchainAction}
         <button type="button" className="secondary-button" disabled={!quote} onClick={onRefresh}>
           Refresh
         </button>

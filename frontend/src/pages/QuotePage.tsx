@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useMemo, useState } from "react";
 import type {
+  Address,
   HedgeIntentStatus,
   PnlSummary,
   Quote,
@@ -9,14 +10,14 @@ import type {
   SettlementEventStatus,
   SubmitQuoteResponse,
 } from "@rfq-market-maker/sdk";
-import { buildSubmitQuoteArgs, rfqSettlementAbi } from "@rfq-market-maker/sdk";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount, useChainId, useWriteContract } from "wagmi";
 import { QuoteForm } from "../components/QuoteForm";
 import { QuoteStatusPanel } from "../components/QuoteStatusPanel";
 import { toUIError, type UIError } from "../lib/errors";
 import { rfqApiBaseUrl, rfqSettlementAddress } from "../lib/config";
 import { buildQuoteFromResponse, rfqClient } from "../lib/rfq";
+import type { WalletState } from "../components/WalletSubmitControl";
+
+const WalletSubmitControl = lazy(() => import("../components/WalletSubmitControl"));
 
 const defaultRequest: QuoteRequest = {
   chainId: 1,
@@ -36,21 +37,31 @@ export function QuotePage() {
   const [pnlSummary, setPnlSummary] = useState<PnlSummary>();
   const [submitResult, setSubmitResult] = useState<SubmitQuoteResponse>();
   const [chainTxHash, setChainTxHash] = useState<`0x${string}`>();
+  const [walletState, setWalletState] = useState<WalletState>({});
+  const [isWalletEnabled, setIsWalletEnabled] = useState(false);
   const [error, setError] = useState<UIError>();
   const [isLoading, setIsLoading] = useState(false);
-  const { address } = useAccount();
-  const activeChainId = useChainId();
-  const { writeContractAsync, isPending: isOnchainSubmitPending } = useWriteContract();
 
-  useEffect(() => {
-    if (!address) return;
+  const handleWalletChange = useCallback((nextWalletState: WalletState) => {
+    setWalletState(nextWalletState);
+    const walletAddress = nextWalletState.address;
+    const walletChainId = nextWalletState.chainId;
+    if (!walletAddress || !walletChainId) return;
 
     setRequest((current) => ({
       ...current,
-      user: address,
-      chainId: activeChainId,
+      user: walletAddress as Address,
+      chainId: walletChainId,
     }));
-  }, [activeChainId, address]);
+  }, []);
+
+  const handleOnchainError = useCallback((nextError: UIError) => {
+    setError(nextError);
+  }, []);
+
+  const handleChainTxHash = useCallback((txHash: `0x${string}`) => {
+    setChainTxHash(txHash);
+  }, []);
 
   const signedQuote = useMemo<Quote | undefined>(() => {
     if (!quote) return undefined;
@@ -58,7 +69,6 @@ export function QuotePage() {
   }, [quote, request]);
 
   const canSubmit = Boolean(signedQuote && quote && quote.deadline >= Math.floor(Date.now() / 1000));
-  const canSubmitOnchain = Boolean(canSubmit && rfqSettlementAddress && address);
 
   async function requestQuote() {
     setIsLoading(true);
@@ -94,23 +104,6 @@ export function QuotePage() {
       await loadPostTradeSurfaces(status, response);
     } catch (caught) {
       setError(toUIError(caught, "Submit failed"));
-    }
-  }
-
-  async function submitQuoteOnchain() {
-    if (!quote || !signedQuote || !rfqSettlementAddress) return;
-
-    setError(undefined);
-    try {
-      const txHash = await writeContractAsync({
-        address: rfqSettlementAddress,
-        abi: rfqSettlementAbi,
-        functionName: "submitQuote",
-        args: buildSubmitQuoteArgs(signedQuote, quote.signature),
-      });
-      setChainTxHash(txHash);
-    } catch (caught) {
-      setError(toUIError(caught, "Onchain submit failed"));
     }
   }
 
@@ -159,7 +152,6 @@ export function QuotePage() {
             <h1>Production RFQ Trading Console</h1>
           </div>
           <div className="header-status">
-            <ConnectButton />
             <div className="status-pill">Reference</div>
             <div className="api-endpoint" title={rfqApiBaseUrl}>
               API {rfqApiBaseUrl}
@@ -177,14 +169,30 @@ export function QuotePage() {
             submitResult={submitResult}
             error={error}
             canSubmit={canSubmit}
-            canSubmitOnchain={canSubmitOnchain && !isOnchainSubmitPending}
-            walletAddress={address}
-            activeChainId={activeChainId}
+            walletAddress={walletState.address}
+            activeChainId={walletState.chainId}
             settlementAddress={rfqSettlementAddress}
             chainTxHash={chainTxHash}
             onSubmit={submitQuote}
-            onSubmitOnchain={submitQuoteOnchain}
             onRefresh={refreshStatus}
+            onchainAction={
+              isWalletEnabled ? (
+                <Suspense fallback={<button type="button" disabled>Loading Wallet</button>}>
+                  <WalletSubmitControl
+                    quote={quote}
+                    signedQuote={signedQuote}
+                    canSubmit={canSubmit}
+                    onWalletChange={handleWalletChange}
+                    onTxHash={handleChainTxHash}
+                    onError={handleOnchainError}
+                  />
+                </Suspense>
+              ) : (
+                <button type="button" onClick={() => setIsWalletEnabled(true)}>
+                  Enable Wallet
+                </button>
+              )
+            }
           />
         </div>
       </section>
