@@ -213,7 +213,7 @@ await client.ready();
 await client.metrics();
 ```
 
-`RFQClientError` preserves structured API errors. For HTTP 429 `RATE_LIMITED` responses, the SDK exposes `retryAfterSeconds` from the `Retry-After` header so callers can back off without parsing headers directly. Successful quote status, hedge, and PnL responses are validated field by field, including identifiers, token addresses, uint/int amount strings, timestamps, `totalTrades`, and aggregate gross PnL consistency.
+`RFQClientError` preserves structured API errors. For HTTP 429 `RATE_LIMITED` responses, the SDK exposes `retryAfterSeconds` from the `Retry-After` header so callers can back off without parsing headers directly. Successful quote, quote status, hedge, and PnL responses are validated field by field, including identifiers, signatures, token addresses, uint/int amount strings, timestamps, `totalTrades`, and aggregate gross PnL consistency.
 
 The SDK also exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs`, `hashSettlementQuote`, and `buildTreasuryTransferArgs` for viem/wagmi contract calls and event reconciliation.
 

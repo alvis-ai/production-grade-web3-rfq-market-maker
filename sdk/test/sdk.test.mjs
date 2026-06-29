@@ -1063,41 +1063,73 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
   }
 });
 
-test("RFQClient rejects malformed successful signature and hash fields", async () => {
-  const restoreQuoteFetch = installFetch(async () =>
-    jsonResponse(200, {
-      quoteId: "q_test",
-      snapshotId: "s_test",
-      amountOut: "1000000000",
-      minAmountOut: "995000000",
-      deadline: 1893456000,
-      nonce: "42",
-      signature: "0x1234",
-    }),
-  );
+test("RFQClient rejects malformed successful response fields", async () => {
+  const quoteResponse = {
+    quoteId: "q_test",
+    snapshotId: "s_test",
+    amountOut: "1000000000",
+    minAmountOut: "995000000",
+    deadline: 1893456000,
+    nonce: "42",
+    signature,
+  };
+  const quoteCases = [
+    {
+      payload: { ...quoteResponse, quoteId: "" },
+      message: "RFQ quote response returned malformed quoteId",
+    },
+    {
+      payload: { ...quoteResponse, snapshotId: "" },
+      message: "RFQ quote response returned malformed snapshotId",
+    },
+    {
+      payload: { ...quoteResponse, amountOut: "0" },
+      message: "RFQ quote response returned malformed amountOut",
+    },
+    {
+      payload: { ...quoteResponse, minAmountOut: "1000000001" },
+      message: "RFQ quote response returned malformed minAmountOut",
+    },
+    {
+      payload: { ...quoteResponse, nonce: "-1" },
+      message: "RFQ quote response returned malformed nonce",
+    },
+    {
+      payload: { ...quoteResponse, deadline: 0 },
+      message: "RFQ quote response returned malformed deadline",
+    },
+    {
+      payload: { ...quoteResponse, signature: "0x1234" },
+      message: "RFQ quote response returned malformed signature",
+    },
+  ];
 
-  try {
-    const client = new RFQClient("http://127.0.0.1:3000");
+  for (const { payload, message } of quoteCases) {
+    const restoreQuoteFetch = installFetch(async () => jsonResponse(200, payload));
 
-    await assert.rejects(
-      client.quote({
-        chainId: quote.chainId,
-        user: quote.user,
-        tokenIn: quote.tokenIn,
-        tokenOut: quote.tokenOut,
-        amountIn: quote.amountIn,
-        slippageBps: 50,
-      }),
-      (error) => {
-        assert.ok(error instanceof RFQClientError);
-        assert.equal(error.status, 200);
-        assert.equal(error.code, "RFQ_CLIENT_ERROR");
-        assert.equal(error.message, "RFQ quote response returned malformed signature");
-        return true;
-      },
-    );
-  } finally {
-    restoreQuoteFetch();
+    try {
+      const client = new RFQClient("http://127.0.0.1:3000");
+
+      await assert.rejects(
+        client.quote({
+          chainId: quote.chainId,
+          user: quote.user,
+          tokenIn: quote.tokenIn,
+          tokenOut: quote.tokenOut,
+          amountIn: quote.amountIn,
+          slippageBps: 50,
+        }),
+        (error) => {
+          assert.ok(error instanceof RFQClientError);
+          assert.equal(error.status, 200);
+          assert.equal(error.code, "RFQ_CLIENT_ERROR");
+          assert.equal(error.message, message);
+          return true;
+        },
+      );
+    } finally {
+      restoreQuoteFetch();
+    }
   }
 
   const restoreSubmitFetch = installFetch(async () =>

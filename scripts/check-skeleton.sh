@@ -638,6 +638,7 @@ grep -q 'RFQClient baseUrl must be an absolute http(s) URL' sdk/src/client.ts
 grep -q 'RFQClient rejects unsafe base URLs at construction' sdk/test/sdk.test.mjs
 grep -q 'assertRequiredEnumField' sdk/src/client.ts
 grep -q 'assertRequiredNonNegativeIntegerField' sdk/src/client.ts
+grep -q 'assertQuoteResponse' sdk/src/client.ts
 grep -q 'readJsonResponse' sdk/src/client.ts
 grep -q 'malformed successful JSON responses' sdk/test/sdk.test.mjs
 grep -q 'malformed health and readiness status responses' sdk/test/sdk.test.mjs
@@ -647,7 +648,7 @@ grep -q 'malformed settlement status and ordinal responses' sdk/test/sdk.test.mj
 grep -q 'malformed PnL summary responses' sdk/test/sdk.test.mjs
 grep -q 'isBytes32Hex' sdk/src/client.ts
 grep -q 'isSignatureHex' sdk/src/client.ts
-grep -q 'malformed successful signature and hash fields' sdk/test/sdk.test.mjs
+grep -q 'malformed successful response fields' sdk/test/sdk.test.mjs
 grep -q 'client.health' sdk/test/sdk.test.mjs
 grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs

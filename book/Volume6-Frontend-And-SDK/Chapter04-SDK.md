@@ -120,6 +120,7 @@ const treasuryArgs = buildTreasuryTransferArgs({ token, to, amount });
 - SDK helper functions reject non-object quote and treasury transfer inputs before field-level validation, so JavaScript consumers get stable validation errors instead of ambiguous property access exceptions.
 - SDK status helpers reject empty `quoteId`, `hedgeOrderId` and `settlementEventId` before issuing HTTP requests, preventing malformed `/quote/`, `/hedges/` or `/settlements/` calls from being mistaken for backend availability problems.
 - `RFQClient` rejects empty, relative or non-`http(s)` base URLs at construction time so integration configuration errors fail before any quote, submit or status request leaves the process.
+- `RFQClient.quote()` validates successful quote payloads field by field, including non-empty `quoteId`/`snapshotId`, positive uint `amountOut`/`minAmountOut`/`nonce`, `amountOut >= minAmountOut`, positive `deadline`, and 65-byte EIP-712 signature.
 - `RFQClient.getQuote()` validates successful quote status payloads field by field, including required `quoteId`/`status`, optional `snapshotId`, positive `deadline`, 32-byte `txHash`, and non-empty settlement/hedge/PnL/error pointers.
 - `RFQClient.getHedge()` validates successful hedge payloads field by field, including non-empty identifiers, positive chain id, token address, side/reason enums, positive uint amount string, and parseable `createdAt` timestamp.
 - `RFQClient.pnl()` validates successful PnL payloads field by field, including non-empty identifiers, token addresses, positive uint amount strings, signed gross PnL strings, ISO-like timestamps, `totalTrades === trades.length`, and summary gross PnL matching the trade-level sum.
@@ -142,7 +143,7 @@ SDK should stay lightweight. It should not bundle frontend-only wallet libraries
 
 ## Testing Strategy
 
-测试 client quote request、API error parsing、typed data structure、domain builder、settlement tuple conversion、Treasury tuple conversion、quote status/hedge/PnL response validation 和 amount string handling。
+测试 client quote request、API error parsing、typed data structure、domain builder、settlement tuple conversion、Treasury tuple conversion、quote/quote status/hedge/PnL response validation 和 amount string handling。
 
 ## Interview Notes
 

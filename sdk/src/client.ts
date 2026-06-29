@@ -51,8 +51,8 @@ export class RFQClient {
     await assertOk(response, "RFQ quote failed");
 
     const payload = await readJsonResponse(response, "RFQ quote response");
-    assertRequiredSignatureField(payload, "signature", response.status, "RFQ quote response");
-    return payload as QuoteResponse;
+    assertQuoteResponse(payload, response.status);
+    return payload;
   }
 
   async submit(request: SubmitQuoteRequest): Promise<SubmitQuoteResponse> {
@@ -242,6 +242,36 @@ function assertRequiredNonNegativeIntegerField(payload: unknown, field: string, 
   if (!isRecord(payload) || !Number.isSafeInteger(payload[field]) || Number(payload[field]) < 0) {
     throw malformedFieldError(status, label, field);
   }
+}
+
+function assertQuoteResponse(payload: unknown, status: number): asserts payload is QuoteResponse {
+  const label = "RFQ quote response";
+  if (!isRecord(payload)) {
+    throw malformedFieldError(status, label, "quoteId");
+  }
+
+  for (const field of ["quoteId", "snapshotId"] as const) {
+    if (!isNonEmptyString(payload[field])) {
+      throw malformedFieldError(status, label, field);
+    }
+  }
+  for (const field of ["amountOut", "minAmountOut", "nonce"] as const) {
+    if (!isPositiveUIntString(payload[field])) {
+      throw malformedFieldError(status, label, field);
+    }
+  }
+  const amountOut = payload.amountOut;
+  const minAmountOut = payload.minAmountOut;
+  if (!isPositiveUIntString(amountOut) || !isPositiveUIntString(minAmountOut)) {
+    throw malformedFieldError(status, label, "amountOut");
+  }
+  if (BigInt(amountOut) < BigInt(minAmountOut)) {
+    throw malformedFieldError(status, label, "minAmountOut");
+  }
+  if (!Number.isSafeInteger(payload.deadline) || Number(payload.deadline) <= 0) {
+    throw malformedFieldError(status, label, "deadline");
+  }
+  assertRequiredSignatureField(payload, "signature", status, label);
 }
 
 function assertQuoteStatus(payload: unknown, status: number): asserts payload is QuoteStatus {
