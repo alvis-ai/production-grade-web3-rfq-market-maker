@@ -11,6 +11,7 @@ test -s .github/workflows/backend-ci.yml
 test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
+test -s backend/test/api-error.test.mjs
 test -s backend/test/api.test.mjs
 test -s backend/test/hedge.test.mjs
 test -s backend/test/inventory.test.mjs
@@ -76,6 +77,7 @@ grep -q 'liquidity is invalid' backend/src/modules/market-data/market-data.servi
 grep -q 'getMarketSnapshotIssue rejects stale or future-skewed market snapshots' backend/test/market-data.test.mjs
 test -s backend/src/modules/rate-limit/rate-limit.service.ts
 test -s backend/src/shared/errors/api-error.ts
+grep -q 'APIError serializes stable client responses without internal reason codes' backend/test/api-error.test.mjs
 test -s backend/src/modules/routing/routing.engine.ts
 grep -q 'InternalInventoryRoutingEngine creates deterministic internal inventory route plans' backend/test/routing.test.mjs
 test -s backend/src/shared/validation/quote-request.ts
