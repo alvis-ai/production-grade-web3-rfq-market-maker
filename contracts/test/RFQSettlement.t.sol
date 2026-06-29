@@ -283,6 +283,30 @@ contract RFQSettlementTest {
         settlement.submitQuote(quote, signature);
     }
 
+    function testSubmitQuoteRejectsNonContractTokenIn() public {
+        address nonContractToken = address(0xE0A1);
+        settlement.setTokenWhitelist(nonContractToken, true);
+        IRFQSettlement.Quote memory quote = _quote(81);
+        quote.tokenIn = nonContractToken;
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.TransferFailed.selector);
+        settlement.submitQuote(quote, signature);
+    }
+
+    function testSubmitQuoteRejectsNonContractTokenOut() public {
+        address nonContractToken = address(0xE0A2);
+        settlement.setTokenWhitelist(nonContractToken, true);
+        IRFQSettlement.Quote memory quote = _quote(82);
+        quote.tokenOut = nonContractToken;
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.TransferFailed.selector);
+        settlement.submitQuote(quote, signature);
+    }
+
     function testSubmitQuoteRejectsInvalidTokenPair() public {
         IRFQSettlement.Quote memory quote = _quote(9);
         quote.tokenOut = quote.tokenIn;

@@ -192,12 +192,14 @@ contract RFQSettlement is IRFQSettlement {
     }
 
     function _safeTransfer(address token, address to, uint256 amount) internal {
+        if (token.code.length == 0) revert TransferFailed();
         (bool success, bytes memory data) =
             token.call(abi.encodeCall(IERC20Minimal.transfer, (to, amount)));
         if (!success || (data.length != 0 && !abi.decode(data, (bool)))) revert TransferFailed();
     }
 
     function _safeTransferFrom(address token, address from, address to, uint256 amount) internal {
+        if (token.code.length == 0) revert TransferFailed();
         (bool success, bytes memory data) =
             token.call(abi.encodeCall(IERC20Minimal.transferFrom, (from, to, amount)));
         if (!success || (data.length != 0 && !abi.decode(data, (bool)))) revert TransferFailed();

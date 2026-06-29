@@ -566,15 +566,18 @@ grep -q 'function setTokenWhitelist' contracts/src/RFQSettlement.sol
 grep -q 'function setPaused' contracts/src/RFQSettlement.sol
 grep -q 'ecrecover' contracts/src/RFQSettlement.sol
 grep -q 'transferFrom' contracts/src/RFQSettlement.sol
+grep -q 'token.code.length' contracts/src/RFQSettlement.sol
 grep -q 'contract Treasury' contracts/src/Treasury.sol
 grep -q 'function release' contracts/src/Treasury.sol
 grep -q 'function emergencyWithdraw' contracts/src/Treasury.sol
 grep -q 'onlySettlement' contracts/src/Treasury.sol
 grep -q 'TransferFailed' contracts/src/Treasury.sol
+grep -q 'token.code.length' contracts/src/Treasury.sol
 grep -q 'testSettlementCanReleaseFunds' contracts/test/Treasury.t.sol
 grep -q 'testOnlySettlementCanReleaseFunds' contracts/test/Treasury.t.sol
 grep -q 'testOwnerCanEmergencyWithdraw' contracts/test/Treasury.t.sol
 grep -q 'testRejectsFailedTokenTransfers' contracts/test/Treasury.t.sol
+grep -q 'testRejectsNonContractTokenTransfers' contracts/test/Treasury.t.sol
 grep -q 'testRejectsReentrantRelease' contracts/test/Treasury.t.sol
 grep -q 'testSubmitQuoteTransfersTokensAndConsumesNonce' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteEmitsQuoteSettledForIndexer' contracts/test/RFQSettlement.t.sol
@@ -590,6 +593,8 @@ grep -q 'testSubmitQuoteRejectsHighSignatureS' contracts/test/RFQSettlement.t.so
 grep -q 'testSubmitQuoteRejectsExpiredQuote' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsWrongChainId' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUnwhitelistedToken' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsNonContractTokenIn' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsNonContractTokenOut' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsAmountOutBelowMinimum' contracts/test/RFQSettlement.t.sol
 grep -q 'contract DeployRFQSettlement' contracts/script/Deploy.s.sol
 grep -q 'new Treasury' contracts/script/Deploy.s.sol

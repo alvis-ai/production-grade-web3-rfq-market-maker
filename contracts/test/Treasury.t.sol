@@ -157,6 +157,12 @@ contract TreasuryTest {
         treasury.emergencyWithdraw(address(revertingToken), OWNER, 100 ether);
     }
 
+    function testRejectsNonContractTokenTransfers() public {
+        vm.prank(SETTLEMENT);
+        vm.expectRevert(Treasury.TransferFailed.selector);
+        treasury.release(address(0xE0A), USER, 100 ether);
+    }
+
     function testRejectsReentrantRelease() public {
         TreasuryReentrantToken reentrantToken = new TreasuryReentrantToken(treasury);
         reentrantToken.mint(address(treasury), 100 ether);

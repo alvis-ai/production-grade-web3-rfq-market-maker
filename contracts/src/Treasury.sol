@@ -88,6 +88,7 @@ contract Treasury {
     }
 
     function _safeTransfer(address token, address to, uint256 amount) internal {
+        if (token.code.length == 0) revert TransferFailed();
         (bool success, bytes memory data) =
             token.call(abi.encodeWithSignature("transfer(address,uint256)", to, amount));
         if (!success || (data.length != 0 && !abi.decode(data, (bool)))) revert TransferFailed();
