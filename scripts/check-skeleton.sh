@@ -291,6 +291,9 @@ grep -q 'indexes signed quotes by chain, user, and nonce' backend/test/quote-ser
 grep -q 'uq_quotes_chain_user_nonce' docs/database/schema.sql
 grep -q 'quotes must keep the chain_id, user_address, nonce signed-quote lookup key' scripts/check-database-schema-consistency.mjs
 grep -q 'partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`' docs/database/er-diagram.md
+grep -q 'uq_hedge_orders_settlement_event' docs/database/schema.sql
+grep -q 'hedge_orders must keep one hedge intent per settlement event' scripts/check-database-schema-consistency.mjs
+grep -q 'partial unique index `(settlement_event_id) WHERE settlement_event_id IS NOT NULL`' docs/database/er-diagram.md
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts
 grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.service.ts

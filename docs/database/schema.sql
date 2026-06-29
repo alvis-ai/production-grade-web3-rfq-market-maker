@@ -94,6 +94,9 @@ CREATE TABLE hedge_orders (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE UNIQUE INDEX uq_hedge_orders_settlement_event ON hedge_orders (settlement_event_id)
+  WHERE settlement_event_id IS NOT NULL;
+
 CREATE TABLE pnl_records (
   id TEXT PRIMARY KEY,
   quote_id TEXT NOT NULL REFERENCES quotes(id),

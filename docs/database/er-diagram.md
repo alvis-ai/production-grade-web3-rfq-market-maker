@@ -98,4 +98,5 @@ erDiagram
 - `quotes.snapshot_id` 对应 `market_snapshots.id`，用于报价回放。
 - `risk_decisions.policy_version` 用于解释风控变更后的历史行为。
 - `inventory_positions` 是当前操作状态，不替代事件账本。
+- `hedge_orders` 使用 partial unique index `(settlement_event_id) WHERE settlement_event_id IS NOT NULL`，防止同一 settlement event 重复创建 hedge intent。
 - `pnl_records` 使用 `(quote_id, model)` 防止同一归因模型对同一成交重复入账；生产版可将明细同步到 ClickHouse 做高维分析。
