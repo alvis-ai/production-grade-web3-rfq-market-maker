@@ -118,6 +118,15 @@ groups:
           summary: RFQ hedge intent creation errors detected after settlement
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQSettlementThroughputStalled
+        expr: increase(rfq_submit_accepted_total[10m]) > 0 and increase(rfq_settlements_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ accepted submits are not producing new settlement events
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQHedgeLagHigh
         expr: histogram_quantile(0.95, rate(rfq_hedge_lag_seconds_bucket[5m])) > 2
         for: 5m
