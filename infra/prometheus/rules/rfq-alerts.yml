@@ -28,6 +28,15 @@ groups:
           summary: RFQ submit request volume is above skeleton threshold
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQSubmitErrorsSpike
+        expr: increase(rfq_submit_errors_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ submit error volume is elevated
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQRateLimitSpike
         expr: sum by (endpoint) (increase(rfq_rate_limited_total[5m])) > 25
         for: 5m
