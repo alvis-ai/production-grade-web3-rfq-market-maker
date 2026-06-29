@@ -103,8 +103,11 @@ export class RFQClient {
     await assertOk(response, "RFQ settlement event status failed");
 
     const payload = await readJsonResponse(response, "RFQ settlement event status response");
+    assertRequiredEnumField(payload, "status", ["applied"], response.status, "RFQ settlement event status response");
     assertRequiredBytes32Field(payload, "txHash", response.status, "RFQ settlement event status response");
     assertRequiredBytes32Field(payload, "quoteHash", response.status, "RFQ settlement event status response");
+    assertRequiredNonNegativeIntegerField(payload, "blockNumber", response.status, "RFQ settlement event status response");
+    assertRequiredNonNegativeIntegerField(payload, "logIndex", response.status, "RFQ settlement event status response");
     return payload as SettlementEventStatus;
   }
 
@@ -229,6 +232,12 @@ function assertRequiredEnumField(
   label: string,
 ): void {
   if (!isRecord(payload) || typeof payload[field] !== "string" || !allowedValues.includes(payload[field])) {
+    throw malformedFieldError(status, label, field);
+  }
+}
+
+function assertRequiredNonNegativeIntegerField(payload: unknown, field: string, status: number, label: string): void {
+  if (!isRecord(payload) || !Number.isSafeInteger(payload[field]) || Number(payload[field]) < 0) {
     throw malformedFieldError(status, label, field);
   }
 }

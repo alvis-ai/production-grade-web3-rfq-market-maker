@@ -541,6 +541,68 @@ test("RFQClient rejects malformed submit and quote status enum responses", async
   }
 });
 
+test("RFQClient rejects malformed settlement status and ordinal responses", async () => {
+  const settlementResponse = {
+    settlementEventId: "se_1_22222222_0",
+    status: "pending",
+    quoteId: "q_test",
+    chainId: quote.chainId,
+    txHash: `0x${"22".repeat(32)}`,
+    quoteHash: `0x${"33".repeat(32)}`,
+    blockNumber: 123456,
+    logIndex: 0,
+    user: quote.user,
+    tokenIn: quote.tokenIn,
+    tokenOut: quote.tokenOut,
+    amountIn: quote.amountIn,
+    amountOut: quote.amountOut,
+    observedAt: "2026-06-27T00:00:00.000Z",
+  };
+  const restoreStatusFetch = installFetch(async () => jsonResponse(200, settlementResponse));
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.getSettlement("se_1_22222222_0"),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 200);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ settlement event status response returned malformed status");
+        return true;
+      },
+    );
+  } finally {
+    restoreStatusFetch();
+  }
+
+  const restoreOrdinalFetch = installFetch(async () =>
+    jsonResponse(200, {
+      ...settlementResponse,
+      status: "applied",
+      logIndex: -1,
+    }),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.getSettlement("se_1_22222222_0"),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 200);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ settlement event status response returned malformed logIndex");
+        return true;
+      },
+    );
+  } finally {
+    restoreOrdinalFetch();
+  }
+});
+
 test("RFQClient rejects malformed successful signature and hash fields", async () => {
   const restoreQuoteFetch = installFetch(async () =>
     jsonResponse(200, {
