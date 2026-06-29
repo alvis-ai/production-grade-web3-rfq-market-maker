@@ -291,6 +291,7 @@ grep -q 'class ObservedSignerService' backend/src/modules/signer/signer.service.
 grep -q 'SIGNER_UNAVAILABLE' backend/src/modules/signer/signer.service.ts
 grep -q 'privateKeyToAccount' backend/src/modules/signer/signer.service.ts
 grep -q 'ProductionGradeRFQ' backend/src/modules/signer/signer.service.ts
+grep -q 'LocalEIP712SignerService binds signatures to the settlement contract address' backend/test/signer.test.mjs
 grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
 grep -q 'requireSubmittableSignedQuote' backend/src/modules/quote/quote.service.ts
 grep -q 'QUOTE_FAILED' backend/src/modules/quote/quote.service.ts
