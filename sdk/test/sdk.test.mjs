@@ -83,6 +83,37 @@ test("buildQuoteTypedData produces viem-verifiable EIP-712 payloads", async () =
   );
 });
 
+test("buildQuoteTypedData rejects invalid EIP-712 domain and quote fields", () => {
+  assert.throws(
+    () => buildRFQDomain(quote.chainId, "0x1234"),
+    /verifyingContract must be a 20-byte hex address/,
+  );
+
+  assert.throws(
+    () =>
+      buildQuoteTypedData(
+        {
+          ...quote,
+          tokenIn: "0x1234",
+        },
+        verifyingContract,
+      ),
+    /quote\.tokenIn must be a 20-byte hex address/,
+  );
+
+  assert.throws(
+    () =>
+      buildQuoteTypedData(
+        {
+          ...quote,
+          amountOut: "0",
+        },
+        verifyingContract,
+      ),
+    /quote\.amountOut must be a positive uint string/,
+  );
+});
+
 test("buildSubmitQuoteArgs converts string integer fields to settlement bigint fields", () => {
   const args = buildSubmitQuoteArgs(quote, signature);
 

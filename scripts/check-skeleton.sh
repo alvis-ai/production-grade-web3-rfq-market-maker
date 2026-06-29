@@ -465,9 +465,11 @@ grep -q 'parseAddress' sdk/src/settlement.ts
 grep -q 'parseSignature' sdk/src/settlement.ts
 grep -q 'parsePositiveUInt' sdk/src/settlement.ts
 grep -q 'buildQuoteTypedData' sdk/src/eip712.ts
+grep -q 'assertQuoteShape' sdk/src/eip712.ts
 grep -q 'ProductionGradeRFQ' sdk/src/eip712.ts
 grep -q 'RFQClientError' sdk/test/sdk.test.mjs
 grep -q 'buildQuoteTypedData' sdk/test/sdk.test.mjs
+grep -q 'buildQuoteTypedData rejects invalid EIP-712 domain and quote fields' sdk/test/sdk.test.mjs
 grep -q 'buildSubmitQuoteArgs' sdk/test/sdk.test.mjs
 grep -q 'hashSettlementQuote matches RFQSettlement.hashQuote struct hashing' sdk/test/sdk.test.mjs
 grep -q 'Settlement helpers reject invalid uint inputs before contract calls' sdk/test/sdk.test.mjs
