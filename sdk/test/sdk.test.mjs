@@ -508,6 +508,40 @@ test("RFQClient percent-encodes dynamic status path identifiers", async () => {
   }
 });
 
+test("RFQClient rejects empty dynamic status identifiers before fetch", async () => {
+  const calls = [];
+  const restoreFetch = installFetch(async (url) => {
+    calls.push(url);
+    return jsonResponse(500, {
+      code: "INTERNAL_ERROR",
+      message: "unexpected fetch",
+      traceId: "trace_unexpected_fetch",
+    });
+  });
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    for (const [operation, expectedMessage] of [
+      [() => client.getQuote(" "), "quoteId must be a non-empty string"],
+      [() => client.getHedge(""), "hedgeOrderId must be a non-empty string"],
+      [() => client.getSettlement(" \n "), "settlementEventId must be a non-empty string"],
+    ]) {
+      await assert.rejects(operation(), (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, expectedMessage);
+        return true;
+      });
+    }
+
+    assert.deepEqual(calls, []);
+  } finally {
+    restoreFetch();
+  }
+});
+
 test("RFQClient throws structured RFQClientError for API errors", async () => {
   const restoreFetch = installFetch(async () =>
     jsonResponse(409, {

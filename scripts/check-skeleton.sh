@@ -611,6 +611,8 @@ grep -q 'async getHedge' sdk/src/client.ts
 grep -q 'async pnl' sdk/src/client.ts
 grep -q 'async health' sdk/src/client.ts
 grep -q 'async ready' sdk/src/client.ts
+grep -q 'assertNonEmptyIdentifier' sdk/src/client.ts
+grep -q 'RFQClient rejects empty dynamic status identifiers before fetch' sdk/test/sdk.test.mjs
 grep -q 'isHedgeIntentStatus' sdk/src/client.ts
 grep -q 'isPnlSummary' sdk/src/client.ts
 grep -q 'isHealthResponse' sdk/src/client.ts

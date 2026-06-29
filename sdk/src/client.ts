@@ -72,7 +72,8 @@ export class RFQClient {
   }
 
   async getQuote(quoteId: string): Promise<QuoteStatus> {
-    const response = await fetch(`${this.baseUrl}/quote/${encodeURIComponent(quoteId)}`);
+    const safeQuoteId = assertNonEmptyIdentifier(quoteId, "quoteId");
+    const response = await fetch(`${this.baseUrl}/quote/${encodeURIComponent(safeQuoteId)}`);
 
     await assertOk(response, "RFQ quote status failed");
 
@@ -89,7 +90,8 @@ export class RFQClient {
   }
 
   async getHedge(hedgeOrderId: string): Promise<HedgeIntentStatus> {
-    const response = await fetch(`${this.baseUrl}/hedges/${encodeURIComponent(hedgeOrderId)}`);
+    const safeHedgeOrderId = assertNonEmptyIdentifier(hedgeOrderId, "hedgeOrderId");
+    const response = await fetch(`${this.baseUrl}/hedges/${encodeURIComponent(safeHedgeOrderId)}`);
 
     await assertOk(response, "RFQ hedge status failed");
 
@@ -102,7 +104,8 @@ export class RFQClient {
   }
 
   async getSettlement(settlementEventId: string): Promise<SettlementEventStatus> {
-    const response = await fetch(`${this.baseUrl}/settlements/${encodeURIComponent(settlementEventId)}`);
+    const safeSettlementEventId = assertNonEmptyIdentifier(settlementEventId, "settlementEventId");
+    const response = await fetch(`${this.baseUrl}/settlements/${encodeURIComponent(safeSettlementEventId)}`);
 
     await assertOk(response, "RFQ settlement event status failed");
 
@@ -273,6 +276,14 @@ function retryAfterSeconds(response: Response): number | undefined {
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.trim().replace(/\/+$/, "");
+}
+
+function assertNonEmptyIdentifier(value: string, field: "quoteId" | "hedgeOrderId" | "settlementEventId"): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new RFQClientError(`${field} must be a non-empty string`, 0);
+  }
+
+  return value;
 }
 
 function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {
