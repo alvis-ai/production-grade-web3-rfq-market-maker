@@ -73,3 +73,71 @@ test("LocalEIP712SignerService binds signatures to the settlement contract addre
 
   assert.equal(await otherSettlementSigner.verifyQuoteSignature(quote, signature), false);
 });
+
+test("LocalEIP712SignerService rejects unsafe signer configuration at construction", () => {
+  assert.throws(
+    () =>
+      new LocalEIP712SignerService({
+        privateKey: "0x1234",
+        settlementAddress,
+      }),
+    /Signer privateKey must be a 32-byte hex string/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalEIP712SignerService({
+        privateKey,
+        settlementAddress: "0x1234",
+      }),
+    /Signer settlementAddress must be a 20-byte hex address/,
+  );
+});
+
+test("LocalEIP712SignerService rejects unsafe quote inputs before signing", async () => {
+  const signer = new LocalEIP712SignerService({
+    privateKey,
+    settlementAddress,
+  });
+
+  await assert.rejects(
+    signer.signQuote({
+      quote,
+      quoteId: " ",
+      snapshotId: "snapshot_test",
+    }),
+    /Signer quoteId must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
+      quote: {
+        ...quote,
+        amountOut: "900",
+        minAmountOut: "901",
+      },
+      quoteId: "q_test",
+      snapshotId: "snapshot_test",
+    }),
+    /Signer quote.amountOut must be greater than or equal to quote.minAmountOut/,
+  );
+});
+
+test("LocalEIP712SignerService returns false for malformed verification inputs", async () => {
+  const signer = new LocalEIP712SignerService({
+    privateKey,
+    settlementAddress,
+  });
+
+  assert.equal(await signer.verifyQuoteSignature(quote, "0x1234"), false);
+  assert.equal(
+    await signer.verifyQuoteSignature(
+      {
+        ...quote,
+        tokenOut: quote.tokenIn,
+      },
+      `0x${"11".repeat(65)}`,
+    ),
+    false,
+  );
+});

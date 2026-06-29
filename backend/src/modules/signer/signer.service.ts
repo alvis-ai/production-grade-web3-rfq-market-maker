@@ -43,16 +43,21 @@ export class LocalEIP712SignerService implements SignerService {
   private readonly account: PrivateKeyAccount;
 
   constructor(private readonly config: LocalEIP712SignerConfig) {
+    assertPrivateKey(config.privateKey);
+    assertAddress(config.settlementAddress, "settlementAddress");
     this.account = privateKeyToAccount(config.privateKey);
   }
 
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
+    assertSignQuoteInput(input);
     return this.account.signTypedData(buildQuoteTypedData(input.quote, this.config.settlementAddress));
   }
 
   async verifyQuoteSignature(quote: SignedQuote, signature: `0x${string}`): Promise<boolean> {
     let recovered: `0x${string}`;
     try {
+      assertSignedQuote(quote);
+      assertSignature(signature);
       recovered = await recoverTypedDataAddress({
         ...buildQuoteTypedData(quote, this.config.settlementAddress),
         signature,
@@ -119,6 +124,66 @@ function buildQuoteTypedData(quote: SignedQuote, settlementAddress: `0x${string}
         chainId: BigInt(quote.chainId),
       },
     } as const;
+}
+
+function assertSignQuoteInput(input: SignQuoteInput): void {
+  assertNonEmptyString(input.quoteId, "quoteId");
+  assertNonEmptyString(input.snapshotId, "snapshotId");
+  assertSignedQuote(input.quote);
+}
+
+function assertSignedQuote(quote: SignedQuote): void {
+  assertPositiveSafeInteger(quote.chainId, "quote.chainId");
+  assertAddress(quote.user, "quote.user");
+  assertAddress(quote.tokenIn, "quote.tokenIn");
+  assertAddress(quote.tokenOut, "quote.tokenOut");
+  if (quote.tokenIn.toLowerCase() === quote.tokenOut.toLowerCase()) {
+    throw new Error("Signer quote token pair must contain distinct tokens");
+  }
+  assertPositiveUIntString(quote.amountIn, "quote.amountIn");
+  assertPositiveUIntString(quote.amountOut, "quote.amountOut");
+  assertPositiveUIntString(quote.minAmountOut, "quote.minAmountOut");
+  if (BigInt(quote.amountOut) < BigInt(quote.minAmountOut)) {
+    throw new Error("Signer quote.amountOut must be greater than or equal to quote.minAmountOut");
+  }
+  assertPositiveUIntString(quote.nonce, "quote.nonce");
+  assertPositiveSafeInteger(quote.deadline, "quote.deadline");
+}
+
+function assertPrivateKey(value: string): void {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error("Signer privateKey must be a 32-byte hex string");
+  }
+}
+
+function assertSignature(value: string): void {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(value)) {
+    throw new Error("Signer signature must be a 65-byte hex string");
+  }
+}
+
+function assertNonEmptyString(value: string, field: "quoteId" | "snapshotId"): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Signer ${field} must be a non-empty string`);
+  }
+}
+
+function assertAddress(value: string, field: string): void {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Signer ${field} must be a 20-byte hex address`);
+  }
+}
+
+function assertPositiveUIntString(value: string, field: string): void {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/.test(value) || BigInt(value) <= 0n) {
+    throw new Error(`Signer ${field} must be a positive uint string`);
+  }
+}
+
+function assertPositiveSafeInteger(value: number, field: string): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Signer ${field} must be a positive safe integer`);
+  }
 }
 
 export class PlaceholderSignerService implements SignerService {
