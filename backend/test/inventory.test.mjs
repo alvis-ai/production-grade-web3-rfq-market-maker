@@ -97,3 +97,79 @@ test("InventoryService rejects unsafe skew configuration at construction", () =>
     /Inventory maxPositiveSkewBps must be less than or equal to 10000 bps/,
   );
 });
+
+test("InventoryService rejects unsafe settlement inputs before mutating balances", () => {
+  const inventory = new InventoryService();
+
+  assert.throws(
+    () =>
+      inventory.applySettlement({
+        chainId: 0,
+        tokenIn,
+        tokenOut,
+        amountIn: "100",
+        amountOut: "99",
+      }),
+    /Inventory chainId must be a positive safe integer/,
+  );
+  assert.throws(
+    () =>
+      inventory.applySettlement({
+        chainId: 1,
+        tokenIn: "0x1234",
+        tokenOut,
+        amountIn: "100",
+        amountOut: "99",
+      }),
+    /Inventory tokenIn must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () =>
+      inventory.applySettlement({
+        chainId: 1,
+        tokenIn,
+        tokenOut: tokenIn,
+        amountIn: "100",
+        amountOut: "99",
+      }),
+    /Inventory token pair must contain distinct tokens/,
+  );
+  assert.throws(
+    () =>
+      inventory.applySettlement({
+        chainId: 1,
+        tokenIn,
+        tokenOut,
+        amountIn: "0",
+        amountOut: "99",
+      }),
+    /Inventory amountIn must be a positive uint string/,
+  );
+
+  assert.equal(inventory.getPosition(1, tokenIn).balance, 0n);
+  assert.equal(inventory.getPosition(1, tokenOut).balance, 0n);
+});
+
+test("InventoryService rejects unsafe projection and skew inputs", () => {
+  const inventory = new InventoryService();
+
+  assert.throws(
+    () =>
+      inventory.projectSettlement({
+        chainId: 1,
+        tokenIn,
+        tokenOut,
+        amountIn: "100",
+        amountOut: "-1",
+      }),
+    /Inventory amountOut must be a positive uint string/,
+  );
+  assert.throws(
+    () => inventory.calculateQuoteSkewBps({ chainId: Number.MAX_SAFE_INTEGER + 1, token: tokenOut }),
+    /Inventory chainId must be a positive safe integer/,
+  );
+  assert.throws(
+    () => inventory.getPosition(1, "0x1234"),
+    /Inventory token must be a 20-byte hex address/,
+  );
+});

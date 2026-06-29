@@ -58,11 +58,13 @@ export class InventoryService {
   }
 
   applySettlement(delta: SettlementDelta): void {
+    assertSettlementDelta(delta);
     this.add(delta.chainId, delta.tokenIn, BigInt(delta.amountIn));
     this.add(delta.chainId, delta.tokenOut, -BigInt(delta.amountOut));
   }
 
   projectSettlement(input: InventoryProjectionInput): InventoryProjection {
+    assertSettlementDelta(input);
     const tokenIn = this.getPosition(input.chainId, input.tokenIn);
     const tokenOut = this.getPosition(input.chainId, input.tokenOut);
 
@@ -79,6 +81,7 @@ export class InventoryService {
   }
 
   calculateQuoteSkewBps(input: InventorySkewInput): number {
+    assertInventorySkewInput(input);
     const balance = this.getPosition(input.chainId, input.token).balance;
     if (balance === 0n) {
       return 0;
@@ -93,6 +96,8 @@ export class InventoryService {
   }
 
   getPosition(chainId: number, token: Address): InventoryPosition {
+    assertPositiveSafeInteger(chainId, "chainId");
+    assertAddress(token, "token");
     return {
       chainId,
       token,
@@ -127,5 +132,39 @@ function assertBpsUpperBound(value: number, field: keyof InventoryServiceConfig)
 
   if (value > 10_000) {
     throw new Error(`Inventory ${field} must be less than or equal to 10000 bps`);
+  }
+}
+
+function assertSettlementDelta(input: SettlementDelta | InventoryProjectionInput): void {
+  assertPositiveSafeInteger(input.chainId, "chainId");
+  assertAddress(input.tokenIn, "tokenIn");
+  assertAddress(input.tokenOut, "tokenOut");
+  if (input.tokenIn.toLowerCase() === input.tokenOut.toLowerCase()) {
+    throw new Error("Inventory token pair must contain distinct tokens");
+  }
+  assertPositiveUIntString(input.amountIn, "amountIn");
+  assertPositiveUIntString(input.amountOut, "amountOut");
+}
+
+function assertInventorySkewInput(input: InventorySkewInput): void {
+  assertPositiveSafeInteger(input.chainId, "chainId");
+  assertAddress(input.token, "token");
+}
+
+function assertPositiveSafeInteger(value: number, field: string): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Inventory ${field} must be a positive safe integer`);
+  }
+}
+
+function assertAddress(value: string, field: string): void {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Inventory ${field} must be a 20-byte hex address`);
+  }
+}
+
+function assertPositiveUIntString(value: string, field: string): void {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/.test(value) || BigInt(value) <= 0n) {
+    throw new Error(`Inventory ${field} must be a positive uint string`);
   }
 }
