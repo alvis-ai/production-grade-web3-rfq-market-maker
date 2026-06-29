@@ -62,6 +62,7 @@ export class RFQClient {
     await assertOk(response, "RFQ submit failed");
 
     const payload = await readJsonResponse(response, "RFQ submit response");
+    assertRequiredEnumField(payload, "status", ["accepted"], response.status, "RFQ submit response");
     assertOptionalBytes32Field(payload, "txHash", response.status, "RFQ submit response");
     return payload as SubmitQuoteResponse;
   }
@@ -72,6 +73,13 @@ export class RFQClient {
     await assertOk(response, "RFQ quote status failed");
 
     const payload = await readJsonResponse(response, "RFQ quote status response");
+    assertRequiredEnumField(
+      payload,
+      "status",
+      ["requested", "rejected", "signed", "expired", "submitted", "settled", "failed"],
+      response.status,
+      "RFQ quote status response",
+    );
     assertOptionalBytes32Field(payload, "txHash", response.status, "RFQ quote status response");
     return payload as QuoteStatus;
   }
@@ -209,6 +217,18 @@ function assertRequiredBytes32Field(payload: unknown, field: string, status: num
 
 function assertRequiredSignatureField(payload: unknown, field: string, status: number, label: string): void {
   if (!isRecord(payload) || !isSignatureHex(payload[field])) {
+    throw malformedFieldError(status, label, field);
+  }
+}
+
+function assertRequiredEnumField(
+  payload: unknown,
+  field: string,
+  allowedValues: readonly string[],
+  status: number,
+  label: string,
+): void {
+  if (!isRecord(payload) || typeof payload[field] !== "string" || !allowedValues.includes(payload[field])) {
     throw malformedFieldError(status, label, field);
   }
 }

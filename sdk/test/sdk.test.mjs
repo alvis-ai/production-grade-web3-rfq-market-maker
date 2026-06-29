@@ -489,6 +489,58 @@ test("RFQClient rejects malformed hedge status enum responses", async () => {
   }
 });
 
+test("RFQClient rejects malformed submit and quote status enum responses", async () => {
+  const restoreSubmitFetch = installFetch(async () =>
+    jsonResponse(202, {
+      status: "pending",
+      txHash: `0x${"22".repeat(32)}`,
+      settlementEventId: "se_1_22222222_0",
+    }),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.submit({ quote, signature }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 202);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ submit response returned malformed status");
+        return true;
+      },
+    );
+  } finally {
+    restoreSubmitFetch();
+  }
+
+  const restoreQuoteStatusFetch = installFetch(async () =>
+    jsonResponse(200, {
+      quoteId: "q_test",
+      status: "unknown",
+      txHash: `0x${"22".repeat(32)}`,
+    }),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.getQuote("q_test"),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 200);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ quote status response returned malformed status");
+        return true;
+      },
+    );
+  } finally {
+    restoreQuoteStatusFetch();
+  }
+});
+
 test("RFQClient rejects malformed successful signature and hash fields", async () => {
   const restoreQuoteFetch = installFetch(async () =>
     jsonResponse(200, {
