@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 const backendSigner = await readFile("backend/src/modules/signer/signer.service.ts", "utf8");
 const backendSettlement = await readFile("backend/src/modules/settlement/settlement-event.service.ts", "utf8");
 const sdkEip712 = await readFile("sdk/src/eip712.ts", "utf8");
-const sdkSettlement = await readFile("sdk/src/settlement.ts", "utf8");
+const sdkQuoteHash = await readFile("sdk/src/quote-hash.ts", "utf8");
 const settlement = await readFile("contracts/src/RFQSettlement.sol", "utf8");
 
 const backendDomain = extractTsDomain(backendSigner);
@@ -18,7 +18,7 @@ assertDeepEqual(sdkDomain, contractDomain, "SDK domain must match RFQSettlement 
 const backendFields = extractTsQuoteFields(backendSigner);
 const sdkFields = extractTsQuoteFields(sdkEip712);
 const backendSettlementFields = extractQuoteTypeStringFields(backendSettlement, "backend settlement quote hash");
-const sdkSettlementFields = extractQuoteTypeStringFields(sdkSettlement, "SDK settlement quote hash");
+const sdkSettlementFields = extractQuoteTypeStringFields(sdkQuoteHash, "SDK settlement quote hash");
 const contractFields = extractContractQuoteFields(settlement);
 
 assertDeepEqual(backendFields, sdkFields, "backend signer Quote fields must match SDK Quote fields");

@@ -78,6 +78,7 @@ test -s frontend/src/pages/QuotePage.tsx
 test -s sdk/src/abi.ts
 test -s sdk/src/eip712.ts
 test -s sdk/src/index.ts
+test -s sdk/src/quote-hash.ts
 test -s sdk/src/settlement.ts
 test -s sdk/test/sdk.test.mjs
 test -s contracts/src/RFQSettlement.sol
@@ -460,7 +461,8 @@ grep -q 'treasuryAbi' sdk/src/index.ts
 grep -q 'buildSubmitQuoteArgs' sdk/src/index.ts
 grep -q 'hashSettlementQuote' sdk/src/index.ts
 grep -q 'buildTreasuryTransferArgs' sdk/src/index.ts
-grep -q 'hashSettlementQuote' sdk/src/settlement.ts
+grep -q 'hashSettlementQuote' sdk/src/quote-hash.ts
+grep -q 'toSettlementQuote' sdk/src/quote-hash.ts
 grep -q 'parseAddress' sdk/src/settlement.ts
 grep -q 'parseSignature' sdk/src/settlement.ts
 grep -q 'parsePositiveUInt' sdk/src/settlement.ts
