@@ -110,6 +110,7 @@ price(input: PricingInput): Promise<PricingResult>
 - PricingResult 进入 Risk Service。
 - pricingVersion 写入 quote record。
 - Routing failure 是 quote dependency failure，不应落入通用 500，也不应继续执行 pricing/risk/signer。
+- Pricing input is validated before formula execution: request addresses and amounts, snapshot identifiers and market fields, route venue/liquidity, route token pair alignment, slippage bps and inventory skew bounds must be sane before any signed quote candidate can be produced.
 
 ## Failure Scenarios
 

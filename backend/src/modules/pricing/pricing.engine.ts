@@ -54,6 +54,7 @@ export class FormulaPricingEngine implements PricingEngine {
   }
 
   async price(input: PricingInput): Promise<PricingResult> {
+    assertPricingInput(input);
     const amountIn = BigInt(input.request.amountIn);
     const midPrice = parseDecimalToWad(input.snapshot.midPrice);
     const rawAmountOut = (amountIn * midPrice) / WAD;
@@ -110,22 +111,87 @@ function clampBps(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function assertPositiveSafeInteger(value: number, field: keyof FormulaPricingConfig): void {
+function assertPositiveSafeInteger(value: number, field: string): void {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`Formula pricing ${field} must be a positive safe integer`);
   }
 }
 
-function assertNonNegativeSafeInteger(value: number, field: keyof FormulaPricingConfig): void {
+function assertNonNegativeSafeInteger(value: number, field: string): void {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new Error(`Formula pricing ${field} must be a non-negative safe integer`);
   }
 }
 
-function assertBpsUpperBound(value: number, field: keyof FormulaPricingConfig): void {
+function assertBpsUpperBound(value: number, field: string): void {
   assertNonNegativeSafeInteger(value, field);
 
   if (value > 10_000) {
     throw new Error(`Formula pricing ${field} must be less than or equal to 10000 bps`);
+  }
+}
+
+function assertPricingInput(input: PricingInput): void {
+  assertPositiveSafeInteger(input.request.chainId, "request.chainId");
+  assertAddress(input.request.user, "request.user");
+  assertAddress(input.request.tokenIn, "request.tokenIn");
+  assertAddress(input.request.tokenOut, "request.tokenOut");
+  if (input.request.tokenIn.toLowerCase() === input.request.tokenOut.toLowerCase()) {
+    throw new Error("Formula pricing request token pair must contain distinct tokens");
+  }
+  assertPositiveUIntString(input.request.amountIn, "request.amountIn");
+  assertBpsUpperBound(input.request.slippageBps, "request.slippageBps");
+
+  assertNonEmptyString(input.snapshot.snapshotId, "snapshot.snapshotId");
+  assertPositiveDecimalString(input.snapshot.midPrice, "snapshot.midPrice");
+  assertPositiveUIntString(input.snapshot.liquidityUsd, "snapshot.liquidityUsd");
+  assertBpsUpperBound(input.snapshot.volatilityBps, "snapshot.volatilityBps");
+
+  assertNonEmptyString(input.routePlan.routeId, "routePlan.routeId");
+  if (input.routePlan.venue !== "internal_inventory") {
+    throw new Error("Formula pricing routePlan.venue must be internal_inventory");
+  }
+  assertAddress(input.routePlan.tokenIn, "routePlan.tokenIn");
+  assertAddress(input.routePlan.tokenOut, "routePlan.tokenOut");
+  if (
+    input.routePlan.tokenIn.toLowerCase() !== input.request.tokenIn.toLowerCase() ||
+    input.routePlan.tokenOut.toLowerCase() !== input.request.tokenOut.toLowerCase()
+  ) {
+    throw new Error("Formula pricing routePlan token pair must match request token pair");
+  }
+  assertPositiveUIntString(input.routePlan.expectedLiquidityUsd, "routePlan.expectedLiquidityUsd");
+  assertBpsMagnitude(input.inventorySkewBps, "inventorySkewBps");
+}
+
+function assertNonEmptyString(value: string, field: string): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Formula pricing ${field} must be a non-empty string`);
+  }
+}
+
+function assertAddress(value: string, field: string): void {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Formula pricing ${field} must be a 20-byte hex address`);
+  }
+}
+
+function assertPositiveUIntString(value: string, field: string): void {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/.test(value) || BigInt(value) <= 0n) {
+    throw new Error(`Formula pricing ${field} must be a positive uint string`);
+  }
+}
+
+function assertPositiveDecimalString(value: string, field: string): void {
+  if (typeof value !== "string" || !/^[0-9]+(\.[0-9]+)?$/.test(value) || parseDecimalToWad(value) <= 0n) {
+    throw new Error(`Formula pricing ${field} must be a positive decimal string`);
+  }
+}
+
+function assertBpsMagnitude(value: number, field: string): void {
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(`Formula pricing ${field} must be a safe integer`);
+  }
+  if (Math.abs(value) > 10_000) {
+    throw new Error(`Formula pricing ${field} magnitude must be less than or equal to 10000 bps`);
   }
 }

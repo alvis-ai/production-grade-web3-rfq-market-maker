@@ -80,3 +80,59 @@ test("FormulaPricingEngine rejects unsafe pricing configuration at construction"
     /Formula pricing maxSizeImpactBps must be less than or equal to maxTotalAdjustmentBps/,
   );
 });
+
+test("FormulaPricingEngine rejects unsafe pricing inputs before quoting", async () => {
+  const engine = new FormulaPricingEngine();
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      request: {
+        ...baseInput.request,
+        tokenOut: "0x1234",
+      },
+    }),
+    /Formula pricing request.tokenOut must be a 20-byte hex address/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      request: {
+        ...baseInput.request,
+        slippageBps: 10_001,
+      },
+    }),
+    /Formula pricing request.slippageBps must be less than or equal to 10000 bps/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      snapshot: {
+        ...baseInput.snapshot,
+        midPrice: "0",
+      },
+    }),
+    /Formula pricing snapshot.midPrice must be a positive decimal string/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      routePlan: {
+        ...baseInput.routePlan,
+        tokenOut: "0xC000000000000000000000000000000000000004",
+      },
+    }),
+    /Formula pricing routePlan token pair must match request token pair/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      inventorySkewBps: 10_001,
+    }),
+    /Formula pricing inventorySkewBps magnitude must be less than or equal to 10000 bps/,
+  );
+});
