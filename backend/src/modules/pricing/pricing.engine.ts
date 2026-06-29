@@ -41,7 +41,17 @@ const WAD = 1_000_000_000_000_000_000n;
 const BPS = 10_000n;
 
 export class FormulaPricingEngine implements PricingEngine {
-  constructor(private readonly config: FormulaPricingConfig = defaultFormulaPricingConfig) {}
+  constructor(private readonly config: FormulaPricingConfig = defaultFormulaPricingConfig) {
+    assertNonNegativeSafeInteger(config.baseSpreadBps, "baseSpreadBps");
+    assertNonNegativeSafeInteger(config.internalInventoryBufferBps, "internalInventoryBufferBps");
+    assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor");
+    assertNonNegativeSafeInteger(config.maxSizeImpactBps, "maxSizeImpactBps");
+    assertBpsUpperBound(config.maxTotalAdjustmentBps, "maxTotalAdjustmentBps");
+
+    if (config.maxSizeImpactBps > config.maxTotalAdjustmentBps) {
+      throw new Error("Formula pricing maxSizeImpactBps must be less than or equal to maxTotalAdjustmentBps");
+    }
+  }
 
   async price(input: PricingInput): Promise<PricingResult> {
     const amountIn = BigInt(input.request.amountIn);
@@ -98,4 +108,24 @@ function ceilDiv(numerator: bigint, denominator: bigint): bigint {
 
 function clampBps(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function assertPositiveSafeInteger(value: number, field: keyof FormulaPricingConfig): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Formula pricing ${field} must be a positive safe integer`);
+  }
+}
+
+function assertNonNegativeSafeInteger(value: number, field: keyof FormulaPricingConfig): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`Formula pricing ${field} must be a non-negative safe integer`);
+  }
+}
+
+function assertBpsUpperBound(value: number, field: keyof FormulaPricingConfig): void {
+  assertNonNegativeSafeInteger(value, field);
+
+  if (value > 10_000) {
+    throw new Error(`Formula pricing ${field} must be less than or equal to 10000 bps`);
+  }
 }

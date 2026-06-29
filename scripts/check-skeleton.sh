@@ -1022,6 +1022,11 @@ grep -q 'applies each chain event idempotently' backend/test/settlement-event.te
 grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter rejects unsafe configuration at construction' backend/test/rate-limit.test.mjs
 grep -q 'unsafe rate limit configuration at startup' backend/test/api.test.mjs
+grep -q 'assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor")' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'assertBpsUpperBound(config.maxTotalAdjustmentBps, "maxTotalAdjustmentBps")' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'maxSizeImpactBps must be less than or equal to maxTotalAdjustmentBps' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'FormulaPricingEngine rejects unsafe pricing configuration at construction' backend/test/pricing.test.mjs
+grep -q 'pricing config fail-fast' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q 'restricted toxic-flow users' backend/test/risk.test.mjs
 grep -q 'toxic-flow score threshold' backend/test/risk.test.mjs
 grep -q 'quoted spreads above policy limit' backend/test/risk.test.mjs

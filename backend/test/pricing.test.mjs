@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FormulaPricingEngine } from "../dist/modules/pricing/pricing.engine.js";
+import { FormulaPricingEngine, defaultFormulaPricingConfig } from "../dist/modules/pricing/pricing.engine.js";
 
 const baseInput = {
   request: {
@@ -52,4 +52,31 @@ test("FormulaPricingEngine clamps toxic size impact and inventory skew into tota
   assert.equal(pricing.spreadBps, 2500);
   assert.equal(pricing.sizeImpactBps, 250);
   assert.equal(pricing.amountOut, "937500000000000000");
+});
+
+test("FormulaPricingEngine rejects unsafe pricing configuration at construction", () => {
+  assert.throws(
+    () => new FormulaPricingEngine({ ...defaultFormulaPricingConfig, baseSpreadBps: -1 }),
+    /Formula pricing baseSpreadBps must be a non-negative safe integer/,
+  );
+
+  assert.throws(
+    () => new FormulaPricingEngine({ ...defaultFormulaPricingConfig, volatilityDivisor: 0 }),
+    /Formula pricing volatilityDivisor must be a positive safe integer/,
+  );
+
+  assert.throws(
+    () => new FormulaPricingEngine({ ...defaultFormulaPricingConfig, maxTotalAdjustmentBps: 10_001 }),
+    /Formula pricing maxTotalAdjustmentBps must be less than or equal to 10000 bps/,
+  );
+
+  assert.throws(
+    () =>
+      new FormulaPricingEngine({
+        ...defaultFormulaPricingConfig,
+        maxSizeImpactBps: 3000,
+        maxTotalAdjustmentBps: 2500,
+      }),
+    /Formula pricing maxSizeImpactBps must be less than or equal to maxTotalAdjustmentBps/,
+  );
 });
