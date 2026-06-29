@@ -46,10 +46,36 @@ function WalletSubmitInner({
     onWalletChange({ address, chainId: activeChainId });
   }, [activeChainId, address, onWalletChange]);
 
-  const canSubmitOnchain = Boolean(canSubmit && signedQuote && quote && rfqSettlementAddress && address && !isPending);
+  const walletMatchesQuote = Boolean(
+    signedQuote &&
+    address &&
+    address.toLowerCase() === signedQuote.user.toLowerCase() &&
+    activeChainId === signedQuote.chainId,
+  );
+  const canSubmitOnchain = Boolean(
+    canSubmit &&
+    signedQuote &&
+    quote &&
+    rfqSettlementAddress &&
+    address &&
+    walletMatchesQuote &&
+    !isPending,
+  );
 
   async function submitQuoteOnchain() {
     if (!quote || !signedQuote || !rfqSettlementAddress) return;
+    if (!address) {
+      onError({ message: "Connect wallet before submitting onchain" });
+      return;
+    }
+    if (address.toLowerCase() !== signedQuote.user.toLowerCase()) {
+      onError({ message: "Connected wallet must match quote user" });
+      return;
+    }
+    if (activeChainId !== signedQuote.chainId) {
+      onError({ message: "Connected wallet network must match quote chainId" });
+      return;
+    }
 
     try {
       const txHash = await writeContractAsync({

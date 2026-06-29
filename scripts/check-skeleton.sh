@@ -555,6 +555,9 @@ grep -q 'useWriteContract' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'buildSubmitQuoteArgs' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'rfqSettlementAbi' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'writeContractAsync' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'walletMatchesQuote' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'Connected wallet must match quote user' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'Connected wallet network must match quote chainId' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'VITE_RFQ_API_BASE_URL' frontend/src/lib/config.ts
 grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS' frontend/src/lib/config.ts
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID' frontend/src/lib/config.ts
