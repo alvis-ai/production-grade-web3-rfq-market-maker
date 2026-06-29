@@ -227,6 +227,35 @@ test("QuoteService uses configured quote TTL when generating signed quote deadli
   }
 });
 
+test("QuoteService rejects unsafe runtime configuration at construction", () => {
+  assert.throws(
+    () =>
+      new QuoteService(quoteServiceDeps(), {
+        ...defaultQuoteServiceConfig,
+        maxSnapshotAgeMs: 0,
+      }),
+    /Quote service maxSnapshotAgeMs must be a positive safe integer/,
+  );
+
+  assert.throws(
+    () =>
+      new QuoteService(quoteServiceDeps(), {
+        ...defaultQuoteServiceConfig,
+        maxSnapshotFutureSkewMs: Number.MAX_SAFE_INTEGER + 1,
+      }),
+    /Quote service maxSnapshotFutureSkewMs must be a positive safe integer/,
+  );
+
+  assert.throws(
+    () =>
+      new QuoteService(quoteServiceDeps(), {
+        ...defaultQuoteServiceConfig,
+        quoteTtlSeconds: -1,
+      }),
+    /Quote service quoteTtlSeconds must be a positive safe integer/,
+  );
+});
+
 test("QuoteService marks requested quotes as failed when signer is unavailable", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
@@ -360,4 +389,23 @@ test("QuoteService includes hedge risk penalty in pricing input", async () => {
 
 function fixedSignature() {
   return `0x${"11".repeat(65)}`;
+}
+
+function quoteServiceDeps() {
+  return {
+    inventoryService: new InventoryService(),
+    marketDataService: new StaticMarketDataService(),
+    pricingEngine: new FormulaPricingEngine(),
+    quoteRepository: new InMemoryQuoteRepository(),
+    riskEngine: new BasicRiskEngine(),
+    routingEngine: new InternalInventoryRoutingEngine(),
+    signerService: {
+      async signQuote() {
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() {
+        return true;
+      },
+    },
+  };
 }

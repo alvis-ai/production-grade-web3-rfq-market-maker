@@ -59,7 +59,11 @@ export class QuoteService {
   constructor(
     private readonly deps: QuoteServiceDeps,
     private readonly config: QuoteServiceConfig = defaultQuoteServiceConfig,
-  ) {}
+  ) {
+    assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
+    assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
+    assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds");
+  }
 
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
     const snapshot = await this.getUsableSnapshot(request);
@@ -363,6 +367,12 @@ function assertUsableSnapshot(
   const issue = getMarketSnapshotIssue(snapshot, maxSnapshotAgeMs, maxSnapshotFutureSkewMs);
   if (issue) {
     throw new APIError("MARKET_DATA_UNAVAILABLE", `Market data ${issue}`, 503);
+  }
+}
+
+function assertPositiveSafeInteger(value: number, field: keyof QuoteServiceConfig): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Quote service ${field} must be a positive safe integer`);
   }
 }
 
