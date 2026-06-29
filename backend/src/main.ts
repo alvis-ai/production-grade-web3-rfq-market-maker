@@ -171,6 +171,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       }
 
       const { settlementEventId } = request.params as { settlementEventId: string };
+      assertStatusIdentifier(settlementEventId, "settlementEventId");
       const status = settlementEventService.getSettlementEvent(settlementEventId);
       if (!status) {
         return sendError(
@@ -193,6 +194,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       }
 
       const { quoteId } = request.params as { quoteId: string };
+      assertStatusIdentifier(quoteId, "quoteId");
       const status = await quoteService.getQuoteStatus(quoteId);
       if (!status) {
         return sendError(reply, requestTraceId(request), new APIError("QUOTE_NOT_FOUND", "Quote not found", 404));
@@ -211,6 +213,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       }
 
       const { hedgeOrderId } = request.params as { hedgeOrderId: string };
+      assertStatusIdentifier(hedgeOrderId, "hedgeOrderId");
       const status = hedgeService.getHedgeIntent(hedgeOrderId);
       if (!status) {
         return sendError(reply, requestTraceId(request), new APIError("HEDGE_NOT_FOUND", "Hedge intent not found", 404));
@@ -340,6 +343,12 @@ function sendError(
   error: APIError,
 ) {
   return reply.header("x-trace-id", traceId).code(error.statusCode).send(error.toResponse(traceId));
+}
+
+function assertStatusIdentifier(value: string, field: "quoteId" | "hedgeOrderId" | "settlementEventId"): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new APIError("INVALID_REQUEST", `${field} must be a non-empty string`, 400);
+  }
 }
 
 function applyCorsHeaders(

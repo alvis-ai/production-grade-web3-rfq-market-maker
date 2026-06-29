@@ -192,6 +192,8 @@ grep -q 'quoteService.getQuoteStatus' backend/src/main.ts
 grep -q 'server.get("/settlements/:settlementEventId"' backend/src/main.ts
 grep -q 'server.get("/hedges/:hedgeOrderId"' backend/src/main.ts
 grep -q 'server.get("/pnl"' backend/src/main.ts
+grep -q 'assertStatusIdentifier' backend/src/main.ts
+grep -q 'RFQ API rejects empty status path identifiers before store lookup' backend/test/api.test.mjs
 grep -q 'server.get("/ready"' backend/src/main.ts
 grep -q 'readiness.status === "degraded"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts

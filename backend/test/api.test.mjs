@@ -605,6 +605,29 @@ test("RFQ API returns structured errors for missing settlement events", async ()
   }
 });
 
+test("RFQ API rejects empty status path identifiers before store lookup", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    for (const [url, expectedMessage] of [
+      ["/quote/%20", "quoteId must be a non-empty string"],
+      ["/hedges/%20", "hedgeOrderId must be a non-empty string"],
+      ["/settlements/%20", "settlementEventId must be a non-empty string"],
+    ]) {
+      const response = await injectJson(server, "GET", url);
+
+      assert.equal(response.statusCode, 400);
+      assert.equal(response.body.code, "INVALID_REQUEST");
+      assert.equal(response.body.message, expectedMessage);
+      assert.match(response.body.traceId, /^tr_/);
+      assert.equal(response.headers["x-trace-id"], response.body.traceId);
+    }
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API maps settlement event store failures to structured errors", async () => {
   const server = buildServer({
     logger: false,
