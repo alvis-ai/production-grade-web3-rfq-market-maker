@@ -25,6 +25,7 @@ export interface SettlementEventStore {
   checkHealth?(): void;
   applySettlementEvent(input: ApplySettlementEventInput): ApplySettlementEventResult;
   getSettlementEvent(settlementEventId: string): SettlementEventStatusResponse | undefined;
+  listSettlementEvents(): SettlementEventStatusResponse[];
 }
 
 export class SettlementEventService implements SettlementEventStore {
@@ -88,6 +89,16 @@ export class SettlementEventService implements SettlementEventStore {
 
   getSettlementEvent(settlementEventId: string): SettlementEventStatusResponse | undefined {
     return this.events.get(settlementEventId);
+  }
+
+  listSettlementEvents(): SettlementEventStatusResponse[] {
+    return [...this.events.values()].sort((left, right) => {
+      if (left.blockNumber !== right.blockNumber) {
+        return left.blockNumber - right.blockNumber;
+      }
+
+      return left.logIndex - right.logIndex;
+    });
   }
 
   private toSettlementDelta(event: SettlementEventStatusResponse): SettlementDelta {

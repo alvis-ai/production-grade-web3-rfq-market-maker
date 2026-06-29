@@ -72,6 +72,48 @@ test("SettlementEventService persists explicit chain block numbers", () => {
   assert.equal(replay.event.blockNumber, 123456);
 });
 
+test("SettlementEventService lists settlement events in chain order", () => {
+  const inventory = new InventoryService();
+  const settlements = new SettlementEventService(inventory);
+
+  const later = settlements.applySettlementEvent({
+    quoteId: "q_later",
+    quote: {
+      ...quote,
+      nonce: "2",
+    },
+    txHash: `0x${"77".repeat(32)}`,
+    blockNumber: 12,
+    logIndex: 0,
+  });
+  const earlier = settlements.applySettlementEvent({
+    quoteId: "q_earlier",
+    quote,
+    txHash: `0x${"88".repeat(32)}`,
+    blockNumber: 11,
+    logIndex: 5,
+  });
+  const sameBlockNextLog = settlements.applySettlementEvent({
+    quoteId: "q_same_block",
+    quote: {
+      ...quote,
+      nonce: "3",
+    },
+    txHash: `0x${"99".repeat(32)}`,
+    blockNumber: 11,
+    logIndex: 6,
+  });
+
+  assert.deepEqual(
+    settlements.listSettlementEvents().map((event) => event.settlementEventId),
+    [
+      earlier.event.settlementEventId,
+      sameBlockNextLog.event.settlementEventId,
+      later.event.settlementEventId,
+    ],
+  );
+});
+
 test("SettlementEventService normalizes transaction hashes for idempotency", () => {
   const inventory = new InventoryService();
   const settlements = new SettlementEventService(inventory);

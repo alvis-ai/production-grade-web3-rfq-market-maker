@@ -414,15 +414,23 @@ grep -q 'SkeletonExecutionService rejects unsafe execution inputs before settlem
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'listSettlementEvents' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'txHash.slice(2)}_${logIndex}' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'matchesExistingEvent' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'assertSettlementEventInput' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'Settlement event quote.amountOut must be greater than or equal to quote.minAmountOut' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'keeps distinct events with the same tx hash prefix' backend/test/settlement-event.test.mjs
+grep -q 'lists settlement events in chain order' backend/test/settlement-event.test.mjs
 grep -q 'rejects conflicting payloads for an existing chain event key' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects unsafe settlement quote inputs before side effects' backend/test/settlement-event.test.mjs
 grep -q 'hashSettlementQuote rejects malformed quote fields before ABI encoding' backend/test/settlement-event.test.mjs
+grep -q 'class ReconciliationService' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'reconcileSettlementToQuote' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'repairs quote status from settlement events' backend/test/reconciliation.test.mjs
+grep -q 'reports terminal quote conflicts without stopping later events' backend/test/reconciliation.test.mjs
+grep -q 'reports settlement events whose quotes are missing' backend/test/reconciliation.test.mjs
 grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'TOKEN_NOT_WHITELISTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier.service.ts
@@ -1132,6 +1140,7 @@ grep -q 'PnL record creation fails' backend/test/api.test.mjs
 grep -q 'PnL summary store failures' backend/test/api.test.mjs
 grep -q 'rfq_pnl_record_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'PnL attribution after settlement is best-effort' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'ReconciliationService.reconcileSettlementToQuote()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnL attribution input validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'signed realized PnL' backend/test/pnl.test.mjs
 grep -q 'applies each chain event idempotently' backend/test/settlement-event.test.mjs
@@ -1194,6 +1203,7 @@ grep -q 'rfq_realized_pnl_token_out' infra/grafana/provisioning/dashboards/rfq-o
 grep -q 'rfq_pnl_trades_total' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'Post-Settlement Persistence Drift' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'settlement-to-quote reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'ReconciliationService.reconcileSettlementToQuote()' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'settlement-to-PnL reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'rfq-backend-secrets' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'Missing or malformed signer Secret' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
