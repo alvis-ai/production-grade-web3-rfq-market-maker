@@ -140,6 +140,7 @@ Key metrics include:
 - Submit latency alerting should inspect verification, settlement event persistence, inventory, hedge and PnL work before lowering quote availability.
 - Rate-limit alerting should inspect `endpoint` first, then separate abuse, broken client retries and real demand before changing global limits.
 - Inventory balance alerting uses token native units in the reference implementation; production exposure limits should normalize to USD, delta and venue-specific hedge capacity.
+- Realized PnL alerting uses output-token units in the reference implementation; production dashboards should reconcile this with quote-level ClickHouse attribution and treasury accounting.
 - Use ClickHouse for quote-level analysis.
 - Every critical alert links to runbook.
 
@@ -155,6 +156,7 @@ Key metrics include:
 - Rate limit spike：check abusive clients, retry storms, ingress behavior and whether legitimate demand needs a controlled limit change.
 - Inventory exposure over limit：tighten risk limits.
 - Inventory balance threshold breach：reduce quotes that add to the exposed side, hedge down the token and reconcile settlement events.
+- Negative realized PnL：pause affected pairs if pricing, market snapshots or settlement attribution cannot explain the loss.
 - Event lag grows：pause risky pairs.
 - Hedge failure spike：widen spread and page operator.
 

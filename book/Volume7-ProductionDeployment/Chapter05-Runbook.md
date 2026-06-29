@@ -137,6 +137,7 @@ Future admin APIs may support disabling quote signing, lowering limits, disablin
 | `RFQInventoryExposureHigh` | Inspect `rfq_inventory_balance` by `chain_id` and `token`, then compare recent settlements, hedge lag and risk limits. | Reduce or pause quotes that worsen the exposed token, hedge down inventory and verify settlement replay protection before manual reconciliation. | Inventory balance returns within configured limit and new quotes reflect updated inventory-aware spread. |
 | `RFQQuoteStatusUpdateErrors` | Use settlement event as source of truth and inspect quote repository writes. | Run settlement-to-quote reconciliation without replaying contract settlement. | `/quote/:quoteId` reflects submitted or settled status for affected events. |
 | `RFQPnlRecordErrors` | Check PnL store health and settlement-to-PnL attribution inputs. | Run settlement-to-PnL reconciliation from settlement events and market snapshots. | `/pnl` includes repaired records and `rfq_pnl_record_errors_total` stops increasing. |
+| `RFQRealizedPnlNegative` | Inspect `rfq_realized_pnl_token_out` by `chain_id` and `token`, then compare pricing version, market snapshot, spread policy and settlement records. | Widen spread or pause affected pairs, stop signing if pricing is stale, and reconcile PnL attribution before resuming normal quote size. | Realized PnL returns above zero for the affected token and new settlements use the corrected pricing and risk policy. |
 
 ### Signer Compromise
 

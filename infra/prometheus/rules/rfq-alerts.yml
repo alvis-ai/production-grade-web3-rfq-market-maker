@@ -153,3 +153,12 @@ groups:
         annotations:
           summary: RFQ PnL attribution record errors detected after settlement
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQRealizedPnlNegative
+        expr: min by (chain_id, token) (rfq_realized_pnl_token_out) < 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ realized spread PnL is negative by output token
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
