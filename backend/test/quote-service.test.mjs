@@ -151,6 +151,80 @@ test("InMemoryQuoteRepository rejects signed quote identity rewrites", async () 
   assert.equal(indexed.quoteId, "q_original");
 });
 
+test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const signedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+    chainId: 1,
+  };
+  const input = {
+    quoteId: "q_invalid",
+    snapshotId: "snapshot_1",
+    quote: signedQuote,
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  };
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      pricingVersion: " ",
+    }),
+    /Signed quote pricingVersion must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      quote: {
+        ...signedQuote,
+        tokenOut: "0x00000000000000000000000000000000000000zz",
+      },
+    }),
+    /Signed quote quote.tokenOut must be a 20-byte hex address/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      quote: {
+        ...signedQuote,
+        amountIn: "0",
+      },
+    }),
+    /Signed quote quote.amountIn must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      quote: {
+        ...signedQuote,
+        amountOut: "993407999",
+      },
+    }),
+    /Signed quote amountOut must be greater than or equal to minAmountOut/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      signature: "0x11",
+    }),
+    /Signed quote signature must be a 65-byte hex string/,
+  );
+
+  assert.equal(await quoteRepository.findSignedQuoteByChainUserNonce(1, request.user, "42"), undefined);
+});
+
 test("InMemoryQuoteRepository preserves settlement metadata across status updates", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const signedQuote = {

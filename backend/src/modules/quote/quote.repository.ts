@@ -111,6 +111,8 @@ export class InMemoryQuoteRepository implements QuoteRepository {
   }
 
   async saveSigned(input: SaveSignedQuoteInput): Promise<void> {
+    assertSignedQuoteInput(input);
+
     const current = this.records.get(input.quoteId);
     const key = this.chainUserNonceKey(input.quote.chainId, input.quote.user, input.quote.nonce);
     const existingQuoteId = this.quoteIdsByChainUserNonce.get(key);
@@ -217,5 +219,61 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       record.user.toLowerCase() === quote.user.toLowerCase() &&
       record.nonce === quote.nonce
     );
+  }
+}
+
+function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
+  assertNonEmptyString(input.quoteId, "quoteId");
+  assertNonEmptyString(input.snapshotId, "snapshotId");
+  assertNonEmptyString(input.pricingVersion, "pricingVersion");
+  assertNonEmptyString(input.riskPolicyVersion, "riskPolicyVersion");
+  assertSignature(input.signature);
+  assertPositiveSafeInteger(input.quote.chainId, "quote.chainId");
+  assertAddress(input.quote.user, "quote.user");
+  assertAddress(input.quote.tokenIn, "quote.tokenIn");
+  assertAddress(input.quote.tokenOut, "quote.tokenOut");
+
+  if (input.quote.tokenIn.toLowerCase() === input.quote.tokenOut.toLowerCase()) {
+    throw new Error("Signed quote token pair must contain distinct tokens");
+  }
+
+  assertPositiveUIntString(input.quote.amountIn, "quote.amountIn");
+  assertPositiveUIntString(input.quote.amountOut, "quote.amountOut");
+  assertPositiveUIntString(input.quote.minAmountOut, "quote.minAmountOut");
+  assertPositiveUIntString(input.quote.nonce, "quote.nonce");
+  assertPositiveSafeInteger(input.quote.deadline, "quote.deadline");
+
+  if (BigInt(input.quote.amountOut) < BigInt(input.quote.minAmountOut)) {
+    throw new Error("Signed quote amountOut must be greater than or equal to minAmountOut");
+  }
+}
+
+function assertNonEmptyString(value: string, field: string): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Signed quote ${field} must be a non-empty string`);
+  }
+}
+
+function assertAddress(value: string, field: string): void {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Signed quote ${field} must be a 20-byte hex address`);
+  }
+}
+
+function assertPositiveUIntString(value: string, field: string): void {
+  if (!/^[0-9]+$/.test(value) || BigInt(value) <= 0n) {
+    throw new Error(`Signed quote ${field} must be a positive uint string`);
+  }
+}
+
+function assertPositiveSafeInteger(value: number, field: string): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Signed quote ${field} must be a positive safe integer`);
+  }
+}
+
+function assertSignature(value: `0x${string}`): void {
+  if (!/^0x[0-9a-fA-F]{130}$/.test(value)) {
+    throw new Error("Signed quote signature must be a 65-byte hex string");
   }
 }
