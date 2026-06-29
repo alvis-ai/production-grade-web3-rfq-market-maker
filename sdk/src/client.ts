@@ -79,15 +79,8 @@ export class RFQClient {
     await assertOk(response, "RFQ quote status failed");
 
     const payload = await readJsonResponse(response, "RFQ quote status response");
-    assertRequiredEnumField(
-      payload,
-      "status",
-      ["requested", "rejected", "signed", "expired", "submitted", "settled", "failed"],
-      response.status,
-      "RFQ quote status response",
-    );
-    assertOptionalBytes32Field(payload, "txHash", response.status, "RFQ quote status response");
-    return payload as QuoteStatus;
+    assertQuoteStatus(payload, response.status);
+    return payload;
   }
 
   async getHedge(hedgeOrderId: string): Promise<HedgeIntentStatus> {
@@ -249,6 +242,33 @@ function assertRequiredNonNegativeIntegerField(payload: unknown, field: string, 
   if (!isRecord(payload) || !Number.isSafeInteger(payload[field]) || Number(payload[field]) < 0) {
     throw malformedFieldError(status, label, field);
   }
+}
+
+function assertQuoteStatus(payload: unknown, status: number): asserts payload is QuoteStatus {
+  const label = "RFQ quote status response";
+  if (!isRecord(payload)) {
+    throw malformedFieldError(status, label, "status");
+  }
+
+  if (!isNonEmptyString(payload.quoteId)) {
+    throw malformedFieldError(status, label, "quoteId");
+  }
+  assertRequiredEnumField(
+    payload,
+    "status",
+    ["requested", "rejected", "signed", "expired", "submitted", "settled", "failed"],
+    status,
+    label,
+  );
+  for (const field of ["snapshotId", "settlementEventId", "hedgeOrderId", "pnlId", "errorCode"] as const) {
+    if (payload[field] !== undefined && !isNonEmptyString(payload[field])) {
+      throw malformedFieldError(status, label, field);
+    }
+  }
+  if (payload.deadline !== undefined && (!Number.isSafeInteger(payload.deadline) || Number(payload.deadline) <= 0)) {
+    throw malformedFieldError(status, label, "deadline");
+  }
+  assertOptionalBytes32Field(payload, "txHash", status, label);
 }
 
 function assertHedgeIntentStatus(payload: unknown, status: number): asserts payload is HedgeIntentStatus {

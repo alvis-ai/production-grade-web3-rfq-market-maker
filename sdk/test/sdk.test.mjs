@@ -810,7 +810,7 @@ test("RFQClient rejects malformed hedge status responses", async () => {
   }
 });
 
-test("RFQClient rejects malformed submit and quote status enum responses", async () => {
+test("RFQClient rejects malformed submit and quote status responses", async () => {
   const restoreSubmitFetch = installFetch(async () =>
     jsonResponse(202, {
       status: "pending",
@@ -836,29 +836,74 @@ test("RFQClient rejects malformed submit and quote status enum responses", async
     restoreSubmitFetch();
   }
 
-  const restoreQuoteStatusFetch = installFetch(async () =>
-    jsonResponse(200, {
-      quoteId: "q_test",
-      status: "unknown",
-      txHash: `0x${"22".repeat(32)}`,
-    }),
-  );
+  const quoteStatusResponse = {
+    quoteId: "q_test",
+    status: "settled",
+    snapshotId: "s_test",
+    deadline: quote.deadline,
+    txHash: `0x${"22".repeat(32)}`,
+    settlementEventId: "se_1_22222222_0",
+    hedgeOrderId: "h_1_00000003_000001",
+    pnlId: "pnl_q_test",
+  };
+  const cases = [
+    {
+      payload: { ...quoteStatusResponse, quoteId: "" },
+      message: "RFQ quote status response returned malformed quoteId",
+    },
+    {
+      payload: { ...quoteStatusResponse, status: "unknown" },
+      message: "RFQ quote status response returned malformed status",
+    },
+    {
+      payload: { ...quoteStatusResponse, snapshotId: "" },
+      message: "RFQ quote status response returned malformed snapshotId",
+    },
+    {
+      payload: { ...quoteStatusResponse, deadline: 0 },
+      message: "RFQ quote status response returned malformed deadline",
+    },
+    {
+      payload: { ...quoteStatusResponse, txHash: "0x1234" },
+      message: "RFQ quote status response returned malformed txHash",
+    },
+    {
+      payload: { ...quoteStatusResponse, settlementEventId: "" },
+      message: "RFQ quote status response returned malformed settlementEventId",
+    },
+    {
+      payload: { ...quoteStatusResponse, hedgeOrderId: "" },
+      message: "RFQ quote status response returned malformed hedgeOrderId",
+    },
+    {
+      payload: { ...quoteStatusResponse, pnlId: "" },
+      message: "RFQ quote status response returned malformed pnlId",
+    },
+    {
+      payload: { ...quoteStatusResponse, errorCode: "" },
+      message: "RFQ quote status response returned malformed errorCode",
+    },
+  ];
 
-  try {
-    const client = new RFQClient("http://127.0.0.1:3000");
+  for (const { payload, message } of cases) {
+    const restoreQuoteStatusFetch = installFetch(async () => jsonResponse(200, payload));
 
-    await assert.rejects(
-      client.getQuote("q_test"),
-      (error) => {
-        assert.ok(error instanceof RFQClientError);
-        assert.equal(error.status, 200);
-        assert.equal(error.code, "RFQ_CLIENT_ERROR");
-        assert.equal(error.message, "RFQ quote status response returned malformed status");
-        return true;
-      },
-    );
-  } finally {
-    restoreQuoteStatusFetch();
+    try {
+      const client = new RFQClient("http://127.0.0.1:3000");
+
+      await assert.rejects(
+        client.getQuote("q_test"),
+        (error) => {
+          assert.ok(error instanceof RFQClientError);
+          assert.equal(error.status, 200);
+          assert.equal(error.code, "RFQ_CLIENT_ERROR");
+          assert.equal(error.message, message);
+          return true;
+        },
+      );
+    } finally {
+      restoreQuoteStatusFetch();
+    }
   }
 });
 
