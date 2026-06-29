@@ -19,6 +19,7 @@ const schemaMappings = [
   ["PnlTradeRecord", "PnlTradeRecord", "PnlTradeRecord"],
   ["PnlSummaryResponse", "PnlSummary", "PnlSummary"],
 ];
+const closedRequestSchemas = ["QuoteRequest", "SubmitQuoteRequest", "SignedQuote"];
 
 for (const [backendName, sdkName, openapiName] of schemaMappings) {
   const backendFields = extractInterfaceFields(backendTypesSource, backendName);
@@ -40,6 +41,10 @@ for (const [backendName, sdkName, openapiName] of schemaMappings) {
     backendFields.filter((field) => !field.optional).map((field) => field.name),
     `${openapiName} OpenAPI required fields must match backend ${backendName}`,
   );
+}
+
+for (const schemaName of closedRequestSchemas) {
+  assertOpenApiSchemaClosed(schemaName);
 }
 
 const healthResponse = extractOpenApiSchema(openapiSource, "HealthResponse");
@@ -168,4 +173,12 @@ function extractOpenApiEnum(source, schemaName, propertyName) {
   }
 
   return values;
+}
+
+function assertOpenApiSchemaClosed(schemaName) {
+  const lines = extractOpenApiSchemaLines(openapiSource, schemaName);
+  assert.ok(
+    lines.includes("      additionalProperties: false"),
+    `${schemaName} OpenAPI schema must reject unknown request fields with additionalProperties: false`,
+  );
 }

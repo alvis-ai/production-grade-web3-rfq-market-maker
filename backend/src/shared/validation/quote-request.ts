@@ -1,13 +1,17 @@
 import { APIError } from "../errors/api-error.js";
 import type { Address, QuoteRequest } from "../types/rfq.js";
+import { assertExactFields } from "./object-fields.js";
 
 const ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
 const UINT_PATTERN = /^[0-9]+$/;
+const QUOTE_REQUEST_FIELDS = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"];
 
 export function validateQuoteRequest(input: unknown): QuoteRequest {
   if (!isRecord(input)) {
     throw new APIError("INVALID_REQUEST", "Request body must be a JSON object", 400);
   }
+
+  assertExactFields(input, QUOTE_REQUEST_FIELDS, "Quote request");
 
   const chainId = Number(input.chainId);
   const user = String(input.user ?? "");

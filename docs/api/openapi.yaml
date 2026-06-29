@@ -377,6 +377,7 @@ components:
       pattern: "^-?[0-9]+$"
     QuoteRequest:
       type: object
+      additionalProperties: false
       required:
         - chainId
         - user
@@ -432,6 +433,7 @@ components:
           description: 65-byte EIP-712 signature encoded as 0x-prefixed hex.
     SubmitQuoteRequest:
       type: object
+      additionalProperties: false
       required:
         - quote
         - signature
@@ -469,6 +471,7 @@ components:
           description: PnL record id created after simulated settlement.
     SignedQuote:
       type: object
+      additionalProperties: false
       description: >
         EIP-712 quote payload submitted for settlement. tokenIn and tokenOut must be
         different addresses, amountIn/amountOut/minAmountOut must be positive uint

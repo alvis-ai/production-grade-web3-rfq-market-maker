@@ -1778,6 +1778,56 @@ test("RFQ API includes trace ids on validation and not found errors", async () =
   }
 });
 
+test("RFQ API rejects unknown request fields", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const quoteWithUnknownField = await injectJson(server, "POST", "/quote", {
+      ...baseQuoteRequest,
+      routeHint: "ignored-by-old-clients",
+    });
+    assert.equal(quoteWithUnknownField.statusCode, 400);
+    assert.equal(quoteWithUnknownField.body.code, "INVALID_REQUEST");
+    assert.equal(quoteWithUnknownField.body.message, "Quote request contains unknown field routeHint");
+    assert.match(quoteWithUnknownField.body.traceId, /^tr_/);
+
+    const quote = {
+      user: baseQuoteRequest.user,
+      tokenIn: baseQuoteRequest.tokenIn,
+      tokenOut: baseQuoteRequest.tokenOut,
+      amountIn: baseQuoteRequest.amountIn,
+      amountOut: "1000000000",
+      minAmountOut: "995000000",
+      nonce: "1",
+      deadline: Math.floor(Date.now() / 1000) + 30,
+      chainId: baseQuoteRequest.chainId,
+    };
+
+    const submitWithUnknownField = await injectJson(server, "POST", "/submit", {
+      quote,
+      signature: fixedSignature(),
+      relayer: baseQuoteRequest.user,
+    });
+    assert.equal(submitWithUnknownField.statusCode, 400);
+    assert.equal(submitWithUnknownField.body.code, "INVALID_REQUEST");
+    assert.equal(submitWithUnknownField.body.message, "Submit request contains unknown field relayer");
+
+    const signedQuoteWithUnknownField = await injectJson(server, "POST", "/submit", {
+      quote: {
+        ...quote,
+        permit: "unexpected",
+      },
+      signature: fixedSignature(),
+    });
+    assert.equal(signedQuoteWithUnknownField.statusCode, 400);
+    assert.equal(signedQuoteWithUnknownField.body.code, "INVALID_REQUEST");
+    assert.equal(signedQuoteWithUnknownField.body.message, "Submit quote contains unknown field permit");
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API maps unmatched routes to structured errors", async () => {
   const server = buildServer({ logger: false });
   await server.ready();

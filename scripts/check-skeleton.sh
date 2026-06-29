@@ -160,6 +160,11 @@ grep -q 'readiness.status === "degraded"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts
 grep -q 'validateQuoteRequest' backend/src/main.ts
 grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
+grep -q 'assertExactFields' backend/src/shared/validation/quote-request.ts
+grep -q 'assertExactFields' backend/src/shared/validation/submit-request.ts
+grep -q 'unknown request fields' backend/test/api.test.mjs
+grep -q 'additionalProperties: false' docs/api/openapi.yaml
+grep -q 'must reject unknown request fields' scripts/check-api-schema-consistency.mjs
 grep -q 'InMemoryRateLimiter' backend/src/main.ts
 grep -q 'RATE_LIMITED' backend/src/main.ts
 grep -q 'retry-after' backend/src/main.ts

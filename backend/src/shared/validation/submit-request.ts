@@ -1,16 +1,33 @@
 import { APIError } from "../errors/api-error.js";
 import type { Address, SubmitQuoteRequest } from "../types/rfq.js";
+import { assertExactFields } from "./object-fields.js";
 
 const ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
 const HEX_PATTERN = /^0x[a-fA-F0-9]+$/;
 const UINT_PATTERN = /^[0-9]+$/;
+const SUBMIT_REQUEST_FIELDS = ["quote", "signature"];
+const SIGNED_QUOTE_FIELDS = [
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "minAmountOut",
+  "nonce",
+  "deadline",
+  "chainId",
+];
 
 export function validateSubmitQuoteRequest(input: unknown): SubmitQuoteRequest {
   if (!isRecord(input) || !isRecord(input.quote)) {
     throw new APIError("INVALID_REQUEST", "Submit request must include a quote object", 400);
   }
 
+  assertExactFields(input, SUBMIT_REQUEST_FIELDS, "Submit request");
+
   const quote = input.quote;
+  assertExactFields(quote, SIGNED_QUOTE_FIELDS, "Submit quote");
+
   const signature = String(input.signature ?? "");
 
   if (!HEX_PATTERN.test(signature)) {
