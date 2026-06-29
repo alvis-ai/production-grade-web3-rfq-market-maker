@@ -43,3 +43,27 @@ test("PnlService records signed realized PnL and aggregates summary", () => {
   assert.equal(summary.grossPnlTokenOut, "-5");
   assert.deepEqual(summary.trades.map((trade) => trade.pnlId).sort(), ["pnl_q_gain", "pnl_q_loss"]);
 });
+
+test("PnlService returns the existing attribution record for quote retries", () => {
+  const pnl = new PnlService();
+
+  const first = pnl.recordSettlement({
+    quoteId: "q_retry",
+    quote: baseQuote,
+  });
+  const retry = pnl.recordSettlement({
+    quoteId: "q_retry",
+    quote: {
+      ...baseQuote,
+      amountOut: "900",
+      nonce: "2",
+    },
+  });
+
+  assert.deepEqual(retry, first);
+
+  const summary = pnl.summary();
+  assert.equal(summary.totalTrades, 1);
+  assert.equal(summary.grossPnlTokenOut, first.grossPnlTokenOut);
+  assert.deepEqual(summary.trades, [first]);
+});

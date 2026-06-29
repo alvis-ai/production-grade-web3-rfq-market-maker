@@ -328,6 +328,8 @@ grep -q 'interface PnlStore' backend/src/modules/pnl/pnl.service.ts
 grep -q 'class PnlService' backend/src/modules/pnl/pnl.service.ts
 grep -q 'recordSettlement' backend/src/modules/pnl/pnl.service.ts
 grep -q 'simulated_mid_price_v1' backend/src/modules/pnl/pnl.service.ts
+grep -q 'pnlIdsByQuoteModel' backend/src/modules/pnl/pnl.service.ts
+grep -q 'returns the existing attribution record for quote retries' backend/test/pnl.test.mjs
 grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_latency_seconds' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_rejections_total' backend/src/modules/metrics/metrics.service.ts

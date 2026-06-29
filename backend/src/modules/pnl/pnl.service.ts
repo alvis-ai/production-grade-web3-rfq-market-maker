@@ -13,12 +13,24 @@ export interface PnlStore {
 
 export class PnlService implements PnlStore {
   private readonly trades = new Map<string, PnlTradeRecord>();
+  private readonly pnlIdsByQuoteModel = new Map<string, string>();
 
   checkHealth(): void {
     this.summary();
   }
 
   recordSettlement(input: RecordPnlInput): PnlTradeRecord {
+    const model = "simulated_mid_price_v1";
+    const existingPnlId = this.pnlIdsByQuoteModel.get(this.quoteModelKey(input.quoteId, model));
+    if (existingPnlId) {
+      const existingRecord = this.trades.get(existingPnlId);
+      if (!existingRecord) {
+        throw new Error(`PnL record index is inconsistent for ${existingPnlId}`);
+      }
+
+      return existingRecord;
+    }
+
     const grossPnl = calculateGrossPnl(input.quote.amountIn, input.quote.amountOut);
     const record: PnlTradeRecord = {
       pnlId: `pnl_${input.quoteId}`,
@@ -30,11 +42,12 @@ export class PnlService implements PnlStore {
       amountOut: input.quote.amountOut,
       grossPnlTokenOut: grossPnl.toString() as IntString,
       grossPnlBps: calculateGrossPnlBps(input.quote.amountIn, grossPnl),
-      model: "simulated_mid_price_v1",
+      model,
       realizedAt: new Date().toISOString(),
     };
 
     this.trades.set(record.pnlId, record);
+    this.pnlIdsByQuoteModel.set(this.quoteModelKey(input.quoteId, record.model), record.pnlId);
     return record;
   }
 
@@ -48,6 +61,10 @@ export class PnlService implements PnlStore {
       grossPnlTokenOut: grossPnl.toString() as IntString,
       trades,
     };
+  }
+
+  private quoteModelKey(quoteId: string, model: PnlTradeRecord["model"]): string {
+    return `${quoteId}:${model}`;
   }
 }
 
