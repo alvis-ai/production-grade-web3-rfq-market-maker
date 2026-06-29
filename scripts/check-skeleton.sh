@@ -700,7 +700,11 @@ grep -q 'new Treasury' contracts/script/Deploy.s.sol
 grep -q 'treasury.setSettlement' contracts/script/Deploy.s.sol
 grep -q 'RFQ_TRUSTED_SIGNER' contracts/script/Deploy.s.sol
 grep -q 'RFQ_TOKEN_WHITELIST_JSON' contracts/script/Deploy.s.sol
+grep -q 'validateDeploymentConfig' contracts/script/Deploy.s.sol
+grep -q 'EmptyTokenWhitelist' contracts/script/Deploy.s.sol
+grep -q 'DuplicateWhitelistToken' contracts/script/Deploy.s.sol
 grep -q 'testDeployInitializesTrustedSignerAndWhitelist' contracts/test/Deploy.t.sol
+grep -q 'testDeployRejectsUnsafeDeploymentConfig' contracts/test/Deploy.t.sol
 grep -q 'treasury settlement mismatch' contracts/test/Deploy.t.sol
 grep -q 'settlement treasury mismatch' contracts/test/Deploy.t.sol
 grep -q 'contract-test' Makefile

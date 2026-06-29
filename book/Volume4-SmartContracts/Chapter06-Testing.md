@@ -107,6 +107,7 @@ stateDiagram-v2
 - SDK typed data helper 必须有单独测试。
 - 每个 revert reason 或 custom error 都应覆盖。
 - Deploy script test must assert both `RFQSettlement` and `Treasury` are deployed, and that Treasury trusts the deployed settlement address.
+- Deploy script must fail fast before contract creation when `RFQ_TRUSTED_SIGNER` is zero, `RFQ_TOKEN_WHITELIST_JSON` yields an empty whitelist, contains a zero token, or repeats a token.
 
 ## Failure Scenarios
 
