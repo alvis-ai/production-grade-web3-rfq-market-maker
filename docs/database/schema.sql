@@ -54,7 +54,7 @@ CREATE INDEX idx_risk_decisions_quote_id ON risk_decisions (quote_id);
 
 CREATE TABLE settlement_events (
   id TEXT PRIMARY KEY,
-  quote_id TEXT,
+  quote_id TEXT NOT NULL REFERENCES quotes(id),
   chain_id BIGINT NOT NULL,
   tx_hash TEXT NOT NULL,
   log_index INTEGER NOT NULL,

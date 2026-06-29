@@ -47,7 +47,7 @@ erDiagram
 
   SETTLEMENT_EVENTS {
     text id PK
-    text quote_id
+    text quote_id FK
     bigint chain_id
     text tx_hash
     integer log_index
@@ -94,6 +94,7 @@ erDiagram
 ## Notes
 
 - `settlement_events` 使用 `(chain_id, tx_hash, log_index)` 作为幂等键。
+- `settlement_events.quote_id` 是 `quotes.id` 的非空外键，保证 settlement-to-quote reconciliation 总能回到本地签发记录。
 - `quotes` 使用 partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`，保证 signed quote 的 `chainId:user:nonce` 本地查找键唯一，同时允许 requested / rejected quote 在签名前没有 nonce。
 - `quotes.snapshot_id` 对应 `market_snapshots.id`，用于报价回放。
 - `risk_decisions.policy_version` 用于解释风控变更后的历史行为。

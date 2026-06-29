@@ -294,6 +294,9 @@ grep -q 'partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NO
 grep -q 'uq_hedge_orders_settlement_event' docs/database/schema.sql
 grep -q 'hedge_orders must keep one hedge intent per settlement event' scripts/check-database-schema-consistency.mjs
 grep -q 'partial unique index `(settlement_event_id) WHERE settlement_event_id IS NOT NULL`' docs/database/er-diagram.md
+grep -q 'quote_id TEXT NOT NULL REFERENCES quotes(id)' docs/database/schema.sql
+grep -q 'settlement_events.quote_id must be a required quotes(id) foreign key' scripts/check-database-schema-consistency.mjs
+grep -q 'settlement_events.quote_id' docs/database/er-diagram.md
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts
 grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.service.ts

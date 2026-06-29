@@ -92,6 +92,10 @@ assert.ok(
   "settlement_events must keep the chain_id, tx_hash, log_index idempotency key",
 );
 assert.ok(
+  /\bquote_id\s+TEXT\s+NOT\s+NULL\s+REFERENCES\s+quotes\s*\(\s*id\s*\)/i.test(tables.get("settlement_events").body),
+  "settlement_events.quote_id must be a required quotes(id) foreign key",
+);
+assert.ok(
   /CREATE\s+UNIQUE\s+INDEX\s+uq_quotes_chain_user_nonce\s+ON\s+quotes\s*\(\s*chain_id\s*,\s*user_address\s*,\s*nonce\s*\)\s*WHERE\s+nonce\s+IS\s+NOT\s+NULL\s*;/i.test(schemaSource),
   "quotes must keep the chain_id, user_address, nonce signed-quote lookup key",
 );
@@ -163,6 +167,10 @@ for (const erNode of [
 assert.ok(
   /QUOTES\s+\|\|--o\{\s+PNL_RECORDS\s+:\s+attributes/.test(erDiagramSource),
   "ER diagram must show quote-to-PnL attribution",
+);
+assert.ok(
+  erDiagramSource.includes("settlement_events.quote_id"),
+  "ER diagram notes must document required settlement-to-quote linkage",
 );
 
 console.log(`Database schema consistency check passed (${tables.size} tables)`);
