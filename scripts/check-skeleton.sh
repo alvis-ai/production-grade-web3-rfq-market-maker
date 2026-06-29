@@ -328,6 +328,8 @@ grep -q 'marketData|routing|pricing' book/Volume7-ProductionDeployment/Chapter03
 grep -q 'rfq_rate_limited_total' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'RFQReadinessDegraded' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_readiness_status{status="degraded"} == 1' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQRateLimitSpike' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'rfq_rate_limited_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'recordQuoteLatency' backend/src/main.ts
 grep -q 'recordQuoteRejection' backend/src/main.ts
 grep -q 'recordSubmitLatency' backend/src/main.ts
