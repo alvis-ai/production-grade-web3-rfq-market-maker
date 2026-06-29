@@ -532,6 +532,8 @@ grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.pnl' frontend/src/pages/QuotePage.tsx
 grep -q 'loadPostTradeSurfaces(status, response)' frontend/src/pages/QuotePage.tsx
 grep -q 'loadPostTradeSurfaces(status, submitResult)' frontend/src/pages/QuotePage.tsx
+grep -q 'parseIntegerInput' frontend/src/components/QuoteForm.tsx
+grep -q 'Number.MAX_SAFE_INTEGER' frontend/src/components/QuoteForm.tsx
 grep -q 'status.settlementEventId' frontend/src/pages/QuotePage.tsx
 grep -q 'status.hedgeOrderId' frontend/src/pages/QuotePage.tsx
 grep -q 'status.pnlId' frontend/src/pages/QuotePage.tsx

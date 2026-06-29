@@ -8,6 +8,8 @@ interface QuoteFormProps {
   onSubmit: () => void;
 }
 
+const maxSafeIntegerInput = Number.MAX_SAFE_INTEGER;
+
 export function QuoteForm({ request, isLoading, onChange, onSubmit }: QuoteFormProps) {
   function updateField<K extends keyof QuoteRequest>(key: K, value: QuoteRequest[K]) {
     onChange({
@@ -21,6 +23,12 @@ export function QuoteForm({ request, isLoading, onChange, onSubmit }: QuoteFormP
     onSubmit();
   }
 
+  function updateIntegerField(key: "chainId" | "slippageBps", value: string, min: number, max: number) {
+    const parsed = parseIntegerInput(value, min, max);
+    if (parsed === undefined) return;
+    updateField(key, parsed);
+  }
+
   return (
     <form className="panel" onSubmit={handleSubmit}>
       <h2>Request Quote</h2>
@@ -28,8 +36,9 @@ export function QuoteForm({ request, isLoading, onChange, onSubmit }: QuoteFormP
         Chain ID
         <input
           inputMode="numeric"
+          pattern="[0-9]*"
           value={request.chainId}
-          onChange={(event) => updateField("chainId", Number(event.target.value))}
+          onChange={(event) => updateIntegerField("chainId", event.target.value, 1, maxSafeIntegerInput)}
         />
       </label>
       <label>
@@ -48,8 +57,9 @@ export function QuoteForm({ request, isLoading, onChange, onSubmit }: QuoteFormP
         Slippage Bps
         <input
           inputMode="numeric"
+          pattern="[0-9]*"
           value={request.slippageBps}
-          onChange={(event) => updateField("slippageBps", Number(event.target.value))}
+          onChange={(event) => updateIntegerField("slippageBps", event.target.value, 0, 10_000)}
         />
       </label>
       <button type="submit" disabled={isLoading}>
@@ -57,4 +67,17 @@ export function QuoteForm({ request, isLoading, onChange, onSubmit }: QuoteFormP
       </button>
     </form>
   );
+}
+
+export function parseIntegerInput(value: string, min: number, max: number): number | undefined {
+  if (!/^[0-9]+$/.test(value)) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    return undefined;
+  }
+
+  return parsed;
 }

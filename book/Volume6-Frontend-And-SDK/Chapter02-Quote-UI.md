@@ -112,6 +112,7 @@ client.quote(request: QuoteRequest): Promise<QuoteResponse>
 - Submit button depends on non-expired quote.
 - UI displays minAmountOut.
 - Quote error maps from API error code.
+- QuoteForm only writes numeric fields when the input parses as an integer inside the public request contract: `chainId` must be a positive JavaScript safe integer and `slippageBps` must be between 0 and 10000, so empty strings, decimals, exponent notation and out-of-range values do not poison request state before SDK/backend validation.
 
 ## Failure Scenarios
 
@@ -130,7 +131,7 @@ Avoid firing quote request on every keystroke. Use explicit request button or de
 
 ## Testing Strategy
 
-测试 valid input、invalid input、quote loading、risk rejected、expired countdown 和 disabled submit。
+测试 valid input、invalid input、numeric field parsing, quote loading、risk rejected、expired countdown 和 disabled submit。
 
 ## Interview Notes
 
