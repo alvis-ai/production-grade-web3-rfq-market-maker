@@ -81,6 +81,8 @@ export class InMemoryQuoteRepository implements QuoteRepository {
   }
 
   async saveRequested(input: SaveRequestedQuoteInput): Promise<void> {
+    assertRequestedQuoteInput(input);
+
     this.records.set(input.quoteId, {
       quoteId: input.quoteId,
       chainId: input.request.chainId,
@@ -94,6 +96,8 @@ export class InMemoryQuoteRepository implements QuoteRepository {
   }
 
   async saveRejected(input: SaveRejectedQuoteInput): Promise<void> {
+    assertRejectedQuoteInput(input);
+
     const current = this.records.get(input.quoteId);
     this.records.set(input.quoteId, {
       ...(current ?? {}),
@@ -225,6 +229,36 @@ export class InMemoryQuoteRepository implements QuoteRepository {
   }
 }
 
+function assertRequestedQuoteInput(input: SaveRequestedQuoteInput): void {
+  assertNonEmptyString(input.quoteId, "quoteId", "Requested quote");
+  assertNonEmptyString(input.snapshotId, "snapshotId", "Requested quote");
+  assertQuoteRequest(input.request, "Requested quote");
+}
+
+function assertRejectedQuoteInput(input: SaveRejectedQuoteInput): void {
+  assertNonEmptyString(input.quoteId, "quoteId", "Rejected quote");
+  assertNonEmptyString(input.snapshotId, "snapshotId", "Rejected quote");
+  assertNonEmptyString(input.rejectCode, "rejectCode", "Rejected quote");
+  if (input.riskPolicyVersion !== undefined) {
+    assertNonEmptyString(input.riskPolicyVersion, "riskPolicyVersion", "Rejected quote");
+  }
+  assertQuoteRequest(input.request, "Rejected quote");
+}
+
+function assertQuoteRequest(request: QuoteRequest, subject: "Requested quote" | "Rejected quote"): void {
+  assertPositiveSafeInteger(request.chainId, "request.chainId", subject);
+  assertAddress(request.user, "request.user", subject);
+  assertAddress(request.tokenIn, "request.tokenIn", subject);
+  assertAddress(request.tokenOut, "request.tokenOut", subject);
+
+  if (request.tokenIn.toLowerCase() === request.tokenOut.toLowerCase()) {
+    throw new Error(`${subject} request token pair must contain distinct tokens`);
+  }
+
+  assertPositiveUIntString(request.amountIn, "request.amountIn", subject);
+  assertNonNegativeBps(request.slippageBps, "request.slippageBps", subject);
+}
+
 function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertNonEmptyString(input.quoteId, "quoteId");
   assertNonEmptyString(input.snapshotId, "snapshotId");
@@ -251,27 +285,37 @@ function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   }
 }
 
-function assertNonEmptyString(value: string, field: string): void {
+function assertNonEmptyString(value: string, field: string, subject = "Signed quote"): void {
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`Signed quote ${field} must be a non-empty string`);
+    throw new Error(`${subject} ${field} must be a non-empty string`);
   }
 }
 
-function assertAddress(value: string, field: string): void {
+function assertAddress(value: string, field: string, subject = "Signed quote"): void {
   if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
-    throw new Error(`Signed quote ${field} must be a 20-byte hex address`);
+    throw new Error(`${subject} ${field} must be a 20-byte hex address`);
   }
 }
 
-function assertPositiveUIntString(value: string, field: string): void {
+function assertPositiveUIntString(value: string, field: string, subject = "Signed quote"): void {
   if (!/^[0-9]+$/.test(value) || BigInt(value) <= 0n) {
-    throw new Error(`Signed quote ${field} must be a positive uint string`);
+    throw new Error(`${subject} ${field} must be a positive uint string`);
   }
 }
 
-function assertPositiveSafeInteger(value: number, field: string): void {
+function assertPositiveSafeInteger(value: number, field: string, subject = "Signed quote"): void {
   if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`Signed quote ${field} must be a positive safe integer`);
+    throw new Error(`${subject} ${field} must be a positive safe integer`);
+  }
+}
+
+function assertNonNegativeBps(value: number, field: string, subject: string): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`${subject} ${field} must be a non-negative safe integer`);
+  }
+
+  if (value > 10_000) {
+    throw new Error(`${subject} ${field} must be less than or equal to 10000 bps`);
   }
 }
 

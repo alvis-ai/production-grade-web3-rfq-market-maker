@@ -335,6 +335,8 @@ grep -q 'requireSubmittableSignedQuote' backend/src/modules/quote/quote.service.
 grep -q 'QUOTE_FAILED' backend/src/modules/quote/quote.service.ts
 grep -q 'findSignedQuoteByChainUserNonce' backend/src/modules/quote/quote.repository.ts
 grep -q 'chainUserNonceKey' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertRequestedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertRejectedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote nonce key already exists' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertSignedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote signature must be a 65-byte hex string' backend/src/modules/quote/quote.repository.ts
@@ -345,10 +347,12 @@ grep -q 'Quote status txHash must be a 32-byte hex string' backend/src/modules/q
 grep -q 'rejects signed quote nonce key conflicts' backend/test/quote-service.test.mjs
 grep -q 'rejects signed quote identity rewrites' backend/test/quote-service.test.mjs
 grep -q 'rejects unsafe signed quote persistence inputs' backend/test/quote-service.test.mjs
+grep -q 'rejects unsafe requested and rejected quote persistence inputs' backend/test/quote-service.test.mjs
 grep -q 'rejects terminal quote status regressions' backend/test/quote-service.test.mjs
 grep -q 'rejects malformed quote status metadata' backend/test/quote-service.test.mjs
 grep -q 'preserves settlement metadata across status updates' backend/test/quote-service.test.mjs
 grep -q 'chainId:user:nonce' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'requested/rejected quote persistence validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'signed quote persistence validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'terminal quote status invariants' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'quote status metadata validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md

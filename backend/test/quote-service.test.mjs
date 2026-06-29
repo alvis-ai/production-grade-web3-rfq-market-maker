@@ -225,6 +225,67 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
   assert.equal(await quoteRepository.findSignedQuoteByChainUserNonce(1, request.user, "42"), undefined);
 });
 
+test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persistence inputs", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+
+  await assert.rejects(
+    quoteRepository.saveRequested({
+      quoteId: " ",
+      snapshotId: "snapshot_1",
+      request,
+    }),
+    /Requested quote quoteId must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRequested({
+      quoteId: "q_bad_request",
+      snapshotId: "snapshot_1",
+      request: {
+        ...request,
+        tokenOut: "0x00000000000000000000000000000000000000zz",
+      },
+    }),
+    /Requested quote request.tokenOut must be a 20-byte hex address/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRequested({
+      quoteId: "q_bad_slippage",
+      snapshotId: "snapshot_1",
+      request: {
+        ...request,
+        slippageBps: 10_001,
+      },
+    }),
+    /Requested quote request.slippageBps must be less than or equal to 10000 bps/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRejected({
+      quoteId: "q_bad_reject",
+      snapshotId: "snapshot_1",
+      request,
+      rejectCode: " ",
+    }),
+    /Rejected quote rejectCode must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRejected({
+      quoteId: "q_bad_policy",
+      snapshotId: "snapshot_1",
+      request,
+      rejectCode: "RISK_REJECTED",
+      riskPolicyVersion: "",
+    }),
+    /Rejected quote riskPolicyVersion must be a non-empty string/,
+  );
+
+  assert.equal(await quoteRepository.findStatus("q_bad_request"), undefined);
+  assert.equal(await quoteRepository.findStatus("q_bad_reject"), undefined);
+});
+
 test("InMemoryQuoteRepository preserves settlement metadata across status updates", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const signedQuote = {
