@@ -34,7 +34,7 @@ test("LocalSettlementVerifier accepts contract-shaped settlement quotes", async 
 });
 
 test("LocalSettlementVerifier rejects non-whitelisted settlement tokens", async () => {
-  await assert.rejects(
+  await assertSettlementRevert(
     new LocalSettlementVerifier({
       ...defaultLocalSettlementVerifierPolicy,
       tokenWhitelist: [quote.tokenIn],
@@ -42,11 +42,92 @@ test("LocalSettlementVerifier rejects non-whitelisted settlement tokens", async 
       quoteId: "q_test",
       request,
     }),
-    (error) => {
-      assert.equal(error.code, "SETTLEMENT_REVERTED");
-      assert.equal(error.statusCode, 409);
-      assert.equal(error.internalReasonCode, "TOKEN_NOT_WHITELISTED");
-      return true;
-    },
+    "TOKEN_NOT_WHITELISTED",
   );
 });
+
+test("LocalSettlementVerifier rejects disabled settlement chains", async () => {
+  await assertSettlementRevert(
+    new LocalSettlementVerifier({
+      ...defaultLocalSettlementVerifierPolicy,
+      enabledChainIds: [8453],
+    }).verify({
+      quoteId: "q_test",
+      request,
+    }),
+    "INVALID_CHAIN_ID",
+  );
+});
+
+test("LocalSettlementVerifier rejects expired settlement quotes", async () => {
+  await assertSettlementRevert(
+    new LocalSettlementVerifier().verify({
+      quoteId: "q_test",
+      request: {
+        ...request,
+        quote: {
+          ...quote,
+          deadline: Math.floor(Date.now() / 1000) - 1,
+        },
+      },
+    }),
+    "QUOTE_EXPIRED",
+  );
+});
+
+test("LocalSettlementVerifier rejects invalid settlement token pairs", async () => {
+  await assertSettlementRevert(
+    new LocalSettlementVerifier().verify({
+      quoteId: "q_test",
+      request: {
+        ...request,
+        quote: {
+          ...quote,
+          tokenOut: quote.tokenIn,
+        },
+      },
+    }),
+    "INVALID_TOKEN_PAIR",
+  );
+});
+
+test("LocalSettlementVerifier rejects invalid settlement amounts", async () => {
+  await assertSettlementRevert(
+    new LocalSettlementVerifier().verify({
+      quoteId: "q_test",
+      request: {
+        ...request,
+        quote: {
+          ...quote,
+          amountOut: "0",
+        },
+      },
+    }),
+    "INVALID_AMOUNT",
+  );
+});
+
+test("LocalSettlementVerifier rejects settlement amountOut below minimum", async () => {
+  await assertSettlementRevert(
+    new LocalSettlementVerifier().verify({
+      quoteId: "q_test",
+      request: {
+        ...request,
+        quote: {
+          ...quote,
+          amountOut: "993407999",
+        },
+      },
+    }),
+    "AMOUNT_OUT_BELOW_MINIMUM",
+  );
+});
+
+async function assertSettlementRevert(promise, internalReasonCode) {
+  await assert.rejects(promise, (error) => {
+    assert.equal(error.code, "SETTLEMENT_REVERTED");
+    assert.equal(error.statusCode, 409);
+    assert.equal(error.internalReasonCode, internalReasonCode);
+    return true;
+  });
+}

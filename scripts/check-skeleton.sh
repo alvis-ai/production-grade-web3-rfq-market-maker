@@ -900,6 +900,11 @@ grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Cha
 grep -q 'errorCode, "SETTLEMENT_REVERTED"' backend/test/api.test.mjs
 grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs
+grep -q 'LocalSettlementVerifier rejects disabled settlement chains' backend/test/settlement-verifier.test.mjs
+grep -q 'LocalSettlementVerifier rejects expired settlement quotes' backend/test/settlement-verifier.test.mjs
+grep -q 'LocalSettlementVerifier rejects invalid settlement token pairs' backend/test/settlement-verifier.test.mjs
+grep -q 'LocalSettlementVerifier rejects invalid settlement amounts' backend/test/settlement-verifier.test.mjs
+grep -q 'LocalSettlementVerifier rejects settlement amountOut below minimum' backend/test/settlement-verifier.test.mjs
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'risk rejection when rejected quote persistence fails' backend/test/api.test.mjs
 grep -q 'Rejected quote persistence unavailable' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
