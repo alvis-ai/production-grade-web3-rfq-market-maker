@@ -449,12 +449,15 @@ grep -q 'export { RFQClient' sdk/src/index.ts
 grep -q 'rfqSettlementAbi' sdk/src/index.ts
 grep -q 'treasuryAbi' sdk/src/index.ts
 grep -q 'buildSubmitQuoteArgs' sdk/src/index.ts
+grep -q 'hashSettlementQuote' sdk/src/index.ts
 grep -q 'buildTreasuryTransferArgs' sdk/src/index.ts
+grep -q 'hashSettlementQuote' sdk/src/settlement.ts
 grep -q 'buildQuoteTypedData' sdk/src/eip712.ts
 grep -q 'ProductionGradeRFQ' sdk/src/eip712.ts
 grep -q 'RFQClientError' sdk/test/sdk.test.mjs
 grep -q 'buildQuoteTypedData' sdk/test/sdk.test.mjs
 grep -q 'buildSubmitQuoteArgs' sdk/test/sdk.test.mjs
+grep -q 'hashSettlementQuote matches RFQSettlement.hashQuote struct hashing' sdk/test/sdk.test.mjs
 grep -q 'buildTreasuryTransferArgs' sdk/test/sdk.test.mjs
 grep -q 'emergencyWithdraw' sdk/src/abi.ts
 grep -q 'hashQuote' sdk/src/abi.ts
@@ -710,6 +713,8 @@ grep -q 'quoteHash' backend/src/shared/types/rfq.ts
 grep -q 'quoteHash' sdk/src/types.ts
 grep -q 'settlement quoteHash' scripts/smoke-api.mjs
 grep -q 'Quote Hash' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'backend settlement quote hash fields must match RFQSettlement QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
+grep -q 'SDK settlement quote hash fields must match RFQSettlement QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
 grep -q 'SETTLEMENT_EVENT_NOT_FOUND' docs/api/openapi.yaml
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' docs/api/openapi.yaml
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' docs/api/errors.md

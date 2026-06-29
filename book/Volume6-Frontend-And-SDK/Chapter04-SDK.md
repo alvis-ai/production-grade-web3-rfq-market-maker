@@ -116,7 +116,7 @@ const treasuryArgs = buildTreasuryTransferArgs({ token, to, amount });
 
 - SDK uses string amounts.
 - SDK owns EIP-712 helper.
-- SDK exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs` and `buildTreasuryTransferArgs` so viem/wagmi consumers use the same contract tuple shape as the repository tests.
+- SDK exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs`, `hashSettlementQuote` and `buildTreasuryTransferArgs` so viem/wagmi consumers use the same contract tuple shape and quote-hash reconciliation rule as the repository tests.
 - SDK exposes API errors instead of flattening everything to generic Error in production.
 
 ## Failure Scenarios

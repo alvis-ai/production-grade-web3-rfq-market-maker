@@ -9,6 +9,7 @@ import {
   buildRFQDomain,
   buildSubmitQuoteArgs,
   buildTreasuryTransferArgs,
+  hashSettlementQuote,
   quoteTypes,
   rfqSettlementAbi,
   treasuryAbi,
@@ -98,6 +99,13 @@ test("buildSubmitQuoteArgs converts string integer fields to settlement bigint f
     chainId: 1n,
   });
   assert.ok(rfqSettlementAbi.some((item) => item.type === "function" && item.name === "hashQuote"));
+});
+
+test("hashSettlementQuote matches RFQSettlement.hashQuote struct hashing", () => {
+  assert.equal(
+    hashSettlementQuote(quote),
+    "0xcc2f7c4203c4d5bc133de16a899dadcc348ccdf7222093307bc2cc522493503d",
+  );
 });
 
 test("Treasury helpers expose release and emergency withdrawal contract calls", () => {

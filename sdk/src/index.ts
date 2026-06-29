@@ -8,7 +8,7 @@ export {
   buildRFQDomain,
   quoteTypes,
 } from "./eip712.js";
-export { buildSubmitQuoteArgs, buildTreasuryTransferArgs, toSettlementQuote } from "./settlement.js";
+export { buildSubmitQuoteArgs, buildTreasuryTransferArgs, hashSettlementQuote, toSettlementQuote } from "./settlement.js";
 export type { RFQDomain } from "./eip712.js";
 export type { SettlementQuote, SubmitQuoteArgs, TreasuryTransferArgs, TreasuryTransferInput } from "./settlement.js";
 export type { RFQClientErrorCode } from "./client.js";

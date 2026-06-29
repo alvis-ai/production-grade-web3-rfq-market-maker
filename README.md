@@ -142,7 +142,7 @@ RFQ_SETTLEMENT_ADDRESS=0x...
 
 The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract. `RFQ_QUOTE_TTL_SECONDS` controls the signed quote lifetime and must be an integer from 1 to 3600; keep it short enough to limit stale price execution. `RFQ_BODY_LIMIT_BYTES` controls the maximum JSON request body size and must be an integer from 1024 to 1048576. `RFQ_CORS_ALLOWED_ORIGINS` is a comma-separated allowlist of browser origins that may call the API. `RFQ_ENABLE_HSTS` must only be enabled when the public API is served through HTTPS. `VITE_RFQ_SETTLEMENT_ADDRESS` configures the browser-side `RFQSettlement.submitQuote` target, and `VITE_WALLETCONNECT_PROJECT_ID` configures RainbowKit wallet connection.
 
-The frontend reads `VITE_RFQ_API_BASE_URL`, `VITE_RFQ_SETTLEMENT_ADDRESS` and `VITE_WALLETCONNECT_PROJECT_ID` at Vite build/dev-server time. It shows the active API endpoint in the trading console header and uses Wagmi/RainbowKit with the SDK `rfqSettlementAbi` and `buildSubmitQuoteArgs` helper for wallet-driven `submitQuote` transactions.
+The frontend reads `VITE_RFQ_API_BASE_URL`, `VITE_RFQ_SETTLEMENT_ADDRESS` and `VITE_WALLETCONNECT_PROJECT_ID` at Vite build/dev-server time. It shows the active API endpoint in the trading console header and uses Wagmi/RainbowKit with the SDK `rfqSettlementAbi`, `buildSubmitQuoteArgs`, and `hashSettlementQuote` helpers for wallet-driven `submitQuote` transactions and settlement-event reconciliation.
 
 ## Local Docker Stack
 
@@ -215,7 +215,7 @@ await client.metrics();
 
 `RFQClientError` preserves structured API errors. For HTTP 429 `RATE_LIMITED` responses, the SDK exposes `retryAfterSeconds` from the `Retry-After` header so callers can back off without parsing headers directly.
 
-The SDK also exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs`, and `buildTreasuryTransferArgs` for viem/wagmi contract calls.
+The SDK also exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs`, `hashSettlementQuote`, and `buildTreasuryTransferArgs` for viem/wagmi contract calls and event reconciliation.
 
 ## Design Principles
 
