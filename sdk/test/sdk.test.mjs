@@ -386,7 +386,7 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
   });
 
   try {
-    const client = new RFQClient("http://127.0.0.1:3000");
+    const client = new RFQClient("http://127.0.0.1:3000/");
 
     assert.deepEqual(await client.quote({
       chainId: quote.chainId,

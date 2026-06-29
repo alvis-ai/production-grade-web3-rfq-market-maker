@@ -524,6 +524,7 @@ grep -q 'isHealthResponse' sdk/src/client.ts
 grep -q 'isReadinessResponse' sdk/src/client.ts
 grep -q 'isReadinessComponents' sdk/src/client.ts
 grep -q 'async metrics' sdk/src/client.ts
+grep -q 'normalizeBaseUrl' sdk/src/client.ts
 grep -q 'traceId: string' sdk/src/types.ts
 grep -q 'export const rfqErrorCodes' sdk/src/types.ts
 grep -q 'export type RFQErrorCode' sdk/src/types.ts
@@ -549,6 +550,7 @@ grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs
 grep -q 'client.pnl' sdk/test/sdk.test.mjs
 grep -q 'client.ready' sdk/test/sdk.test.mjs
+grep -q 'new RFQClient("http://127.0.0.1:3000/")' sdk/test/sdk.test.mjs
 grep -q 'degraded readiness payloads' sdk/test/sdk.test.mjs
 grep -q 'falls back for unknown API error codes' sdk/test/sdk.test.mjs
 grep -q 'exposes Retry-After seconds for rate limited responses' sdk/test/sdk.test.mjs

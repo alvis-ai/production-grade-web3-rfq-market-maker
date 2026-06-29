@@ -32,7 +32,11 @@ export class RFQClientError extends Error {
 }
 
 export class RFQClient {
-  constructor(private readonly baseUrl: string) {}
+  private readonly baseUrl: string;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = normalizeBaseUrl(baseUrl);
+  }
 
   async quote(request: QuoteRequest): Promise<QuoteResponse> {
     const response = await fetch(`${this.baseUrl}/quote`, {
@@ -265,6 +269,10 @@ function retryAfterSeconds(response: Response): number | undefined {
 
   const seconds = Number(value);
   return Number.isInteger(seconds) && seconds > 0 ? seconds : undefined;
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.trim().replace(/\/+$/, "");
 }
 
 function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {
