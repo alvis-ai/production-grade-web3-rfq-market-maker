@@ -135,6 +135,9 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     quoteId: "q_test",
     status: "settled",
     txHash: submitResponse.txHash,
+    settlementEventId: submitResponse.settlementEventId,
+    hedgeOrderId: submitResponse.hedgeOrderId,
+    pnlId: submitResponse.pnlId,
   };
   const hedgeResponse = {
     hedgeOrderId: submitResponse.hedgeOrderId,

@@ -54,6 +54,9 @@ assertString(replayError.payload.traceId, "replay traceId");
 const quoteStatus = await request("GET", `/quote/${encodeURIComponent(quoteResponse.quoteId)}`);
 assertEqual(quoteStatus.status, "settled", "quote status");
 assertEqual(quoteStatus.txHash, submitResponse.txHash, "quote txHash");
+assertEqual(quoteStatus.settlementEventId, submitResponse.settlementEventId, "quote settlement event id");
+assertEqual(quoteStatus.hedgeOrderId, submitResponse.hedgeOrderId, "quote hedge order id");
+assertEqual(quoteStatus.pnlId, submitResponse.pnlId, "quote pnl id");
 
 const settlementStatus = await request("GET", `/settlements/${encodeURIComponent(submitResponse.settlementEventId)}`);
 assertEqual(settlementStatus.status, "applied", "settlement status");

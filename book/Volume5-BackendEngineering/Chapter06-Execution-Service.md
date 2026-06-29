@@ -118,7 +118,7 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 
 ## API Design
 
-`POST /submit` returns HTTP 202 with `accepted`, optionally `txHash`, a consumed `settlementEventId`, a queued `hedgeOrderId`, and a `pnlId` in the simulated settlement path. `GET /quote/:id` exposes quote settlement state when the backend can map `chainId:user:nonce` back to the issued quote. `GET /settlements/:id` exposes the idempotently consumed settlement event that updated inventory. `GET /hedges/:id` exposes the hedge intent created after inventory update. `GET /pnl` exposes realized spread PnL summary for the runnable reference path.
+`POST /submit` returns HTTP 202 with `accepted`, optionally `txHash`, a consumed `settlementEventId`, a queued `hedgeOrderId`, and a `pnlId` in the simulated settlement path. `GET /quote/:id` exposes quote settlement state plus available `txHash`, `settlementEventId`, `hedgeOrderId`, and `pnlId` pointers after submit so a client can refresh status without losing the next navigation target. `GET /settlements/:id` exposes the idempotently consumed settlement event that updated inventory. `GET /hedges/:id` exposes the hedge intent created after inventory update. `GET /pnl` exposes realized spread PnL summary for the runnable reference path.
 
 ## Engineering Decisions
 

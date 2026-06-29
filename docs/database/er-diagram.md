@@ -24,6 +24,10 @@ erDiagram
     timestamptz deadline
     text snapshot_id
     text status
+    text tx_hash
+    text settlement_event_id
+    text hedge_order_id
+    text pnl_id
   }
 
   MARKET_SNAPSHOTS {
@@ -97,6 +101,7 @@ erDiagram
 - `settlement_events.quote_id` 是 `quotes.id` 的非空外键，保证 settlement-to-quote reconciliation 总能回到本地签发记录。
 - `quotes` 使用 partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`，保证 signed quote 的 `chainId:user:nonce` 本地查找键唯一，同时允许 requested / rejected quote 在签名前没有 nonce。
 - `quotes.snapshot_id` 对应 `market_snapshots.id`，用于报价回放。
+- `quotes.tx_hash`、`quotes.settlement_event_id`、`quotes.hedge_order_id`、`quotes.pnl_id` 是面向 `GET /quote/:id` 的状态指针；权威成交、对冲和 PnL 明细仍分别位于 `settlement_events`、`hedge_orders`、`pnl_records`。
 - `risk_decisions.policy_version` 用于解释风控变更后的历史行为。
 - `inventory_positions` 是当前操作状态，不替代事件账本。
 - `hedge_orders.settlement_event_id` 是 `settlement_events.id` 的非空外键，并使用 unique index `(settlement_event_id)` 防止同一 settlement event 重复创建 hedge intent。

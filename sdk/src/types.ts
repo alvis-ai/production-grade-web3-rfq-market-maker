@@ -72,6 +72,9 @@ export interface QuoteStatus {
   snapshotId?: string;
   deadline?: number;
   txHash?: `0x${string}`;
+  settlementEventId?: string;
+  hedgeOrderId?: string;
+  pnlId?: string;
   errorCode?: string;
 }
 

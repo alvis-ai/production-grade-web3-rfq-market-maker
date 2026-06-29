@@ -384,6 +384,9 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assertTraceHeader(status);
     assert.equal(status.body.status, "settled");
     assert.equal(status.body.txHash, submit.body.txHash);
+    assert.equal(status.body.settlementEventId, submit.body.settlementEventId);
+    assert.equal(status.body.hedgeOrderId, submit.body.hedgeOrderId);
+    assert.equal(status.body.pnlId, submit.body.pnlId);
 
     const settlement = await injectJson(server, "GET", `/settlements/${submit.body.settlementEventId}`);
     assert.equal(settlement.statusCode, 200);
@@ -984,6 +987,9 @@ test("RFQ API keeps settlement accepted when hedge intent creation fails", async
     assert.equal(status.statusCode, 200);
     assert.equal(status.body.status, "settled");
     assert.equal(status.body.txHash, submit.body.txHash);
+    assert.equal(status.body.settlementEventId, submit.body.settlementEventId);
+    assert.equal(status.body.hedgeOrderId, undefined);
+    assert.equal(status.body.pnlId, submit.body.pnlId);
 
     const settlement = await injectJson(server, "GET", `/settlements/${submit.body.settlementEventId}`);
     assert.equal(settlement.statusCode, 200);
@@ -1056,6 +1062,9 @@ test("RFQ API keeps settlement accepted when PnL record creation fails", async (
     const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
     assert.equal(status.statusCode, 200);
     assert.equal(status.body.status, "settled");
+    assert.equal(status.body.settlementEventId, submit.body.settlementEventId);
+    assert.equal(status.body.hedgeOrderId, submit.body.hedgeOrderId);
+    assert.equal(status.body.pnlId, undefined);
 
     const pnl = await injectJson(server, "GET", "/pnl");
     assert.equal(pnl.statusCode, 200);
@@ -2288,6 +2297,14 @@ test("RFQ API rejects replayed submit quotes", async () => {
     assert.equal(replay.statusCode, 409);
     assert.equal(replay.body.code, "QUOTE_ALREADY_USED");
     assert.match(replay.body.traceId, /^tr_/);
+
+    const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.body.status, "settled");
+    assert.equal(status.body.txHash, firstSubmit.body.txHash);
+    assert.equal(status.body.settlementEventId, firstSubmit.body.settlementEventId);
+    assert.equal(status.body.hedgeOrderId, firstSubmit.body.hedgeOrderId);
+    assert.equal(status.body.pnlId, firstSubmit.body.pnlId);
 
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);

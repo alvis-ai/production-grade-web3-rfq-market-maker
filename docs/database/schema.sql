@@ -15,6 +15,10 @@ CREATE TABLE quotes (
   status TEXT NOT NULL,
   signature TEXT,
   reject_code TEXT,
+  tx_hash TEXT,
+  settlement_event_id TEXT,
+  hedge_order_id TEXT,
+  pnl_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

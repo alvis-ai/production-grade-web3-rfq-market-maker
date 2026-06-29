@@ -26,6 +26,10 @@ const requiredTables = {
     "status",
     "signature",
     "reject_code",
+    "tx_hash",
+    "settlement_event_id",
+    "hedge_order_id",
+    "pnl_id",
   ],
   market_snapshots: [
     "id",

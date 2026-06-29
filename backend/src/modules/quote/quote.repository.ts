@@ -25,6 +25,16 @@ export interface QuoteRecord {
   signature?: `0x${string}`;
   rejectCode?: string;
   txHash?: `0x${string}`;
+  settlementEventId?: string;
+  hedgeOrderId?: string;
+  pnlId?: string;
+}
+
+export interface QuoteStatusMetadata {
+  txHash?: `0x${string}`;
+  settlementEventId?: string;
+  hedgeOrderId?: string;
+  pnlId?: string;
 }
 
 export interface QuoteRepository {
@@ -34,7 +44,7 @@ export interface QuoteRepository {
   saveSigned(input: SaveSignedQuoteInput): Promise<void>;
   findStatus(quoteId: string): Promise<QuoteStatusResponse | undefined>;
   markFailed(quoteId: string, errorCode: string): Promise<void>;
-  markStatus(quoteId: string, status: QuoteLifecycleStatus, txHash?: `0x${string}`): Promise<void>;
+  markStatus(quoteId: string, status: QuoteLifecycleStatus, metadata?: QuoteStatusMetadata): Promise<void>;
   findQuoteIdByChainUserNonce(chainId: number, user: Address, nonce: UIntString): Promise<string | undefined>;
   findSignedQuoteByChainUserNonce(chainId: number, user: Address, nonce: UIntString): Promise<QuoteRecord | undefined>;
 }
@@ -136,6 +146,9 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       snapshotId: record.snapshotId,
       deadline: record.deadline,
       txHash: record.txHash,
+      settlementEventId: record.settlementEventId,
+      hedgeOrderId: record.hedgeOrderId,
+      pnlId: record.pnlId,
       errorCode: record.rejectCode,
     };
   }
@@ -153,7 +166,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     });
   }
 
-  async markStatus(quoteId: string, status: QuoteLifecycleStatus, txHash?: `0x${string}`): Promise<void> {
+  async markStatus(quoteId: string, status: QuoteLifecycleStatus, metadata?: QuoteStatusMetadata): Promise<void> {
     const current = this.records.get(quoteId);
     if (!current) {
       return;
@@ -162,7 +175,10 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     this.records.set(quoteId, {
       ...current,
       status,
-      txHash: txHash ?? current.txHash,
+      txHash: metadata?.txHash ?? current.txHash,
+      settlementEventId: metadata?.settlementEventId ?? current.settlementEventId,
+      hedgeOrderId: metadata?.hedgeOrderId ?? current.hedgeOrderId,
+      pnlId: metadata?.pnlId ?? current.pnlId,
     });
   }
 

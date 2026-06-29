@@ -20,6 +20,7 @@ import type { HedgeIntentService } from "../hedge/hedge.service.js";
 import type {
   QuoteRepository,
   QuoteRecord,
+  QuoteStatusMetadata,
   SaveRejectedQuoteInput,
   SaveRequestedQuoteInput,
   SaveSignedQuoteInput,
@@ -236,10 +237,10 @@ export class QuoteService {
   private async markStoredQuoteStatus(
     quoteId: string,
     status: QuoteLifecycleStatus,
-    txHash?: `0x${string}`,
+    metadata?: QuoteStatusMetadata,
   ): Promise<void> {
     try {
-      await this.deps.quoteRepository.markStatus(quoteId, status, txHash);
+      await this.deps.quoteRepository.markStatus(quoteId, status, metadata);
     } catch (error) {
       throw quoteStoreFailure(error);
     }
@@ -285,8 +286,8 @@ export class QuoteService {
     }
   }
 
-  async markQuoteStatus(quoteId: string, status: QuoteLifecycleStatus, txHash?: `0x${string}`): Promise<void> {
-    await this.markStoredQuoteStatus(quoteId, status, txHash);
+  async markQuoteStatus(quoteId: string, status: QuoteLifecycleStatus, metadata?: QuoteStatusMetadata): Promise<void> {
+    await this.markStoredQuoteStatus(quoteId, status, metadata);
   }
 
   async markQuoteFailed(quoteId: string, errorCode: string): Promise<void> {

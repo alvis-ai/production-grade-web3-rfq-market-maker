@@ -280,7 +280,12 @@ export function buildServer(options: BuildServerOptions = {}) {
         metricsService.recordInventoryPosition(result.inventoryPositions.tokenIn);
         metricsService.recordInventoryPosition(result.inventoryPositions.tokenOut);
       }
-      await markPostSettlementQuoteStatus(quoteService, metricsService, quoteId, result.response.txHash);
+      await markPostSettlementQuoteStatus(quoteService, metricsService, quoteId, {
+        txHash: result.response.txHash,
+        settlementEventId: result.response.settlementEventId,
+        hedgeOrderId: result.response.hedgeOrderId,
+        pnlId: pnlRecord?.pnlId,
+      });
       return reply.code(202).send({
         ...result.response,
         pnlId: pnlRecord?.pnlId,
@@ -437,16 +442,21 @@ async function markPostSettlementQuoteStatus(
   quoteService: QuoteService,
   metricsService: MetricsService,
   quoteId: string,
-  txHash?: `0x${string}`,
+  metadata: {
+    txHash?: `0x${string}`;
+    settlementEventId?: string;
+    hedgeOrderId?: string;
+    pnlId?: string;
+  },
 ): Promise<void> {
   try {
-    await quoteService.markQuoteStatus(quoteId, "submitted", txHash);
+    await quoteService.markQuoteStatus(quoteId, "submitted", metadata);
   } catch {
     metricsService.recordQuoteStatusUpdateError("submitted");
   }
 
   try {
-    await quoteService.markQuoteStatus(quoteId, "settled", txHash);
+    await quoteService.markQuoteStatus(quoteId, "settled", metadata);
   } catch {
     metricsService.recordQuoteStatusUpdateError("settled");
   }

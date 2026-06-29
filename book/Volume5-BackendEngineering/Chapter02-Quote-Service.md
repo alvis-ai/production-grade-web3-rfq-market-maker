@@ -115,7 +115,7 @@ stateDiagram-v2
 
 ## Data Model
 
-Quote record includes `quoteId`, `chainId`, `user`, `tokenIn`, `tokenOut`, `snapshotId`, `pricingVersion`, `riskPolicyVersion`, `signature`, `deadline`, `nonce`, `status`, `rejectCode` and optional `txHash`.
+Quote record includes `quoteId`, `chainId`, `user`, `tokenIn`, `tokenOut`, `snapshotId`, `pricingVersion`, `riskPolicyVersion`, `signature`, `deadline`, `nonce`, `status`, `rejectCode` and optional `txHash`, `settlementEventId`, `hedgeOrderId`, `pnlId`.
 
 ## API Design
 
@@ -124,7 +124,7 @@ Internal interface:
 ```ts
 createQuote(request: QuoteRequest): Promise<QuoteResponse>
 getQuoteStatus(quoteId: string): Promise<QuoteStatusResponse | undefined>
-markQuoteStatus(quoteId, status, txHash): Promise<void>
+markQuoteStatus(quoteId, status, metadata): Promise<void>
 ```
 
 ## Engineering Decisions
