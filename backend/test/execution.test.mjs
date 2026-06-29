@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { keccak256, toBytes } from "viem";
-import { buildSyntheticTxHash } from "../dist/modules/execution/execution.service.js";
+import { buildSyntheticTxHash, SkeletonExecutionService } from "../dist/modules/execution/execution.service.js";
+import { HedgeService } from "../dist/modules/hedge/hedge.service.js";
+import { InventoryService } from "../dist/modules/inventory/inventory.service.js";
+import { SettlementEventService } from "../dist/modules/settlement/settlement-event.service.js";
+import { LocalSettlementVerifier } from "../dist/modules/settlement/settlement-verifier.service.js";
 
 const request = {
   quote: {
@@ -31,4 +35,38 @@ test("buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes", () =
 
   assert.match(txHash, /^0x[0-9a-f]{64}$/);
   assert.equal(txHash, expectedHash);
+});
+
+test("SkeletonExecutionService suppresses duplicate settlement side effects", async () => {
+  const inventoryService = new InventoryService();
+  const hedgeService = new HedgeService();
+  const settlementEventService = new SettlementEventService(inventoryService);
+  const executionService = new SkeletonExecutionService({
+    hedgeService,
+    inventoryService,
+    settlementEventService,
+    settlementVerifier: new LocalSettlementVerifier(),
+  });
+  const context = { quoteId: "q_test" };
+
+  const first = await executionService.submitQuote(request, context);
+  assert.equal(first.response.status, "accepted");
+  assert.equal(first.settlementEventResult.duplicate, false);
+  assert.match(first.response.settlementEventId, /^se_/);
+  assert.match(first.response.hedgeOrderId, /^h_/);
+  assert.equal(first.hedgeResult?.record.settlementEventId, first.response.settlementEventId);
+  assert.equal(first.inventoryPositions.tokenIn.balance, BigInt(request.quote.amountIn));
+  assert.equal(first.inventoryPositions.tokenOut.balance, -BigInt(request.quote.amountOut));
+
+  const replay = await executionService.submitQuote(request, context);
+  assert.equal(replay.response.status, "accepted");
+  assert.equal(replay.response.txHash, first.response.txHash);
+  assert.equal(replay.response.settlementEventId, first.response.settlementEventId);
+  assert.equal(replay.response.hedgeOrderId, undefined);
+  assert.equal(replay.hedgeResult, undefined);
+  assert.equal(replay.hedgeFailure, undefined);
+  assert.equal(replay.settlementEventResult.duplicate, true);
+  assert.equal(inventoryService.getPosition(request.quote.chainId, request.quote.tokenIn).balance, BigInt(request.quote.amountIn));
+  assert.equal(inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut).balance, -BigInt(request.quote.amountOut));
+  assert.equal(hedgeService.getHedgeIntent(first.response.hedgeOrderId), first.hedgeResult?.record);
 });
