@@ -45,7 +45,7 @@ export class RFQClient {
 
     await assertOk(response, "RFQ quote failed");
 
-    return (await response.json()) as QuoteResponse;
+    return (await readJsonResponse(response, "RFQ quote response")) as QuoteResponse;
   }
 
   async submit(request: SubmitQuoteRequest): Promise<SubmitQuoteResponse> {
@@ -59,7 +59,9 @@ export class RFQClient {
 
     await assertOk(response, "RFQ submit failed");
 
-    return (await response.json()) as SubmitQuoteResponse;
+    const payload = await readJsonResponse(response, "RFQ submit response");
+    assertOptionalBytes32Field(payload, "txHash", response.status, "RFQ submit response");
+    return payload as SubmitQuoteResponse;
   }
 
   async getQuote(quoteId: string): Promise<QuoteStatus> {
@@ -67,7 +69,9 @@ export class RFQClient {
 
     await assertOk(response, "RFQ quote status failed");
 
-    return (await response.json()) as QuoteStatus;
+    const payload = await readJsonResponse(response, "RFQ quote status response");
+    assertOptionalBytes32Field(payload, "txHash", response.status, "RFQ quote status response");
+    return payload as QuoteStatus;
   }
 
   async getHedge(hedgeOrderId: string): Promise<HedgeIntentStatus> {
@@ -75,7 +79,7 @@ export class RFQClient {
 
     await assertOk(response, "RFQ hedge status failed");
 
-    return (await response.json()) as HedgeIntentStatus;
+    return (await readJsonResponse(response, "RFQ hedge status response")) as HedgeIntentStatus;
   }
 
   async getSettlement(settlementEventId: string): Promise<SettlementEventStatus> {
@@ -83,7 +87,10 @@ export class RFQClient {
 
     await assertOk(response, "RFQ settlement event status failed");
 
-    return (await response.json()) as SettlementEventStatus;
+    const payload = await readJsonResponse(response, "RFQ settlement event status response");
+    assertRequiredBytes32Field(payload, "txHash", response.status, "RFQ settlement event status response");
+    assertRequiredBytes32Field(payload, "quoteHash", response.status, "RFQ settlement event status response");
+    return payload as SettlementEventStatus;
   }
 
   async pnl(): Promise<PnlSummary> {
@@ -91,7 +98,7 @@ export class RFQClient {
 
     await assertOk(response, "RFQ PnL summary failed");
 
-    return (await response.json()) as PnlSummary;
+    return (await readJsonResponse(response, "RFQ PnL summary response")) as PnlSummary;
   }
 
   async health(): Promise<HealthResponse> {
@@ -99,7 +106,7 @@ export class RFQClient {
 
     await assertOk(response, "RFQ health check failed");
 
-    return (await response.json()) as HealthResponse;
+    return (await readJsonResponse(response, "RFQ health response")) as HealthResponse;
   }
 
   async ready(): Promise<ReadinessResponse> {
@@ -120,7 +127,7 @@ export class RFQClient {
       throw clientErrorFromResponse(response, payload, "RFQ readiness check failed");
     }
 
-    return (await response.json()) as ReadinessResponse;
+    return (await readJsonResponse(response, "RFQ readiness response")) as ReadinessResponse;
   }
 
   async metrics(): Promise<string> {
@@ -129,6 +136,14 @@ export class RFQClient {
     await assertOk(response, "RFQ metrics request failed");
 
     return response.text();
+  }
+}
+
+async function readJsonResponse(response: Response, label: string): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    throw new RFQClientError(`${label} returned malformed JSON`, response.status);
   }
 }
 
@@ -156,6 +171,33 @@ function clientErrorFromResponse(response: Response, payload: unknown, fallbackM
   );
 }
 
+function assertOptionalBytes32Field(payload: unknown, field: string, status: number, label: string): void {
+  if (!isRecord(payload)) {
+    throw malformedFieldError(status, label, field);
+  }
+
+  const value = payload[field];
+  if (value === undefined) return;
+
+  if (!isBytes32Hex(value)) {
+    throw malformedFieldError(status, label, field);
+  }
+}
+
+function assertRequiredBytes32Field(payload: unknown, field: string, status: number, label: string): void {
+  if (!isRecord(payload) || !isBytes32Hex(payload[field])) {
+    throw malformedFieldError(status, label, field);
+  }
+}
+
+function malformedFieldError(status: number, label: string, field: string): RFQClientError {
+  return new RFQClientError(`${label} returned malformed ${field}`, status);
+}
+
+function isBytes32Hex(value: unknown): value is `0x${string}` {
+  return typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
+}
+
 function retryAfterSeconds(response: Response): number | undefined {
   const value = response.headers.get("retry-after");
   if (!value) return undefined;
@@ -165,24 +207,26 @@ function retryAfterSeconds(response: Response): number | undefined {
 }
 
 function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {
-  if (!value || typeof value !== "object") return false;
+  if (!isRecord(value)) return false;
 
-  const record = value as Record<string, unknown>;
   return (
-    typeof record.code === "string" &&
-    rfqErrorCodeSet.has(record.code) &&
-    typeof record.message === "string" &&
-    typeof record.traceId === "string"
+    typeof value.code === "string" &&
+    rfqErrorCodeSet.has(value.code) &&
+    typeof value.message === "string" &&
+    typeof value.traceId === "string"
   );
 }
 
 function isReadinessResponse(value: unknown): value is ReadinessResponse {
-  if (!value || typeof value !== "object") return false;
+  if (!isRecord(value)) return false;
 
-  const record = value as Record<string, unknown>;
   return (
-    (record.status === "ready" || record.status === "degraded") &&
-    !!record.components &&
-    typeof record.components === "object"
+    (value.status === "ready" || value.status === "degraded") &&
+    !!value.components &&
+    typeof value.components === "object"
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object";
 }

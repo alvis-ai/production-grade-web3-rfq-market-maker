@@ -491,6 +491,8 @@ grep -q 'rfqErrorCodeSet.has' sdk/src/client.ts
 grep -q 'RFQClientErrorCode' sdk/src/client.ts
 grep -q 'retryAfterSeconds' sdk/src/client.ts
 grep -q 'response.headers.get("retry-after")' sdk/src/client.ts
+grep -q 'isBytes32Hex' sdk/src/client.ts
+grep -q 'malformed successful hash fields' sdk/test/sdk.test.mjs
 grep -q 'client.health' sdk/test/sdk.test.mjs
 grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs

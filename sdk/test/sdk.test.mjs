@@ -380,6 +380,69 @@ test("RFQClient falls back for unknown API error codes", async () => {
   }
 });
 
+test("RFQClient rejects malformed successful hash fields", async () => {
+  const restoreSubmitFetch = installFetch(async () =>
+    jsonResponse(202, {
+      status: "accepted",
+      txHash: "0x1234",
+      settlementEventId: "se_1_1234_0",
+    }),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.submit({ quote, signature }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 202);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ submit response returned malformed txHash");
+        return true;
+      },
+    );
+  } finally {
+    restoreSubmitFetch();
+  }
+
+  const restoreSettlementFetch = installFetch(async () =>
+    jsonResponse(200, {
+      settlementEventId: "se_1_22222222_0",
+      status: "applied",
+      quoteId: "q_test",
+      chainId: quote.chainId,
+      txHash: `0x${"22".repeat(32)}`,
+      quoteHash: "0x1234",
+      blockNumber: 123456,
+      logIndex: 0,
+      user: quote.user,
+      tokenIn: quote.tokenIn,
+      tokenOut: quote.tokenOut,
+      amountIn: quote.amountIn,
+      amountOut: quote.amountOut,
+      observedAt: "2026-06-27T00:00:00.000Z",
+    }),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.getSettlement("se_1_22222222_0"),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 200);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ settlement event status response returned malformed quoteHash");
+        return true;
+      },
+    );
+  } finally {
+    restoreSettlementFetch();
+  }
+});
+
 test("RFQClient returns degraded readiness payloads from HTTP 503", async () => {
   const readinessResponse = {
     status: "degraded",
