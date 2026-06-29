@@ -888,8 +888,8 @@ test("RFQClient rejects malformed settlement status and ordinal responses", asyn
 });
 
 test("RFQClient rejects malformed PnL summary responses", async () => {
-  const pnlResponse = {
-    status: "pending",
+  const basePnlResponse = {
+    status: "ok",
     totalTrades: 1,
     grossPnlTokenOut: "1600000",
     trades: [
@@ -908,53 +908,76 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
       },
     ],
   };
-  const restoreStatusFetch = installFetch(async () => jsonResponse(200, pnlResponse));
 
-  try {
-    const client = new RFQClient("http://127.0.0.1:3000");
-
-    await assert.rejects(
-      client.pnl(),
-      (error) => {
-        assert.ok(error instanceof RFQClientError);
-        assert.equal(error.status, 200);
-        assert.equal(error.code, "RFQ_CLIENT_ERROR");
-        assert.equal(error.message, "RFQ PnL summary response returned malformed status");
-        return true;
+  const cases = [
+    {
+      payload: { ...basePnlResponse, status: "pending" },
+      message: "RFQ PnL summary response returned malformed status",
+    },
+    {
+      payload: { ...basePnlResponse, totalTrades: 2 },
+      message: "RFQ PnL summary response returned malformed totalTrades",
+    },
+    {
+      payload: { ...basePnlResponse, grossPnlTokenOut: "1599999" },
+      message: "RFQ PnL summary response returned malformed grossPnlTokenOut",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], tokenIn: "0x1234" }],
       },
-    );
-  } finally {
-    restoreStatusFetch();
-  }
+      message: "RFQ PnL summary response trade returned malformed tokenIn",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], amountOut: "0" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed amountOut",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], grossPnlBps: "16" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed grossPnlBps",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], model: "unknown_model" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed model",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], realizedAt: "not-a-date" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed realizedAt",
+    },
+  ];
 
-  const restoreTradeFetch = installFetch(async () =>
-    jsonResponse(200, {
-      ...pnlResponse,
-      status: "ok",
-      trades: [
-        {
-          ...pnlResponse.trades[0],
-          model: "unknown_model",
+  for (const { payload, message } of cases) {
+    const restoreFetch = installFetch(async () => jsonResponse(200, payload));
+
+    try {
+      const client = new RFQClient("http://127.0.0.1:3000");
+
+      await assert.rejects(
+        client.pnl(),
+        (error) => {
+          assert.ok(error instanceof RFQClientError);
+          assert.equal(error.status, 200);
+          assert.equal(error.code, "RFQ_CLIENT_ERROR");
+          assert.equal(error.message, message);
+          return true;
         },
-      ],
-    }),
-  );
-
-  try {
-    const client = new RFQClient("http://127.0.0.1:3000");
-
-    await assert.rejects(
-      client.pnl(),
-      (error) => {
-        assert.ok(error instanceof RFQClientError);
-        assert.equal(error.status, 200);
-        assert.equal(error.code, "RFQ_CLIENT_ERROR");
-        assert.equal(error.message, "RFQ PnL summary response returned malformed status");
-        return true;
-      },
-    );
-  } finally {
-    restoreTradeFetch();
+      );
+    } finally {
+      restoreFetch();
+    }
   }
 });
 

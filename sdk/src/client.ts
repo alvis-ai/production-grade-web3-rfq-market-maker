@@ -3,6 +3,7 @@ import type {
   HedgeIntentStatus,
   HealthResponse,
   PnlSummary,
+  PnlTradeRecord,
   QuoteRequest,
   QuoteResponse,
   QuoteStatus,
@@ -124,9 +125,7 @@ export class RFQClient {
     await assertOk(response, "RFQ PnL summary failed");
 
     const payload = await readJsonResponse(response, "RFQ PnL summary response");
-    if (!isPnlSummary(payload)) {
-      throw new RFQClientError("RFQ PnL summary response returned malformed status", response.status);
-    }
+    assertPnlSummary(payload, response.status);
 
     return payload;
   }
@@ -254,6 +253,86 @@ function assertRequiredNonNegativeIntegerField(payload: unknown, field: string, 
   }
 }
 
+function assertPnlSummary(payload: unknown, status: number): asserts payload is PnlSummary {
+  const label = "RFQ PnL summary response";
+  if (!isRecord(payload)) {
+    throw malformedFieldError(status, label, "status");
+  }
+
+  if (payload.status !== "ok") {
+    throw malformedFieldError(status, label, "status");
+  }
+  if (!Number.isSafeInteger(payload.totalTrades) || Number(payload.totalTrades) < 0) {
+    throw malformedFieldError(status, label, "totalTrades");
+  }
+  if (!isIntString(payload.grossPnlTokenOut)) {
+    throw malformedFieldError(status, label, "grossPnlTokenOut");
+  }
+  if (!Array.isArray(payload.trades)) {
+    throw malformedFieldError(status, label, "trades");
+  }
+  if (payload.totalTrades !== payload.trades.length) {
+    throw malformedFieldError(status, label, "totalTrades");
+  }
+
+  let grossPnl = 0n;
+  for (const trade of payload.trades) {
+    assertPnlTradeRecord(trade, status);
+    grossPnl += BigInt(trade.grossPnlTokenOut);
+  }
+
+  if (BigInt(payload.grossPnlTokenOut) !== grossPnl) {
+    throw malformedFieldError(status, label, "grossPnlTokenOut");
+  }
+}
+
+function assertPnlTradeRecord(payload: unknown, status: number): asserts payload is PnlTradeRecord {
+  const label = "RFQ PnL summary response trade";
+  if (!isRecord(payload)) {
+    throw malformedFieldError(status, label, "pnlId");
+  }
+
+  for (const field of ["pnlId", "quoteId", "realizedAt"] as const) {
+    if (!isNonEmptyString(payload[field])) {
+      throw malformedFieldError(status, label, field);
+    }
+  }
+  const realizedAt = payload.realizedAt;
+  if (!isNonEmptyString(realizedAt) || Number.isNaN(Date.parse(realizedAt))) {
+    throw malformedFieldError(status, label, "realizedAt");
+  }
+  if (!Number.isSafeInteger(payload.chainId) || Number(payload.chainId) <= 0) {
+    throw malformedFieldError(status, label, "chainId");
+  }
+  for (const field of ["tokenIn", "tokenOut"] as const) {
+    if (!isAddressHex(payload[field])) {
+      throw malformedFieldError(status, label, field);
+    }
+  }
+  const tokenIn = payload.tokenIn;
+  const tokenOut = payload.tokenOut;
+  if (!isAddressHex(tokenIn) || !isAddressHex(tokenOut)) {
+    throw malformedFieldError(status, label, "tokenOut");
+  }
+  if (tokenIn.toLowerCase() === tokenOut.toLowerCase()) {
+    throw malformedFieldError(status, label, "tokenOut");
+  }
+  for (const field of ["amountIn", "amountOut"] as const) {
+    if (!isPositiveUIntString(payload[field])) {
+      throw malformedFieldError(status, label, field);
+    }
+  }
+  if (!isIntString(payload.grossPnlTokenOut)) {
+    throw malformedFieldError(status, label, "grossPnlTokenOut");
+  }
+  if (!Number.isSafeInteger(payload.grossPnlBps)) {
+    throw malformedFieldError(status, label, "grossPnlBps");
+  }
+  if (payload.model !== "simulated_mid_price_v1") {
+    throw malformedFieldError(status, label, "model");
+  }
+}
+
 function malformedFieldError(status: number, label: string, field: string): RFQClientError {
   return new RFQClientError(`${label} returned malformed ${field}`, status);
 }
@@ -262,8 +341,24 @@ function isBytes32Hex(value: unknown): value is `0x${string}` {
   return typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
 }
 
+function isAddressHex(value: unknown): value is `0x${string}` {
+  return typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value);
+}
+
 function isSignatureHex(value: unknown): value is `0x${string}` {
   return typeof value === "string" && /^0x[0-9a-fA-F]{130}$/.test(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isPositiveUIntString(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9]+$/.test(value) && BigInt(value) > 0n;
+}
+
+function isIntString(value: unknown): value is string {
+  return typeof value === "string" && /^-?[0-9]+$/.test(value);
 }
 
 function retryAfterSeconds(response: Response): number | undefined {
@@ -324,21 +419,6 @@ function isHedgeIntentStatus(value: unknown): value is HedgeIntentStatus {
     (value.side === "buy" || value.side === "sell") &&
     (value.reason === "inventory_rebalance" || value.reason === "risk_reduction")
   );
-}
-
-function isPnlSummary(value: unknown): value is PnlSummary {
-  return (
-    isRecord(value) &&
-    value.status === "ok" &&
-    Number.isSafeInteger(value.totalTrades) &&
-    Number(value.totalTrades) >= 0 &&
-    Array.isArray(value.trades) &&
-    value.trades.every(isPnlTradeRecord)
-  );
-}
-
-function isPnlTradeRecord(value: unknown): boolean {
-  return isRecord(value) && value.model === "simulated_mid_price_v1";
 }
 
 function isReadinessResponse(value: unknown): value is ReadinessResponse {
