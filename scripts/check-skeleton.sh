@@ -17,6 +17,7 @@ test -s backend/test/hedge.test.mjs
 test -s backend/test/inventory.test.mjs
 test -s backend/test/market-data.test.mjs
 test -s backend/test/metrics.test.mjs
+test -s backend/test/quote-identity.test.mjs
 test -s backend/test/quote-service.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
@@ -285,6 +286,7 @@ grep -q 'quoteTtlSeconds' backend/src/modules/quote/quote.service.ts
 grep -q 'defaultQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
 grep -q 'class QuoteIdentityGenerator' backend/src/modules/quote/quote-identity.ts
 grep -q 'randomUint64' backend/src/modules/quote/quote-identity.ts
+grep -q 'QuoteIdentityGenerator creates monotonic unique nonces within one millisecond' backend/test/quote-identity.test.mjs
 grep -q 'class InMemoryQuoteRepository' backend/src/modules/quote/quote.repository.ts
 grep -q 'markFailed' backend/src/modules/quote/quote.repository.ts
 grep -q 'class BasicRiskEngine' backend/src/modules/risk/risk.engine.ts
