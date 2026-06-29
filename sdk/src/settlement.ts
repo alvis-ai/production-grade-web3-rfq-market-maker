@@ -22,6 +22,7 @@ export interface TreasuryTransferInput {
 }
 
 export function toSettlementQuote(quote: Quote): SettlementQuote {
+  assertRecord(quote, "quote");
   const tokenIn = parseAddress(quote.tokenIn, "quote.tokenIn");
   const tokenOut = parseAddress(quote.tokenOut, "quote.tokenOut");
   const amountOut = parsePositiveUInt(quote.amountOut, "quote.amountOut");
@@ -52,7 +53,14 @@ export function buildSubmitQuoteArgs(quote: Quote, signature: `0x${string}`): Su
 }
 
 export function buildTreasuryTransferArgs(input: TreasuryTransferInput): TreasuryTransferArgs {
+  assertRecord(input, "treasury transfer input");
   return [parseAddress(input.token, "token"), parseAddress(input.to, "to"), parseUInt(input.amount, "amount")] as const;
+}
+
+function assertRecord(value: unknown, field: string): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${field} must be an object`);
+  }
 }
 
 function parseAddress(value: Address, field: string): Address {

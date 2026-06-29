@@ -90,6 +90,11 @@ test("buildQuoteTypedData rejects invalid EIP-712 domain and quote fields", () =
   );
 
   assert.throws(
+    () => buildQuoteTypedData(undefined, verifyingContract),
+    /quote must be an object/,
+  );
+
+  assert.throws(
     () =>
       buildQuoteTypedData(
         {
@@ -158,6 +163,11 @@ test("buildSubmitQuoteArgs converts string integer fields to settlement bigint f
 });
 
 test("Settlement helpers reject invalid uint inputs before contract calls", () => {
+  assert.throws(
+    () => buildSubmitQuoteArgs(undefined, signature),
+    /quote must be an object/,
+  );
+
   assert.throws(
     () =>
       buildSubmitQuoteArgs(
@@ -232,6 +242,11 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
         amount: -1n,
       }),
     /amount must be a uint/,
+  );
+
+  assert.throws(
+    () => buildTreasuryTransferArgs(undefined),
+    /treasury transfer input must be an object/,
   );
 
   assert.throws(

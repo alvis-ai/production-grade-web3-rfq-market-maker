@@ -45,6 +45,7 @@ export function buildQuoteTypedData(quote: Quote, verifyingContract: Address) {
 }
 
 function assertQuoteShape(quote: Quote): void {
+  assertRecord(quote, "quote");
   parseAddress(quote.user, "quote.user");
   parseAddress(quote.tokenIn, "quote.tokenIn");
   parseAddress(quote.tokenOut, "quote.tokenOut");
@@ -60,6 +61,12 @@ function assertQuoteShape(quote: Quote): void {
   parseUInt(quote.nonce, "quote.nonce");
   parsePositiveInteger(quote.deadline, "quote.deadline");
   parsePositiveInteger(quote.chainId, "quote.chainId");
+}
+
+function assertRecord(value: unknown, field: string): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${field} must be an object`);
+  }
 }
 
 function parseAddress(value: Address, field: string): Address {
