@@ -530,6 +530,9 @@ grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getSettlement' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.pnl' frontend/src/pages/QuotePage.tsx
+grep -q 'validateQuoteFormRequest(request)' frontend/src/pages/QuotePage.tsx
+grep -q 'tokenIn and tokenOut must be different' frontend/src/lib/quote-request.ts
+grep -q 'amountIn must be a positive uint string' frontend/src/lib/quote-request.ts
 grep -q 'loadPostTradeSurfaces(status, response)' frontend/src/pages/QuotePage.tsx
 grep -q 'loadPostTradeSurfaces(status, submitResult)' frontend/src/pages/QuotePage.tsx
 grep -q 'parseIntegerInput' frontend/src/components/QuoteForm.tsx

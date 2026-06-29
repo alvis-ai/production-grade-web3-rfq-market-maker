@@ -113,6 +113,7 @@ client.quote(request: QuoteRequest): Promise<QuoteResponse>
 - UI displays minAmountOut.
 - Quote error maps from API error code.
 - QuoteForm only writes numeric fields when the input parses as an integer inside the public request contract: `chainId` must be a positive JavaScript safe integer and `slippageBps` must be between 0 and 10000, so empty strings, decimals, exponent notation and out-of-range values do not poison request state before SDK/backend validation.
+- Before calling `RFQClient.quote()`, the page runs `validateQuoteFormRequest()` to reject malformed user/token addresses, identical token pairs, non-positive `amountIn`, and out-of-contract numeric fields locally; backend validation remains authoritative.
 
 ## Failure Scenarios
 
@@ -131,7 +132,7 @@ Avoid firing quote request on every keystroke. Use explicit request button or de
 
 ## Testing Strategy
 
-测试 valid input、invalid input、numeric field parsing, quote loading、risk rejected、expired countdown 和 disabled submit。
+测试 valid input、invalid input、numeric field parsing, submit-time request validation, quote loading、risk rejected、expired countdown 和 disabled submit。
 
 ## Interview Notes
 

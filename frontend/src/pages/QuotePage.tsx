@@ -15,6 +15,7 @@ import { QuoteStatusPanel } from "../components/QuoteStatusPanel";
 import { toUIError, type UIError } from "../lib/errors";
 import { rfqApiBaseUrl, rfqSettlementAddress } from "../lib/config";
 import { buildQuoteFromResponse, rfqClient } from "../lib/rfq";
+import { validateQuoteFormRequest } from "../lib/quote-request";
 import type { WalletState } from "../components/WalletSubmitControl";
 
 const WalletSubmitControl = lazy(() => import("../components/WalletSubmitControl"));
@@ -80,7 +81,8 @@ export function QuotePage() {
     setPnlSummary(undefined);
     setChainTxHash(undefined);
     try {
-      const response = await rfqClient.quote(request);
+      const safeRequest = validateQuoteFormRequest(request);
+      const response = await rfqClient.quote(safeRequest);
       setQuote(response);
     } catch (caught) {
       setQuote(undefined);
