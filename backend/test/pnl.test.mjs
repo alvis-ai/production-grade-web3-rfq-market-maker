@@ -55,7 +55,7 @@ test("PnlService returns the existing attribution record for quote retries", () 
     quoteId: "q_retry",
     quote: {
       ...baseQuote,
-      amountOut: "900",
+      amountOut: "985",
       nonce: "2",
     },
   });
@@ -66,4 +66,67 @@ test("PnlService returns the existing attribution record for quote retries", () 
   assert.equal(summary.totalTrades, 1);
   assert.equal(summary.grossPnlTokenOut, first.grossPnlTokenOut);
   assert.deepEqual(summary.trades, [first]);
+});
+
+test("PnlService rejects unsafe attribution inputs before recording", () => {
+  const pnl = new PnlService();
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: " ",
+        quote: baseQuote,
+      }),
+    /Pnl quoteId must be a non-empty string/,
+  );
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q_bad_chain",
+        quote: {
+          ...baseQuote,
+          chainId: 0,
+        },
+      }),
+    /Pnl quote.chainId must be a positive safe integer/,
+  );
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q_bad_token",
+        quote: {
+          ...baseQuote,
+          tokenOut: "0x00000000000000000000000000000000000000zz",
+        },
+      }),
+    /Pnl quote.tokenOut must be a 20-byte hex address/,
+  );
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q_zero_amount",
+        quote: {
+          ...baseQuote,
+          amountIn: "0",
+        },
+      }),
+    /Pnl quote.amountIn must be a positive uint string/,
+  );
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q_below_min",
+        quote: {
+          ...baseQuote,
+          amountOut: "970",
+        },
+      }),
+    /Pnl quote.amountOut must be greater than or equal to quote.minAmountOut/,
+  );
+
+  assert.equal(pnl.summary().totalTrades, 0);
 });

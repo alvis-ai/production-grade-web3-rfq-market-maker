@@ -136,6 +136,7 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 - Duplicate settlement events must match the original quote payload and `quoteHash` for the same `(chainId, txHash, logIndex)` key; conflicting payloads indicate event-store or indexer corruption and fail before additional side effects.
 - Quote status persistence after settlement is best-effort in the runnable reference path. If marking `submitted` or `settled` fails after settlement is already applied, `/submit` still returns HTTP 202 and records `rfq_quote_status_update_errors_total` because settlement remains the source of truth.
 - PnL attribution after settlement is best-effort and idempotent by `(quoteId, model)`. If writing the realized PnL record fails after settlement is already applied, `/submit` still returns HTTP 202 without `pnlId` and records `rfq_pnl_record_errors_total{reason="PNL_RECORD_FAILED"}` for reconciliation.
+- PnL attribution validates `quoteId`, chain id, quote addresses, distinct token pair, positive uint amount fields, positive deadline and `amountOut >= minAmountOut` before recording realized PnL. Invalid attribution input must fail before a `pnl_records` row, metric sample or reconciliation artifact can claim a malformed settlement as realized PnL.
 - Hedge intent creation failure after settlement is best-effort but risk-aware. `/submit` still returns HTTP 202 without `hedgeOrderId`, records `rfq_hedge_intent_errors_total{reason="HEDGE_INTENT_FAILED"}`, and updates Hedge Service failure pressure so follow-up quotes for the same output token include quote risk penalty.
 - 第一阶段 `/submit` uses simulated settlement to exercise inventory and hedge flow.
 - 生产版 `/submit` does not imply settled until chain event confirmation.
@@ -165,7 +166,7 @@ Execution path can be asynchronous. RPC latency should not block quote generatio
 
 ## Testing Strategy
 
-测试 payload generation、relay failure、tx revert、settlement verifier unavailable、settlement verifier policy fail-fast、event confirmation、duplicate submit、duplicate settlement side-effect suppression、post-settlement status persistence failure 和 quote expired。
+测试 payload generation、relay failure、tx revert、settlement verifier unavailable、settlement verifier policy fail-fast、PnL attribution input validation、event confirmation、duplicate submit、duplicate settlement side-effect suppression、post-settlement status persistence failure 和 quote expired。
 
 ## Interview Notes
 

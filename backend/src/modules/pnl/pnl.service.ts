@@ -20,6 +20,8 @@ export class PnlService implements PnlStore {
   }
 
   recordSettlement(input: RecordPnlInput): PnlTradeRecord {
+    assertPnlInput(input);
+
     const model = "simulated_mid_price_v1";
     const existingPnlId = this.pnlIdsByQuoteModel.get(this.quoteModelKey(input.quoteId, model));
     if (existingPnlId) {
@@ -79,4 +81,50 @@ function calculateGrossPnlBps(amountIn: string, grossPnl: bigint): number {
   }
 
   return Number((grossPnl * 10_000n) / notional);
+}
+
+function assertPnlInput(input: RecordPnlInput): void {
+  assertNonEmptyString(input.quoteId, "quoteId");
+  assertPositiveSafeInteger(input.quote.chainId, "quote.chainId");
+  assertAddress(input.quote.user, "quote.user");
+  assertAddress(input.quote.tokenIn, "quote.tokenIn");
+  assertAddress(input.quote.tokenOut, "quote.tokenOut");
+
+  if (input.quote.tokenIn.toLowerCase() === input.quote.tokenOut.toLowerCase()) {
+    throw new Error("Pnl quote token pair must contain distinct tokens");
+  }
+
+  assertPositiveUIntString(input.quote.amountIn, "quote.amountIn");
+  assertPositiveUIntString(input.quote.amountOut, "quote.amountOut");
+  assertPositiveUIntString(input.quote.minAmountOut, "quote.minAmountOut");
+  assertPositiveUIntString(input.quote.nonce, "quote.nonce");
+  assertPositiveSafeInteger(input.quote.deadline, "quote.deadline");
+
+  if (BigInt(input.quote.amountOut) < BigInt(input.quote.minAmountOut)) {
+    throw new Error("Pnl quote.amountOut must be greater than or equal to quote.minAmountOut");
+  }
+}
+
+function assertNonEmptyString(value: string, field: string): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Pnl ${field} must be a non-empty string`);
+  }
+}
+
+function assertAddress(value: string, field: string): void {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Pnl ${field} must be a 20-byte hex address`);
+  }
+}
+
+function assertPositiveUIntString(value: string, field: string): void {
+  if (!/^[0-9]+$/.test(value) || BigInt(value) <= 0n) {
+    throw new Error(`Pnl ${field} must be a positive uint string`);
+  }
+}
+
+function assertPositiveSafeInteger(value: number, field: string): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Pnl ${field} must be a positive safe integer`);
+  }
 }
