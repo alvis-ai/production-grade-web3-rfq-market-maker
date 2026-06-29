@@ -30,6 +30,7 @@ export interface BasicRiskPolicy {
   maxAmountIn: bigint;
   minAmountOut: bigint;
   maxSlippageBps: number;
+  maxQuotedSpreadBps: number;
   maxAbsoluteInventory: bigint;
 }
 
@@ -51,6 +52,7 @@ export const defaultBasicRiskPolicy: BasicRiskPolicy = {
   maxAmountIn: 10_000_000_000_000_000_000_000n,
   minAmountOut: 1n,
   maxSlippageBps: 500,
+  maxQuotedSpreadBps: 1_000,
   maxAbsoluteInventory: 2_000_000_000n,
 };
 
@@ -95,6 +97,10 @@ export class BasicRiskEngine implements RiskEngine {
 
     if (input.request.slippageBps > this.policy.maxSlippageBps) {
       return this.reject("SLIPPAGE_TOO_WIDE");
+    }
+
+    if (input.pricing.spreadBps > this.policy.maxQuotedSpreadBps) {
+      return this.reject("QUOTED_SPREAD_TOO_WIDE");
     }
 
     if (input.inventoryProjection) {

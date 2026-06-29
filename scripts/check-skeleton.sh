@@ -300,6 +300,8 @@ grep -q 'CHAIN_NOT_ENABLED' backend/src/modules/risk/risk.engine.ts
 grep -q 'TOKEN_NOT_ALLOWED' backend/src/modules/risk/risk.engine.ts
 grep -q 'AMOUNT_IN_LIMIT_EXCEEDED' backend/src/modules/risk/risk.engine.ts
 grep -q 'SLIPPAGE_TOO_WIDE' backend/src/modules/risk/risk.engine.ts
+grep -q 'QUOTED_SPREAD_TOO_WIDE' backend/src/modules/risk/risk.engine.ts
+grep -q 'maxQuotedSpreadBps' backend/src/modules/risk/risk.engine.ts
 grep -q 'TOXIC_FLOW_RESTRICTED_USER' backend/src/modules/risk/risk.engine.ts
 grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/src/modules/risk/risk.engine.ts
 grep -q 'toxicFlowScores' backend/src/modules/risk/risk.engine.ts
@@ -1004,6 +1006,10 @@ grep -q 'applies each chain event idempotently' backend/test/settlement-event.te
 grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/rate-limit.test.mjs
 grep -q 'restricted toxic-flow users' backend/test/risk.test.mjs
 grep -q 'toxic-flow score threshold' backend/test/risk.test.mjs
+grep -q 'quoted spreads above policy limit' backend/test/risk.test.mjs
+grep -q 'pricing spread exceeds risk guard before signing' backend/test/api.test.mjs
+grep -q 'QUOTED_SPREAD_TOO_WIDE' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'maxQuotedSpreadBps' book/Volume3-RiskEngine/Chapter05-Position-Limits.md
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteResponsesStalled' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_quote_responses_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md

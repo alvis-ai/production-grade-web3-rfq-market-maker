@@ -98,3 +98,20 @@ test("BasicRiskEngine rejects users above toxic-flow score threshold", async () 
   assert.equal(decision.reasonCode, "TOXIC_FLOW_SCORE_EXCEEDED");
   assert.equal(decision.policyVersion, "basic-risk-v1");
 });
+
+test("BasicRiskEngine rejects quoted spreads above policy limit", async () => {
+  const decision = await new BasicRiskEngine({
+    ...defaultBasicRiskPolicy,
+    maxQuotedSpreadBps: 100,
+  }).evaluate({
+    request: baseRequest,
+    pricing: {
+      ...basePricing,
+      spreadBps: 101,
+    },
+  });
+
+  assert.equal(decision.status, "rejected");
+  assert.equal(decision.reasonCode, "QUOTED_SPREAD_TOO_WIDE");
+  assert.equal(decision.policyVersion, "basic-risk-v1");
+});

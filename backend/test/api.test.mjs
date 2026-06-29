@@ -1446,6 +1446,44 @@ test("RFQ API maps pricing engine failures to dependency errors before signing",
   }
 });
 
+test("RFQ API rejects quotes when pricing spread exceeds risk guard before signing", async () => {
+  const server = buildServer({
+    logger: false,
+    pricingEngine: {
+      async price() {
+        return {
+          amountOut: "900000000",
+          minAmountOut: "895500000",
+          spreadBps: 1500,
+          sizeImpactBps: 250,
+          inventorySkewBps: 0,
+          pricingVersion: "formula-v1:test-extreme-spread",
+        };
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "RISK_REJECTED");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_quote_requests_total 1/);
+    assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_responses_total 0/);
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="QUOTED_SPREAD_TOO_WIDE"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rejects toxic-flow users before signing", async () => {
   const server = buildServer({
     logger: false,
