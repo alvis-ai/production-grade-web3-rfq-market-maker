@@ -63,6 +63,18 @@ export class BasicRiskEngine implements RiskEngine {
   private readonly toxicFlowScores: ReadonlyMap<string, number>;
 
   constructor(private readonly policy: BasicRiskPolicy = defaultBasicRiskPolicy) {
+    assertNonEmptyString(policy.policyVersion, "policyVersion");
+    assertChainIds(policy.enabledChainIds);
+    assertAddressList(policy.tokenAllowlist, "tokenAllowlist", true);
+    assertAddressList(policy.restrictedUsers, "restrictedUsers", false);
+    assertToxicFlowScores(policy.toxicFlowScores);
+    assertBpsUpperBound(policy.maxToxicScoreBps, "maxToxicScoreBps");
+    assertPositiveBigInt(policy.maxAmountIn, "maxAmountIn");
+    assertPositiveBigInt(policy.minAmountOut, "minAmountOut");
+    assertBpsUpperBound(policy.maxSlippageBps, "maxSlippageBps");
+    assertBpsUpperBound(policy.maxQuotedSpreadBps, "maxQuotedSpreadBps");
+    assertPositiveBigInt(policy.maxAbsoluteInventory, "maxAbsoluteInventory");
+
     this.allowedTokens = new Set(policy.tokenAllowlist.map((token) => token.toLowerCase()));
     this.enabledChainIds = new Set(policy.enabledChainIds);
     this.restrictedUsers = new Set(policy.restrictedUsers.map((user) => user.toLowerCase()));
@@ -134,4 +146,65 @@ export class BasicRiskEngine implements RiskEngine {
 
 function abs(value: bigint): bigint {
   return value < 0n ? -value : value;
+}
+
+function assertNonEmptyString(value: string, field: keyof BasicRiskPolicy): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Basic risk ${field} must be a non-empty string`);
+  }
+}
+
+function assertChainIds(chainIds: readonly number[]): void {
+  if (chainIds.length === 0) {
+    throw new Error("Basic risk enabledChainIds must contain at least one chain id");
+  }
+
+  for (const chainId of chainIds) {
+    if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+      throw new Error("Basic risk enabledChainIds entries must be positive safe integers");
+    }
+  }
+}
+
+function assertAddressList(
+  addresses: readonly `0x${string}`[],
+  field: "tokenAllowlist" | "restrictedUsers",
+  requireNonEmpty: boolean,
+): void {
+  if (requireNonEmpty && addresses.length === 0) {
+    throw new Error(`Basic risk ${field} must contain at least one address`);
+  }
+
+  for (const address of addresses) {
+    assertAddress(address, field);
+  }
+}
+
+function assertToxicFlowScores(scores: readonly ToxicFlowScore[]): void {
+  for (const score of scores) {
+    assertAddress(score.user, "toxicFlowScores.user");
+    assertBpsUpperBound(score.scoreBps, "toxicFlowScores.scoreBps");
+  }
+}
+
+function assertAddress(value: `0x${string}`, field: string): void {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Basic risk ${field} entries must be 20-byte hex addresses`);
+  }
+}
+
+function assertPositiveBigInt(value: bigint, field: keyof BasicRiskPolicy): void {
+  if (typeof value !== "bigint" || value <= 0n) {
+    throw new Error(`Basic risk ${field} must be a positive bigint`);
+  }
+}
+
+function assertBpsUpperBound(value: number, field: keyof BasicRiskPolicy | "toxicFlowScores.scoreBps"): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`Basic risk ${field} must be a non-negative safe integer`);
+  }
+
+  if (value > 10_000) {
+    throw new Error(`Basic risk ${field} must be less than or equal to 10000 bps`);
+  }
 }

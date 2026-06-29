@@ -115,3 +115,53 @@ test("BasicRiskEngine rejects quoted spreads above policy limit", async () => {
   assert.equal(decision.reasonCode, "QUOTED_SPREAD_TOO_WIDE");
   assert.equal(decision.policyVersion, "basic-risk-v1");
 });
+
+test("BasicRiskEngine rejects unsafe policy configuration at construction", () => {
+  assert.throws(
+    () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, policyVersion: " " }),
+    /Basic risk policyVersion must be a non-empty string/,
+  );
+
+  assert.throws(
+    () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, enabledChainIds: [] }),
+    /Basic risk enabledChainIds must contain at least one chain id/,
+  );
+
+  assert.throws(
+    () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, tokenAllowlist: [] }),
+    /Basic risk tokenAllowlist must contain at least one address/,
+  );
+
+  assert.throws(
+    () =>
+      new BasicRiskEngine({
+        ...defaultBasicRiskPolicy,
+        tokenAllowlist: ["0x00000000000000000000000000000000000000zz"],
+      }),
+    /Basic risk tokenAllowlist entries must be 20-byte hex addresses/,
+  );
+
+  assert.throws(
+    () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, maxAmountIn: 0n }),
+    /Basic risk maxAmountIn must be a positive bigint/,
+  );
+
+  assert.throws(
+    () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, maxQuotedSpreadBps: 10_001 }),
+    /Basic risk maxQuotedSpreadBps must be less than or equal to 10000 bps/,
+  );
+
+  assert.throws(
+    () =>
+      new BasicRiskEngine({
+        ...defaultBasicRiskPolicy,
+        toxicFlowScores: [
+          {
+            user: baseRequest.user,
+            scoreBps: -1,
+          },
+        ],
+      }),
+    /Basic risk toxicFlowScores.scoreBps must be a non-negative safe integer/,
+  );
+});
