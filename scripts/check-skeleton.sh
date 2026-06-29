@@ -71,11 +71,14 @@ grep -q 'checkHealth' backend/src/modules/settlement/settlement-event.service.ts
 test -s backend/src/modules/settlement/settlement-verifier.service.ts
 test -s backend/src/modules/market-data/market-data.service.ts
 grep -q 'getMarketSnapshotIssue' backend/src/modules/market-data/market-data.service.ts
+grep -q 'defaultStaticMarketDataConfig' backend/src/modules/market-data/market-data.service.ts
+grep -q 'Market data pair is not configured' backend/src/modules/market-data/market-data.service.ts
 grep -q 'defaultMaxSnapshotFutureSkewMs' backend/src/modules/market-data/market-data.service.ts
 grep -q 'snapshot timestamp is too far in the future' backend/src/modules/market-data/market-data.service.ts
 grep -q 'mid price is invalid' backend/src/modules/market-data/market-data.service.ts
 grep -q 'liquidity is invalid' backend/src/modules/market-data/market-data.service.ts
 grep -q 'getMarketSnapshotIssue rejects stale or future-skewed market snapshots' backend/test/market-data.test.mjs
+grep -q 'StaticMarketDataService rejects unconfigured token pairs' backend/test/market-data.test.mjs
 test -s backend/src/modules/rate-limit/rate-limit.service.ts
 test -s backend/src/shared/errors/api-error.ts
 grep -q 'APIError serializes stable client responses without internal reason codes' backend/test/api-error.test.mjs
@@ -930,6 +933,7 @@ grep -q 'preserves signer errors when marking failed quotes fails' backend/test/
 grep -q 'signing is unavailable' backend/test/api.test.mjs
 grep -q 'preserves signer errors when failed quote persistence fails' backend/test/api.test.mjs
 grep -q 'rfq_signer_errors_total' backend/test/api.test.mjs
+grep -q 'unconfigured market data pairs before pricing and signing' backend/test/api.test.mjs
 grep -q 'settlement constraints before simulated settlement' backend/test/api.test.mjs
 grep -q 'failed quote status persistence fails' backend/test/api.test.mjs
 grep -q 'target_status="FAILED"' backend/test/api.test.mjs

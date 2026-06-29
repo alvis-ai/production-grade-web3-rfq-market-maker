@@ -1208,6 +1208,32 @@ test("RFQ API rejects stale market data before pricing and signing", async () =>
   }
 });
 
+test("RFQ API rejects unconfigured market data pairs before pricing and signing", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", {
+      ...baseQuoteRequest,
+      tokenOut: "0x0000000000000000000000000000000000000004",
+    });
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "MARKET_DATA_UNAVAILABLE");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_quote_requests_total 1/);
+    assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_responses_total 0/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rejects market data timestamps too far in the future", async () => {
   const server = buildServer({
     logger: false,

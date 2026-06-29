@@ -33,6 +33,18 @@ test("StaticMarketDataService returns deterministic pair snapshots", async () =>
   assert.doesNotThrow(() => new Date(result.observedAt).toISOString());
 });
 
+test("StaticMarketDataService rejects unconfigured token pairs", async () => {
+  const service = new StaticMarketDataService();
+
+  await assert.rejects(
+    service.getSnapshot({
+      ...request,
+      tokenOut: "0x0000000000000000000000000000000000000004",
+    }),
+    /Market data pair is not configured/,
+  );
+});
+
 test("getMarketSnapshotIssue accepts fresh positive market snapshots", () => {
   withFixedNow("2026-06-29T00:00:02.000Z", () => {
     assert.equal(getMarketSnapshotIssue(snapshot, 5_000), undefined);

@@ -4,8 +4,43 @@ export interface MarketDataService {
   getSnapshot(request: QuoteRequest): Promise<MarketSnapshot>;
 }
 
+export interface StaticMarketDataPair {
+  chainId: number;
+  tokenIn: `0x${string}`;
+  tokenOut: `0x${string}`;
+}
+
+export interface StaticMarketDataConfig {
+  supportedPairs: readonly StaticMarketDataPair[];
+}
+
+export const defaultStaticMarketDataConfig: StaticMarketDataConfig = {
+  supportedPairs: [
+    {
+      chainId: 1,
+      tokenIn: "0x0000000000000000000000000000000000000002",
+      tokenOut: "0x0000000000000000000000000000000000000003",
+    },
+    {
+      chainId: 1,
+      tokenIn: "0x0000000000000000000000000000000000000003",
+      tokenOut: "0x0000000000000000000000000000000000000002",
+    },
+  ],
+};
+
 export class StaticMarketDataService implements MarketDataService {
+  private readonly supportedPairs: ReadonlySet<string>;
+
+  constructor(private readonly config: StaticMarketDataConfig = defaultStaticMarketDataConfig) {
+    this.supportedPairs = new Set(config.supportedPairs.map((pair) => pairKey(pair)));
+  }
+
   async getSnapshot(request: QuoteRequest): Promise<MarketSnapshot> {
+    if (!this.supportedPairs.has(pairKey(request))) {
+      throw new Error("Market data pair is not configured");
+    }
+
     return {
       snapshotId: [
         "snapshot",
@@ -19,6 +54,10 @@ export class StaticMarketDataService implements MarketDataService {
       observedAt: new Date().toISOString(),
     };
   }
+}
+
+function pairKey(pair: StaticMarketDataPair): string {
+  return `${pair.chainId}:${pair.tokenIn.toLowerCase()}:${pair.tokenOut.toLowerCase()}`;
 }
 
 export const defaultMaxSnapshotFutureSkewMs = 1_000;
