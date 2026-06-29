@@ -33,3 +33,24 @@ test("HedgeService accumulates bounded quote risk penalty after hedge failures",
     0,
   );
 });
+
+test("HedgeService returns the existing hedge intent for settlement retries", () => {
+  const service = new HedgeService();
+
+  const first = service.createHedgeIntent(intent);
+  const retry = service.createHedgeIntent({
+    ...intent,
+    quoteId: "q_retry_should_not_replace_original",
+    amount: "2000000000",
+  });
+
+  assert.equal(retry.hedgeOrderId, first.hedgeOrderId);
+  assert.deepEqual(retry.record, first.record);
+  assert.equal(service.getHedgeIntent(first.hedgeOrderId), first.record);
+
+  const next = service.createHedgeIntent({
+    ...intent,
+    settlementEventId: "se_1_33333333_0",
+  });
+  assert.notEqual(next.hedgeOrderId, first.hedgeOrderId);
+});

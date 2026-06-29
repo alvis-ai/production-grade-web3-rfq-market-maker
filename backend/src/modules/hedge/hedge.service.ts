@@ -43,6 +43,7 @@ export const defaultHedgeServiceConfig: HedgeServiceConfig = {
 
 export class HedgeService implements HedgeIntentService {
   private readonly intents = new Map<string, HedgeIntentStatusResponse>();
+  private readonly hedgeOrderIdsBySettlementEvent = new Map<string, string>();
   private readonly failurePressure = new Map<string, number>();
   private sequence = 0;
 
@@ -53,6 +54,20 @@ export class HedgeService implements HedgeIntentService {
   }
 
   createHedgeIntent(intent: HedgeIntent): HedgeResult {
+    const existingHedgeOrderId = this.hedgeOrderIdsBySettlementEvent.get(intent.settlementEventId);
+    if (existingHedgeOrderId) {
+      const existingRecord = this.intents.get(existingHedgeOrderId);
+      if (!existingRecord) {
+        throw new Error(`Hedge intent index is inconsistent for ${existingHedgeOrderId}`);
+      }
+
+      return {
+        status: "queued",
+        hedgeOrderId: existingRecord.hedgeOrderId,
+        record: existingRecord,
+      };
+    }
+
     this.sequence += 1;
     const hedgeOrderId = [
       "h",
@@ -73,6 +88,7 @@ export class HedgeService implements HedgeIntentService {
       createdAt: new Date().toISOString(),
     };
     this.intents.set(hedgeOrderId, record);
+    this.hedgeOrderIdsBySettlementEvent.set(intent.settlementEventId, hedgeOrderId);
 
     return {
       status: "queued",

@@ -317,6 +317,8 @@ grep -q 'recordHedgeFailure' backend/src/modules/execution/execution.service.ts
 grep -q 'hedgeOrderId: hedgeResult?.hedgeOrderId' backend/src/modules/execution/execution.service.ts
 grep -q 'getHedgeIntent' backend/src/modules/hedge/hedge.service.ts
 grep -q 'settlementEventId: intent.settlementEventId' backend/src/modules/hedge/hedge.service.ts
+grep -q 'hedgeOrderIdsBySettlementEvent' backend/src/modules/hedge/hedge.service.ts
+grep -q 'returns the existing hedge intent for settlement retries' backend/test/hedge.test.mjs
 grep -q 'settlementEventId: submitResponse.settlementEventId' sdk/test/sdk.test.mjs
 grep -q 'hedge settlement event id' scripts/smoke-api.mjs
 grep -q 'quoteRiskPenaltyBps' backend/src/modules/hedge/hedge.service.ts
