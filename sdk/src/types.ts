@@ -97,6 +97,7 @@ export interface SettlementEventStatus {
   quoteId: string;
   chainId: number;
   txHash: `0x${string}`;
+  quoteHash: `0x${string}`;
   logIndex: number;
   user: Address;
   tokenIn: Address;

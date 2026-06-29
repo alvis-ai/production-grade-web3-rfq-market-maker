@@ -91,7 +91,7 @@ sequenceDiagram
   E->>E: update inventory and queue hedge intent
   E-->>U: 202 accepted with txHash
   U-->>C: production mode submitQuote
-  C-->>I: production QuoteSettled event
+  C-->>I: production QuoteSettled event with quoteHash
   I->>E: production update quote status
 ```
 
@@ -118,7 +118,7 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 
 ## API Design
 
-`POST /submit` returns HTTP 202 with `accepted`, optionally `txHash`, a consumed `settlementEventId`, a queued `hedgeOrderId`, and a `pnlId` in the simulated settlement path. `GET /quote/:id` exposes quote settlement state plus available `txHash`, `settlementEventId`, `hedgeOrderId`, and `pnlId` pointers after submit so a client can refresh status without losing the next navigation target. `GET /settlements/:id` exposes the idempotently consumed settlement event that updated inventory. `GET /hedges/:id` exposes the hedge intent created after inventory update. `GET /pnl` exposes realized spread PnL summary for the runnable reference path.
+`POST /submit` returns HTTP 202 with `accepted`, optionally `txHash`, a consumed `settlementEventId`, a queued `hedgeOrderId`, and a `pnlId` in the simulated settlement path. `GET /quote/:id` exposes quote settlement state plus available `txHash`, `settlementEventId`, `hedgeOrderId`, and `pnlId` pointers after submit so a client can refresh status without losing the next navigation target. `GET /settlements/:id` exposes the idempotently consumed settlement event that updated inventory, including the `quoteHash` emitted by `RFQSettlement.QuoteSettled` so indexers and reconciliation jobs can bind the chain event back to the exact EIP-712 quote payload. `GET /hedges/:id` exposes the hedge intent created after inventory update. `GET /pnl` exposes realized spread PnL summary for the runnable reference path.
 
 ## Engineering Decisions
 
@@ -130,7 +130,7 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 - Settlement event store write failure returns `SETTLEMENT_EVENT_STORE_UNAVAILABLE` with HTTP 503 before inventory update, hedge intent, PnL attribution, or quote status mutation. The quote remains `signed` and retryable while TTL is valid.
 - `/submit` rejects `failed` quotes with `QUOTE_FAILED` before execution, so terminal settlement failures cannot be replayed into the execution path.
 - Duplicate settlement events are idempotent: they return the existing `settlementEventId` but must not create a second hedge intent, PnL record, settlement metric, or inventory delta.
-- Duplicate settlement events must match the original quote payload for the same `(chainId, txHash, logIndex)` key; conflicting payloads indicate event-store or indexer corruption and fail before additional side effects.
+- Duplicate settlement events must match the original quote payload and `quoteHash` for the same `(chainId, txHash, logIndex)` key; conflicting payloads indicate event-store or indexer corruption and fail before additional side effects.
 - Quote status persistence after settlement is best-effort in the runnable reference path. If marking `submitted` or `settled` fails after settlement is already applied, `/submit` still returns HTTP 202 and records `rfq_quote_status_update_errors_total` because settlement remains the source of truth.
 - PnL attribution after settlement is best-effort and idempotent by `(quoteId, model)`. If writing the realized PnL record fails after settlement is already applied, `/submit` still returns HTTP 202 without `pnlId` and records `rfq_pnl_record_errors_total{reason="PNL_RECORD_FAILED"}` for reconciliation.
 - Hedge intent creation failure after settlement is best-effort but risk-aware. `/submit` still returns HTTP 202 without `hedgeOrderId`, records `rfq_hedge_intent_errors_total{reason="HEDGE_INTENT_FAILED"}`, and updates Hedge Service failure pressure so follow-up quotes for the same output token include quote risk penalty.

@@ -26,7 +26,7 @@ sequenceDiagram
   Chain->>Chain: check trusted signer, nonce, deadline, chainId, whitelist
   Chain->>TokenIn: transferFrom(user, treasury, amountIn)
   Chain->>TokenOut: transfer(user, amountOut)
-  Chain-->>Indexer: emit QuoteSettled
+  Chain-->>Indexer: emit QuoteSettled(quoteHash, user, tokenIn, ...)
   Indexer->>Inventory: idempotent inventory update
   Inventory->>Hedge: production hedge intent
   Inventory->>Metrics: record exposure and realized trade
@@ -36,5 +36,5 @@ sequenceDiagram
 
 - 合约验证失败时不能更新 nonce 为已使用。
 - 第一阶段 skeleton 可同步模拟库存更新；生产库存更新必须以链上事件为准。
-- 事件消费必须使用 `chainId + txHash + logIndex` 幂等。
+- 事件消费必须使用 `chainId + txHash + logIndex` 幂等，并保存 `quoteHash` 作为链上 `QuoteSettled` 与链下 quote payload 的一致性锚点。
 - Hedge failure 不能回滚已经确认的 settlement，但必须进入风险和告警闭环。

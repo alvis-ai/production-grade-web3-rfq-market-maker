@@ -596,6 +596,7 @@ components:
         - quoteId
         - chainId
         - txHash
+        - quoteHash
         - logIndex
         - user
         - tokenIn
@@ -617,6 +618,9 @@ components:
         txHash:
           type: string
           pattern: "^0x[a-fA-F0-9]+$"
+        quoteHash:
+          type: string
+          pattern: "^0x[a-fA-F0-9]{64}$"
         logIndex:
           type: integer
           minimum: 0

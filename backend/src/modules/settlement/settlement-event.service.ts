@@ -1,5 +1,12 @@
+import { encodeAbiParameters, keccak256, toBytes } from "viem";
 import type { SettlementEventStatusResponse, SignedQuote } from "../../shared/types/rfq.js";
 import type { InventoryService, SettlementDelta } from "../inventory/inventory.service.js";
+
+const quoteTypeHash = keccak256(
+  toBytes(
+    "Quote(address user,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut,uint256 minAmountOut,uint256 nonce,uint256 deadline,uint256 chainId)",
+  ),
+);
 
 export interface ApplySettlementEventInput {
   quoteId: string;
@@ -54,6 +61,7 @@ export class SettlementEventService implements SettlementEventStore {
       quoteId: input.quoteId,
       chainId: input.quote.chainId,
       txHash: input.txHash,
+      quoteHash: hashSettlementQuote(input.quote),
       logIndex,
       user: input.quote.user,
       tokenIn: input.quote.tokenIn,
@@ -100,6 +108,7 @@ export class SettlementEventService implements SettlementEventStore {
       event.quoteId === input.quoteId &&
       event.chainId === input.quote.chainId &&
       event.txHash.toLowerCase() === input.txHash.toLowerCase() &&
+      event.quoteHash.toLowerCase() === hashSettlementQuote(input.quote).toLowerCase() &&
       event.logIndex === logIndex &&
       event.user.toLowerCase() === input.quote.user.toLowerCase() &&
       event.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
@@ -108,4 +117,35 @@ export class SettlementEventService implements SettlementEventStore {
       event.amountOut === input.quote.amountOut
     );
   }
+}
+
+export function hashSettlementQuote(quote: SignedQuote): `0x${string}` {
+  return keccak256(
+    encodeAbiParameters(
+      [
+        { type: "bytes32" },
+        { type: "address" },
+        { type: "address" },
+        { type: "address" },
+        { type: "uint256" },
+        { type: "uint256" },
+        { type: "uint256" },
+        { type: "uint256" },
+        { type: "uint256" },
+        { type: "uint256" },
+      ],
+      [
+        quoteTypeHash,
+        quote.user,
+        quote.tokenIn,
+        quote.tokenOut,
+        BigInt(quote.amountIn),
+        BigInt(quote.amountOut),
+        BigInt(quote.minAmountOut),
+        BigInt(quote.nonce),
+        BigInt(quote.deadline),
+        BigInt(quote.chainId),
+      ],
+    ),
+  );
 }

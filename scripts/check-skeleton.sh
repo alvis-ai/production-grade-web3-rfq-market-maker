@@ -704,6 +704,12 @@ grep -q 'HEDGE_STORE_UNAVAILABLE' docs/api/errors.md
 grep -q 'Hedge intent creation failure does not roll back settlement' docs/api/openapi.yaml
 grep -q 'getSettlementEvent' docs/api/openapi.yaml
 grep -q 'SettlementEventStatus' docs/api/openapi.yaml
+grep -q 'quoteHash' docs/api/openapi.yaml
+grep -q 'hashSettlementQuote' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'quoteHash' backend/src/shared/types/rfq.ts
+grep -q 'quoteHash' sdk/src/types.ts
+grep -q 'settlement quoteHash' scripts/smoke-api.mjs
+grep -q 'Quote Hash' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'SETTLEMENT_EVENT_NOT_FOUND' docs/api/openapi.yaml
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' docs/api/openapi.yaml
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' docs/api/errors.md

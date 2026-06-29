@@ -157,6 +157,7 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     quoteId: "q_test",
     chainId: quote.chainId,
     txHash: submitResponse.txHash,
+    quoteHash: `0x${"33".repeat(32)}`,
     logIndex: 0,
     user: quote.user,
     tokenIn: quote.tokenIn,
