@@ -99,6 +99,7 @@ assertContains(workflows.contract, [
   '- "Makefile"',
   "uses: foundry-rs/foundry-toolchain@v1",
   "version: stable",
+  "FOUNDRY_DISABLE_NIGHTLY_WARNING",
   "run: forge fmt --check",
   "run: make eip712-check",
   "run: make contract-abi-check",

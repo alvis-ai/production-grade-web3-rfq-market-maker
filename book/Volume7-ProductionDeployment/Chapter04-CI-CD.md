@@ -118,6 +118,7 @@ No public API changes. CI should validate OpenAPI consistency once implementatio
 
 - Separate docs, backend and contract workflows.
 - Contract tests, EIP-712 consistency, SDK contract ABI consistency and API error consistency are required gates.
+- Contract jobs set `FOUNDRY_DISABLE_NIGHTLY_WARNING=1` to keep CI logs focused on actionable failures while the workflow still pins the Foundry toolchain installation step.
 - Deployment job uses environment protection.
 
 ## Failure Scenarios

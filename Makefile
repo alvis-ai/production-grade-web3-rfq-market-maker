@@ -140,10 +140,10 @@ frontend-build:
 typescript-check: backend-typecheck sdk-typecheck frontend-build
 
 contract-build:
-	@cd contracts && forge build
+	@cd contracts && FOUNDRY_DISABLE_NIGHTLY_WARNING=1 forge build
 
 contract-test: contract-build
-	@cd contracts && forge test --offline
+	@cd contracts && FOUNDRY_DISABLE_NIGHTLY_WARNING=1 forge test --offline
 
 smoke-api:
 	@sh scripts/smoke-api.sh

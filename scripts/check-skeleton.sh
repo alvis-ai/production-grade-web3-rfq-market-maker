@@ -687,6 +687,9 @@ grep -q 'POST /quote' benchmark/quote-benchmark.mjs
 grep -q 'buildServer' benchmark/quote-benchmark.mjs
 grep -q 'rateLimit: false' benchmark/quote-benchmark.mjs
 grep -q 'smoke-api-local' Makefile
+grep -q 'FOUNDRY_DISABLE_NIGHTLY_WARNING=1 forge build' Makefile
+grep -q 'FOUNDRY_DISABLE_NIGHTLY_WARNING=1 forge test --offline' Makefile
+grep -q 'FOUNDRY_DISABLE_NIGHTLY_WARNING' .github/workflows/contract-ci.yml
 grep -q 'forge test' .github/workflows/contract-ci.yml
 grep -q 'make contract-abi-check' .github/workflows/contract-ci.yml
 grep -q 'make eip712-check' .github/workflows/contract-ci.yml
