@@ -137,6 +137,7 @@ Key metrics include:
 - Readiness alerting should page on sustained degraded status, then route by the degraded component instead of relying on a single generic health alarm.
 - Quote error alerting should correlate errors with risk rejection, rate limit, market data, pricing and signer metrics before changing quote availability.
 - Submit error alerting must compare errors with accepted settlements, rate-limit counters and settlement reverts before deciding whether to pause submit traffic.
+- Submit latency alerting should inspect verification, settlement event persistence, inventory, hedge and PnL work before lowering quote availability.
 - Rate-limit alerting should inspect `endpoint` first, then separate abuse, broken client retries and real demand before changing global limits.
 - Use ClickHouse for quote-level analysis.
 - Every critical alert links to runbook.
@@ -149,6 +150,7 @@ Key metrics include:
 - Quote error spike：separate invalid requests, rate limits, risk rejection, stale market data, pricing failures and signer failures.
 - Risk reject spike：check market volatility, inventory limits, token allowlist and toxic flow signals.
 - Submit error spike：separate invalid client payloads, rate limits, expired or replayed quotes, settlement reverts and dependency failures.
+- Submit latency p95 spikes：check settlement verification, quote status persistence, inventory updates, hedge intent enqueue and PnL attribution.
 - Rate limit spike：check abusive clients, retry storms, ingress behavior and whether legitimate demand needs a controlled limit change.
 - Inventory exposure over limit：tighten risk limits.
 - Event lag grows：pause risky pairs.

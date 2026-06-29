@@ -332,6 +332,8 @@ grep -q 'RFQQuoteErrorsSpike' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_quote_errors_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQSubmitErrorsSpike' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_submit_errors_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'RFQSubmitLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'rfq_submit_latency_seconds' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQRateLimitSpike' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_rate_limited_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'recordQuoteLatency' backend/src/main.ts
