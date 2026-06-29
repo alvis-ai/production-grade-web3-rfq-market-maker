@@ -82,7 +82,7 @@ CREATE TABLE inventory_positions (
 
 CREATE TABLE hedge_orders (
   id TEXT PRIMARY KEY,
-  settlement_event_id TEXT REFERENCES settlement_events(id),
+  settlement_event_id TEXT NOT NULL REFERENCES settlement_events(id),
   chain_id BIGINT NOT NULL,
   token_address TEXT NOT NULL,
   side TEXT NOT NULL,
@@ -94,8 +94,7 @@ CREATE TABLE hedge_orders (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX uq_hedge_orders_settlement_event ON hedge_orders (settlement_event_id)
-  WHERE settlement_event_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_hedge_orders_settlement_event ON hedge_orders (settlement_event_id);
 
 CREATE TABLE pnl_records (
   id TEXT PRIMARY KEY,

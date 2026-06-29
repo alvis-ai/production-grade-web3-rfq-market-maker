@@ -100,7 +100,11 @@ assert.ok(
   "quotes must keep the chain_id, user_address, nonce signed-quote lookup key",
 );
 assert.ok(
-  /CREATE\s+UNIQUE\s+INDEX\s+uq_hedge_orders_settlement_event\s+ON\s+hedge_orders\s*\(\s*settlement_event_id\s*\)\s*WHERE\s+settlement_event_id\s+IS\s+NOT\s+NULL\s*;/i.test(schemaSource),
+  /\bsettlement_event_id\s+TEXT\s+NOT\s+NULL\s+REFERENCES\s+settlement_events\s*\(\s*id\s*\)/i.test(tables.get("hedge_orders").body),
+  "hedge_orders.settlement_event_id must be a required settlement_events(id) foreign key",
+);
+assert.ok(
+  /CREATE\s+UNIQUE\s+INDEX\s+uq_hedge_orders_settlement_event\s+ON\s+hedge_orders\s*\(\s*settlement_event_id\s*\)\s*;/i.test(schemaSource),
   "hedge_orders must keep one hedge intent per settlement event",
 );
 assert.ok(
