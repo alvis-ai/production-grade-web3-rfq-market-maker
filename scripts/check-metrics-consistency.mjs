@@ -21,6 +21,7 @@ assert.equal(new Set(emittedMetrics).size, emittedMetrics.length, "MetricsServic
 for (const metric of emittedMetrics) {
   assert.ok(backendDocMetrics.has(metric), `Chapter08 Metrics Service must document ${metric}`);
   assert.ok(monitoringDocMetrics.has(metric), `Chapter03 Monitoring must document ${metric}`);
+  assert.ok(alertMetrics.includes(metric), `Prometheus alert rules must cover backend metric ${metric}`);
 }
 
 for (const metric of alertMetrics) {
