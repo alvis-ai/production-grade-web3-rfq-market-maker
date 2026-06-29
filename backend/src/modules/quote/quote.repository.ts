@@ -35,8 +35,8 @@ export interface QuoteRepository {
   findStatus(quoteId: string): Promise<QuoteStatusResponse | undefined>;
   markFailed(quoteId: string, errorCode: string): Promise<void>;
   markStatus(quoteId: string, status: QuoteLifecycleStatus, txHash?: `0x${string}`): Promise<void>;
-  findQuoteIdByUserNonce(user: Address, nonce: UIntString): Promise<string | undefined>;
-  findSignedQuoteByUserNonce(user: Address, nonce: UIntString): Promise<QuoteRecord | undefined>;
+  findQuoteIdByChainUserNonce(chainId: number, user: Address, nonce: UIntString): Promise<string | undefined>;
+  findSignedQuoteByChainUserNonce(chainId: number, user: Address, nonce: UIntString): Promise<QuoteRecord | undefined>;
 }
 
 export interface SaveRequestedQuoteInput {
@@ -64,7 +64,7 @@ export interface SaveSignedQuoteInput {
 
 export class InMemoryQuoteRepository implements QuoteRepository {
   private readonly records = new Map<string, QuoteRecord>();
-  private readonly quoteIdsByUserNonce = new Map<string, string>();
+  private readonly quoteIdsByChainUserNonce = new Map<string, string>();
 
   async checkHealth(): Promise<void> {
     await this.findStatus("__readiness_probe__");
@@ -120,7 +120,10 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       status: "signed",
       signature: input.signature,
     });
-    this.quoteIdsByUserNonce.set(this.userNonceKey(input.quote.user, input.quote.nonce), input.quoteId);
+    this.quoteIdsByChainUserNonce.set(
+      this.chainUserNonceKey(input.quote.chainId, input.quote.user, input.quote.nonce),
+      input.quoteId,
+    );
   }
 
   async findStatus(quoteId: string): Promise<QuoteStatusResponse | undefined> {
@@ -163,18 +166,26 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     });
   }
 
-  async findQuoteIdByUserNonce(user: Address, nonce: UIntString): Promise<string | undefined> {
-    return this.quoteIdsByUserNonce.get(this.userNonceKey(user, nonce));
+  async findQuoteIdByChainUserNonce(
+    chainId: number,
+    user: Address,
+    nonce: UIntString,
+  ): Promise<string | undefined> {
+    return this.quoteIdsByChainUserNonce.get(this.chainUserNonceKey(chainId, user, nonce));
   }
 
-  async findSignedQuoteByUserNonce(user: Address, nonce: UIntString): Promise<QuoteRecord | undefined> {
-    const quoteId = await this.findQuoteIdByUserNonce(user, nonce);
+  async findSignedQuoteByChainUserNonce(
+    chainId: number,
+    user: Address,
+    nonce: UIntString,
+  ): Promise<QuoteRecord | undefined> {
+    const quoteId = await this.findQuoteIdByChainUserNonce(chainId, user, nonce);
     if (!quoteId) return undefined;
 
     return this.records.get(quoteId);
   }
 
-  private userNonceKey(user: Address, nonce: UIntString): string {
-    return `${user.toLowerCase()}:${nonce}`;
+  private chainUserNonceKey(chainId: number, user: Address, nonce: UIntString): string {
+    return `${chainId}:${user.toLowerCase()}:${nonce}`;
   }
 }

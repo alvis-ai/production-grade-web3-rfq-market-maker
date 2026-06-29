@@ -18,6 +18,53 @@ const request = {
   slippageBps: 50,
 };
 
+test("InMemoryQuoteRepository indexes signed quotes by chain, user, and nonce", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const baseSignedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+  };
+
+  await quoteRepository.saveSigned({
+    quoteId: "q_chain_1",
+    snapshotId: "snapshot_1",
+    quote: {
+      ...baseSignedQuote,
+      chainId: 1,
+    },
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+  await quoteRepository.saveSigned({
+    quoteId: "q_chain_137",
+    snapshotId: "snapshot_137",
+    quote: {
+      ...baseSignedQuote,
+      chainId: 137,
+    },
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+
+  const mainnet = await quoteRepository.findSignedQuoteByChainUserNonce(1, request.user, "42");
+  const polygon = await quoteRepository.findSignedQuoteByChainUserNonce(137, request.user, "42");
+  const missing = await quoteRepository.findSignedQuoteByChainUserNonce(10, request.user, "42");
+
+  assert.equal(mainnet.quoteId, "q_chain_1");
+  assert.equal(mainnet.chainId, 1);
+  assert.equal(polygon.quoteId, "q_chain_137");
+  assert.equal(polygon.chainId, 137);
+  assert.equal(missing, undefined);
+});
+
 test("QuoteService uses configured quote TTL when generating signed quote deadlines", async () => {
   const originalDateNow = Date.now;
   const fixedNow = originalDateNow();

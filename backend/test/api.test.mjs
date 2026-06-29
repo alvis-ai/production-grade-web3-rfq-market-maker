@@ -1344,10 +1344,10 @@ test("RFQ API maps quote store failures before signing", async () => {
       },
       async markFailed() {},
       async markStatus() {},
-      async findQuoteIdByUserNonce() {
+      async findQuoteIdByChainUserNonce() {
         return undefined;
       },
-      async findSignedQuoteByUserNonce() {
+      async findSignedQuoteByChainUserNonce() {
         return undefined;
       },
     },

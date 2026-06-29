@@ -284,7 +284,10 @@ grep -q 'ProductionGradeRFQ' backend/src/modules/signer/signer.service.ts
 grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
 grep -q 'requireSubmittableSignedQuote' backend/src/modules/quote/quote.service.ts
 grep -q 'QUOTE_FAILED' backend/src/modules/quote/quote.service.ts
-grep -q 'findSignedQuoteByUserNonce' backend/src/modules/quote/quote.repository.ts
+grep -q 'findSignedQuoteByChainUserNonce' backend/src/modules/quote/quote.repository.ts
+grep -q 'chainUserNonceKey' backend/src/modules/quote/quote.repository.ts
+grep -q 'chainId:user:nonce' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'indexes signed quotes by chain, user, and nonce' backend/test/quote-service.test.mjs
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts
 grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.service.ts

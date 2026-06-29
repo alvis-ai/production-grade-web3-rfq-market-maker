@@ -261,9 +261,13 @@ export class QuoteService {
     }
   }
 
-  private async findSignedQuoteByUserNonce(user: Address, nonce: UIntString): Promise<QuoteRecord | undefined> {
+  private async findSignedQuoteByChainUserNonce(
+    chainId: number,
+    user: Address,
+    nonce: UIntString,
+  ): Promise<QuoteRecord | undefined> {
     try {
-      return await this.deps.quoteRepository.findSignedQuoteByUserNonce(user, nonce);
+      return await this.deps.quoteRepository.findSignedQuoteByChainUserNonce(chainId, user, nonce);
     } catch (error) {
       throw quoteStoreFailure(error);
     }
@@ -290,7 +294,7 @@ export class QuoteService {
   }
 
   async requireSubmittableSignedQuote(quote: SignedQuote, signature: `0x${string}`): Promise<string> {
-    const record = await this.findSignedQuoteByUserNonce(quote.user, quote.nonce);
+    const record = await this.findSignedQuoteByChainUserNonce(quote.chainId, quote.user, quote.nonce);
     if (!record || !isExactSignedQuote(record, quote)) {
       throw new APIError("QUOTE_NOT_FOUND", "Signed quote not found", 404);
     }
