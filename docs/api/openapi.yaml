@@ -160,6 +160,8 @@ paths:
           required: true
           schema:
             type: string
+            minLength: 1
+          description: Non-empty quote identifier returned by POST /quote.
       responses:
         "200":
           description: Quote status
@@ -207,6 +209,8 @@ paths:
           required: true
           schema:
             type: string
+            minLength: 1
+          description: Non-empty hedge order identifier returned by POST /submit.
       responses:
         "200":
           description: Hedge intent status
@@ -255,6 +259,8 @@ paths:
           required: true
           schema:
             type: string
+            minLength: 1
+          description: Non-empty settlement event identifier returned by POST /submit.
       responses:
         "200":
           description: Settlement event status

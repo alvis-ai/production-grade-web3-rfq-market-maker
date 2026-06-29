@@ -35,6 +35,7 @@ const endpoints = [
     sdkMethod: "getQuote",
     sdkPath: "/quote/",
     smokePath: "/quote/",
+    pathParameter: "quoteId",
   },
   {
     method: "get",
@@ -44,6 +45,7 @@ const endpoints = [
     sdkMethod: "getHedge",
     sdkPath: "/hedges/",
     smokePath: "/hedges/",
+    pathParameter: "hedgeOrderId",
   },
   {
     method: "get",
@@ -53,6 +55,7 @@ const endpoints = [
     sdkMethod: "getSettlement",
     sdkPath: "/settlements/",
     smokePath: "/settlements/",
+    pathParameter: "settlementEventId",
   },
   {
     method: "get",
@@ -95,6 +98,9 @@ const endpoints = [
 for (const endpoint of endpoints) {
   assertBackendRoute(endpoint.method, endpoint.backendPath);
   assertOpenApiRoute(endpoint.openapiPath, endpoint.method, endpoint.operationId);
+  if (endpoint.pathParameter) {
+    assertOpenApiNonEmptyPathParameter(endpoint.openapiPath, endpoint.pathParameter);
+  }
   assertSdkMethod(endpoint.sdkMethod, endpoint.sdkPath);
   assertSmokeCoverage(endpoint.method, endpoint.smokePath);
 }
@@ -128,6 +134,23 @@ function assertOpenApiRoute(path, method, operationId) {
   assert.ok(
     pathBlock.includes(`operationId: ${operationId}`),
     `OpenAPI ${method.toUpperCase()} ${path} must use operationId ${operationId}`,
+  );
+}
+
+function assertOpenApiNonEmptyPathParameter(path, parameterName) {
+  const pathBlock = extractOpenApiPathBlock(path);
+  const parameterBlock = extractOpenApiParameterBlock(pathBlock, parameterName);
+  assert.ok(
+    parameterBlock.includes("required: true"),
+    `OpenAPI ${path} path parameter ${parameterName} must be required`,
+  );
+  assert.ok(
+    parameterBlock.includes("type: string"),
+    `OpenAPI ${path} path parameter ${parameterName} must be a string`,
+  );
+  assert.ok(
+    parameterBlock.includes("minLength: 1"),
+    `OpenAPI ${path} path parameter ${parameterName} must reject empty identifiers with minLength: 1`,
   );
 }
 
@@ -188,6 +211,25 @@ function extractOpenApiPathBlock(path) {
   const block = [];
   for (const line of lines.slice(start + 1)) {
     if (/^  \/[^:]+:/.test(line) || line === "components:") {
+      break;
+    }
+    block.push(line);
+  }
+
+  return block.join("\n");
+}
+
+function extractOpenApiParameterBlock(pathBlock, parameterName) {
+  const lines = pathBlock.split("\n");
+  const start = lines.findIndex((line) => line === `        - name: ${parameterName}`);
+  assert.ok(start >= 0, `OpenAPI path parameter ${parameterName} not found`);
+
+  const block = [];
+  for (const line of lines.slice(start)) {
+    if (block.length > 0 && /^        - name: /.test(line)) {
+      break;
+    }
+    if (block.length > 0 && /^      [a-zA-Z][a-zA-Z0-9]*:/.test(line)) {
       break;
     }
     block.push(line);
