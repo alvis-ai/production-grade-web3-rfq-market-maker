@@ -33,6 +33,7 @@ export class StaticMarketDataService implements MarketDataService {
   private readonly supportedPairs: ReadonlySet<string>;
 
   constructor(private readonly config: StaticMarketDataConfig = defaultStaticMarketDataConfig) {
+    assertStaticMarketDataConfig(config);
     this.supportedPairs = new Set(config.supportedPairs.map((pair) => pairKey(pair)));
   }
 
@@ -58,6 +59,41 @@ export class StaticMarketDataService implements MarketDataService {
 
 function pairKey(pair: StaticMarketDataPair): string {
   return `${pair.chainId}:${pair.tokenIn.toLowerCase()}:${pair.tokenOut.toLowerCase()}`;
+}
+
+function assertStaticMarketDataConfig(config: StaticMarketDataConfig): void {
+  if (!Array.isArray(config.supportedPairs) || config.supportedPairs.length === 0) {
+    throw new Error("Static market data supportedPairs must contain at least one pair");
+  }
+
+  const seenPairs = new Set<string>();
+  for (const pair of config.supportedPairs) {
+    assertPositiveSafeInteger(pair.chainId, "supportedPairs.chainId");
+    assertAddress(pair.tokenIn, "supportedPairs.tokenIn");
+    assertAddress(pair.tokenOut, "supportedPairs.tokenOut");
+
+    if (pair.tokenIn.toLowerCase() === pair.tokenOut.toLowerCase()) {
+      throw new Error("Static market data supportedPairs must contain distinct tokens");
+    }
+
+    const key = pairKey(pair);
+    if (seenPairs.has(key)) {
+      throw new Error("Static market data supportedPairs must not contain duplicate pairs");
+    }
+    seenPairs.add(key);
+  }
+}
+
+function assertPositiveSafeInteger(value: number, field: string): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Static market data ${field} must be a positive safe integer`);
+  }
+}
+
+function assertAddress(value: string, field: string): void {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Static market data ${field} must be a 20-byte hex address`);
+  }
 }
 
 export const defaultMaxSnapshotFutureSkewMs = 1_000;

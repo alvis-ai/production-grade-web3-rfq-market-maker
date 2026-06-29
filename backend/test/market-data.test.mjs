@@ -45,6 +45,56 @@ test("StaticMarketDataService rejects unconfigured token pairs", async () => {
   );
 });
 
+test("StaticMarketDataService rejects unsafe static market data config", () => {
+  const validPair = {
+    chainId: 1,
+    tokenIn: "0x0000000000000000000000000000000000000002",
+    tokenOut: "0x0000000000000000000000000000000000000003",
+  };
+
+  assert.throws(
+    () => new StaticMarketDataService({ supportedPairs: [] }),
+    /Static market data supportedPairs must contain at least one pair/,
+  );
+
+  assert.throws(
+    () => new StaticMarketDataService({ supportedPairs: undefined }),
+    /Static market data supportedPairs must contain at least one pair/,
+  );
+
+  assert.throws(
+    () =>
+      new StaticMarketDataService({
+        supportedPairs: [{ ...validPair, chainId: Number.MAX_SAFE_INTEGER + 1 }],
+      }),
+    /Static market data supportedPairs.chainId must be a positive safe integer/,
+  );
+
+  assert.throws(
+    () =>
+      new StaticMarketDataService({
+        supportedPairs: [{ ...validPair, tokenIn: "0x1234" }],
+      }),
+    /Static market data supportedPairs.tokenIn must be a 20-byte hex address/,
+  );
+
+  assert.throws(
+    () =>
+      new StaticMarketDataService({
+        supportedPairs: [{ ...validPair, tokenOut: validPair.tokenIn }],
+      }),
+    /Static market data supportedPairs must contain distinct tokens/,
+  );
+
+  assert.throws(
+    () =>
+      new StaticMarketDataService({
+        supportedPairs: [validPair, { ...validPair }],
+      }),
+    /Static market data supportedPairs must not contain duplicate pairs/,
+  );
+});
+
 test("getMarketSnapshotIssue accepts fresh positive market snapshots", () => {
   withFixedNow("2026-06-29T00:00:02.000Z", () => {
     assert.equal(getMarketSnapshotIssue(snapshot, 5_000), undefined);
