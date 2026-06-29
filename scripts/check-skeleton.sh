@@ -459,6 +459,10 @@ grep -q 'status.hedgeOrderId' frontend/src/pages/QuotePage.tsx
 grep -q 'status.pnlId' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqApiBaseUrl' frontend/src/pages/QuotePage.tsx
 grep -q 'lazy(() => import("../components/WalletSubmitControl"))' frontend/src/pages/QuotePage.tsx
+grep -q 'manualChunks' frontend/vite.config.ts
+grep -q 'chunkSizeWarningLimit' frontend/vite.config.ts
+grep -q 'wallet-rainbowkit' frontend/vite.config.ts
+grep -q 'wallet-viem' frontend/vite.config.ts
 grep -q 'Enable Wallet' frontend/src/pages/QuotePage.tsx
 grep -q 'onchainAction' frontend/src/pages/QuotePage.tsx
 grep -q 'ConnectButton' frontend/src/components/WalletSubmitControl.tsx

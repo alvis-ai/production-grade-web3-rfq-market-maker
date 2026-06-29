@@ -115,6 +115,7 @@ stateDiagram-v2
 - `VITE_RFQ_API_BASE_URL` 是前端 API endpoint 配置入口，`frontend/src/lib/config.ts` 负责规范化 trailing slash。
 - `VITE_RFQ_SETTLEMENT_ADDRESS` 是浏览器侧合约写入目标；未配置时链上提交按钮保持禁用，但 API relay 路径仍可用于本地 smoke。
 - `VITE_WALLETCONNECT_PROJECT_ID` 由 RainbowKit 使用，本地默认值只用于构建和离线开发。
+- Wallet submit surface 使用 React lazy loading；Vite `manualChunks` 将 React、RFQ SDK、RainbowKit、WalletConnect、Reown、MetaMask、Coinbase 和 Wagmi/Viem runtime 分开，避免首屏 quote form 被钱包依赖阻塞。
 - 前端不重新实现 Pricing 或 Risk。
 
 ## Failure Scenarios
@@ -130,7 +131,7 @@ stateDiagram-v2
 
 ## Performance Considerations
 
-Quote request 应 debounce，避免输入变化导致高频请求。TanStack Query 可以缓存 quote status，但 signed quote TTL 很短，不能长期复用。
+Quote request 应 debounce，避免输入变化导致高频请求。TanStack Query 可以缓存 quote status，但 signed quote TTL 很短，不能长期复用。钱包相关 bundle 只在用户点击 Enable Wallet 后加载；生产构建应监控首屏 `index` chunk，而不是把懒加载钱包选择器依赖误判为 quote form 阻塞路径。
 
 ## Testing Strategy
 
