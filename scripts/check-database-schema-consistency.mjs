@@ -47,6 +47,7 @@ const requiredTables = {
     "quote_id",
     "chain_id",
     "tx_hash",
+    "quote_hash",
     "log_index",
     "block_number",
     "user_address",
@@ -160,6 +161,42 @@ for (const field of pnlFields) {
   );
 }
 
+const settlementFields = extractInterfaceFields(backendTypesSource, "SettlementEventStatusResponse");
+const settlementSchemaProperties = extractOpenApiSchemaProperties(openapiSource, "SettlementEventStatus");
+assert.deepEqual(
+  settlementSchemaProperties,
+  settlementFields,
+  "OpenAPI SettlementEventStatus properties must match backend SettlementEventStatusResponse fields",
+);
+
+const settlementColumnMapping = {
+  settlementEventId: "id",
+  quoteId: "quote_id",
+  chainId: "chain_id",
+  txHash: "tx_hash",
+  quoteHash: "quote_hash",
+  logIndex: "log_index",
+  user: "user_address",
+  tokenIn: "token_in",
+  tokenOut: "token_out",
+  amountIn: "amount_in",
+  amountOut: "amount_out",
+  observedAt: "created_at",
+};
+for (const field of settlementFields) {
+  if (field === "status") {
+    continue;
+  }
+  assert.ok(
+    settlementColumnMapping[field],
+    `SettlementEventStatusResponse.${field} must have a database column mapping`,
+  );
+  assert.ok(
+    tables.get("settlement_events").columns.has(settlementColumnMapping[field]),
+    `settlement_events must persist SettlementEventStatusResponse.${field} as ${settlementColumnMapping[field]}`,
+  );
+}
+
 for (const erNode of [
   "QUOTES",
   "MARKET_SNAPSHOTS",
@@ -179,6 +216,10 @@ assert.ok(
 assert.ok(
   erDiagramSource.includes("settlement_events.quote_id"),
   "ER diagram notes must document required settlement-to-quote linkage",
+);
+assert.ok(
+  erDiagramSource.includes("quote_hash"),
+  "ER diagram must document settlement event quote_hash persistence",
 );
 
 console.log(`Database schema consistency check passed (${tables.size} tables)`);

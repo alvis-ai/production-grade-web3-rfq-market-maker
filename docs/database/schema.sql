@@ -61,6 +61,7 @@ CREATE TABLE settlement_events (
   quote_id TEXT NOT NULL REFERENCES quotes(id),
   chain_id BIGINT NOT NULL,
   tx_hash TEXT NOT NULL,
+  quote_hash TEXT NOT NULL,
   log_index INTEGER NOT NULL,
   block_number BIGINT NOT NULL,
   user_address TEXT NOT NULL,
