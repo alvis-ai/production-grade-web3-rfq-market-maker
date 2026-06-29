@@ -286,7 +286,9 @@ grep -q 'quoteTtlSeconds' backend/src/modules/quote/quote.service.ts
 grep -q 'defaultQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
 grep -q 'class QuoteIdentityGenerator' backend/src/modules/quote/quote-identity.ts
 grep -q 'randomUint64' backend/src/modules/quote/quote-identity.ts
+grep -q 'lastTimestampMs' backend/src/modules/quote/quote-identity.ts
 grep -q 'QuoteIdentityGenerator creates monotonic unique nonces within one millisecond' backend/test/quote-identity.test.mjs
+grep -q 'per-millisecond sequence wraps' backend/test/quote-identity.test.mjs
 grep -q 'class InMemoryQuoteRepository' backend/src/modules/quote/quote.repository.ts
 grep -q 'markFailed' backend/src/modules/quote/quote.repository.ts
 grep -q 'class BasicRiskEngine' backend/src/modules/risk/risk.engine.ts

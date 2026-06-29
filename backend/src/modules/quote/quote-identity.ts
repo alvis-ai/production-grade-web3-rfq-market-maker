@@ -12,11 +12,27 @@ export interface QuoteIdentity {
 export class QuoteIdentityGenerator {
   private readonly instanceId = randomUint64();
   private sequence = 0n;
+  private lastTimestampMs = 0n;
 
   next(): QuoteIdentity {
-    this.sequence = (this.sequence + 1n) & SEQUENCE_MASK;
+    let timestampMs = BigInt(Date.now());
+    if (timestampMs < this.lastTimestampMs) {
+      timestampMs = this.lastTimestampMs;
+    }
+
+    if (timestampMs === this.lastTimestampMs) {
+      this.sequence = (this.sequence + 1n) & SEQUENCE_MASK;
+      if (this.sequence === 0n) {
+        timestampMs = this.lastTimestampMs + 1n;
+        this.sequence = 1n;
+      }
+    } else {
+      this.sequence = 1n;
+    }
+
+    this.lastTimestampMs = timestampMs;
     const nonce =
-      (BigInt(Date.now()) << (INSTANCE_BITS + SEQUENCE_BITS)) |
+      (timestampMs << (INSTANCE_BITS + SEQUENCE_BITS)) |
       (this.instanceId << SEQUENCE_BITS) |
       this.sequence;
     const nonceText = nonce.toString();
