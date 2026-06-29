@@ -482,6 +482,7 @@ grep -q 'async getHedge' sdk/src/client.ts
 grep -q 'async pnl' sdk/src/client.ts
 grep -q 'async health' sdk/src/client.ts
 grep -q 'async ready' sdk/src/client.ts
+grep -q 'isHealthResponse' sdk/src/client.ts
 grep -q 'isReadinessResponse' sdk/src/client.ts
 grep -q 'async metrics' sdk/src/client.ts
 grep -q 'traceId: string' sdk/src/types.ts
@@ -494,6 +495,7 @@ grep -q 'retryAfterSeconds' sdk/src/client.ts
 grep -q 'response.headers.get("retry-after")' sdk/src/client.ts
 grep -q 'readJsonResponse' sdk/src/client.ts
 grep -q 'malformed successful JSON responses' sdk/test/sdk.test.mjs
+grep -q 'malformed health and readiness status responses' sdk/test/sdk.test.mjs
 grep -q 'isBytes32Hex' sdk/src/client.ts
 grep -q 'isSignatureHex' sdk/src/client.ts
 grep -q 'malformed successful signature and hash fields' sdk/test/sdk.test.mjs

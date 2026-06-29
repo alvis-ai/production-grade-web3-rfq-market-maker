@@ -108,7 +108,12 @@ export class RFQClient {
 
     await assertOk(response, "RFQ health check failed");
 
-    return (await readJsonResponse(response, "RFQ health response")) as HealthResponse;
+    const payload = await readJsonResponse(response, "RFQ health response");
+    if (!isHealthResponse(payload)) {
+      throw new RFQClientError("RFQ health response returned malformed status", response.status);
+    }
+
+    return payload;
   }
 
   async ready(): Promise<ReadinessResponse> {
@@ -129,7 +134,12 @@ export class RFQClient {
       throw clientErrorFromResponse(response, payload, "RFQ readiness check failed");
     }
 
-    return (await readJsonResponse(response, "RFQ readiness response")) as ReadinessResponse;
+    const payload = await readJsonResponse(response, "RFQ readiness response");
+    if (!isReadinessResponse(payload)) {
+      throw new RFQClientError("RFQ readiness response returned malformed status", response.status);
+    }
+
+    return payload;
   }
 
   async metrics(): Promise<string> {
@@ -227,6 +237,10 @@ function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {
     typeof value.message === "string" &&
     typeof value.traceId === "string"
   );
+}
+
+function isHealthResponse(value: unknown): value is HealthResponse {
+  return isRecord(value) && value.status === "ok";
 }
 
 function isReadinessResponse(value: unknown): value is ReadinessResponse {
