@@ -113,6 +113,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 - Gateway 不返回内部 risk threshold。
 - traceId 必须贯穿后端调用链；当前 Fastify gateway 在 `onRequest` hook 中为所有 HTTP 响应写入 `x-trace-id`，错误响应 body 的 `traceId` 必须与该 header 保持一致。
 - Fastify parser 和框架级错误必须经过统一 error handler 映射为 `ErrorResponse`；malformed JSON 返回 `INVALID_REQUEST`/400，body too large 返回 `INVALID_REQUEST`/413，unsupported content type 返回 `INVALID_REQUEST`/415。
+- Standalone server startup validates `HOST` and `PORT` before calling Fastify `listen`; `HOST` defaults to `127.0.0.1` without whitespace and `PORT` defaults to 3000 with a required range of 1 to 65535.
 - `RFQ_BODY_LIMIT_BYTES` 控制 gateway 接收的最大 JSON body，默认 32768 bytes，启动时必须校验为 1024 到 1048576 的整数，避免异常 payload 消耗 parser 和内存资源。
 - `RFQ_CORS_ALLOWED_ORIGINS` 控制浏览器来源 allowlist，默认允许本地 Vite 前端 `http://localhost:5173`。Gateway 只为匹配来源写入 `access-control-allow-origin`；预检请求来源不匹配时返回结构化 `INVALID_REQUEST`/403。
 - Gateway 为所有响应写入 baseline security headers：`cache-control: no-store`、`x-content-type-options: nosniff`、`x-frame-options: DENY`、`referrer-policy: no-referrer` 和限制性的 `permissions-policy`。`RFQ_ENABLE_HSTS` 只应在 HTTPS 入口后开启，开启后写入 `strict-transport-security`。

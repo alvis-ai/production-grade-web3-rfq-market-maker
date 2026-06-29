@@ -23,6 +23,8 @@ import type { PnlTradeRecord } from "./shared/types/rfq.js";
 const defaultBodyLimitBytes = 32_768;
 const defaultCorsAllowedOrigins = ["http://localhost:5173"];
 const defaultEnableHsts = false;
+const defaultListenHost = "127.0.0.1";
+const defaultListenPort = 3000;
 
 interface RuntimeProcess {
   argv?: string[];
@@ -635,11 +637,44 @@ export function installGracefulShutdown(
   processLike.on("SIGINT", shutdown);
 }
 
+export function readServerListenConfig(processLike: RuntimeProcess | undefined = runtimeProcess()) {
+  const env = processLike?.env;
+  return {
+    host: readListenHost(env?.HOST),
+    port: readListenPort(env?.PORT),
+  };
+}
+
+function readListenHost(configured: string | undefined): string {
+  if (!configured || configured.trim().length === 0) {
+    return defaultListenHost;
+  }
+
+  const host = configured.trim();
+  if (/\s/.test(host)) {
+    throw new Error("HOST must be a non-empty hostname or IP address without whitespace");
+  }
+
+  return host;
+}
+
+function readListenPort(configured: string | undefined): number {
+  if (!configured || configured.trim().length === 0) {
+    return defaultListenPort;
+  }
+
+  const port = Number(configured);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error("PORT must be an integer between 1 and 65535");
+  }
+
+  return port;
+}
+
 export async function startServer() {
   const server = buildServer();
   const processLike = runtimeProcess();
-  const port = Number(processLike?.env?.PORT ?? 3000);
-  const host = processLike?.env?.HOST ?? "127.0.0.1";
+  const { host, port } = readServerListenConfig(processLike);
   await server.listen({ host, port });
   installGracefulShutdown(server, processLike);
   return server;

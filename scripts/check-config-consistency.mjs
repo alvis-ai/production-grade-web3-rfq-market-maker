@@ -66,6 +66,12 @@ assert.ok(
   "backend default CORS origin must match local frontend URL",
 );
 assert.ok(backendSource.includes("const defaultEnableHsts = false;"), "backend default HSTS must be false");
+assert.ok(backendSource.includes('const defaultListenHost = "127.0.0.1";'), "backend default listen host must be 127.0.0.1");
+assert.ok(backendSource.includes("const defaultListenPort = 3000;"), "backend default listen port must be 3000");
+assert.ok(
+  backendSource.includes("PORT must be an integer between 1 and 65535"),
+  "backend must enforce PORT bounds",
+);
 assert.ok(
   backendSource.includes("RFQ_QUOTE_TTL_SECONDS must be an integer between 1 and 3600"),
   "backend must enforce RFQ_QUOTE_TTL_SECONDS bounds",

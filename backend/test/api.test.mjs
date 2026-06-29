@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildServer, installGracefulShutdown } from "../dist/main.js";
+import { buildServer, installGracefulShutdown, readServerListenConfig } from "../dist/main.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
 import { BasicRiskEngine, defaultBasicRiskPolicy } from "../dist/modules/risk/risk.engine.js";
 import {
@@ -157,6 +157,30 @@ test("RFQ API rejects invalid RFQ_ENABLE_HSTS at startup", () => {
   } finally {
     restoreEnv("RFQ_ENABLE_HSTS", originalHsts);
   }
+});
+
+test("RFQ API validates standalone listen configuration", () => {
+  assert.deepEqual(readServerListenConfig({ env: {} }), {
+    host: "127.0.0.1",
+    port: 3000,
+  });
+  assert.deepEqual(readServerListenConfig({ env: { HOST: " 0.0.0.0 ", PORT: "8080" } }), {
+    host: "0.0.0.0",
+    port: 8080,
+  });
+
+  assert.throws(
+    () => readServerListenConfig({ env: { PORT: "65536" } }),
+    /PORT must be an integer between 1 and 65535/,
+  );
+  assert.throws(
+    () => readServerListenConfig({ env: { PORT: "3000.5" } }),
+    /PORT must be an integer between 1 and 65535/,
+  );
+  assert.throws(
+    () => readServerListenConfig({ env: { HOST: "127.0.0.1 local" } }),
+    /HOST must be a non-empty hostname or IP address without whitespace/,
+  );
 });
 
 test("RFQ API rejects unsafe rate limit configuration at startup", () => {
