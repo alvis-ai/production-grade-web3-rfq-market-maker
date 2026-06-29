@@ -33,12 +33,12 @@ export function toSettlementQuote(quote: Quote): SettlementQuote {
     user: quote.user,
     tokenIn: quote.tokenIn,
     tokenOut: quote.tokenOut,
-    amountIn: BigInt(quote.amountIn),
-    amountOut: BigInt(quote.amountOut),
-    minAmountOut: BigInt(quote.minAmountOut),
-    nonce: BigInt(quote.nonce),
-    deadline: BigInt(quote.deadline),
-    chainId: BigInt(quote.chainId),
+    amountIn: parsePositiveUInt(quote.amountIn, "quote.amountIn"),
+    amountOut: parsePositiveUInt(quote.amountOut, "quote.amountOut"),
+    minAmountOut: parsePositiveUInt(quote.minAmountOut, "quote.minAmountOut"),
+    nonce: parseUInt(quote.nonce, "quote.nonce"),
+    deadline: parsePositiveInteger(quote.deadline, "quote.deadline"),
+    chainId: parsePositiveInteger(quote.chainId, "quote.chainId"),
   };
 }
 
@@ -47,6 +47,8 @@ export function buildSubmitQuoteArgs(quote: Quote, signature: `0x${string}`): Su
 }
 
 export function hashSettlementQuote(quote: Quote): `0x${string}` {
+  const settlementQuote = toSettlementQuote(quote);
+
   return keccak256(
     encodeAbiParameters(
       [
@@ -63,20 +65,53 @@ export function hashSettlementQuote(quote: Quote): `0x${string}` {
       ],
       [
         quoteTypeHash,
-        quote.user,
-        quote.tokenIn,
-        quote.tokenOut,
-        BigInt(quote.amountIn),
-        BigInt(quote.amountOut),
-        BigInt(quote.minAmountOut),
-        BigInt(quote.nonce),
-        BigInt(quote.deadline),
-        BigInt(quote.chainId),
+        settlementQuote.user,
+        settlementQuote.tokenIn,
+        settlementQuote.tokenOut,
+        settlementQuote.amountIn,
+        settlementQuote.amountOut,
+        settlementQuote.minAmountOut,
+        settlementQuote.nonce,
+        settlementQuote.deadline,
+        settlementQuote.chainId,
       ],
     ),
   );
 }
 
 export function buildTreasuryTransferArgs(input: TreasuryTransferInput): TreasuryTransferArgs {
-  return [input.token, input.to, BigInt(input.amount)] as const;
+  return [input.token, input.to, parseUInt(input.amount, "amount")] as const;
+}
+
+function parsePositiveUInt(value: UIntString, field: string): bigint {
+  const parsed = parseUInt(value, field);
+  if (parsed <= 0n) {
+    throw new Error(`${field} must be a positive uint string`);
+  }
+
+  return parsed;
+}
+
+function parseUInt(value: UIntString | bigint, field: string): bigint {
+  if (typeof value === "bigint") {
+    if (value < 0n) {
+      throw new Error(`${field} must be a uint`);
+    }
+
+    return value;
+  }
+
+  if (!/^[0-9]+$/.test(value)) {
+    throw new Error(`${field} must be a uint string`);
+  }
+
+  return BigInt(value);
+}
+
+function parsePositiveInteger(value: number, field: string): bigint {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${field} must be a positive safe integer`);
+  }
+
+  return BigInt(value);
 }

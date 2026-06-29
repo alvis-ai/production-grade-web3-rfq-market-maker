@@ -101,6 +101,42 @@ test("buildSubmitQuoteArgs converts string integer fields to settlement bigint f
   assert.ok(rfqSettlementAbi.some((item) => item.type === "function" && item.name === "hashQuote"));
 });
 
+test("Settlement helpers reject invalid uint inputs before contract calls", () => {
+  assert.throws(
+    () =>
+      buildSubmitQuoteArgs(
+        {
+          ...quote,
+          amountIn: "-1",
+        },
+        signature,
+      ),
+    /quote\.amountIn must be a uint string/,
+  );
+
+  assert.throws(
+    () =>
+      buildSubmitQuoteArgs(
+        {
+          ...quote,
+          deadline: -1,
+        },
+        signature,
+      ),
+    /quote\.deadline must be a positive safe integer/,
+  );
+
+  assert.throws(
+    () =>
+      buildTreasuryTransferArgs({
+        token: quote.tokenOut,
+        to: quote.user,
+        amount: -1n,
+      }),
+    /amount must be a uint/,
+  );
+});
+
 test("hashSettlementQuote matches RFQSettlement.hashQuote struct hashing", () => {
   assert.equal(
     hashSettlementQuote(quote),
