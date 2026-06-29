@@ -38,16 +38,17 @@ export class SettlementEventService implements SettlementEventStore {
   }
 
   applySettlementEvent(input: ApplySettlementEventInput): ApplySettlementEventResult {
+    const txHash = normalizeTxHash(input.txHash);
     const logIndex = normalizeEventOrdinal(input.logIndex, "logIndex");
     const blockNumber = normalizeEventOrdinal(input.blockNumber, "blockNumber");
-    const key = this.eventKey(input.quote.chainId, input.txHash, logIndex);
+    const key = this.eventKey(input.quote.chainId, txHash, logIndex);
     const existingEventId = this.eventIdsByKey.get(key);
     if (existingEventId) {
       const event = this.events.get(existingEventId);
       if (!event) {
         throw new Error(`Settlement event index is inconsistent for ${existingEventId}`);
       }
-      if (!this.matchesExistingEvent(event, input, { blockNumber, logIndex })) {
+      if (!this.matchesExistingEvent(event, input, { blockNumber, logIndex, txHash })) {
         throw new Error(`Settlement event key conflict for ${existingEventId}`);
       }
 
@@ -58,11 +59,11 @@ export class SettlementEventService implements SettlementEventStore {
     }
 
     const event: SettlementEventStatusResponse = {
-      settlementEventId: `se_${input.quote.chainId}_${input.txHash.slice(2, 10).toLowerCase()}_${logIndex}`,
+      settlementEventId: `se_${input.quote.chainId}_${txHash.slice(2, 10)}_${logIndex}`,
       status: "applied",
       quoteId: input.quoteId,
       chainId: input.quote.chainId,
-      txHash: input.txHash,
+      txHash,
       quoteHash: hashSettlementQuote(input.quote),
       blockNumber,
       logIndex,
@@ -105,12 +106,12 @@ export class SettlementEventService implements SettlementEventStore {
   private matchesExistingEvent(
     event: SettlementEventStatusResponse,
     input: ApplySettlementEventInput,
-    normalized: { blockNumber: number; logIndex: number },
+    normalized: { blockNumber: number; logIndex: number; txHash: `0x${string}` },
   ): boolean {
     return (
       event.quoteId === input.quoteId &&
       event.chainId === input.quote.chainId &&
-      event.txHash.toLowerCase() === input.txHash.toLowerCase() &&
+      event.txHash.toLowerCase() === normalized.txHash &&
       event.quoteHash.toLowerCase() === hashSettlementQuote(input.quote).toLowerCase() &&
       event.blockNumber === normalized.blockNumber &&
       event.logIndex === normalized.logIndex &&
@@ -121,6 +122,14 @@ export class SettlementEventService implements SettlementEventStore {
       event.amountOut === input.quote.amountOut
     );
   }
+}
+
+function normalizeTxHash(value: `0x${string}`): `0x${string}` {
+  if (!/^0x[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error("Settlement event txHash must be a 32-byte hex string");
+  }
+
+  return value.toLowerCase() as `0x${string}`;
 }
 
 function normalizeEventOrdinal(value: number | undefined, field: "blockNumber" | "logIndex"): number {

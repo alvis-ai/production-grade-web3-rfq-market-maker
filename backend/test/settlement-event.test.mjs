@@ -68,6 +68,50 @@ test("SettlementEventService persists explicit chain block numbers", () => {
   assert.equal(replay.event.blockNumber, 123456);
 });
 
+test("SettlementEventService normalizes transaction hashes for idempotency", () => {
+  const inventory = new InventoryService();
+  const settlements = new SettlementEventService(inventory);
+  const input = {
+    quoteId: "q_test",
+    quote,
+    txHash: `0x${"AA".repeat(32)}`,
+    logIndex: 1,
+  };
+
+  const first = settlements.applySettlementEvent(input);
+  assert.equal(first.duplicate, false);
+  assert.equal(first.event.txHash, `0x${"aa".repeat(32)}`);
+  assert.equal(first.event.settlementEventId, "se_1_aaaaaaaa_1");
+
+  const replay = settlements.applySettlementEvent({
+    ...input,
+    txHash: `0x${"aa".repeat(32)}`,
+  });
+  assert.equal(replay.duplicate, true);
+  assert.equal(replay.event.settlementEventId, first.event.settlementEventId);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 1000n);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -990n);
+});
+
+test("SettlementEventService rejects invalid transaction hashes before side effects", () => {
+  for (const txHash of ["0x1234", `0x${"gg".repeat(32)}`]) {
+    const inventory = new InventoryService();
+    const settlements = new SettlementEventService(inventory);
+
+    assert.throws(
+      () =>
+        settlements.applySettlementEvent({
+          quoteId: "q_test",
+          quote,
+          txHash,
+        }),
+      /Settlement event txHash must be a 32-byte hex string/,
+    );
+    assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 0n);
+    assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, 0n);
+  }
+});
+
 test("SettlementEventService rejects invalid chain event ordinals before side effects", () => {
   for (const invalidInput of [
     { logIndex: -1 },
