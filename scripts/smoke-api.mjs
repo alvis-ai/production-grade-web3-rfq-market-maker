@@ -38,7 +38,7 @@ const submitResponse = await request("POST", "/submit", {
   signature: quoteResponse.signature,
 });
 assertEqual(submitResponse.status, "accepted", "submit status");
-assertHex(submitResponse.txHash, "txHash");
+assertBytes32Hex(submitResponse.txHash, "txHash");
 assertString(submitResponse.settlementEventId, "settlementEventId");
 assertString(submitResponse.hedgeOrderId, "hedgeOrderId");
 assertEqual(submitResponse.pnlId, `pnl_${quoteResponse.quoteId}`, "pnlId");
@@ -63,7 +63,7 @@ assertEqual(settlementStatus.status, "applied", "settlement status");
 assertEqual(settlementStatus.settlementEventId, submitResponse.settlementEventId, "settlement event id");
 assertEqual(settlementStatus.quoteId, quoteResponse.quoteId, "settlement quote id");
 assertEqual(settlementStatus.txHash, submitResponse.txHash, "settlement txHash");
-assertHex(settlementStatus.quoteHash, "settlement quoteHash");
+assertBytes32Hex(settlementStatus.quoteHash, "settlement quoteHash");
 assertEqual(settlementStatus.blockNumber, 0, "settlement block number");
 assertEqual(settlementStatus.logIndex, 0, "settlement log index");
 
@@ -194,6 +194,12 @@ function assertString(value, label) {
 function assertHex(value, label) {
   if (typeof value !== "string" || !/^0x[0-9a-fA-F]+$/.test(value)) {
     throw new Error(`Expected ${label} to be hex`);
+  }
+}
+
+function assertBytes32Hex(value, label) {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error(`Expected ${label} to be a 32-byte hex string`);
   }
 }
 

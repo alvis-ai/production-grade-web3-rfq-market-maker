@@ -374,7 +374,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(submit.statusCode, 202);
     assertTraceHeader(submit);
     assert.equal(submit.body.status, "accepted");
-    assert.match(submit.body.txHash, /^0x[0-9a-fA-F]+$/);
+    assert.match(submit.body.txHash, /^0x[0-9a-fA-F]{64}$/);
     assert.match(submit.body.settlementEventId, /^se_/);
     assert.match(submit.body.hedgeOrderId, /^h_/);
     assert.equal(submit.body.pnlId, `pnl_${quote.body.quoteId}`);
@@ -980,7 +980,7 @@ test("RFQ API keeps settlement accepted when hedge intent creation fails", async
 
     assert.equal(submit.statusCode, 202);
     assert.equal(submit.body.status, "accepted");
-    assert.match(submit.body.txHash, /^0x[0-9a-fA-F]+$/);
+    assert.match(submit.body.txHash, /^0x[0-9a-fA-F]{64}$/);
     assert.match(submit.body.settlementEventId, /^se_/);
     assert.equal(submit.body.hedgeOrderId, undefined);
     assert.equal(submit.body.pnlId, `pnl_${quote.body.quoteId}`);

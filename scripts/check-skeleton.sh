@@ -314,6 +314,8 @@ grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.serv
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/src/modules/execution/execution.service.ts
 grep -q 'SettlementEventStore' backend/src/modules/execution/execution.service.ts
 grep -q 'settlementEventStoreFailure' backend/src/modules/execution/execution.service.ts
+grep -q 'keccak256(toBytes(payload))' backend/src/modules/execution/execution.service.ts
+grep -q 'buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes' backend/test/execution.test.mjs
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
@@ -718,6 +720,8 @@ grep -q 'hashSettlementQuote' backend/src/modules/settlement/settlement-event.se
 grep -q 'blockNumber?: number' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'normalizeTxHash' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'Settlement event txHash must be a 32-byte hex string' backend/src/modules/settlement/settlement-event.service.ts
+grep -Fq '0x[0-9a-fA-F]{64}' backend/test/api.test.mjs
+grep -q 'Expected ${label} to be a 32-byte hex string' scripts/smoke-api.mjs
 grep -q 'normalizeEventOrdinal' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'non-negative safe integer' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'normalizes transaction hashes for idempotency' backend/test/settlement-event.test.mjs

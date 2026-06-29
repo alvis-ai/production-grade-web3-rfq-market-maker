@@ -1,6 +1,6 @@
+import { keccak256, toBytes } from "viem";
 import type { SubmitQuoteRequest, SubmitQuoteResponse } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
-import { toFixedHex } from "../../shared/types/hex.js";
 import type { HedgeIntent, HedgeResult } from "../hedge/hedge.service.js";
 import type { HedgeIntentService, HedgeFailureReasonCode } from "../hedge/hedge.service.js";
 import type { InventoryPosition, InventoryService } from "../inventory/inventory.service.js";
@@ -48,8 +48,7 @@ export class SkeletonExecutionService implements ExecutionService {
 
   async submitQuote(request: SubmitQuoteRequest, context: ExecutionContext): Promise<ExecutionResult> {
     const settlementVerification = await this.verifySettlement(request, context);
-    const txSeed = `${request.quote.user}:${request.quote.nonce}:${request.signature}`;
-    const txHash = `0x${toFixedHex(txSeed, 64)}` as `0x${string}`;
+    const txHash = buildSyntheticTxHash(request, context);
     const settlementEventResult = this.applySettlementEvent({
       quoteId: context.quoteId,
       quote: request.quote,
@@ -134,6 +133,16 @@ export class SkeletonExecutionService implements ExecutionService {
       throw settlementVerificationFailure(error);
     }
   }
+}
+
+export function buildSyntheticTxHash(request: SubmitQuoteRequest, context: ExecutionContext): `0x${string}` {
+  const payload = JSON.stringify({
+    quoteId: context.quoteId,
+    quote: request.quote,
+    signature: request.signature,
+  });
+
+  return keccak256(toBytes(payload));
 }
 
 function elapsedSeconds(startedAtMs: number): number {
