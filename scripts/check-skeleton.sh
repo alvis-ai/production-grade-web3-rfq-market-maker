@@ -100,10 +100,13 @@ grep -q 'snapshot timestamp is too far in the future' backend/src/modules/market
 grep -q 'mid price is invalid' backend/src/modules/market-data/market-data.service.ts
 grep -q 'liquidity is invalid' backend/src/modules/market-data/market-data.service.ts
 grep -q 'assertStaticMarketDataConfig' backend/src/modules/market-data/market-data.service.ts
+grep -q 'cloneStaticMarketDataConfig' backend/src/modules/market-data/market-data.service.ts
 grep -q 'Static market data supportedPairs must not contain duplicate pairs' backend/src/modules/market-data/market-data.service.ts
 grep -q 'getMarketSnapshotIssue rejects stale or future-skewed market snapshots' backend/test/market-data.test.mjs
 grep -q 'StaticMarketDataService rejects unconfigured token pairs' backend/test/market-data.test.mjs
+grep -q 'StaticMarketDataService snapshots supported pairs at construction' backend/test/market-data.test.mjs
 grep -q 'StaticMarketDataService rejects unsafe static market data config' backend/test/market-data.test.mjs
+grep -q '快照 `StaticMarketDataConfig`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 test -s backend/src/modules/rate-limit/rate-limit.service.ts
 test -s backend/src/shared/errors/api-error.ts
 grep -q 'APIError serializes stable client responses without internal reason codes' backend/test/api-error.test.mjs

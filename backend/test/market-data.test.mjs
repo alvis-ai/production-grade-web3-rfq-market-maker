@@ -45,6 +45,36 @@ test("StaticMarketDataService rejects unconfigured token pairs", async () => {
   );
 });
 
+test("StaticMarketDataService snapshots supported pairs at construction", async () => {
+  const mutablePair = {
+    chainId: 1,
+    tokenIn: "0x0000000000000000000000000000000000000002",
+    tokenOut: "0x0000000000000000000000000000000000000003",
+  };
+  const mutableConfig = {
+    supportedPairs: [mutablePair],
+  };
+  const service = new StaticMarketDataService(mutableConfig);
+
+  mutablePair.tokenOut = "0x0000000000000000000000000000000000000004";
+  mutableConfig.supportedPairs.push({
+    chainId: 1,
+    tokenIn: "0x0000000000000000000000000000000000000002",
+    tokenOut: "0x0000000000000000000000000000000000000005",
+  });
+
+  const result = await service.getSnapshot(request);
+  assert.equal(result.snapshotId, "snapshot_1_00000000_00000000");
+
+  await assert.rejects(
+    service.getSnapshot({
+      ...request,
+      tokenOut: "0x0000000000000000000000000000000000000005",
+    }),
+    /Market data pair is not configured/,
+  );
+});
+
 test("StaticMarketDataService rejects unsafe static market data config", () => {
   const validPair = {
     chainId: 1,

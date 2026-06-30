@@ -32,9 +32,10 @@ export const defaultStaticMarketDataConfig: StaticMarketDataConfig = {
 export class StaticMarketDataService implements MarketDataService {
   private readonly supportedPairs: ReadonlySet<string>;
 
-  constructor(private readonly config: StaticMarketDataConfig = defaultStaticMarketDataConfig) {
+  constructor(config: StaticMarketDataConfig = defaultStaticMarketDataConfig) {
     assertStaticMarketDataConfig(config);
-    this.supportedPairs = new Set(config.supportedPairs.map((pair) => pairKey(pair)));
+    const snapshotConfig = cloneStaticMarketDataConfig(config);
+    this.supportedPairs = new Set(snapshotConfig.supportedPairs.map((pair) => pairKey(pair)));
   }
 
   async getSnapshot(request: QuoteRequest): Promise<MarketSnapshot> {
@@ -59,6 +60,12 @@ export class StaticMarketDataService implements MarketDataService {
 
 function pairKey(pair: StaticMarketDataPair): string {
   return `${pair.chainId}:${pair.tokenIn.toLowerCase()}:${pair.tokenOut.toLowerCase()}`;
+}
+
+function cloneStaticMarketDataConfig(config: StaticMarketDataConfig): StaticMarketDataConfig {
+  return {
+    supportedPairs: config.supportedPairs.map((pair) => ({ ...pair })),
+  };
 }
 
 function assertStaticMarketDataConfig(config: StaticMarketDataConfig): void {
