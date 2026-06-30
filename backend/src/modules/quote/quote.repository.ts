@@ -190,6 +190,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     }
     assertStatusTransition(current, status);
     assertQuoteStatusMetadata(metadata);
+    assertSettlementStatusMetadata(current, status, metadata);
 
     this.records.set(quoteId, {
       ...current,
@@ -416,6 +417,25 @@ function assertQuoteStatusMetadata(metadata: QuoteStatusMetadata | undefined): v
 
   if (metadata.pnlId !== undefined) {
     assertNonEmptyMetadataString(metadata.pnlId, "pnlId");
+  }
+}
+
+function assertSettlementStatusMetadata(
+  record: QuoteRecord,
+  nextStatus: QuoteLifecycleStatus,
+  metadata: QuoteStatusMetadata | undefined,
+): void {
+  if (nextStatus !== "submitted" && nextStatus !== "settled") {
+    return;
+  }
+
+  const txHash = metadata?.txHash ?? record.txHash;
+  const settlementEventId = metadata?.settlementEventId ?? record.settlementEventId;
+  if (txHash === undefined) {
+    throw new Error(`Quote ${record.quoteId} ${nextStatus} status requires txHash`);
+  }
+  if (settlementEventId === undefined) {
+    throw new Error(`Quote ${record.quoteId} ${nextStatus} status requires settlementEventId`);
   }
 }
 

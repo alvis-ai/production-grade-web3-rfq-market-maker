@@ -464,7 +464,10 @@ grep -q 'cannot transition from submitted to ${nextStatus}' backend/src/modules/
 grep -q 'terminal status expired' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertNonEmptyString(errorCode, "errorCode", "Failed quote")' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertQuoteStatusMetadata(metadata)' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertSettlementStatusMetadata(current, status, metadata)' backend/src/modules/quote/quote.repository.ts
 grep -q 'Quote status txHash must be a 32-byte hex string' backend/src/modules/quote/quote.repository.ts
+grep -q 'status requires txHash' backend/src/modules/quote/quote.repository.ts
+grep -q 'status requires settlementEventId' backend/src/modules/quote/quote.repository.ts
 grep -q 'rejects signed quote nonce key conflicts' backend/test/quote-service.test.mjs
 grep -q 'findSignedQuoteByQuoteId' backend/test/quote-service.test.mjs
 grep -q 'returns defensive copies of signed quote records' backend/test/quote-service.test.mjs
@@ -477,6 +480,7 @@ grep -q 'rejects terminal quote status regressions' backend/test/quote-service.t
 grep -q 'cannot transition from requested to settled through markStatus' backend/test/quote-service.test.mjs
 grep -q 'cannot transition from submitted to expired' backend/test/quote-service.test.mjs
 grep -q 'rejects malformed quote status metadata' backend/test/quote-service.test.mjs
+grep -q 'rejects settlement statuses without chain pointers' backend/test/quote-service.test.mjs
 grep -q 'rejects malformed failed quote metadata' backend/test/quote-service.test.mjs
 grep -q 'preserves settlement metadata across status updates' backend/test/quote-service.test.mjs
 grep -q 'chainId:user:nonce' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -485,6 +489,7 @@ grep -q 'signed quote persistence validation' book/Volume5-BackendEngineering/Ch
 grep -q 'terminal quote status invariants' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requested quotes cannot be marked submitted, settled or expired through the status updater' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'quote status metadata validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'requires `txHash` and `settlementEventId` before a quote can become `submitted` or `settled`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'returns defensive copies from signed quote lookup operations' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'indexes signed quotes by chain, user, and nonce' backend/test/quote-service.test.mjs
 grep -q 'uq_quotes_chain_user_nonce' docs/database/schema.sql

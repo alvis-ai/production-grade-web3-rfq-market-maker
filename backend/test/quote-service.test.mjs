@@ -560,6 +560,52 @@ test("InMemoryQuoteRepository rejects malformed quote status metadata", async ()
   assert.equal(status.pnlId, undefined);
 });
 
+test("InMemoryQuoteRepository rejects settlement statuses without chain pointers", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const signedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+    chainId: 1,
+  };
+
+  await quoteRepository.saveSigned({
+    quoteId: "q_missing_settlement_metadata",
+    snapshotId: "snapshot_1",
+    quote: signedQuote,
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+
+  await assert.rejects(
+    quoteRepository.markStatus("q_missing_settlement_metadata", "submitted"),
+    /submitted status requires txHash/,
+  );
+  await assert.rejects(
+    quoteRepository.markStatus("q_missing_settlement_metadata", "settled", {
+      txHash: `0x${"aa".repeat(32)}`,
+    }),
+    /settled status requires settlementEventId/,
+  );
+  await assert.rejects(
+    quoteRepository.markStatus("q_missing_settlement_metadata", "settled", {
+      settlementEventId: "se_missing_tx_hash",
+    }),
+    /settled status requires txHash/,
+  );
+
+  const status = await quoteRepository.findStatus("q_missing_settlement_metadata");
+  assert.equal(status.status, "signed");
+  assert.equal(status.txHash, undefined);
+  assert.equal(status.settlementEventId, undefined);
+});
+
 test("InMemoryQuoteRepository rejects malformed failed quote metadata", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const signedQuote = {
