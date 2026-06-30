@@ -544,6 +544,13 @@ grep -q 'indexes signed quotes by chain, user, and nonce' backend/test/quote-ser
 grep -q 'uq_quotes_chain_user_nonce' docs/database/schema.sql
 grep -q 'quotes must keep the chain_id, user_address, nonce signed-quote lookup key' scripts/check-database-schema-consistency.mjs
 grep -q 'partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`' docs/database/er-diagram.md
+grep -q 'chk_quotes_id_non_empty' docs/database/schema.sql
+grep -q 'chk_market_snapshots_id_non_empty' docs/database/schema.sql
+grep -q 'chk_risk_decisions_id_non_empty' docs/database/schema.sql
+grep -q 'chk_settlement_events_id_non_empty' docs/database/schema.sql
+grep -q 'chk_inventory_positions_id_non_empty' docs/database/schema.sql
+grep -q 'chk_hedge_orders_id_non_empty' docs/database/schema.sql
+grep -q 'chk_pnl_records_id_non_empty' docs/database/schema.sql
 grep -q 'chk_quotes_status' docs/database/schema.sql
 grep -q 'chk_quotes_chain_id_safe' docs/database/schema.sql
 grep -q 'chk_market_snapshots_source_non_empty' docs/database/schema.sql
@@ -581,6 +588,7 @@ grep -q 'user: "user_address"' scripts/check-database-schema-consistency.mjs
 grep -q 'minAmountOut: "min_amount_out"' scripts/check-database-schema-consistency.mjs
 grep -q 'deadline: "deadline"' scripts/check-database-schema-consistency.mjs
 grep -q 'signed attribution snapshot' docs/database/er-diagram.md
+grep -q 'id must reject empty primary key values' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must constrain lifecycle status values' scripts/check-database-schema-consistency.mjs
 grep -q 'chain_id must be constrained to the JavaScript safe integer range' scripts/check-database-schema-consistency.mjs
 grep -q 'must require distinct token_in and token_out addresses' scripts/check-database-schema-consistency.mjs
@@ -604,6 +612,8 @@ grep -q 'hedge_orders must constrain side enum values' scripts/check-database-sc
 grep -q 'hedge_orders must reject empty venue values' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must reject empty external_order_id values when present' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
+grep -q '操作表 primary id 非空' docs/database/er-diagram.md
+grep -q 'primary id 都必须是非空字符串' docs/database/er-diagram.md
 grep -q 'distinct token pair' docs/database/er-diagram.md
 grep -q 'bid_price <= mid_price <= ask_price' docs/database/er-diagram.md
 grep -q 'canonical low-s EIP-712 signature' docs/database/er-diagram.md

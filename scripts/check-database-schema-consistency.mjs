@@ -149,6 +149,7 @@ assert.ok(
 
 const requiredCheckConstraints = {
   quotes: [
+    ["chk_quotes_id_non_empty", "quotes must constrain primary ids to be non-empty"],
     ["chk_quotes_status", "quotes must constrain lifecycle status values"],
     ["chk_quotes_chain_id_safe", "quotes must constrain chain_id to JavaScript safe integer range"],
     ["chk_quotes_amounts_non_negative", "quotes must constrain unsigned quote amount fields"],
@@ -162,6 +163,7 @@ const requiredCheckConstraints = {
     ["chk_quotes_rejection_payload_consistency", "quotes must constrain rejection payload completeness"],
   ],
   market_snapshots: [
+    ["chk_market_snapshots_id_non_empty", "market_snapshots must constrain primary ids to be non-empty"],
     ["chk_market_snapshots_prices", "market_snapshots must constrain price and liquidity fields"],
     ["chk_market_snapshots_source_non_empty", "market_snapshots must constrain source to be non-empty"],
     ["chk_market_snapshots_chain_id_safe", "market_snapshots must constrain chain_id to JavaScript safe integer range"],
@@ -169,10 +171,12 @@ const requiredCheckConstraints = {
     ["chk_market_snapshots_distinct_tokens", "market_snapshots must constrain token pair addresses to be distinct"],
   ],
   risk_decisions: [
+    ["chk_risk_decisions_id_non_empty", "risk_decisions must constrain primary ids to be non-empty"],
     ["chk_risk_decisions_status", "risk_decisions must constrain decision status values"],
     ["chk_risk_decisions_limits", "risk_decisions must constrain non-negative numeric limits"],
   ],
   settlement_events: [
+    ["chk_settlement_events_id_non_empty", "settlement_events must constrain primary ids to be non-empty"],
     ["chk_settlement_events_chain_id_safe", "settlement_events must constrain chain_id to JavaScript safe integer range"],
     ["chk_settlement_events_hashes", "settlement_events must constrain hash-shaped fields"],
     ["chk_settlement_events_addresses_hex", "settlement_events must constrain address-shaped fields"],
@@ -180,11 +184,13 @@ const requiredCheckConstraints = {
     ["chk_settlement_events_amounts_positive", "settlement_events must constrain positive settlement fields"],
   ],
   inventory_positions: [
+    ["chk_inventory_positions_id_non_empty", "inventory_positions must constrain primary ids to be non-empty"],
     ["chk_inventory_positions_chain_id_safe", "inventory_positions must constrain chain_id to JavaScript safe integer range"],
     ["chk_inventory_positions_token_hex", "inventory_positions must constrain token address shape"],
     ["chk_inventory_positions_limits", "inventory_positions must constrain inventory limit fields"],
   ],
   hedge_orders: [
+    ["chk_hedge_orders_id_non_empty", "hedge_orders must constrain primary ids to be non-empty"],
     ["chk_hedge_orders_chain_id_safe", "hedge_orders must constrain chain_id to JavaScript safe integer range"],
     ["chk_hedge_orders_side", "hedge_orders must constrain side enum values"],
     ["chk_hedge_orders_status", "hedge_orders must constrain status enum values"],
@@ -197,6 +203,7 @@ const requiredCheckConstraints = {
     ["chk_hedge_orders_amount_positive", "hedge_orders must constrain positive hedge amounts"],
   ],
   pnl_records: [
+    ["chk_pnl_records_id_non_empty", "pnl_records must constrain primary ids to be non-empty"],
     ["chk_pnl_records_model", "pnl_records must constrain supported attribution models"],
     ["chk_pnl_records_chain_id_safe", "pnl_records must constrain chain_id to JavaScript safe integer range"],
     ["chk_pnl_records_addresses_hex", "pnl_records must constrain token address shape"],
@@ -213,6 +220,13 @@ for (const [tableName, constraints] of Object.entries(requiredCheckConstraints))
       message,
     );
   }
+}
+
+for (const tableName of Object.keys(requiredTables)) {
+  assert.ok(
+    /btrim\s*\(\s*id\s*\)\s*<>\s*''/i.test(tables.get(tableName).body),
+    `${tableName}.id must reject empty primary key values`,
+  );
 }
 
 for (const tableName of [
