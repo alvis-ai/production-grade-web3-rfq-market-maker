@@ -9,6 +9,7 @@ import type {
   UIntString,
 } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
+import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
 import type { InventoryService } from "../inventory/inventory.service.js";
 import {
   defaultMaxSnapshotFutureSkewMs,
@@ -70,26 +71,27 @@ export class QuoteService {
   }
 
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
-    const snapshot = await this.getUsableSnapshot(request);
+    const validatedRequest = validateQuoteRequest(request);
+    const snapshot = await this.getUsableSnapshot(validatedRequest);
     let routePlan: RoutePlan;
     try {
-      routePlan = await this.deps.routingEngine.selectRoute({ request, snapshot });
+      routePlan = await this.deps.routingEngine.selectRoute({ request: validatedRequest, snapshot });
     } catch (error) {
       throw routingFailure(error);
     }
     const inventorySkewBps = this.deps.inventoryService.calculateQuoteSkewBps({
-      chainId: request.chainId,
-      token: request.tokenOut,
+      chainId: validatedRequest.chainId,
+      token: validatedRequest.tokenOut,
     });
     const hedgeRiskPenaltyBps = this.deps.hedgeService?.quoteRiskPenaltyBps?.({
-      chainId: request.chainId,
-      token: request.tokenOut,
+      chainId: validatedRequest.chainId,
+      token: validatedRequest.tokenOut,
     }) ?? 0;
 
     let pricing: PricingResult;
     try {
       pricing = await this.deps.pricingEngine.price({
-        request,
+        request: validatedRequest,
         snapshot,
         routePlan,
         inventorySkewBps: inventorySkewBps + hedgeRiskPenaltyBps,
@@ -98,10 +100,10 @@ export class QuoteService {
       throw pricingFailure(error);
     }
     const inventoryProjection = this.deps.inventoryService.projectSettlement({
-      chainId: request.chainId,
-      tokenIn: request.tokenIn,
-      tokenOut: request.tokenOut,
-      amountIn: request.amountIn,
+      chainId: validatedRequest.chainId,
+      tokenIn: validatedRequest.tokenIn,
+      tokenOut: validatedRequest.tokenOut,
+      amountIn: validatedRequest.amountIn,
       amountOut: pricing.amountOut,
     });
 
@@ -110,15 +112,15 @@ export class QuoteService {
     await this.saveRequestedQuote({
       quoteId,
       snapshotId: snapshot.snapshotId,
-      request,
+      request: validatedRequest,
     });
 
-    const risk = await this.evaluateRisk({ request, pricing, inventoryProjection });
+    const risk = await this.evaluateRisk({ request: validatedRequest, pricing, inventoryProjection });
     if (risk.status !== "approved") {
       await this.saveRejectedQuoteBestEffort({
         quoteId,
         snapshotId: snapshot.snapshotId,
-        request,
+        request: validatedRequest,
         rejectCode: risk.reasonCode ?? "RISK_REJECTED",
         riskPolicyVersion: risk.policyVersion,
       });
@@ -133,15 +135,15 @@ export class QuoteService {
 
     const deadline = Math.floor(Date.now() / 1000) + this.config.quoteTtlSeconds;
     const signedQuote: SignedQuote = {
-      user: request.user,
-      tokenIn: request.tokenIn,
-      tokenOut: request.tokenOut,
-      amountIn: request.amountIn,
+      user: validatedRequest.user,
+      tokenIn: validatedRequest.tokenIn,
+      tokenOut: validatedRequest.tokenOut,
+      amountIn: validatedRequest.amountIn,
       amountOut: pricing.amountOut,
       minAmountOut: pricing.minAmountOut,
       nonce: identity.nonce,
       deadline,
-      chainId: request.chainId,
+      chainId: validatedRequest.chainId,
     };
 
     let signature: `0x${string}`;

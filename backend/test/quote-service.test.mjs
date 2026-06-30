@@ -710,6 +710,32 @@ test("QuoteService snapshots dependency object at construction", async () => {
   assert.equal(await replacementQuoteRepository.findStatus(quote.quoteId), undefined);
 });
 
+test("QuoteService rejects unsafe quote requests before dependency side effects", async () => {
+  let marketDataCalls = 0;
+  const quoteRepository = new InMemoryQuoteRepository();
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    marketDataService: {
+      async getSnapshot() {
+        marketDataCalls += 1;
+        throw new Error("market data should not be called");
+      },
+    },
+    quoteRepository,
+  });
+
+  await assert.rejects(
+    service.createQuote({
+      ...request,
+      tokenOut: request.tokenIn,
+    }),
+    /tokenIn and tokenOut must be different/,
+  );
+
+  assert.equal(marketDataCalls, 0);
+  assert.equal(await quoteRepository.findStatus("q_invalid_pair"), undefined);
+});
+
 test("QuoteService persists expired status when signed quote status is read after deadline", async () => {
   const originalDateNow = Date.now;
   let now = originalDateNow();

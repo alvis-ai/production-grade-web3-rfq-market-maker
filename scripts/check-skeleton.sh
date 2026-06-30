@@ -331,6 +331,7 @@ grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' backend/src/shared/errors/api-error
 grep -q 'PNL_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
 grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'getUsableSnapshot' backend/src/modules/quote/quote.service.ts
+grep -q 'validateQuoteRequest(request)' backend/src/modules/quote/quote.service.ts
 grep -q 'marketDataFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'assertUsableSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'getMarketSnapshotIssue' backend/src/modules/quote/quote.service.ts
@@ -359,6 +360,8 @@ grep -q 'quoteFailureCode' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteTtlSeconds' backend/src/modules/quote/quote.service.ts
 grep -q 'defaultQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
 grep -q 'QuoteService snapshots dependency object at construction' backend/test/quote-service.test.mjs
+grep -q 'QuoteService rejects unsafe quote requests before dependency side effects' backend/test/quote-service.test.mjs
+grep -q 'createQuote()` revalidates and snapshots the quote request at the service boundary' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'QuoteService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'class QuoteIdentityGenerator' backend/src/modules/quote/quote-identity.ts
 grep -q 'randomUint64' backend/src/modules/quote/quote-identity.ts
