@@ -477,12 +477,14 @@ grep -q 'cannot transition from submitted to ${nextStatus}' backend/src/modules/
 grep -q 'terminal status expired' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertNonEmptyString(errorCode, "errorCode", "Failed quote")' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertQuoteStatusMetadata(metadata)' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertQuoteStatusMetadataDoesNotConflict(current, metadata)' backend/src/modules/quote/quote.repository.ts
-grep -q 'mergeQuoteStatusMetadata(current, metadata)' backend/src/modules/quote/quote.repository.ts
+grep -q 'normalizeQuoteStatusMetadata(metadata)' backend/src/modules/quote/quote.repository.ts
+grep -q 'metadata.txHash?.toLowerCase()' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertQuoteStatusMetadataDoesNotConflict(current, normalizedMetadata)' backend/src/modules/quote/quote.repository.ts
+grep -q 'mergeQuoteStatusMetadata(current, normalizedMetadata)' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertMetadataFieldDoesNotConflict' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertNonSettlementStatusMetadata(current, status, metadata)' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertNonSettlementStatusMetadata(current, status, normalizedMetadata)' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertNonSettlementMetadataField' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertSettlementStatusMetadata(current, status, metadata)' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertSettlementStatusMetadata(current, status, normalizedMetadata)' backend/src/modules/quote/quote.repository.ts
 grep -q 'Quote status txHash must be a 32-byte hex string' backend/src/modules/quote/quote.repository.ts
 grep -q 'status must not include' backend/src/modules/quote/quote.repository.ts
 grep -q 'status cannot retain' backend/src/modules/quote/quote.repository.ts
@@ -509,6 +511,7 @@ grep -q 'cannot transition from submitted to expired' backend/test/quote-service
 grep -q 'rejects malformed quote status metadata' backend/test/quote-service.test.mjs
 grep -q 'rejects conflicting quote status metadata rewrites' backend/test/quote-service.test.mjs
 grep -q 'Quote status hedgeOrderId cannot be changed once set' backend/test/quote-service.test.mjs
+grep -Fq 'txHash: `0x${"AA".repeat(32)}`' backend/test/quote-service.test.mjs
 grep -q 'rejects settlement statuses without chain pointers' backend/test/quote-service.test.mjs
 grep -q 'rejects non-settlement statuses with settlement pointers' backend/test/quote-service.test.mjs
 grep -q 'expired status must not include txHash' backend/test/quote-service.test.mjs
@@ -527,6 +530,8 @@ grep -q 'requested quotes cannot be marked submitted, settled or expired through
 grep -q 'already failed quote may replay the same `errorCode`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'different failure reason is rejected' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'quote status metadata validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Quote status `txHash` is normalized to lowercase before persistence' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'canonical transaction hash shape' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Quote status pointers are immutable once set' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'a different value is rejected' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Non-settlement status updates such as `expired` must not include or retain' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md

@@ -535,7 +535,7 @@ test("InMemoryQuoteRepository rejects conflicting quote status metadata rewrites
     signature: fixedSignature(),
   });
   await quoteRepository.markStatus("q_status_conflict", "submitted", {
-    txHash: `0x${"aa".repeat(32)}`,
+    txHash: `0x${"AA".repeat(32)}`,
     settlementEventId: "se_1",
   });
 
@@ -553,7 +553,7 @@ test("InMemoryQuoteRepository rejects conflicting quote status metadata rewrites
   );
 
   await quoteRepository.markStatus("q_status_conflict", "settled", {
-    txHash: `0x${"AA".repeat(32)}`,
+    txHash: `0x${"aa".repeat(32)}`,
     settlementEventId: "se_1",
     hedgeOrderId: "h_1",
     pnlId: "pnl_1",
