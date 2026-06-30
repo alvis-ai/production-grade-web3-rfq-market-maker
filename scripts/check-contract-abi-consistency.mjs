@@ -13,9 +13,15 @@ const contracts = [
     source: `${settlementSource}\n${settlementInterfaceSource}`,
     abiExport: "rfqSettlementAbi",
     functions: [
+      "DEFAULT_ADMIN_ROLE",
+      "SIGNER_ADMIN_ROLE",
+      "TOKEN_ADMIN_ROLE",
       "domainSeparator",
+      "grantRole",
       "hashQuote",
       "hashTypedData",
+      "hasRole",
+      "revokeRole",
       "setPaused",
       "setTreasury",
       "setTokenWhitelist",
@@ -28,6 +34,8 @@ const contracts = [
       "OwnerUpdated",
       "PausedUpdated",
       "QuoteSettled",
+      "RoleGranted",
+      "RoleRevoked",
       "TreasuryUpdated",
       "TokenWhitelistUpdated",
       "TrustedSignerUpdated",
@@ -110,7 +118,7 @@ function assertSolidityFunctionOrGetter(source, name, label) {
   }
 
   const publicGetterPattern = new RegExp(
-    `(?:address|bool|uint256|mapping\\([^;]+\\))\\s+public\\s+${name}\\b`,
+    `(?:address|bool|uint256|bytes32|mapping\\([^;]+\\))\\s+public(?:\\s+constant)?\\s+${name}\\b`,
   );
   if (publicGetterPattern.test(source)) {
     return;

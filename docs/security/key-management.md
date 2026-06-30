@@ -38,7 +38,7 @@ flowchart LR
 3. Run a canary signing check that includes `quoteId`, `snapshotId`, `riskPolicyVersion` and traceId, then verify the EIP-712 digest against the SDK and contract domain.
 4. Stop issuing new quotes from the old signer by failing closed at the Signer Service or routing layer.
 5. Wait for old quotes to expire. Wait at least `RFQ_QUOTE_TTL_SECONDS` plus clock-skew buffer so all old signed quotes are no longer executable.
-6. Call `RFQSettlement.setTrustedSigner(newSigner)` through the owner-controlled admin path and record the transaction hash.
+6. Call `RFQSettlement.setTrustedSigner(newSigner)` through an account with `SIGNER_ADMIN_ROLE` and record the transaction hash.
 7. Run a post-rotation quote canary with the new signer and a negative canary using the old signer, confirming the old signature is rejected.
 8. Archive signer audit logs for both keys, including the change record, KMS/HSM key version, operator identity and contract transaction hash.
 9. Keep the old key disabled but recoverable until the incident or maintenance window is closed; destroy it only after audit sign-off.
@@ -48,7 +48,7 @@ flowchart LR
 If signer compromise is suspected:
 
 1. Pause settlement if blast radius is unclear.
-2. Replace compromised signer with a clean signer using `RFQSettlement.setTrustedSigner`.
+2. Replace compromised signer with a clean signer using `RFQSettlement.setTrustedSigner` from a `SIGNER_ADMIN_ROLE` account.
 3. Stop Signer Service.
 4. Invalidate in-flight quotes by waiting out TTL.
 5. Reconcile settlement events and inventory.

@@ -12,6 +12,7 @@ interface Vm {
         returns (uint8 v, bytes32 r, bytes32 s);
     function prank(address caller) external;
     function expectRevert(bytes4 selector) external;
+    function expectRevert(bytes calldata revertData) external;
     function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData)
         external;
     function warp(uint256 timestamp) external;
@@ -104,6 +105,10 @@ contract RFQSettlementTest {
     uint256 private constant USER_KEY = 0xB0B;
     uint256 private constant SECP256K1N_HIGH_S =
         0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1;
+    bytes32 private constant SIGNER_ADMIN_ROLE = keccak256("SIGNER_ADMIN_ROLE");
+    bytes32 private constant TOKEN_ADMIN_ROLE = keccak256("TOKEN_ADMIN_ROLE");
+    bytes32 private constant TREASURY_ADMIN_ROLE = keccak256("TREASURY_ADMIN_ROLE");
+    bytes32 private constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     RFQSettlement private settlement;
     Treasury private treasury;
@@ -236,8 +241,54 @@ contract RFQSettlementTest {
 
     function testOnlyOwnerCanManageWhitelist() public {
         vm.prank(user);
-        vm.expectRevert(RFQSettlement.NotOwner.selector);
+        _expectMissingRole(TOKEN_ADMIN_ROLE, user);
         settlement.setTokenWhitelist(address(tokenIn), false);
+    }
+
+    function testAccessControlSeparatesSignerAndTokenWhitelistRoles() public {
+        address signerAdmin = address(0xA11CE01);
+        address tokenAdmin = address(0xA11CE02);
+        address newSigner = vm.addr(NEW_SIGNER_KEY);
+
+        settlement.grantRole(SIGNER_ADMIN_ROLE, signerAdmin);
+        settlement.grantRole(TOKEN_ADMIN_ROLE, tokenAdmin);
+
+        vm.prank(signerAdmin);
+        settlement.setTrustedSigner(newSigner);
+        require(settlement.trustedSigner() == newSigner, "signer admin did not rotate signer");
+
+        vm.prank(signerAdmin);
+        _expectMissingRole(TOKEN_ADMIN_ROLE, signerAdmin);
+        settlement.setTokenWhitelist(address(tokenIn), false);
+
+        vm.prank(tokenAdmin);
+        settlement.setTokenWhitelist(address(tokenIn), false);
+        require(!settlement.tokenWhitelist(address(tokenIn)), "token admin did not update whitelist");
+
+        vm.prank(tokenAdmin);
+        _expectMissingRole(SIGNER_ADMIN_ROLE, tokenAdmin);
+        settlement.setTrustedSigner(signer);
+    }
+
+    function testAccessControlRevocationRemovesAdminCapability() public {
+        address tokenAdmin = address(0xA11CE03);
+
+        settlement.grantRole(TOKEN_ADMIN_ROLE, tokenAdmin);
+        require(
+            settlement.hasRole(TOKEN_ADMIN_ROLE, tokenAdmin), "token admin role not granted"
+        );
+
+        vm.prank(tokenAdmin);
+        settlement.setTokenWhitelist(address(tokenIn), false);
+
+        settlement.revokeRole(TOKEN_ADMIN_ROLE, tokenAdmin);
+        require(
+            !settlement.hasRole(TOKEN_ADMIN_ROLE, tokenAdmin), "token admin role not revoked"
+        );
+
+        vm.prank(tokenAdmin);
+        _expectMissingRole(TOKEN_ADMIN_ROLE, tokenAdmin);
+        settlement.setTokenWhitelist(address(tokenIn), true);
     }
 
     function testOwnerCanRotateTrustedSigner() public {
@@ -285,15 +336,15 @@ contract RFQSettlementTest {
 
     function testOnlyOwnerCanManageAdminControls() public {
         vm.prank(user);
-        vm.expectRevert(RFQSettlement.NotOwner.selector);
+        _expectMissingRole(PAUSER_ROLE, user);
         settlement.setPaused(true);
 
         vm.prank(user);
-        vm.expectRevert(RFQSettlement.NotOwner.selector);
+        _expectMissingRole(SIGNER_ADMIN_ROLE, user);
         settlement.setTrustedSigner(vm.addr(NEW_SIGNER_KEY));
 
         vm.prank(user);
-        vm.expectRevert(RFQSettlement.NotOwner.selector);
+        _expectMissingRole(TREASURY_ADMIN_ROLE, user);
         settlement.setTreasury(address(0x1234));
 
         vm.prank(user);
@@ -307,12 +358,18 @@ contract RFQSettlementTest {
         settlement.transferOwnership(newOwner);
         require(settlement.owner() == newOwner, "owner mismatch");
 
-        vm.expectRevert(RFQSettlement.NotOwner.selector);
+        _expectMissingRole(PAUSER_ROLE, address(this));
         settlement.setPaused(true);
 
         vm.prank(newOwner);
         settlement.setPaused(true);
         require(settlement.paused(), "pause not updated");
+
+        _expectMissingRole(SIGNER_ADMIN_ROLE, address(this));
+        settlement.setTrustedSigner(signer);
+
+        vm.prank(newOwner);
+        settlement.setTrustedSigner(signer);
     }
 
     function testRejectsInvalidAdminAddresses() public {
@@ -333,6 +390,12 @@ contract RFQSettlementTest {
 
         vm.expectRevert(RFQSettlement.InvalidAddress.selector);
         settlement.transferOwnership(address(0));
+
+        vm.expectRevert(RFQSettlement.InvalidAddress.selector);
+        settlement.grantRole(TOKEN_ADMIN_ROLE, address(0));
+
+        vm.expectRevert(RFQSettlement.InvalidAddress.selector);
+        settlement.revokeRole(TOKEN_ADMIN_ROLE, address(0));
     }
 
     function testSubmitQuoteRejectsExpiredQuote() public {
@@ -530,5 +593,9 @@ contract RFQSettlementTest {
             v = overrideV;
         }
         return abi.encodePacked(r, s, v);
+    }
+
+    function _expectMissingRole(bytes32 role, address account) private {
+        vm.expectRevert(abi.encodeWithSelector(RFQSettlement.MissingRole.selector, role, account));
     }
 }

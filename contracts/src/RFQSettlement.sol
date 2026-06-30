@@ -10,7 +10,7 @@ interface ITreasuryMinimal {
 
 /// @notice RFQ settlement contract for validating EIP-712 signed quotes and settling token flows.
 /// @dev This dependency-free implementation mirrors the intended OpenZeppelin production surface:
-/// EIP712, SafeERC20, ReentrancyGuard, Pausable, and owner-gated administrative controls.
+/// EIP712, SafeERC20, ReentrancyGuard, Pausable, and role-gated administrative controls.
 contract RFQSettlement is IRFQSettlement {
     using SafeERC20 for address;
 
@@ -22,6 +22,11 @@ contract RFQSettlement is IRFQSettlement {
     );
     bytes32 public constant NAME_HASH = keccak256("ProductionGradeRFQ");
     bytes32 public constant VERSION_HASH = keccak256("1");
+    bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
+    bytes32 public constant SIGNER_ADMIN_ROLE = keccak256("SIGNER_ADMIN_ROLE");
+    bytes32 public constant TOKEN_ADMIN_ROLE = keccak256("TOKEN_ADMIN_ROLE");
+    bytes32 public constant TREASURY_ADMIN_ROLE = keccak256("TREASURY_ADMIN_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     uint256 private constant _NOT_ENTERED = 1;
     uint256 private constant _ENTERED = 2;
@@ -34,6 +39,7 @@ contract RFQSettlement is IRFQSettlement {
     bool public paused;
     mapping(address token => bool whitelisted) public tokenWhitelist;
     mapping(address user => mapping(uint256 nonce => bool used)) public usedNonces;
+    mapping(bytes32 role => mapping(address account => bool granted)) private _roles;
 
     uint256 private _reentrancyStatus = _NOT_ENTERED;
 
@@ -54,9 +60,15 @@ contract RFQSettlement is IRFQSettlement {
     error InvalidAmount();
     error AmountOutBelowMinimum();
     error TransferFailed();
+    error MissingRole(bytes32 role, address account);
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+
+    modifier onlyRole(bytes32 role) {
+        _checkRole(role, msg.sender);
         _;
     }
 
@@ -79,6 +91,11 @@ contract RFQSettlement is IRFQSettlement {
         owner = msg.sender;
         trustedSigner = initialTrustedSigner;
         treasury = initialTreasury;
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(SIGNER_ADMIN_ROLE, msg.sender);
+        _grantRole(TOKEN_ADMIN_ROLE, msg.sender);
+        _grantRole(TREASURY_ADMIN_ROLE, msg.sender);
+        _grantRole(PAUSER_ROLE, msg.sender);
 
         emit OwnerUpdated(address(0), msg.sender);
         emit TrustedSignerUpdated(address(0), initialTrustedSigner);
@@ -113,33 +130,52 @@ contract RFQSettlement is IRFQSettlement {
         return quote.amountOut;
     }
 
-    function setTrustedSigner(address newTrustedSigner) external onlyOwner {
+    function grantRole(bytes32 role, address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (account == address(0)) revert InvalidAddress();
+        _grantRole(role, account);
+    }
+
+    function revokeRole(bytes32 role, address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (account == address(0)) revert InvalidAddress();
+        _revokeRole(role, account);
+    }
+
+    function hasRole(bytes32 role, address account) external view returns (bool) {
+        return _roles[role][account];
+    }
+
+    function setTrustedSigner(address newTrustedSigner) external onlyRole(SIGNER_ADMIN_ROLE) {
         if (newTrustedSigner == address(0)) revert InvalidAddress();
         emit TrustedSignerUpdated(trustedSigner, newTrustedSigner);
         trustedSigner = newTrustedSigner;
     }
 
-    function setTreasury(address newTreasury) external onlyOwner {
+    function setTreasury(address newTreasury) external onlyRole(TREASURY_ADMIN_ROLE) {
         if (newTreasury == address(0)) revert InvalidAddress();
         emit TreasuryUpdated(treasury, newTreasury);
         treasury = newTreasury;
     }
 
-    function setTokenWhitelist(address token, bool whitelisted) external onlyOwner {
+    function setTokenWhitelist(address token, bool whitelisted) external onlyRole(TOKEN_ADMIN_ROLE) {
         if (token == address(0)) revert InvalidAddress();
         tokenWhitelist[token] = whitelisted;
         emit TokenWhitelistUpdated(token, whitelisted);
     }
 
-    function setPaused(bool newPaused) external onlyOwner {
+    function setPaused(bool newPaused) external onlyRole(PAUSER_ROLE) {
         paused = newPaused;
         emit PausedUpdated(newPaused);
     }
 
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert InvalidAddress();
+        address oldOwner = owner;
         emit OwnerUpdated(owner, newOwner);
         owner = newOwner;
+        if (newOwner != oldOwner) {
+            _grantAllAdminRoles(newOwner);
+            _revokeAllAdminRoles(oldOwner);
+        }
     }
 
     function domainSeparator() public view returns (bytes32) {
@@ -202,5 +238,37 @@ contract RFQSettlement is IRFQSettlement {
 
         address recovered = ecrecover(digest, v, r, s);
         if (recovered == address(0) || recovered != trustedSigner) revert InvalidSigner();
+    }
+
+    function _checkRole(bytes32 role, address account) internal view {
+        if (!_roles[role][account]) revert MissingRole(role, account);
+    }
+
+    function _grantAllAdminRoles(address account) internal {
+        _grantRole(DEFAULT_ADMIN_ROLE, account);
+        _grantRole(SIGNER_ADMIN_ROLE, account);
+        _grantRole(TOKEN_ADMIN_ROLE, account);
+        _grantRole(TREASURY_ADMIN_ROLE, account);
+        _grantRole(PAUSER_ROLE, account);
+    }
+
+    function _revokeAllAdminRoles(address account) internal {
+        _revokeRole(PAUSER_ROLE, account);
+        _revokeRole(TREASURY_ADMIN_ROLE, account);
+        _revokeRole(TOKEN_ADMIN_ROLE, account);
+        _revokeRole(SIGNER_ADMIN_ROLE, account);
+        _revokeRole(DEFAULT_ADMIN_ROLE, account);
+    }
+
+    function _grantRole(bytes32 role, address account) internal {
+        if (_roles[role][account]) return;
+        _roles[role][account] = true;
+        emit RoleGranted(role, account, msg.sender);
+    }
+
+    function _revokeRole(bytes32 role, address account) internal {
+        if (!_roles[role][account]) return;
+        _roles[role][account] = false;
+        emit RoleRevoked(role, account, msg.sender);
     }
 }

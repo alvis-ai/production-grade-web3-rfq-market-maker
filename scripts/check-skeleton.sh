@@ -701,6 +701,9 @@ grep -q 'submitQuote' sdk/src/abi.ts
 grep -q 'setTreasury' sdk/src/abi.ts
 grep -q 'TreasuryUpdated' sdk/src/abi.ts
 grep -q 'setTokenWhitelist' sdk/src/abi.ts
+grep -q 'grantRole' sdk/src/abi.ts
+grep -q 'RoleGranted' sdk/src/abi.ts
+grep -q 'RFQSettlement ABI exposes role-based admin controls' sdk/test/sdk.test.mjs
 grep -q 'async submit' sdk/src/client.ts
 grep -q 'async getQuote' sdk/src/client.ts
 grep -q 'async getSettlement' sdk/src/client.ts
@@ -761,6 +764,10 @@ grep -q 'ITreasuryMinimal' contracts/src/RFQSettlement.sol
 grep -q 'release(quote.tokenOut, quote.user, quote.amountOut)' contracts/src/RFQSettlement.sol
 grep -q 'function setTreasury' contracts/src/RFQSettlement.sol
 grep -q 'function setTokenWhitelist' contracts/src/RFQSettlement.sol
+grep -q 'function grantRole' contracts/src/RFQSettlement.sol
+grep -q 'function revokeRole' contracts/src/RFQSettlement.sol
+grep -q 'SIGNER_ADMIN_ROLE' contracts/src/RFQSettlement.sol
+grep -q 'TOKEN_ADMIN_ROLE' contracts/src/RFQSettlement.sol
 grep -q 'function setPaused' contracts/src/RFQSettlement.sol
 grep -q 'ecrecover' contracts/src/RFQSettlement.sol
 grep -q 'safeTransferFrom' contracts/src/RFQSettlement.sol
@@ -1348,11 +1355,15 @@ grep -Fq -- '- [x] ClickHouse analytics do not become operational source of trut
 grep -Fq -- '- [x] Signer key rotation is documented.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Emergency pause procedure is documented.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] `submitQuote` uses SafeERC20 for transfers.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] AccessControl protects signer and token whitelist updates.' docs/security/audit-checklist.md
 grep -q '本地 `SafeERC20` 库' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
+grep -q 'SIGNER_ADMIN_ROLE' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
+grep -q 'TOKEN_ADMIN_ROLE' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'testSubmitQuoteAcceptsNoReturnERC20Transfers' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsFalseReturnTokenInBeforeConsumingNonce' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsFalseReturnTokenOutAndRollsBackTokenIn' contracts/test/RFQSettlement.t.sol
-grep -Fq -- '- [ ] AccessControl protects signer and token whitelist updates.' docs/security/audit-checklist.md
+grep -q 'testAccessControlSeparatesSignerAndTokenWhitelistRoles' contracts/test/RFQSettlement.t.sol
+grep -q 'testAccessControlRevocationRemovesAdminCapability' contracts/test/RFQSettlement.t.sol
 grep -q 'Run a canary signing check' docs/security/key-management.md
 grep -q 'negative canary using the old signer' docs/security/key-management.md
 grep -q 'Emergency Pause Procedure' book/Volume7-ProductionDeployment/Chapter05-Runbook.md

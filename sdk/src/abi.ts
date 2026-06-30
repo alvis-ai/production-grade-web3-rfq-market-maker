@@ -38,6 +38,57 @@ export const rfqSettlementAbi = [
   },
   {
     type: "function",
+    name: "DEFAULT_ADMIN_ROLE",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "bytes32" }],
+  },
+  {
+    type: "function",
+    name: "SIGNER_ADMIN_ROLE",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "bytes32" }],
+  },
+  {
+    type: "function",
+    name: "TOKEN_ADMIN_ROLE",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "bytes32" }],
+  },
+  {
+    type: "function",
+    name: "grantRole",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "revokeRole",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "hasRole",
+    stateMutability: "view",
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
     name: "setPaused",
     stateMutability: "nonpayable",
     inputs: [{ name: "newPaused", type: "bool" }],
@@ -129,6 +180,24 @@ export const rfqSettlementAbi = [
       { name: "amountIn", type: "uint256", indexed: false },
       { name: "amountOut", type: "uint256", indexed: false },
       { name: "nonce", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "RoleGranted",
+    inputs: [
+      { name: "role", type: "bytes32", indexed: true },
+      { name: "account", type: "address", indexed: true },
+      { name: "sender", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "RoleRevoked",
+    inputs: [
+      { name: "role", type: "bytes32", indexed: true },
+      { name: "account", type: "address", indexed: true },
+      { name: "sender", type: "address", indexed: true },
     ],
   },
   {

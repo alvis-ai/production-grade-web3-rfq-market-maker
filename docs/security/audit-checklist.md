@@ -12,7 +12,7 @@
 - [x] State updates are ordered safely around external calls.
 - [x] ReentrancyGuard protects settlement.
 - [x] Pausable can stop settlement during incident response.
-- [ ] AccessControl protects signer and token whitelist updates.
+- [x] AccessControl protects signer and token whitelist updates.
 - [x] Events contain enough data for idempotent indexing.
 
 ## Backend

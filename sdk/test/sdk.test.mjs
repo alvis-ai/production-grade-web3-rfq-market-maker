@@ -314,6 +314,27 @@ test("RFQSettlement ABI exposes treasury custody controls", () => {
   assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "TreasuryUpdated"));
 });
 
+test("RFQSettlement ABI exposes role-based admin controls", () => {
+  for (const name of [
+    "DEFAULT_ADMIN_ROLE",
+    "SIGNER_ADMIN_ROLE",
+    "TOKEN_ADMIN_ROLE",
+    "grantRole",
+    "revokeRole",
+    "hasRole",
+    "setTrustedSigner",
+    "setTokenWhitelist",
+  ]) {
+    assert.ok(
+      rfqSettlementAbi.some((item) => item.type === "function" && item.name === name),
+      `missing RFQSettlement function ${name}`,
+    );
+  }
+
+  assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "RoleGranted"));
+  assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "RoleRevoked"));
+});
+
 test("RFQClient sends quote, submit, status, health, and metrics requests with expected shapes", async () => {
   const calls = [];
   const quoteResponse = {

@@ -69,7 +69,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-RFQSettlement 与 ERC20 token 和 Treasury 边界直接交互，并通过 owner-only 管理 trusted signer、treasury、token whitelist 和 pause 状态。当前代码使用无外部依赖的最小实现表达 EIP-712、SafeERC20、ReentrancyGuard、Pausable 和 AccessControl 语义；后续接入 OpenZeppelin 后应保持同样的验证顺序和事件语义。`Treasury` 合约承载独立 custody 边界：RFQSettlement 把用户 `tokenIn` 转入 Treasury，并通过 settlement-only `release` 支付 `tokenOut`；owner-only `emergencyWithdraw` 只用于应急资金迁移。
+RFQSettlement 与 ERC20 token 和 Treasury 边界直接交互，并通过 role-based admin 管理 trusted signer、treasury、token whitelist 和 pause 状态。当前代码使用无外部依赖的最小实现表达 EIP-712、SafeERC20、ReentrancyGuard、Pausable 和 AccessControl 语义；后续接入 OpenZeppelin 后应保持同样的验证顺序和事件语义。`Treasury` 合约承载独立 custody 边界：RFQSettlement 把用户 `tokenIn` 转入 Treasury，并通过 settlement-only `release` 支付 `tokenOut`；owner-only `emergencyWithdraw` 只用于应急资金迁移。
 
 ## Sequence Diagram
 
@@ -127,6 +127,7 @@ function submitQuote(
 - RFQSettlement 不直接保管库存资金；常规成交通过 Treasury 放款，便于把结算权限和应急管理权限分开审计。
 - `QuoteSettled` 是链下库存更新的权威事件。
 - 当前安全转账封装采用 SafeERC20 语义：低层调用必须成功，返回 `false` 必须 revert，无返回值 ERC20 被视为成功，非合约地址会被拒绝。
+- `SIGNER_ADMIN_ROLE` 独立保护 `setTrustedSigner`，`TOKEN_ADMIN_ROLE` 独立保护 `setTokenWhitelist`，默认管理员只能通过 `grantRole` 和 `revokeRole` 委托或收回这些权限。
 
 ## Failure Scenarios
 
@@ -138,7 +139,7 @@ function submitQuote(
 
 ## Security Considerations
 
-当前实现采用本地 `SafeERC20` 库兼容返回 bool 或无返回值的 ERC20，并显式实现重入锁、暂停和 owner-only 控制。`safeTransferFrom` 覆盖用户 `tokenIn` 转入 Treasury，`safeTransfer` 覆盖 Treasury 的 `tokenOut` 放款；两者都拒绝非合约 token、revert 调用和返回 `false` 的 token。正式审计版可替换为 OpenZeppelin `SafeERC20`、`ReentrancyGuard`、`Pausable`、`AccessControl`，但不能改变签名校验、nonce、deadline、白名单和转账顺序。
+当前实现采用本地 `SafeERC20` 库兼容返回 bool 或无返回值的 ERC20，并显式实现重入锁、暂停和 role-based admin 控制。`safeTransferFrom` 覆盖用户 `tokenIn` 转入 Treasury，`safeTransfer` 覆盖 Treasury 的 `tokenOut` 放款；两者都拒绝非合约 token、revert 调用和返回 `false` 的 token。正式审计版可替换为 OpenZeppelin `SafeERC20`、`ReentrancyGuard`、`Pausable`、`AccessControl`，但不能改变签名校验、nonce、deadline、白名单和转账顺序。
 
 ## Performance Considerations
 
@@ -146,7 +147,7 @@ Quote 字段应保持最小，避免 gas 膨胀。事件字段应足够索引，
 
 ## Testing Strategy
 
-测试 happy path、wrong signer、wrong user、expired deadline、replay nonce、unsupported token、pause、transfer failure 和 event emission。SafeERC20 语义必须覆盖 no-return ERC20 成功路径、false-return `tokenIn` 失败回滚、false-return `tokenOut` 失败回滚和非合约 token 拒绝。
+测试 happy path、wrong signer、wrong user、expired deadline、replay nonce、unsupported token、pause、transfer failure 和 event emission。SafeERC20 语义必须覆盖 no-return ERC20 成功路径、false-return `tokenIn` 失败回滚、false-return `tokenOut` 失败回滚和非合约 token 拒绝。AccessControl 测试必须覆盖 signer admin 与 token admin 分离、角色撤销后失效、无权限账户无法更新 signer 或 token whitelist。
 
 ## Interview Notes
 

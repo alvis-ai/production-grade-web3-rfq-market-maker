@@ -138,6 +138,7 @@ const implementedAuditControls = [
   "State updates are ordered safely around external calls.",
   "ReentrancyGuard protects settlement.",
   "Pausable can stop settlement during incident response.",
+  "AccessControl protects signer and token whitelist updates.",
   "Events contain enough data for idempotent indexing.",
   "`/quote` validates address format and amount strings.",
   "Risk Engine runs before Signer Service.",
@@ -167,7 +168,6 @@ for (const control of implementedAuditControls) {
 }
 
 const intentionallyOpenAuditControls = [
-  "AccessControl protects signer and token whitelist updates.",
   "Indexer handles chain reorgs.",
 ];
 
