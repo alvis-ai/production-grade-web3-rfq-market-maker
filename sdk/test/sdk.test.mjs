@@ -29,8 +29,9 @@ const quote = {
 };
 
 const verifyingContract = "0x0000000000000000000000000000000000000004";
-const signature = `0x${"11".repeat(65)}`;
+const signature = `0x${"11".repeat(64)}1b`;
 const signerPrivateKey = "0x59c6995e998f97a5a0044966f094538d9dae1ffc26a3b6d86dae8e3a0b97e6a0";
+const secp256k1n = BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
 
 test("buildRFQDomain and buildQuoteTypedData preserve EIP-712 quote schema", () => {
   assert.deepEqual(buildRFQDomain(quote.chainId, verifyingContract), {
@@ -226,6 +227,11 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
   );
 
   assert.throws(
+    () => buildSubmitQuoteArgs(quote, `0x${"11".repeat(64)}02`),
+    /signature v value must be 27 or 28/,
+  );
+
+  assert.throws(
     () =>
       buildSubmitQuoteArgs(
         {
@@ -309,6 +315,16 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
         amount: quote.amountOut,
       }),
     /token must be a 20-byte hex address/,
+  );
+});
+
+test("Settlement helpers reject high-s signatures before contract calls", async () => {
+  const account = privateKeyToAccount(signerPrivateKey);
+  const signed = await account.signTypedData(buildQuoteTypedData(quote, verifyingContract));
+
+  assert.throws(
+    () => buildSubmitQuoteArgs(quote, malleateSignature(signed)),
+    /signature s value must be in the lower half order/,
   );
 });
 
@@ -1377,4 +1393,14 @@ function responseHeaders(headers) {
       return normalized.get(name.toLowerCase()) ?? null;
     },
   };
+}
+
+function malleateSignature(value) {
+  const r = value.slice(2, 66);
+  const s = BigInt(`0x${value.slice(66, 130)}`);
+  const v = Number.parseInt(value.slice(130, 132), 16);
+  const highS = (secp256k1n - s).toString(16).padStart(64, "0");
+  const flippedV = v === 27 ? 28 : 27;
+
+  return `0x${r}${highS}${flippedV.toString(16).padStart(2, "0")}`;
 }

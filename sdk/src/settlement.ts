@@ -1,6 +1,8 @@
 import { rfqSettlementAbi } from "./abi.js";
 import type { Address, Quote, UIntString } from "./types.js";
 
+const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
+
 export interface SettlementQuote {
   user: Address;
   tokenIn: Address;
@@ -98,6 +100,17 @@ function parseAddress(value: Address, field: string): Address {
 function parseSignature(value: `0x${string}`, field: string): `0x${string}` {
   if (!/^0x[a-fA-F0-9]{130}$/.test(value)) {
     throw new Error(`${field} must be a 65-byte hex signature`);
+  }
+
+  const s = BigInt(`0x${value.slice(66, 130)}`);
+  if (s > SECP256K1N_HALF) {
+    throw new Error(`${field} s value must be in the lower half order`);
+  }
+
+  const v = Number.parseInt(value.slice(130, 132), 16);
+  const normalizedV = v < 27 ? v + 27 : v;
+  if (normalizedV !== 27 && normalizedV !== 28) {
+    throw new Error(`${field} v value must be 27 or 28`);
   }
 
   return value;

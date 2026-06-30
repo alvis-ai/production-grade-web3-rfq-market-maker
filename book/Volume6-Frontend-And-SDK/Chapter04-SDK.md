@@ -123,6 +123,7 @@ const treasuryArgs = buildTreasuryTransferArgs({ token, to, amount });
 - SDK owns EIP-712 helper.
 - SDK exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs`, `buildSubmitQuoteWriteRequest`, `hashSettlementQuote` and `buildTreasuryTransferArgs` so viem/wagmi consumers use the same contract tuple shape, write request shape and quote-hash reconciliation rule as the repository tests.
 - `buildSubmitQuoteWriteRequest()` returns `{ address, abi, functionName: "submitQuote", args }` after validating the settlement contract address, quote fields and signature, which keeps frontend and external integrators from manually duplicating contract-call wiring.
+- `buildSubmitQuoteArgs()` rejects non-canonical high-s ECDSA signatures and invalid `v` values before returning contract call arguments, matching backend and `RFQSettlement` signature rules.
 - SDK helper functions reject non-object quote and treasury transfer inputs before field-level validation, so JavaScript consumers get stable validation errors instead of ambiguous property access exceptions.
 - SDK status helpers reject empty `quoteId`, `hedgeOrderId` and `settlementEventId` before issuing HTTP requests, preventing malformed `/quote/`, `/hedges/` or `/settlements/` calls from being mistaken for backend availability problems.
 - `RFQClient` rejects empty, relative or non-`http(s)` base URLs at construction time so integration configuration errors fail before any quote, submit or status request leaves the process.

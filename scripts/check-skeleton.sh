@@ -723,11 +723,15 @@ grep -q 'hashSettlementQuote' sdk/src/quote-hash.ts
 grep -q 'toSettlementQuote' sdk/src/quote-hash.ts
 grep -q 'parseAddress' sdk/src/settlement.ts
 grep -q 'parseSignature' sdk/src/settlement.ts
+grep -q 'SECP256K1N_HALF' sdk/src/settlement.ts
+grep -q 's value must be in the lower half order' sdk/src/settlement.ts
 grep -q 'parsePositiveUInt' sdk/src/settlement.ts
 grep -q 'nonce: parsePositiveUInt(quote.nonce, "quote.nonce")' sdk/src/settlement.ts
 grep -q 'treasury transfer input must be an object' sdk/test/sdk.test.mjs
 grep -q 'quote must be an object' sdk/test/sdk.test.mjs
 grep -Fq 'quote\.nonce must be a positive uint string' sdk/test/sdk.test.mjs
+grep -q 'Settlement helpers reject high-s signatures before contract calls' sdk/test/sdk.test.mjs
+grep -q 'buildSubmitQuoteArgs()` rejects non-canonical high-s ECDSA signatures' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'quote.amountOut must be greater than or equal to quote.minAmountOut' sdk/src/settlement.ts
 grep -q 'buildQuoteTypedData' sdk/src/eip712.ts
 grep -q 'assertQuoteShape' sdk/src/eip712.ts
