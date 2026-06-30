@@ -188,6 +188,7 @@ const requiredCheckConstraints = {
     ["chk_hedge_orders_chain_id_safe", "hedge_orders must constrain chain_id to JavaScript safe integer range"],
     ["chk_hedge_orders_side", "hedge_orders must constrain side enum values"],
     ["chk_hedge_orders_status", "hedge_orders must constrain status enum values"],
+    ["chk_hedge_orders_venue_non_empty", "hedge_orders must constrain venue to be non-empty"],
     ["chk_hedge_orders_token_hex", "hedge_orders must constrain token address shape"],
     ["chk_hedge_orders_amount_positive", "hedge_orders must constrain positive hedge amounts"],
   ],
@@ -339,6 +340,10 @@ assert.ok(
 assert.ok(
   /side\s+IN\s*\(\s*'buy'\s*,\s*'sell'\s*\)/i.test(tables.get("hedge_orders").body),
   "hedge side constraint must match backend HedgeIntent side values",
+);
+assert.ok(
+  /btrim\s*\(\s*venue\s*\)\s*<>\s*''/i.test(tables.get("hedge_orders").body),
+  "hedge_orders must reject empty venue values",
 );
 assert.ok(
   /model\s+IN\s*\(\s*'simulated_mid_price_v1'\s*\)/i.test(tables.get("pnl_records").body),

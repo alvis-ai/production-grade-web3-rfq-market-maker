@@ -571,6 +571,7 @@ grep -q 'AND nonce > 0' docs/database/schema.sql
 grep -q 'bid_price <= mid_price' docs/database/schema.sql
 grep -q 'mid_price <= ask_price' docs/database/schema.sql
 grep -q 'chk_hedge_orders_side' docs/database/schema.sql
+grep -q 'chk_hedge_orders_venue_non_empty' docs/database/schema.sql
 grep -q 'chk_pnl_records_model' docs/database/schema.sql
 grep -q 'user_address TEXT NOT NULL' docs/database/schema.sql
 grep -q 'min_amount_out NUMERIC(78, 0) NOT NULL' docs/database/schema.sql
@@ -599,11 +600,13 @@ grep -q 'risk decision policy_version must be non-empty' scripts/check-database-
 grep -q 'risk decision reason_code must be present only for rejected decisions' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must constrain side enum values' scripts/check-database-schema-consistency.mjs
+grep -q 'hedge_orders must reject empty venue values' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
 grep -q 'distinct token pair' docs/database/er-diagram.md
 grep -q 'bid_price <= mid_price <= ask_price' docs/database/er-diagram.md
 grep -q 'canonical low-s EIP-712 signature' docs/database/er-diagram.md
 grep -q 'market_snapshots.source` 必须是非空字符串' docs/database/er-diagram.md
+grep -q 'hedge `venue` 非空' docs/database/er-diagram.md
 grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/database/er-diagram.md
 grep -q 'reason_code` 只允许出现在 rejected decision 上' docs/database/er-diagram.md
 grep -q 'signed payload 字段全有或全无' docs/database/er-diagram.md
