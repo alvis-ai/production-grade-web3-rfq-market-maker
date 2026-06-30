@@ -596,6 +596,10 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
     quoteRepository.markStatus("q_rejected", "submitted"),
     /cannot transition from terminal status rejected to submitted/,
   );
+  await assert.rejects(
+    quoteRepository.markFailed("q_rejected", "SIGNER_UNAVAILABLE"),
+    /cannot transition from terminal status rejected to failed/,
+  );
 
   await quoteRepository.saveSigned({
     quoteId: "q_failed",
@@ -609,10 +613,18 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
     signature: fixedSignature(),
   });
   await quoteRepository.markFailed("q_failed", "SIGNER_UNAVAILABLE");
+  await quoteRepository.markFailed("q_failed", "SIGNER_UNAVAILABLE");
+  await assert.rejects(
+    quoteRepository.markFailed("q_failed", "SETTLEMENT_REVERTED"),
+    /Failed quote errorCode cannot be changed/,
+  );
   await assert.rejects(
     quoteRepository.markStatus("q_failed", "settled"),
     /cannot transition from terminal status failed to settled/,
   );
+  const failed = await quoteRepository.findStatus("q_failed");
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.errorCode, "SIGNER_UNAVAILABLE");
 
   await quoteRepository.saveSigned({
     quoteId: "q_expired",

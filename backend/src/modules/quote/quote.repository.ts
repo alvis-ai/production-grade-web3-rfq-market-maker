@@ -191,7 +191,10 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       return;
     }
     assertNonEmptyString(errorCode, "errorCode", "Failed quote");
-    assertCanMarkFailed(current);
+    assertCanMarkFailed(current, errorCode);
+    if (current.status === "failed") {
+      return;
+    }
 
     this.records.set(quoteId, {
       ...current,
@@ -371,10 +374,24 @@ function assertSignature(value: `0x${string}`): void {
   }
 }
 
-function assertCanMarkFailed(record: QuoteRecord): void {
+function assertCanMarkFailed(record: QuoteRecord, errorCode: string): void {
+  if (record.status === "requested" || record.status === "signed") {
+    return;
+  }
+
+  if (record.status === "failed") {
+    if (record.rejectCode === errorCode) {
+      return;
+    }
+
+    throw new Error(`Failed quote errorCode cannot be changed for ${record.quoteId}`);
+  }
+
   if (record.status === "submitted" || record.status === "settled" || record.status === "expired") {
     throw new Error(`Quote ${record.quoteId} cannot transition from ${record.status} to failed`);
   }
+
+  throw new Error(`Quote ${record.quoteId} cannot transition from terminal status ${record.status} to failed`);
 }
 
 function assertCanSaveRequestedQuote(record: QuoteRecord, input: SaveRequestedQuoteInput): void {

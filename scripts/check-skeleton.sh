@@ -468,7 +468,9 @@ grep -q 'isSameSignedQuotePayload' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote payload cannot be changed' backend/src/modules/quote/quote.repository.ts
 grep -q 'cannot save signed quote from' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertStatusTransition(current, status)' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertCanMarkFailed(current)' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertCanMarkFailed(current, errorCode)' backend/src/modules/quote/quote.repository.ts
+grep -q 'Failed quote errorCode cannot be changed' backend/src/modules/quote/quote.repository.ts
+grep -q 'cannot transition from terminal status ${record.status} to failed' backend/src/modules/quote/quote.repository.ts
 grep -q 'cannot transition from requested to ${nextStatus} through markStatus' backend/src/modules/quote/quote.repository.ts
 grep -q 'cannot transition from signed to ${nextStatus} through markStatus' backend/src/modules/quote/quote.repository.ts
 grep -q 'cannot transition from submitted to ${nextStatus}' backend/src/modules/quote/quote.repository.ts
@@ -492,6 +494,8 @@ grep -q 'rejects unsafe requested and rejected quote persistence inputs' backend
 grep -q 'rejects requested quote payload rewrites' backend/test/quote-service.test.mjs
 grep -q 'rejects rejected quote payload rewrites' backend/test/quote-service.test.mjs
 grep -q 'rejects terminal quote status regressions' backend/test/quote-service.test.mjs
+grep -q 'Failed quote errorCode cannot be changed' backend/test/quote-service.test.mjs
+grep -q 'cannot transition from terminal status rejected to failed' backend/test/quote-service.test.mjs
 grep -q 'cannot transition from requested to settled through markStatus' backend/test/quote-service.test.mjs
 grep -q 'cannot transition from submitted to expired' backend/test/quote-service.test.mjs
 grep -q 'rejects malformed quote status metadata' backend/test/quote-service.test.mjs
@@ -508,6 +512,8 @@ grep -q 'requested/rejected quote persistence validation' book/Volume5-BackendEn
 grep -q 'signed quote persistence validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'terminal quote status invariants' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requested quotes cannot be marked submitted, settled or expired through the status updater' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'already failed quote may replay the same `errorCode`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'different failure reason is rejected' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'quote status metadata validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requires `txHash` and `settlementEventId` before a quote can become `submitted` or `settled`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'returns defensive copies from signed quote lookup operations' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
