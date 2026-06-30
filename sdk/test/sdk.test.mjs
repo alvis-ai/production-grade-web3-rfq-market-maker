@@ -550,6 +550,72 @@ test("RFQClient rejects unsafe base URLs at construction", () => {
   }
 });
 
+test("RFQClient rejects unsafe quote requests before sending HTTP", async () => {
+  const calls = [];
+  const restoreFetch = installFetch(async (url, init = {}) => {
+    calls.push({ url, init });
+    return jsonResponse(500, { code: "INTERNAL_ERROR", message: "unexpected", traceId: "tr_unexpected" });
+  });
+  const quoteRequest = {
+    chainId: quote.chainId,
+    user: quote.user,
+    tokenIn: quote.tokenIn,
+    tokenOut: quote.tokenOut,
+    amountIn: quote.amountIn,
+    slippageBps: 50,
+  };
+  const cases = [
+    {
+      request: undefined,
+      message: "RFQ quote request must be an object",
+    },
+    {
+      request: { ...quoteRequest, extra: true },
+      message: "RFQ quote request must not include unknown field extra",
+    },
+    {
+      request: { ...quoteRequest, chainId: 0 },
+      message: "RFQ quote request chainId must be a positive safe integer",
+    },
+    {
+      request: { ...quoteRequest, user: "0x1234" },
+      message: "RFQ quote request user must be a 20-byte hex address",
+    },
+    {
+      request: { ...quoteRequest, tokenOut: quoteRequest.tokenIn },
+      message: "RFQ quote request tokenIn and tokenOut must be different",
+    },
+    {
+      request: { ...quoteRequest, amountIn: "0" },
+      message: "RFQ quote request amountIn must be a positive uint string",
+    },
+    {
+      request: { ...quoteRequest, slippageBps: 10_001 },
+      message: "RFQ quote request slippageBps must be an integer from 0 to 10000",
+    },
+  ];
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    for (const { request, message } of cases) {
+      await assert.rejects(
+        client.quote(request),
+        (error) => {
+          assert.ok(error instanceof RFQClientError);
+          assert.equal(error.status, 0);
+          assert.equal(error.message, message);
+          return true;
+        },
+      );
+    }
+
+    assert.equal(calls.length, 0);
+  } finally {
+    restoreFetch();
+  }
+});
+
 test("RFQClient rejects unsafe submit requests before sending HTTP", async () => {
   const calls = [];
   const restoreFetch = installFetch(async (url, init = {}) => {

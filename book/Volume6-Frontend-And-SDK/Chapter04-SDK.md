@@ -127,6 +127,7 @@ const treasuryArgs = buildTreasuryTransferArgs({ token, to, amount });
 - SDK helper functions reject non-object quote and treasury transfer inputs before field-level validation, so JavaScript consumers get stable validation errors instead of ambiguous property access exceptions.
 - SDK status helpers reject empty `quoteId`, `hedgeOrderId` and `settlementEventId` before issuing HTTP requests, preventing malformed `/quote/`, `/hedges/` or `/settlements/` calls from being mistaken for backend availability problems.
 - `RFQClient` rejects empty, relative or non-`http(s)` base URLs at construction time so integration configuration errors fail before any quote, submit or status request leaves the process.
+- `RFQClient.quote()` validates outgoing quote requests locally, including closed request fields, chain id, addresses, distinct token pair, positive amount and slippage bounds, before sending HTTP.
 - `RFQClient.quote()` validates successful quote payloads field by field, including non-empty `quoteId`/`snapshotId`, positive uint `amountOut`/`minAmountOut`/`nonce`, `amountOut >= minAmountOut`, positive `deadline`, and canonical low-s EIP-712 signature.
 - `RFQClient.submit()` validates outgoing submit payloads locally with the same settlement helper used for contract calls, so malformed quote fields or non-canonical signatures fail before an HTTP request is sent.
 - `RFQClient.submit()` validates successful submit payloads field by field, including `accepted` status, optional 32-byte `txHash`, and non-empty settlement/hedge/PnL pointers when present.

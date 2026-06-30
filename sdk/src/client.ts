@@ -19,6 +19,7 @@ import type {
 export type RFQClientErrorCode = RFQErrorCode | "RFQ_CLIENT_ERROR";
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
+const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const rfqErrorCodeSet: ReadonlySet<string> = new Set(rfqErrorCodes);
 
 export class RFQClientError extends Error {
@@ -42,6 +43,7 @@ export class RFQClient {
   }
 
   async quote(request: QuoteRequest): Promise<QuoteResponse> {
+    assertQuoteRequest(request);
     const response = await fetch(`${this.baseUrl}/quote`, {
       method: "POST",
       headers: {
@@ -199,6 +201,35 @@ function clientErrorFromResponse(response: Response, payload: unknown, fallbackM
   );
 }
 
+function assertQuoteRequest(request: QuoteRequest): void {
+  if (!isRecord(request)) {
+    throw new RFQClientError("RFQ quote request must be an object", 0);
+  }
+  assertExactFields(request, quoteRequestFields, "RFQ quote request");
+
+  if (!Number.isSafeInteger(request.chainId) || request.chainId <= 0) {
+    throw new RFQClientError("RFQ quote request chainId must be a positive safe integer", 0);
+  }
+  if (!isAddressHex(request.user)) {
+    throw new RFQClientError("RFQ quote request user must be a 20-byte hex address", 0);
+  }
+  if (!isAddressHex(request.tokenIn)) {
+    throw new RFQClientError("RFQ quote request tokenIn must be a 20-byte hex address", 0);
+  }
+  if (!isAddressHex(request.tokenOut)) {
+    throw new RFQClientError("RFQ quote request tokenOut must be a 20-byte hex address", 0);
+  }
+  if (request.tokenIn.toLowerCase() === request.tokenOut.toLowerCase()) {
+    throw new RFQClientError("RFQ quote request tokenIn and tokenOut must be different", 0);
+  }
+  if (!isPositiveUIntString(request.amountIn)) {
+    throw new RFQClientError("RFQ quote request amountIn must be a positive uint string", 0);
+  }
+  if (!Number.isInteger(request.slippageBps) || request.slippageBps < 0 || request.slippageBps > 10_000) {
+    throw new RFQClientError("RFQ quote request slippageBps must be an integer from 0 to 10000", 0);
+  }
+}
+
 function assertSubmitQuoteRequest(request: SubmitQuoteRequest): void {
   if (!isRecord(request)) {
     throw new RFQClientError("RFQ submit request must be an object", 0);
@@ -209,6 +240,25 @@ function assertSubmitQuoteRequest(request: SubmitQuoteRequest): void {
   } catch (error) {
     const detail = error instanceof Error ? error.message : "is invalid";
     throw new RFQClientError(`RFQ submit request ${detail}`, 0);
+  }
+}
+
+function assertExactFields(
+  payload: Record<string, unknown>,
+  expectedFields: readonly string[],
+  label: string,
+): void {
+  const expected = new Set(expectedFields);
+  for (const key of Object.keys(payload)) {
+    if (!expected.has(key)) {
+      throw new RFQClientError(`${label} must not include unknown field ${key}`, 0);
+    }
+  }
+
+  for (const field of expectedFields) {
+    if (!(field in payload)) {
+      throw new RFQClientError(`${label} missing required field ${field}`, 0);
+    }
   }
 }
 
