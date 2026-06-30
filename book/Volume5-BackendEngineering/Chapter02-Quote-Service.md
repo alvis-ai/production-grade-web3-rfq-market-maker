@@ -132,6 +132,7 @@ markQuoteStatus(quoteId, status, metadata): Promise<void>
 - Risk before signing 是强制顺序。
 - Quote Service 生成 quoteId。
 - `createQuote()` revalidates and snapshots the quote request at the service boundary before market data, routing, pricing, inventory projection, risk evaluation, signer or quote store side effects. Direct service callers must get the same malformed-request behavior as `POST /quote`.
+- `requireSubmittableSignedQuote()` revalidates the submit quote and canonical signature at the service boundary before quote store lookup or signer verification. It allows expired-but-well-formed quotes through validation so the existing signed quote record can still be marked `expired` before returning `QUOTE_EXPIRED`.
 - Rejected quote 也要 best-effort 记录，但记录失败不能掩盖原始 risk decision。
 - Risk Engine 抛错时按 fail-closed 处理，返回 `RISK_REJECTED`，内部拒绝原因为 `RISK_ENGINE_UNAVAILABLE`，不调用 Signer。
 - Risk rejected 后 rejected 状态持久化失败时，API 仍返回原始 `RISK_REJECTED`，不调用 Signer；遗留的 `requested` quote 由 reconciliation 处理。

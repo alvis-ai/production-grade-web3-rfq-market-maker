@@ -779,6 +779,50 @@ test("QuoteService persists expired status when signed quote status is read afte
   }
 });
 
+test("QuoteService rejects unsafe submit quotes before quote lookup or signature verification", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  let lookupCalls = 0;
+  let verifyCalls = 0;
+  quoteRepository.findSignedQuoteByChainUserNonce = async () => {
+    lookupCalls += 1;
+    throw new Error("quote lookup should not be called");
+  };
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteRepository,
+    signerService: {
+      async signQuote() {
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() {
+        verifyCalls += 1;
+        throw new Error("signature verification should not be called");
+      },
+    },
+  });
+
+  await assert.rejects(
+    service.requireSubmittableSignedQuote(
+      {
+        user: request.user,
+        tokenIn: request.tokenIn,
+        tokenOut: request.tokenIn,
+        amountIn: request.amountIn,
+        amountOut: "998400000",
+        minAmountOut: "993408000",
+        nonce: "1",
+        deadline: 1893456000,
+        chainId: request.chainId,
+      },
+      fixedSignature(),
+    ),
+    /quote.tokenIn and quote.tokenOut must be different/,
+  );
+
+  assert.equal(lookupCalls, 0);
+  assert.equal(verifyCalls, 0);
+});
+
 test("QuoteService rejects expired signed quotes before signature verification", async () => {
   const originalDateNow = Date.now;
   let now = originalDateNow();

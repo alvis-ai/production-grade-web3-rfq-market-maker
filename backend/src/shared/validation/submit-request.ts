@@ -19,7 +19,14 @@ const SIGNED_QUOTE_FIELDS = [
   "chainId",
 ];
 
-export function validateSubmitQuoteRequest(input: unknown): SubmitQuoteRequest {
+export interface SubmitQuoteRequestValidationOptions {
+  allowExpired?: boolean;
+}
+
+export function validateSubmitQuoteRequest(
+  input: unknown,
+  options: SubmitQuoteRequestValidationOptions = {},
+): SubmitQuoteRequest {
   if (!isRecord(input) || !isRecord(input.quote)) {
     throw new APIError("INVALID_REQUEST", "Submit request must include a quote object", 400);
   }
@@ -53,7 +60,7 @@ export function validateSubmitQuoteRequest(input: unknown): SubmitQuoteRequest {
     throw new APIError("INVALID_REQUEST", "quote.amountOut must be greater than or equal to quote.minAmountOut", 400);
   }
   const deadline = readPositiveInteger(quote.deadline, "quote.deadline");
-  if (deadline < Math.floor(Date.now() / 1000)) {
+  if (!options.allowExpired && deadline < Math.floor(Date.now() / 1000)) {
     throw new APIError("QUOTE_EXPIRED", "Quote expired", 409);
   }
 

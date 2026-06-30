@@ -10,6 +10,7 @@ import type {
 } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
 import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
+import { validateSubmitQuoteRequest } from "../../shared/validation/submit-request.js";
 import type { InventoryService } from "../inventory/inventory.service.js";
 import {
   defaultMaxSnapshotFutureSkewMs,
@@ -314,8 +315,14 @@ export class QuoteService {
   }
 
   async requireSubmittableSignedQuote(quote: SignedQuote, signature: `0x${string}`): Promise<string> {
-    const record = await this.findSignedQuoteByChainUserNonce(quote.chainId, quote.user, quote.nonce);
-    if (!record || !isExactSignedQuote(record, quote)) {
+    const validatedSubmitRequest = validateSubmitQuoteRequest({ quote, signature }, { allowExpired: true });
+    const validatedQuote = validatedSubmitRequest.quote;
+    const record = await this.findSignedQuoteByChainUserNonce(
+      validatedQuote.chainId,
+      validatedQuote.user,
+      validatedQuote.nonce,
+    );
+    if (!record || !isExactSignedQuote(record, validatedQuote)) {
       throw new APIError("QUOTE_NOT_FOUND", "Signed quote not found", 404);
     }
     if (record.status === "submitted" || record.status === "settled") {
@@ -332,7 +339,10 @@ export class QuoteService {
       throw new APIError("QUOTE_EXPIRED", "Quote expired", 409);
     }
 
-    const isValidSignature = await this.deps.signerService.verifyQuoteSignature(quote, signature);
+    const isValidSignature = await this.deps.signerService.verifyQuoteSignature(
+      validatedQuote,
+      validatedSubmitRequest.signature,
+    );
     if (!isValidSignature) {
       throw new APIError("INVALID_SIGNATURE", "Quote signature is not from the trusted signer", 409);
     }
