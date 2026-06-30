@@ -194,6 +194,47 @@ test("InMemoryQuoteRepository rejects signed quote identity rewrites", async () 
   assert.equal(indexed.quoteId, "q_original");
 });
 
+test("InMemoryQuoteRepository rejects signed quote payload rewrites", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const baseSignedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+    chainId: 1,
+  };
+  const input = {
+    quoteId: "q_payload",
+    snapshotId: "snapshot_1",
+    quote: baseSignedQuote,
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  };
+
+  await quoteRepository.saveSigned(input);
+  await quoteRepository.saveSigned(input);
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      quote: {
+        ...baseSignedQuote,
+        amountOut: "997000000",
+      },
+    }),
+    /Signed quote payload cannot be changed/,
+  );
+
+  const indexed = await quoteRepository.findSignedQuoteByChainUserNonce(1, request.user, "42");
+  assert.equal(indexed.quoteId, "q_payload");
+  assert.equal(indexed.amountOut, "998400000");
+  assert.equal(indexed.snapshotId, "snapshot_1");
+});
+
 test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const signedQuote = {
@@ -502,6 +543,45 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
     quoteRepository.markFailed("q_expired", "QUOTE_EXPIRED"),
     /cannot transition from expired to failed/,
   );
+});
+
+test("InMemoryQuoteRepository rejects saveSigned lifecycle regressions", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const signedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+    chainId: 1,
+  };
+  const input = {
+    quoteId: "q_save_signed_regression",
+    snapshotId: "snapshot_1",
+    quote: signedQuote,
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  };
+
+  await quoteRepository.saveSigned(input);
+  await quoteRepository.markStatus("q_save_signed_regression", "submitted", {
+    txHash: `0x${"aa".repeat(32)}`,
+    settlementEventId: "se_save_signed_regression",
+  });
+  await quoteRepository.markStatus("q_save_signed_regression", "settled");
+
+  await assert.rejects(
+    quoteRepository.saveSigned(input),
+    /cannot save signed quote from settled/,
+  );
+
+  const status = await quoteRepository.findStatus("q_save_signed_regression");
+  assert.equal(status.status, "settled");
+  assert.equal(status.settlementEventId, "se_save_signed_regression");
 });
 
 test("InMemoryQuoteRepository rejects malformed quote status metadata", async () => {

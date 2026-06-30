@@ -129,6 +129,12 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     if (current?.nonce && !this.isSameSignedQuoteIdentity(current, input.quote)) {
       throw new Error(`Signed quote identity cannot be changed for ${input.quoteId}`);
     }
+    if (current) {
+      assertCanSaveSignedQuote(current, input);
+      if (current.status === "signed") {
+        return;
+      }
+    }
 
     this.records.set(input.quoteId, {
       ...(current ?? {}),
@@ -358,6 +364,41 @@ function assertCanMarkFailed(record: QuoteRecord): void {
   if (record.status === "submitted" || record.status === "settled" || record.status === "expired") {
     throw new Error(`Quote ${record.quoteId} cannot transition from ${record.status} to failed`);
   }
+}
+
+function assertCanSaveSignedQuote(record: QuoteRecord, input: SaveSignedQuoteInput): void {
+  if (record.status === "requested") {
+    return;
+  }
+
+  if (record.status === "signed") {
+    if (isSameSignedQuotePayload(record, input)) {
+      return;
+    }
+
+    throw new Error(`Signed quote payload cannot be changed for ${input.quoteId}`);
+  }
+
+  throw new Error(`Quote ${input.quoteId} cannot save signed quote from ${record.status}`);
+}
+
+function isSameSignedQuotePayload(record: QuoteRecord, input: SaveSignedQuoteInput): boolean {
+  return (
+    record.quoteId === input.quoteId &&
+    record.chainId === input.quote.chainId &&
+    record.user.toLowerCase() === input.quote.user.toLowerCase() &&
+    record.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
+    record.tokenOut.toLowerCase() === input.quote.tokenOut.toLowerCase() &&
+    record.amountIn === input.quote.amountIn &&
+    record.amountOut === input.quote.amountOut &&
+    record.minAmountOut === input.quote.minAmountOut &&
+    record.nonce === input.quote.nonce &&
+    record.deadline === input.quote.deadline &&
+    record.snapshotId === input.snapshotId &&
+    record.pricingVersion === input.pricingVersion &&
+    record.riskPolicyVersion === input.riskPolicyVersion &&
+    record.signature?.toLowerCase() === input.signature.toLowerCase()
+  );
 }
 
 function assertStatusTransition(record: QuoteRecord, nextStatus: QuoteLifecycleStatus): void {
