@@ -37,6 +37,7 @@ CREATE TABLE quotes (
     AND token_in ~ '^0x[0-9a-fA-F]{40}$'
     AND token_out ~ '^0x[0-9a-fA-F]{40}$'
   ),
+  CONSTRAINT chk_quotes_distinct_tokens CHECK (lower(token_in) <> lower(token_out)),
   CONSTRAINT chk_quotes_signature_and_tx_hash_hex CHECK (
     (signature IS NULL OR signature ~ '^0x[0-9a-fA-F]{130}$')
     AND (tx_hash IS NULL OR tx_hash ~ '^0x[0-9a-fA-F]{64}$')
@@ -110,7 +111,8 @@ CREATE TABLE market_snapshots (
   CONSTRAINT chk_market_snapshots_addresses_hex CHECK (
     token_in ~ '^0x[0-9a-fA-F]{40}$'
     AND token_out ~ '^0x[0-9a-fA-F]{40}$'
-  )
+  ),
+  CONSTRAINT chk_market_snapshots_distinct_tokens CHECK (lower(token_in) <> lower(token_out))
 );
 
 CREATE INDEX idx_market_snapshots_pair_observed_at ON market_snapshots (
@@ -164,6 +166,7 @@ CREATE TABLE settlement_events (
     AND token_in ~ '^0x[0-9a-fA-F]{40}$'
     AND token_out ~ '^0x[0-9a-fA-F]{40}$'
   ),
+  CONSTRAINT chk_settlement_events_distinct_tokens CHECK (lower(token_in) <> lower(token_out)),
   CONSTRAINT chk_settlement_events_amounts_positive CHECK (
     amount_in > 0
     AND amount_out > 0
@@ -238,6 +241,7 @@ CREATE TABLE pnl_records (
     AND token_in ~ '^0x[0-9a-fA-F]{40}$'
     AND token_out ~ '^0x[0-9a-fA-F]{40}$'
   ),
+  CONSTRAINT chk_pnl_records_distinct_tokens CHECK (lower(token_in) <> lower(token_out)),
   CONSTRAINT chk_pnl_records_amounts_positive CHECK (
     amount_in > 0
     AND amount_out > 0

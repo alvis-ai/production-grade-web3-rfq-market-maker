@@ -551,6 +551,10 @@ grep -q 'chk_settlement_events_chain_id_safe' docs/database/schema.sql
 grep -q 'chk_inventory_positions_chain_id_safe' docs/database/schema.sql
 grep -q 'chk_hedge_orders_chain_id_safe' docs/database/schema.sql
 grep -q 'chk_pnl_records_chain_id_safe' docs/database/schema.sql
+grep -q 'chk_quotes_distinct_tokens' docs/database/schema.sql
+grep -q 'chk_market_snapshots_distinct_tokens' docs/database/schema.sql
+grep -q 'chk_settlement_events_distinct_tokens' docs/database/schema.sql
+grep -q 'chk_pnl_records_distinct_tokens' docs/database/schema.sql
 grep -q 'chk_quotes_signature_and_tx_hash_hex' docs/database/schema.sql
 grep -q 'chk_quotes_status_payload_consistency' docs/database/schema.sql
 grep -q 'chk_quotes_signed_payload_consistency' docs/database/schema.sql
@@ -570,6 +574,7 @@ grep -q 'deadline: "deadline"' scripts/check-database-schema-consistency.mjs
 grep -q 'signed attribution snapshot' docs/database/er-diagram.md
 grep -q 'quotes must constrain lifecycle status values' scripts/check-database-schema-consistency.mjs
 grep -q 'chain_id must be constrained to the JavaScript safe integer range' scripts/check-database-schema-consistency.mjs
+grep -q 'must require distinct token_in and token_out addresses' scripts/check-database-schema-consistency.mjs
 grep -q 'submitted and settled quotes must keep tx_hash and settlement_event_id pointers' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must require positive signed amount and nonce fields when present' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must require amount_out to satisfy min_amount_out when both are present' scripts/check-database-schema-consistency.mjs
@@ -580,6 +585,7 @@ grep -q 'rejected and failed quote statuses must keep reject_code' scripts/check
 grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must constrain side enum values' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
+grep -q 'distinct token pair' docs/database/er-diagram.md
 grep -q '正数 signed amount/nonce' docs/database/er-diagram.md
 grep -q 'amount_out >= min_amount_out' docs/database/er-diagram.md
 grep -q 'status payload consistency' docs/database/er-diagram.md

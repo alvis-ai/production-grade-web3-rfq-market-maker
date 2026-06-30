@@ -148,6 +148,7 @@ const requiredCheckConstraints = {
     ["chk_quotes_chain_id_safe", "quotes must constrain chain_id to JavaScript safe integer range"],
     ["chk_quotes_amounts_non_negative", "quotes must constrain unsigned quote amount fields"],
     ["chk_quotes_addresses_hex", "quotes must constrain address-shaped fields"],
+    ["chk_quotes_distinct_tokens", "quotes must constrain token_in and token_out to distinct addresses"],
     ["chk_quotes_signature_and_tx_hash_hex", "quotes must constrain signature and transaction hash shape"],
     ["chk_quotes_status_payload_consistency", "quotes must constrain lifecycle status pointer consistency"],
     ["chk_quotes_signed_payload_consistency", "quotes must constrain signed lifecycle payload completeness"],
@@ -157,6 +158,7 @@ const requiredCheckConstraints = {
     ["chk_market_snapshots_prices", "market_snapshots must constrain price and liquidity fields"],
     ["chk_market_snapshots_chain_id_safe", "market_snapshots must constrain chain_id to JavaScript safe integer range"],
     ["chk_market_snapshots_addresses_hex", "market_snapshots must constrain token address shape"],
+    ["chk_market_snapshots_distinct_tokens", "market_snapshots must constrain token pair addresses to be distinct"],
   ],
   risk_decisions: [
     ["chk_risk_decisions_status", "risk_decisions must constrain decision status values"],
@@ -166,6 +168,7 @@ const requiredCheckConstraints = {
     ["chk_settlement_events_chain_id_safe", "settlement_events must constrain chain_id to JavaScript safe integer range"],
     ["chk_settlement_events_hashes", "settlement_events must constrain hash-shaped fields"],
     ["chk_settlement_events_addresses_hex", "settlement_events must constrain address-shaped fields"],
+    ["chk_settlement_events_distinct_tokens", "settlement_events must constrain token pair addresses to be distinct"],
     ["chk_settlement_events_amounts_positive", "settlement_events must constrain positive settlement fields"],
   ],
   inventory_positions: [
@@ -184,6 +187,7 @@ const requiredCheckConstraints = {
     ["chk_pnl_records_model", "pnl_records must constrain supported attribution models"],
     ["chk_pnl_records_chain_id_safe", "pnl_records must constrain chain_id to JavaScript safe integer range"],
     ["chk_pnl_records_addresses_hex", "pnl_records must constrain token address shape"],
+    ["chk_pnl_records_distinct_tokens", "pnl_records must constrain token pair addresses to be distinct"],
     ["chk_pnl_records_amounts_positive", "pnl_records must constrain positive trade amounts"],
   ],
 };
@@ -209,6 +213,13 @@ for (const tableName of [
   assert.ok(
     hasCheckExpression(tableName, `chain_id\\s+BETWEEN\\s+1\\s+AND\\s+${maxSafeInteger}`),
     `${tableName}.chain_id must be constrained to the JavaScript safe integer range`,
+  );
+}
+
+for (const tableName of ["quotes", "market_snapshots", "settlement_events", "pnl_records"]) {
+  assert.ok(
+    hasCheckExpression(tableName, "lower\\s*\\(\\s*token_in\\s*\\)\\s*<>\\s*lower\\s*\\(\\s*token_out\\s*\\)"),
+    `${tableName} must require distinct token_in and token_out addresses`,
   );
 }
 
