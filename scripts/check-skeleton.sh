@@ -424,6 +424,15 @@ grep -q 'quotes.settlement_event_id must reference settlement_events(id)' script
 grep -q 'quotes.hedge_order_id must reference hedge_orders(id)' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes.pnl_id must reference pnl_records(id)' scripts/check-database-schema-consistency.mjs
 grep -q '状态指针不能悬空' docs/database/er-diagram.md
+grep -q 'idx_market_snapshots_pair_observed_at' docs/database/schema.sql
+grep -q 'idx_quotes_snapshot_id' docs/database/schema.sql
+grep -q 'idx_quotes_settlement_event_id' docs/database/schema.sql
+grep -q 'idx_quotes_hedge_order_id' docs/database/schema.sql
+grep -q 'idx_quotes_pnl_id' docs/database/schema.sql
+grep -q 'market_snapshots must support latest snapshot lookup by chain and token pair' scripts/check-database-schema-consistency.mjs
+grep -q 'must use a partial index for non-null status pointer joins' scripts/check-database-schema-consistency.mjs
+grep -q 'nullable status pointers 使用 partial indexes' docs/database/er-diagram.md
+grep -q '(chain_id, token_in, token_out, observed_at DESC)' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'CREATE OR REPLACE FUNCTION set_updated_at' docs/database/schema.sql
 grep -q 'trg_quotes_set_updated_at' docs/database/schema.sql
 grep -q 'trg_inventory_positions_set_updated_at' docs/database/schema.sql

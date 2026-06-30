@@ -242,6 +242,11 @@ for (const indexName of [
   "idx_quotes_user_created_at",
   "idx_quotes_status_created_at",
   "uq_quotes_chain_user_nonce",
+  "idx_quotes_snapshot_id",
+  "idx_quotes_settlement_event_id",
+  "idx_quotes_hedge_order_id",
+  "idx_quotes_pnl_id",
+  "idx_market_snapshots_pair_observed_at",
   "idx_risk_decisions_quote_id",
   "uq_settlement_events_quote_id",
   "uq_hedge_orders_settlement_event",
@@ -251,6 +256,24 @@ for (const indexName of [
   assert.ok(
     new RegExp(`CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+${indexName}\\b`, "i").test(schemaSource),
     `docs/database/schema.sql must define ${indexName}`,
+  );
+}
+
+assert.ok(
+  /CREATE\s+INDEX\s+idx_market_snapshots_pair_observed_at\s+ON\s+market_snapshots\s*\(\s*chain_id\s*,\s*token_in\s*,\s*token_out\s*,\s*observed_at\s+DESC\s*\)\s*;/i.test(
+    schemaSource,
+  ),
+  "market_snapshots must support latest snapshot lookup by chain and token pair",
+);
+for (const [indexName, columnName] of [
+  ["idx_quotes_snapshot_id", "snapshot_id"],
+  ["idx_quotes_settlement_event_id", "settlement_event_id"],
+  ["idx_quotes_hedge_order_id", "hedge_order_id"],
+  ["idx_quotes_pnl_id", "pnl_id"],
+]) {
+  assert.ok(
+    hasPartialIndex("quotes", indexName, columnName),
+    `quotes.${columnName} must use a partial index for non-null status pointer joins`,
   );
 }
 
@@ -455,6 +478,13 @@ function hasBeforeUpdateTrigger(tableName, triggerName, functionName) {
       "FOR\\s+EACH\\s+ROW",
       `EXECUTE\\s+FUNCTION\\s+${functionName}\\s*\\(\\s*\\)`,
     ].join("[\\s\\S]*?"),
+    "i",
+  ).test(schemaSource);
+}
+
+function hasPartialIndex(tableName, indexName, columnName) {
+  return new RegExp(
+    `CREATE\\s+INDEX\\s+${indexName}\\s+ON\\s+${tableName}\\s*\\(\\s*${columnName}\\s*\\)\\s*WHERE\\s+${columnName}\\s+IS\\s+NOT\\s+NULL\\s*;`,
     "i",
   ).test(schemaSource);
 }

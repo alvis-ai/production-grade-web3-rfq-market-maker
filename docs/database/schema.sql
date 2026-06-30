@@ -75,6 +75,14 @@ CREATE INDEX idx_quotes_user_created_at ON quotes (user_address, created_at DESC
 CREATE INDEX idx_quotes_status_created_at ON quotes (status, created_at DESC);
 CREATE UNIQUE INDEX uq_quotes_chain_user_nonce ON quotes (chain_id, user_address, nonce)
   WHERE nonce IS NOT NULL;
+CREATE INDEX idx_quotes_snapshot_id ON quotes (snapshot_id)
+  WHERE snapshot_id IS NOT NULL;
+CREATE INDEX idx_quotes_settlement_event_id ON quotes (settlement_event_id)
+  WHERE settlement_event_id IS NOT NULL;
+CREATE INDEX idx_quotes_hedge_order_id ON quotes (hedge_order_id)
+  WHERE hedge_order_id IS NOT NULL;
+CREATE INDEX idx_quotes_pnl_id ON quotes (pnl_id)
+  WHERE pnl_id IS NOT NULL;
 
 CREATE TABLE market_snapshots (
   id TEXT PRIMARY KEY,
@@ -100,6 +108,13 @@ CREATE TABLE market_snapshots (
     token_in ~ '^0x[0-9a-fA-F]{40}$'
     AND token_out ~ '^0x[0-9a-fA-F]{40}$'
   )
+);
+
+CREATE INDEX idx_market_snapshots_pair_observed_at ON market_snapshots (
+  chain_id,
+  token_in,
+  token_out,
+  observed_at DESC
 );
 
 CREATE TABLE risk_decisions (
