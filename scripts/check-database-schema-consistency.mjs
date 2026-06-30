@@ -21,6 +21,7 @@ const requiredTables = {
     "token_in",
     "token_out",
     "amount_in",
+    "slippage_bps",
     "amount_out",
     "min_amount_out",
     "nonce",
@@ -159,6 +160,7 @@ const requiredCheckConstraints = {
     ["chk_quotes_id_non_empty", "quotes must constrain primary ids to be non-empty"],
     ["chk_quotes_status", "quotes must constrain lifecycle status values"],
     ["chk_quotes_chain_id_safe", "quotes must constrain chain_id to JavaScript safe integer range"],
+    ["chk_quotes_slippage_bps", "quotes must constrain requested slippage_bps to bps range"],
     ["chk_quotes_amounts_non_negative", "quotes must constrain unsigned quote amount fields"],
     ["chk_quotes_addresses_hex", "quotes must constrain address-shaped fields"],
     ["chk_quotes_distinct_tokens", "quotes must constrain token_in and token_out to distinct addresses"],
@@ -269,6 +271,14 @@ assert.ok(
 assert.ok(
   /\bdeadline\s+BIGINT\b/i.test(tables.get("quotes").body),
   "quotes.deadline must be stored as signed quote Unix seconds",
+);
+assert.ok(
+  /\bslippage_bps\s+INTEGER\s+NOT\s+NULL\b/i.test(tables.get("quotes").body),
+  "quotes.slippage_bps must persist QuoteRequest.slippageBps for quote replay",
+);
+assert.ok(
+  /slippage_bps\s+BETWEEN\s+0\s+AND\s+10000/i.test(tables.get("quotes").body),
+  "quotes must constrain slippage_bps to the 0..10000 bps range",
 );
 assert.ok(
   /signature\s+~\s+'\^0x\[0-9a-fA-F\]\{130\}\$'/i.test(tables.get("quotes").body),
@@ -528,6 +538,23 @@ for (const field of pnlFields) {
   assert.ok(
     tables.get("pnl_records").columns.has(pnlColumnMapping[field]),
     `pnl_records must persist PnlTradeRecord.${field} as ${pnlColumnMapping[field]}`,
+  );
+}
+
+const quoteRequestFields = extractInterfaceFields(backendTypesSource, "QuoteRequest");
+const quoteRequestColumnMapping = {
+  chainId: "chain_id",
+  user: "user_address",
+  tokenIn: "token_in",
+  tokenOut: "token_out",
+  amountIn: "amount_in",
+  slippageBps: "slippage_bps",
+};
+for (const field of quoteRequestFields) {
+  assert.ok(quoteRequestColumnMapping[field], `QuoteRequest.${field} must have a database column mapping`);
+  assert.ok(
+    tables.get("quotes").columns.has(quoteRequestColumnMapping[field]),
+    `quotes must persist QuoteRequest.${field} as ${quoteRequestColumnMapping[field]}`,
   );
 }
 

@@ -16,6 +16,7 @@ export interface QuoteRecord {
   tokenIn: Address;
   tokenOut: Address;
   amountIn: UIntString;
+  slippageBps?: number;
   amountOut?: UIntString;
   minAmountOut?: UIntString;
   nonce?: UIntString;
@@ -99,6 +100,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       tokenIn: input.request.tokenIn,
       tokenOut: input.request.tokenOut,
       amountIn: input.request.amountIn,
+      slippageBps: input.request.slippageBps,
       snapshotId: input.snapshotId,
       status: "requested",
     });
@@ -121,6 +123,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       tokenIn: input.request.tokenIn,
       tokenOut: input.request.tokenOut,
       amountIn: input.request.amountIn,
+      slippageBps: input.request.slippageBps,
       snapshotId: input.snapshotId,
       status: "rejected",
       rejectCode: input.rejectCode,
@@ -459,6 +462,7 @@ function isSameRequestedQuotePayload(record: QuoteRecord, input: SaveRequestedQu
     record.tokenIn.toLowerCase() === input.request.tokenIn.toLowerCase() &&
     record.tokenOut.toLowerCase() === input.request.tokenOut.toLowerCase() &&
     record.amountIn === input.request.amountIn &&
+    record.slippageBps === input.request.slippageBps &&
     record.snapshotId === input.snapshotId
   );
 }

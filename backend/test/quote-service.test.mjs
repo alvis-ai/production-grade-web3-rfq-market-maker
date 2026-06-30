@@ -404,6 +404,16 @@ test("InMemoryQuoteRepository rejects requested quote payload rewrites", async (
     /Requested quote payload cannot be changed/,
   );
   await assert.rejects(
+    quoteRepository.saveRequested({
+      ...input,
+      request: {
+        ...request,
+        slippageBps: request.slippageBps + 1,
+      },
+    }),
+    /Requested quote payload cannot be changed/,
+  );
+  await assert.rejects(
     quoteRepository.saveSigned({
       quoteId: "q_requested_payload",
       snapshotId: "snapshot_1",
@@ -454,6 +464,16 @@ test("InMemoryQuoteRepository rejects rejected quote payload rewrites", async ()
   );
 
   await quoteRepository.saveRequested(requestedInput);
+  await assert.rejects(
+    quoteRepository.saveRejected({
+      ...rejectedInput,
+      request: {
+        ...request,
+        slippageBps: request.slippageBps + 1,
+      },
+    }),
+    /Rejected quote request cannot differ from requested quote/,
+  );
   await quoteRepository.saveRejected(rejectedInput);
   await quoteRepository.saveRejected(rejectedInput);
   await assert.rejects(

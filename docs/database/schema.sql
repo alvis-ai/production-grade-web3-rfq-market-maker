@@ -5,6 +5,7 @@ CREATE TABLE quotes (
   token_in TEXT NOT NULL,
   token_out TEXT NOT NULL,
   amount_in NUMERIC(78, 0) NOT NULL,
+  slippage_bps INTEGER NOT NULL,
   amount_out NUMERIC(78, 0),
   min_amount_out NUMERIC(78, 0),
   nonce NUMERIC(78, 0),
@@ -26,6 +27,7 @@ CREATE TABLE quotes (
     status IN ('requested', 'rejected', 'signed', 'expired', 'submitted', 'settled', 'failed')
   ),
   CONSTRAINT chk_quotes_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
+  CONSTRAINT chk_quotes_slippage_bps CHECK (slippage_bps BETWEEN 0 AND 10000),
   CONSTRAINT chk_quotes_amounts_non_negative CHECK (
     amount_in > 0
     AND (amount_out IS NULL OR amount_out > 0)

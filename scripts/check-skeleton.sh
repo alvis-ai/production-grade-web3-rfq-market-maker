@@ -521,6 +521,7 @@ grep -q 'rejects malformed failed quote metadata' backend/test/quote-service.tes
 grep -q 'preserves settlement metadata across status updates' backend/test/quote-service.test.mjs
 grep -q 'chainId:user:nonce' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Requested quote storage is write-once by `quoteId`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'including a different `slippageBps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'must start from the matching requested quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'bind to the same requested `quoteId`, `snapshotId`, chain, user, token pair and `amountIn`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'exact same signed payload' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -574,6 +575,9 @@ grep -q 'chk_quotes_signed_payload_consistency' docs/database/schema.sql
 grep -q 'chk_quotes_rejection_payload_consistency' docs/database/schema.sql
 grep -q 'nonce IS NULL OR nonce > 0' docs/database/schema.sql
 grep -q 'amount_out >= min_amount_out' docs/database/schema.sql
+grep -q 'slippage_bps INTEGER NOT NULL' docs/database/schema.sql
+grep -q 'chk_quotes_slippage_bps' docs/database/schema.sql
+grep -q 'slippage_bps BETWEEN 0 AND 10000' docs/database/schema.sql
 grep -q 'chk_settlement_events_hashes' docs/database/schema.sql
 grep -q 'AND nonce > 0' docs/database/schema.sql
 grep -q 'bid_price <= mid_price' docs/database/schema.sql
@@ -601,6 +605,8 @@ grep -q 'block_number BETWEEN 0 AND 9007199254740991' docs/database/schema.sql
 grep -q 'user: "user_address"' scripts/check-database-schema-consistency.mjs
 grep -q 'minAmountOut: "min_amount_out"' scripts/check-database-schema-consistency.mjs
 grep -q 'deadline: "deadline"' scripts/check-database-schema-consistency.mjs
+grep -q 'slippageBps: "slippage_bps"' scripts/check-database-schema-consistency.mjs
+grep -q 'quotes.slippage_bps must persist QuoteRequest.slippageBps for quote replay' scripts/check-database-schema-consistency.mjs
 grep -q 'signed attribution snapshot' docs/database/er-diagram.md
 grep -q 'id must reject empty primary key values' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must constrain lifecycle status values' scripts/check-database-schema-consistency.mjs
@@ -657,6 +663,7 @@ grep -q 'external_order_id` 可以在内部 queued intent 阶段为 NULL' docs/d
 grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/database/er-diagram.md
 grep -q 'quotes.pricing_version`、`quotes.risk_policy_version` 和 `quotes.reject_code`' docs/database/er-diagram.md
 grep -q 'quotes.deadline` 使用 BIGINT 保存 EIP-712 signed quote 的 Unix seconds' docs/database/er-diagram.md
+grep -q 'quotes.slippage_bps` 保存原始 `QuoteRequest.slippageBps`' docs/database/er-diagram.md
 grep -q 'safe-integer `deadline` 和 safe-integer signed `gross_pnl_bps` 作为 signed attribution snapshot' docs/database/er-diagram.md
 grep -q 'safe-integer signed `gross_pnl_bps`' docs/database/er-diagram.md
 grep -q 'settlement_events.log_index` 和 `settlement_events.block_number` 使用 BIGINT 保存链上 event ordinal' docs/database/er-diagram.md
@@ -670,6 +677,7 @@ grep -q 'JavaScript safe integer range `1..9007199254740991`' docs/database/er-d
 grep -q 'PostgreSQL schema mirrors these invariants with quote status payload consistency checks' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '`pricing_version` / `risk_policy_version` / `reject_code` must be non-empty whenever present' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'PostgreSQL stores `quotes.deadline` as BIGINT Unix seconds in the JavaScript safe integer range' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'PostgreSQL stores `quotes.slippage_bps` as the original `QuoteRequest.slippageBps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'signed payload fields must be all present or all absent' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'PostgreSQL requires `quotes.snapshot_id` for every persisted quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'snapshot_id TEXT NOT NULL' docs/database/schema.sql
@@ -715,6 +723,9 @@ grep -q 'settlement_events.quote_id must be a required quotes(id) foreign key' s
 grep -q 'settlement_events.quote_id' docs/database/er-diagram.md
 grep -q 'uq_settlement_events_quote_id' docs/database/schema.sql
 grep -q 'settlement_events must keep one settlement event per quote' scripts/check-database-schema-consistency.mjs
+grep -q 'slippageBps: input.request.slippageBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'record.slippageBps === input.request.slippageBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'slippageBps: request.slippageBps + 1' backend/test/quote-service.test.mjs
 grep -q 'unique index `(quote_id)`' docs/database/er-diagram.md
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts
