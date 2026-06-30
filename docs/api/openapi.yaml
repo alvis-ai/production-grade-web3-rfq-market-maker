@@ -442,7 +442,7 @@ components:
           pattern: "^0x[a-fA-F0-9]{130}$"
           minLength: 132
           maxLength: 132
-          description: 65-byte EIP-712 signature encoded as 0x-prefixed hex.
+          description: 65-byte canonical low-s EIP-712 signature encoded as 0x-prefixed hex.
     SubmitQuoteRequest:
       type: object
       additionalProperties: false
@@ -457,7 +457,7 @@ components:
           pattern: "^0x[a-fA-F0-9]{130}$"
           minLength: 132
           maxLength: 132
-          description: 65-byte EIP-712 signature encoded as 0x-prefixed hex.
+          description: 65-byte canonical low-s EIP-712 signature encoded as 0x-prefixed hex. The gateway rejects high-s signatures and v values other than 27/28 or normalized 0/1 before quote lookup or settlement verification.
     SubmitQuoteResponse:
       type: object
       required:

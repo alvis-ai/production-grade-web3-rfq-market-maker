@@ -2194,6 +2194,24 @@ test("RFQ API rejects submit payloads that violate settlement shape", async () =
     assert.match(invalidSignature.body.message, /65 bytes/);
     assert.match(invalidSignature.body.traceId, /^tr_/);
 
+    const invalidSignatureV = await injectJson(server, "POST", "/submit", {
+      quote,
+      signature: `0x${"11".repeat(64)}02`,
+    });
+    assert.equal(invalidSignatureV.statusCode, 400);
+    assert.equal(invalidSignatureV.body.code, "INVALID_REQUEST");
+    assert.equal(invalidSignatureV.body.message, "signature v value must be 27 or 28");
+    assert.match(invalidSignatureV.body.traceId, /^tr_/);
+
+    const highSSignature = await injectJson(server, "POST", "/submit", {
+      quote,
+      signature: `0x${"11".repeat(32)}${"f".repeat(64)}1b`,
+    });
+    assert.equal(highSSignature.statusCode, 400);
+    assert.equal(highSSignature.body.code, "INVALID_REQUEST");
+    assert.equal(highSSignature.body.message, "signature s value must be in the lower half order");
+    assert.match(highSSignature.body.traceId, /^tr_/);
+
     const sameTokenPair = await injectJson(server, "POST", "/submit", {
       quote: {
         ...quote,
@@ -2381,8 +2399,9 @@ test("RFQ API rejects issued quotes with high-s malleated signatures", async () 
       signature: malleateSignature(quote.body.signature),
     });
 
-    assert.equal(response.statusCode, 409);
-    assert.equal(response.body.code, "INVALID_SIGNATURE");
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.body.code, "INVALID_REQUEST");
+    assert.equal(response.body.message, "signature s value must be in the lower half order");
     assert.match(response.body.traceId, /^tr_/);
 
     const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
@@ -2728,7 +2747,7 @@ async function injectRaw(server, method, url, payload) {
 }
 
 function fixedSignature() {
-  return `0x${"11".repeat(65)}`;
+  return `0x${"11".repeat(64)}1b`;
 }
 
 function quotePayloadFromResponse(quote) {

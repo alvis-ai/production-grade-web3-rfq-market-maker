@@ -78,7 +78,7 @@ assert.deepEqual(
 assert.equal(
   extractOpenApiPropertyPattern(openapiSource, "QuoteResponse", "signature"),
   "^0x[a-fA-F0-9]{130}$",
-  "QuoteResponse.signature must be a 65-byte EIP-712 signature",
+  "QuoteResponse.signature must be a 65-byte canonical low-s EIP-712 signature",
 );
 assert.equal(
   extractOpenApiSchemaPattern(openapiSource, "PositiveUIntString"),

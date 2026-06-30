@@ -19,7 +19,7 @@ const request = {
     deadline: 1893456000,
     chainId: 1,
   },
-  signature: `0x${"11".repeat(65)}`,
+  signature: `0x${"11".repeat(64)}1b`,
 };
 
 test("buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes", () => {
@@ -96,6 +96,28 @@ test("SkeletonExecutionService rejects unsafe execution inputs before settlement
       { quoteId: "q_invalid_signature" },
     ),
     /signature must be 65 bytes/,
+  );
+
+  await assert.rejects(
+    executionService.submitQuote(
+      {
+        ...request,
+        signature: `0x${"11".repeat(64)}02`,
+      },
+      { quoteId: "q_invalid_signature_v" },
+    ),
+    /signature v value must be 27 or 28/,
+  );
+
+  await assert.rejects(
+    executionService.submitQuote(
+      {
+        ...request,
+        signature: `0x${"11".repeat(32)}${"f".repeat(64)}1b`,
+      },
+      { quoteId: "q_high_s_signature" },
+    ),
+    /signature s value must be in the lower half order/,
   );
 
   await assert.rejects(

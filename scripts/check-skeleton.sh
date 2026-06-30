@@ -219,13 +219,20 @@ grep -q 'JavaScript safe integer maximum' scripts/check-api-schema-consistency.m
 grep -q 'PositiveUIntString must reject zero and negative values' scripts/check-api-schema-consistency.mjs
 grep -q 'SignedQuote", "nonce"' scripts/check-api-schema-consistency.mjs
 grep -q 'must reject unknown request fields' scripts/check-api-schema-consistency.mjs
-grep -q 'QuoteResponse.signature must be a 65-byte EIP-712 signature' scripts/check-api-schema-consistency.mjs
+grep -q 'QuoteResponse.signature must be a 65-byte canonical low-s EIP-712 signature' scripts/check-api-schema-consistency.mjs
 grep -q 'SubmitQuoteResponse", "QuoteStatus", "SettlementEventStatus' scripts/check-api-schema-consistency.mjs
 grep -q 'txHash must be a 32-byte transaction hash' scripts/check-api-schema-consistency.mjs
 grep -q 'InMemoryRateLimiter' backend/src/main.ts
 grep -q 'RATE_LIMITED' backend/src/main.ts
 grep -q 'retry-after' backend/src/main.ts
 grep -q 'signature must be 65 bytes' backend/src/shared/validation/submit-request.ts
+grep -q 'SECP256K1N_HALF' backend/src/shared/validation/submit-request.ts
+grep -q 'signature s value must be in the lower half order' backend/src/shared/validation/submit-request.ts
+grep -q 'signature v value must be 27 or 28' backend/src/shared/validation/submit-request.ts
+grep -q 'signature s value must be in the lower half order' backend/test/validation.test.mjs
+grep -q 'signature v value must be 27 or 28' backend/test/api.test.mjs
+grep -q 'canonical low-s EIP-712 signature' docs/api/openapi.yaml
+grep -q 'rejects non-canonical signatures before quote lookup' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'readPositiveUint' backend/src/shared/validation/submit-request.ts
 grep -q 'nonce: readPositiveUint(quote.nonce, "quote.nonce")' backend/src/shared/validation/submit-request.ts
 grep -q 'greater than or equal to quote.minAmountOut' backend/src/shared/validation/submit-request.ts
@@ -1056,7 +1063,7 @@ grep -q 'Prometheus alert rules must cover backend metric' scripts/check-metrics
 grep -q 'Grafana overview dashboard must query alert metric' scripts/check-grafana-dashboard-consistency.mjs
 grep -q 'typescript-check' Makefile
 grep -q 'api-error-check' Makefile
-grep -q '65-byte EIP-712 signature' docs/api/openapi.yaml
+grep -q '65-byte canonical low-s EIP-712 signature' docs/api/openapi.yaml
 grep -q 'Expected ${label} to be a 65-byte hex string' scripts/smoke-api.mjs
 grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/openapi.yaml
 grep -q 'Signed quote not found' docs/api/openapi.yaml

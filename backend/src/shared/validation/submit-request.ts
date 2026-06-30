@@ -5,6 +5,7 @@ import { assertExactFields } from "./object-fields.js";
 const ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
 const HEX_PATTERN = /^0x[a-fA-F0-9]+$/;
 const UINT_PATTERN = /^[0-9]+$/;
+const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const SUBMIT_REQUEST_FIELDS = ["quote", "signature"];
 const SIGNED_QUOTE_FIELDS = [
   "user",
@@ -36,6 +37,7 @@ export function validateSubmitQuoteRequest(input: unknown): SubmitQuoteRequest {
   if (signature.length !== 132) {
     throw new APIError("INVALID_REQUEST", "signature must be 65 bytes", 400);
   }
+  assertCanonicalSignature(signature);
 
   const user = readAddress(quote.user, "quote.user");
   const tokenIn = readAddress(quote.tokenIn, "quote.tokenIn");
@@ -69,6 +71,19 @@ export function validateSubmitQuoteRequest(input: unknown): SubmitQuoteRequest {
     },
     signature: signature as `0x${string}`,
   };
+}
+
+function assertCanonicalSignature(signature: string): void {
+  const s = BigInt(`0x${signature.slice(66, 130)}`);
+  if (s > SECP256K1N_HALF) {
+    throw new APIError("INVALID_REQUEST", "signature s value must be in the lower half order", 400);
+  }
+
+  const v = Number.parseInt(signature.slice(130, 132), 16);
+  const normalizedV = v < 27 ? v + 27 : v;
+  if (normalizedV !== 27 && normalizedV !== 28) {
+    throw new APIError("INVALID_REQUEST", "signature v value must be 27 or 28", 400);
+  }
 }
 
 function readAddress(input: unknown, field: string): Address {
