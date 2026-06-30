@@ -69,7 +69,7 @@ export class SettlementEventService implements SettlementEventStore {
       }
 
       return {
-        event,
+        event: cloneSettlementEvent(event),
         duplicate: true,
       };
     }
@@ -84,7 +84,7 @@ export class SettlementEventService implements SettlementEventStore {
       }
 
       return {
-        event,
+        event: cloneSettlementEvent(event),
         duplicate: true,
       };
     }
@@ -112,7 +112,7 @@ export class SettlementEventService implements SettlementEventStore {
     this.eventIdsByQuoteId.set(event.quoteId, event.settlementEventId);
 
     return {
-      event,
+      event: cloneSettlementEvent(event),
       duplicate: false,
     };
   }
@@ -146,13 +146,14 @@ export class SettlementEventService implements SettlementEventStore {
     );
 
     return {
-      event,
+      event: cloneSettlementEvent(event),
       removed: true,
     };
   }
 
   getSettlementEvent(settlementEventId: string): SettlementEventStatusResponse | undefined {
-    return this.events.get(settlementEventId);
+    const event = this.events.get(settlementEventId);
+    return event ? cloneSettlementEvent(event) : undefined;
   }
 
   listSettlementEvents(): SettlementEventStatusResponse[] {
@@ -162,7 +163,7 @@ export class SettlementEventService implements SettlementEventStore {
       }
 
       return left.logIndex - right.logIndex;
-    });
+    }).map(cloneSettlementEvent);
   }
 
   private toSettlementDelta(event: SettlementEventStatusResponse): SettlementDelta {
@@ -198,6 +199,10 @@ export class SettlementEventService implements SettlementEventStore {
       event.amountOut === input.quote.amountOut
     );
   }
+}
+
+function cloneSettlementEvent(event: SettlementEventStatusResponse): SettlementEventStatusResponse {
+  return { ...event };
 }
 
 function normalizeTxHash(value: `0x${string}`): `0x${string}` {

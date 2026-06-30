@@ -114,6 +114,35 @@ test("SettlementEventService lists settlement events in chain order", () => {
   );
 });
 
+test("SettlementEventService returns defensive copies of settlement events", () => {
+  const inventory = new InventoryService();
+  const settlements = new SettlementEventService(inventory);
+  const applied = settlements.applySettlementEvent({
+    quoteId: "q_defensive_copy",
+    quote,
+    txHash: `0x${"15".repeat(32)}`,
+    blockNumber: 20,
+    logIndex: 4,
+  });
+
+  applied.event.status = "removed";
+  applied.event.txHash = `0x${"16".repeat(32)}`;
+  applied.event.amountOut = "1";
+
+  const loaded = settlements.getSettlementEvent(applied.event.settlementEventId);
+  assert.equal(loaded.status, "applied");
+  assert.equal(loaded.txHash, `0x${"15".repeat(32)}`);
+  assert.equal(loaded.amountOut, quote.amountOut);
+
+  loaded.status = "removed";
+  const listed = settlements.listSettlementEvents();
+  listed[0].txHash = `0x${"17".repeat(32)}`;
+
+  const reloaded = settlements.getSettlementEvent(applied.event.settlementEventId);
+  assert.equal(reloaded.status, "applied");
+  assert.equal(reloaded.txHash, `0x${"15".repeat(32)}`);
+});
+
 test("SettlementEventService removes reorged events and rebuilds inventory from canonical events", () => {
   const inventory = new InventoryService();
   const settlements = new SettlementEventService(inventory);

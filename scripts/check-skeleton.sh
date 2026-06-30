@@ -538,11 +538,14 @@ grep -q 'eventIdsByQuoteId' backend/src/modules/settlement/settlement-event.serv
 grep -q 'txHash.slice(2)}_${logIndex}' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'matchesExistingEvent' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'cloneSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'assertSettlementEventInput' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'Settlement event quote.amountOut must be greater than or equal to quote.minAmountOut' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'keeps distinct events with the same tx hash prefix' backend/test/settlement-event.test.mjs
 grep -q 'rejects conflicting events for an already settled quote' backend/test/settlement-event.test.mjs
 grep -q 'lists settlement events in chain order' backend/test/settlement-event.test.mjs
+grep -q 'returns defensive copies of settlement events' backend/test/settlement-event.test.mjs
+grep -q 'returns defensive copies from apply, remove, get and list operations' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'removes reorged events and rebuilds inventory from canonical events' backend/test/settlement-event.test.mjs
 grep -q 'treats duplicate reorg removals as idempotent' backend/test/settlement-event.test.mjs
 grep -q 'rejects conflicting reorg removals before mutating state' backend/test/settlement-event.test.mjs
