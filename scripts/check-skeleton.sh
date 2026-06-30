@@ -559,6 +559,8 @@ grep -q 'chk_quotes_signature_and_tx_hash_hex' docs/database/schema.sql
 grep -q 'substring(signature from 67 for 64)' docs/database/schema.sql
 grep -q "substring(signature from 131 for 2)) IN ('1b', '1c')" docs/database/schema.sql
 grep -q 'chk_quotes_status_payload_consistency' docs/database/schema.sql
+grep -q 'chk_quotes_signed_payload_atomic' docs/database/schema.sql
+grep -q 'chk_quotes_unfilled_payload_consistency' docs/database/schema.sql
 grep -q 'chk_quotes_signed_payload_consistency' docs/database/schema.sql
 grep -q 'chk_quotes_rejection_payload_consistency' docs/database/schema.sql
 grep -q 'nonce IS NULL OR nonce > 0' docs/database/schema.sql
@@ -587,6 +589,8 @@ grep -q 'quotes must require amount_out to satisfy min_amount_out when both are 
 grep -q 'settlement_events must require positive settled amount and nonce fields' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present' scripts/check-database-schema-consistency.mjs
 grep -q 'non-settlement quote statuses must not expose settlement, hedge, or PnL pointers' scripts/check-database-schema-consistency.mjs
+grep -q 'quote signed payload fields must be all present or all absent' scripts/check-database-schema-consistency.mjs
+grep -q 'requested and rejected quotes must not carry signed payload fields' scripts/check-database-schema-consistency.mjs
 grep -q 'signed lifecycle statuses must keep complete signed quote payload metadata' scripts/check-database-schema-consistency.mjs
 grep -q 'only rejected and failed quote statuses may keep reject_code' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-database-schema-consistency.mjs
@@ -596,11 +600,13 @@ grep -q 'distinct token pair' docs/database/er-diagram.md
 grep -q 'bid_price <= mid_price <= ask_price' docs/database/er-diagram.md
 grep -q 'canonical low-s EIP-712 signature' docs/database/er-diagram.md
 grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/database/er-diagram.md
+grep -q 'signed payload 字段全有或全无' docs/database/er-diagram.md
 grep -q '正数 signed amount/nonce' docs/database/er-diagram.md
 grep -q 'amount_out >= min_amount_out' docs/database/er-diagram.md
 grep -q 'status payload consistency' docs/database/er-diagram.md
 grep -q 'JavaScript safe integer range `1..9007199254740991`' docs/database/er-diagram.md
 grep -q 'PostgreSQL schema mirrors these invariants with quote status payload consistency checks' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'signed payload fields must be all present or all absent' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'fk_quotes_snapshot_id' docs/database/schema.sql
 grep -q 'fk_quotes_settlement_event_id' docs/database/schema.sql
 grep -q 'fk_quotes_hedge_order_id' docs/database/schema.sql

@@ -63,6 +63,35 @@ CREATE TABLE quotes (
       AND settlement_event_id IS NOT NULL
     )
   ),
+  CONSTRAINT chk_quotes_signed_payload_atomic CHECK (
+    (
+      amount_out IS NULL
+      AND min_amount_out IS NULL
+      AND nonce IS NULL
+      AND deadline IS NULL
+      AND pricing_version IS NULL
+      AND signature IS NULL
+    )
+    OR (
+      amount_out IS NOT NULL
+      AND min_amount_out IS NOT NULL
+      AND nonce IS NOT NULL
+      AND deadline IS NOT NULL
+      AND pricing_version IS NOT NULL
+      AND signature IS NOT NULL
+    )
+  ),
+  CONSTRAINT chk_quotes_unfilled_payload_consistency CHECK (
+    status NOT IN ('requested', 'rejected')
+    OR (
+      amount_out IS NULL
+      AND min_amount_out IS NULL
+      AND nonce IS NULL
+      AND deadline IS NULL
+      AND pricing_version IS NULL
+      AND signature IS NULL
+    )
+  ),
   CONSTRAINT chk_quotes_signed_payload_consistency CHECK (
     status NOT IN ('signed', 'expired', 'submitted', 'settled')
     OR (

@@ -152,6 +152,8 @@ const requiredCheckConstraints = {
     ["chk_quotes_distinct_tokens", "quotes must constrain token_in and token_out to distinct addresses"],
     ["chk_quotes_signature_and_tx_hash_hex", "quotes must constrain signature and transaction hash shape"],
     ["chk_quotes_status_payload_consistency", "quotes must constrain lifecycle status pointer consistency"],
+    ["chk_quotes_signed_payload_atomic", "quotes must constrain signed payload fields to be all present or all absent"],
+    ["chk_quotes_unfilled_payload_consistency", "quotes must prevent requested and rejected quotes from carrying signed payload fields"],
     ["chk_quotes_signed_payload_consistency", "quotes must constrain signed lifecycle payload completeness"],
     ["chk_quotes_rejection_payload_consistency", "quotes must constrain rejection payload completeness"],
   ],
@@ -274,6 +276,18 @@ assert.ok(
     tables.get("quotes").body,
   ),
   "non-settlement quote statuses must not expose settlement, hedge, or PnL pointers",
+);
+assert.ok(
+  /amount_out\s+IS\s+NULL[\s\S]*?min_amount_out\s+IS\s+NULL[\s\S]*?nonce\s+IS\s+NULL[\s\S]*?deadline\s+IS\s+NULL[\s\S]*?pricing_version\s+IS\s+NULL[\s\S]*?signature\s+IS\s+NULL[\s\S]*?amount_out\s+IS\s+NOT\s+NULL[\s\S]*?min_amount_out\s+IS\s+NOT\s+NULL[\s\S]*?nonce\s+IS\s+NOT\s+NULL[\s\S]*?deadline\s+IS\s+NOT\s+NULL[\s\S]*?pricing_version\s+IS\s+NOT\s+NULL[\s\S]*?signature\s+IS\s+NOT\s+NULL/i.test(
+    tables.get("quotes").body,
+  ),
+  "quote signed payload fields must be all present or all absent",
+);
+assert.ok(
+  /status\s+NOT\s+IN\s*\(\s*'requested'\s*,\s*'rejected'\s*\)[\s\S]*?amount_out\s+IS\s+NULL[\s\S]*?min_amount_out\s+IS\s+NULL[\s\S]*?nonce\s+IS\s+NULL[\s\S]*?deadline\s+IS\s+NULL[\s\S]*?pricing_version\s+IS\s+NULL[\s\S]*?signature\s+IS\s+NULL/i.test(
+    tables.get("quotes").body,
+  ),
+  "requested and rejected quotes must not carry signed payload fields",
 );
 assert.ok(
   /status\s+NOT\s+IN\s*\(\s*'signed'\s*,\s*'expired'\s*,\s*'submitted'\s*,\s*'settled'\s*\)[\s\S]*?amount_out\s+IS\s+NOT\s+NULL[\s\S]*?min_amount_out\s+IS\s+NOT\s+NULL[\s\S]*?nonce\s+IS\s+NOT\s+NULL[\s\S]*?deadline\s+IS\s+NOT\s+NULL[\s\S]*?pricing_version\s+IS\s+NOT\s+NULL[\s\S]*?risk_policy_version\s+IS\s+NOT\s+NULL[\s\S]*?signature\s+IS\s+NOT\s+NULL/i.test(
