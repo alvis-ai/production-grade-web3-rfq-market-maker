@@ -475,6 +475,8 @@ grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'listSettlementEvents' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'removeSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'rebuildFromSettlements' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventIdsByQuoteId' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'txHash.slice(2)}_${logIndex}' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
@@ -484,6 +486,9 @@ grep -q 'Settlement event quote.amountOut must be greater than or equal to quote
 grep -q 'keeps distinct events with the same tx hash prefix' backend/test/settlement-event.test.mjs
 grep -q 'rejects conflicting events for an already settled quote' backend/test/settlement-event.test.mjs
 grep -q 'lists settlement events in chain order' backend/test/settlement-event.test.mjs
+grep -q 'removes reorged events and rebuilds inventory from canonical events' backend/test/settlement-event.test.mjs
+grep -q 'treats duplicate reorg removals as idempotent' backend/test/settlement-event.test.mjs
+grep -q 'rejects conflicting reorg removals before mutating state' backend/test/settlement-event.test.mjs
 grep -q 'rejects conflicting payloads for an existing chain event key' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects unsafe settlement quote inputs before side effects' backend/test/settlement-event.test.mjs
 grep -q 'hashSettlementQuote rejects malformed quote fields before ABI encoding' backend/test/settlement-event.test.mjs
@@ -1349,6 +1354,7 @@ grep -Fq -- '- [x] EIP-712 domain includes name, version, chainId and verifyingC
 grep -Fq -- '- [x] `submitQuote` rejects expired quotes.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Risk Engine runs before Signer Service.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] Indexer handles chain reorgs.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Inventory updates are replayable.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Sensitive thresholds are not exposed to users.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] ClickHouse analytics do not become operational source of truth.' docs/security/audit-checklist.md
@@ -1356,6 +1362,8 @@ grep -Fq -- '- [x] Signer key rotation is documented.' docs/security/audit-check
 grep -Fq -- '- [x] Emergency pause procedure is documented.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] `submitQuote` uses SafeERC20 for transfers.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] AccessControl protects signer and token whitelist updates.' docs/security/audit-checklist.md
+grep -q 'SettlementEventService.removeSettlementEvent()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'removed/reorg logs' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q '本地 `SafeERC20` 库' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'SIGNER_ADMIN_ROLE' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'TOKEN_ADMIN_ROLE' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md

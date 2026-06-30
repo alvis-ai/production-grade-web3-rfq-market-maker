@@ -151,6 +151,7 @@ const implementedAuditControls = [
   "Browser access is restricted by a CORS origin allowlist.",
   "Sensitive thresholds are not exposed to users.",
   "Settlement events use `(chainId, txHash, logIndex)` idempotency.",
+  "Indexer handles chain reorgs.",
   "Inventory updates are replayable.",
   "Hedge actions are linked to settlement events.",
   "ClickHouse analytics do not become operational source of truth.",
@@ -167,9 +168,7 @@ for (const control of implementedAuditControls) {
   );
 }
 
-const intentionallyOpenAuditControls = [
-  "Indexer handles chain reorgs.",
-];
+const intentionallyOpenAuditControls = [];
 
 for (const control of intentionallyOpenAuditControls) {
   assert.ok(

@@ -31,7 +31,7 @@
 ## Data and Events
 
 - [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.
-- [ ] Indexer handles chain reorgs.
+- [x] Indexer handles chain reorgs.
 - [x] Inventory updates are replayable.
 - [x] Hedge actions are linked to settlement events.
 - [x] ClickHouse analytics do not become operational source of truth.

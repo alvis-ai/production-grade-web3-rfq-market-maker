@@ -179,8 +179,8 @@ Use this procedure when signer compromise, settlement replay uncertainty, treasu
 
 1. Check event consumer offset.
 2. Stop high-notional quote signing.
-3. Replay from last confirmed block.
-4. Reconcile inventory.
+3. Replay from last confirmed block and apply removed/reorg logs through `SettlementEventService.removeSettlementEvent()`.
+4. Reconcile inventory from the canonical settlement event stream before restoring normal quote size.
 
 ### Hedge Failure
 

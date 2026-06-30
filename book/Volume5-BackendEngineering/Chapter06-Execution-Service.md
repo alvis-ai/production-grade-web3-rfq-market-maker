@@ -138,6 +138,7 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 - Duplicate settlement events must match the original quote payload and `quoteHash` for the same `(chainId, txHash, logIndex)` key; conflicting payloads indicate event-store or indexer corruption and fail before additional side effects.
 - A signed quote may bind to only one settlement event. The reference `SettlementEventService` indexes by `quoteId` as well as `(chainId, txHash, logIndex)`, and the database keeps `uq_settlement_events_quote_id` so a replay or indexer bug cannot apply a second inventory delta for the same quote.
 - `settlementEventId` is derived from the full normalized `txHash` plus `chainId` and `logIndex`, not a shortened transaction prefix. Two chain events that share the same first bytes must remain independently queryable and must not overwrite each other.
+- Reorg removals are explicit state transitions: `SettlementEventService.removeSettlementEvent()` accepts the removed `(chainId, txHash, logIndex, blockNumber)` event, deletes the canonical event indexes, and rebuilds inventory from the remaining settlement event stream. Duplicate removals are idempotent, while block-number conflicts fail before mutating inventory or indexes.
 - Quote status persistence after settlement is best-effort in the runnable reference path. If marking `submitted` or `settled` fails after settlement is already applied, `/submit` still returns HTTP 202 and records `rfq_quote_status_update_errors_total` because settlement remains the source of truth.
 - The runnable reference path includes an internal `ReconciliationService.reconcileSettlementToQuote()` that lists applied settlement events and repairs quote `settled` status plus `txHash`/`settlementEventId` metadata without replaying settlement, inventory, hedge or PnL side effects.
 - PnL attribution after settlement is best-effort and idempotent by `(quoteId, model)`. If writing the realized PnL record fails after settlement is already applied, `/submit` still returns HTTP 202 without `pnlId` and records `rfq_pnl_record_errors_total{reason="PNL_RECORD_FAILED"}` for reconciliation.
@@ -163,6 +164,7 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 - Settlement event store unavailable before inventory update：return `SETTLEMENT_EVENT_STORE_UNAVAILABLE`, keep quote signed, and do not create inventory, hedge, PnL, or settlement metrics。
 - Settlement event store unavailable on status lookup：`GET /settlements/:id` returns `SETTLEMENT_EVENT_STORE_UNAVAILABLE` with traceId, so clients retry indexing status instead of treating the event as missing。
 - Duplicate settlement event：skip inventory/PnL/hedge side effects and return the existing settlement event id。
+- Reorg removed event：remove the canonical settlement event, rebuild inventory from the remaining event stream, then run quote/hedge/PnL reconciliation against canonical events before reopening normal quote size。
 - Event lag：status pending until indexed。
 
 ## Security Considerations
@@ -175,7 +177,7 @@ Execution path can be asynchronous. RPC latency should not block quote generatio
 
 ## Testing Strategy
 
-测试 payload generation、relay failure、tx revert、settlement verifier unavailable、settlement verifier policy fail-fast、PnL attribution input validation、event confirmation、duplicate submit、duplicate settlement side-effect suppression、post-settlement status persistence failure 和 quote expired。
+测试 payload generation、relay failure、tx revert、settlement verifier unavailable、settlement verifier policy fail-fast、PnL attribution input validation、event confirmation、duplicate submit、duplicate settlement side-effect suppression、reorg removal inventory replay、post-settlement status persistence failure 和 quote expired。
 
 ## Interview Notes
 

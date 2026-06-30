@@ -16,14 +16,27 @@ export interface ApplySettlementEventInput {
   quote: SignedQuote;
 }
 
+export interface RemoveSettlementEventInput {
+  chainId: number;
+  txHash: `0x${string}`;
+  blockNumber?: number;
+  logIndex?: number;
+}
+
 export interface ApplySettlementEventResult {
   event: SettlementEventStatusResponse;
   duplicate: boolean;
 }
 
+export interface RemoveSettlementEventResult {
+  event?: SettlementEventStatusResponse;
+  removed: boolean;
+}
+
 export interface SettlementEventStore {
   checkHealth?(): void;
   applySettlementEvent(input: ApplySettlementEventInput): ApplySettlementEventResult;
+  removeSettlementEvent(input: RemoveSettlementEventInput): RemoveSettlementEventResult;
   getSettlementEvent(settlementEventId: string): SettlementEventStatusResponse | undefined;
   listSettlementEvents(): SettlementEventStatusResponse[];
 }
@@ -101,6 +114,40 @@ export class SettlementEventService implements SettlementEventStore {
     return {
       event,
       duplicate: false,
+    };
+  }
+
+  removeSettlementEvent(input: RemoveSettlementEventInput): RemoveSettlementEventResult {
+    assertRemoveSettlementEventInput(input);
+    const txHash = normalizeTxHash(input.txHash);
+    const logIndex = normalizeEventOrdinal(input.logIndex, "logIndex");
+    const blockNumber = normalizeEventOrdinal(input.blockNumber, "blockNumber");
+    const key = this.eventKey(input.chainId, txHash, logIndex);
+    const existingEventId = this.eventIdsByKey.get(key);
+    if (!existingEventId) {
+      return {
+        removed: false,
+      };
+    }
+
+    const event = this.events.get(existingEventId);
+    if (!event) {
+      throw new Error(`Settlement event index is inconsistent for ${existingEventId}`);
+    }
+    if (event.blockNumber !== blockNumber) {
+      throw new Error(`Settlement event reorg block conflict for ${existingEventId}`);
+    }
+
+    this.events.delete(event.settlementEventId);
+    this.eventIdsByKey.delete(key);
+    this.eventIdsByQuoteId.delete(event.quoteId);
+    this.inventoryService.rebuildFromSettlements(
+      this.listSettlementEvents().map((canonicalEvent) => this.toSettlementDelta(canonicalEvent)),
+    );
+
+    return {
+      event,
+      removed: true,
     };
   }
 
@@ -209,6 +256,14 @@ function assertSettlementEventInput(input: ApplySettlementEventInput): void {
 
   assertNonEmptyString(input.quoteId, "quoteId");
   assertSettlementQuote(input.quote);
+}
+
+function assertRemoveSettlementEventInput(input: RemoveSettlementEventInput): void {
+  if (typeof input !== "object" || input === null) {
+    throw new Error("Settlement event reorg input must be an object");
+  }
+
+  assertPositiveSafeInteger(input.chainId, "reorg.chainId");
 }
 
 function assertSettlementQuote(quote: SignedQuote): void {
