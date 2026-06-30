@@ -8,6 +8,10 @@ const docs = {
   auditChecklist: await readFile("docs/security/audit-checklist.md", "utf8"),
   keyManagement: await readFile("docs/security/key-management.md", "utf8"),
   runbook: await readFile("book/Volume7-ProductionDeployment/Chapter05-Runbook.md", "utf8"),
+  apiErrors: await readFile("docs/api/errors.md", "utf8"),
+  openapi: await readFile("docs/api/openapi.yaml", "utf8"),
+  apiGateway: await readFile("book/Volume5-BackendEngineering/Chapter01-API-Gateway.md", "utf8"),
+  riskService: await readFile("book/Volume5-BackendEngineering/Chapter04-Risk-Service.md", "utf8"),
 };
 
 const requiredHeadings = {
@@ -139,6 +143,7 @@ const implementedAuditControls = [
   "All errors include traceId.",
   "Public API responses include no-store cache control and baseline browser security headers.",
   "Browser access is restricted by a CORS origin allowlist.",
+  "Sensitive thresholds are not exposed to users.",
   "Settlement events use `(chainId, txHash, logIndex)` idempotency.",
   "Hedge actions are linked to settlement events.",
   "Alerts exist for signer failures, risk reject spikes, event lag and hedge failures.",
@@ -188,6 +193,51 @@ for (const term of [
   "two-person approval",
 ]) {
   assert.ok(docs.runbook.includes(term), `runbook emergency pause procedure must include: ${term}`);
+}
+
+for (const term of [
+  "不直接暴露内部 policy threshold",
+  "对外只返回通用说明",
+]) {
+  assert.ok(docs.apiErrors.includes(term), `API errors docs must protect sensitive risk details: ${term}`);
+}
+
+for (const term of [
+  "Gateway 不返回内部 risk threshold",
+  "policyVersion",
+  "internal reasonCode",
+  "inventory limit",
+  "toxic-flow score",
+  "pricing adjustment breakdown",
+]) {
+  assert.ok(docs.apiGateway.includes(term), `API gateway docs must define sensitive field boundary: ${term}`);
+}
+
+for (const term of [
+  "Public API responses must not expose internal risk thresholds",
+  "policyVersion or internal reasonCode values",
+  "detailed `reasonCode` and `policyVersion` stay in internal audit records",
+]) {
+  assert.ok(docs.riskService.includes(term), `Risk service docs must define sensitive threshold boundary: ${term}`);
+}
+
+for (const sensitivePublicField of [
+  "riskPolicyVersion",
+  "policyVersion",
+  "reasonCode",
+  "maxNotional",
+  "maxQuotedSpread",
+  "inventoryLimit",
+  "toxicFlowScore",
+  "inventorySkewBps",
+  "sizeImpactBps",
+  "spreadBps",
+  "hedgeCostBps",
+]) {
+  assert.ok(
+    !docs.openapi.includes(sensitivePublicField),
+    `OpenAPI public contract must not expose sensitive risk field: ${sensitivePublicField}`,
+  );
 }
 
 const mermaidBlocks = [...docs.threatModel.matchAll(/^```mermaid$/gm)].length +

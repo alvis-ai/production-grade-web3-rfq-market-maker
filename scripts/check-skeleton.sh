@@ -1334,6 +1334,7 @@ grep -Fq -- '- [x] EIP-712 domain includes name, version, chainId and verifyingC
 grep -Fq -- '- [x] `submitQuote` rejects expired quotes.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Risk Engine runs before Signer Service.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] Sensitive thresholds are not exposed to users.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Signer key rotation is documented.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Emergency pause procedure is documented.' docs/security/audit-checklist.md
 grep -Fq -- '- [ ] `submitQuote` uses SafeERC20 for transfers.' docs/security/audit-checklist.md
@@ -1344,6 +1345,10 @@ grep -q 'Emergency Pause Procedure' book/Volume7-ProductionDeployment/Chapter05-
 grep -q 'RFQSettlement.setPaused(true)' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'negative submit canary' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'two-person approval' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'OpenAPI public contract must not expose sensitive risk field' scripts/check-security-docs-consistency.mjs
+grep -q 'Public API responses must not expose internal risk thresholds' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'policyVersion or internal reasonCode values' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'pricing adjustment breakdown' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Pod Termination Or Rollout Drain' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'Fastify close' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'terminationGracePeriodSeconds=30' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md

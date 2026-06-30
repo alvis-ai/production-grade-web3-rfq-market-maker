@@ -130,6 +130,7 @@ evaluate(input: RiskInput): Promise<RiskDecision>
 ## Security Considerations
 
 RiskDecision 不能由客户端提供。Signer Service 应验证调用方身份和 approved context。
+Public API responses must not expose internal risk thresholds, inventory limits, toxic-flow scores, quoted-spread caps, policyVersion or internal reasonCode values. Quote rejection is returned as stable `RISK_REJECTED` with traceId, while detailed `reasonCode` and `policyVersion` stay in internal audit records, metrics labels and operator logs.
 
 ## Performance Considerations
 

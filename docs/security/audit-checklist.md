@@ -26,7 +26,7 @@
 - [x] All errors include traceId.
 - [x] Public API responses include no-store cache control and baseline browser security headers.
 - [x] Browser access is restricted by a CORS origin allowlist.
-- [ ] Sensitive thresholds are not exposed to users.
+- [x] Sensitive thresholds are not exposed to users.
 
 ## Data and Events
 

@@ -110,7 +110,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 ## Engineering Decisions
 
 - Gateway 不直接调用 Signer。
-- Gateway 不返回内部 risk threshold。
+- Gateway 不返回内部 risk threshold、policyVersion、internal reasonCode、inventory limit、toxic-flow score 或 pricing adjustment breakdown；这些字段只能进入审计日志、指标标签和运维排障上下文。
 - traceId 必须贯穿后端调用链；当前 Fastify gateway 在 `onRequest` hook 中为所有 HTTP 响应写入 `x-trace-id`，错误响应 body 的 `traceId` 必须与该 header 保持一致。
 - Fastify parser 和框架级错误必须经过统一 error handler 映射为 `ErrorResponse`；malformed JSON 返回 `INVALID_REQUEST`/400，body too large 返回 `INVALID_REQUEST`/413，unsupported content type 返回 `INVALID_REQUEST`/415。
 - Standalone server startup validates `HOST` and `PORT` before calling Fastify `listen`; `HOST` defaults to `127.0.0.1` without whitespace and `PORT` defaults to 3000 with a required range of 1 to 65535.
