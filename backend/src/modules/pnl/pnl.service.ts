@@ -1,5 +1,8 @@
 import type { IntString, PnlSummaryResponse, PnlTradeRecord, SignedQuote } from "../../shared/types/rfq.js";
 
+const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
+const MIN_SAFE_INTEGER_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
+
 export interface RecordPnlInput {
   quoteId: string;
   quote: SignedQuote;
@@ -106,7 +109,12 @@ function calculateGrossPnlBps(amountIn: string, grossPnl: bigint): number {
     return 0;
   }
 
-  return Number((grossPnl * 10_000n) / notional);
+  const grossPnlBps = (grossPnl * 10_000n) / notional;
+  if (grossPnlBps < MIN_SAFE_INTEGER_BIGINT || grossPnlBps > MAX_SAFE_INTEGER_BIGINT) {
+    throw new Error("Pnl grossPnlBps must be a safe integer");
+  }
+
+  return Number(grossPnlBps);
 }
 
 function assertPnlInput(input: RecordPnlInput): void {

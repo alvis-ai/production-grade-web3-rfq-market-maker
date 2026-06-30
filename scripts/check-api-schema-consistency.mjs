@@ -117,7 +117,9 @@ for (const [schemaName, propertyName] of [
   ["SettlementEventStatus", "chainId"],
   ["SettlementEventStatus", "blockNumber"],
   ["SettlementEventStatus", "logIndex"],
+  ["PnlTradeRecord", "chainId"],
   ["PnlTradeRecord", "deadline"],
+  ["PnlTradeRecord", "grossPnlBps"],
 ]) {
   assert.equal(
     extractOpenApiPropertyNumericBound(openapiSource, schemaName, propertyName, "maximum"),
@@ -125,6 +127,11 @@ for (const [schemaName, propertyName] of [
     `${schemaName}.${propertyName} must document the JavaScript safe integer maximum`,
   );
 }
+assert.equal(
+  extractOpenApiPropertyNumericBound(openapiSource, "PnlTradeRecord", "grossPnlBps", "minimum"),
+  "-9007199254740991",
+  "PnlTradeRecord.grossPnlBps must document the JavaScript safe integer minimum",
+);
 
 for (const schemaName of ["SubmitQuoteResponse", "QuoteStatus", "SettlementEventStatus"]) {
   assert.equal(

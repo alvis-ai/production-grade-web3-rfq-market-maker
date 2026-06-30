@@ -210,6 +210,7 @@ const requiredCheckConstraints = {
     ["chk_pnl_records_addresses_hex", "pnl_records must constrain token address shape"],
     ["chk_pnl_records_distinct_tokens", "pnl_records must constrain token pair addresses to be distinct"],
     ["chk_pnl_records_amounts_positive", "pnl_records must constrain positive trade amounts"],
+    ["chk_pnl_records_gross_pnl_bps_safe", "pnl_records must constrain gross PnL bps to JavaScript safe integer range"],
   ],
 };
 
@@ -393,6 +394,16 @@ assert.ok(
 assert.ok(
   /deadline\s+BETWEEN\s+1\s+AND\s+9007199254740991/i.test(tables.get("pnl_records").body),
   "pnl_records must require safe-integer signed attribution deadlines",
+);
+assert.ok(
+  /\bgross_pnl_bps\s+BIGINT\s+NOT\s+NULL/i.test(tables.get("pnl_records").body),
+  "pnl_records.gross_pnl_bps must be stored as a JavaScript safe-integer sized signed bps value",
+);
+assert.ok(
+  /gross_pnl_bps\s+BETWEEN\s+-9007199254740991\s+AND\s+9007199254740991/i.test(
+    tables.get("pnl_records").body,
+  ),
+  "pnl_records must constrain gross PnL bps to JavaScript safe integer range",
 );
 
 for (const indexName of [

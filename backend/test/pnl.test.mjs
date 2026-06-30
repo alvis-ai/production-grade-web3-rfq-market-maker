@@ -148,6 +148,27 @@ test("PnlService rejects signed quote metadata conflicts for the same quote and 
   assert.equal(summary.trades[0].deadline, baseQuote.deadline);
 });
 
+test("PnlService rejects unsafe gross PnL bps before storing attribution", () => {
+  const pnl = new PnlService();
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q_unsafe_bps",
+        quote: {
+          ...baseQuote,
+          amountIn: "1",
+          amountOut: "900719925476",
+          minAmountOut: "1",
+          nonce: "9",
+        },
+      }),
+    /Pnl grossPnlBps must be a safe integer/,
+  );
+
+  assert.equal(pnl.summary().totalTrades, 0);
+});
+
 test("PnlService rejects unsafe attribution inputs before recording", () => {
   const pnl = new PnlService();
 

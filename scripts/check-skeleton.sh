@@ -588,6 +588,8 @@ grep -q 'deadline IS NULL OR deadline BETWEEN 1 AND 9007199254740991' docs/datab
 grep -q 'min_amount_out NUMERIC(78, 0) NOT NULL' docs/database/schema.sql
 grep -q 'deadline BIGINT NOT NULL' docs/database/schema.sql
 grep -q 'deadline BETWEEN 1 AND 9007199254740991' docs/database/schema.sql
+grep -q 'gross_pnl_bps BIGINT NOT NULL' docs/database/schema.sql
+grep -q 'gross_pnl_bps BETWEEN -9007199254740991 AND 9007199254740991' docs/database/schema.sql
 grep -q 'log_index BIGINT NOT NULL' docs/database/schema.sql
 grep -q 'log_index BETWEEN 0 AND 9007199254740991' docs/database/schema.sql
 grep -q 'block_number BETWEEN 0 AND 9007199254740991' docs/database/schema.sql
@@ -606,6 +608,8 @@ grep -q 'quotes.deadline must be stored as signed quote Unix seconds' scripts/ch
 grep -q 'quotes must require positive signed amount and nonce fields plus safe-integer deadlines when present' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must require amount_out to satisfy min_amount_out when both are present' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must require safe-integer signed attribution deadlines' scripts/check-database-schema-consistency.mjs
+grep -q 'pnl_records.gross_pnl_bps must be stored as a JavaScript safe-integer sized signed bps value' scripts/check-database-schema-consistency.mjs
+grep -q 'pnl_records must constrain gross PnL bps to JavaScript safe integer range' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events.log_index must be stored as a JavaScript safe-integer sized ordinal' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must require positive settled amount and nonce fields plus safe-integer event ordinals' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present' scripts/check-database-schema-consistency.mjs
@@ -635,7 +639,8 @@ grep -q 'external_order_id` 可以在内部 queued intent 阶段为 NULL' docs/d
 grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/database/er-diagram.md
 grep -q 'quotes.pricing_version`、`quotes.risk_policy_version` 和 `quotes.reject_code`' docs/database/er-diagram.md
 grep -q 'quotes.deadline` 使用 BIGINT 保存 EIP-712 signed quote 的 Unix seconds' docs/database/er-diagram.md
-grep -q 'safe-integer `deadline` 作为 signed attribution snapshot' docs/database/er-diagram.md
+grep -q 'safe-integer `deadline` 和 safe-integer signed `gross_pnl_bps` 作为 signed attribution snapshot' docs/database/er-diagram.md
+grep -q 'safe-integer signed `gross_pnl_bps`' docs/database/er-diagram.md
 grep -q 'settlement_events.log_index` 和 `settlement_events.block_number` 使用 BIGINT 保存链上 event ordinal' docs/database/er-diagram.md
 grep -q 'reason_code` 只允许出现在 rejected decision 上' docs/database/er-diagram.md
 grep -q 'signed payload 字段全有或全无' docs/database/er-diagram.md
@@ -816,13 +821,16 @@ grep -q 'returns the existing attribution record for quote retries' backend/test
 grep -q 'returns defensive copies of PnL trade records' backend/test/pnl.test.mjs
 grep -q 'rejects conflicting retry payloads for the same quote and model' backend/test/pnl.test.mjs
 grep -q 'rejects signed quote metadata conflicts for the same quote and model' backend/test/pnl.test.mjs
+grep -q 'rejects unsafe gross PnL bps before storing attribution' backend/test/pnl.test.mjs
 grep -q 'PnlService rejects unsafe attribution inputs before recording' backend/test/pnl.test.mjs
 grep -q 'stored signed attribution payload' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnlService` returns defensive copies from `recordSettlement()` and `summary()`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'positive safe-integer deadline' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'rejects values outside the JavaScript safe integer range' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'minAmountOut' docs/api/openapi.yaml
 grep -q 'PnlTradeRecord", "minAmountOut"' scripts/check-api-schema-consistency.mjs
 grep -q 'PnlTradeRecord", "deadline"' scripts/check-api-schema-consistency.mjs
+grep -q 'PnlTradeRecord.grossPnlBps must document the JavaScript safe integer minimum' scripts/check-api-schema-consistency.mjs
 grep -q 'payload.user' sdk/src/client.ts
 grep -q 'payload.minAmountOut' sdk/src/client.ts
 grep -q 'malformed nonce' sdk/test/sdk.test.mjs

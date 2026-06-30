@@ -691,6 +691,9 @@ components:
           type: string
         chainId:
           type: integer
+          minimum: 1
+          maximum: 9007199254740991
+          description: Positive JavaScript safe integer chain id.
         user:
           $ref: "#/components/schemas/Address"
         tokenIn:
@@ -707,11 +710,16 @@ components:
           $ref: "#/components/schemas/PositiveUIntString"
         deadline:
           type: integer
+          minimum: 1
           maximum: 9007199254740991
+          description: Positive JavaScript safe integer Unix timestamp.
         grossPnlTokenOut:
           $ref: "#/components/schemas/IntString"
         grossPnlBps:
           type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
+          description: Signed JavaScript safe integer realized gross PnL in basis points.
         model:
           type: string
           enum:

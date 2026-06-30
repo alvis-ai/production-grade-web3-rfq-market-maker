@@ -303,7 +303,7 @@ CREATE TABLE pnl_records (
   nonce NUMERIC(78, 0) NOT NULL,
   deadline BIGINT NOT NULL,
   gross_pnl_token_out NUMERIC(78, 0) NOT NULL,
-  gross_pnl_bps INTEGER NOT NULL,
+  gross_pnl_bps BIGINT NOT NULL,
   model TEXT NOT NULL,
   realized_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -324,6 +324,9 @@ CREATE TABLE pnl_records (
     AND amount_out >= min_amount_out
     AND nonce > 0
     AND deadline BETWEEN 1 AND 9007199254740991
+  ),
+  CONSTRAINT chk_pnl_records_gross_pnl_bps_safe CHECK (
+    gross_pnl_bps BETWEEN -9007199254740991 AND 9007199254740991
   )
 );
 
