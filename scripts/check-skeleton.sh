@@ -430,12 +430,15 @@ grep -q 'SettlementEventService rejects unsafe settlement quote inputs before si
 grep -q 'hashSettlementQuote rejects malformed quote fields before ABI encoding' backend/test/settlement-event.test.mjs
 grep -q 'class ReconciliationService' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileSettlementToQuote' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'reconcileSettlementToHedge' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileSettlementToPnl' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'SIGNED_QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'repairs quote status from settlement events' backend/test/reconciliation.test.mjs
 grep -q 'reports terminal quote conflicts without stopping later events' backend/test/reconciliation.test.mjs
 grep -q 'reports settlement events whose quotes are missing' backend/test/reconciliation.test.mjs
+grep -q 'repairs hedge intents from settlement events' backend/test/reconciliation.test.mjs
+grep -q 'requires hedge service for settlement-to-hedge repair' backend/test/reconciliation.test.mjs
 grep -q 'repairs PnL records from settlement events and signed quotes' backend/test/reconciliation.test.mjs
 grep -q 'reports PnL reconciliation events whose signed quote is missing' backend/test/reconciliation.test.mjs
 grep -q 'requires PnL service for settlement-to-PnL repair' backend/test/reconciliation.test.mjs
@@ -448,9 +451,11 @@ grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
 grep -q 'recordHedgeFailure' backend/src/modules/execution/execution.service.ts
 grep -q 'hedgeOrderId: hedgeResult?.hedgeOrderId' backend/src/modules/execution/execution.service.ts
 grep -q 'getHedgeIntent' backend/src/modules/hedge/hedge.service.ts
+grep -q 'getHedgeIntentBySettlementEvent' backend/src/modules/hedge/hedge.service.ts
 grep -q 'settlementEventId: intent.settlementEventId' backend/src/modules/hedge/hedge.service.ts
 grep -q 'hedgeOrderIdsBySettlementEvent' backend/src/modules/hedge/hedge.service.ts
 grep -q 'returns the existing hedge intent for settlement retries' backend/test/hedge.test.mjs
+grep -q 'getHedgeIntentBySettlementEvent' backend/test/hedge.test.mjs
 grep -q 'settlementEventId: submitResponse.settlementEventId' sdk/test/sdk.test.mjs
 grep -q 'hedge settlement event id' scripts/smoke-api.mjs
 grep -q 'quoteRiskPenaltyBps' backend/src/modules/hedge/hedge.service.ts
@@ -1149,6 +1154,7 @@ grep -q 'PnL summary store failures' backend/test/api.test.mjs
 grep -q 'rfq_pnl_record_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'PnL attribution after settlement is best-effort' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService.reconcileSettlementToQuote()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'ReconciliationService.reconcileSettlementToHedge()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService.reconcileSettlementToPnl()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'make reconciliation-check' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnL attribution input validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -1214,6 +1220,7 @@ grep -q 'rfq_pnl_trades_total' infra/grafana/provisioning/dashboards/rfq-overvie
 grep -q 'Post-Settlement Persistence Drift' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'settlement-to-quote reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'ReconciliationService.reconcileSettlementToQuote()' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'ReconciliationService.reconcileSettlementToHedge()' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'settlement-to-PnL reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'ReconciliationService.reconcileSettlementToPnl()' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'make reconciliation-check' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
@@ -1222,8 +1229,10 @@ grep -q 'scripts/reconciliation-check.mjs' Makefile
 grep -q 'run_step make reconciliation-check' scripts/verify.sh
 grep -q 'reconciliation:check' package.json
 grep -q 'reconcileSettlementToQuote' scripts/reconciliation-check.mjs
+grep -q 'reconcileSettlementToHedge' scripts/reconciliation-check.mjs
 grep -q 'reconcileSettlementToPnl' scripts/reconciliation-check.mjs
 grep -q 'quoteRetryReport' scripts/reconciliation-check.mjs
+grep -q 'hedgeRetryReport' scripts/reconciliation-check.mjs
 grep -q 'pnlRetryReport' scripts/reconciliation-check.mjs
 grep -q 'rfq-backend-secrets' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'Missing or malformed signer Secret' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md

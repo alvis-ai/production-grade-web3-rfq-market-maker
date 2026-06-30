@@ -27,6 +27,7 @@ export interface HedgeIntentService {
   checkHealth?(): void;
   createHedgeIntent(intent: HedgeIntent): HedgeResult;
   getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined;
+  getHedgeIntentBySettlementEvent(settlementEventId: string): HedgeIntentStatusResponse | undefined;
   recordHedgeFailure?(intent: HedgeIntent, reasonCode: HedgeFailureReasonCode): void;
   quoteRiskPenaltyBps?(input: HedgeRiskInput): number;
 }
@@ -107,6 +108,12 @@ export class HedgeService implements HedgeIntentService {
 
   getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined {
     return this.intents.get(hedgeOrderId);
+  }
+
+  getHedgeIntentBySettlementEvent(settlementEventId: string): HedgeIntentStatusResponse | undefined {
+    assertNonEmptyString(settlementEventId, "settlementEventId");
+    const hedgeOrderId = this.hedgeOrderIdsBySettlementEvent.get(settlementEventId);
+    return hedgeOrderId ? this.intents.get(hedgeOrderId) : undefined;
   }
 
   recordHedgeFailure(intent: HedgeIntent, _reasonCode: HedgeFailureReasonCode): void {

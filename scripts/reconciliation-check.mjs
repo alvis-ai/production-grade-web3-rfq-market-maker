@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { HedgeService } from "../backend/dist/modules/hedge/hedge.service.js";
 import { InventoryService } from "../backend/dist/modules/inventory/inventory.service.js";
 import { PnlService } from "../backend/dist/modules/pnl/pnl.service.js";
 import { InMemoryQuoteRepository } from "../backend/dist/modules/quote/quote.repository.js";
@@ -21,6 +22,7 @@ const quote = {
 
 const quoteRepository = new InMemoryQuoteRepository();
 const settlementEventService = new SettlementEventService(new InventoryService());
+const hedgeService = new HedgeService();
 const pnlService = new PnlService();
 
 await quoteRepository.saveSigned({
@@ -45,17 +47,21 @@ assert.equal(beforeStatus.status, "signed");
 assert.equal(pnlService.summary().totalTrades, 0);
 
 const reconciliation = new ReconciliationService({
+  hedgeService,
   pnlService,
   quoteRepository,
   settlementEventService,
 });
 
 const quoteReport = await reconciliation.reconcileSettlementToQuote();
+const hedgeReport = await reconciliation.reconcileSettlementToHedge();
 const pnlReport = await reconciliation.reconcileSettlementToPnl();
 const quoteRetryReport = await reconciliation.reconcileSettlementToQuote();
+const hedgeRetryReport = await reconciliation.reconcileSettlementToHedge();
 const pnlRetryReport = await reconciliation.reconcileSettlementToPnl();
 
 const afterStatus = await quoteRepository.findStatus("q_reconciliation_check");
+const hedge = hedgeService.getHedgeIntentBySettlementEvent(settlement.event.settlementEventId);
 const pnlSummary = pnlService.summary();
 
 assert.deepEqual(quoteReport, {
@@ -70,10 +76,22 @@ assert.deepEqual(pnlReport, {
   skippedPnlRecords: 0,
   errors: [],
 });
+assert.deepEqual(hedgeReport, {
+  scannedSettlementEvents: 1,
+  repairedHedgeIntents: 1,
+  skippedHedgeIntents: 0,
+  errors: [],
+});
 assert.deepEqual(quoteRetryReport, {
   scannedSettlementEvents: 1,
   repairedQuoteStatuses: 0,
   skippedQuoteStatuses: 1,
+  errors: [],
+});
+assert.deepEqual(hedgeRetryReport, {
+  scannedSettlementEvents: 1,
+  repairedHedgeIntents: 0,
+  skippedHedgeIntents: 1,
   errors: [],
 });
 assert.deepEqual(pnlRetryReport, {
@@ -85,13 +103,17 @@ assert.deepEqual(pnlRetryReport, {
 assert.equal(afterStatus.status, "settled");
 assert.equal(afterStatus.txHash, settlement.event.txHash);
 assert.equal(afterStatus.settlementEventId, settlement.event.settlementEventId);
+assert.equal(hedge.quoteId, "q_reconciliation_check");
+assert.equal(hedge.settlementEventId, settlement.event.settlementEventId);
 assert.equal(pnlSummary.totalTrades, 1);
 assert.equal(pnlSummary.trades[0].quoteId, "q_reconciliation_check");
 
 console.log(JSON.stringify({
   status: "ok",
   quoteReport,
+  hedgeReport,
   pnlReport,
   quoteRetryReport,
+  hedgeRetryReport,
   pnlRetryReport,
 }, null, 2));

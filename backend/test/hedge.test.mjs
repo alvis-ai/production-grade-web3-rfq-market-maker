@@ -47,6 +47,7 @@ test("HedgeService returns the existing hedge intent for settlement retries", ()
   assert.equal(retry.hedgeOrderId, first.hedgeOrderId);
   assert.deepEqual(retry.record, first.record);
   assert.equal(service.getHedgeIntent(first.hedgeOrderId), first.record);
+  assert.equal(service.getHedgeIntentBySettlementEvent(intent.settlementEventId), first.record);
 
   const next = service.createHedgeIntent({
     ...intent,

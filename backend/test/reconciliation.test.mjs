@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { HedgeService } from "../dist/modules/hedge/hedge.service.js";
 import { InventoryService } from "../dist/modules/inventory/inventory.service.js";
 import { PnlService } from "../dist/modules/pnl/pnl.service.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
@@ -204,6 +205,55 @@ test("ReconciliationService requires PnL service for settlement-to-PnL repair", 
   await assert.rejects(
     reconciliation.reconcileSettlementToPnl(),
     /pnlService is required for settlement-to-PnL reconciliation/,
+  );
+});
+
+test("ReconciliationService repairs hedge intents from settlement events", async () => {
+  const hedgeService = new HedgeService();
+  const settlementEventService = new SettlementEventService(new InventoryService());
+  const settlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_hedge",
+    quote,
+    txHash: `0x${"12".repeat(32)}`,
+  });
+
+  const reconciliation = new ReconciliationService({
+    hedgeService,
+    quoteRepository: new InMemoryQuoteRepository(),
+    settlementEventService,
+  });
+
+  const firstReport = await reconciliation.reconcileSettlementToHedge();
+  assert.deepEqual(firstReport, {
+    scannedSettlementEvents: 1,
+    repairedHedgeIntents: 1,
+    skippedHedgeIntents: 0,
+    errors: [],
+  });
+  const hedge = hedgeService.getHedgeIntentBySettlementEvent(settlement.event.settlementEventId);
+  assert.equal(hedge.quoteId, "q_hedge");
+  assert.equal(hedge.token, quote.tokenOut);
+  assert.equal(hedge.amount, quote.amountOut);
+  assert.equal(hedge.reason, "inventory_rebalance");
+
+  const secondReport = await reconciliation.reconcileSettlementToHedge();
+  assert.deepEqual(secondReport, {
+    scannedSettlementEvents: 1,
+    repairedHedgeIntents: 0,
+    skippedHedgeIntents: 1,
+    errors: [],
+  });
+});
+
+test("ReconciliationService requires hedge service for settlement-to-hedge repair", async () => {
+  const reconciliation = new ReconciliationService({
+    quoteRepository: new InMemoryQuoteRepository(),
+    settlementEventService: new SettlementEventService(new InventoryService()),
+  });
+
+  await assert.rejects(
+    reconciliation.reconcileSettlementToHedge(),
+    /hedgeService is required for settlement-to-hedge reconciliation/,
   );
 });
 

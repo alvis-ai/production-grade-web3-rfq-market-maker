@@ -1,3 +1,4 @@
+import type { HedgeIntentService } from "../hedge/hedge.service.js";
 import type { PnlStore } from "../pnl/pnl.service.js";
 import type { QuoteRecord, QuoteRepository } from "../quote/quote.repository.js";
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
@@ -29,7 +30,21 @@ export interface SettlementToPnlReconciliationError {
   reason: string;
 }
 
+export interface SettlementToHedgeReconciliationReport {
+  scannedSettlementEvents: number;
+  repairedHedgeIntents: number;
+  skippedHedgeIntents: number;
+  errors: SettlementToHedgeReconciliationError[];
+}
+
+export interface SettlementToHedgeReconciliationError {
+  settlementEventId: string;
+  quoteId: string;
+  reason: string;
+}
+
 export interface ReconciliationServiceDeps {
+  hedgeService?: HedgeIntentService;
   pnlService?: PnlStore;
   quoteRepository: QuoteRepository;
   settlementEventService: SettlementEventStore;
@@ -118,6 +133,48 @@ export class ReconciliationService {
         } else {
           report.repairedPnlRecords += 1;
         }
+      } catch (error) {
+        report.errors.push({
+          settlementEventId: event.settlementEventId,
+          quoteId: event.quoteId,
+          reason: error instanceof Error ? error.message : "RECONCILIATION_FAILED",
+        });
+      }
+    }
+
+    return report;
+  }
+
+  async reconcileSettlementToHedge(): Promise<SettlementToHedgeReconciliationReport> {
+    if (!this.deps.hedgeService) {
+      throw new Error("ReconciliationService hedgeService is required for settlement-to-hedge reconciliation");
+    }
+
+    const events = this.deps.settlementEventService.listSettlementEvents();
+    const report: SettlementToHedgeReconciliationReport = {
+      scannedSettlementEvents: events.length,
+      repairedHedgeIntents: 0,
+      skippedHedgeIntents: 0,
+      errors: [],
+    };
+
+    for (const event of events) {
+      try {
+        if (this.deps.hedgeService.getHedgeIntentBySettlementEvent(event.settlementEventId)) {
+          report.skippedHedgeIntents += 1;
+          continue;
+        }
+
+        this.deps.hedgeService.createHedgeIntent({
+          settlementEventId: event.settlementEventId,
+          quoteId: event.quoteId,
+          chainId: event.chainId,
+          token: event.tokenOut,
+          side: "buy",
+          amount: event.amountOut,
+          reason: "inventory_rebalance",
+        });
+        report.repairedHedgeIntents += 1;
       } catch (error) {
         report.errors.push({
           settlementEventId: event.settlementEventId,
