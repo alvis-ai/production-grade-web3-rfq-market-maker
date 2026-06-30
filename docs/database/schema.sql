@@ -76,8 +76,14 @@ CREATE TABLE quotes (
     )
   ),
   CONSTRAINT chk_quotes_rejection_payload_consistency CHECK (
-    status NOT IN ('rejected', 'failed')
-    OR reject_code IS NOT NULL
+    (
+      status IN ('rejected', 'failed')
+      AND reject_code IS NOT NULL
+    )
+    OR (
+      status NOT IN ('rejected', 'failed')
+      AND reject_code IS NULL
+    )
   )
 );
 

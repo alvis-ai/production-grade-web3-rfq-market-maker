@@ -282,10 +282,10 @@ assert.ok(
   "signed lifecycle statuses must keep complete signed quote payload metadata",
 );
 assert.ok(
-  /status\s+NOT\s+IN\s*\(\s*'rejected'\s*,\s*'failed'\s*\)[\s\S]*?reject_code\s+IS\s+NOT\s+NULL/i.test(
+  /status\s+IN\s*\(\s*'rejected'\s*,\s*'failed'\s*\)[\s\S]*?reject_code\s+IS\s+NOT\s+NULL[\s\S]*?status\s+NOT\s+IN\s*\(\s*'rejected'\s*,\s*'failed'\s*\)[\s\S]*?reject_code\s+IS\s+NULL/i.test(
     tables.get("quotes").body,
   ),
-  "rejected and failed quote statuses must keep reject_code",
+  "only rejected and failed quote statuses may keep reject_code",
 );
 assert.ok(
   /decision\s+IN\s*\(\s*'approved'\s*,\s*'rejected'\s*\)/i.test(tables.get("risk_decisions").body),
