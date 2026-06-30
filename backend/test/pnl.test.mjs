@@ -22,8 +22,12 @@ test("PnlService records signed realized PnL and aggregates summary", () => {
     quote: baseQuote,
   });
   assert.equal(gain.pnlId, "pnl_q_gain");
+  assert.equal(gain.user, baseQuote.user);
   assert.equal(gain.grossPnlTokenOut, "10");
   assert.equal(gain.grossPnlBps, 100);
+  assert.equal(gain.minAmountOut, baseQuote.minAmountOut);
+  assert.equal(gain.nonce, baseQuote.nonce);
+  assert.equal(gain.deadline, baseQuote.deadline);
   assert.equal(gain.model, "simulated_mid_price_v1");
 
   const loss = pnl.recordSettlement({
@@ -115,6 +119,33 @@ test("PnlService rejects conflicting retry payloads for the same quote and model
   const summary = pnl.summary();
   assert.equal(summary.totalTrades, 1);
   assert.equal(summary.trades[0].amountOut, baseQuote.amountOut);
+});
+
+test("PnlService rejects signed quote metadata conflicts for the same quote and model", () => {
+  const pnl = new PnlService();
+
+  pnl.recordSettlement({
+    quoteId: "q_metadata_conflict",
+    quote: baseQuote,
+  });
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q_metadata_conflict",
+        quote: {
+          ...baseQuote,
+          nonce: "2",
+          deadline: baseQuote.deadline + 60,
+        },
+      }),
+    /PnL record conflict/,
+  );
+
+  const summary = pnl.summary();
+  assert.equal(summary.totalTrades, 1);
+  assert.equal(summary.trades[0].nonce, baseQuote.nonce);
+  assert.equal(summary.trades[0].deadline, baseQuote.deadline);
 });
 
 test("PnlService rejects unsafe attribution inputs before recording", () => {

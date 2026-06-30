@@ -438,10 +438,14 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
         pnlId: submitResponse.pnlId,
         quoteId: "q_test",
         chainId: quote.chainId,
+        user: quote.user,
         tokenIn: quote.tokenIn,
         tokenOut: quote.tokenOut,
         amountIn: quote.amountIn,
         amountOut: quote.amountOut,
+        minAmountOut: quote.minAmountOut,
+        nonce: quote.nonce,
+        deadline: quote.deadline,
         grossPnlTokenOut: "1600000",
         grossPnlBps: 16,
         model: "simulated_mid_price_v1",
@@ -1256,10 +1260,14 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
         pnlId: "pnl_q_test",
         quoteId: "q_test",
         chainId: quote.chainId,
+        user: quote.user,
         tokenIn: quote.tokenIn,
         tokenOut: quote.tokenOut,
         amountIn: quote.amountIn,
         amountOut: quote.amountOut,
+        minAmountOut: quote.minAmountOut,
+        nonce: quote.nonce,
+        deadline: quote.deadline,
         grossPnlTokenOut: "1600000",
         grossPnlBps: 16,
         model: "simulated_mid_price_v1",
@@ -1291,9 +1299,37 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
     {
       payload: {
         ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], user: "0x1234" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed user",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
         trades: [{ ...basePnlResponse.trades[0], amountOut: "0" }],
       },
       message: "RFQ PnL summary response trade returned malformed amountOut",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], amountOut: "100", minAmountOut: "200" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed amountOut",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], nonce: "0" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed nonce",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], deadline: 0 }],
+      },
+      message: "RFQ PnL summary response trade returned malformed deadline",
     },
     {
       payload: {

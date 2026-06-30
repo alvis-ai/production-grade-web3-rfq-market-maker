@@ -41,10 +41,14 @@ export class PnlService implements PnlStore {
       pnlId: `pnl_${input.quoteId}`,
       quoteId: input.quoteId,
       chainId: input.quote.chainId,
+      user: input.quote.user,
       tokenIn: input.quote.tokenIn,
       tokenOut: input.quote.tokenOut,
       amountIn: input.quote.amountIn,
       amountOut: input.quote.amountOut,
+      minAmountOut: input.quote.minAmountOut,
+      nonce: input.quote.nonce,
+      deadline: input.quote.deadline,
       grossPnlTokenOut: grossPnl.toString() as IntString,
       grossPnlBps: calculateGrossPnlBps(input.quote.amountIn, grossPnl),
       model,
@@ -85,10 +89,14 @@ function matchesPnlInput(record: PnlTradeRecord, input: RecordPnlInput): boolean
   return (
     record.quoteId === input.quoteId &&
     record.chainId === input.quote.chainId &&
+    record.user.toLowerCase() === input.quote.user.toLowerCase() &&
     record.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
     record.tokenOut.toLowerCase() === input.quote.tokenOut.toLowerCase() &&
     record.amountIn === input.quote.amountIn &&
-    record.amountOut === input.quote.amountOut
+    record.amountOut === input.quote.amountOut &&
+    record.minAmountOut === input.quote.minAmountOut &&
+    record.nonce === input.quote.nonce &&
+    record.deadline === input.quote.deadline
   );
 }
 

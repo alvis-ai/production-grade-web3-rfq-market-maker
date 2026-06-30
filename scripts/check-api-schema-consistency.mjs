@@ -100,6 +100,8 @@ for (const [schemaName, propertyName] of [
   ["SettlementEventStatus", "amountOut"],
   ["PnlTradeRecord", "amountIn"],
   ["PnlTradeRecord", "amountOut"],
+  ["PnlTradeRecord", "minAmountOut"],
+  ["PnlTradeRecord", "nonce"],
 ]) {
   assert.equal(
     extractOpenApiPropertyRef(openapiSource, schemaName, propertyName),
@@ -112,6 +114,7 @@ for (const [schemaName, propertyName] of [
   ["QuoteRequest", "chainId"],
   ["SignedQuote", "chainId"],
   ["SignedQuote", "deadline"],
+  ["PnlTradeRecord", "deadline"],
 ]) {
   assert.equal(
     extractOpenApiPropertyNumericBound(openapiSource, schemaName, propertyName, "maximum"),

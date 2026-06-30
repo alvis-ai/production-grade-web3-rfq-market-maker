@@ -503,6 +503,13 @@ grep -q 'chk_quotes_rejection_payload_consistency' docs/database/schema.sql
 grep -q 'chk_settlement_events_hashes' docs/database/schema.sql
 grep -q 'chk_hedge_orders_side' docs/database/schema.sql
 grep -q 'chk_pnl_records_model' docs/database/schema.sql
+grep -q 'user_address TEXT NOT NULL' docs/database/schema.sql
+grep -q 'min_amount_out NUMERIC(78, 0) NOT NULL' docs/database/schema.sql
+grep -q 'deadline BIGINT NOT NULL' docs/database/schema.sql
+grep -q 'user: "user_address"' scripts/check-database-schema-consistency.mjs
+grep -q 'minAmountOut: "min_amount_out"' scripts/check-database-schema-consistency.mjs
+grep -q 'deadline: "deadline"' scripts/check-database-schema-consistency.mjs
+grep -q 'signed attribution snapshot' docs/database/er-diagram.md
 grep -q 'quotes must constrain lifecycle status values' scripts/check-database-schema-consistency.mjs
 grep -q 'submitted and settled quotes must keep tx_hash and settlement_event_id pointers' scripts/check-database-schema-consistency.mjs
 grep -q 'non-settlement quote statuses must not expose settlement, hedge, or PnL pointers' scripts/check-database-schema-consistency.mjs
@@ -668,14 +675,25 @@ grep -q 'pnlIdsByQuoteModel' backend/src/modules/pnl/pnl.service.ts
 grep -q 'assertPnlInput(input)' backend/src/modules/pnl/pnl.service.ts
 grep -q 'matchesPnlInput' backend/src/modules/pnl/pnl.service.ts
 grep -q 'PnL record conflict' backend/src/modules/pnl/pnl.service.ts
+grep -q 'user: input.quote.user' backend/src/modules/pnl/pnl.service.ts
+grep -q 'minAmountOut: input.quote.minAmountOut' backend/src/modules/pnl/pnl.service.ts
+grep -q 'nonce: input.quote.nonce' backend/src/modules/pnl/pnl.service.ts
+grep -q 'deadline: input.quote.deadline' backend/src/modules/pnl/pnl.service.ts
 grep -q 'amountOut must be greater than or equal to quote.minAmountOut' backend/src/modules/pnl/pnl.service.ts
 grep -q 'clonePnlTradeRecord' backend/src/modules/pnl/pnl.service.ts
 grep -q 'returns the existing attribution record for quote retries' backend/test/pnl.test.mjs
 grep -q 'returns defensive copies of PnL trade records' backend/test/pnl.test.mjs
 grep -q 'rejects conflicting retry payloads for the same quote and model' backend/test/pnl.test.mjs
+grep -q 'rejects signed quote metadata conflicts for the same quote and model' backend/test/pnl.test.mjs
 grep -q 'PnlService rejects unsafe attribution inputs before recording' backend/test/pnl.test.mjs
-grep -q 'PnL idempotency requires the repeated `(quoteId, model)` input to match the stored attribution payload' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'stored signed attribution payload' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnlService` returns defensive copies from `recordSettlement()` and `summary()`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'minAmountOut' docs/api/openapi.yaml
+grep -q 'PnlTradeRecord", "minAmountOut"' scripts/check-api-schema-consistency.mjs
+grep -q 'PnlTradeRecord", "deadline"' scripts/check-api-schema-consistency.mjs
+grep -q 'payload.user' sdk/src/client.ts
+grep -q 'payload.minAmountOut' sdk/src/client.ts
+grep -q 'malformed nonce' sdk/test/sdk.test.mjs
 grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_latency_seconds' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_rejections_total' backend/src/modules/metrics/metrics.service.ts

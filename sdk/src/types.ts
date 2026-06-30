@@ -112,10 +112,14 @@ export interface PnlTradeRecord {
   pnlId: string;
   quoteId: string;
   chainId: number;
+  user: Address;
   tokenIn: Address;
   tokenOut: Address;
   amountIn: UIntString;
   amountOut: UIntString;
+  minAmountOut: UIntString;
+  nonce: UIntString;
+  deadline: number;
   grossPnlTokenOut: IntString;
   grossPnlBps: number;
   model: "simulated_mid_price_v1";

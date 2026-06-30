@@ -211,10 +211,14 @@ CREATE TABLE pnl_records (
   id TEXT PRIMARY KEY,
   quote_id TEXT NOT NULL REFERENCES quotes(id),
   chain_id BIGINT NOT NULL,
+  user_address TEXT NOT NULL,
   token_in TEXT NOT NULL,
   token_out TEXT NOT NULL,
   amount_in NUMERIC(78, 0) NOT NULL,
   amount_out NUMERIC(78, 0) NOT NULL,
+  min_amount_out NUMERIC(78, 0) NOT NULL,
+  nonce NUMERIC(78, 0) NOT NULL,
+  deadline BIGINT NOT NULL,
   gross_pnl_token_out NUMERIC(78, 0) NOT NULL,
   gross_pnl_bps INTEGER NOT NULL,
   model TEXT NOT NULL,
@@ -223,12 +227,17 @@ CREATE TABLE pnl_records (
   UNIQUE (quote_id, model),
   CONSTRAINT chk_pnl_records_model CHECK (model IN ('simulated_mid_price_v1')),
   CONSTRAINT chk_pnl_records_addresses_hex CHECK (
-    token_in ~ '^0x[0-9a-fA-F]{40}$'
+    user_address ~ '^0x[0-9a-fA-F]{40}$'
+    AND token_in ~ '^0x[0-9a-fA-F]{40}$'
     AND token_out ~ '^0x[0-9a-fA-F]{40}$'
   ),
   CONSTRAINT chk_pnl_records_amounts_positive CHECK (
     amount_in > 0
     AND amount_out > 0
+    AND min_amount_out > 0
+    AND amount_out >= min_amount_out
+    AND nonce > 0
+    AND deadline > 0
   )
 );
 

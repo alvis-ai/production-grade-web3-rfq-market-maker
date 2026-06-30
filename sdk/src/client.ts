@@ -538,6 +538,9 @@ function assertPnlTradeRecord(payload: unknown, status: number): asserts payload
   if (!Number.isSafeInteger(payload.chainId) || Number(payload.chainId) <= 0) {
     throw malformedFieldError(status, label, "chainId");
   }
+  if (!isAddressHex(payload.user)) {
+    throw malformedFieldError(status, label, "user");
+  }
   for (const field of ["tokenIn", "tokenOut"] as const) {
     if (!isAddressHex(payload[field])) {
       throw malformedFieldError(status, label, field);
@@ -551,10 +554,21 @@ function assertPnlTradeRecord(payload: unknown, status: number): asserts payload
   if (tokenIn.toLowerCase() === tokenOut.toLowerCase()) {
     throw malformedFieldError(status, label, "tokenOut");
   }
-  for (const field of ["amountIn", "amountOut"] as const) {
+  for (const field of ["amountIn", "amountOut", "minAmountOut", "nonce"] as const) {
     if (!isPositiveUIntString(payload[field])) {
       throw malformedFieldError(status, label, field);
     }
+  }
+  const amountOut = payload.amountOut;
+  const minAmountOut = payload.minAmountOut;
+  if (!isPositiveUIntString(amountOut) || !isPositiveUIntString(minAmountOut)) {
+    throw malformedFieldError(status, label, "amountOut");
+  }
+  if (BigInt(amountOut) < BigInt(minAmountOut)) {
+    throw malformedFieldError(status, label, "amountOut");
+  }
+  if (!Number.isSafeInteger(payload.deadline) || Number(payload.deadline) <= 0) {
+    throw malformedFieldError(status, label, "deadline");
   }
   if (!isIntString(payload.grossPnlTokenOut)) {
     throw malformedFieldError(status, label, "grossPnlTokenOut");

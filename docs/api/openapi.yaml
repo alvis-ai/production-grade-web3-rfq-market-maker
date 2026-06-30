@@ -665,10 +665,14 @@ components:
         - pnlId
         - quoteId
         - chainId
+        - user
         - tokenIn
         - tokenOut
         - amountIn
         - amountOut
+        - minAmountOut
+        - nonce
+        - deadline
         - grossPnlTokenOut
         - grossPnlBps
         - model
@@ -680,6 +684,8 @@ components:
           type: string
         chainId:
           type: integer
+        user:
+          $ref: "#/components/schemas/Address"
         tokenIn:
           $ref: "#/components/schemas/Address"
         tokenOut:
@@ -688,6 +694,13 @@ components:
           $ref: "#/components/schemas/PositiveUIntString"
         amountOut:
           $ref: "#/components/schemas/PositiveUIntString"
+        minAmountOut:
+          $ref: "#/components/schemas/PositiveUIntString"
+        nonce:
+          $ref: "#/components/schemas/PositiveUIntString"
+        deadline:
+          type: integer
+          maximum: 9007199254740991
         grossPnlTokenOut:
           $ref: "#/components/schemas/IntString"
         grossPnlBps:
