@@ -121,6 +121,80 @@ assert.ok(
   "pnl_records must keep one attribution record per quote and model",
 );
 
+const requiredCheckConstraints = {
+  quotes: [
+    ["chk_quotes_status", "quotes must constrain lifecycle status values"],
+    ["chk_quotes_amounts_non_negative", "quotes must constrain unsigned quote amount fields"],
+    ["chk_quotes_addresses_hex", "quotes must constrain address-shaped fields"],
+    ["chk_quotes_signature_and_tx_hash_hex", "quotes must constrain signature and transaction hash shape"],
+  ],
+  market_snapshots: [
+    ["chk_market_snapshots_prices", "market_snapshots must constrain price and liquidity fields"],
+    ["chk_market_snapshots_addresses_hex", "market_snapshots must constrain token address shape"],
+  ],
+  risk_decisions: [
+    ["chk_risk_decisions_status", "risk_decisions must constrain decision status values"],
+    ["chk_risk_decisions_limits", "risk_decisions must constrain non-negative numeric limits"],
+  ],
+  settlement_events: [
+    ["chk_settlement_events_hashes", "settlement_events must constrain hash-shaped fields"],
+    ["chk_settlement_events_addresses_hex", "settlement_events must constrain address-shaped fields"],
+    ["chk_settlement_events_amounts_positive", "settlement_events must constrain positive settlement fields"],
+  ],
+  inventory_positions: [
+    ["chk_inventory_positions_token_hex", "inventory_positions must constrain token address shape"],
+    ["chk_inventory_positions_limits", "inventory_positions must constrain inventory limit fields"],
+  ],
+  hedge_orders: [
+    ["chk_hedge_orders_side", "hedge_orders must constrain side enum values"],
+    ["chk_hedge_orders_status", "hedge_orders must constrain status enum values"],
+    ["chk_hedge_orders_token_hex", "hedge_orders must constrain token address shape"],
+    ["chk_hedge_orders_amount_positive", "hedge_orders must constrain positive hedge amounts"],
+  ],
+  pnl_records: [
+    ["chk_pnl_records_model", "pnl_records must constrain supported attribution models"],
+    ["chk_pnl_records_addresses_hex", "pnl_records must constrain token address shape"],
+    ["chk_pnl_records_amounts_positive", "pnl_records must constrain positive trade amounts"],
+  ],
+};
+
+for (const [tableName, constraints] of Object.entries(requiredCheckConstraints)) {
+  const table = tables.get(tableName);
+  for (const [constraintName, message] of constraints) {
+    assert.ok(
+      new RegExp(`CONSTRAINT\\s+${constraintName}\\s+CHECK\\s*\\(`, "i").test(table.body),
+      message,
+    );
+  }
+}
+
+assert.ok(
+  /status\s+IN\s*\(\s*'requested'\s*,\s*'rejected'\s*,\s*'signed'\s*,\s*'expired'\s*,\s*'submitted'\s*,\s*'settled'\s*,\s*'failed'\s*\)/i.test(
+    tables.get("quotes").body,
+  ),
+  "quotes status constraint must match backend QuoteLifecycleStatus values",
+);
+assert.ok(
+  /signature\s+IS\s+NULL\s+OR\s+signature\s+~\s+'\^0x\[0-9a-fA-F\]\{130\}\$'/i.test(tables.get("quotes").body),
+  "quotes signature constraint must require 65-byte EIP-712 signatures",
+);
+assert.ok(
+  /tx_hash\s+IS\s+NULL\s+OR\s+tx_hash\s+~\s+'\^0x\[0-9a-fA-F\]\{64\}\$'/i.test(tables.get("quotes").body),
+  "quotes tx_hash constraint must require 32-byte transaction hashes",
+);
+assert.ok(
+  /decision\s+IN\s*\(\s*'approved'\s*,\s*'rejected'\s*\)/i.test(tables.get("risk_decisions").body),
+  "risk decision status constraint must match backend RiskDecisionStatus values",
+);
+assert.ok(
+  /side\s+IN\s*\(\s*'buy'\s*,\s*'sell'\s*\)/i.test(tables.get("hedge_orders").body),
+  "hedge side constraint must match backend HedgeIntent side values",
+);
+assert.ok(
+  /model\s+IN\s*\(\s*'simulated_mid_price_v1'\s*\)/i.test(tables.get("pnl_records").body),
+  "pnl model constraint must match backend PnlTradeRecord model values",
+);
+
 for (const indexName of [
   "idx_quotes_user_created_at",
   "idx_quotes_status_created_at",

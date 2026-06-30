@@ -20,7 +20,25 @@ CREATE TABLE quotes (
   hedge_order_id TEXT,
   pnl_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_quotes_status CHECK (
+    status IN ('requested', 'rejected', 'signed', 'expired', 'submitted', 'settled', 'failed')
+  ),
+  CONSTRAINT chk_quotes_amounts_non_negative CHECK (
+    amount_in > 0
+    AND (amount_out IS NULL OR amount_out >= 0)
+    AND (min_amount_out IS NULL OR min_amount_out >= 0)
+    AND (nonce IS NULL OR nonce >= 0)
+  ),
+  CONSTRAINT chk_quotes_addresses_hex CHECK (
+    user_address ~ '^0x[0-9a-fA-F]{40}$'
+    AND token_in ~ '^0x[0-9a-fA-F]{40}$'
+    AND token_out ~ '^0x[0-9a-fA-F]{40}$'
+  ),
+  CONSTRAINT chk_quotes_signature_and_tx_hash_hex CHECK (
+    (signature IS NULL OR signature ~ '^0x[0-9a-fA-F]{130}$')
+    AND (tx_hash IS NULL OR tx_hash ~ '^0x[0-9a-fA-F]{64}$')
+  )
 );
 
 CREATE INDEX idx_quotes_user_created_at ON quotes (user_address, created_at DESC);
@@ -40,7 +58,18 @@ CREATE TABLE market_snapshots (
   volatility_bps INTEGER,
   source TEXT NOT NULL,
   observed_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_market_snapshots_prices CHECK (
+    mid_price > 0
+    AND (bid_price IS NULL OR bid_price > 0)
+    AND (ask_price IS NULL OR ask_price > 0)
+    AND (liquidity_usd IS NULL OR liquidity_usd >= 0)
+    AND (volatility_bps IS NULL OR volatility_bps >= 0)
+  ),
+  CONSTRAINT chk_market_snapshots_addresses_hex CHECK (
+    token_in ~ '^0x[0-9a-fA-F]{40}$'
+    AND token_out ~ '^0x[0-9a-fA-F]{40}$'
+  )
 );
 
 CREATE TABLE risk_decisions (
@@ -51,7 +80,12 @@ CREATE TABLE risk_decisions (
   policy_version TEXT NOT NULL,
   max_notional_usd NUMERIC(38, 8),
   inventory_exposure_before NUMERIC(78, 0),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_risk_decisions_status CHECK (decision IN ('approved', 'rejected')),
+  CONSTRAINT chk_risk_decisions_limits CHECK (
+    (max_notional_usd IS NULL OR max_notional_usd >= 0)
+    AND (inventory_exposure_before IS NULL OR inventory_exposure_before >= 0)
+  )
 );
 
 CREATE INDEX idx_risk_decisions_quote_id ON risk_decisions (quote_id);
@@ -71,7 +105,23 @@ CREATE TABLE settlement_events (
   amount_out NUMERIC(78, 0) NOT NULL,
   nonce NUMERIC(78, 0) NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (chain_id, tx_hash, log_index)
+  UNIQUE (chain_id, tx_hash, log_index),
+  CONSTRAINT chk_settlement_events_hashes CHECK (
+    tx_hash ~ '^0x[0-9a-fA-F]{64}$'
+    AND quote_hash ~ '^0x[0-9a-fA-F]{64}$'
+  ),
+  CONSTRAINT chk_settlement_events_addresses_hex CHECK (
+    user_address ~ '^0x[0-9a-fA-F]{40}$'
+    AND token_in ~ '^0x[0-9a-fA-F]{40}$'
+    AND token_out ~ '^0x[0-9a-fA-F]{40}$'
+  ),
+  CONSTRAINT chk_settlement_events_amounts_positive CHECK (
+    amount_in > 0
+    AND amount_out > 0
+    AND nonce >= 0
+    AND log_index >= 0
+    AND block_number >= 0
+  )
 );
 
 CREATE UNIQUE INDEX uq_settlement_events_quote_id ON settlement_events (quote_id);
@@ -84,7 +134,12 @@ CREATE TABLE inventory_positions (
   target_balance NUMERIC(78, 0),
   max_exposure NUMERIC(78, 0),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (chain_id, token_address)
+  UNIQUE (chain_id, token_address),
+  CONSTRAINT chk_inventory_positions_token_hex CHECK (token_address ~ '^0x[0-9a-fA-F]{40}$'),
+  CONSTRAINT chk_inventory_positions_limits CHECK (
+    (target_balance IS NULL OR target_balance >= 0)
+    AND (max_exposure IS NULL OR max_exposure >= 0)
+  )
 );
 
 CREATE TABLE hedge_orders (
@@ -98,7 +153,11 @@ CREATE TABLE hedge_orders (
   status TEXT NOT NULL,
   external_order_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_hedge_orders_side CHECK (side IN ('buy', 'sell')),
+  CONSTRAINT chk_hedge_orders_status CHECK (status IN ('queued')),
+  CONSTRAINT chk_hedge_orders_token_hex CHECK (token_address ~ '^0x[0-9a-fA-F]{40}$'),
+  CONSTRAINT chk_hedge_orders_amount_positive CHECK (amount > 0)
 );
 
 CREATE UNIQUE INDEX uq_hedge_orders_settlement_event ON hedge_orders (settlement_event_id);
@@ -116,7 +175,16 @@ CREATE TABLE pnl_records (
   model TEXT NOT NULL,
   realized_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (quote_id, model)
+  UNIQUE (quote_id, model),
+  CONSTRAINT chk_pnl_records_model CHECK (model IN ('simulated_mid_price_v1')),
+  CONSTRAINT chk_pnl_records_addresses_hex CHECK (
+    token_in ~ '^0x[0-9a-fA-F]{40}$'
+    AND token_out ~ '^0x[0-9a-fA-F]{40}$'
+  ),
+  CONSTRAINT chk_pnl_records_amounts_positive CHECK (
+    amount_in > 0
+    AND amount_out > 0
+  )
 );
 
 CREATE INDEX idx_pnl_records_realized_at ON pnl_records (realized_at DESC);

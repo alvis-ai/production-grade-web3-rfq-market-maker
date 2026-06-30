@@ -396,6 +396,16 @@ grep -q 'indexes signed quotes by chain, user, and nonce' backend/test/quote-ser
 grep -q 'uq_quotes_chain_user_nonce' docs/database/schema.sql
 grep -q 'quotes must keep the chain_id, user_address, nonce signed-quote lookup key' scripts/check-database-schema-consistency.mjs
 grep -q 'partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`' docs/database/er-diagram.md
+grep -q 'chk_quotes_status' docs/database/schema.sql
+grep -q 'chk_quotes_signature_and_tx_hash_hex' docs/database/schema.sql
+grep -q 'chk_settlement_events_hashes' docs/database/schema.sql
+grep -q 'chk_hedge_orders_side' docs/database/schema.sql
+grep -q 'chk_pnl_records_model' docs/database/schema.sql
+grep -q 'quotes must constrain lifecycle status values' scripts/check-database-schema-consistency.mjs
+grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-database-schema-consistency.mjs
+grep -q 'hedge_orders must constrain side enum values' scripts/check-database-schema-consistency.mjs
+grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
+grep -q '数据库层使用 CHECK constraints 固化应用层关键不变量' docs/database/er-diagram.md
 grep -q 'quote_hash TEXT NOT NULL' docs/database/schema.sql
 grep -q 'quote_hash' docs/database/er-diagram.md
 grep -q 'quoteHash: "quote_hash"' scripts/check-database-schema-consistency.mjs
