@@ -123,7 +123,7 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 ## Engineering Decisions
 
 - Settlement event is source of truth.
-- 第一阶段 `/submit` uses `LocalSettlementVerifier` to mirror RFQSettlement chainId、deadline、token whitelist、token pair 和 amount shape checks before simulated settlement.
+- 第一阶段 `/submit` uses `LocalSettlementVerifier` to mirror RFQSettlement signature shape, canonical low-s/v checks, chainId、deadline、token whitelist、token pair 和 amount shape checks before simulated settlement.
 - `LocalSettlementVerifierPolicy` 在构造期 fail fast：`verifierVersion` 必须非空，`enabledChainIds` 和 `tokenWhitelist` 必须非空且不能包含重复项，chain id 必须是正安全整数，token whitelist entries 必须是 20-byte hex address。错误 policy 不能以空白版本、空白 allowlist、重复 whitelist 或畸形地址进入 `/submit` 结算验证路径。
 - Settlement verification failure returns `SETTLEMENT_REVERTED`, marks the quote `failed`, and must not update inventory, queue hedge intent, record PnL, or mark the quote settled.
 - If marking the quote `failed` after `SETTLEMENT_REVERTED` cannot be persisted, the API still returns the original `SETTLEMENT_REVERTED` response and emits `rfq_quote_status_update_errors_total{target_status="FAILED"}`. The persistence failure must not mask the settlement rejection reason.

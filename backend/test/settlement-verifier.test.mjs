@@ -19,7 +19,7 @@ const quote = {
 
 const request = {
   quote,
-  signature: `0x${"11".repeat(65)}`,
+  signature: `0x${"11".repeat(64)}1b`,
 };
 
 test("LocalSettlementVerifier accepts contract-shaped settlement quotes", async () => {
@@ -120,6 +120,41 @@ test("LocalSettlementVerifier rejects settlement amountOut below minimum", async
       },
     }),
     "AMOUNT_OUT_BELOW_MINIMUM",
+  );
+});
+
+test("LocalSettlementVerifier rejects non-canonical settlement signatures", async () => {
+  await assertSettlementRevert(
+    new LocalSettlementVerifier().verify({
+      quoteId: "q_invalid_signature_length",
+      request: {
+        ...request,
+        signature: "0x1234",
+      },
+    }),
+    "INVALID_SIGNATURE",
+  );
+
+  await assertSettlementRevert(
+    new LocalSettlementVerifier().verify({
+      quoteId: "q_invalid_signature_v",
+      request: {
+        ...request,
+        signature: `0x${"11".repeat(64)}02`,
+      },
+    }),
+    "INVALID_SIGNATURE",
+  );
+
+  await assertSettlementRevert(
+    new LocalSettlementVerifier().verify({
+      quoteId: "q_high_s_signature",
+      request: {
+        ...request,
+        signature: `0x${"11".repeat(32)}${"f".repeat(64)}1b`,
+      },
+    }),
+    "INVALID_SIGNATURE",
   );
 });
 

@@ -564,6 +564,9 @@ grep -q 'repairs PnL records from settlement events and signed quotes' backend/t
 grep -q 'reports PnL reconciliation events whose signed quote is missing' backend/test/reconciliation.test.mjs
 grep -q 'requires PnL service for settlement-to-PnL repair' backend/test/reconciliation.test.mjs
 grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'SECP256K1N_HALF' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'Settlement signature s value must be in the lower half order' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'Settlement signature v value must be 27 or 28' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'TOKEN_NOT_WHITELISTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertChainIds(policy.enabledChainIds)' backend/src/modules/settlement/settlement-verifier.service.ts
@@ -1251,7 +1254,9 @@ grep -q 'LocalSettlementVerifier rejects expired settlement quotes' backend/test
 grep -q 'LocalSettlementVerifier rejects invalid settlement token pairs' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects invalid settlement amounts' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects settlement amountOut below minimum' backend/test/settlement-verifier.test.mjs
+grep -q 'LocalSettlementVerifier rejects non-canonical settlement signatures' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects unsafe policy configuration at construction' backend/test/settlement-verifier.test.mjs
+grep -q 'signature shape, canonical low-s/v checks' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'settlement verifier policy fail-fast' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'amount fields and nonce must be positive uint strings' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs

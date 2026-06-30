@@ -1,6 +1,8 @@
 import { APIError } from "../../shared/errors/api-error.js";
 import type { SubmitQuoteRequest } from "../../shared/types/rfq.js";
 
+const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
+
 export interface SettlementVerifier {
   verify(input: SettlementVerificationInput): Promise<SettlementVerificationResult>;
 }
@@ -45,7 +47,9 @@ export class LocalSettlementVerifier implements SettlementVerifier {
   }
 
   async verify(input: SettlementVerificationInput): Promise<SettlementVerificationResult> {
-    const { quote } = input.request;
+    const { quote, signature } = input.request;
+
+    this.assertCanonicalSignature(signature);
 
     if (!this.enabledChainIds.has(quote.chainId)) {
       throw this.reverted("INVALID_CHAIN_ID", "Quote chain id is not enabled for settlement");
@@ -84,6 +88,23 @@ export class LocalSettlementVerifier implements SettlementVerifier {
 
   private reverted(reasonCode: string, message: string): APIError {
     return new APIError("SETTLEMENT_REVERTED", message, 409, undefined, reasonCode);
+  }
+
+  private assertCanonicalSignature(signature: string): void {
+    if (!/^0x[0-9a-fA-F]{130}$/.test(signature)) {
+      throw this.reverted("INVALID_SIGNATURE", "Settlement signature must be 65 bytes");
+    }
+
+    const s = BigInt(`0x${signature.slice(66, 130)}`);
+    if (s > SECP256K1N_HALF) {
+      throw this.reverted("INVALID_SIGNATURE", "Settlement signature s value must be in the lower half order");
+    }
+
+    const v = Number.parseInt(signature.slice(130, 132), 16);
+    const normalizedV = v < 27 ? v + 27 : v;
+    if (normalizedV !== 27 && normalizedV !== 28) {
+      throw this.reverted("INVALID_SIGNATURE", "Settlement signature v value must be 27 or 28");
+    }
   }
 }
 
