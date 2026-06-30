@@ -584,7 +584,10 @@ grep -q 'getHedgeIntent' backend/src/modules/hedge/hedge.service.ts
 grep -q 'getHedgeIntentBySettlementEvent' backend/src/modules/hedge/hedge.service.ts
 grep -q 'settlementEventId: intent.settlementEventId' backend/src/modules/hedge/hedge.service.ts
 grep -q 'hedgeOrderIdsBySettlementEvent' backend/src/modules/hedge/hedge.service.ts
+grep -q 'cloneHedgeIntentStatus' backend/src/modules/hedge/hedge.service.ts
 grep -q 'returns the existing hedge intent for settlement retries' backend/test/hedge.test.mjs
+grep -q 'returns defensive copies of hedge intent status records' backend/test/hedge.test.mjs
+grep -q 'returns defensive copies from create and status lookup operations' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'getHedgeIntentBySettlementEvent' backend/test/hedge.test.mjs
 grep -q 'settlementEventId: submitResponse.settlementEventId' sdk/test/sdk.test.mjs
 grep -q 'hedge settlement event id' scripts/smoke-api.mjs

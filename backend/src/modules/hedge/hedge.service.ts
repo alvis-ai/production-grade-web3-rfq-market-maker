@@ -73,7 +73,7 @@ export class HedgeService implements HedgeIntentService {
       return {
         status: "queued",
         hedgeOrderId: existingRecord.hedgeOrderId,
-        record: existingRecord,
+        record: cloneHedgeIntentStatus(existingRecord),
       };
     }
 
@@ -102,18 +102,20 @@ export class HedgeService implements HedgeIntentService {
     return {
       status: "queued",
       hedgeOrderId,
-      record,
+      record: cloneHedgeIntentStatus(record),
     };
   }
 
   getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined {
-    return this.intents.get(hedgeOrderId);
+    const intent = this.intents.get(hedgeOrderId);
+    return intent ? cloneHedgeIntentStatus(intent) : undefined;
   }
 
   getHedgeIntentBySettlementEvent(settlementEventId: string): HedgeIntentStatusResponse | undefined {
     assertNonEmptyString(settlementEventId, "settlementEventId");
     const hedgeOrderId = this.hedgeOrderIdsBySettlementEvent.get(settlementEventId);
-    return hedgeOrderId ? this.intents.get(hedgeOrderId) : undefined;
+    const intent = hedgeOrderId ? this.intents.get(hedgeOrderId) : undefined;
+    return intent ? cloneHedgeIntentStatus(intent) : undefined;
   }
 
   recordHedgeFailure(intent: HedgeIntent, _reasonCode: HedgeFailureReasonCode): void {
@@ -131,6 +133,10 @@ export class HedgeService implements HedgeIntentService {
   private key(chainId: number, token: Address): string {
     return `${chainId}:${token.toLowerCase()}`;
   }
+}
+
+function cloneHedgeIntentStatus(intent: HedgeIntentStatusResponse): HedgeIntentStatusResponse {
+  return { ...intent };
 }
 
 function assertPositiveBps(value: number, field: keyof HedgeServiceConfig): void {

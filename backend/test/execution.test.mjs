@@ -68,7 +68,9 @@ test("SkeletonExecutionService suppresses duplicate settlement side effects", as
   assert.equal(replay.settlementEventResult.duplicate, true);
   assert.equal(inventoryService.getPosition(request.quote.chainId, request.quote.tokenIn).balance, BigInt(request.quote.amountIn));
   assert.equal(inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut).balance, -BigInt(request.quote.amountOut));
-  assert.equal(hedgeService.getHedgeIntent(first.response.hedgeOrderId), first.hedgeResult?.record);
+  const storedHedge = hedgeService.getHedgeIntent(first.response.hedgeOrderId);
+  assert.deepEqual(storedHedge, first.hedgeResult?.record);
+  assert.notEqual(storedHedge, first.hedgeResult?.record);
 });
 
 test("SkeletonExecutionService rejects unsafe execution inputs before settlement side effects", async () => {

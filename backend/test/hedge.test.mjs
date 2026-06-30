@@ -46,14 +46,32 @@ test("HedgeService returns the existing hedge intent for settlement retries", ()
 
   assert.equal(retry.hedgeOrderId, first.hedgeOrderId);
   assert.deepEqual(retry.record, first.record);
-  assert.equal(service.getHedgeIntent(first.hedgeOrderId), first.record);
-  assert.equal(service.getHedgeIntentBySettlementEvent(intent.settlementEventId), first.record);
+  assert.notEqual(retry.record, first.record);
+  assert.deepEqual(service.getHedgeIntent(first.hedgeOrderId), first.record);
+  assert.deepEqual(service.getHedgeIntentBySettlementEvent(intent.settlementEventId), first.record);
 
   const next = service.createHedgeIntent({
     ...intent,
     settlementEventId: "se_1_33333333_0",
   });
   assert.notEqual(next.hedgeOrderId, first.hedgeOrderId);
+});
+
+test("HedgeService returns defensive copies of hedge intent status records", () => {
+  const service = new HedgeService();
+  const created = service.createHedgeIntent(intent);
+
+  created.record.status = "failed";
+  created.record.amount = "1";
+
+  const loaded = service.getHedgeIntent(created.hedgeOrderId);
+  assert.equal(loaded.status, "queued");
+  assert.equal(loaded.amount, intent.amount);
+
+  loaded.status = "failed";
+  const bySettlement = service.getHedgeIntentBySettlementEvent(intent.settlementEventId);
+  assert.equal(bySettlement.status, "queued");
+  assert.equal(bySettlement.amount, intent.amount);
 });
 
 test("HedgeService rejects unsafe failure penalty configuration at construction", () => {
