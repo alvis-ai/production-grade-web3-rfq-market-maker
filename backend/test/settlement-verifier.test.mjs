@@ -155,6 +155,15 @@ test("LocalSettlementVerifier rejects unsafe policy configuration at constructio
     () =>
       new LocalSettlementVerifier({
         ...defaultLocalSettlementVerifierPolicy,
+        enabledChainIds: [1, 1],
+      }),
+    /Local settlement verifier enabledChainIds must not contain duplicate chain ids/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
         tokenWhitelist: [],
       }),
     /Local settlement verifier tokenWhitelist must contain at least one address/,
@@ -167,6 +176,18 @@ test("LocalSettlementVerifier rejects unsafe policy configuration at constructio
         tokenWhitelist: ["0x00000000000000000000000000000000000000zz"],
       }),
     /Local settlement verifier tokenWhitelist entries must be 20-byte hex addresses/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
+        tokenWhitelist: [
+          "0x00000000000000000000000000000000000000cc",
+          "0x00000000000000000000000000000000000000CC",
+        ],
+      }),
+    /Local settlement verifier tokenWhitelist must not contain duplicate addresses/,
   );
 });
 

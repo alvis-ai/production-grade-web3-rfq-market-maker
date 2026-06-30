@@ -160,10 +160,15 @@ function assertChainIds(chainIds: readonly number[]): void {
     throw new Error("Basic risk enabledChainIds must contain at least one chain id");
   }
 
+  const seenChainIds = new Set<number>();
   for (const chainId of chainIds) {
     if (!Number.isSafeInteger(chainId) || chainId <= 0) {
       throw new Error("Basic risk enabledChainIds entries must be positive safe integers");
     }
+    if (seenChainIds.has(chainId)) {
+      throw new Error("Basic risk enabledChainIds must not contain duplicate chain ids");
+    }
+    seenChainIds.add(chainId);
   }
 }
 
@@ -176,15 +181,27 @@ function assertAddressList(
     throw new Error(`Basic risk ${field} must contain at least one address`);
   }
 
+  const seenAddresses = new Set<string>();
   for (const address of addresses) {
     assertAddress(address, field);
+    const normalized = address.toLowerCase();
+    if (seenAddresses.has(normalized)) {
+      throw new Error(`Basic risk ${field} must not contain duplicate addresses`);
+    }
+    seenAddresses.add(normalized);
   }
 }
 
 function assertToxicFlowScores(scores: readonly ToxicFlowScore[]): void {
+  const seenUsers = new Set<string>();
   for (const score of scores) {
     assertAddress(score.user, "toxicFlowScores.user");
     assertBpsUpperBound(score.scoreBps, "toxicFlowScores.scoreBps");
+    const normalizedUser = score.user.toLowerCase();
+    if (seenUsers.has(normalizedUser)) {
+      throw new Error("Basic risk toxicFlowScores must not contain duplicate users");
+    }
+    seenUsers.add(normalizedUser);
   }
 }
 

@@ -98,10 +98,15 @@ function assertChainIds(chainIds: readonly number[]): void {
     throw new Error("Local settlement verifier enabledChainIds must contain at least one chain id");
   }
 
+  const seenChainIds = new Set<number>();
   for (const chainId of chainIds) {
     if (!Number.isSafeInteger(chainId) || chainId <= 0) {
       throw new Error("Local settlement verifier enabledChainIds entries must be positive safe integers");
     }
+    if (seenChainIds.has(chainId)) {
+      throw new Error("Local settlement verifier enabledChainIds must not contain duplicate chain ids");
+    }
+    seenChainIds.add(chainId);
   }
 }
 
@@ -110,9 +115,15 @@ function assertTokenWhitelist(tokens: readonly `0x${string}`[]): void {
     throw new Error("Local settlement verifier tokenWhitelist must contain at least one address");
   }
 
+  const seenTokens = new Set<string>();
   for (const token of tokens) {
     if (!/^0x[0-9a-fA-F]{40}$/.test(token)) {
       throw new Error("Local settlement verifier tokenWhitelist entries must be 20-byte hex addresses");
     }
+    const normalized = token.toLowerCase();
+    if (seenTokens.has(normalized)) {
+      throw new Error("Local settlement verifier tokenWhitelist must not contain duplicate addresses");
+    }
+    seenTokens.add(normalized);
   }
 }

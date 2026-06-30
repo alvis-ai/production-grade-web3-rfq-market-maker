@@ -128,6 +128,11 @@ test("BasicRiskEngine rejects unsafe policy configuration at construction", () =
   );
 
   assert.throws(
+    () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, enabledChainIds: [1, 1] }),
+    /Basic risk enabledChainIds must not contain duplicate chain ids/,
+  );
+
+  assert.throws(
     () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, tokenAllowlist: [] }),
     /Basic risk tokenAllowlist must contain at least one address/,
   );
@@ -139,6 +144,30 @@ test("BasicRiskEngine rejects unsafe policy configuration at construction", () =
         tokenAllowlist: ["0x00000000000000000000000000000000000000zz"],
       }),
     /Basic risk tokenAllowlist entries must be 20-byte hex addresses/,
+  );
+
+  assert.throws(
+    () =>
+      new BasicRiskEngine({
+        ...defaultBasicRiskPolicy,
+        tokenAllowlist: [
+          "0x0000000000000000000000000000000000000002",
+          "0x0000000000000000000000000000000000000002",
+        ],
+      }),
+    /Basic risk tokenAllowlist must not contain duplicate addresses/,
+  );
+
+  assert.throws(
+    () =>
+      new BasicRiskEngine({
+        ...defaultBasicRiskPolicy,
+        restrictedUsers: [
+          "0x00000000000000000000000000000000000000aa",
+          "0x00000000000000000000000000000000000000AA",
+        ],
+      }),
+    /Basic risk restrictedUsers must not contain duplicate addresses/,
   );
 
   assert.throws(
@@ -163,6 +192,24 @@ test("BasicRiskEngine rejects unsafe policy configuration at construction", () =
         ],
       }),
     /Basic risk toxicFlowScores.scoreBps must be a non-negative safe integer/,
+  );
+
+  assert.throws(
+    () =>
+      new BasicRiskEngine({
+        ...defaultBasicRiskPolicy,
+        toxicFlowScores: [
+          {
+            user: "0x00000000000000000000000000000000000000bb",
+            scoreBps: 100,
+          },
+          {
+            user: "0x00000000000000000000000000000000000000BB",
+            scoreBps: 9000,
+          },
+        ],
+      }),
+    /Basic risk toxicFlowScores must not contain duplicate users/,
   );
 });
 

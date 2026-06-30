@@ -364,6 +364,15 @@ grep -q 'TOXIC_FLOW_RESTRICTED_USER' backend/src/modules/risk/risk.engine.ts
 grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/src/modules/risk/risk.engine.ts
 grep -q 'toxicFlowScores' backend/src/modules/risk/risk.engine.ts
 grep -q 'restrictedUsers' backend/src/modules/risk/risk.engine.ts
+grep -q 'Basic risk enabledChainIds must not contain duplicate chain ids' backend/src/modules/risk/risk.engine.ts
+grep -q 'Basic risk ${field} must not contain duplicate addresses' backend/src/modules/risk/risk.engine.ts
+grep -q 'Basic risk toxicFlowScores must not contain duplicate users' backend/src/modules/risk/risk.engine.ts
+grep -q 'BasicRiskEngine rejects unsafe policy configuration at construction' backend/test/risk.test.mjs
+grep -q 'Basic risk tokenAllowlist must not contain duplicate addresses' backend/test/risk.test.mjs
+grep -q 'Basic risk restrictedUsers must not contain duplicate addresses' backend/test/risk.test.mjs
+grep -q 'Basic risk toxicFlowScores must not contain duplicate users' backend/test/risk.test.mjs
+grep -q 'enabledChainIds` 和 `tokenAllowlist` 必须非空且不能包含重复项' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q '覆盖 toxic-flow score' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'class LocalEIP712SignerService' backend/src/modules/signer/signer.service.ts
 grep -q 'class ObservedSignerService' backend/src/modules/signer/signer.service.ts
 grep -q 'SIGNER_UNAVAILABLE' backend/src/modules/signer/signer.service.ts
@@ -529,6 +538,9 @@ grep -q 'TOKEN_NOT_WHITELISTED' backend/src/modules/settlement/settlement-verifi
 grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertChainIds(policy.enabledChainIds)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertTokenWhitelist(policy.tokenWhitelist)' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'Local settlement verifier enabledChainIds must not contain duplicate chain ids' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'Local settlement verifier tokenWhitelist must not contain duplicate addresses' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'enabledChainIds` 和 `tokenWhitelist` 必须非空且不能包含重复项' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
 grep -q 'recordHedgeFailure' backend/src/modules/execution/execution.service.ts
 grep -q 'hedgeOrderId: hedgeResult?.hedgeOrderId' backend/src/modules/execution/execution.service.ts
