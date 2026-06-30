@@ -26,9 +26,9 @@ CREATE TABLE quotes (
   ),
   CONSTRAINT chk_quotes_amounts_non_negative CHECK (
     amount_in > 0
-    AND (amount_out IS NULL OR amount_out >= 0)
-    AND (min_amount_out IS NULL OR min_amount_out >= 0)
-    AND (nonce IS NULL OR nonce >= 0)
+    AND (amount_out IS NULL OR amount_out > 0)
+    AND (min_amount_out IS NULL OR min_amount_out > 0)
+    AND (nonce IS NULL OR nonce > 0)
   ),
   CONSTRAINT chk_quotes_addresses_hex CHECK (
     user_address ~ '^0x[0-9a-fA-F]{40}$'
@@ -163,7 +163,7 @@ CREATE TABLE settlement_events (
   CONSTRAINT chk_settlement_events_amounts_positive CHECK (
     amount_in > 0
     AND amount_out > 0
-    AND nonce >= 0
+    AND nonce > 0
     AND log_index >= 0
     AND block_number >= 0
   )

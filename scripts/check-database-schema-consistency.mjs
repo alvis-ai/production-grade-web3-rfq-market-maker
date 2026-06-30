@@ -206,6 +206,12 @@ assert.ok(
   "quotes tx_hash constraint must require 32-byte transaction hashes",
 );
 assert.ok(
+  /amount_in\s*>\s*0[\s\S]*?amount_out\s+IS\s+NULL\s+OR\s+amount_out\s*>\s*0[\s\S]*?min_amount_out\s+IS\s+NULL\s+OR\s+min_amount_out\s*>\s*0[\s\S]*?nonce\s+IS\s+NULL\s+OR\s+nonce\s*>\s*0/i.test(
+    tables.get("quotes").body,
+  ),
+  "quotes must require positive signed amount and nonce fields when present",
+);
+assert.ok(
   /status\s+IN\s*\(\s*'submitted'\s*,\s*'settled'\s*\)[\s\S]*?tx_hash\s+IS\s+NOT\s+NULL[\s\S]*?settlement_event_id\s+IS\s+NOT\s+NULL/i.test(
     tables.get("quotes").body,
   ),
@@ -232,6 +238,12 @@ assert.ok(
 assert.ok(
   /decision\s+IN\s*\(\s*'approved'\s*,\s*'rejected'\s*\)/i.test(tables.get("risk_decisions").body),
   "risk decision status constraint must match backend RiskDecisionStatus values",
+);
+assert.ok(
+  /amount_in\s*>\s*0[\s\S]*?amount_out\s*>\s*0[\s\S]*?nonce\s*>\s*0[\s\S]*?log_index\s*>=\s*0[\s\S]*?block_number\s*>=\s*0/i.test(
+    tables.get("settlement_events").body,
+  ),
+  "settlement_events must require positive settled amount and nonce fields",
 );
 assert.ok(
   /side\s+IN\s*\(\s*'buy'\s*,\s*'sell'\s*\)/i.test(tables.get("hedge_orders").body),
