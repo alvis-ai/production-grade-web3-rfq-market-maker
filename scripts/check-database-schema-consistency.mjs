@@ -163,6 +163,7 @@ const requiredCheckConstraints = {
   ],
   market_snapshots: [
     ["chk_market_snapshots_prices", "market_snapshots must constrain price and liquidity fields"],
+    ["chk_market_snapshots_source_non_empty", "market_snapshots must constrain source to be non-empty"],
     ["chk_market_snapshots_chain_id_safe", "market_snapshots must constrain chain_id to JavaScript safe integer range"],
     ["chk_market_snapshots_addresses_hex", "market_snapshots must constrain token address shape"],
     ["chk_market_snapshots_distinct_tokens", "market_snapshots must constrain token pair addresses to be distinct"],
@@ -330,6 +331,10 @@ assert.ok(
     tables.get("market_snapshots").body,
   ),
   "market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present",
+);
+assert.ok(
+  /btrim\s*\(\s*source\s*\)\s*<>\s*''/i.test(tables.get("market_snapshots").body),
+  "market_snapshots must reject empty source values",
 );
 assert.ok(
   /side\s+IN\s*\(\s*'buy'\s*,\s*'sell'\s*\)/i.test(tables.get("hedge_orders").body),

@@ -546,6 +546,7 @@ grep -q 'quotes must keep the chain_id, user_address, nonce signed-quote lookup 
 grep -q 'partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`' docs/database/er-diagram.md
 grep -q 'chk_quotes_status' docs/database/schema.sql
 grep -q 'chk_quotes_chain_id_safe' docs/database/schema.sql
+grep -q 'chk_market_snapshots_source_non_empty' docs/database/schema.sql
 grep -q 'chk_market_snapshots_chain_id_safe' docs/database/schema.sql
 grep -q 'chk_settlement_events_chain_id_safe' docs/database/schema.sql
 grep -q 'chk_inventory_positions_chain_id_safe' docs/database/schema.sql
@@ -588,6 +589,7 @@ grep -q 'quotes must require positive signed amount and nonce fields when presen
 grep -q 'quotes must require amount_out to satisfy min_amount_out when both are present' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must require positive settled amount and nonce fields' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present' scripts/check-database-schema-consistency.mjs
+grep -q 'market_snapshots must reject empty source values' scripts/check-database-schema-consistency.mjs
 grep -q 'non-settlement quote statuses must not expose settlement, hedge, or PnL pointers' scripts/check-database-schema-consistency.mjs
 grep -q 'quote signed payload fields must be all present or all absent' scripts/check-database-schema-consistency.mjs
 grep -q 'requested and rejected quotes must not carry signed payload fields' scripts/check-database-schema-consistency.mjs
@@ -601,6 +603,7 @@ grep -q 'pnl_records must constrain supported attribution models' scripts/check-
 grep -q 'distinct token pair' docs/database/er-diagram.md
 grep -q 'bid_price <= mid_price <= ask_price' docs/database/er-diagram.md
 grep -q 'canonical low-s EIP-712 signature' docs/database/er-diagram.md
+grep -q 'market_snapshots.source` 必须是非空字符串' docs/database/er-diagram.md
 grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/database/er-diagram.md
 grep -q 'reason_code` 只允许出现在 rejected decision 上' docs/database/er-diagram.md
 grep -q 'signed payload 字段全有或全无' docs/database/er-diagram.md
