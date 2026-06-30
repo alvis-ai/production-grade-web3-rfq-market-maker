@@ -1486,8 +1486,16 @@ test("RFQ API rejects invalid market data before pricing and signing", async () 
 });
 
 test("RFQ API maps routing engine failures to dependency errors before pricing and signing", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+  let requestedQuoteId;
+  quoteRepository.saveRequested = async (input) => {
+    requestedQuoteId = input.quoteId;
+    await saveRequested(input);
+  };
   const server = buildServer({
     logger: false,
+    quoteRepository,
     routingEngine: {
       async selectRoute() {
         throw new Error("routing backend offline");
@@ -1503,6 +1511,12 @@ test("RFQ API maps routing engine failures to dependency errors before pricing a
     assert.equal(response.body.code, "ROUTING_UNAVAILABLE");
     assert.match(response.body.traceId, /^tr_/);
     assert.equal(response.headers["x-trace-id"], response.body.traceId);
+
+    assert.match(requestedQuoteId, /^q_/);
+    const status = await injectJson(server, "GET", `/quote/${requestedQuoteId}`);
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.body.status, "failed");
+    assert.equal(status.body.errorCode, "ROUTING_UNAVAILABLE");
 
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);
@@ -1586,8 +1600,16 @@ test("RFQ API maps quote status store failures to structured errors", async () =
 });
 
 test("RFQ API maps pricing engine failures to dependency errors before signing", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+  let requestedQuoteId;
+  quoteRepository.saveRequested = async (input) => {
+    requestedQuoteId = input.quoteId;
+    await saveRequested(input);
+  };
   const server = buildServer({
     logger: false,
+    quoteRepository,
     pricingEngine: {
       async price() {
         throw new Error("pricing backend offline");
@@ -1603,6 +1625,12 @@ test("RFQ API maps pricing engine failures to dependency errors before signing",
     assert.equal(response.body.code, "PRICING_UNAVAILABLE");
     assert.match(response.body.traceId, /^tr_/);
     assert.equal(response.headers["x-trace-id"], response.body.traceId);
+
+    assert.match(requestedQuoteId, /^q_/);
+    const status = await injectJson(server, "GET", `/quote/${requestedQuoteId}`);
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.body.status, "failed");
+    assert.equal(status.body.errorCode, "PRICING_UNAVAILABLE");
 
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);

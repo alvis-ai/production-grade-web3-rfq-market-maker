@@ -82,11 +82,22 @@ export class QuoteService {
       request: validatedRequest,
       snapshot,
     });
+
+    const identity = this.identityGenerator.next();
+    const quoteId = identity.quoteId;
+    await this.saveRequestedQuote({
+      quoteId,
+      snapshotId: snapshot.snapshotId,
+      request: validatedRequest,
+    });
+
     let routePlan: RoutePlan;
     try {
       routePlan = await this.deps.routingEngine.selectRoute({ request: validatedRequest, snapshot });
     } catch (error) {
-      throw routingFailure(error);
+      const failure = routingFailure(error);
+      await this.markQuoteFailedBestEffort(quoteId, failure.code);
+      throw failure;
     }
     const inventorySkewBps = this.deps.inventoryService.calculateQuoteSkewBps({
       chainId: validatedRequest.chainId,
@@ -106,7 +117,9 @@ export class QuoteService {
         inventorySkewBps: inventorySkewBps + hedgeRiskPenaltyBps,
       });
     } catch (error) {
-      throw pricingFailure(error);
+      const failure = pricingFailure(error);
+      await this.markQuoteFailedBestEffort(quoteId, failure.code);
+      throw failure;
     }
     const inventoryProjection = this.deps.inventoryService.projectSettlement({
       chainId: validatedRequest.chainId,
@@ -114,14 +127,6 @@ export class QuoteService {
       tokenOut: validatedRequest.tokenOut,
       amountIn: validatedRequest.amountIn,
       amountOut: pricing.amountOut,
-    });
-
-    const identity = this.identityGenerator.next();
-    const quoteId = identity.quoteId;
-    await this.saveRequestedQuote({
-      quoteId,
-      snapshotId: snapshot.snapshotId,
-      request: validatedRequest,
     });
 
     const risk = await this.evaluateRisk({ request: validatedRequest, pricing, inventoryProjection });

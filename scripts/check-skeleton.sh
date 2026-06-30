@@ -141,9 +141,12 @@ grep -q 'InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots
 grep -q 'InMemoryMarketSnapshotRepository returns defensive copies' backend/test/market-data.test.mjs
 grep -q 'QuoteService persists market snapshots before downstream quote side effects' backend/test/quote-service.test.mjs
 grep -q 'QuoteService blocks routing and signer when market snapshot persistence fails' backend/test/quote-service.test.mjs
+grep -q 'QuoteService marks requested quotes as failed when routing is unavailable' backend/test/quote-service.test.mjs
+grep -q 'QuoteService marks requested quotes as failed when pricing is unavailable' backend/test/quote-service.test.mjs
 grep -q '快照 `StaticMarketDataConfig`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'InMemoryMarketSnapshotRepository` mirrors the PostgreSQL market_snapshots contract' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'persists MarketSnapshotStore audit records before routing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Requested quote persistence happens immediately after market snapshot persistence and before routing or pricing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'runtime `MarketSnapshotStore` 必须镜像 `market_snapshots` 表的核心契约' docs/database/er-diagram.md
 test -s backend/src/modules/rate-limit/rate-limit.service.ts
 test -s backend/src/shared/errors/api-error.ts

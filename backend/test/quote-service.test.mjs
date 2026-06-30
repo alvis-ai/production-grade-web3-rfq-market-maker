@@ -1311,6 +1311,102 @@ test("QuoteService blocks routing and signer when market snapshot persistence fa
   assert.equal(signerCalls, 0);
 });
 
+test("QuoteService marks requested quotes as failed when routing is unavailable", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+  let requestedQuoteId;
+  let pricingCalls = 0;
+  let signerCalls = 0;
+  quoteRepository.saveRequested = async (input) => {
+    requestedQuoteId = input.quoteId;
+    await saveRequested(input);
+  };
+
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteRepository,
+    routingEngine: {
+      async selectRoute() {
+        throw new Error("routing backend offline");
+      },
+    },
+    pricingEngine: {
+      async price() {
+        pricingCalls += 1;
+        throw new Error("pricing should not be called");
+      },
+    },
+    signerService: {
+      async signQuote() {
+        signerCalls += 1;
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() {
+        return true;
+      },
+    },
+  });
+
+  await assert.rejects(
+    service.createQuote(request),
+    (error) => {
+      assert.equal(error.code, "ROUTING_UNAVAILABLE");
+      return true;
+    },
+  );
+
+  assert.match(requestedQuoteId, /^q_/);
+  const status = await quoteRepository.findStatus(requestedQuoteId);
+  assert.equal(status.status, "failed");
+  assert.equal(status.errorCode, "ROUTING_UNAVAILABLE");
+  assert.equal(pricingCalls, 0);
+  assert.equal(signerCalls, 0);
+});
+
+test("QuoteService marks requested quotes as failed when pricing is unavailable", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+  let requestedQuoteId;
+  let signerCalls = 0;
+  quoteRepository.saveRequested = async (input) => {
+    requestedQuoteId = input.quoteId;
+    await saveRequested(input);
+  };
+
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteRepository,
+    pricingEngine: {
+      async price() {
+        throw new Error("pricing backend offline");
+      },
+    },
+    signerService: {
+      async signQuote() {
+        signerCalls += 1;
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() {
+        return true;
+      },
+    },
+  });
+
+  await assert.rejects(
+    service.createQuote(request),
+    (error) => {
+      assert.equal(error.code, "PRICING_UNAVAILABLE");
+      return true;
+    },
+  );
+
+  assert.match(requestedQuoteId, /^q_/);
+  const status = await quoteRepository.findStatus(requestedQuoteId);
+  assert.equal(status.status, "failed");
+  assert.equal(status.errorCode, "PRICING_UNAVAILABLE");
+  assert.equal(signerCalls, 0);
+});
+
 test("QuoteService persists approved and rejected risk decisions before signer boundary", async () => {
   const approvedRiskDecisionStore = new InMemoryRiskDecisionRepository();
   const approvedService = new QuoteService({
