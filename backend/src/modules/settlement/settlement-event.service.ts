@@ -31,6 +31,7 @@ export interface SettlementEventStore {
 export class SettlementEventService implements SettlementEventStore {
   private readonly events = new Map<string, SettlementEventStatusResponse>();
   private readonly eventIdsByKey = new Map<string, string>();
+  private readonly eventIdsByQuoteId = new Map<string, string>();
 
   constructor(private readonly inventoryService: InventoryService) {}
 
@@ -59,6 +60,21 @@ export class SettlementEventService implements SettlementEventStore {
         duplicate: true,
       };
     }
+    const existingQuoteEventId = this.eventIdsByQuoteId.get(input.quoteId);
+    if (existingQuoteEventId) {
+      const event = this.events.get(existingQuoteEventId);
+      if (!event) {
+        throw new Error(`Settlement event quote index is inconsistent for ${existingQuoteEventId}`);
+      }
+      if (!this.matchesExistingEvent(event, input, { blockNumber, logIndex, txHash })) {
+        throw new Error(`Settlement event quote conflict for ${existingQuoteEventId}`);
+      }
+
+      return {
+        event,
+        duplicate: true,
+      };
+    }
 
     const event: SettlementEventStatusResponse = {
       settlementEventId: `se_${input.quote.chainId}_${txHash.slice(2)}_${logIndex}`,
@@ -80,6 +96,7 @@ export class SettlementEventService implements SettlementEventStore {
     this.inventoryService.applySettlement(this.toSettlementDelta(event));
     this.events.set(event.settlementEventId, event);
     this.eventIdsByKey.set(key, event.settlementEventId);
+    this.eventIdsByQuoteId.set(event.quoteId, event.settlementEventId);
 
     return {
       event,

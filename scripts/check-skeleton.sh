@@ -402,6 +402,9 @@ grep -q 'unique index `(settlement_event_id)`' docs/database/er-diagram.md
 grep -q 'quote_id TEXT NOT NULL REFERENCES quotes(id)' docs/database/schema.sql
 grep -q 'settlement_events.quote_id must be a required quotes(id) foreign key' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events.quote_id' docs/database/er-diagram.md
+grep -q 'uq_settlement_events_quote_id' docs/database/schema.sql
+grep -q 'settlement_events must keep one settlement event per quote' scripts/check-database-schema-consistency.mjs
+grep -q 'unique index `(quote_id)`' docs/database/er-diagram.md
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts
 grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.service.ts
@@ -418,12 +421,14 @@ grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'listSettlementEvents' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'eventIdsByQuoteId' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'txHash.slice(2)}_${logIndex}' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'matchesExistingEvent' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'assertSettlementEventInput' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'Settlement event quote.amountOut must be greater than or equal to quote.minAmountOut' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'keeps distinct events with the same tx hash prefix' backend/test/settlement-event.test.mjs
+grep -q 'rejects conflicting events for an already settled quote' backend/test/settlement-event.test.mjs
 grep -q 'lists settlement events in chain order' backend/test/settlement-event.test.mjs
 grep -q 'rejects conflicting payloads for an existing chain event key' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects unsafe settlement quote inputs before side effects' backend/test/settlement-event.test.mjs
@@ -1078,6 +1083,7 @@ grep -q 'settlement event store failures' backend/test/api.test.mjs
 grep -q 'settlement event write failures' backend/test/api.test.mjs
 grep -q 'Settlement event store write failure' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'A signed quote may bind to only one settlement event' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'errorCode, "SETTLEMENT_REVERTED"' backend/test/api.test.mjs
 grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs

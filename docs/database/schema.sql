@@ -74,6 +74,8 @@ CREATE TABLE settlement_events (
   UNIQUE (chain_id, tx_hash, log_index)
 );
 
+CREATE UNIQUE INDEX uq_settlement_events_quote_id ON settlement_events (quote_id);
+
 CREATE TABLE inventory_positions (
   id TEXT PRIMARY KEY,
   chain_id BIGINT NOT NULL,

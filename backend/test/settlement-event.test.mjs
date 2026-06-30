@@ -176,6 +176,31 @@ test("SettlementEventService keeps distinct events with the same tx hash prefix"
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -2970n);
 });
 
+test("SettlementEventService rejects conflicting events for an already settled quote", () => {
+  const inventory = new InventoryService();
+  const settlements = new SettlementEventService(inventory);
+  const first = settlements.applySettlementEvent({
+    quoteId: "q_single_settlement",
+    quote,
+    txHash: `0x${"13".repeat(32)}`,
+    logIndex: 0,
+  });
+
+  assert.throws(
+    () =>
+      settlements.applySettlementEvent({
+        quoteId: "q_single_settlement",
+        quote,
+        txHash: `0x${"14".repeat(32)}`,
+        logIndex: 1,
+      }),
+    /Settlement event quote conflict/,
+  );
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 1000n);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -990n);
+  assert.deepEqual(settlements.getSettlementEvent(first.event.settlementEventId), first.event);
+});
+
 test("SettlementEventService rejects invalid transaction hashes before side effects", () => {
   for (const txHash of ["0x1234", `0x${"gg".repeat(32)}`]) {
     const inventory = new InventoryService();

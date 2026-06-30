@@ -101,6 +101,10 @@ assert.ok(
   "settlement_events.quote_id must be a required quotes(id) foreign key",
 );
 assert.ok(
+  /CREATE\s+UNIQUE\s+INDEX\s+uq_settlement_events_quote_id\s+ON\s+settlement_events\s*\(\s*quote_id\s*\)\s*;/i.test(schemaSource),
+  "settlement_events must keep one settlement event per quote",
+);
+assert.ok(
   /CREATE\s+UNIQUE\s+INDEX\s+uq_quotes_chain_user_nonce\s+ON\s+quotes\s*\(\s*chain_id\s*,\s*user_address\s*,\s*nonce\s*\)\s*WHERE\s+nonce\s+IS\s+NOT\s+NULL\s*;/i.test(schemaSource),
   "quotes must keep the chain_id, user_address, nonce signed-quote lookup key",
 );
@@ -122,6 +126,7 @@ for (const indexName of [
   "idx_quotes_status_created_at",
   "uq_quotes_chain_user_nonce",
   "idx_risk_decisions_quote_id",
+  "uq_settlement_events_quote_id",
   "uq_hedge_orders_settlement_event",
   "idx_pnl_records_realized_at",
   "idx_pnl_records_chain_pair_realized_at",
@@ -217,6 +222,10 @@ assert.ok(
 assert.ok(
   erDiagramSource.includes("settlement_events.quote_id"),
   "ER diagram notes must document required settlement-to-quote linkage",
+);
+assert.ok(
+  erDiagramSource.includes("unique index `(quote_id)`"),
+  "ER diagram notes must document one settlement event per signed quote",
 );
 assert.ok(
   erDiagramSource.includes("quote_hash"),
