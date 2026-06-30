@@ -254,6 +254,22 @@ for (const indexName of [
   );
 }
 
+assert.ok(
+  /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+set_updated_at\s*\(\s*\)\s+RETURNS\s+trigger/i.test(schemaSource),
+  "docs/database/schema.sql must define the shared set_updated_at trigger function",
+);
+assert.ok(
+  /NEW\.updated_at\s*=\s*now\s*\(\s*\)/i.test(schemaSource),
+  "set_updated_at trigger function must refresh updated_at with database time",
+);
+
+for (const tableName of ["quotes", "inventory_positions", "hedge_orders"]) {
+  assert.ok(
+    hasBeforeUpdateTrigger(tableName, `trg_${tableName}_set_updated_at`, "set_updated_at"),
+    `${tableName} must refresh updated_at through a BEFORE UPDATE trigger`,
+  );
+}
+
 const pnlFields = extractInterfaceFields(backendTypesSource, "PnlTradeRecord");
 const pnlSchemaProperties = extractOpenApiSchemaProperties(openapiSource, "PnlTradeRecord");
 assert.deepEqual(
@@ -426,6 +442,18 @@ function hasAlterTableForeignKey(tableName, constraintName, columnName, referenc
       `ADD\\s+CONSTRAINT\\s+${constraintName}`,
       `FOREIGN\\s+KEY\\s*\\(\\s*${columnName}\\s*\\)`,
       `REFERENCES\\s+${referencedTable}\\s*\\(\\s*${referencedColumn}\\s*\\)`,
+    ].join("[\\s\\S]*?"),
+    "i",
+  ).test(schemaSource);
+}
+
+function hasBeforeUpdateTrigger(tableName, triggerName, functionName) {
+  return new RegExp(
+    [
+      `CREATE\\s+TRIGGER\\s+${triggerName}`,
+      `BEFORE\\s+UPDATE\\s+ON\\s+${tableName}`,
+      "FOR\\s+EACH\\s+ROW",
+      `EXECUTE\\s+FUNCTION\\s+${functionName}\\s*\\(\\s*\\)`,
     ].join("[\\s\\S]*?"),
     "i",
   ).test(schemaSource);

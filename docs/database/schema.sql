@@ -240,3 +240,26 @@ ALTER TABLE quotes
 ALTER TABLE quotes
   ADD CONSTRAINT fk_quotes_pnl_id
   FOREIGN KEY (pnl_id) REFERENCES pnl_records(id);
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_quotes_set_updated_at
+BEFORE UPDATE ON quotes
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_inventory_positions_set_updated_at
+BEFORE UPDATE ON inventory_positions
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_hedge_orders_set_updated_at
+BEFORE UPDATE ON hedge_orders
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();

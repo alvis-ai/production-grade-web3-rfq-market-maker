@@ -424,6 +424,12 @@ grep -q 'quotes.settlement_event_id must reference settlement_events(id)' script
 grep -q 'quotes.hedge_order_id must reference hedge_orders(id)' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes.pnl_id must reference pnl_records(id)' scripts/check-database-schema-consistency.mjs
 grep -q '状态指针不能悬空' docs/database/er-diagram.md
+grep -q 'CREATE OR REPLACE FUNCTION set_updated_at' docs/database/schema.sql
+grep -q 'trg_quotes_set_updated_at' docs/database/schema.sql
+grep -q 'trg_inventory_positions_set_updated_at' docs/database/schema.sql
+grep -q 'trg_hedge_orders_set_updated_at' docs/database/schema.sql
+grep -q 'must refresh updated_at through a BEFORE UPDATE trigger' scripts/check-database-schema-consistency.mjs
+grep -q '共享 `set_updated_at()` trigger' docs/database/er-diagram.md
 grep -q 'quote_hash TEXT NOT NULL' docs/database/schema.sql
 grep -q 'quote_hash' docs/database/er-diagram.md
 grep -q 'quoteHash: "quote_hash"' scripts/check-database-schema-consistency.mjs
