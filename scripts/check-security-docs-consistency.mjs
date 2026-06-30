@@ -149,6 +149,7 @@ const implementedAuditControls = [
   "Browser access is restricted by a CORS origin allowlist.",
   "Sensitive thresholds are not exposed to users.",
   "Settlement events use `(chainId, txHash, logIndex)` idempotency.",
+  "Inventory updates are replayable.",
   "Hedge actions are linked to settlement events.",
   "ClickHouse analytics do not become operational source of truth.",
   "Alerts exist for signer failures, risk reject spikes, event lag and hedge failures.",
@@ -168,7 +169,6 @@ const intentionallyOpenAuditControls = [
   "`submitQuote` uses SafeERC20 for transfers.",
   "AccessControl protects signer and token whitelist updates.",
   "Indexer handles chain reorgs.",
-  "Inventory updates are replayable.",
 ];
 
 for (const control of intentionallyOpenAuditControls) {

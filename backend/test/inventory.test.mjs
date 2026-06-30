@@ -56,6 +56,77 @@ test("InventoryService calculates bounded quote skew by inventory direction", ()
   assert.equal(inventory.calculateQuoteSkewBps({ chainId: 1, token: tokenOut }), 15);
 });
 
+test("InventoryService rebuilds inventory from settlement replay", () => {
+  const inventory = new InventoryService();
+
+  inventory.applySettlement({
+    chainId: 1,
+    tokenIn,
+    tokenOut,
+    amountIn: "999",
+    amountOut: "111",
+  });
+
+  inventory.rebuildFromSettlements([
+    {
+      chainId: 1,
+      tokenIn,
+      tokenOut,
+      amountIn: "100",
+      amountOut: "80",
+    },
+    {
+      chainId: 1,
+      tokenIn: tokenOut,
+      tokenOut: tokenIn,
+      amountIn: "30",
+      amountOut: "20",
+    },
+  ]);
+
+  assert.equal(inventory.getPosition(1, tokenIn).balance, 80n);
+  assert.equal(inventory.getPosition(1, tokenOut).balance, -50n);
+});
+
+test("InventoryService rejects unsafe settlement replay before mutating balances", () => {
+  const inventory = new InventoryService();
+  inventory.applySettlement({
+    chainId: 1,
+    tokenIn,
+    tokenOut,
+    amountIn: "100",
+    amountOut: "80",
+  });
+
+  assert.throws(
+    () =>
+      inventory.rebuildFromSettlements([
+        {
+          chainId: 1,
+          tokenIn,
+          tokenOut,
+          amountIn: "10",
+          amountOut: "9",
+        },
+        {
+          chainId: 1,
+          tokenIn,
+          tokenOut: "0x1234",
+          amountIn: "10",
+          amountOut: "9",
+        },
+      ]),
+    /Inventory tokenOut must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () => inventory.rebuildFromSettlements("not an array"),
+    /Inventory settlement replay input must be an array/,
+  );
+
+  assert.equal(inventory.getPosition(1, tokenIn).balance, 100n);
+  assert.equal(inventory.getPosition(1, tokenOut).balance, -80n);
+});
+
 test("InventoryService rejects unsafe skew configuration at construction", () => {
   assert.throws(
     () =>

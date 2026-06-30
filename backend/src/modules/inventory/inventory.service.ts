@@ -63,6 +63,22 @@ export class InventoryService {
     this.add(delta.chainId, delta.tokenOut, -BigInt(delta.amountOut));
   }
 
+  rebuildFromSettlements(deltas: readonly SettlementDelta[]): void {
+    if (!Array.isArray(deltas)) {
+      throw new Error("Inventory settlement replay input must be an array");
+    }
+
+    for (const delta of deltas) {
+      assertSettlementDelta(delta);
+    }
+
+    this.balances.clear();
+    for (const delta of deltas) {
+      this.add(delta.chainId, delta.tokenIn, BigInt(delta.amountIn));
+      this.add(delta.chainId, delta.tokenOut, -BigInt(delta.amountOut));
+    }
+  }
+
   projectSettlement(input: InventoryProjectionInput): InventoryProjection {
     assertSettlementDelta(input);
     const tokenIn = this.getPosition(input.chainId, input.tokenIn);

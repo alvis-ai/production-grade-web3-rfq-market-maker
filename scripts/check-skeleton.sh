@@ -69,6 +69,11 @@ grep -q 'assertInventorySkewInput(input)' backend/src/modules/inventory/inventor
 grep -q 'InventoryService rejects unsafe skew configuration at construction' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects unsafe settlement inputs before mutating balances' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects unsafe projection and skew inputs' backend/test/inventory.test.mjs
+grep -q 'rebuildFromSettlements' backend/src/modules/inventory/inventory.service.ts
+grep -q 'InventoryService rebuilds inventory from settlement replay' backend/test/inventory.test.mjs
+grep -q 'InventoryService rejects unsafe settlement replay before mutating balances' backend/test/inventory.test.mjs
+grep -q 'Inventory settlement replay input must be an array' backend/src/modules/inventory/inventory.service.ts
+grep -q 'Inventory replay validates the entire settlement delta batch before clearing balances' book/Volume3-RiskEngine/Chapter01-Inventory.md
 grep -q 'inventory skew config fail-fast' book/Volume3-RiskEngine/Chapter01-Inventory.md
 test -s backend/src/modules/hedge/hedge.service.ts
 grep -q 'checkHealth' backend/src/modules/hedge/hedge.service.ts
@@ -1334,6 +1339,7 @@ grep -Fq -- '- [x] EIP-712 domain includes name, version, chainId and verifyingC
 grep -Fq -- '- [x] `submitQuote` rejects expired quotes.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Risk Engine runs before Signer Service.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] Inventory updates are replayable.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Sensitive thresholds are not exposed to users.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] ClickHouse analytics do not become operational source of truth.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Signer key rotation is documented.' docs/security/audit-checklist.md
