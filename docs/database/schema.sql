@@ -240,7 +240,7 @@ CREATE TABLE settlement_events (
     AND amount_out > 0
     AND nonce > 0
     AND log_index >= 0
-    AND block_number >= 0
+    AND block_number BETWEEN 0 AND 9007199254740991
   )
 );
 
