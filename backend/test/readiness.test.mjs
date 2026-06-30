@@ -63,6 +63,35 @@ test("ReadinessService degrades the aggregate status when a dependency probe fai
   assert.equal(readiness.components.metrics, "ok");
 });
 
+test("ReadinessService snapshots readiness configuration at construction", async () => {
+  const mutableConfig = {
+    ...defaultReadinessServiceConfig,
+    maxSnapshotAgeMs: 5_000,
+    maxSnapshotFutureSkewMs: 1_000,
+    probeRequest: { ...defaultReadinessServiceConfig.probeRequest },
+    probeSnapshot: { ...defaultReadinessServiceConfig.probeSnapshot },
+    probeRoutePlan: { ...defaultReadinessServiceConfig.probeRoutePlan },
+    probePricing: { ...defaultReadinessServiceConfig.probePricing },
+    probeQuote: { ...defaultReadinessServiceConfig.probeQuote },
+  };
+  const service = createReadinessService({}, mutableConfig);
+
+  mutableConfig.maxSnapshotAgeMs = 1;
+  mutableConfig.maxSnapshotFutureSkewMs = 1;
+  mutableConfig.probeRequest.tokenOut = mutableConfig.probeRequest.tokenIn;
+  mutableConfig.probeSnapshot.midPrice = "0";
+  mutableConfig.probeRoutePlan.tokenOut = mutableConfig.probeRoutePlan.tokenIn;
+  mutableConfig.probePricing.amountOut = "0";
+  mutableConfig.probeQuote.tokenOut = mutableConfig.probeQuote.tokenIn;
+
+  const readiness = await service.check();
+
+  assert.equal(readiness.status, "ready");
+  for (const component of readinessComponents) {
+    assert.equal(readiness.components[component], "ok");
+  }
+});
+
 test("ReadinessService rejects unsafe freshness configuration at construction", () => {
   assert.throws(
     () =>

@@ -93,12 +93,15 @@ export const defaultReadinessServiceConfig: ReadinessServiceConfig = {
 };
 
 export class ReadinessService {
+  private readonly config: ReadinessServiceConfig;
+
   constructor(
     private readonly deps: ReadinessServiceDeps,
-    private readonly config: ReadinessServiceConfig = defaultReadinessServiceConfig,
+    config: ReadinessServiceConfig = defaultReadinessServiceConfig,
   ) {
     assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
     assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
+    this.config = cloneReadinessServiceConfig(config);
   }
 
   async check(): Promise<ReadinessResponse> {
@@ -215,4 +218,15 @@ function assertPositiveSafeInteger(value: number, field: keyof ReadinessServiceC
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`Readiness service ${field} must be a positive safe integer`);
   }
+}
+
+function cloneReadinessServiceConfig(config: ReadinessServiceConfig): ReadinessServiceConfig {
+  return {
+    ...config,
+    probeRequest: { ...config.probeRequest },
+    probeSnapshot: { ...config.probeSnapshot },
+    probeRoutePlan: { ...config.probeRoutePlan },
+    probePricing: { ...config.probePricing },
+    probeQuote: { ...config.probeQuote },
+  };
 }

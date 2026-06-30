@@ -42,6 +42,7 @@ grep -q 'maxSnapshotAgeMs' backend/src/modules/health/readiness.service.ts
 grep -q 'maxSnapshotFutureSkewMs' backend/src/modules/health/readiness.service.ts
 grep -q 'assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs")' backend/src/modules/health/readiness.service.ts
 grep -q 'assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs")' backend/src/modules/health/readiness.service.ts
+grep -q 'cloneReadinessServiceConfig' backend/src/modules/health/readiness.service.ts
 grep -q 'readiness_probe' backend/src/modules/health/readiness.service.ts
 grep -q 'probeSnapshot' backend/src/modules/health/readiness.service.ts
 grep -q 'probeRoutePlan' backend/src/modules/health/readiness.service.ts
@@ -53,7 +54,9 @@ grep -q 'quoteRepositoryStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'settlementEventStoreStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'pnlStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'ReadinessService degrades the aggregate status when a dependency probe fails' backend/test/readiness.test.mjs
+grep -q 'ReadinessService snapshots readiness configuration at construction' backend/test/readiness.test.mjs
 grep -q 'ReadinessService rejects unsafe freshness configuration at construction' backend/test/readiness.test.mjs
+grep -q 'snapshots `ReadinessServiceConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
