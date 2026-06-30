@@ -112,6 +112,7 @@ price(input: PricingInput): Promise<PricingResult>
 - Routing failure 是 quote dependency failure，不应落入通用 500，也不应继续执行 pricing/risk/signer。
 - Routing input is validated before route-plan creation: request chain id、user/token addresses、distinct token pair、positive `amountIn`、bounded `slippageBps` and snapshot id / mid price / liquidity / volatility must be sane before Pricing Service receives `routePlan`.
 - Pricing input is validated before formula execution: request addresses and amounts, snapshot identifiers and market fields, route venue/liquidity, route token pair alignment, slippage bps and inventory skew bounds must be sane before any signed quote candidate can be produced.
+- `FormulaPricingEngine` snapshots `FormulaPricingConfig` at construction after validation. External callers must not be able to mutate base spread, inventory buffer, volatility divisor or adjustment caps after construction and silently change quote economics.
 
 ## Failure Scenarios
 

@@ -1353,11 +1353,14 @@ grep -q 'InMemoryRateLimiter rejects unsafe request inputs before writing bucket
 grep -q 'unsafe rate limit configuration at startup' backend/test/api.test.mjs
 grep -q 'assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertBpsUpperBound(config.maxTotalAdjustmentBps, "maxTotalAdjustmentBps")' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'cloneFormulaPricingConfig' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertPricingInput(input)' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'routePlan token pair must match request token pair' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'maxSizeImpactBps must be less than or equal to maxTotalAdjustmentBps' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'FormulaPricingEngine snapshots pricing configuration at construction' backend/test/pricing.test.mjs
 grep -q 'FormulaPricingEngine rejects unsafe pricing configuration at construction' backend/test/pricing.test.mjs
 grep -q 'FormulaPricingEngine rejects unsafe pricing inputs before quoting' backend/test/pricing.test.mjs
+grep -q 'snapshots `FormulaPricingConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'pricing config fail-fast' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q 'restricted toxic-flow users' backend/test/risk.test.mjs
 grep -q 'toxic-flow score threshold' backend/test/risk.test.mjs

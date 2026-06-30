@@ -41,7 +41,9 @@ const WAD = 1_000_000_000_000_000_000n;
 const BPS = 10_000n;
 
 export class FormulaPricingEngine implements PricingEngine {
-  constructor(private readonly config: FormulaPricingConfig = defaultFormulaPricingConfig) {
+  private readonly config: FormulaPricingConfig;
+
+  constructor(config: FormulaPricingConfig = defaultFormulaPricingConfig) {
     assertNonNegativeSafeInteger(config.baseSpreadBps, "baseSpreadBps");
     assertNonNegativeSafeInteger(config.internalInventoryBufferBps, "internalInventoryBufferBps");
     assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor");
@@ -51,6 +53,8 @@ export class FormulaPricingEngine implements PricingEngine {
     if (config.maxSizeImpactBps > config.maxTotalAdjustmentBps) {
       throw new Error("Formula pricing maxSizeImpactBps must be less than or equal to maxTotalAdjustmentBps");
     }
+
+    this.config = cloneFormulaPricingConfig(config);
   }
 
   async price(input: PricingInput): Promise<PricingResult> {
@@ -88,6 +92,10 @@ function parseDecimalToWad(value: string): bigint {
   const [whole, fraction = ""] = value.split(".");
   const paddedFraction = `${fraction.slice(0, 18)}${"0".repeat(Math.max(0, 18 - fraction.length))}`;
   return BigInt(whole) * WAD + BigInt(paddedFraction);
+}
+
+function cloneFormulaPricingConfig(config: FormulaPricingConfig): FormulaPricingConfig {
+  return { ...config };
 }
 
 function calculateSizeImpactBps(amountIn: bigint, liquidity: bigint, config: FormulaPricingConfig): number {

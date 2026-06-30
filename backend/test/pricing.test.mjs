@@ -54,6 +54,29 @@ test("FormulaPricingEngine clamps toxic size impact and inventory skew into tota
   assert.equal(pricing.amountOut, "937500000000000000");
 });
 
+test("FormulaPricingEngine snapshots pricing configuration at construction", async () => {
+  const mutableConfig = {
+    ...defaultFormulaPricingConfig,
+    baseSpreadBps: 8,
+    internalInventoryBufferBps: 2,
+    volatilityDivisor: 5,
+    maxSizeImpactBps: 250,
+    maxTotalAdjustmentBps: 2500,
+  };
+  const engine = new FormulaPricingEngine(mutableConfig);
+
+  mutableConfig.baseSpreadBps = 0;
+  mutableConfig.internalInventoryBufferBps = 0;
+  mutableConfig.volatilityDivisor = 1;
+  mutableConfig.maxSizeImpactBps = 0;
+  mutableConfig.maxTotalAdjustmentBps = 10_000;
+
+  const pricing = await engine.price(baseInput);
+  assert.equal(pricing.spreadBps, 16);
+  assert.equal(pricing.sizeImpactBps, 1);
+  assert.equal(pricing.amountOut, "1248000000");
+});
+
 test("FormulaPricingEngine rejects unsafe pricing configuration at construction", () => {
   assert.throws(
     () => new FormulaPricingEngine({ ...defaultFormulaPricingConfig, baseSpreadBps: -1 }),
