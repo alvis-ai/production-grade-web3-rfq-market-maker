@@ -302,7 +302,7 @@ export class QuoteService {
         status: "rejected",
         reasonCode: "RISK_ENGINE_UNAVAILABLE",
         policyVersion: "risk-engine-unavailable",
-      } as const;
+      };
     }
   }
 

@@ -631,6 +631,9 @@ grep -Fq 'for (const field of ["pricing_version", "risk_policy_version", "reject
 grep -q 'must reject empty values when present' scripts/check-database-schema-consistency.mjs
 grep -q 'risk decision policy_version must be non-empty' scripts/check-database-schema-consistency.mjs
 grep -q 'risk decision reason_code must be present only for rejected decisions' scripts/check-database-schema-consistency.mjs
+grep -q 'risk_decisions.reason_code constraint must match backend RiskRejectReasonCode values' scripts/check-database-schema-consistency.mjs
+grep -q 'export type RiskRejectReasonCode' backend/src/modules/risk/risk.engine.ts
+grep -q 'RISK_ENGINE_UNAVAILABLE' docs/database/schema.sql
 grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must constrain side enum values' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must reject empty venue values' scripts/check-database-schema-consistency.mjs
@@ -654,6 +657,7 @@ grep -q 'safe-integer `deadline` 和 safe-integer signed `gross_pnl_bps` 作为 
 grep -q 'safe-integer signed `gross_pnl_bps`' docs/database/er-diagram.md
 grep -q 'settlement_events.log_index` 和 `settlement_events.block_number` 使用 BIGINT 保存链上 event ordinal' docs/database/er-diagram.md
 grep -q 'reason_code` 只允许出现在 rejected decision 上' docs/database/er-diagram.md
+grep -q 'RiskRejectReasonCode` 稳定枚举' docs/database/er-diagram.md
 grep -q 'signed payload 字段全有或全无' docs/database/er-diagram.md
 grep -q '正数 signed amount/nonce' docs/database/er-diagram.md
 grep -q 'amount_out >= min_amount_out' docs/database/er-diagram.md
@@ -1739,6 +1743,7 @@ grep -q 'OpenAPI public contract must not expose sensitive risk field' scripts/c
 grep -q 'Public API responses must not expose internal risk thresholds' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'policyVersion or internal reasonCode values' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'approved decision 的 `reasonCode` 为 NULL' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'PostgreSQL `risk_decisions.reason_code` CHECK constraint 必须匹配后端 `RiskRejectReasonCode` union' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'pricing adjustment breakdown' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'ClickHouse is an analytics replica only' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'never from ClickHouse query results' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md

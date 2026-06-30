@@ -7,6 +7,7 @@ const schemaSource = await readFile("docs/database/schema.sql", "utf8");
 const erDiagramSource = await readFile("docs/database/er-diagram.md", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");
+const riskEngineSource = await readFile("backend/src/modules/risk/risk.engine.ts", "utf8");
 const maxSafeInteger = "9007199254740991";
 const secp256k1HalfOrder = "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0";
 
@@ -353,6 +354,11 @@ assert.ok(
   ),
   "risk decision reason_code must be present only for rejected decisions",
 );
+assert.deepEqual(
+  extractColumnInValues(tables.get("risk_decisions").body, "reason_code"),
+  extractStringUnionValues(riskEngineSource, "RiskRejectReasonCode"),
+  "risk_decisions.reason_code constraint must match backend RiskRejectReasonCode values",
+);
 assert.ok(
   /\blog_index\s+BIGINT\s+NOT\s+NULL/i.test(tables.get("settlement_events").body),
   "settlement_events.log_index must be stored as a JavaScript safe-integer sized ordinal",
@@ -644,6 +650,20 @@ function extractOpenApiSchemaProperties(source, schemaName) {
   }
 
   return properties;
+}
+
+function extractStringUnionValues(source, typeName) {
+  const match = source.match(new RegExp(`export\\s+type\\s+${typeName}\\s*=([\\s\\S]*?);`));
+  assert.ok(match, `Unable to find TypeScript string union ${typeName}`);
+
+  return [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+}
+
+function extractColumnInValues(source, columnName) {
+  const match = source.match(new RegExp(`${columnName}\\s+IN\\s*\\(([\\s\\S]*?)\\)`, "i"));
+  assert.ok(match, `Unable to find ${columnName} IN constraint`);
+
+  return [...match[1].matchAll(/'([^']+)'/g)].map((item) => item[1]);
 }
 
 function hasAlterTableForeignKey(tableName, constraintName, columnName, referencedTable, referencedColumn) {
