@@ -233,6 +233,12 @@ assert.ok(
   "quotes must require positive signed amount and nonce fields when present",
 );
 assert.ok(
+  /amount_out\s+IS\s+NULL\s+OR\s+min_amount_out\s+IS\s+NULL\s+OR\s+amount_out\s*>=\s*min_amount_out/i.test(
+    tables.get("quotes").body,
+  ),
+  "quotes must require amount_out to satisfy min_amount_out when both are present",
+);
+assert.ok(
   /status\s+IN\s*\(\s*'submitted'\s*,\s*'settled'\s*\)[\s\S]*?tx_hash\s+IS\s+NOT\s+NULL[\s\S]*?settlement_event_id\s+IS\s+NOT\s+NULL/i.test(
     tables.get("quotes").body,
   ),

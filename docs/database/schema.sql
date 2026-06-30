@@ -29,6 +29,7 @@ CREATE TABLE quotes (
     amount_in > 0
     AND (amount_out IS NULL OR amount_out > 0)
     AND (min_amount_out IS NULL OR min_amount_out > 0)
+    AND (amount_out IS NULL OR min_amount_out IS NULL OR amount_out >= min_amount_out)
     AND (nonce IS NULL OR nonce > 0)
   ),
   CONSTRAINT chk_quotes_addresses_hex CHECK (
