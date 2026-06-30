@@ -1220,6 +1220,14 @@ test("RFQClient rejects malformed successful response fields", async () => {
       payload: { ...quoteResponse, signature: "0x1234" },
       message: "RFQ quote response returned malformed signature",
     },
+    {
+      payload: { ...quoteResponse, signature: `0x${"11".repeat(64)}02` },
+      message: "RFQ quote response returned malformed signature",
+    },
+    {
+      payload: { ...quoteResponse, signature: malleateSignature(await validTypedDataSignature()) },
+      message: "RFQ quote response returned malformed signature",
+    },
   ];
 
   for (const { payload, message } of quoteCases) {
@@ -1403,4 +1411,9 @@ function malleateSignature(value) {
   const flippedV = v === 27 ? 28 : 27;
 
   return `0x${r}${highS}${flippedV.toString(16).padStart(2, "0")}`;
+}
+
+async function validTypedDataSignature() {
+  const account = privateKeyToAccount(signerPrivateKey);
+  return account.signTypedData(buildQuoteTypedData(quote, verifyingContract));
 }

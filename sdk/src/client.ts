@@ -17,6 +17,7 @@ import type {
 
 export type RFQClientErrorCode = RFQErrorCode | "RFQ_CLIENT_ERROR";
 
+const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const rfqErrorCodeSet: ReadonlySet<string> = new Set(rfqErrorCodes);
 
 export class RFQClientError extends Error {
@@ -482,7 +483,18 @@ function isAddressHex(value: unknown): value is `0x${string}` {
 }
 
 function isSignatureHex(value: unknown): value is `0x${string}` {
-  return typeof value === "string" && /^0x[0-9a-fA-F]{130}$/.test(value);
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(value)) {
+    return false;
+  }
+
+  const s = BigInt(`0x${value.slice(66, 130)}`);
+  if (s > SECP256K1N_HALF) {
+    return false;
+  }
+
+  const v = Number.parseInt(value.slice(130, 132), 16);
+  const normalizedV = v < 27 ? v + 27 : v;
+  return normalizedV === 27 || normalizedV === 28;
 }
 
 function isNonEmptyString(value: unknown): value is string {
