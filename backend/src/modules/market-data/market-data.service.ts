@@ -122,7 +122,7 @@ export function getMarketSnapshotIssue(
     return "liquidity is invalid";
   }
 
-  if (!Number.isInteger(snapshot.volatilityBps) || snapshot.volatilityBps < 0) {
+  if (!Number.isSafeInteger(snapshot.volatilityBps) || snapshot.volatilityBps < 0 || snapshot.volatilityBps > 10_000) {
     return "volatility is invalid";
   }
 

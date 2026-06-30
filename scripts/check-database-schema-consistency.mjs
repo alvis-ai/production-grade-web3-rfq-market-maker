@@ -370,6 +370,12 @@ assert.ok(
   "market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present",
 );
 assert.ok(
+  /volatility_bps\s+IS\s+NULL\s+OR\s+volatility_bps\s+BETWEEN\s+0\s+AND\s+10000/i.test(
+    tables.get("market_snapshots").body,
+  ),
+  "market_snapshots must constrain volatility_bps to the 0..10000 bps range when present",
+);
+assert.ok(
   /btrim\s*\(\s*source\s*\)\s*<>\s*''/i.test(tables.get("market_snapshots").body),
   "market_snapshots must reject empty source values",
 );
