@@ -18,6 +18,7 @@ const localExpected = {
   RFQ_BODY_LIMIT_BYTES: "32768",
   RFQ_CORS_ALLOWED_ORIGINS: "http://localhost:5173",
   RFQ_ENABLE_HSTS: "false",
+  RFQ_TRUST_PROXY: "false",
   VITE_RFQ_API_BASE_URL: "http://localhost:3000",
   VITE_RFQ_SETTLEMENT_ADDRESS: "0x0000000000000000000000000000000000000004",
   VITE_WALLETCONNECT_PROJECT_ID: "00000000000000000000000000000000",
@@ -33,6 +34,7 @@ const composeExpected = {
   RFQ_BODY_LIMIT_BYTES: "32768",
   RFQ_CORS_ALLOWED_ORIGINS: "http://localhost:5173",
   RFQ_ENABLE_HSTS: "false",
+  RFQ_TRUST_PROXY: "false",
   RFQ_SIGNER_PRIVATE_KEY: localExpected.RFQ_SIGNER_PRIVATE_KEY,
   RFQ_SETTLEMENT_ADDRESS: localExpected.RFQ_SETTLEMENT_ADDRESS,
 };
@@ -46,6 +48,7 @@ const productionExpected = {
   RFQ_BODY_LIMIT_BYTES: "32768",
   RFQ_CORS_ALLOWED_ORIGINS: "https://app.example.com",
   RFQ_ENABLE_HSTS: "true",
+  RFQ_TRUST_PROXY: "false",
 };
 
 const envExample = parseDotEnv(envExampleSource);
@@ -66,6 +69,7 @@ assert.ok(
   "backend default CORS origin must match local frontend URL",
 );
 assert.ok(backendSource.includes("const defaultEnableHsts = false;"), "backend default HSTS must be false");
+assert.ok(backendSource.includes("const defaultTrustProxy = false;"), "backend default proxy trust must be false");
 assert.ok(backendSource.includes('const defaultListenHost = "127.0.0.1";'), "backend default listen host must be 127.0.0.1");
 assert.ok(backendSource.includes("const defaultListenPort = 3000;"), "backend default listen port must be 3000");
 assert.ok(
@@ -83,6 +87,10 @@ assert.ok(
 assert.ok(
   backendSource.includes("RFQ_ENABLE_HSTS must be true or false"),
   "backend must enforce RFQ_ENABLE_HSTS boolean parsing",
+);
+assert.ok(
+  backendSource.includes("RFQ_TRUST_PROXY must be true or false"),
+  "backend must enforce RFQ_TRUST_PROXY boolean parsing",
 );
 assert.ok(
   frontendConfigSource.includes("VITE_RFQ_API_BASE_URL must be an absolute http(s) URL"),

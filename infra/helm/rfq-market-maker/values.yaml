@@ -24,6 +24,7 @@ env:
   RFQ_BODY_LIMIT_BYTES: "32768"
   RFQ_CORS_ALLOWED_ORIGINS: "https://app.example.com"
   RFQ_ENABLE_HSTS: "true"
+  RFQ_TRUST_PROXY: "false"
 
 signerSecret:
   name: rfq-backend-secrets

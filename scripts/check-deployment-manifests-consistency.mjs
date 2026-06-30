@@ -60,6 +60,7 @@ assertContains(k8sConfig, [
   'HOST: "0.0.0.0"',
   'PORT: "3000"',
   'RFQ_ENABLE_HSTS: "true"',
+  'RFQ_TRUST_PROXY: "false"',
 ], "infra/k8s/configmap.yaml");
 
 assertContains(k8sSecret, [
@@ -89,6 +90,7 @@ assertContains(helmValues, [
   'prometheus.io/scrape: "true"',
   "prometheus.io/path: /metrics",
   'prometheus.io/port: "3000"',
+  'RFQ_TRUST_PROXY: "false"',
   "name: rfq-backend-secrets",
   "privateKeyKey: RFQ_SIGNER_PRIVATE_KEY",
   "settlementAddressKey: RFQ_SETTLEMENT_ADDRESS",

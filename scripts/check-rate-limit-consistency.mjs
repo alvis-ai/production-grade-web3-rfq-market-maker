@@ -39,19 +39,27 @@ assertContains(mainSource, [
   "maxQuoteRequests: options.rateLimit?.maxQuoteRequests ?? 120",
   "maxSubmitRequests: options.rateLimit?.maxSubmitRequests ?? 60",
   "maxStatusRequests: options.rateLimit?.maxStatusRequests ?? 300",
-  'enforceRateLimit(rateLimiter, metricsService, "quote", request, reply)',
-  'enforceRateLimit(rateLimiter, metricsService, "submit", request, reply)',
-  'enforceRateLimit(rateLimiter, metricsService, "status", request, reply)',
+  'enforceRateLimit(rateLimiter, metricsService, "quote", request, reply, trustProxy)',
+  'enforceRateLimit(rateLimiter, metricsService, "submit", request, reply, trustProxy)',
+  'enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy)',
   'new APIError("RATE_LIMITED", "Too many requests", 429)',
   'reply.header("x-ratelimit-remaining"',
   'reply.header("retry-after"',
-  "clientIdForRateLimit",
+  "clientIdForRateLimit(request, trustProxy)",
+  "const defaultTrustProxy = false;",
+  "trustProxy?: boolean",
+  "readTrustProxy()",
+  "RFQ_TRUST_PROXY must be true or false",
+  "if (!trustProxy)",
   'request.headers["x-forwarded-for"]',
 ], "backend/src/main.ts");
 
 assertContains(apiTestSource, [
   "RFQ API rejects unsafe rate limit configuration at startup",
+  "RFQ API rejects invalid RFQ_TRUST_PROXY at startup",
   "rate limits quote requests by client",
+  "does not trust x-forwarded-for for rate limit identity by default",
+  "trusts x-forwarded-for for rate limit identity only when proxy trust is enabled",
   "rate limits submit requests before validation and settlement",
   "rate limits quote status requests by client",
   "assert.equal(secondQuote.statusCode, 429)",
@@ -101,6 +109,7 @@ assertContains(errorDocsSource, [
   "| `quote` | `POST /quote` | 120 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
   "| `submit` | `POST /submit` | 60 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
   "| `status` | `GET /quote/:quoteId`, `GET /settlements/:settlementEventId`, `GET /hedges/:hedgeOrderId`, `GET /pnl` | 300 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
+  "`x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`",
 ], "docs/api/errors.md");
 
 assertContains(gatewayChapterSource, [
@@ -109,6 +118,8 @@ assertContains(gatewayChapterSource, [
   "submit 60 requests / 60 seconds",
   "status 300 requests / 60 seconds",
   "错误配置会在启动期 fail fast",
+  "默认 `RFQ_TRUST_PROXY=false`",
+  "启用 `RFQ_TRUST_PROXY=true`",
   "`RATE_LIMITED`、HTTP 429 和 `Retry-After`",
 ], "book/Volume5-BackendEngineering/Chapter01-API-Gateway.md");
 

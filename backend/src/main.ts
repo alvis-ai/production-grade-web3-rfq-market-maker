@@ -25,6 +25,7 @@ const defaultCorsAllowedOrigins = ["http://localhost:5173"];
 const defaultEnableHsts = false;
 const defaultListenHost = "127.0.0.1";
 const defaultListenPort = 3000;
+const defaultTrustProxy = false;
 
 interface RuntimeProcess {
   argv?: string[];
@@ -54,6 +55,7 @@ export interface BuildServerOptions {
   bodyLimitBytes?: number;
   corsAllowedOrigins?: readonly string[] | false;
   enableHsts?: boolean;
+  trustProxy?: boolean;
 }
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -65,6 +67,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     ? []
     : options.corsAllowedOrigins ?? readCorsAllowedOrigins();
   const enableHsts = options.enableHsts ?? readEnableHsts();
+  const trustProxy = options.trustProxy ?? readTrustProxy();
   server.addHook("onRequest", async (request, reply) => {
     reply.header("x-trace-id", requestTraceId(request));
     applySecurityHeaders(reply, enableHsts);
@@ -155,7 +158,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/pnl", async (request, reply) => {
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply);
+      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -167,7 +170,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/settlements/:settlementEventId", async (request, reply) => {
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply);
+      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -190,7 +193,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/quote/:quoteId", async (request, reply) => {
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply);
+      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -209,7 +212,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/hedges/:hedgeOrderId", async (request, reply) => {
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply);
+      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -230,7 +233,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     const startedAt = Date.now();
     metricsService.recordQuoteRequest();
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "quote", request, reply);
+      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "quote", request, reply, trustProxy);
       if (!rateLimitResult.allowed) {
         metricsService.recordQuoteError();
         return rateLimitResult.response;
@@ -257,7 +260,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     let quoteId: string | undefined;
     metricsService.recordSubmitRequest();
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "submit", request, reply);
+      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "submit", request, reply, trustProxy);
       if (!rateLimitResult.allowed) {
         metricsService.recordSubmitError();
         return rateLimitResult.response;
@@ -317,6 +320,7 @@ function enforceRateLimit(
   endpoint: RateLimitedEndpoint,
   request: FastifyRequest,
   reply: FastifyReply,
+  trustProxy: boolean,
 ): { allowed: true } | { allowed: false; response: FastifyReply } {
   if (!rateLimiter) {
     return { allowed: true };
@@ -324,7 +328,7 @@ function enforceRateLimit(
 
   const decision = rateLimiter.check({
     endpoint,
-    clientId: clientIdForRateLimit(request),
+    clientId: clientIdForRateLimit(request, trustProxy),
   });
   if (decision.allowed) {
     reply.header("x-ratelimit-remaining", decision.remaining.toString());
@@ -494,10 +498,15 @@ function elapsedSeconds(startedAt: number): number {
   return (Date.now() - startedAt) / 1000;
 }
 
-function clientIdForRateLimit(request: FastifyRequest): string {
+function clientIdForRateLimit(request: FastifyRequest, trustProxy: boolean): string {
+  if (!trustProxy) {
+    return request.ip;
+  }
+
   const forwardedFor = request.headers["x-forwarded-for"];
   if (typeof forwardedFor === "string" && forwardedFor.trim().length > 0) {
-    return forwardedFor.split(",")[0]?.trim().toLowerCase() ?? request.ip;
+    const forwardedClientId = forwardedFor.split(",")[0]?.trim().toLowerCase();
+    return forwardedClientId && forwardedClientId.length > 0 ? forwardedClientId : request.ip;
   }
 
   return request.ip;
@@ -609,6 +618,24 @@ function readEnableHsts(): boolean {
   }
 
   throw new Error("RFQ_ENABLE_HSTS must be true or false");
+}
+
+function readTrustProxy(): boolean {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const configured = env?.RFQ_TRUST_PROXY;
+  if (!configured || configured.trim().length === 0) {
+    return defaultTrustProxy;
+  }
+
+  const normalized = configured.trim().toLowerCase();
+  if (normalized === "true") {
+    return true;
+  }
+  if (normalized === "false") {
+    return false;
+  }
+
+  throw new Error("RFQ_TRUST_PROXY must be true or false");
 }
 
 export function installGracefulShutdown(

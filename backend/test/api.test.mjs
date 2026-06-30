@@ -190,6 +190,21 @@ test("RFQ API rejects invalid RFQ_ENABLE_HSTS at startup", () => {
   }
 });
 
+test("RFQ API rejects invalid RFQ_TRUST_PROXY at startup", () => {
+  const originalTrustProxy = process.env.RFQ_TRUST_PROXY;
+
+  try {
+    process.env.RFQ_TRUST_PROXY = "sometimes";
+
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_TRUST_PROXY must be true or false/,
+    );
+  } finally {
+    restoreEnv("RFQ_TRUST_PROXY", originalTrustProxy);
+  }
+});
+
 test("RFQ API validates standalone listen configuration", () => {
   assert.deepEqual(readServerListenConfig({ env: {} }), {
     host: "127.0.0.1",
@@ -1818,6 +1833,79 @@ test("RFQ API rate limits quote requests by client", async () => {
   }
 });
 
+test("RFQ API does not trust x-forwarded-for for rate limit identity by default", async () => {
+  const server = buildServer({
+    logger: false,
+    rateLimit: {
+      windowMs: 60_000,
+      maxQuoteRequests: 1,
+      maxSubmitRequests: 100,
+      maxStatusRequests: 100,
+    },
+  });
+  await server.ready();
+
+  try {
+    const firstQuote = await injectJson(server, "POST", "/quote", baseQuoteRequest, {
+      "x-forwarded-for": "198.51.100.10",
+    });
+    assert.equal(firstQuote.statusCode, 200);
+
+    const secondQuote = await injectJson(server, "POST", "/quote", baseQuoteRequest, {
+      "x-forwarded-for": "198.51.100.11",
+    });
+    assert.equal(secondQuote.statusCode, 429);
+    assert.equal(secondQuote.body.code, "RATE_LIMITED");
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API trusts x-forwarded-for for rate limit identity only when proxy trust is enabled", async () => {
+  const server = buildServer({
+    logger: false,
+    trustProxy: true,
+    rateLimit: {
+      windowMs: 60_000,
+      maxQuoteRequests: 1,
+      maxSubmitRequests: 100,
+      maxStatusRequests: 100,
+    },
+  });
+  await server.ready();
+
+  try {
+    const firstQuote = await injectJson(server, "POST", "/quote", baseQuoteRequest, {
+      "x-forwarded-for": "198.51.100.10",
+    });
+    assert.equal(firstQuote.statusCode, 200);
+
+    const secondQuote = await injectJson(server, "POST", "/quote", baseQuoteRequest, {
+      "x-forwarded-for": "198.51.100.11",
+    });
+    assert.equal(secondQuote.statusCode, 200);
+
+    const replayFirstClient = await injectJson(server, "POST", "/quote", baseQuoteRequest, {
+      "x-forwarded-for": "198.51.100.10, 203.0.113.7",
+    });
+    assert.equal(replayFirstClient.statusCode, 429);
+    assert.equal(replayFirstClient.body.code, "RATE_LIMITED");
+
+    const emptyForwardedClient = await injectJson(server, "POST", "/quote", baseQuoteRequest, {
+      "x-forwarded-for": ", 203.0.113.7",
+    });
+    assert.equal(emptyForwardedClient.statusCode, 200);
+
+    const secondEmptyForwardedClient = await injectJson(server, "POST", "/quote", baseQuoteRequest, {
+      "x-forwarded-for": ", 203.0.113.8",
+    });
+    assert.equal(secondEmptyForwardedClient.statusCode, 429);
+    assert.equal(secondEmptyForwardedClient.body.code, "RATE_LIMITED");
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rate limits submit requests before validation and settlement", async () => {
   const server = buildServer({
     logger: false,
@@ -2570,11 +2658,16 @@ test("RFQ API generates unique quote ids and nonces within the same millisecond"
   }
 });
 
-async function injectJson(server, method, url, payload) {
+async function injectJson(server, method, url, payload, headers = {}) {
+  const requestHeaders = { ...headers };
+  if (payload) {
+    requestHeaders["content-type"] = "application/json";
+  }
+
   const response = await server.inject({
     method,
     url,
-    headers: payload ? { "content-type": "application/json" } : undefined,
+    headers: Object.keys(requestHeaders).length > 0 ? requestHeaders : undefined,
     payload: payload ? JSON.stringify(payload) : undefined,
   });
 

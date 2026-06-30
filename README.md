@@ -133,6 +133,7 @@ RFQ_QUOTE_TTL_SECONDS=30
 RFQ_BODY_LIMIT_BYTES=32768
 RFQ_CORS_ALLOWED_ORIGINS=http://localhost:5173
 RFQ_ENABLE_HSTS=false
+RFQ_TRUST_PROXY=false
 VITE_RFQ_API_BASE_URL=http://localhost:3000
 VITE_RFQ_SETTLEMENT_ADDRESS=0x...
 VITE_WALLETCONNECT_PROJECT_ID=00000000000000000000000000000000
@@ -140,7 +141,7 @@ RFQ_SIGNER_PRIVATE_KEY=0x...
 RFQ_SETTLEMENT_ADDRESS=0x...
 ```
 
-The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract. `HOST` defaults to `127.0.0.1` and must not contain whitespace; `PORT` defaults to `3000` and must be an integer from 1 to 65535. `RFQ_QUOTE_TTL_SECONDS` controls the signed quote lifetime and must be an integer from 1 to 3600; keep it short enough to limit stale price execution. `RFQ_BODY_LIMIT_BYTES` controls the maximum JSON request body size and must be an integer from 1024 to 1048576. `RFQ_CORS_ALLOWED_ORIGINS` is a comma-separated allowlist of browser origins that may call the API. `RFQ_ENABLE_HSTS` must only be enabled when the public API is served through HTTPS. `VITE_RFQ_SETTLEMENT_ADDRESS` configures the browser-side `RFQSettlement.submitQuote` target, and `VITE_WALLETCONNECT_PROJECT_ID` configures RainbowKit wallet connection.
+The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract. `HOST` defaults to `127.0.0.1` and must not contain whitespace; `PORT` defaults to `3000` and must be an integer from 1 to 65535. `RFQ_QUOTE_TTL_SECONDS` controls the signed quote lifetime and must be an integer from 1 to 3600; keep it short enough to limit stale price execution. `RFQ_BODY_LIMIT_BYTES` controls the maximum JSON request body size and must be an integer from 1024 to 1048576. `RFQ_CORS_ALLOWED_ORIGINS` is a comma-separated allowlist of browser origins that may call the API. `RFQ_ENABLE_HSTS` must only be enabled when the public API is served through HTTPS. `RFQ_TRUST_PROXY` defaults to `false`; only enable it when a trusted reverse proxy or ingress strips untrusted `x-forwarded-for` input and writes the client IP. `VITE_RFQ_SETTLEMENT_ADDRESS` configures the browser-side `RFQSettlement.submitQuote` target, and `VITE_WALLETCONNECT_PROJECT_ID` configures RainbowKit wallet connection.
 
 The frontend reads `VITE_RFQ_API_BASE_URL`, `VITE_RFQ_SETTLEMENT_ADDRESS` and `VITE_WALLETCONNECT_PROJECT_ID` at Vite build/dev-server time. It shows the active API endpoint in the trading console header and uses Wagmi/RainbowKit with the SDK `rfqSettlementAbi`, `buildSubmitQuoteArgs`, and `hashSettlementQuote` helpers for wallet-driven `submitQuote` transactions and settlement-event reconciliation.
 
@@ -162,6 +163,8 @@ Local ports:
 ## Production Configuration
 
 When `NODE_ENV` is set to any non-local environment such as `production` or `staging`, the backend refuses to start unless `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` are explicitly configured. The signer private key must be a 32-byte hex string and the settlement address must be a 20-byte hex address. The built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`.
+
+Leave `RFQ_TRUST_PROXY=false` unless the public API is behind a trusted load balancer or ingress that removes incoming spoofed `x-forwarded-for` headers and sets the canonical client address. When enabled, the rate limiter keys by the first `x-forwarded-for` entry; otherwise it uses the direct socket IP.
 
 Kubernetes deployments load these values from `rfq-backend-secrets`. Replace the placeholders in `infra/k8s/backend-secret.yaml` before applying manifests, or create the same Secret out of band:
 

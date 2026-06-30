@@ -262,6 +262,12 @@ grep -Fq 'server.options("/*"' backend/src/main.ts
 grep -q 'RFQ_ENABLE_HSTS' backend/src/main.ts
 grep -q 'readEnableHsts' backend/src/main.ts
 grep -q 'defaultEnableHsts' backend/src/main.ts
+grep -q 'RFQ_TRUST_PROXY' backend/src/main.ts
+grep -q 'readTrustProxy' backend/src/main.ts
+grep -q 'defaultTrustProxy' backend/src/main.ts
+grep -q 'trustProxy?: boolean' backend/src/main.ts
+grep -q 'clientIdForRateLimit(request, trustProxy)' backend/src/main.ts
+grep -q 'if (!trustProxy)' backend/src/main.ts
 grep -q 'applySecurityHeaders' backend/src/main.ts
 grep -q 'cache-control' backend/src/main.ts
 grep -q 'x-content-type-options' backend/src/main.ts
@@ -283,6 +289,16 @@ grep -q 'HOST' backend/src/main.ts
 grep -q 'x-trace-id' backend/src/main.ts
 grep -q 'server.addHook("onRequest"' backend/src/main.ts
 grep -q 'requestTraceId' backend/src/main.ts
+grep -q 'RFQ_TRUST_PROXY=false' .env.example
+grep -q 'RFQ_TRUST_PROXY: "false"' docker-compose.yml
+grep -q 'RFQ_TRUST_PROXY: "false"' infra/k8s/configmap.yaml
+grep -q 'RFQ_TRUST_PROXY: "false"' infra/helm/rfq-market-maker/values.yaml
+grep -q 'RFQ API rejects invalid RFQ_TRUST_PROXY at startup' backend/test/api.test.mjs
+grep -q 'does not trust x-forwarded-for for rate limit identity by default' backend/test/api.test.mjs
+grep -q 'trusts x-forwarded-for for rate limit identity only when proxy trust is enabled' backend/test/api.test.mjs
+grep -q 'only enable it when a trusted reverse proxy or ingress strips untrusted' README.md
+grep -q 'x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`' docs/api/errors.md
+grep -q '默认 `RFQ_TRUST_PROXY=false`' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'traceId: string' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
