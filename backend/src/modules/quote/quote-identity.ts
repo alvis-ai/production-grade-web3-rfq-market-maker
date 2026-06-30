@@ -46,13 +46,11 @@ export class QuoteIdentityGenerator {
 
 function randomUint64(): bigint {
   const cryptoLike = globalThis.crypto;
-  if (cryptoLike) {
-    const values = new Uint32Array(2);
-    cryptoLike.getRandomValues(values);
-    return (BigInt(values[0] ?? 0) << 32n) | BigInt(values[1] ?? 0);
+  if (!cryptoLike) {
+    throw new Error("Quote identity generation requires Web Crypto getRandomValues");
   }
 
-  const high = Math.floor(Math.random() * 0x100000000);
-  const low = Math.floor(Math.random() * 0x100000000);
-  return (BigInt(high) << 32n) | BigInt(low);
+  const values = new Uint32Array(2);
+  cryptoLike.getRandomValues(values);
+  return (BigInt(values[0] ?? 0) << 32n) | BigInt(values[1] ?? 0);
 }

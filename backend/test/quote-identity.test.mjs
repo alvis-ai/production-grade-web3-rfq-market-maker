@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { QuoteIdentityGenerator } from "../dist/modules/quote/quote-identity.js";
 
@@ -61,4 +62,13 @@ test("QuoteIdentityGenerator advances logical time when the per-millisecond sequ
   } finally {
     Date.now = originalDateNow;
   }
+});
+
+test("QuoteIdentityGenerator uses Web Crypto instead of Math.random", async () => {
+  const source = await readFile(new URL("../src/modules/quote/quote-identity.ts", import.meta.url), "utf8");
+
+  assert.match(source, /globalThis\.crypto/);
+  assert.match(source, /getRandomValues/);
+  assert.match(source, /Quote identity generation requires Web Crypto getRandomValues/);
+  assert.doesNotMatch(source, /Math\.random/);
 });
