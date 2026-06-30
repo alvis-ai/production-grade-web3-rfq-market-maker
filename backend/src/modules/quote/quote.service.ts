@@ -162,6 +162,7 @@ export class QuoteService {
     await this.saveSignedQuote({
       quoteId,
       snapshotId: snapshot.snapshotId,
+      slippageBps: validatedRequest.slippageBps,
       quote: signedQuote,
       pricingVersion: pricing.pricingVersion,
       riskPolicyVersion: risk.policyVersion,

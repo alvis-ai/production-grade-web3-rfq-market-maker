@@ -16,7 +16,7 @@ export interface QuoteRecord {
   tokenIn: Address;
   tokenOut: Address;
   amountIn: UIntString;
-  slippageBps?: number;
+  slippageBps: number;
   amountOut?: UIntString;
   minAmountOut?: UIntString;
   nonce?: UIntString;
@@ -70,6 +70,7 @@ export interface SaveRejectedQuoteInput {
 export interface SaveSignedQuoteInput {
   quoteId: string;
   snapshotId: string;
+  slippageBps: number;
   quote: SignedQuote;
   pricingVersion: string;
   riskPolicyVersion: string;
@@ -158,6 +159,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       tokenIn: input.quote.tokenIn,
       tokenOut: input.quote.tokenOut,
       amountIn: input.quote.amountIn,
+      slippageBps: input.slippageBps,
       amountOut: input.quote.amountOut,
       minAmountOut: input.quote.minAmountOut,
       nonce: input.quote.nonce,
@@ -306,6 +308,7 @@ function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertNonEmptyString(input.snapshotId, "snapshotId");
   assertNonEmptyString(input.pricingVersion, "pricingVersion");
   assertNonEmptyString(input.riskPolicyVersion, "riskPolicyVersion");
+  assertNonNegativeBps(input.slippageBps, "slippageBps", "Signed quote");
   assertSignature(input.signature);
   assertPositiveSafeInteger(input.quote.chainId, "quote.chainId");
   assertAddress(input.quote.user, "quote.user");
@@ -483,6 +486,7 @@ function isSameRequestedQuotePayloadAsSigned(record: QuoteRecord, input: SaveSig
     record.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
     record.tokenOut.toLowerCase() === input.quote.tokenOut.toLowerCase() &&
     record.amountIn === input.quote.amountIn &&
+    record.slippageBps === input.slippageBps &&
     record.snapshotId === input.snapshotId
   );
 }
@@ -495,6 +499,7 @@ function isSameSignedQuotePayload(record: QuoteRecord, input: SaveSignedQuoteInp
     record.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
     record.tokenOut.toLowerCase() === input.quote.tokenOut.toLowerCase() &&
     record.amountIn === input.quote.amountIn &&
+    record.slippageBps === input.slippageBps &&
     record.amountOut === input.quote.amountOut &&
     record.minAmountOut === input.quote.minAmountOut &&
     record.nonce === input.quote.nonce &&

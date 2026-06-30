@@ -523,11 +523,13 @@ grep -q 'chainId:user:nonce' book/Volume5-BackendEngineering/Chapter02-Quote-Ser
 grep -q 'Requested quote storage is write-once by `quoteId`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'including a different `slippageBps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'must start from the matching requested quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'bind to the same requested `quoteId`, `snapshotId`, chain, user, token pair and `amountIn`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'bind to the same requested `quoteId`, `snapshotId`, chain, user, token pair, `amountIn` and `slippageBps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'exact same signed payload' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'including snapshot, request `slippageBps`, pricing/risk versions and signature' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'must not move submitted, settled, failed, rejected or expired quotes back to `signed`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requested/rejected quote persistence validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'signed quote persistence validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'bounded request `slippageBps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'terminal quote status invariants' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requested quotes cannot be marked submitted, settled or expired through the status updater' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'already failed quote may replay the same `errorCode`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -607,6 +609,8 @@ grep -q 'minAmountOut: "min_amount_out"' scripts/check-database-schema-consisten
 grep -q 'deadline: "deadline"' scripts/check-database-schema-consistency.mjs
 grep -q 'slippageBps: "slippage_bps"' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes.slippage_bps must persist QuoteRequest.slippageBps for quote replay' scripts/check-database-schema-consistency.mjs
+grep -q 'SaveSignedQuoteInput must carry slippageBps so signed quote persistence can populate quotes.slippage_bps' scripts/check-database-schema-consistency.mjs
+grep -q 'signed quote persistence must validate slippageBps before writing quote state' scripts/check-database-schema-consistency.mjs
 grep -q 'signed attribution snapshot' docs/database/er-diagram.md
 grep -q 'id must reject empty primary key values' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must constrain lifecycle status values' scripts/check-database-schema-consistency.mjs
@@ -724,8 +728,12 @@ grep -q 'settlement_events.quote_id' docs/database/er-diagram.md
 grep -q 'uq_settlement_events_quote_id' docs/database/schema.sql
 grep -q 'settlement_events must keep one settlement event per quote' scripts/check-database-schema-consistency.mjs
 grep -q 'slippageBps: input.request.slippageBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'slippageBps: input.slippageBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'record.slippageBps === input.request.slippageBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'record.slippageBps === input.slippageBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'slippageBps: request.slippageBps + 1' backend/test/quote-service.test.mjs
+grep -q 'Signed quote slippageBps must be less than or equal to 10000 bps' backend/test/quote-service.test.mjs
+grep -q 'slippageBps: 50' scripts/reconciliation-check.mjs
 grep -q 'unique index `(quote_id)`' docs/database/er-diagram.md
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts

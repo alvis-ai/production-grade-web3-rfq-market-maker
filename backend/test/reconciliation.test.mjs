@@ -392,6 +392,7 @@ async function saveSignedQuote(quoteRepository, quoteId, signedQuote) {
   await quoteRepository.saveSigned({
     quoteId,
     snapshotId: `snapshot_${quoteId}`,
+    slippageBps: 50,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",

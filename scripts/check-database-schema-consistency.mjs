@@ -7,6 +7,7 @@ const schemaSource = await readFile("docs/database/schema.sql", "utf8");
 const erDiagramSource = await readFile("docs/database/er-diagram.md", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");
+const quoteRepositorySource = await readFile("backend/src/modules/quote/quote.repository.ts", "utf8");
 const riskEngineSource = await readFile("backend/src/modules/risk/risk.engine.ts", "utf8");
 const maxSafeInteger = "9007199254740991";
 const secp256k1HalfOrder = "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0";
@@ -279,6 +280,20 @@ assert.ok(
 assert.ok(
   /slippage_bps\s+BETWEEN\s+0\s+AND\s+10000/i.test(tables.get("quotes").body),
   "quotes must constrain slippage_bps to the 0..10000 bps range",
+);
+assert.ok(
+  /export\s+interface\s+SaveSignedQuoteInput\s*\{[\s\S]*?slippageBps:\s*number;/i.test(quoteRepositorySource),
+  "SaveSignedQuoteInput must carry slippageBps so signed quote persistence can populate quotes.slippage_bps",
+);
+assert.ok(
+  /assertNonNegativeBps\s*\(\s*input\.slippageBps\s*,\s*"slippageBps"\s*,\s*"Signed quote"\s*\)/i.test(
+    quoteRepositorySource,
+  ),
+  "signed quote persistence must validate slippageBps before writing quote state",
+);
+assert.ok(
+  /record\.slippageBps\s*===\s*input\.slippageBps/i.test(quoteRepositorySource),
+  "signed quote persistence must reject slippageBps rewrites",
 );
 assert.ok(
   /signature\s+~\s+'\^0x\[0-9a-fA-F\]\{130\}\$'/i.test(tables.get("quotes").body),

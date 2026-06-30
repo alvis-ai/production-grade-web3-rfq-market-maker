@@ -28,6 +28,7 @@ const pnlService = new PnlService();
 await quoteRepository.saveSigned({
   quoteId: "q_reconciliation_check",
   snapshotId: "snapshot_reconciliation_check",
+  slippageBps: 50,
   quote,
   pricingVersion: "reconciliation-check-pricing",
   riskPolicyVersion: "reconciliation-check-risk",

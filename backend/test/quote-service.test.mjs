@@ -34,6 +34,7 @@ test("InMemoryQuoteRepository indexes signed quotes by chain, user, and nonce", 
   await quoteRepository.saveSigned({
     quoteId: "q_chain_1",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: {
       ...baseSignedQuote,
       chainId: 1,
@@ -45,6 +46,7 @@ test("InMemoryQuoteRepository indexes signed quotes by chain, user, and nonce", 
   await quoteRepository.saveSigned({
     quoteId: "q_chain_137",
     snapshotId: "snapshot_137",
+    slippageBps: request.slippageBps,
     quote: {
       ...baseSignedQuote,
       chainId: 137,
@@ -62,6 +64,7 @@ test("InMemoryQuoteRepository indexes signed quotes by chain, user, and nonce", 
   assert.equal(mainnet.quoteId, "q_chain_1");
   assert.equal(byQuoteId.quoteId, "q_chain_1");
   assert.equal(byQuoteId.nonce, "42");
+  assert.equal(byQuoteId.slippageBps, request.slippageBps);
   assert.equal(mainnet.chainId, 1);
   assert.equal(polygon.quoteId, "q_chain_137");
   assert.equal(polygon.chainId, 137);
@@ -85,6 +88,7 @@ test("InMemoryQuoteRepository returns defensive copies of signed quote records",
   await quoteRepository.saveSigned({
     quoteId: "q_copy",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -125,6 +129,7 @@ test("InMemoryQuoteRepository rejects signed quote nonce key conflicts", async (
   await quoteRepository.saveSigned({
     quoteId: "q_original",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: baseSignedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -135,6 +140,7 @@ test("InMemoryQuoteRepository rejects signed quote nonce key conflicts", async (
     quoteRepository.saveSigned({
       quoteId: "q_conflict",
       snapshotId: "snapshot_2",
+      slippageBps: request.slippageBps,
       quote: {
         ...baseSignedQuote,
         amountOut: "997000000",
@@ -168,6 +174,7 @@ test("InMemoryQuoteRepository rejects signed quote identity rewrites", async () 
   await quoteRepository.saveSigned({
     quoteId: "q_original",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: baseSignedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -178,6 +185,7 @@ test("InMemoryQuoteRepository rejects signed quote identity rewrites", async () 
     quoteRepository.saveSigned({
       quoteId: "q_original",
       snapshotId: "snapshot_2",
+      slippageBps: request.slippageBps,
       quote: {
         ...baseSignedQuote,
         nonce: "43",
@@ -210,6 +218,7 @@ test("InMemoryQuoteRepository rejects signed quote payload rewrites", async () =
   const input = {
     quoteId: "q_payload",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: baseSignedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -251,6 +260,7 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
   const input = {
     quoteId: "q_invalid",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -263,6 +273,14 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
       pricingVersion: " ",
     }),
     /Signed quote pricingVersion must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      slippageBps: 10_001,
+    }),
+    /Signed quote slippageBps must be less than or equal to 10000 bps/,
   );
 
   await assert.rejects(
@@ -417,6 +435,29 @@ test("InMemoryQuoteRepository rejects requested quote payload rewrites", async (
     quoteRepository.saveSigned({
       quoteId: "q_requested_payload",
       snapshotId: "snapshot_1",
+      slippageBps: request.slippageBps + 1,
+      quote: {
+        user: request.user,
+        tokenIn: request.tokenIn,
+        tokenOut: request.tokenOut,
+        amountIn: request.amountIn,
+        amountOut: "998",
+        minAmountOut: "990",
+        nonce: "42",
+        deadline: Math.floor(Date.now() / 1000) + 30,
+        chainId: request.chainId,
+      },
+      pricingVersion: "test-pricing",
+      riskPolicyVersion: "test-risk",
+      signature: fixedSignature(),
+    }),
+    /Signed quote request cannot differ from requested quote/,
+  );
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      quoteId: "q_requested_payload",
+      snapshotId: "snapshot_1",
+      slippageBps: request.slippageBps,
       quote: {
         user: request.user,
         tokenIn: request.tokenIn,
@@ -510,6 +551,7 @@ test("InMemoryQuoteRepository preserves settlement metadata across status update
   await quoteRepository.saveSigned({
     quoteId: "q_status",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -549,6 +591,7 @@ test("InMemoryQuoteRepository rejects conflicting quote status metadata rewrites
   await quoteRepository.saveSigned({
     quoteId: "q_status_conflict",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -628,6 +671,7 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
   await quoteRepository.saveSigned({
     quoteId: "q_settled",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -691,6 +735,7 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
   await quoteRepository.saveSigned({
     quoteId: "q_failed",
     snapshotId: "snapshot_3",
+    slippageBps: request.slippageBps,
     quote: {
       ...signedQuote,
       nonce: "43",
@@ -716,6 +761,7 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
   await quoteRepository.saveSigned({
     quoteId: "q_expired",
     snapshotId: "snapshot_4",
+    slippageBps: request.slippageBps,
     quote: {
       ...signedQuote,
       nonce: "44",
@@ -752,6 +798,7 @@ test("InMemoryQuoteRepository rejects saveSigned lifecycle regressions", async (
   const input = {
     quoteId: "q_save_signed_regression",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -792,6 +839,7 @@ test("InMemoryQuoteRepository rejects malformed quote status metadata", async ()
   await quoteRepository.saveSigned({
     quoteId: "q_metadata",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -848,6 +896,7 @@ test("InMemoryQuoteRepository rejects settlement statuses without chain pointers
   await quoteRepository.saveSigned({
     quoteId: "q_missing_settlement_metadata",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -894,6 +943,7 @@ test("InMemoryQuoteRepository rejects non-settlement statuses with settlement po
   await quoteRepository.saveSigned({
     quoteId: "q_expired_metadata",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -936,6 +986,7 @@ test("InMemoryQuoteRepository rejects malformed failed quote metadata", async ()
   await quoteRepository.saveSigned({
     quoteId: "q_failed_metadata",
     snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
