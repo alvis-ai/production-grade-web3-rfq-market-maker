@@ -406,6 +406,15 @@ grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-data
 grep -q 'hedge_orders must constrain side enum values' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
 grep -q '数据库层使用 CHECK constraints 固化应用层关键不变量' docs/database/er-diagram.md
+grep -q 'fk_quotes_snapshot_id' docs/database/schema.sql
+grep -q 'fk_quotes_settlement_event_id' docs/database/schema.sql
+grep -q 'fk_quotes_hedge_order_id' docs/database/schema.sql
+grep -q 'fk_quotes_pnl_id' docs/database/schema.sql
+grep -q 'quotes.snapshot_id must reference market_snapshots(id)' scripts/check-database-schema-consistency.mjs
+grep -q 'quotes.settlement_event_id must reference settlement_events(id)' scripts/check-database-schema-consistency.mjs
+grep -q 'quotes.hedge_order_id must reference hedge_orders(id)' scripts/check-database-schema-consistency.mjs
+grep -q 'quotes.pnl_id must reference pnl_records(id)' scripts/check-database-schema-consistency.mjs
+grep -q '状态指针不能悬空' docs/database/er-diagram.md
 grep -q 'quote_hash TEXT NOT NULL' docs/database/schema.sql
 grep -q 'quote_hash' docs/database/er-diagram.md
 grep -q 'quoteHash: "quote_hash"' scripts/check-database-schema-consistency.mjs

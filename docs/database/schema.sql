@@ -194,3 +194,19 @@ CREATE INDEX idx_pnl_records_chain_pair_realized_at ON pnl_records (
   token_out,
   realized_at DESC
 );
+
+ALTER TABLE quotes
+  ADD CONSTRAINT fk_quotes_snapshot_id
+  FOREIGN KEY (snapshot_id) REFERENCES market_snapshots(id);
+
+ALTER TABLE quotes
+  ADD CONSTRAINT fk_quotes_settlement_event_id
+  FOREIGN KEY (settlement_event_id) REFERENCES settlement_events(id);
+
+ALTER TABLE quotes
+  ADD CONSTRAINT fk_quotes_hedge_order_id
+  FOREIGN KEY (hedge_order_id) REFERENCES hedge_orders(id);
+
+ALTER TABLE quotes
+  ADD CONSTRAINT fk_quotes_pnl_id
+  FOREIGN KEY (pnl_id) REFERENCES pnl_records(id);

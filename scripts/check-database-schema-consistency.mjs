@@ -120,6 +120,22 @@ assert.ok(
   /UNIQUE\s*\(\s*quote_id\s*,\s*model\s*\)/i.test(tables.get("pnl_records").body),
   "pnl_records must keep one attribution record per quote and model",
 );
+assert.ok(
+  hasAlterTableForeignKey("quotes", "fk_quotes_snapshot_id", "snapshot_id", "market_snapshots", "id"),
+  "quotes.snapshot_id must reference market_snapshots(id)",
+);
+assert.ok(
+  hasAlterTableForeignKey("quotes", "fk_quotes_settlement_event_id", "settlement_event_id", "settlement_events", "id"),
+  "quotes.settlement_event_id must reference settlement_events(id)",
+);
+assert.ok(
+  hasAlterTableForeignKey("quotes", "fk_quotes_hedge_order_id", "hedge_order_id", "hedge_orders", "id"),
+  "quotes.hedge_order_id must reference hedge_orders(id)",
+);
+assert.ok(
+  hasAlterTableForeignKey("quotes", "fk_quotes_pnl_id", "pnl_id", "pnl_records", "id"),
+  "quotes.pnl_id must reference pnl_records(id)",
+);
 
 const requiredCheckConstraints = {
   quotes: [
@@ -305,6 +321,14 @@ assert.ok(
   erDiagramSource.includes("quote_hash"),
   "ER diagram must document settlement event quote_hash persistence",
 );
+assert.ok(
+  erDiagramSource.includes("nullable foreign keys"),
+  "ER diagram notes must document quote status pointers as nullable foreign keys",
+);
+assert.ok(
+  erDiagramSource.includes("状态指针不能悬空"),
+  "ER diagram notes must document non-dangling quote status pointers",
+);
 
 console.log(`Database schema consistency check passed (${tables.size} tables)`);
 
@@ -366,4 +390,16 @@ function extractOpenApiSchemaProperties(source, schemaName) {
   }
 
   return properties;
+}
+
+function hasAlterTableForeignKey(tableName, constraintName, columnName, referencedTable, referencedColumn) {
+  return new RegExp(
+    [
+      `ALTER\\s+TABLE\\s+${tableName}`,
+      `ADD\\s+CONSTRAINT\\s+${constraintName}`,
+      `FOREIGN\\s+KEY\\s*\\(\\s*${columnName}\\s*\\)`,
+      `REFERENCES\\s+${referencedTable}\\s*\\(\\s*${referencedColumn}\\s*\\)`,
+    ].join("[\\s\\S]*?"),
+    "i",
+  ).test(schemaSource);
 }
