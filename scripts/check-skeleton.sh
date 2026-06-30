@@ -563,6 +563,7 @@ grep -q 'chk_quotes_distinct_tokens' docs/database/schema.sql
 grep -q 'chk_market_snapshots_distinct_tokens' docs/database/schema.sql
 grep -q 'chk_settlement_events_distinct_tokens' docs/database/schema.sql
 grep -q 'chk_pnl_records_distinct_tokens' docs/database/schema.sql
+grep -q 'chk_quotes_metadata_non_empty' docs/database/schema.sql
 grep -q 'chk_quotes_signature_and_tx_hash_hex' docs/database/schema.sql
 grep -q 'substring(signature from 67 for 64)' docs/database/schema.sql
 grep -q "substring(signature from 131 for 2)) IN ('1b', '1c')" docs/database/schema.sql
@@ -605,6 +606,8 @@ grep -q 'quote signed payload fields must be all present or all absent' scripts/
 grep -q 'requested and rejected quotes must not carry signed payload fields' scripts/check-database-schema-consistency.mjs
 grep -q 'signed lifecycle statuses must keep complete signed quote payload metadata' scripts/check-database-schema-consistency.mjs
 grep -q 'only rejected and failed quote statuses may keep reject_code' scripts/check-database-schema-consistency.mjs
+grep -Fq 'for (const field of ["pricing_version", "risk_policy_version", "reject_code"])' scripts/check-database-schema-consistency.mjs
+grep -q 'must reject empty values when present' scripts/check-database-schema-consistency.mjs
 grep -q 'risk decision policy_version must be non-empty' scripts/check-database-schema-consistency.mjs
 grep -q 'risk decision reason_code must be present only for rejected decisions' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-database-schema-consistency.mjs
@@ -621,6 +624,7 @@ grep -q 'market_snapshots.source` 必须是非空字符串' docs/database/er-dia
 grep -q 'hedge `venue` 非空' docs/database/er-diagram.md
 grep -q 'external_order_id` 可以在内部 queued intent 阶段为 NULL' docs/database/er-diagram.md
 grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/database/er-diagram.md
+grep -q 'quotes.pricing_version`、`quotes.risk_policy_version` 和 `quotes.reject_code`' docs/database/er-diagram.md
 grep -q 'reason_code` 只允许出现在 rejected decision 上' docs/database/er-diagram.md
 grep -q 'signed payload 字段全有或全无' docs/database/er-diagram.md
 grep -q '正数 signed amount/nonce' docs/database/er-diagram.md
@@ -628,6 +632,7 @@ grep -q 'amount_out >= min_amount_out' docs/database/er-diagram.md
 grep -q 'status payload consistency' docs/database/er-diagram.md
 grep -q 'JavaScript safe integer range `1..9007199254740991`' docs/database/er-diagram.md
 grep -q 'PostgreSQL schema mirrors these invariants with quote status payload consistency checks' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q '`pricing_version` / `risk_policy_version` / `reject_code` must be non-empty whenever present' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'signed payload fields must be all present or all absent' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'PostgreSQL requires `quotes.snapshot_id` for every persisted quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'snapshot_id TEXT NOT NULL' docs/database/schema.sql

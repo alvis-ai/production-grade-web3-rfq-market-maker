@@ -39,6 +39,11 @@ CREATE TABLE quotes (
     AND token_out ~ '^0x[0-9a-fA-F]{40}$'
   ),
   CONSTRAINT chk_quotes_distinct_tokens CHECK (lower(token_in) <> lower(token_out)),
+  CONSTRAINT chk_quotes_metadata_non_empty CHECK (
+    (pricing_version IS NULL OR btrim(pricing_version) <> '')
+    AND (risk_policy_version IS NULL OR btrim(risk_policy_version) <> '')
+    AND (reject_code IS NULL OR btrim(reject_code) <> '')
+  ),
   CONSTRAINT chk_quotes_signature_and_tx_hash_hex CHECK (
     (
       signature IS NULL

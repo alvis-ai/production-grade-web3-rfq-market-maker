@@ -155,6 +155,7 @@ const requiredCheckConstraints = {
     ["chk_quotes_amounts_non_negative", "quotes must constrain unsigned quote amount fields"],
     ["chk_quotes_addresses_hex", "quotes must constrain address-shaped fields"],
     ["chk_quotes_distinct_tokens", "quotes must constrain token_in and token_out to distinct addresses"],
+    ["chk_quotes_metadata_non_empty", "quotes must constrain nullable text metadata to be non-empty when present"],
     ["chk_quotes_signature_and_tx_hash_hex", "quotes must constrain signature and transaction hash shape"],
     ["chk_quotes_status_payload_consistency", "quotes must constrain lifecycle status pointer consistency"],
     ["chk_quotes_signed_payload_atomic", "quotes must constrain signed payload fields to be all present or all absent"],
@@ -325,6 +326,14 @@ assert.ok(
   ),
   "only rejected and failed quote statuses may keep reject_code",
 );
+for (const field of ["pricing_version", "risk_policy_version", "reject_code"]) {
+  assert.ok(
+    new RegExp(`${field}\\s+IS\\s+NULL\\s+OR\\s+btrim\\s*\\(\\s*${field}\\s*\\)\\s*<>\\s*''`, "i").test(
+      tables.get("quotes").body,
+    ),
+    `quotes.${field} must reject empty values when present`,
+  );
+}
 assert.ok(
   /decision\s+IN\s*\(\s*'approved'\s*,\s*'rejected'\s*\)/i.test(tables.get("risk_decisions").body),
   "risk decision status constraint must match backend RiskDecisionStatus values",
