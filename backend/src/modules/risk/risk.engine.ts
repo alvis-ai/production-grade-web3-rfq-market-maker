@@ -57,12 +57,13 @@ export const defaultBasicRiskPolicy: BasicRiskPolicy = {
 };
 
 export class BasicRiskEngine implements RiskEngine {
+  private readonly policy: BasicRiskPolicy;
   private readonly allowedTokens: ReadonlySet<string>;
   private readonly enabledChainIds: ReadonlySet<number>;
   private readonly restrictedUsers: ReadonlySet<string>;
   private readonly toxicFlowScores: ReadonlyMap<string, number>;
 
-  constructor(private readonly policy: BasicRiskPolicy = defaultBasicRiskPolicy) {
+  constructor(policy: BasicRiskPolicy = defaultBasicRiskPolicy) {
     assertNonEmptyString(policy.policyVersion, "policyVersion");
     assertChainIds(policy.enabledChainIds);
     assertAddressList(policy.tokenAllowlist, "tokenAllowlist", true);
@@ -75,10 +76,11 @@ export class BasicRiskEngine implements RiskEngine {
     assertBpsUpperBound(policy.maxQuotedSpreadBps, "maxQuotedSpreadBps");
     assertPositiveBigInt(policy.maxAbsoluteInventory, "maxAbsoluteInventory");
 
-    this.allowedTokens = new Set(policy.tokenAllowlist.map((token) => token.toLowerCase()));
-    this.enabledChainIds = new Set(policy.enabledChainIds);
-    this.restrictedUsers = new Set(policy.restrictedUsers.map((user) => user.toLowerCase()));
-    this.toxicFlowScores = new Map(policy.toxicFlowScores.map((score) => [score.user.toLowerCase(), score.scoreBps]));
+    this.policy = cloneBasicRiskPolicy(policy);
+    this.allowedTokens = new Set(this.policy.tokenAllowlist.map((token) => token.toLowerCase()));
+    this.enabledChainIds = new Set(this.policy.enabledChainIds);
+    this.restrictedUsers = new Set(this.policy.restrictedUsers.map((user) => user.toLowerCase()));
+    this.toxicFlowScores = new Map(this.policy.toxicFlowScores.map((score) => [score.user.toLowerCase(), score.scoreBps]));
   }
 
   async evaluate(input: RiskInput): Promise<RiskDecision> {
@@ -147,6 +149,16 @@ export class BasicRiskEngine implements RiskEngine {
 
 function abs(value: bigint): bigint {
   return value < 0n ? -value : value;
+}
+
+function cloneBasicRiskPolicy(policy: BasicRiskPolicy): BasicRiskPolicy {
+  return {
+    ...policy,
+    enabledChainIds: [...policy.enabledChainIds],
+    tokenAllowlist: [...policy.tokenAllowlist],
+    restrictedUsers: [...policy.restrictedUsers],
+    toxicFlowScores: policy.toxicFlowScores.map((score) => ({ ...score })),
+  };
 }
 
 function assertNonEmptyString(value: string, field: string): void {

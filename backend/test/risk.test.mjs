@@ -116,6 +116,40 @@ test("BasicRiskEngine rejects quoted spreads above policy limit", async () => {
   assert.equal(decision.policyVersion, "basic-risk-v1");
 });
 
+test("BasicRiskEngine snapshots policy configuration at construction", async () => {
+  const mutablePolicy = {
+    ...defaultBasicRiskPolicy,
+    policyVersion: "snapshot-risk-v1",
+    enabledChainIds: [1],
+    tokenAllowlist: [baseRequest.tokenIn, baseRequest.tokenOut],
+    restrictedUsers: [],
+    toxicFlowScores: [],
+    maxAmountIn: 2_000_000_000n,
+    minAmountOut: 1n,
+    maxSlippageBps: 100,
+    maxQuotedSpreadBps: 100,
+    maxAbsoluteInventory: 2_000_000_000n,
+  };
+  const engine = new BasicRiskEngine(mutablePolicy);
+
+  mutablePolicy.policyVersion = "mutated-risk-v2";
+  mutablePolicy.enabledChainIds.length = 0;
+  mutablePolicy.tokenAllowlist.length = 0;
+  mutablePolicy.restrictedUsers.push(baseRequest.user);
+  mutablePolicy.toxicFlowScores.push({ user: baseRequest.user, scoreBps: 10_000 });
+  mutablePolicy.maxAmountIn = 1n;
+  mutablePolicy.maxSlippageBps = 1;
+  mutablePolicy.maxQuotedSpreadBps = 1;
+
+  const decision = await engine.evaluate({
+    request: baseRequest,
+    pricing: basePricing,
+  });
+
+  assert.equal(decision.status, "approved");
+  assert.equal(decision.policyVersion, "snapshot-risk-v1");
+});
+
 test("BasicRiskEngine rejects unsafe policy configuration at construction", () => {
   assert.throws(
     () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, policyVersion: " " }),

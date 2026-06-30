@@ -379,6 +379,7 @@ grep -q 'must match request ${field}' backend/src/modules/risk/risk.engine.ts
 grep -q 'assertChainIds(policy.enabledChainIds)' backend/src/modules/risk/risk.engine.ts
 grep -q 'assertAddressList(policy.tokenAllowlist, "tokenAllowlist", true)' backend/src/modules/risk/risk.engine.ts
 grep -q 'assertBpsUpperBound(policy.maxQuotedSpreadBps, "maxQuotedSpreadBps")' backend/src/modules/risk/risk.engine.ts
+grep -q 'cloneBasicRiskPolicy' backend/src/modules/risk/risk.engine.ts
 grep -q 'TOXIC_FLOW_RESTRICTED_USER' backend/src/modules/risk/risk.engine.ts
 grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/src/modules/risk/risk.engine.ts
 grep -q 'toxicFlowScores' backend/src/modules/risk/risk.engine.ts
@@ -386,6 +387,7 @@ grep -q 'restrictedUsers' backend/src/modules/risk/risk.engine.ts
 grep -q 'Basic risk enabledChainIds must not contain duplicate chain ids' backend/src/modules/risk/risk.engine.ts
 grep -q 'Basic risk ${field} must not contain duplicate addresses' backend/src/modules/risk/risk.engine.ts
 grep -q 'Basic risk toxicFlowScores must not contain duplicate users' backend/src/modules/risk/risk.engine.ts
+grep -q 'BasicRiskEngine snapshots policy configuration at construction' backend/test/risk.test.mjs
 grep -q 'BasicRiskEngine rejects unsafe policy configuration at construction' backend/test/risk.test.mjs
 grep -q 'Basic risk tokenAllowlist must not contain duplicate addresses' backend/test/risk.test.mjs
 grep -q 'Basic risk restrictedUsers must not contain duplicate addresses' backend/test/risk.test.mjs
@@ -1363,6 +1365,7 @@ grep -q 'quoted spreads above policy limit' backend/test/risk.test.mjs
 grep -q 'BasicRiskEngine rejects unsafe policy configuration at construction' backend/test/risk.test.mjs
 grep -q 'BasicRiskEngine rejects unsafe runtime inputs before policy evaluation' backend/test/risk.test.mjs
 grep -q 'policy config fail-fast' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'snapshots `BasicRiskPolicy` at construction after validation' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'pricing spread exceeds risk guard before signing' backend/test/api.test.mjs
 grep -q 'QUOTED_SPREAD_TOO_WIDE' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'maxQuotedSpreadBps' book/Volume3-RiskEngine/Chapter05-Position-Limits.md
