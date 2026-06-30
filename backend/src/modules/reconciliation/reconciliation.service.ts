@@ -51,7 +51,11 @@ export interface ReconciliationServiceDeps {
 }
 
 export class ReconciliationService {
-  constructor(private readonly deps: ReconciliationServiceDeps) {}
+  private readonly deps: ReconciliationServiceDeps;
+
+  constructor(deps: ReconciliationServiceDeps) {
+    this.deps = cloneReconciliationServiceDeps(deps);
+  }
 
   async reconcileSettlementToQuote(): Promise<SettlementToQuoteReconciliationReport> {
     const events = this.deps.settlementEventService.listSettlementEvents();
@@ -197,6 +201,10 @@ function isAlreadyReconciled(
     status.txHash?.toLowerCase() === event.txHash.toLowerCase() &&
     status.settlementEventId === event.settlementEventId
   );
+}
+
+function cloneReconciliationServiceDeps(deps: ReconciliationServiceDeps): ReconciliationServiceDeps {
+  return { ...deps };
 }
 
 function signedQuoteFromRecord(record: QuoteRecord): SignedQuote {

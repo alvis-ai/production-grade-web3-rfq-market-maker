@@ -45,7 +45,11 @@ type CreateHedgeIntentResult =
   | { hedgeResult?: undefined; hedgeFailure: HedgeFailure; hedgeLagSeconds?: undefined };
 
 export class SkeletonExecutionService implements ExecutionService {
-  constructor(private readonly deps: ExecutionServiceDeps) {}
+  private readonly deps: ExecutionServiceDeps;
+
+  constructor(deps: ExecutionServiceDeps) {
+    this.deps = cloneExecutionServiceDeps(deps);
+  }
 
   async submitQuote(request: SubmitQuoteRequest, context: ExecutionContext): Promise<ExecutionResult> {
     assertExecutionContext(context);
@@ -154,6 +158,10 @@ export function buildSyntheticTxHash(request: SubmitQuoteRequest, context: Execu
 
 function elapsedSeconds(startedAtMs: number): number {
   return (Date.now() - startedAtMs) / 1000;
+}
+
+function cloneExecutionServiceDeps(deps: ExecutionServiceDeps): ExecutionServiceDeps {
+  return { ...deps };
 }
 
 function assertExecutionContext(context: ExecutionContext): void {

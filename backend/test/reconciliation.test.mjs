@@ -58,6 +58,40 @@ test("ReconciliationService repairs quote status from settlement events", async 
   });
 });
 
+test("ReconciliationService snapshots dependency object at construction", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const settlementEventService = new SettlementEventService(new InventoryService());
+  await saveSignedQuote(quoteRepository, "q_snapshot_deps", quote);
+  const settlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_snapshot_deps",
+    quote,
+    txHash: `0x${"ab".repeat(32)}`,
+    blockNumber: 101,
+    logIndex: 4,
+  });
+  const deps = {
+    quoteRepository,
+    settlementEventService,
+  };
+  const reconciliation = new ReconciliationService(deps);
+
+  deps.quoteRepository = new InMemoryQuoteRepository();
+  deps.settlementEventService = new SettlementEventService(new InventoryService());
+
+  const report = await reconciliation.reconcileSettlementToQuote();
+
+  assert.deepEqual(report, {
+    scannedSettlementEvents: 1,
+    repairedQuoteStatuses: 1,
+    skippedQuoteStatuses: 0,
+    errors: [],
+  });
+  const status = await quoteRepository.findStatus("q_snapshot_deps");
+  assert.equal(status.status, "settled");
+  assert.equal(status.settlementEventId, settlement.event.settlementEventId);
+  assert.equal(await deps.quoteRepository.findStatus("q_snapshot_deps"), undefined);
+});
+
 test("ReconciliationService reports terminal quote conflicts without stopping later events", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const settlementEventService = new SettlementEventService(new InventoryService());

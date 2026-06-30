@@ -73,6 +73,45 @@ test("SkeletonExecutionService suppresses duplicate settlement side effects", as
   assert.notEqual(storedHedge, first.hedgeResult?.record);
 });
 
+test("SkeletonExecutionService snapshots dependency object at construction", async () => {
+  const inventoryService = new InventoryService();
+  const replacementInventoryService = new InventoryService();
+  const deps = {
+    hedgeService: new HedgeService(),
+    inventoryService,
+    settlementEventService: new SettlementEventService(inventoryService),
+    settlementVerifier: new LocalSettlementVerifier(),
+  };
+  const executionService = new SkeletonExecutionService(deps);
+
+  deps.hedgeService = {
+    createHedgeIntent() {
+      throw new Error("mutated hedge service used");
+    },
+    getHedgeIntent() {
+      return undefined;
+    },
+    getHedgeIntentBySettlementEvent() {
+      return undefined;
+    },
+  };
+  deps.inventoryService = replacementInventoryService;
+  deps.settlementEventService = new SettlementEventService(replacementInventoryService);
+  deps.settlementVerifier = {
+    async verify() {
+      throw new Error("mutated settlement verifier used");
+    },
+  };
+
+  const result = await executionService.submitQuote(request, { quoteId: "q_snapshot_deps" });
+
+  assert.equal(result.settlementVerification.status, "verified");
+  assert.equal(result.response.status, "accepted");
+  assert.match(result.response.hedgeOrderId, /^h_/);
+  assert.equal(inventoryService.getPosition(request.quote.chainId, request.quote.tokenIn).balance, BigInt(request.quote.amountIn));
+  assert.equal(replacementInventoryService.getPosition(request.quote.chainId, request.quote.tokenIn).balance, 0n);
+});
+
 test("SkeletonExecutionService rejects unsafe execution inputs before settlement side effects", async () => {
   const inventoryService = new InventoryService();
   const hedgeService = new HedgeService();

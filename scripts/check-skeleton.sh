@@ -541,9 +541,11 @@ grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.serv
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/src/modules/execution/execution.service.ts
 grep -q 'SettlementEventStore' backend/src/modules/execution/execution.service.ts
 grep -q 'settlementEventStoreFailure' backend/src/modules/execution/execution.service.ts
+grep -q 'cloneExecutionServiceDeps' backend/src/modules/execution/execution.service.ts
 grep -q 'keccak256(toBytes(payload))' backend/src/modules/execution/execution.service.ts
 grep -q 'buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService suppresses duplicate settlement side effects' backend/test/execution.test.mjs
+grep -q 'SkeletonExecutionService snapshots dependency object at construction' backend/test/execution.test.mjs
 grep -q 'validateSubmitQuoteRequest(request)' backend/src/modules/execution/execution.service.ts
 grep -q 'Execution context quoteId must be a non-empty string' backend/src/modules/execution/execution.service.ts
 grep -q 'SkeletonExecutionService rejects unsafe execution inputs before settlement side effects' backend/test/execution.test.mjs
@@ -572,6 +574,7 @@ grep -q 'rejects conflicting payloads for an existing chain event key' backend/t
 grep -q 'SettlementEventService rejects unsafe settlement quote inputs before side effects' backend/test/settlement-event.test.mjs
 grep -q 'hashSettlementQuote rejects malformed quote fields before ABI encoding' backend/test/settlement-event.test.mjs
 grep -q 'class ReconciliationService' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'cloneReconciliationServiceDeps' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileSettlementToQuote' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileSettlementToHedge' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileSettlementToPnl' backend/src/modules/reconciliation/reconciliation.service.ts
@@ -580,6 +583,7 @@ grep -q 'SIGNED_QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliati
 grep -q 'repairs quote status from settlement events' backend/test/reconciliation.test.mjs
 grep -q 'reports terminal quote conflicts without stopping later events' backend/test/reconciliation.test.mjs
 grep -q 'reports settlement events whose quotes are missing' backend/test/reconciliation.test.mjs
+grep -q 'ReconciliationService snapshots dependency object at construction' backend/test/reconciliation.test.mjs
 grep -q 'repairs hedge intents from settlement events' backend/test/reconciliation.test.mjs
 grep -q 'requires hedge service for settlement-to-hedge repair' backend/test/reconciliation.test.mjs
 grep -q 'repairs PnL records from settlement events and signed quotes' backend/test/reconciliation.test.mjs
@@ -598,6 +602,8 @@ grep -q 'Local settlement verifier enabledChainIds must not contain duplicate ch
 grep -q 'Local settlement verifier tokenWhitelist must not contain duplicate addresses' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'enabledChainIds` 和 `tokenWhitelist` 必须非空且不能包含重复项' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'snapshots `LocalSettlementVerifierPolicy` at construction after validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'SkeletonExecutionService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'ReconciliationService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
 grep -q 'recordHedgeFailure' backend/src/modules/execution/execution.service.ts
 grep -q 'hedgeOrderId: hedgeResult?.hedgeOrderId' backend/src/modules/execution/execution.service.ts
