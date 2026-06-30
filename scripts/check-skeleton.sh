@@ -42,6 +42,7 @@ grep -q 'maxSnapshotAgeMs' backend/src/modules/health/readiness.service.ts
 grep -q 'maxSnapshotFutureSkewMs' backend/src/modules/health/readiness.service.ts
 grep -q 'assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs")' backend/src/modules/health/readiness.service.ts
 grep -q 'assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs")' backend/src/modules/health/readiness.service.ts
+grep -q 'cloneReadinessServiceDeps' backend/src/modules/health/readiness.service.ts
 grep -q 'cloneReadinessServiceConfig' backend/src/modules/health/readiness.service.ts
 grep -q 'readiness_probe' backend/src/modules/health/readiness.service.ts
 grep -q 'probeSnapshot' backend/src/modules/health/readiness.service.ts
@@ -54,8 +55,10 @@ grep -q 'quoteRepositoryStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'settlementEventStoreStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'pnlStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'ReadinessService degrades the aggregate status when a dependency probe fails' backend/test/readiness.test.mjs
+grep -q 'ReadinessService snapshots dependency object at construction' backend/test/readiness.test.mjs
 grep -q 'ReadinessService snapshots readiness configuration at construction' backend/test/readiness.test.mjs
 grep -q 'ReadinessService rejects unsafe freshness configuration at construction' backend/test/readiness.test.mjs
+grep -q 'ReadinessService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'snapshots `ReadinessServiceConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/quote/quote-identity.ts
@@ -335,6 +338,7 @@ grep -q 'maxSnapshotAgeMs' backend/src/modules/quote/quote.service.ts
 grep -q 'maxSnapshotFutureSkewMs' backend/src/modules/quote/quote.service.ts
 grep -q 'assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds")' backend/src/modules/quote/quote.service.ts
+grep -q 'cloneQuoteServiceDeps' backend/src/modules/quote/quote.service.ts
 grep -q 'cloneQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
 grep -q 'MARKET_DATA_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'ROUTING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
@@ -354,6 +358,8 @@ grep -q 'QUOTE_STORE_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteFailureCode' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteTtlSeconds' backend/src/modules/quote/quote.service.ts
 grep -q 'defaultQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
+grep -q 'QuoteService snapshots dependency object at construction' backend/test/quote-service.test.mjs
+grep -q 'QuoteService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'class QuoteIdentityGenerator' backend/src/modules/quote/quote-identity.ts
 grep -q 'randomUint64' backend/src/modules/quote/quote-identity.ts
 grep -q 'globalThis.crypto' backend/src/modules/quote/quote-identity.ts

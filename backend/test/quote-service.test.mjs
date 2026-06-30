@@ -673,6 +673,43 @@ test("QuoteService snapshots runtime configuration at construction", async () =>
   }
 });
 
+test("QuoteService snapshots dependency object at construction", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const replacementQuoteRepository = new InMemoryQuoteRepository();
+  const deps = {
+    ...quoteServiceDeps(),
+    quoteRepository,
+  };
+  const service = new QuoteService(deps);
+
+  deps.marketDataService = {
+    async getSnapshot() {
+      throw new Error("mutated market data used");
+    },
+  };
+  deps.pricingEngine = {
+    async price() {
+      throw new Error("mutated pricing engine used");
+    },
+  };
+  deps.quoteRepository = replacementQuoteRepository;
+  deps.signerService = {
+    async signQuote() {
+      throw new Error("mutated signer used");
+    },
+    async verifyQuoteSignature() {
+      return false;
+    },
+  };
+
+  const quote = await service.createQuote(request);
+
+  assert.equal(quote.signature, fixedSignature());
+  assert.equal(quote.snapshotId, "snapshot_1_00000000_00000000");
+  assert.equal((await quoteRepository.findStatus(quote.quoteId)).status, "signed");
+  assert.equal(await replacementQuoteRepository.findStatus(quote.quoteId), undefined);
+});
+
 test("QuoteService persists expired status when signed quote status is read after deadline", async () => {
   const originalDateNow = Date.now;
   let now = originalDateNow();

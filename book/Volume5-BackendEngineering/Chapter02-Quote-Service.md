@@ -140,6 +140,7 @@ markQuoteStatus(quoteId, status, metadata): Promise<void>
 - Signed quote TTL 由 `RFQ_QUOTE_TTL_SECONDS` 控制，默认 30 秒，启动时必须校验为 1 到 3600 的整数。TTL 过长会增加 stale price 被执行的窗口，TTL 过短会降低钱包确认和链上提交成功率。
 - `QuoteServiceConfig` 在构造期 fail fast：`maxSnapshotAgeMs`、`maxSnapshotFutureSkewMs` 和 `quoteTtlSeconds` 必须是正安全整数。这样可以避免直接依赖注入或测试路径绕过 env reader 后生成永不过期、立即过期或无法正确判断 freshness 的 quote。
 - `QuoteService` snapshots `QuoteServiceConfig` at construction after validation. External callers must not be able to mutate snapshot freshness windows or quote TTL after construction and silently change quote validity.
+- `QuoteService` snapshots its dependency map at construction. External callers must not be able to replace market data, routing, pricing, inventory, risk, signer or quote repository dependencies by mutating the original deps object after the quote service has been created.
 - `failed` quote 是终态，后续 `/submit` 必须返回 `QUOTE_FAILED`，不能重新进入 settlement path。
 - Quote Repository 抛错时返回 `QUOTE_STORE_UNAVAILABLE`，避免 repository dependency failure 落入通用 500；签名前持久化失败必须阻断 signer。
 - Quote persistence 通过 `QuoteRepository` 抽象，避免编排层直接绑定 PostgreSQL 或内存 Map。

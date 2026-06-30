@@ -92,6 +92,34 @@ test("ReadinessService snapshots readiness configuration at construction", async
   }
 });
 
+test("ReadinessService snapshots dependency object at construction", async () => {
+  const deps = readinessServiceDeps();
+  const service = new ReadinessService(deps);
+
+  deps.marketDataService = {
+    async getSnapshot() {
+      throw new Error("mutated market data used");
+    },
+  };
+  deps.routingEngine = {
+    async selectRoute() {
+      throw new Error("mutated routing engine used");
+    },
+  };
+  deps.quoteRepository = {
+    checkHealth() {
+      throw new Error("mutated quote repository used");
+    },
+  };
+
+  const readiness = await service.check();
+
+  assert.equal(readiness.status, "ready");
+  for (const component of readinessComponents) {
+    assert.equal(readiness.components[component], "ok");
+  }
+});
+
 test("ReadinessService rejects unsafe freshness configuration at construction", () => {
   assert.throws(
     () =>
@@ -119,25 +147,26 @@ test("ReadinessService rejects unsafe freshness configuration at construction", 
 });
 
 function createReadinessService(overrides = {}, config = defaultReadinessServiceConfig) {
+  return new ReadinessService(readinessServiceDeps(overrides), config);
+}
+
+function readinessServiceDeps(overrides = {}) {
   const inventoryService = overrides.inventoryService ?? new InventoryService();
 
-  return new ReadinessService(
-    {
-      marketDataService: overrides.marketDataService ?? new StaticMarketDataService(),
-      routingEngine: overrides.routingEngine ?? new InternalInventoryRoutingEngine(),
-      pricingEngine: overrides.pricingEngine ?? new FormulaPricingEngine(),
-      riskEngine: overrides.riskEngine ?? new BasicRiskEngine(),
-      signerService: overrides.signerService ?? new LocalEIP712SignerService({
-        privateKey: "0x59c6995e998f97a5a0044966f094538d9dae1ffc26a3b6d86dae8e3a0b97e6a0",
-        settlementAddress: "0x0000000000000000000000000000000000000004",
-      }),
-      quoteRepository: overrides.quoteRepository ?? new InMemoryQuoteRepository(),
-      inventoryService,
-      hedgeService: overrides.hedgeService ?? new HedgeService(),
-      settlementEventService: overrides.settlementEventService ?? new SettlementEventService(inventoryService),
-      pnlService: overrides.pnlService ?? new PnlService(),
-      metricsService: overrides.metricsService ?? new MetricsService(),
-    },
-    config,
-  );
+  return {
+    marketDataService: overrides.marketDataService ?? new StaticMarketDataService(),
+    routingEngine: overrides.routingEngine ?? new InternalInventoryRoutingEngine(),
+    pricingEngine: overrides.pricingEngine ?? new FormulaPricingEngine(),
+    riskEngine: overrides.riskEngine ?? new BasicRiskEngine(),
+    signerService: overrides.signerService ?? new LocalEIP712SignerService({
+      privateKey: "0x59c6995e998f97a5a0044966f094538d9dae1ffc26a3b6d86dae8e3a0b97e6a0",
+      settlementAddress: "0x0000000000000000000000000000000000000004",
+    }),
+    quoteRepository: overrides.quoteRepository ?? new InMemoryQuoteRepository(),
+    inventoryService,
+    hedgeService: overrides.hedgeService ?? new HedgeService(),
+    settlementEventService: overrides.settlementEventService ?? new SettlementEventService(inventoryService),
+    pnlService: overrides.pnlService ?? new PnlService(),
+    metricsService: overrides.metricsService ?? new MetricsService(),
+  };
 }

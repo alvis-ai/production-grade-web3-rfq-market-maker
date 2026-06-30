@@ -55,15 +55,17 @@ export const defaultQuoteServiceConfig: QuoteServiceConfig = {
 
 export class QuoteService {
   private readonly identityGenerator = new QuoteIdentityGenerator();
+  private readonly deps: QuoteServiceDeps;
   private readonly config: QuoteServiceConfig;
 
   constructor(
-    private readonly deps: QuoteServiceDeps,
+    deps: QuoteServiceDeps,
     config: QuoteServiceConfig = defaultQuoteServiceConfig,
   ) {
     assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
     assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
     assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds");
+    this.deps = cloneQuoteServiceDeps(deps);
     this.config = cloneQuoteServiceConfig(config);
   }
 
@@ -390,6 +392,10 @@ function assertUsableSnapshot(
 
 function cloneQuoteServiceConfig(config: QuoteServiceConfig): QuoteServiceConfig {
   return { ...config };
+}
+
+function cloneQuoteServiceDeps(deps: QuoteServiceDeps): QuoteServiceDeps {
+  return { ...deps };
 }
 
 function assertPositiveSafeInteger(value: number, field: keyof QuoteServiceConfig): void {
