@@ -375,6 +375,38 @@ function assertQuoteStatus(payload: unknown, status: number): asserts payload is
     throw malformedFieldError(status, label, "deadline");
   }
   assertOptionalBytes32Field(payload, "txHash", status, label);
+  assertQuoteStatusPayloadConsistency(payload, status, label);
+}
+
+function assertQuoteStatusPayloadConsistency(
+  payload: Record<string, unknown>,
+  status: number,
+  label: string,
+): void {
+  const quoteStatus = payload.status;
+  const isSettlementStatus = quoteStatus === "submitted" || quoteStatus === "settled";
+  if (isSettlementStatus) {
+    if (!isBytes32Hex(payload.txHash)) {
+      throw malformedFieldError(status, label, "txHash");
+    }
+    if (!isNonEmptyString(payload.settlementEventId)) {
+      throw malformedFieldError(status, label, "settlementEventId");
+    }
+    return;
+  }
+
+  if (
+    payload.txHash !== undefined ||
+    payload.settlementEventId !== undefined ||
+    payload.hedgeOrderId !== undefined ||
+    payload.pnlId !== undefined
+  ) {
+    throw malformedFieldError(status, label, "status");
+  }
+
+  if ((quoteStatus === "rejected" || quoteStatus === "failed") && !isNonEmptyString(payload.errorCode)) {
+    throw malformedFieldError(status, label, "errorCode");
+  }
 }
 
 function assertHedgeIntentStatus(payload: unknown, status: number): asserts payload is HedgeIntentStatus {

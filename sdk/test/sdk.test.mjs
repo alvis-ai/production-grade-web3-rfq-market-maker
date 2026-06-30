@@ -689,6 +689,8 @@ test("RFQClient percent-encodes dynamic status path identifiers", async () => {
       return jsonResponse(200, {
         quoteId,
         status: "settled",
+        txHash: `0x${"22".repeat(32)}`,
+        settlementEventId,
       });
     }
     if (url.endsWith(`/hedges/${encodeURIComponent(hedgeOrderId)}`)) {
@@ -1085,7 +1087,15 @@ test("RFQClient rejects malformed submit and quote status responses", async () =
       message: "RFQ quote status response returned malformed txHash",
     },
     {
+      payload: { ...quoteStatusResponse, txHash: undefined },
+      message: "RFQ quote status response returned malformed txHash",
+    },
+    {
       payload: { ...quoteStatusResponse, settlementEventId: "" },
+      message: "RFQ quote status response returned malformed settlementEventId",
+    },
+    {
+      payload: { ...quoteStatusResponse, settlementEventId: undefined },
       message: "RFQ quote status response returned malformed settlementEventId",
     },
     {
@@ -1098,6 +1108,27 @@ test("RFQClient rejects malformed submit and quote status responses", async () =
     },
     {
       payload: { ...quoteStatusResponse, errorCode: "" },
+      message: "RFQ quote status response returned malformed errorCode",
+    },
+    {
+      payload: {
+        ...quoteStatusResponse,
+        status: "signed",
+      },
+      message: "RFQ quote status response returned malformed status",
+    },
+    {
+      payload: {
+        quoteId: "q_rejected",
+        status: "rejected",
+      },
+      message: "RFQ quote status response returned malformed errorCode",
+    },
+    {
+      payload: {
+        quoteId: "q_failed",
+        status: "failed",
+      },
       message: "RFQ quote status response returned malformed errorCode",
     },
   ];

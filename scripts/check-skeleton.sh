@@ -772,6 +772,7 @@ grep -q 'async ready' sdk/src/client.ts
 grep -q 'assertNonEmptyIdentifier' sdk/src/client.ts
 grep -q 'RFQClient rejects empty dynamic status identifiers before fetch' sdk/test/sdk.test.mjs
 grep -q 'assertQuoteStatus' sdk/src/client.ts
+grep -q 'assertQuoteStatusPayloadConsistency' sdk/src/client.ts
 grep -q 'assertHedgeIntentStatus' sdk/src/client.ts
 grep -q 'assertSettlementEventStatus' sdk/src/client.ts
 grep -q 'assertPnlSummary' sdk/src/client.ts
@@ -804,6 +805,8 @@ grep -q 'malformed successful JSON responses' sdk/test/sdk.test.mjs
 grep -q 'malformed health and readiness status responses' sdk/test/sdk.test.mjs
 grep -q 'malformed hedge status responses' sdk/test/sdk.test.mjs
 grep -q 'malformed submit and quote status responses' sdk/test/sdk.test.mjs
+grep -q 'q_rejected' sdk/test/sdk.test.mjs
+grep -q 'lifecycle payload consistency between status and settlement pointers' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'malformed settlement status responses' sdk/test/sdk.test.mjs
 grep -q 'malformed PnL summary responses' sdk/test/sdk.test.mjs
 grep -q 'isBytes32Hex' sdk/src/client.ts
