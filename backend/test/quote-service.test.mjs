@@ -1455,7 +1455,13 @@ test("QuoteService persists approved and rejected risk decisions before signer b
 
 test("QuoteService blocks signer when risk decision persistence fails", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
+  const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+  let requestedQuoteId;
   let signerCalls = 0;
+  quoteRepository.saveRequested = async (input) => {
+    requestedQuoteId = input.quoteId;
+    await saveRequested(input);
+  };
   const service = new QuoteService({
     ...quoteServiceDeps(),
     quoteRepository,
@@ -1487,6 +1493,10 @@ test("QuoteService blocks signer when risk decision persistence fails", async ()
     },
   );
 
+  assert.match(requestedQuoteId, /^q_/);
+  const status = await quoteRepository.findStatus(requestedQuoteId);
+  assert.equal(status.status, "failed");
+  assert.equal(status.errorCode, "QUOTE_STORE_UNAVAILABLE");
   assert.equal(signerCalls, 0);
 });
 

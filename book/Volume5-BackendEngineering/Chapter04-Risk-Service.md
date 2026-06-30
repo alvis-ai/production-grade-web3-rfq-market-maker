@@ -39,7 +39,7 @@ Volume3 定义了风险模型。后端需要把模型实现为可测试 pipeline
 
 简单系统只做 amount limit。当前实现使用 `BasicRiskEngine` 作为可配置硬 gate，并在 Quote Service 中传入本次 quote 成交后的 tokenIn/tokenOut 库存投影。`BasicRiskEngine` 也支持 restricted user 和 per-user toxic score gate，用于表达第一版可解释 toxic-flow 防护。生产系统需要在同一接口下继续扩展 VaR、动态 toxic score cache 和外部依赖健康检查。
 
-Risk Engine 本身也是签名前依赖。只要 `evaluate(input)` 抛出异常，Quote Service 必须 fail closed：保存 rejected quote，返回 `RISK_REJECTED`，内部稳定 reasonCode 为 `RISK_ENGINE_UNAVAILABLE`，并且不调用 Signer Service。这个选择把未知风控状态等价处理为拒绝，而不是让 dependency failure 变成可签名路径或通用 500。Risk decision 审计存储同样位于 signer 边界之前：`RiskDecisionStore` 写入失败时返回 `QUOTE_STORE_UNAVAILABLE` 并阻断签名，因为一个不可回放的 approved decision 不应生成可执行签名。
+Risk Engine 本身也是签名前依赖。只要 `evaluate(input)` 抛出异常，Quote Service 必须 fail closed：保存 rejected quote，返回 `RISK_REJECTED`，内部稳定 reasonCode 为 `RISK_ENGINE_UNAVAILABLE`，并且不调用 Signer Service。这个选择把未知风控状态等价处理为拒绝，而不是让 dependency failure 变成可签名路径或通用 500。Risk decision 审计存储同样位于 signer 边界之前：`RiskDecisionStore` 写入失败时返回 `QUOTE_STORE_UNAVAILABLE`，best-effort 将 requested quote 标记为 `failed`，并阻断签名，因为一个不可回放的 approved decision 不应生成可执行签名。
 
 ## Trade-Off Analysis
 
@@ -125,7 +125,7 @@ evaluate(input: RiskInput): Promise<RiskDecision>
 
 - Policy store unavailable：reject。
 - Inventory stale：degrade or reject。
-- Audit write failed：return `QUOTE_STORE_UNAVAILABLE` and block Signer。
+- Audit write failed：return `QUOTE_STORE_UNAVAILABLE`, best-effort mark the requested quote `failed`, and block Signer。
 - Toxic score unavailable：fallback by policy。
 - Risk engine unavailable：reject with `RISK_ENGINE_UNAVAILABLE`，不调用 Signer，不返回 signature。
 - Rejected quote persistence unavailable：preserve `RISK_REJECTED` as the API result, keep Signer blocked, and repair requested quote state through reconciliation。

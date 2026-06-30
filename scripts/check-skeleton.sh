@@ -78,7 +78,9 @@ grep -q 'riskDecisionStore' backend/src/modules/metrics/metrics.service.ts
 grep -q 'InMemoryRiskDecisionRepository stores idempotent approved and rejected decisions' backend/test/risk-decision.test.mjs
 grep -q 'QuoteService persists approved and rejected risk decisions before signer boundary' backend/test/quote-service.test.mjs
 grep -q 'QuoteService blocks signer when risk decision persistence fails' backend/test/quote-service.test.mjs
+grep -q 'RFQ API marks requested quotes failed when risk decision audit store fails' backend/test/api.test.mjs
 grep -q 'persists RiskDecisionStore audit records before signer' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'best-effort 将 requested quote 标记为 `failed`，并阻断 Signer' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'RiskDecisionStore mirrors the PostgreSQL risk_decisions contract' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 test -s backend/src/modules/execution/execution.service.ts
 test -s backend/src/modules/inventory/inventory.service.ts

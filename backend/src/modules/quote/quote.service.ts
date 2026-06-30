@@ -130,10 +130,15 @@ export class QuoteService {
     });
 
     const risk = await this.evaluateRisk({ request: validatedRequest, pricing, inventoryProjection });
-    await this.saveRiskDecision({
-      quoteId,
-      decision: risk,
-    });
+    try {
+      await this.saveRiskDecision({
+        quoteId,
+        decision: risk,
+      });
+    } catch (error) {
+      await this.markQuoteFailedBestEffort(quoteId, quoteFailureCode(error));
+      throw error;
+    }
     if (risk.status !== "approved") {
       await this.saveRejectedQuoteBestEffort({
         quoteId,

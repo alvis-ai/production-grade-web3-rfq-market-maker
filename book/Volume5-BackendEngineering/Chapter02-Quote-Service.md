@@ -139,7 +139,7 @@ markQuoteStatus(quoteId, status, metadata): Promise<void>
 - `QuoteService` persists MarketSnapshotStore audit records before routing, pricing, requested quote persistence, risk evaluation or signer access. Snapshot persistence failure maps to `QUOTE_STORE_UNAVAILABLE` and blocks all downstream quote side effects, because a quote without a durable market snapshot cannot be replayed under the PostgreSQL `quotes.snapshot_id -> market_snapshots.id` contract.
 - Requested quote persistence happens immediately after market snapshot persistence and before routing or pricing. If routing or pricing later becomes unavailable, the API still returns the original dependency error, but the requested quote is best-effort marked `failed` with `ROUTING_UNAVAILABLE` or `PRICING_UNAVAILABLE` so operators can audit quote-path failures instead of seeing orphan requested records.
 - `requireSubmittableSignedQuote()` revalidates the submit quote and canonical signature at the service boundary before quote store lookup or signer verification. It allows expired-but-well-formed quotes through validation so the existing signed quote record can still be marked `expired` before returning `QUOTE_EXPIRED`.
-- `QuoteService` persists RiskDecisionStore audit records before signer access. Approved 和 rejected decision 都必须写入 `RiskDecisionStore`，且 `policyVersion`、approved/rejected 状态和 rejected `reasonCode` 与 `risk_decisions` 数据库契约一致；审计写入失败按 `QUOTE_STORE_UNAVAILABLE` 处理并阻断 Signer。
+- `QuoteService` persists RiskDecisionStore audit records before signer access. Approved 和 rejected decision 都必须写入 `RiskDecisionStore`，且 `policyVersion`、approved/rejected 状态和 rejected `reasonCode` 与 `risk_decisions` 数据库契约一致；审计写入失败按 `QUOTE_STORE_UNAVAILABLE` 处理，best-effort 将 requested quote 标记为 `failed`，并阻断 Signer。
 - Rejected quote 也要 best-effort 记录，但记录失败不能掩盖原始 risk decision。
 - Risk Engine 抛错时按 fail-closed 处理，返回 `RISK_REJECTED`，内部拒绝原因为 `RISK_ENGINE_UNAVAILABLE`，不调用 Signer。
 - Risk rejected 后 rejected 状态持久化失败时，API 仍返回原始 `RISK_REJECTED`，不调用 Signer；遗留的 `requested` quote 由 reconciliation 处理。
@@ -183,7 +183,7 @@ markQuoteStatus(quoteId, status, metadata): Promise<void>
 - Risk rejected：返回 `RISK_REJECTED`。
 - Risk engine unavailable：返回 `RISK_REJECTED`，记录 `RISK_ENGINE_UNAVAILABLE`，不调用 Signer，不返回签名。
 - Market snapshot persistence unavailable：返回 `QUOTE_STORE_UNAVAILABLE`，不进入 routing/pricing/risk/signer，不返回签名。
-- Risk decision audit persistence unavailable：返回 `QUOTE_STORE_UNAVAILABLE`，不调用 Signer，不返回签名。
+- Risk decision audit persistence unavailable：返回 `QUOTE_STORE_UNAVAILABLE`，best-effort 将 requested quote 标记为 `failed`，不调用 Signer，不返回签名。
 - Rejected quote persistence unavailable after risk rejection：仍返回 `RISK_REJECTED`，quote 可暂时停留在 `requested`，不调用 Signer。
 - Signer unavailable：返回 `SIGNER_UNAVAILABLE`，quote 状态 best-effort 变为 `failed`。
 - Failed status persistence unavailable after signer failure：仍返回 `SIGNER_UNAVAILABLE`，quote 可暂时停留在 `requested`，后续由 reconciliation 处理。

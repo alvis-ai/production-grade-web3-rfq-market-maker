@@ -1574,6 +1574,54 @@ test("RFQ API maps quote store failures before signing", async () => {
   }
 });
 
+test("RFQ API marks requested quotes failed when risk decision audit store fails", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+  let requestedQuoteId;
+  quoteRepository.saveRequested = async (input) => {
+    requestedQuoteId = input.quoteId;
+    await saveRequested(input);
+  };
+  const server = buildServer({
+    logger: false,
+    quoteRepository,
+    riskDecisionStore: {
+      checkHealth() {},
+      async saveDecision() {
+        throw new Error("risk decision audit store offline");
+      },
+      async findByQuoteId() {
+        return undefined;
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "QUOTE_STORE_UNAVAILABLE");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+
+    assert.match(requestedQuoteId, /^q_/);
+    const status = await injectJson(server, "GET", `/quote/${requestedQuoteId}`);
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.body.status, "failed");
+    assert.equal(status.body.errorCode, "QUOTE_STORE_UNAVAILABLE");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_quote_requests_total 1/);
+    assert.match(metrics.payload, /rfq_quote_errors_total 1/);
+    assert.match(metrics.payload, /rfq_quote_responses_total 0/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API maps quote status store failures to structured errors", async () => {
   class FailingStatusQuoteRepository extends InMemoryQuoteRepository {
     async findStatus() {
