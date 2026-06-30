@@ -33,12 +33,15 @@ flowchart LR
 
 ## Rotation Procedure
 
-1. Configure Signer Service with the new key and verify its address.
-2. Deploy Signer Service config using the new key.
-3. Stop issuing quotes from the old key.
-4. Wait for old quotes to expire.
-5. Call `RFQSettlement.setTrustedSigner(newSigner)`.
-6. Archive audit logs for both keys.
+1. Open a change record with the current signer address, proposed signer address, affected chains and rollback owner.
+2. Configure Signer Service with the new key in staging and verify that the derived address matches the planned `newSigner`.
+3. Run a canary signing check that includes `quoteId`, `snapshotId`, `riskPolicyVersion` and traceId, then verify the EIP-712 digest against the SDK and contract domain.
+4. Stop issuing new quotes from the old signer by failing closed at the Signer Service or routing layer.
+5. Wait for old quotes to expire. Wait at least `RFQ_QUOTE_TTL_SECONDS` plus clock-skew buffer so all old signed quotes are no longer executable.
+6. Call `RFQSettlement.setTrustedSigner(newSigner)` through the owner-controlled admin path and record the transaction hash.
+7. Run a post-rotation quote canary with the new signer and a negative canary using the old signer, confirming the old signature is rejected.
+8. Archive signer audit logs for both keys, including the change record, KMS/HSM key version, operator identity and contract transaction hash.
+9. Keep the old key disabled but recoverable until the incident or maintenance window is closed; destroy it only after audit sign-off.
 
 ## Incident Response
 

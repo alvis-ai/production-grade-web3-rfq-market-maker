@@ -38,7 +38,7 @@
 
 ## Operations
 
-- [ ] Signer key rotation is documented.
-- [ ] Emergency pause procedure is documented.
+- [x] Signer key rotation is documented.
+- [x] Emergency pause procedure is documented.
 - [x] Alerts exist for signer failures, risk reject spikes, event lag and hedge failures.
 - [x] Dashboards cover quote latency, settlement failures and inventory exposure.

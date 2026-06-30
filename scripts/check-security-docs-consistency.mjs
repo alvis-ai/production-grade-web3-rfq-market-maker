@@ -7,6 +7,7 @@ const docs = {
   threatModel: await readFile("docs/security/threat-model.md", "utf8"),
   auditChecklist: await readFile("docs/security/audit-checklist.md", "utf8"),
   keyManagement: await readFile("docs/security/key-management.md", "utf8"),
+  runbook: await readFile("book/Volume7-ProductionDeployment/Chapter05-Runbook.md", "utf8"),
 };
 
 const requiredHeadings = {
@@ -142,6 +143,8 @@ const implementedAuditControls = [
   "Hedge actions are linked to settlement events.",
   "Alerts exist for signer failures, risk reject spikes, event lag and hedge failures.",
   "Dashboards cover quote latency, settlement failures and inventory exposure.",
+  "Signer key rotation is documented.",
+  "Emergency pause procedure is documented.",
 ];
 
 for (const control of implementedAuditControls) {
@@ -157,8 +160,6 @@ const intentionallyOpenAuditControls = [
   "Indexer handles chain reorgs.",
   "Inventory updates are replayable.",
   "ClickHouse analytics do not become operational source of truth.",
-  "Signer key rotation is documented.",
-  "Emergency pause procedure is documented.",
 ];
 
 for (const control of intentionallyOpenAuditControls) {
@@ -166,6 +167,27 @@ for (const control of intentionallyOpenAuditControls) {
     docs.auditChecklist.includes(`- [ ] ${control}`),
     `audit checklist must leave unresolved control unchecked: ${control}`,
   );
+}
+
+for (const term of [
+  "Open a change record",
+  "Run a canary signing check",
+  "Wait at least `RFQ_QUOTE_TTL_SECONDS` plus clock-skew buffer",
+  "`RFQSettlement.setTrustedSigner(newSigner)`",
+  "negative canary using the old signer",
+]) {
+  assert.ok(docs.keyManagement.includes(term), `key management rotation procedure must include: ${term}`);
+}
+
+for (const term of [
+  "### Emergency Pause Procedure",
+  "`RFQSettlement.setPaused(true)`",
+  "negative submit canary",
+  "`RFQSettlement.paused()` is true",
+  "`RFQSettlement.setPaused(false)`",
+  "two-person approval",
+]) {
+  assert.ok(docs.runbook.includes(term), `runbook emergency pause procedure must include: ${term}`);
 }
 
 const mermaidBlocks = [...docs.threatModel.matchAll(/^```mermaid$/gm)].length +

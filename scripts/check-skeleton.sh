@@ -1334,8 +1334,16 @@ grep -Fq -- '- [x] EIP-712 domain includes name, version, chainId and verifyingC
 grep -Fq -- '- [x] `submitQuote` rejects expired quotes.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Risk Engine runs before Signer Service.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] Signer key rotation is documented.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] Emergency pause procedure is documented.' docs/security/audit-checklist.md
 grep -Fq -- '- [ ] `submitQuote` uses SafeERC20 for transfers.' docs/security/audit-checklist.md
 grep -Fq -- '- [ ] AccessControl protects signer and token whitelist updates.' docs/security/audit-checklist.md
+grep -q 'Run a canary signing check' docs/security/key-management.md
+grep -q 'negative canary using the old signer' docs/security/key-management.md
+grep -q 'Emergency Pause Procedure' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'RFQSettlement.setPaused(true)' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'negative submit canary' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'two-person approval' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'Pod Termination Or Rollout Drain' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'Fastify close' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'terminationGracePeriodSeconds=30' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md

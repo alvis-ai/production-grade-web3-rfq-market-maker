@@ -154,6 +154,20 @@ Future admin APIs may support disabling quote signing, lowering limits, disablin
 5. Reconcile settlements.
 6. Rotate key and restore.
 
+### Emergency Pause Procedure
+
+Use this procedure when signer compromise, settlement replay uncertainty, treasury exposure, broken token whitelist, or unsafe market data could put funds at risk. Pausing settlement is a privileged action and must be recorded in the incident timeline.
+
+1. Declare incident severity, assign an incident commander and capture the triggering alert, traceId or transaction hash.
+2. Stop new quote signing for affected chains or pairs so users cannot receive fresh executable quotes during the pause decision.
+3. Call `RFQSettlement.setPaused(true)` from the owner-controlled admin path and record the transaction hash, operator identity and approval trail.
+4. Verify `RFQSettlement.paused()` is true and run a negative submit canary that must revert with `Paused`.
+5. Keep `/quote` fail-closed or risk-limited for affected pairs, and keep `/submit` status endpoints available so clients and operators can inspect already observed settlements.
+6. Reconcile settlement, inventory, hedge and PnL state from `QuoteSettled` events before unpausing; do not manually replay settlement side effects from API logs.
+7. Before unpause, verify signer allowlist, token whitelist, treasury address, nonce replay protection, readiness and alert health.
+8. Call `RFQSettlement.setPaused(false)` only after two-person approval, then run a small quote/submit canary and watch `rfq_submit_errors_total`, `rfq_settlements_total`, inventory exposure and hedge lag.
+9. Close the pause window with a postmortem link, affected block range, reconciled settlement count and remaining follow-up actions.
+
 ### Market Data Stale
 
 1. Stop signing affected pairs.
