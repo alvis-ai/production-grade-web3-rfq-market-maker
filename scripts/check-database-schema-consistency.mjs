@@ -378,10 +378,12 @@ assert.ok(
   "market_snapshots must require positive liquidity_usd",
 );
 assert.ok(
-  /volatility_bps\s+IS\s+NULL\s+OR\s+volatility_bps\s+BETWEEN\s+0\s+AND\s+10000/i.test(
-    tables.get("market_snapshots").body,
-  ),
-  "market_snapshots must constrain volatility_bps to the 0..10000 bps range when present",
+  /\bvolatility_bps\s+INTEGER\s+NOT\s+NULL/i.test(tables.get("market_snapshots").body),
+  "market_snapshots.volatility_bps must be required because MarketSnapshot.volatilityBps is required",
+);
+assert.ok(
+  /volatility_bps\s+BETWEEN\s+0\s+AND\s+10000/i.test(tables.get("market_snapshots").body),
+  "market_snapshots must constrain volatility_bps to the 0..10000 bps range",
 );
 assert.ok(
   /btrim\s*\(\s*source\s*\)\s*<>\s*''/i.test(tables.get("market_snapshots").body),

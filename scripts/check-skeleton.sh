@@ -578,7 +578,8 @@ grep -q 'chk_settlement_events_hashes' docs/database/schema.sql
 grep -q 'AND nonce > 0' docs/database/schema.sql
 grep -q 'bid_price <= mid_price' docs/database/schema.sql
 grep -q 'mid_price <= ask_price' docs/database/schema.sql
-grep -q 'volatility_bps IS NULL OR volatility_bps BETWEEN 0 AND 10000' docs/database/schema.sql
+grep -q 'volatility_bps INTEGER NOT NULL' docs/database/schema.sql
+grep -q 'AND volatility_bps BETWEEN 0 AND 10000' docs/database/schema.sql
 grep -q 'chk_hedge_orders_side' docs/database/schema.sql
 grep -q 'chk_hedge_orders_venue_non_empty' docs/database/schema.sql
 grep -q 'chk_hedge_orders_external_order_id_non_empty' docs/database/schema.sql
@@ -618,7 +619,8 @@ grep -q 'settlement_events must require positive settled amount and nonce fields
 grep -q 'market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots.liquidity_usd must be stored as a required positive uint-sized value' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must require positive liquidity_usd' scripts/check-database-schema-consistency.mjs
-grep -q 'market_snapshots must constrain volatility_bps to the 0..10000 bps range when present' scripts/check-database-schema-consistency.mjs
+grep -q 'market_snapshots.volatility_bps must be required because MarketSnapshot.volatilityBps is required' scripts/check-database-schema-consistency.mjs
+grep -q 'market_snapshots must constrain volatility_bps to the 0..10000 bps range' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must reject empty source values' scripts/check-database-schema-consistency.mjs
 grep -q 'non-settlement quote statuses must not expose settlement, hedge, or PnL pointers' scripts/check-database-schema-consistency.mjs
 grep -q 'quote signed payload fields must be all present or all absent' scripts/check-database-schema-consistency.mjs
@@ -642,7 +644,7 @@ grep -q 'market snapshot `volatility_bps` 在 0..10000 bps' docs/database/er-dia
 grep -q 'canonical low-s EIP-712 signature' docs/database/er-diagram.md
 grep -q 'market_snapshots.source` 必须是非空字符串' docs/database/er-diagram.md
 grep -q 'market_snapshots.liquidity_usd` 必须是非空正整数数值' docs/database/er-diagram.md
-grep -q 'market_snapshots.volatility_bps` 允许为空' docs/database/er-diagram.md
+grep -q 'market_snapshots.volatility_bps` 必须是 `0..10000` bps 内的整数' docs/database/er-diagram.md
 grep -q 'hedge `venue` 非空' docs/database/er-diagram.md
 grep -q 'external_order_id` 可以在内部 queued intent 阶段为 NULL' docs/database/er-diagram.md
 grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/database/er-diagram.md
