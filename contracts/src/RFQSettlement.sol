@@ -2,11 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IRFQSettlement } from "./interfaces/IRFQSettlement.sol";
-
-interface IERC20Minimal {
-    function transfer(address to, uint256 amount) external returns (bool);
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
-}
+import { SafeERC20 } from "./libraries/SafeERC20.sol";
 
 interface ITreasuryMinimal {
     function release(address token, address to, uint256 amount) external;
@@ -16,6 +12,8 @@ interface ITreasuryMinimal {
 /// @dev This dependency-free implementation mirrors the intended OpenZeppelin production surface:
 /// EIP712, SafeERC20, ReentrancyGuard, Pausable, and owner-gated administrative controls.
 contract RFQSettlement is IRFQSettlement {
+    using SafeERC20 for address;
+
     bytes32 public constant QUOTE_TYPEHASH = keccak256(
         "Quote(address user,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut,uint256 minAmountOut,uint256 nonce,uint256 deadline,uint256 chainId)"
     );
@@ -99,7 +97,7 @@ contract RFQSettlement is IRFQSettlement {
         _verifySignature(hashTypedData(quoteHash), signature);
 
         usedNonces[quote.user][quote.nonce] = true;
-        _safeTransferFrom(quote.tokenIn, quote.user, treasury, quote.amountIn);
+        quote.tokenIn.safeTransferFrom(quote.user, treasury, quote.amountIn);
         ITreasuryMinimal(treasury).release(quote.tokenOut, quote.user, quote.amountOut);
 
         emit QuoteSettled(
@@ -204,19 +202,5 @@ contract RFQSettlement is IRFQSettlement {
 
         address recovered = ecrecover(digest, v, r, s);
         if (recovered == address(0) || recovered != trustedSigner) revert InvalidSigner();
-    }
-
-    function _safeTransfer(address token, address to, uint256 amount) internal {
-        if (token.code.length == 0) revert TransferFailed();
-        (bool success, bytes memory data) =
-            token.call(abi.encodeCall(IERC20Minimal.transfer, (to, amount)));
-        if (!success || (data.length != 0 && !abi.decode(data, (bool)))) revert TransferFailed();
-    }
-
-    function _safeTransferFrom(address token, address from, address to, uint256 amount) internal {
-        if (token.code.length == 0) revert TransferFailed();
-        (bool success, bytes memory data) =
-            token.call(abi.encodeCall(IERC20Minimal.transferFrom, (from, to, amount)));
-        if (!success || (data.length != 0 && !abi.decode(data, (bool)))) revert TransferFailed();
     }
 }

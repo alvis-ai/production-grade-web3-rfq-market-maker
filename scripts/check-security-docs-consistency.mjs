@@ -134,6 +134,7 @@ const implementedAuditControls = [
   "`submitQuote` rejects reused nonce.",
   "`submitQuote` rejects untrusted signer.",
   "`submitQuote` rejects unsupported tokenIn or tokenOut.",
+  "`submitQuote` uses SafeERC20 for transfers.",
   "State updates are ordered safely around external calls.",
   "ReentrancyGuard protects settlement.",
   "Pausable can stop settlement during incident response.",
@@ -166,7 +167,6 @@ for (const control of implementedAuditControls) {
 }
 
 const intentionallyOpenAuditControls = [
-  "`submitQuote` uses SafeERC20 for transfers.",
   "AccessControl protects signer and token whitelist updates.",
   "Indexer handles chain reorgs.",
 ];

@@ -126,6 +126,7 @@ function submitQuote(
 - nonce 标记在外部 token 调用之前完成，并由 nonReentrant 防止重入提交。
 - RFQSettlement 不直接保管库存资金；常规成交通过 Treasury 放款，便于把结算权限和应急管理权限分开审计。
 - `QuoteSettled` 是链下库存更新的权威事件。
+- 当前安全转账封装采用 SafeERC20 语义：低层调用必须成功，返回 `false` 必须 revert，无返回值 ERC20 被视为成功，非合约地址会被拒绝。
 
 ## Failure Scenarios
 
@@ -137,7 +138,7 @@ function submitQuote(
 
 ## Security Considerations
 
-当前实现采用低层 `call` 兼容返回 bool 或无返回值的 ERC20，并显式实现重入锁、暂停和 owner-only 控制。正式审计版应替换为 OpenZeppelin `SafeERC20`、`ReentrancyGuard`、`Pausable`、`AccessControl`，但不能改变签名校验、nonce、deadline、白名单和转账顺序。
+当前实现采用本地 `SafeERC20` 库兼容返回 bool 或无返回值的 ERC20，并显式实现重入锁、暂停和 owner-only 控制。`safeTransferFrom` 覆盖用户 `tokenIn` 转入 Treasury，`safeTransfer` 覆盖 Treasury 的 `tokenOut` 放款；两者都拒绝非合约 token、revert 调用和返回 `false` 的 token。正式审计版可替换为 OpenZeppelin `SafeERC20`、`ReentrancyGuard`、`Pausable`、`AccessControl`，但不能改变签名校验、nonce、deadline、白名单和转账顺序。
 
 ## Performance Considerations
 
@@ -145,7 +146,7 @@ Quote 字段应保持最小，避免 gas 膨胀。事件字段应足够索引，
 
 ## Testing Strategy
 
-测试 happy path、wrong signer、wrong user、expired deadline、replay nonce、unsupported token、pause、transfer failure 和 event emission。
+测试 happy path、wrong signer、wrong user、expired deadline、replay nonce、unsupported token、pause、transfer failure 和 event emission。SafeERC20 语义必须覆盖 no-return ERC20 成功路径、false-return `tokenIn` 失败回滚、false-return `tokenOut` 失败回滚和非合约 token 拒绝。
 
 ## Interview Notes
 

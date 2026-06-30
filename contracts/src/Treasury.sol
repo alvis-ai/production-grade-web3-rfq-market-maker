@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { SafeERC20 } from "./libraries/SafeERC20.sol";
+
 /// @notice Treasury custody boundary around RFQ settlement.
 /// @dev Dependency-free custody boundary mirroring SafeERC20, ReentrancyGuard, and owner-gated controls.
 contract Treasury {
+    using SafeERC20 for address;
+
     uint256 private constant _NOT_ENTERED = 1;
     uint256 private constant _ENTERED = 2;
 
@@ -88,9 +92,6 @@ contract Treasury {
     }
 
     function _safeTransfer(address token, address to, uint256 amount) internal {
-        if (token.code.length == 0) revert TransferFailed();
-        (bool success, bytes memory data) =
-            token.call(abi.encodeWithSignature("transfer(address,uint256)", to, amount));
-        if (!success || (data.length != 0 && !abi.decode(data, (bool)))) revert TransferFailed();
+        token.safeTransfer(to, amount);
     }
 }

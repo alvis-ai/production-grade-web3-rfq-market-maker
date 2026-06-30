@@ -12,7 +12,8 @@ interface Vm {
         returns (uint8 v, bytes32 r, bytes32 s);
     function prank(address caller) external;
     function expectRevert(bytes4 selector) external;
-    function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData) external;
+    function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData)
+        external;
     function warp(uint256 timestamp) external;
 }
 
@@ -43,6 +44,55 @@ contract MockERC20 {
         balanceOf[from] -= amount;
         balanceOf[to] += amount;
         return true;
+    }
+}
+
+contract NoReturnERC20 {
+    mapping(address account => uint256 balance) public balanceOf;
+    mapping(address owner => mapping(address spender => uint256 amount)) public allowance;
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function approve(address spender, uint256 amount) external {
+        allowance[msg.sender][spender] = amount;
+    }
+
+    function transfer(address to, uint256 amount) external {
+        require(balanceOf[msg.sender] >= amount, "BALANCE");
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external {
+        require(balanceOf[from] >= amount, "BALANCE");
+        require(allowance[from][msg.sender] >= amount, "ALLOWANCE");
+        allowance[from][msg.sender] -= amount;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+    }
+}
+
+contract FalseReturnERC20 {
+    mapping(address account => uint256 balance) public balanceOf;
+    mapping(address owner => mapping(address spender => uint256 amount)) public allowance;
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+
+    function transfer(address, uint256) external pure returns (bool) {
+        return false;
+    }
+
+    function transferFrom(address, address, uint256) external pure returns (bool) {
+        return false;
     }
 }
 
@@ -101,7 +151,10 @@ contract RFQSettlementTest {
         require(settlement.usedNonces(user, quote.nonce), "nonce not consumed");
         require(tokenIn.balanceOf(address(treasury)) == quote.amountIn, "tokenIn not received");
         require(tokenOut.balanceOf(user) == quote.amountOut, "tokenOut not paid");
-        require(tokenOut.balanceOf(address(treasury)) == 1_000 ether - quote.amountOut, "treasury not debited");
+        require(
+            tokenOut.balanceOf(address(treasury)) == 1_000 ether - quote.amountOut,
+            "treasury not debited"
+        );
     }
 
     function testSubmitQuoteEmitsQuoteSettledForIndexer() public {
@@ -164,7 +217,8 @@ contract RFQSettlementTest {
 
     function testSubmitQuoteRejectsHighSignatureS() public {
         IRFQSettlement.Quote memory quote = _quote(33);
-        bytes memory signature = abi.encodePacked(bytes32(uint256(1)), bytes32(SECP256K1N_HIGH_S), uint8(27));
+        bytes memory signature =
+            abi.encodePacked(bytes32(uint256(1)), bytes32(SECP256K1N_HIGH_S), uint8(27));
 
         vm.prank(user);
         vm.expectRevert(RFQSettlement.InvalidSignatureS.selector);
@@ -222,7 +276,10 @@ contract RFQSettlementTest {
         uint256 amountOut = settlement.submitQuote(quote, signature);
 
         require(amountOut == quote.amountOut, "rotated treasury quote rejected");
-        require(tokenIn.balanceOf(address(newTreasury)) == quote.amountIn, "tokenIn not sent to new treasury");
+        require(
+            tokenIn.balanceOf(address(newTreasury)) == quote.amountIn,
+            "tokenIn not sent to new treasury"
+        );
         require(tokenOut.balanceOf(user) == quote.amountOut, "tokenOut not paid from new treasury");
     }
 
@@ -339,6 +396,73 @@ contract RFQSettlementTest {
         vm.prank(user);
         vm.expectRevert(RFQSettlement.TransferFailed.selector);
         settlement.submitQuote(quote, signature);
+    }
+
+    function testSubmitQuoteAcceptsNoReturnERC20Transfers() public {
+        NoReturnERC20 noReturnTokenIn = new NoReturnERC20();
+        NoReturnERC20 noReturnTokenOut = new NoReturnERC20();
+        noReturnTokenIn.mint(user, 1_000 ether);
+        noReturnTokenOut.mint(address(treasury), 1_000 ether);
+        settlement.setTokenWhitelist(address(noReturnTokenIn), true);
+        settlement.setTokenWhitelist(address(noReturnTokenOut), true);
+
+        vm.prank(user);
+        noReturnTokenIn.approve(address(settlement), type(uint256).max);
+
+        IRFQSettlement.Quote memory quote = _quote(83);
+        quote.tokenIn = address(noReturnTokenIn);
+        quote.tokenOut = address(noReturnTokenOut);
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        uint256 amountOut = settlement.submitQuote(quote, signature);
+
+        require(amountOut == quote.amountOut, "amount out mismatch");
+        require(
+            noReturnTokenIn.balanceOf(address(treasury)) == quote.amountIn, "tokenIn not received"
+        );
+        require(noReturnTokenOut.balanceOf(user) == quote.amountOut, "tokenOut not paid");
+    }
+
+    function testSubmitQuoteRejectsFalseReturnTokenInBeforeConsumingNonce() public {
+        FalseReturnERC20 falseTokenIn = new FalseReturnERC20();
+        falseTokenIn.mint(user, 1_000 ether);
+        settlement.setTokenWhitelist(address(falseTokenIn), true);
+
+        vm.prank(user);
+        falseTokenIn.approve(address(settlement), type(uint256).max);
+
+        IRFQSettlement.Quote memory quote = _quote(84);
+        quote.tokenIn = address(falseTokenIn);
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.TransferFailed.selector);
+        settlement.submitQuote(quote, signature);
+
+        require(!settlement.usedNonces(user, quote.nonce), "nonce consumed after failed transfer");
+        require(tokenOut.balanceOf(user) == 0, "user received tokenOut");
+    }
+
+    function testSubmitQuoteRejectsFalseReturnTokenOutAndRollsBackTokenIn() public {
+        FalseReturnERC20 falseTokenOut = new FalseReturnERC20();
+        falseTokenOut.mint(address(treasury), 1_000 ether);
+        settlement.setTokenWhitelist(address(falseTokenOut), true);
+
+        IRFQSettlement.Quote memory quote = _quote(85);
+        quote.tokenOut = address(falseTokenOut);
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        vm.expectRevert(Treasury.TransferFailed.selector);
+        settlement.submitQuote(quote, signature);
+
+        require(
+            !settlement.usedNonces(user, quote.nonce),
+            "nonce consumed after failed treasury release"
+        );
+        require(tokenIn.balanceOf(address(treasury)) == 0, "tokenIn transfer was not rolled back");
+        require(falseTokenOut.balanceOf(user) == 0, "user received false-return tokenOut");
     }
 
     function testSubmitQuoteRejectsInvalidTokenPair() public {

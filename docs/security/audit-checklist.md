@@ -8,7 +8,7 @@
 - [x] `submitQuote` rejects reused nonce.
 - [x] `submitQuote` rejects untrusted signer.
 - [x] `submitQuote` rejects unsupported tokenIn or tokenOut.
-- [ ] `submitQuote` uses SafeERC20 for transfers.
+- [x] `submitQuote` uses SafeERC20 for transfers.
 - [x] State updates are ordered safely around external calls.
 - [x] ReentrancyGuard protects settlement.
 - [x] Pausable can stop settlement during incident response.

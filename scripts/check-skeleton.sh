@@ -763,14 +763,17 @@ grep -q 'function setTreasury' contracts/src/RFQSettlement.sol
 grep -q 'function setTokenWhitelist' contracts/src/RFQSettlement.sol
 grep -q 'function setPaused' contracts/src/RFQSettlement.sol
 grep -q 'ecrecover' contracts/src/RFQSettlement.sol
-grep -q 'transferFrom' contracts/src/RFQSettlement.sol
-grep -q 'token.code.length' contracts/src/RFQSettlement.sol
+grep -q 'safeTransferFrom' contracts/src/RFQSettlement.sol
+grep -q 'using SafeERC20 for address' contracts/src/RFQSettlement.sol
 grep -q 'contract Treasury' contracts/src/Treasury.sol
 grep -q 'function release' contracts/src/Treasury.sol
 grep -q 'function emergencyWithdraw' contracts/src/Treasury.sol
 grep -q 'onlySettlement' contracts/src/Treasury.sol
 grep -q 'TransferFailed' contracts/src/Treasury.sol
-grep -q 'token.code.length' contracts/src/Treasury.sol
+grep -q 'using SafeERC20 for address' contracts/src/Treasury.sol
+grep -q 'library SafeERC20' contracts/src/libraries/SafeERC20.sol
+grep -q 'function safeTransferFrom' contracts/src/libraries/SafeERC20.sol
+grep -q 'token.code.length' contracts/src/libraries/SafeERC20.sol
 grep -q 'testSettlementCanReleaseFunds' contracts/test/Treasury.t.sol
 grep -q 'testOnlySettlementCanReleaseFunds' contracts/test/Treasury.t.sol
 grep -q 'testOwnerCanEmergencyWithdraw' contracts/test/Treasury.t.sol
@@ -1344,7 +1347,11 @@ grep -Fq -- '- [x] Sensitive thresholds are not exposed to users.' docs/security
 grep -Fq -- '- [x] ClickHouse analytics do not become operational source of truth.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Signer key rotation is documented.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Emergency pause procedure is documented.' docs/security/audit-checklist.md
-grep -Fq -- '- [ ] `submitQuote` uses SafeERC20 for transfers.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] `submitQuote` uses SafeERC20 for transfers.' docs/security/audit-checklist.md
+grep -q '本地 `SafeERC20` 库' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
+grep -q 'testSubmitQuoteAcceptsNoReturnERC20Transfers' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsFalseReturnTokenInBeforeConsumingNonce' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsFalseReturnTokenOutAndRollsBackTokenIn' contracts/test/RFQSettlement.t.sol
 grep -Fq -- '- [ ] AccessControl protects signer and token whitelist updates.' docs/security/audit-checklist.md
 grep -q 'Run a canary signing check' docs/security/key-management.md
 grep -q 'negative canary using the old signer' docs/security/key-management.md
