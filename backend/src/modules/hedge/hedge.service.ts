@@ -43,18 +43,21 @@ export const defaultHedgeServiceConfig: HedgeServiceConfig = {
 };
 
 export class HedgeService implements HedgeIntentService {
+  private readonly config: HedgeServiceConfig;
   private readonly intents = new Map<string, HedgeIntentStatusResponse>();
   private readonly hedgeOrderIdsBySettlementEvent = new Map<string, string>();
   private readonly failurePressure = new Map<string, number>();
   private sequence = 0;
 
-  constructor(private readonly config: HedgeServiceConfig = defaultHedgeServiceConfig) {
+  constructor(config: HedgeServiceConfig = defaultHedgeServiceConfig) {
     assertPositiveBps(config.failurePenaltyBps, "failurePenaltyBps");
     assertPositiveBps(config.maxFailurePenaltyBps, "maxFailurePenaltyBps");
 
     if (config.failurePenaltyBps > config.maxFailurePenaltyBps) {
       throw new Error("Hedge failurePenaltyBps must be less than or equal to maxFailurePenaltyBps");
     }
+
+    this.config = cloneHedgeServiceConfig(config);
   }
 
   checkHealth(): void {
@@ -137,6 +140,10 @@ export class HedgeService implements HedgeIntentService {
 
 function cloneHedgeIntentStatus(intent: HedgeIntentStatusResponse): HedgeIntentStatusResponse {
   return { ...intent };
+}
+
+function cloneHedgeServiceConfig(config: HedgeServiceConfig): HedgeServiceConfig {
+  return { ...config };
 }
 
 function assertPositiveBps(value: number, field: keyof HedgeServiceConfig): void {

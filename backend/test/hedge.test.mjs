@@ -34,6 +34,23 @@ test("HedgeService accumulates bounded quote risk penalty after hedge failures",
   );
 });
 
+test("HedgeService snapshots failure penalty configuration at construction", () => {
+  const mutableConfig = {
+    failurePenaltyBps: 40,
+    maxFailurePenaltyBps: 100,
+  };
+  const service = new HedgeService(mutableConfig);
+
+  mutableConfig.failurePenaltyBps = 1;
+  mutableConfig.maxFailurePenaltyBps = 1;
+
+  service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
+  service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
+  service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
+
+  assert.equal(service.quoteRiskPenaltyBps({ chainId: intent.chainId, token: intent.token }), 100);
+});
+
 test("HedgeService returns the existing hedge intent for settlement retries", () => {
   const service = new HedgeService();
 
