@@ -8,7 +8,7 @@ CREATE TABLE quotes (
   amount_out NUMERIC(78, 0),
   min_amount_out NUMERIC(78, 0),
   nonce NUMERIC(78, 0),
-  deadline TIMESTAMPTZ,
+  deadline BIGINT,
   snapshot_id TEXT NOT NULL,
   pricing_version TEXT,
   risk_policy_version TEXT,
@@ -32,6 +32,7 @@ CREATE TABLE quotes (
     AND (min_amount_out IS NULL OR min_amount_out > 0)
     AND (amount_out IS NULL OR min_amount_out IS NULL OR amount_out >= min_amount_out)
     AND (nonce IS NULL OR nonce > 0)
+    AND (deadline IS NULL OR deadline > 0)
   ),
   CONSTRAINT chk_quotes_addresses_hex CHECK (
     user_address ~ '^0x[0-9a-fA-F]{40}$'

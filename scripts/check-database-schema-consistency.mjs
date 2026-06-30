@@ -258,6 +258,10 @@ assert.ok(
   "quotes status constraint must match backend QuoteLifecycleStatus values",
 );
 assert.ok(
+  /\bdeadline\s+BIGINT\b/i.test(tables.get("quotes").body),
+  "quotes.deadline must be stored as signed quote Unix seconds",
+);
+assert.ok(
   /signature\s+~\s+'\^0x\[0-9a-fA-F\]\{130\}\$'/i.test(tables.get("quotes").body),
   "quotes signature constraint must require 65-byte EIP-712 signatures",
 );
@@ -279,10 +283,10 @@ assert.ok(
   "quotes tx_hash constraint must require 32-byte transaction hashes",
 );
 assert.ok(
-  /amount_in\s*>\s*0[\s\S]*?amount_out\s+IS\s+NULL\s+OR\s+amount_out\s*>\s*0[\s\S]*?min_amount_out\s+IS\s+NULL\s+OR\s+min_amount_out\s*>\s*0[\s\S]*?nonce\s+IS\s+NULL\s+OR\s+nonce\s*>\s*0/i.test(
+  /amount_in\s*>\s*0[\s\S]*?amount_out\s+IS\s+NULL\s+OR\s+amount_out\s*>\s*0[\s\S]*?min_amount_out\s+IS\s+NULL\s+OR\s+min_amount_out\s*>\s*0[\s\S]*?nonce\s+IS\s+NULL\s+OR\s+nonce\s*>\s*0[\s\S]*?deadline\s+IS\s+NULL\s+OR\s+deadline\s*>\s*0/i.test(
     tables.get("quotes").body,
   ),
-  "quotes must require positive signed amount and nonce fields when present",
+  "quotes must require positive signed amount, nonce, and deadline fields when present",
 );
 assert.ok(
   /amount_out\s+IS\s+NULL\s+OR\s+min_amount_out\s+IS\s+NULL\s+OR\s+amount_out\s*>=\s*min_amount_out/i.test(
