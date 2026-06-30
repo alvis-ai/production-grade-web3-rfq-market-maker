@@ -384,10 +384,17 @@ grep -q 'SIGNER_UNAVAILABLE' backend/src/modules/signer/signer.service.ts
 grep -q 'privateKeyToAccount' backend/src/modules/signer/signer.service.ts
 grep -q 'assertPrivateKey(config.privateKey)' backend/src/modules/signer/signer.service.ts
 grep -q 'assertSignQuoteInput(input)' backend/src/modules/signer/signer.service.ts
+grep -q 'SECP256K1N_HALF' backend/src/modules/signer/signer.service.ts
+grep -q 'Signer signature s value must be in the lower half order' backend/src/modules/signer/signer.service.ts
 grep -q 'ProductionGradeRFQ' backend/src/modules/signer/signer.service.ts
 grep -q 'LocalEIP712SignerService binds signatures to the settlement contract address' backend/test/signer.test.mjs
+grep -q 'LocalEIP712SignerService rejects high-s malleated quote signatures' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects unsafe signer configuration at construction' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects unsafe quote inputs before signing' backend/test/signer.test.mjs
+grep -q 'RFQ API rejects issued quotes with high-s malleated signatures' backend/test/api.test.mjs
+grep -q 'canonical low-s ECDSA' docs/api/errors.md
+grep -Fq -- '- [x] Signer verification rejects non-canonical high-s ECDSA signatures before submit settlement.' docs/security/audit-checklist.md
+grep -q 'Local signer verification rejects high-s ECDSA signatures' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
 grep -q 'requireSubmittableSignedQuote' backend/src/modules/quote/quote.service.ts
 grep -q 'QUOTE_FAILED' backend/src/modules/quote/quote.service.ts

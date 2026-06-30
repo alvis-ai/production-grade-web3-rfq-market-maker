@@ -4,6 +4,7 @@ import { LocalEIP712SignerService } from "../dist/modules/signer/signer.service.
 
 const privateKey = "0x59c6995e998f97a5a0044966f094538d9dae1ffc26a3b6d86dae8e3a0b97e6a0";
 const settlementAddress = "0x0000000000000000000000000000000000000004";
+const secp256k1n = BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
 
 const quote = {
   user: "0x0000000000000000000000000000000000000001",
@@ -54,6 +55,20 @@ test("LocalEIP712SignerService rejects tampered quote signatures", async () => {
     ),
     false,
   );
+});
+
+test("LocalEIP712SignerService rejects high-s malleated quote signatures", async () => {
+  const signer = new LocalEIP712SignerService({
+    privateKey,
+    settlementAddress,
+  });
+  const signature = await signer.signQuote({
+    quote,
+    quoteId: "q_test",
+    snapshotId: "snapshot_test",
+  });
+
+  assert.equal(await signer.verifyQuoteSignature(quote, malleateSignature(signature)), false);
 });
 
 test("LocalEIP712SignerService binds signatures to the settlement contract address", async () => {
@@ -141,3 +156,13 @@ test("LocalEIP712SignerService returns false for malformed verification inputs",
     false,
   );
 });
+
+function malleateSignature(signature) {
+  const r = signature.slice(2, 66);
+  const s = BigInt(`0x${signature.slice(66, 130)}`);
+  const v = Number.parseInt(signature.slice(130, 132), 16);
+  const highS = (secp256k1n - s).toString(16).padStart(64, "0");
+  const flippedV = v === 27 ? 28 : 27;
+
+  return `0x${r}${highS}${flippedV.toString(16).padStart(2, "0")}`;
+}

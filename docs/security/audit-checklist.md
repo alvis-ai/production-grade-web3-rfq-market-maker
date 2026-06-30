@@ -21,6 +21,7 @@
 - [x] `/quote` validates address format and amount strings.
 - [x] Risk Engine runs before Signer Service.
 - [x] Signer Service cannot be called directly from public API.
+- [x] Signer verification rejects non-canonical high-s ECDSA signatures before submit settlement.
 - [x] Quote persistence includes snapshotId and riskPolicyVersion.
 - [x] Rejected quotes are logged without returning signatures.
 - [x] Rate limits protect public trading endpoints.

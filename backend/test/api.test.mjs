@@ -16,6 +16,7 @@ const baseQuoteRequest = {
   amountIn: "1000000000",
   slippageBps: 50,
 };
+const secp256k1n = BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
 
 test("production startup requires explicit signer configuration", () => {
   const originalEnv = {
@@ -2367,6 +2368,39 @@ test("RFQ API rejects issued quotes with invalid trusted signer signature", asyn
   }
 });
 
+test("RFQ API rejects issued quotes with high-s malleated signatures", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(quote.statusCode, 200);
+
+    const response = await injectJson(server, "POST", "/submit", {
+      quote: quotePayloadFromResponse(quote.body),
+      signature: malleateSignature(quote.body.signature),
+    });
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "INVALID_SIGNATURE");
+    assert.match(response.body.traceId, /^tr_/);
+
+    const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.body.status, "signed");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_submit_requests_total 1/);
+    assert.match(metrics.payload, /rfq_submit_errors_total 1/);
+    assert.match(metrics.payload, /rfq_submit_accepted_total 0/);
+    assert.match(metrics.payload, /rfq_settlements_total 0/);
+    assert.doesNotMatch(metrics.payload, /rfq_inventory_balance\{chain_id=/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API verifies settlement constraints before simulated settlement", async () => {
   const server = buildServer({
     logger: false,
@@ -2730,6 +2764,16 @@ function assertSecurityHeaders(response, { hsts }) {
 
 function uppercaseHex(value) {
   return `0x${value.slice(2).toUpperCase()}`;
+}
+
+function malleateSignature(signature) {
+  const r = signature.slice(2, 66);
+  const s = BigInt(`0x${signature.slice(66, 130)}`);
+  const v = Number.parseInt(signature.slice(130, 132), 16);
+  const highS = (secp256k1n - s).toString(16).padStart(64, "0");
+  const flippedV = v === 27 ? 28 : 27;
+
+  return `0x${r}${highS}${flippedV.toString(16).padStart(2, "0")}`;
 }
 
 function restoreEnv(name, value) {

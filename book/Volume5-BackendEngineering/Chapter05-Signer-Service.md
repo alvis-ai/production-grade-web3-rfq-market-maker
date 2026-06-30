@@ -117,6 +117,7 @@ signQuote(input: SignQuoteInput): Promise<`0x${string}`>
 - 当前后端使用 `ObservedSignerService` 包装 signer，记录 `rfq_signer_requests_total`、`rfq_signer_errors_total` 和 `rfq_signer_latency_seconds`，固定 `operation` label 为 `sign` 或 `verify`。
 - `/ready` 使用固定 probe quote 执行 signer sign + verify 检查；探针签名不返回给用户，也不改变 quote repository 状态。
 - Local signer validates private key, settlement address, quoteId, snapshotId and signed quote shape before producing any EIP-712 signature; malformed verification inputs return `false` instead of leaking lower-level signing-library errors.
+- Local signer verification rejects high-s ECDSA signatures and invalid `v` values before address recovery, matching `RFQSettlement` canonical signature rules so `/submit` cannot accept a signature that chain settlement would reject.
 - Production signer 使用 KMS/HSM，并保持同一 `signQuote` 接口。
 - Key rotation 写入 runbook。
 

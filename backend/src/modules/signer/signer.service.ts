@@ -8,6 +8,7 @@ import type { MetricsService, SignerMetricOperation } from "../metrics/metrics.s
 
 const RFQ_EIP712_DOMAIN_NAME = "ProductionGradeRFQ";
 const RFQ_EIP712_DOMAIN_VERSION = "1";
+const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 
 const quoteTypes = {
   Quote: [
@@ -159,6 +160,17 @@ function assertPrivateKey(value: string): void {
 function assertSignature(value: string): void {
   if (typeof value !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(value)) {
     throw new Error("Signer signature must be a 65-byte hex string");
+  }
+
+  const s = BigInt(`0x${value.slice(66, 130)}`);
+  if (s > SECP256K1N_HALF) {
+    throw new Error("Signer signature s value must be in the lower half order");
+  }
+
+  const v = Number.parseInt(value.slice(130, 132), 16);
+  const normalizedV = v < 27 ? v + 27 : v;
+  if (normalizedV !== 27 && normalizedV !== 28) {
+    throw new Error("Signer signature v value must be 27 or 28");
   }
 }
 
