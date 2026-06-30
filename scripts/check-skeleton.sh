@@ -1290,6 +1290,7 @@ grep -q 'preserves signer errors when failed quote persistence fails' backend/te
 grep -q 'rfq_signer_errors_total' backend/test/api.test.mjs
 grep -q 'unconfigured market data pairs before pricing and signing' backend/test/api.test.mjs
 grep -q 'settlement constraints before simulated settlement' backend/test/api.test.mjs
+grep -q 'settlementRejectionFailureCode' backend/src/main.ts
 grep -q 'failed quote status persistence fails' backend/test/api.test.mjs
 grep -q 'target_status="FAILED"' backend/test/api.test.mjs
 grep -q 'settlement verifier failures' backend/test/api.test.mjs
@@ -1300,7 +1301,7 @@ grep -q 'settlement event write failures' backend/test/api.test.mjs
 grep -q 'Settlement event store write failure' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'A signed quote may bind to only one settlement event' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'errorCode, "SETTLEMENT_REVERTED"' backend/test/api.test.mjs
+grep -q 'errorCode, "TOKEN_NOT_WHITELISTED"' backend/test/api.test.mjs
 grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects disabled settlement chains' backend/test/settlement-verifier.test.mjs

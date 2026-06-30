@@ -302,7 +302,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       metricsService.recordSubmitError();
       const apiError = toAPIError(error);
       if (quoteId && apiError.code === "SETTLEMENT_REVERTED") {
-        await markSettlementRejectedQuoteFailed(quoteService, metricsService, quoteId, apiError.code);
+        await markSettlementRejectedQuoteFailed(quoteService, metricsService, quoteId, settlementRejectionFailureCode(apiError));
       }
 
       return sendError(reply, requestTraceId(request), apiError);
@@ -488,6 +488,10 @@ async function markSettlementRejectedQuoteFailed(
   } catch {
     metricsService.recordQuoteStatusUpdateError("failed");
   }
+}
+
+function settlementRejectionFailureCode(error: APIError): string {
+  return error.internalReasonCode ?? error.code;
 }
 
 function requestTraceId(request: FastifyRequest): string {

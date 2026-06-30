@@ -2448,7 +2448,7 @@ test("RFQ API verifies settlement constraints before simulated settlement", asyn
     const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
     assert.equal(status.statusCode, 200);
     assert.equal(status.body.status, "failed");
-    assert.equal(status.body.errorCode, "SETTLEMENT_REVERTED");
+    assert.equal(status.body.errorCode, "TOKEN_NOT_WHITELISTED");
 
     const retry = await injectJson(server, "POST", "/submit", {
       quote: quotePayloadFromResponse(quote.body),
