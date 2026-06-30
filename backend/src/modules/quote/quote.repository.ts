@@ -343,6 +343,10 @@ function assertCanMarkFailed(record: QuoteRecord): void {
 }
 
 function assertStatusTransition(record: QuoteRecord, nextStatus: QuoteLifecycleStatus): void {
+  if (record.status === "requested") {
+    throw new Error(`Quote ${record.quoteId} cannot transition from requested to ${nextStatus} through markStatus`);
+  }
+
   if (record.status === "expired") {
     if (nextStatus === "expired") {
       return;
@@ -353,6 +357,22 @@ function assertStatusTransition(record: QuoteRecord, nextStatus: QuoteLifecycleS
 
   if (record.status === "failed" || record.status === "rejected") {
     throw new Error(`Quote ${record.quoteId} cannot transition from terminal status ${record.status} to ${nextStatus}`);
+  }
+
+  if (record.status === "signed") {
+    if (nextStatus === "submitted" || nextStatus === "settled" || nextStatus === "expired") {
+      return;
+    }
+
+    throw new Error(`Quote ${record.quoteId} cannot transition from signed to ${nextStatus} through markStatus`);
+  }
+
+  if (record.status === "submitted") {
+    if (nextStatus === "settled") {
+      return;
+    }
+
+    throw new Error(`Quote ${record.quoteId} cannot transition from submitted to ${nextStatus}`);
   }
 
   if (record.status === "settled" && nextStatus !== "settled") {

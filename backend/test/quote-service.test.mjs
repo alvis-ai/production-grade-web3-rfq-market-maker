@@ -342,6 +342,18 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
     chainId: 1,
   };
 
+  await quoteRepository.saveRequested({
+    quoteId: "q_requested",
+    snapshotId: "snapshot_requested",
+    request,
+  });
+  await assert.rejects(
+    quoteRepository.markStatus("q_requested", "settled", {
+      settlementEventId: "se_requested",
+    }),
+    /cannot transition from requested to settled through markStatus/,
+  );
+
   await quoteRepository.saveSigned({
     quoteId: "q_settled",
     snapshotId: "snapshot_1",
@@ -354,6 +366,10 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
     txHash: `0x${"aa".repeat(32)}`,
     settlementEventId: "se_1",
   });
+  await assert.rejects(
+    quoteRepository.markStatus("q_settled", "expired"),
+    /cannot transition from submitted to expired/,
+  );
   await quoteRepository.markStatus("q_settled", "settled", {
     hedgeOrderId: "h_1",
   });
@@ -361,6 +377,10 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
   await assert.rejects(
     quoteRepository.markStatus("q_settled", "submitted"),
     /cannot transition from settled to submitted/,
+  );
+  await assert.rejects(
+    quoteRepository.markStatus("q_settled", "expired"),
+    /cannot transition from settled to expired/,
   );
   await assert.rejects(
     quoteRepository.markFailed("q_settled", "SETTLEMENT_REVERTED"),
@@ -377,11 +397,6 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
   assert.equal(settled.hedgeOrderId, "h_1");
   assert.equal(settled.pnlId, "pnl_1");
 
-  await quoteRepository.saveRequested({
-    quoteId: "q_rejected",
-    snapshotId: "snapshot_2",
-    request,
-  });
   await quoteRepository.saveRejected({
     quoteId: "q_rejected",
     snapshotId: "snapshot_2",
