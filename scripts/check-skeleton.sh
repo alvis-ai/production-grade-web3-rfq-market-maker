@@ -584,9 +584,10 @@ grep -q 'chk_hedge_orders_external_order_id_non_empty' docs/database/schema.sql
 grep -q 'chk_pnl_records_model' docs/database/schema.sql
 grep -q 'user_address TEXT NOT NULL' docs/database/schema.sql
 grep -q 'deadline BIGINT,' docs/database/schema.sql
-grep -q 'deadline IS NULL OR deadline > 0' docs/database/schema.sql
+grep -q 'deadline IS NULL OR deadline BETWEEN 1 AND 9007199254740991' docs/database/schema.sql
 grep -q 'min_amount_out NUMERIC(78, 0) NOT NULL' docs/database/schema.sql
 grep -q 'deadline BIGINT NOT NULL' docs/database/schema.sql
+grep -q 'deadline BETWEEN 1 AND 9007199254740991' docs/database/schema.sql
 grep -q 'user: "user_address"' scripts/check-database-schema-consistency.mjs
 grep -q 'minAmountOut: "min_amount_out"' scripts/check-database-schema-consistency.mjs
 grep -q 'deadline: "deadline"' scripts/check-database-schema-consistency.mjs
@@ -599,8 +600,9 @@ grep -q 'canonical low-s EIP-712 signatures' scripts/check-database-schema-consi
 grep -q 'recovery id 27 or 28' scripts/check-database-schema-consistency.mjs
 grep -q 'submitted and settled quotes must keep tx_hash and settlement_event_id pointers' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes.deadline must be stored as signed quote Unix seconds' scripts/check-database-schema-consistency.mjs
-grep -q 'quotes must require positive signed amount, nonce, and deadline fields when present' scripts/check-database-schema-consistency.mjs
+grep -q 'quotes must require positive signed amount and nonce fields plus safe-integer deadlines when present' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must require amount_out to satisfy min_amount_out when both are present' scripts/check-database-schema-consistency.mjs
+grep -q 'pnl_records must require safe-integer signed attribution deadlines' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must require positive settled amount and nonce fields' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must reject empty source values' scripts/check-database-schema-consistency.mjs
@@ -629,6 +631,7 @@ grep -q 'external_order_id` 可以在内部 queued intent 阶段为 NULL' docs/d
 grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/database/er-diagram.md
 grep -q 'quotes.pricing_version`、`quotes.risk_policy_version` 和 `quotes.reject_code`' docs/database/er-diagram.md
 grep -q 'quotes.deadline` 使用 BIGINT 保存 EIP-712 signed quote 的 Unix seconds' docs/database/er-diagram.md
+grep -q 'safe-integer `deadline` 作为 signed attribution snapshot' docs/database/er-diagram.md
 grep -q 'reason_code` 只允许出现在 rejected decision 上' docs/database/er-diagram.md
 grep -q 'signed payload 字段全有或全无' docs/database/er-diagram.md
 grep -q '正数 signed amount/nonce' docs/database/er-diagram.md
@@ -637,7 +640,7 @@ grep -q 'status payload consistency' docs/database/er-diagram.md
 grep -q 'JavaScript safe integer range `1..9007199254740991`' docs/database/er-diagram.md
 grep -q 'PostgreSQL schema mirrors these invariants with quote status payload consistency checks' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '`pricing_version` / `risk_policy_version` / `reject_code` must be non-empty whenever present' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'PostgreSQL stores `quotes.deadline` as positive BIGINT Unix seconds' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'PostgreSQL stores `quotes.deadline` as BIGINT Unix seconds in the JavaScript safe integer range' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'signed payload fields must be all present or all absent' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'PostgreSQL requires `quotes.snapshot_id` for every persisted quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'snapshot_id TEXT NOT NULL' docs/database/schema.sql
@@ -811,6 +814,7 @@ grep -q 'rejects signed quote metadata conflicts for the same quote and model' b
 grep -q 'PnlService rejects unsafe attribution inputs before recording' backend/test/pnl.test.mjs
 grep -q 'stored signed attribution payload' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnlService` returns defensive copies from `recordSettlement()` and `summary()`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'positive safe-integer deadline' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'minAmountOut' docs/api/openapi.yaml
 grep -q 'PnlTradeRecord", "minAmountOut"' scripts/check-api-schema-consistency.mjs
 grep -q 'PnlTradeRecord", "deadline"' scripts/check-api-schema-consistency.mjs

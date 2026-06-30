@@ -32,7 +32,7 @@ CREATE TABLE quotes (
     AND (min_amount_out IS NULL OR min_amount_out > 0)
     AND (amount_out IS NULL OR min_amount_out IS NULL OR amount_out >= min_amount_out)
     AND (nonce IS NULL OR nonce > 0)
-    AND (deadline IS NULL OR deadline > 0)
+    AND (deadline IS NULL OR deadline BETWEEN 1 AND 9007199254740991)
   ),
   CONSTRAINT chk_quotes_addresses_hex CHECK (
     user_address ~ '^0x[0-9a-fA-F]{40}$'
@@ -323,7 +323,7 @@ CREATE TABLE pnl_records (
     AND min_amount_out > 0
     AND amount_out >= min_amount_out
     AND nonce > 0
-    AND deadline > 0
+    AND deadline BETWEEN 1 AND 9007199254740991
   )
 );
 

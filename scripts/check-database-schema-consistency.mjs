@@ -283,10 +283,10 @@ assert.ok(
   "quotes tx_hash constraint must require 32-byte transaction hashes",
 );
 assert.ok(
-  /amount_in\s*>\s*0[\s\S]*?amount_out\s+IS\s+NULL\s+OR\s+amount_out\s*>\s*0[\s\S]*?min_amount_out\s+IS\s+NULL\s+OR\s+min_amount_out\s*>\s*0[\s\S]*?nonce\s+IS\s+NULL\s+OR\s+nonce\s*>\s*0[\s\S]*?deadline\s+IS\s+NULL\s+OR\s+deadline\s*>\s*0/i.test(
+  /amount_in\s*>\s*0[\s\S]*?amount_out\s+IS\s+NULL\s+OR\s+amount_out\s*>\s*0[\s\S]*?min_amount_out\s+IS\s+NULL\s+OR\s+min_amount_out\s*>\s*0[\s\S]*?nonce\s+IS\s+NULL\s+OR\s+nonce\s*>\s*0[\s\S]*?deadline\s+IS\s+NULL\s+OR\s+deadline\s+BETWEEN\s+1\s+AND\s+9007199254740991/i.test(
     tables.get("quotes").body,
   ),
-  "quotes must require positive signed amount, nonce, and deadline fields when present",
+  "quotes must require positive signed amount and nonce fields plus safe-integer deadlines when present",
 );
 assert.ok(
   /amount_out\s+IS\s+NULL\s+OR\s+min_amount_out\s+IS\s+NULL\s+OR\s+amount_out\s*>=\s*min_amount_out/i.test(
@@ -385,6 +385,10 @@ assert.ok(
 assert.ok(
   /model\s+IN\s*\(\s*'simulated_mid_price_v1'\s*\)/i.test(tables.get("pnl_records").body),
   "pnl model constraint must match backend PnlTradeRecord model values",
+);
+assert.ok(
+  /deadline\s+BETWEEN\s+1\s+AND\s+9007199254740991/i.test(tables.get("pnl_records").body),
+  "pnl_records must require safe-integer signed attribution deadlines",
 );
 
 for (const indexName of [
