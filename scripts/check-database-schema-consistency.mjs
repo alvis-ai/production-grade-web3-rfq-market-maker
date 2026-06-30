@@ -143,6 +143,9 @@ const requiredCheckConstraints = {
     ["chk_quotes_amounts_non_negative", "quotes must constrain unsigned quote amount fields"],
     ["chk_quotes_addresses_hex", "quotes must constrain address-shaped fields"],
     ["chk_quotes_signature_and_tx_hash_hex", "quotes must constrain signature and transaction hash shape"],
+    ["chk_quotes_status_payload_consistency", "quotes must constrain lifecycle status pointer consistency"],
+    ["chk_quotes_signed_payload_consistency", "quotes must constrain signed lifecycle payload completeness"],
+    ["chk_quotes_rejection_payload_consistency", "quotes must constrain rejection payload completeness"],
   ],
   market_snapshots: [
     ["chk_market_snapshots_prices", "market_snapshots must constrain price and liquidity fields"],
@@ -197,6 +200,30 @@ assert.ok(
 assert.ok(
   /tx_hash\s+IS\s+NULL\s+OR\s+tx_hash\s+~\s+'\^0x\[0-9a-fA-F\]\{64\}\$'/i.test(tables.get("quotes").body),
   "quotes tx_hash constraint must require 32-byte transaction hashes",
+);
+assert.ok(
+  /status\s+IN\s*\(\s*'submitted'\s*,\s*'settled'\s*\)[\s\S]*?tx_hash\s+IS\s+NOT\s+NULL[\s\S]*?settlement_event_id\s+IS\s+NOT\s+NULL/i.test(
+    tables.get("quotes").body,
+  ),
+  "submitted and settled quotes must keep tx_hash and settlement_event_id pointers",
+);
+assert.ok(
+  /status\s+IN\s*\(\s*'requested'\s*,\s*'rejected'\s*,\s*'signed'\s*,\s*'expired'\s*,\s*'failed'\s*\)[\s\S]*?tx_hash\s+IS\s+NULL[\s\S]*?settlement_event_id\s+IS\s+NULL[\s\S]*?hedge_order_id\s+IS\s+NULL[\s\S]*?pnl_id\s+IS\s+NULL/i.test(
+    tables.get("quotes").body,
+  ),
+  "non-settlement quote statuses must not expose settlement, hedge, or PnL pointers",
+);
+assert.ok(
+  /status\s+NOT\s+IN\s*\(\s*'signed'\s*,\s*'expired'\s*,\s*'submitted'\s*,\s*'settled'\s*\)[\s\S]*?amount_out\s+IS\s+NOT\s+NULL[\s\S]*?min_amount_out\s+IS\s+NOT\s+NULL[\s\S]*?nonce\s+IS\s+NOT\s+NULL[\s\S]*?deadline\s+IS\s+NOT\s+NULL[\s\S]*?pricing_version\s+IS\s+NOT\s+NULL[\s\S]*?risk_policy_version\s+IS\s+NOT\s+NULL[\s\S]*?signature\s+IS\s+NOT\s+NULL/i.test(
+    tables.get("quotes").body,
+  ),
+  "signed lifecycle statuses must keep complete signed quote payload metadata",
+);
+assert.ok(
+  /status\s+NOT\s+IN\s*\(\s*'rejected'\s*,\s*'failed'\s*\)[\s\S]*?reject_code\s+IS\s+NOT\s+NULL/i.test(
+    tables.get("quotes").body,
+  ),
+  "rejected and failed quote statuses must keep reject_code",
 );
 assert.ok(
   /decision\s+IN\s*\(\s*'approved'\s*,\s*'rejected'\s*\)/i.test(tables.get("risk_decisions").body),

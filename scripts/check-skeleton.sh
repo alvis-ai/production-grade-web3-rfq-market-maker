@@ -398,14 +398,23 @@ grep -q 'quotes must keep the chain_id, user_address, nonce signed-quote lookup 
 grep -q 'partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`' docs/database/er-diagram.md
 grep -q 'chk_quotes_status' docs/database/schema.sql
 grep -q 'chk_quotes_signature_and_tx_hash_hex' docs/database/schema.sql
+grep -q 'chk_quotes_status_payload_consistency' docs/database/schema.sql
+grep -q 'chk_quotes_signed_payload_consistency' docs/database/schema.sql
+grep -q 'chk_quotes_rejection_payload_consistency' docs/database/schema.sql
 grep -q 'chk_settlement_events_hashes' docs/database/schema.sql
 grep -q 'chk_hedge_orders_side' docs/database/schema.sql
 grep -q 'chk_pnl_records_model' docs/database/schema.sql
 grep -q 'quotes must constrain lifecycle status values' scripts/check-database-schema-consistency.mjs
+grep -q 'submitted and settled quotes must keep tx_hash and settlement_event_id pointers' scripts/check-database-schema-consistency.mjs
+grep -q 'non-settlement quote statuses must not expose settlement, hedge, or PnL pointers' scripts/check-database-schema-consistency.mjs
+grep -q 'signed lifecycle statuses must keep complete signed quote payload metadata' scripts/check-database-schema-consistency.mjs
+grep -q 'rejected and failed quote statuses must keep reject_code' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must constrain side enum values' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
 grep -q '数据库层使用 CHECK constraints 固化应用层关键不变量' docs/database/er-diagram.md
+grep -q 'status payload consistency' docs/database/er-diagram.md
+grep -q 'PostgreSQL schema mirrors these invariants with quote status payload consistency checks' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'fk_quotes_snapshot_id' docs/database/schema.sql
 grep -q 'fk_quotes_settlement_event_id' docs/database/schema.sql
 grep -q 'fk_quotes_hedge_order_id' docs/database/schema.sql

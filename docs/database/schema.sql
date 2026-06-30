@@ -38,6 +38,36 @@ CREATE TABLE quotes (
   CONSTRAINT chk_quotes_signature_and_tx_hash_hex CHECK (
     (signature IS NULL OR signature ~ '^0x[0-9a-fA-F]{130}$')
     AND (tx_hash IS NULL OR tx_hash ~ '^0x[0-9a-fA-F]{64}$')
+  ),
+  CONSTRAINT chk_quotes_status_payload_consistency CHECK (
+    (
+      status IN ('requested', 'rejected', 'signed', 'expired', 'failed')
+      AND tx_hash IS NULL
+      AND settlement_event_id IS NULL
+      AND hedge_order_id IS NULL
+      AND pnl_id IS NULL
+    )
+    OR (
+      status IN ('submitted', 'settled')
+      AND tx_hash IS NOT NULL
+      AND settlement_event_id IS NOT NULL
+    )
+  ),
+  CONSTRAINT chk_quotes_signed_payload_consistency CHECK (
+    status NOT IN ('signed', 'expired', 'submitted', 'settled')
+    OR (
+      amount_out IS NOT NULL
+      AND min_amount_out IS NOT NULL
+      AND nonce IS NOT NULL
+      AND deadline IS NOT NULL
+      AND pricing_version IS NOT NULL
+      AND risk_policy_version IS NOT NULL
+      AND signature IS NOT NULL
+    )
+  ),
+  CONSTRAINT chk_quotes_rejection_payload_consistency CHECK (
+    status NOT IN ('rejected', 'failed')
+    OR reject_code IS NOT NULL
   )
 );
 
