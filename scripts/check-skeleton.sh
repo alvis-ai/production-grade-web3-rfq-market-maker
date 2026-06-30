@@ -1327,6 +1327,15 @@ grep -q 'signerSecret' infra/helm/rfq-market-maker/values.yaml
 grep -q 'rfq-backend-secrets' infra/helm/rfq-market-maker/values.yaml
 grep -q 'baseline browser security headers' docs/security/audit-checklist.md
 grep -q 'CORS origin allowlist' docs/security/audit-checklist.md
+grep -q 'audit checklist must mark implemented baseline controls' scripts/check-security-docs-consistency.mjs
+grep -q 'audit checklist must mark implemented control' scripts/check-security-docs-consistency.mjs
+grep -q 'audit checklist must leave unresolved control unchecked' scripts/check-security-docs-consistency.mjs
+grep -Fq -- '- [x] EIP-712 domain includes name, version, chainId and verifyingContract.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] `submitQuote` rejects expired quotes.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] Risk Engine runs before Signer Service.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.' docs/security/audit-checklist.md
+grep -Fq -- '- [ ] `submitQuote` uses SafeERC20 for transfers.' docs/security/audit-checklist.md
+grep -Fq -- '- [ ] AccessControl protects signer and token whitelist updates.' docs/security/audit-checklist.md
 grep -q 'Pod Termination Or Rollout Drain' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'Fastify close' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'terminationGracePeriodSeconds=30' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md

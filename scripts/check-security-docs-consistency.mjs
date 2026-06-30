@@ -116,7 +116,57 @@ const auditItems = [...docs.auditChecklist.matchAll(/^- \[[ x]\] /gm)].length;
 assert.ok(auditItems >= 30, "audit checklist must include at least 30 review items");
 
 const checkedAuditItems = [...docs.auditChecklist.matchAll(/^- \[x\] /gm)].length;
-assert.ok(checkedAuditItems >= 4, "audit checklist must mark implemented baseline backend controls");
+assert.ok(checkedAuditItems >= 20, "audit checklist must mark implemented baseline controls");
+
+const implementedAuditControls = [
+  "EIP-712 domain includes name, version, chainId and verifyingContract.",
+  "Quote struct fields match SDK and backend signer exactly.",
+  "`submitQuote` rejects expired quotes.",
+  "`submitQuote` rejects reused nonce.",
+  "`submitQuote` rejects untrusted signer.",
+  "`submitQuote` rejects unsupported tokenIn or tokenOut.",
+  "State updates are ordered safely around external calls.",
+  "ReentrancyGuard protects settlement.",
+  "Pausable can stop settlement during incident response.",
+  "Events contain enough data for idempotent indexing.",
+  "`/quote` validates address format and amount strings.",
+  "Risk Engine runs before Signer Service.",
+  "Signer Service cannot be called directly from public API.",
+  "Quote persistence includes snapshotId and riskPolicyVersion.",
+  "Rejected quotes are logged without returning signatures.",
+  "Rate limits protect public trading endpoints.",
+  "All errors include traceId.",
+  "Public API responses include no-store cache control and baseline browser security headers.",
+  "Browser access is restricted by a CORS origin allowlist.",
+  "Settlement events use `(chainId, txHash, logIndex)` idempotency.",
+  "Hedge actions are linked to settlement events.",
+  "Alerts exist for signer failures, risk reject spikes, event lag and hedge failures.",
+  "Dashboards cover quote latency, settlement failures and inventory exposure.",
+];
+
+for (const control of implementedAuditControls) {
+  assert.ok(
+    docs.auditChecklist.includes(`- [x] ${control}`),
+    `audit checklist must mark implemented control: ${control}`,
+  );
+}
+
+const intentionallyOpenAuditControls = [
+  "`submitQuote` uses SafeERC20 for transfers.",
+  "AccessControl protects signer and token whitelist updates.",
+  "Indexer handles chain reorgs.",
+  "Inventory updates are replayable.",
+  "ClickHouse analytics do not become operational source of truth.",
+  "Signer key rotation is documented.",
+  "Emergency pause procedure is documented.",
+];
+
+for (const control of intentionallyOpenAuditControls) {
+  assert.ok(
+    docs.auditChecklist.includes(`- [ ] ${control}`),
+    `audit checklist must leave unresolved control unchecked: ${control}`,
+  );
+}
 
 const mermaidBlocks = [...docs.threatModel.matchAll(/^```mermaid$/gm)].length +
   [...docs.keyManagement.matchAll(/^```mermaid$/gm)].length;
