@@ -64,12 +64,14 @@ const requiredTables = {
   hedge_orders: [
     "id",
     "settlement_event_id",
+    "quote_id",
     "chain_id",
     "token_address",
     "side",
     "amount",
     "venue",
     "status",
+    "reason",
   ],
   pnl_records: [
     "id",
@@ -118,6 +120,10 @@ assert.ok(
 assert.ok(
   /\bsettlement_event_id\s+TEXT\s+NOT\s+NULL\s+REFERENCES\s+settlement_events\s*\(\s*id\s*\)/i.test(tables.get("hedge_orders").body),
   "hedge_orders.settlement_event_id must be a required settlement_events(id) foreign key",
+);
+assert.ok(
+  /\bquote_id\s+TEXT\s+NOT\s+NULL\s+REFERENCES\s+quotes\s*\(\s*id\s*\)/i.test(tables.get("hedge_orders").body),
+  "hedge_orders.quote_id must be a required quotes(id) foreign key",
 );
 assert.ok(
   /CREATE\s+UNIQUE\s+INDEX\s+uq_hedge_orders_settlement_event\s+ON\s+hedge_orders\s*\(\s*settlement_event_id\s*\)\s*;/i.test(schemaSource),
@@ -196,6 +202,7 @@ const requiredCheckConstraints = {
     ["chk_hedge_orders_chain_id_safe", "hedge_orders must constrain chain_id to JavaScript safe integer range"],
     ["chk_hedge_orders_side", "hedge_orders must constrain side enum values"],
     ["chk_hedge_orders_status", "hedge_orders must constrain status enum values"],
+    ["chk_hedge_orders_reason", "hedge_orders must constrain reason enum values"],
     ["chk_hedge_orders_venue_non_empty", "hedge_orders must constrain venue to be non-empty"],
     [
       "chk_hedge_orders_external_order_id_non_empty",
@@ -400,6 +407,14 @@ assert.ok(
   "hedge side constraint must match backend HedgeIntent side values",
 );
 assert.ok(
+  /status\s+IN\s*\(\s*'queued'\s*\)/i.test(tables.get("hedge_orders").body),
+  "hedge status constraint must match backend HedgeIntentStatusResponse status values",
+);
+assert.ok(
+  /reason\s+IN\s*\(\s*'inventory_rebalance'\s*,\s*'risk_reduction'\s*\)/i.test(tables.get("hedge_orders").body),
+  "hedge reason constraint must match backend HedgeIntent reason values",
+);
+assert.ok(
   /btrim\s*\(\s*venue\s*\)\s*<>\s*''/i.test(tables.get("hedge_orders").body),
   "hedge_orders must reject empty venue values",
 );
@@ -550,6 +565,34 @@ for (const field of settlementFields) {
   assert.ok(
     tables.get("settlement_events").columns.has(settlementColumnMapping[field]),
     `settlement_events must persist SettlementEventStatusResponse.${field} as ${settlementColumnMapping[field]}`,
+  );
+}
+
+const hedgeFields = extractInterfaceFields(backendTypesSource, "HedgeIntentStatusResponse");
+const hedgeSchemaProperties = extractOpenApiSchemaProperties(openapiSource, "HedgeIntentStatus");
+assert.deepEqual(
+  hedgeSchemaProperties,
+  hedgeFields,
+  "OpenAPI HedgeIntentStatus properties must match backend HedgeIntentStatusResponse fields",
+);
+
+const hedgeColumnMapping = {
+  hedgeOrderId: "id",
+  status: "status",
+  settlementEventId: "settlement_event_id",
+  quoteId: "quote_id",
+  chainId: "chain_id",
+  token: "token_address",
+  side: "side",
+  amount: "amount",
+  reason: "reason",
+  createdAt: "created_at",
+};
+for (const field of hedgeFields) {
+  assert.ok(hedgeColumnMapping[field], `HedgeIntentStatusResponse.${field} must have a database column mapping`);
+  assert.ok(
+    tables.get("hedge_orders").columns.has(hedgeColumnMapping[field]),
+    `hedge_orders must persist HedgeIntentStatusResponse.${field} as ${hedgeColumnMapping[field]}`,
   );
 }
 

@@ -280,12 +280,14 @@ CREATE TABLE inventory_positions (
 CREATE TABLE hedge_orders (
   id TEXT PRIMARY KEY,
   settlement_event_id TEXT NOT NULL REFERENCES settlement_events(id),
+  quote_id TEXT NOT NULL REFERENCES quotes(id),
   chain_id BIGINT NOT NULL,
   token_address TEXT NOT NULL,
   side TEXT NOT NULL,
   amount NUMERIC(78, 0) NOT NULL,
   venue TEXT NOT NULL,
   status TEXT NOT NULL,
+  reason TEXT NOT NULL,
   external_order_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -293,6 +295,7 @@ CREATE TABLE hedge_orders (
   CONSTRAINT chk_hedge_orders_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_hedge_orders_side CHECK (side IN ('buy', 'sell')),
   CONSTRAINT chk_hedge_orders_status CHECK (status IN ('queued')),
+  CONSTRAINT chk_hedge_orders_reason CHECK (reason IN ('inventory_rebalance', 'risk_reduction')),
   CONSTRAINT chk_hedge_orders_venue_non_empty CHECK (btrim(venue) <> ''),
   CONSTRAINT chk_hedge_orders_external_order_id_non_empty CHECK (
     external_order_id IS NULL OR btrim(external_order_id) <> ''

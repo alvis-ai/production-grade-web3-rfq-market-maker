@@ -581,6 +581,7 @@ grep -q 'mid_price <= ask_price' docs/database/schema.sql
 grep -q 'volatility_bps INTEGER NOT NULL' docs/database/schema.sql
 grep -q 'AND volatility_bps BETWEEN 0 AND 10000' docs/database/schema.sql
 grep -q 'chk_hedge_orders_side' docs/database/schema.sql
+grep -q 'chk_hedge_orders_reason' docs/database/schema.sql
 grep -q 'chk_hedge_orders_venue_non_empty' docs/database/schema.sql
 grep -q 'chk_hedge_orders_external_order_id_non_empty' docs/database/schema.sql
 grep -q 'chk_pnl_records_model' docs/database/schema.sql
@@ -636,6 +637,8 @@ grep -q 'export type RiskRejectReasonCode' backend/src/modules/risk/risk.engine.
 grep -q 'RISK_ENGINE_UNAVAILABLE' docs/database/schema.sql
 grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must constrain side enum values' scripts/check-database-schema-consistency.mjs
+grep -q 'hedge reason constraint must match backend HedgeIntent reason values' scripts/check-database-schema-consistency.mjs
+grep -q 'hedge_orders must persist HedgeIntentStatusResponse' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must reject empty venue values' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must reject empty external_order_id values when present' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
@@ -649,6 +652,7 @@ grep -q 'market_snapshots.source` 必须是非空字符串' docs/database/er-dia
 grep -q 'market_snapshots.liquidity_usd` 必须是非空正整数数值' docs/database/er-diagram.md
 grep -q 'market_snapshots.volatility_bps` 必须是 `0..10000` bps 内的整数' docs/database/er-diagram.md
 grep -q 'hedge `venue` 非空' docs/database/er-diagram.md
+grep -q '`quote_id` 是 `quotes.id` 的非空外键' docs/database/er-diagram.md
 grep -q 'external_order_id` 可以在内部 queued intent 阶段为 NULL' docs/database/er-diagram.md
 grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/database/er-diagram.md
 grep -q 'quotes.pricing_version`、`quotes.risk_policy_version` 和 `quotes.reject_code`' docs/database/er-diagram.md
@@ -701,7 +705,9 @@ grep -q 'quoteHash: "quote_hash"' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must persist SettlementEventStatusResponse' scripts/check-database-schema-consistency.mjs
 grep -q 'uq_hedge_orders_settlement_event' docs/database/schema.sql
 grep -q 'settlement_event_id TEXT NOT NULL REFERENCES settlement_events(id)' docs/database/schema.sql
+grep -q 'quote_id TEXT NOT NULL REFERENCES quotes(id)' docs/database/schema.sql
 grep -q 'hedge_orders.settlement_event_id must be a required settlement_events(id) foreign key' scripts/check-database-schema-consistency.mjs
+grep -q 'hedge_orders.quote_id must be a required quotes(id) foreign key' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must keep one hedge intent per settlement event' scripts/check-database-schema-consistency.mjs
 grep -q 'unique index `(settlement_event_id)`' docs/database/er-diagram.md
 grep -q 'quote_id TEXT NOT NULL REFERENCES quotes(id)' docs/database/schema.sql
@@ -800,6 +806,7 @@ grep -q 'returns the existing hedge intent for settlement retries' backend/test/
 grep -q 'rejects conflicting retry payloads for the same settlement event' backend/test/hedge.test.mjs
 grep -q 'returns defensive copies of hedge intent status records' backend/test/hedge.test.mjs
 grep -q 'Hedge idempotency requires repeated `settlementEventId` input to match the stored hedge intent payload' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
+grep -q 'Persistent hedge rows store the required `quoteId` and `reason`' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'returns defensive copies from create and status lookup operations' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'non-null external order reference must be non-empty' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'getHedgeIntentBySettlementEvent' backend/test/hedge.test.mjs
