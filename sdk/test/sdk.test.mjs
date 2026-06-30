@@ -550,6 +550,68 @@ test("RFQClient rejects unsafe base URLs at construction", () => {
   }
 });
 
+test("RFQClient rejects unsafe submit requests before sending HTTP", async () => {
+  const calls = [];
+  const restoreFetch = installFetch(async (url, init = {}) => {
+    calls.push({ url, init });
+    return jsonResponse(500, { code: "INTERNAL_ERROR", message: "unexpected", traceId: "tr_unexpected" });
+  });
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.submit(undefined),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.message, "RFQ submit request must be an object");
+        return true;
+      },
+    );
+
+    await assert.rejects(
+      client.submit({ quote, signature: `0x${"11".repeat(64)}02` }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.message, "RFQ submit request signature v value must be 27 or 28");
+        return true;
+      },
+    );
+
+    await assert.rejects(
+      client.submit({ quote, signature: malleateSignature(await validTypedDataSignature()) }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.message, "RFQ submit request signature s value must be in the lower half order");
+        return true;
+      },
+    );
+
+    await assert.rejects(
+      client.submit({
+        quote: {
+          ...quote,
+          tokenOut: quote.tokenIn,
+        },
+        signature,
+      }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.message, "RFQ submit request quote.tokenIn and quote.tokenOut must be different");
+        return true;
+      },
+    );
+
+    assert.equal(calls.length, 0);
+  } finally {
+    restoreFetch();
+  }
+});
+
 test("RFQClient percent-encodes dynamic status path identifiers", async () => {
   const calls = [];
   const quoteId = "q/test id";

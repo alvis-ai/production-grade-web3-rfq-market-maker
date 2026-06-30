@@ -1,4 +1,5 @@
 import { rfqErrorCodes } from "./types.js";
+import { buildSubmitQuoteArgs } from "./settlement.js";
 import type {
   HedgeIntentStatus,
   HealthResponse,
@@ -57,6 +58,7 @@ export class RFQClient {
   }
 
   async submit(request: SubmitQuoteRequest): Promise<SubmitQuoteResponse> {
+    assertSubmitQuoteRequest(request);
     const response = await fetch(`${this.baseUrl}/submit`, {
       method: "POST",
       headers: {
@@ -195,6 +197,19 @@ function clientErrorFromResponse(response: Response, payload: unknown, fallbackM
     error?.traceId,
     retryAfterSeconds(response),
   );
+}
+
+function assertSubmitQuoteRequest(request: SubmitQuoteRequest): void {
+  if (!isRecord(request)) {
+    throw new RFQClientError("RFQ submit request must be an object", 0);
+  }
+
+  try {
+    buildSubmitQuoteArgs(request.quote, request.signature);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "is invalid";
+    throw new RFQClientError(`RFQ submit request ${detail}`, 0);
+  }
 }
 
 function assertOptionalBytes32Field(payload: unknown, field: string, status: number, label: string): void {
