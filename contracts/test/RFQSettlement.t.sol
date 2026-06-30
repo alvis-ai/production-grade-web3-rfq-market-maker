@@ -105,6 +105,7 @@ contract RFQSettlementTest {
     uint256 private constant USER_KEY = 0xB0B;
     uint256 private constant SECP256K1N_HIGH_S =
         0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1;
+    bytes32 private constant DEFAULT_ADMIN_ROLE = 0x00;
     bytes32 private constant SIGNER_ADMIN_ROLE = keccak256("SIGNER_ADMIN_ROLE");
     bytes32 private constant TOKEN_ADMIN_ROLE = keccak256("TOKEN_ADMIN_ROLE");
     bytes32 private constant TREASURY_ADMIN_ROLE = keccak256("TREASURY_ADMIN_ROLE");
@@ -289,6 +290,40 @@ contract RFQSettlementTest {
         vm.prank(tokenAdmin);
         _expectMissingRole(TOKEN_ADMIN_ROLE, tokenAdmin);
         settlement.setTokenWhitelist(address(tokenIn), true);
+    }
+
+    function testCannotRevokeLastDefaultAdminRole() public {
+        vm.expectRevert(RFQSettlement.CannotRevokeLastAdmin.selector);
+        settlement.revokeRole(DEFAULT_ADMIN_ROLE, address(this));
+
+        require(
+            settlement.hasRole(DEFAULT_ADMIN_ROLE, address(this)),
+            "default admin role was revoked"
+        );
+    }
+
+    function testDefaultAdminCanBeRevokedAfterGrantingReplacement() public {
+        address newAdmin = address(0xA11CE04);
+        address tokenAdmin = address(0xA11CE05);
+
+        settlement.grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
+        settlement.revokeRole(DEFAULT_ADMIN_ROLE, address(this));
+
+        require(
+            !settlement.hasRole(DEFAULT_ADMIN_ROLE, address(this)),
+            "old default admin role still active"
+        );
+        require(
+            settlement.hasRole(DEFAULT_ADMIN_ROLE, newAdmin),
+            "replacement default admin missing"
+        );
+
+        _expectMissingRole(DEFAULT_ADMIN_ROLE, address(this));
+        settlement.grantRole(TOKEN_ADMIN_ROLE, tokenAdmin);
+
+        vm.prank(newAdmin);
+        settlement.grantRole(TOKEN_ADMIN_ROLE, tokenAdmin);
+        require(settlement.hasRole(TOKEN_ADMIN_ROLE, tokenAdmin), "new admin could not grant role");
     }
 
     function testOwnerCanRotateTrustedSigner() public {

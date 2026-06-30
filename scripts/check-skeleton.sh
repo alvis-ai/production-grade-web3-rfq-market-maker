@@ -811,6 +811,8 @@ grep -q 'function setTreasury' contracts/src/RFQSettlement.sol
 grep -q 'function setTokenWhitelist' contracts/src/RFQSettlement.sol
 grep -q 'function grantRole' contracts/src/RFQSettlement.sol
 grep -q 'function revokeRole' contracts/src/RFQSettlement.sol
+grep -q '_roleMemberCounts' contracts/src/RFQSettlement.sol
+grep -q 'CannotRevokeLastAdmin' contracts/src/RFQSettlement.sol
 grep -q 'SIGNER_ADMIN_ROLE' contracts/src/RFQSettlement.sol
 grep -q 'TOKEN_ADMIN_ROLE' contracts/src/RFQSettlement.sol
 grep -q 'function setPaused' contracts/src/RFQSettlement.sol
@@ -1410,6 +1412,7 @@ grep -Fq -- '- [x] Signer key rotation is documented.' docs/security/audit-check
 grep -Fq -- '- [x] Emergency pause procedure is documented.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] `submitQuote` uses SafeERC20 for transfers.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] AccessControl protects signer and token whitelist updates.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] DEFAULT_ADMIN_ROLE cannot be orphaned by revoking the last admin.' docs/security/audit-checklist.md
 grep -q 'SettlementEventService.removeSettlementEvent()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'removed/reorg logs' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q '本地 `SafeERC20` 库' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
@@ -1420,6 +1423,9 @@ grep -q 'testSubmitQuoteRejectsFalseReturnTokenInBeforeConsumingNonce' contracts
 grep -q 'testSubmitQuoteRejectsFalseReturnTokenOutAndRollsBackTokenIn' contracts/test/RFQSettlement.t.sol
 grep -q 'testAccessControlSeparatesSignerAndTokenWhitelistRoles' contracts/test/RFQSettlement.t.sol
 grep -q 'testAccessControlRevocationRemovesAdminCapability' contracts/test/RFQSettlement.t.sol
+grep -q 'testCannotRevokeLastDefaultAdminRole' contracts/test/RFQSettlement.t.sol
+grep -q 'testDefaultAdminCanBeRevokedAfterGrantingReplacement' contracts/test/RFQSettlement.t.sol
+grep -q 'DEFAULT_ADMIN_ROLE` 使用成员计数防止最后一个默认管理员被撤销' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'Run a canary signing check' docs/security/key-management.md
 grep -q 'negative canary using the old signer' docs/security/key-management.md
 grep -q 'Emergency Pause Procedure' book/Volume7-ProductionDeployment/Chapter05-Runbook.md

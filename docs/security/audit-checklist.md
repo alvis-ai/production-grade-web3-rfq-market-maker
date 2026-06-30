@@ -13,6 +13,7 @@
 - [x] ReentrancyGuard protects settlement.
 - [x] Pausable can stop settlement during incident response.
 - [x] AccessControl protects signer and token whitelist updates.
+- [x] DEFAULT_ADMIN_ROLE cannot be orphaned by revoking the last admin.
 - [x] Events contain enough data for idempotent indexing.
 
 ## Backend

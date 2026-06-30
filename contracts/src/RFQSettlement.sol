@@ -40,6 +40,7 @@ contract RFQSettlement is IRFQSettlement {
     mapping(address token => bool whitelisted) public tokenWhitelist;
     mapping(address user => mapping(uint256 nonce => bool used)) public usedNonces;
     mapping(bytes32 role => mapping(address account => bool granted)) private _roles;
+    mapping(bytes32 role => uint256 count) private _roleMemberCounts;
 
     uint256 private _reentrancyStatus = _NOT_ENTERED;
 
@@ -62,6 +63,7 @@ contract RFQSettlement is IRFQSettlement {
     error AmountOutBelowMinimum();
     error TransferFailed();
     error MissingRole(bytes32 role, address account);
+    error CannotRevokeLastAdmin();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -265,12 +267,17 @@ contract RFQSettlement is IRFQSettlement {
     function _grantRole(bytes32 role, address account) internal {
         if (_roles[role][account]) return;
         _roles[role][account] = true;
+        _roleMemberCounts[role] += 1;
         emit RoleGranted(role, account, msg.sender);
     }
 
     function _revokeRole(bytes32 role, address account) internal {
         if (!_roles[role][account]) return;
+        if (role == DEFAULT_ADMIN_ROLE && _roleMemberCounts[role] <= 1) {
+            revert CannotRevokeLastAdmin();
+        }
         _roles[role][account] = false;
+        _roleMemberCounts[role] -= 1;
         emit RoleRevoked(role, account, msg.sender);
     }
 }

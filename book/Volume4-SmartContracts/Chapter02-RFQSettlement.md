@@ -128,6 +128,7 @@ function submitQuote(
 - `QuoteSettled` 是链下库存更新的权威事件。
 - 当前安全转账封装采用 SafeERC20 语义：低层调用必须成功，返回 `false` 必须 revert，无返回值 ERC20 被视为成功，非合约地址会被拒绝。
 - `SIGNER_ADMIN_ROLE` 独立保护 `setTrustedSigner`，`TOKEN_ADMIN_ROLE` 独立保护 `setTokenWhitelist`，默认管理员只能通过 `grantRole` 和 `revokeRole` 委托或收回这些权限。
+- `DEFAULT_ADMIN_ROLE` 使用成员计数防止最后一个默认管理员被撤销；`transferOwnership` 先授予新 owner 全量管理角色，再撤销旧 owner 角色，避免 role administration 被永久锁死。
 
 ## Failure Scenarios
 
