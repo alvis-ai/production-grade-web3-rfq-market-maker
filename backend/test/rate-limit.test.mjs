@@ -49,6 +49,37 @@ test("InMemoryRateLimiter enforces endpoint-specific windows", () => {
   });
 });
 
+test("InMemoryRateLimiter snapshots configuration at construction", () => {
+  const mutableConfig = {
+    windowMs: 1000,
+    maxQuoteRequests: 2,
+    maxSubmitRequests: 1,
+    maxStatusRequests: 1,
+  };
+  const limiter = new InMemoryRateLimiter(mutableConfig);
+
+  mutableConfig.windowMs = 10_000;
+  mutableConfig.maxQuoteRequests = 100;
+  mutableConfig.maxSubmitRequests = 100;
+  mutableConfig.maxStatusRequests = 100;
+
+  assert.deepEqual(limiter.check({ endpoint: "quote", clientId: "client-a" }, 1000), {
+    allowed: true,
+    remaining: 1,
+    retryAfterSeconds: 1,
+  });
+  assert.deepEqual(limiter.check({ endpoint: "quote", clientId: "client-a" }, 1100), {
+    allowed: true,
+    remaining: 0,
+    retryAfterSeconds: 1,
+  });
+  assert.deepEqual(limiter.check({ endpoint: "quote", clientId: "client-a" }, 1200), {
+    allowed: false,
+    remaining: 0,
+    retryAfterSeconds: 1,
+  });
+});
+
 test("InMemoryRateLimiter rejects unsafe configuration at construction", () => {
   assert.throws(
     () => new InMemoryRateLimiter({
