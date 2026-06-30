@@ -24,6 +24,7 @@ CREATE TABLE quotes (
   CONSTRAINT chk_quotes_status CHECK (
     status IN ('requested', 'rejected', 'signed', 'expired', 'submitted', 'settled', 'failed')
   ),
+  CONSTRAINT chk_quotes_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_quotes_amounts_non_negative CHECK (
     amount_in > 0
     AND (amount_out IS NULL OR amount_out > 0)
@@ -104,6 +105,7 @@ CREATE TABLE market_snapshots (
     AND (liquidity_usd IS NULL OR liquidity_usd >= 0)
     AND (volatility_bps IS NULL OR volatility_bps >= 0)
   ),
+  CONSTRAINT chk_market_snapshots_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_market_snapshots_addresses_hex CHECK (
     token_in ~ '^0x[0-9a-fA-F]{40}$'
     AND token_out ~ '^0x[0-9a-fA-F]{40}$'
@@ -151,6 +153,7 @@ CREATE TABLE settlement_events (
   nonce NUMERIC(78, 0) NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (chain_id, tx_hash, log_index),
+  CONSTRAINT chk_settlement_events_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_settlement_events_hashes CHECK (
     tx_hash ~ '^0x[0-9a-fA-F]{64}$'
     AND quote_hash ~ '^0x[0-9a-fA-F]{64}$'
@@ -180,6 +183,7 @@ CREATE TABLE inventory_positions (
   max_exposure NUMERIC(78, 0),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (chain_id, token_address),
+  CONSTRAINT chk_inventory_positions_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_inventory_positions_token_hex CHECK (token_address ~ '^0x[0-9a-fA-F]{40}$'),
   CONSTRAINT chk_inventory_positions_limits CHECK (
     (target_balance IS NULL OR target_balance >= 0)
@@ -199,6 +203,7 @@ CREATE TABLE hedge_orders (
   external_order_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_hedge_orders_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_hedge_orders_side CHECK (side IN ('buy', 'sell')),
   CONSTRAINT chk_hedge_orders_status CHECK (status IN ('queued')),
   CONSTRAINT chk_hedge_orders_token_hex CHECK (token_address ~ '^0x[0-9a-fA-F]{40}$'),
@@ -226,6 +231,7 @@ CREATE TABLE pnl_records (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (quote_id, model),
   CONSTRAINT chk_pnl_records_model CHECK (model IN ('simulated_mid_price_v1')),
+  CONSTRAINT chk_pnl_records_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_pnl_records_addresses_hex CHECK (
     user_address ~ '^0x[0-9a-fA-F]{40}$'
     AND token_in ~ '^0x[0-9a-fA-F]{40}$'

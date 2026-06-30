@@ -545,6 +545,12 @@ grep -q 'uq_quotes_chain_user_nonce' docs/database/schema.sql
 grep -q 'quotes must keep the chain_id, user_address, nonce signed-quote lookup key' scripts/check-database-schema-consistency.mjs
 grep -q 'partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`' docs/database/er-diagram.md
 grep -q 'chk_quotes_status' docs/database/schema.sql
+grep -q 'chk_quotes_chain_id_safe' docs/database/schema.sql
+grep -q 'chk_market_snapshots_chain_id_safe' docs/database/schema.sql
+grep -q 'chk_settlement_events_chain_id_safe' docs/database/schema.sql
+grep -q 'chk_inventory_positions_chain_id_safe' docs/database/schema.sql
+grep -q 'chk_hedge_orders_chain_id_safe' docs/database/schema.sql
+grep -q 'chk_pnl_records_chain_id_safe' docs/database/schema.sql
 grep -q 'chk_quotes_signature_and_tx_hash_hex' docs/database/schema.sql
 grep -q 'chk_quotes_status_payload_consistency' docs/database/schema.sql
 grep -q 'chk_quotes_signed_payload_consistency' docs/database/schema.sql
@@ -562,6 +568,7 @@ grep -q 'minAmountOut: "min_amount_out"' scripts/check-database-schema-consisten
 grep -q 'deadline: "deadline"' scripts/check-database-schema-consistency.mjs
 grep -q 'signed attribution snapshot' docs/database/er-diagram.md
 grep -q 'quotes must constrain lifecycle status values' scripts/check-database-schema-consistency.mjs
+grep -q 'chain_id must be constrained to the JavaScript safe integer range' scripts/check-database-schema-consistency.mjs
 grep -q 'submitted and settled quotes must keep tx_hash and settlement_event_id pointers' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must require positive signed amount and nonce fields when present' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must require positive settled amount and nonce fields' scripts/check-database-schema-consistency.mjs
@@ -573,6 +580,7 @@ grep -q 'hedge_orders must constrain side enum values' scripts/check-database-sc
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
 grep -q '正数 signed amount/nonce' docs/database/er-diagram.md
 grep -q 'status payload consistency' docs/database/er-diagram.md
+grep -q 'JavaScript safe integer range `1..9007199254740991`' docs/database/er-diagram.md
 grep -q 'PostgreSQL schema mirrors these invariants with quote status payload consistency checks' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'fk_quotes_snapshot_id' docs/database/schema.sql
 grep -q 'fk_quotes_settlement_event_id' docs/database/schema.sql

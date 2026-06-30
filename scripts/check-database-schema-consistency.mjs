@@ -7,6 +7,7 @@ const schemaSource = await readFile("docs/database/schema.sql", "utf8");
 const erDiagramSource = await readFile("docs/database/er-diagram.md", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");
+const maxSafeInteger = "9007199254740991";
 
 const tables = extractTables(schemaSource);
 
@@ -144,6 +145,7 @@ assert.ok(
 const requiredCheckConstraints = {
   quotes: [
     ["chk_quotes_status", "quotes must constrain lifecycle status values"],
+    ["chk_quotes_chain_id_safe", "quotes must constrain chain_id to JavaScript safe integer range"],
     ["chk_quotes_amounts_non_negative", "quotes must constrain unsigned quote amount fields"],
     ["chk_quotes_addresses_hex", "quotes must constrain address-shaped fields"],
     ["chk_quotes_signature_and_tx_hash_hex", "quotes must constrain signature and transaction hash shape"],
@@ -153,6 +155,7 @@ const requiredCheckConstraints = {
   ],
   market_snapshots: [
     ["chk_market_snapshots_prices", "market_snapshots must constrain price and liquidity fields"],
+    ["chk_market_snapshots_chain_id_safe", "market_snapshots must constrain chain_id to JavaScript safe integer range"],
     ["chk_market_snapshots_addresses_hex", "market_snapshots must constrain token address shape"],
   ],
   risk_decisions: [
@@ -160,15 +163,18 @@ const requiredCheckConstraints = {
     ["chk_risk_decisions_limits", "risk_decisions must constrain non-negative numeric limits"],
   ],
   settlement_events: [
+    ["chk_settlement_events_chain_id_safe", "settlement_events must constrain chain_id to JavaScript safe integer range"],
     ["chk_settlement_events_hashes", "settlement_events must constrain hash-shaped fields"],
     ["chk_settlement_events_addresses_hex", "settlement_events must constrain address-shaped fields"],
     ["chk_settlement_events_amounts_positive", "settlement_events must constrain positive settlement fields"],
   ],
   inventory_positions: [
+    ["chk_inventory_positions_chain_id_safe", "inventory_positions must constrain chain_id to JavaScript safe integer range"],
     ["chk_inventory_positions_token_hex", "inventory_positions must constrain token address shape"],
     ["chk_inventory_positions_limits", "inventory_positions must constrain inventory limit fields"],
   ],
   hedge_orders: [
+    ["chk_hedge_orders_chain_id_safe", "hedge_orders must constrain chain_id to JavaScript safe integer range"],
     ["chk_hedge_orders_side", "hedge_orders must constrain side enum values"],
     ["chk_hedge_orders_status", "hedge_orders must constrain status enum values"],
     ["chk_hedge_orders_token_hex", "hedge_orders must constrain token address shape"],
@@ -176,6 +182,7 @@ const requiredCheckConstraints = {
   ],
   pnl_records: [
     ["chk_pnl_records_model", "pnl_records must constrain supported attribution models"],
+    ["chk_pnl_records_chain_id_safe", "pnl_records must constrain chain_id to JavaScript safe integer range"],
     ["chk_pnl_records_addresses_hex", "pnl_records must constrain token address shape"],
     ["chk_pnl_records_amounts_positive", "pnl_records must constrain positive trade amounts"],
   ],
@@ -189,6 +196,20 @@ for (const [tableName, constraints] of Object.entries(requiredCheckConstraints))
       message,
     );
   }
+}
+
+for (const tableName of [
+  "quotes",
+  "market_snapshots",
+  "settlement_events",
+  "inventory_positions",
+  "hedge_orders",
+  "pnl_records",
+]) {
+  assert.ok(
+    hasCheckExpression(tableName, `chain_id\\s+BETWEEN\\s+1\\s+AND\\s+${maxSafeInteger}`),
+    `${tableName}.chain_id must be constrained to the JavaScript safe integer range`,
+  );
 }
 
 assert.ok(
@@ -507,4 +528,9 @@ function hasPartialIndex(tableName, indexName, columnName) {
     `CREATE\\s+INDEX\\s+${indexName}\\s+ON\\s+${tableName}\\s*\\(\\s*${columnName}\\s*\\)\\s*WHERE\\s+${columnName}\\s+IS\\s+NOT\\s+NULL\\s*;`,
     "i",
   ).test(schemaSource);
+}
+
+function hasCheckExpression(tableName, expressionPattern) {
+  const table = tables.get(tableName);
+  return new RegExp(expressionPattern, "i").test(table.body);
 }
