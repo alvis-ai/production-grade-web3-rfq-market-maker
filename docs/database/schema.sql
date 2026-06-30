@@ -144,7 +144,7 @@ CREATE TABLE market_snapshots (
   mid_price NUMERIC(38, 18) NOT NULL,
   bid_price NUMERIC(38, 18),
   ask_price NUMERIC(38, 18),
-  liquidity_usd NUMERIC(38, 8),
+  liquidity_usd NUMERIC(78, 0) NOT NULL,
   volatility_bps INTEGER,
   source TEXT NOT NULL,
   observed_at TIMESTAMPTZ NOT NULL,
@@ -157,7 +157,7 @@ CREATE TABLE market_snapshots (
     AND (bid_price IS NULL OR bid_price <= mid_price)
     AND (ask_price IS NULL OR mid_price <= ask_price)
     AND (bid_price IS NULL OR ask_price IS NULL OR bid_price <= ask_price)
-    AND (liquidity_usd IS NULL OR liquidity_usd >= 0)
+    AND liquidity_usd > 0
     AND (volatility_bps IS NULL OR volatility_bps BETWEEN 0 AND 10000)
   ),
   CONSTRAINT chk_market_snapshots_source_non_empty CHECK (btrim(source) <> ''),

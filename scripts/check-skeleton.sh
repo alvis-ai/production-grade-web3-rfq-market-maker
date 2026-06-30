@@ -584,6 +584,8 @@ grep -q 'chk_hedge_orders_venue_non_empty' docs/database/schema.sql
 grep -q 'chk_hedge_orders_external_order_id_non_empty' docs/database/schema.sql
 grep -q 'chk_pnl_records_model' docs/database/schema.sql
 grep -q 'user_address TEXT NOT NULL' docs/database/schema.sql
+grep -q 'liquidity_usd NUMERIC(78, 0) NOT NULL' docs/database/schema.sql
+grep -q 'AND liquidity_usd > 0' docs/database/schema.sql
 grep -q 'deadline BIGINT,' docs/database/schema.sql
 grep -q 'deadline IS NULL OR deadline BETWEEN 1 AND 9007199254740991' docs/database/schema.sql
 grep -q 'min_amount_out NUMERIC(78, 0) NOT NULL' docs/database/schema.sql
@@ -614,6 +616,8 @@ grep -q 'pnl_records must constrain gross PnL bps to JavaScript safe integer ran
 grep -q 'settlement_events.log_index must be stored as a JavaScript safe-integer sized ordinal' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must require positive settled amount and nonce fields plus safe-integer event ordinals' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present' scripts/check-database-schema-consistency.mjs
+grep -q 'market_snapshots.liquidity_usd must be stored as a required positive uint-sized value' scripts/check-database-schema-consistency.mjs
+grep -q 'market_snapshots must require positive liquidity_usd' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must constrain volatility_bps to the 0..10000 bps range when present' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must reject empty source values' scripts/check-database-schema-consistency.mjs
 grep -q 'non-settlement quote statuses must not expose settlement, hedge, or PnL pointers' scripts/check-database-schema-consistency.mjs
@@ -637,6 +641,7 @@ grep -q 'bid_price <= mid_price <= ask_price' docs/database/er-diagram.md
 grep -q 'market snapshot `volatility_bps` 在 0..10000 bps' docs/database/er-diagram.md
 grep -q 'canonical low-s EIP-712 signature' docs/database/er-diagram.md
 grep -q 'market_snapshots.source` 必须是非空字符串' docs/database/er-diagram.md
+grep -q 'market_snapshots.liquidity_usd` 必须是非空正整数数值' docs/database/er-diagram.md
 grep -q 'market_snapshots.volatility_bps` 允许为空' docs/database/er-diagram.md
 grep -q 'hedge `venue` 非空' docs/database/er-diagram.md
 grep -q 'external_order_id` 可以在内部 queued intent 阶段为 NULL' docs/database/er-diagram.md

@@ -370,6 +370,14 @@ assert.ok(
   "market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present",
 );
 assert.ok(
+  /\bliquidity_usd\s+NUMERIC\s*\(\s*78\s*,\s*0\s*\)\s+NOT\s+NULL/i.test(tables.get("market_snapshots").body),
+  "market_snapshots.liquidity_usd must be stored as a required positive uint-sized value",
+);
+assert.ok(
+  /\bliquidity_usd\s*>\s*0\b/i.test(tables.get("market_snapshots").body),
+  "market_snapshots must require positive liquidity_usd",
+);
+assert.ok(
   /volatility_bps\s+IS\s+NULL\s+OR\s+volatility_bps\s+BETWEEN\s+0\s+AND\s+10000/i.test(
     tables.get("market_snapshots").body,
   ),
