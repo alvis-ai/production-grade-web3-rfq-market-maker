@@ -53,11 +53,7 @@ test("PnlService returns the existing attribution record for quote retries", () 
   });
   const retry = pnl.recordSettlement({
     quoteId: "q_retry",
-    quote: {
-      ...baseQuote,
-      amountOut: "985",
-      nonce: "2",
-    },
+    quote: baseQuote,
   });
 
   assert.deepEqual(retry, first);
@@ -80,11 +76,7 @@ test("PnlService returns defensive copies of PnL trade records", () => {
 
   const retry = pnl.recordSettlement({
     quoteId: "q_copy",
-    quote: {
-      ...baseQuote,
-      amountOut: "985",
-      nonce: "2",
-    },
+    quote: baseQuote,
   });
 
   assert.notEqual(retry, first);
@@ -97,6 +89,32 @@ test("PnlService returns defensive copies of PnL trade records", () => {
   const reloaded = pnl.summary();
   assert.equal(reloaded.grossPnlTokenOut, "10");
   assert.equal(reloaded.trades[0].grossPnlTokenOut, "10");
+});
+
+test("PnlService rejects conflicting retry payloads for the same quote and model", () => {
+  const pnl = new PnlService();
+
+  pnl.recordSettlement({
+    quoteId: "q_conflict",
+    quote: baseQuote,
+  });
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q_conflict",
+        quote: {
+          ...baseQuote,
+          amountOut: "985",
+          nonce: "2",
+        },
+      }),
+    /PnL record conflict/,
+  );
+
+  const summary = pnl.summary();
+  assert.equal(summary.totalTrades, 1);
+  assert.equal(summary.trades[0].amountOut, baseQuote.amountOut);
 });
 
 test("PnlService rejects unsafe attribution inputs before recording", () => {

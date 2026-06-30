@@ -29,6 +29,9 @@ export class PnlService implements PnlStore {
       if (!existingRecord) {
         throw new Error(`PnL record index is inconsistent for ${existingPnlId}`);
       }
+      if (!matchesPnlInput(existingRecord, input)) {
+        throw new Error(`PnL record conflict for ${existingPnlId}`);
+      }
 
       return clonePnlTradeRecord(existingRecord);
     }
@@ -76,6 +79,17 @@ function calculateGrossPnl(amountIn: string, amountOut: string): bigint {
 
 function clonePnlTradeRecord(record: PnlTradeRecord): PnlTradeRecord {
   return { ...record };
+}
+
+function matchesPnlInput(record: PnlTradeRecord, input: RecordPnlInput): boolean {
+  return (
+    record.quoteId === input.quoteId &&
+    record.chainId === input.quote.chainId &&
+    record.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
+    record.tokenOut.toLowerCase() === input.quote.tokenOut.toLowerCase() &&
+    record.amountIn === input.quote.amountIn &&
+    record.amountOut === input.quote.amountOut
+  );
 }
 
 function calculateGrossPnlBps(amountIn: string, grossPnl: bigint): number {
