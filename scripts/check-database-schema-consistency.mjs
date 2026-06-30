@@ -284,6 +284,12 @@ assert.ok(
   "settlement_events must require positive settled amount and nonce fields",
 );
 assert.ok(
+  /bid_price\s+IS\s+NULL\s+OR\s+bid_price\s*<=\s*mid_price[\s\S]*?ask_price\s+IS\s+NULL\s+OR\s+mid_price\s*<=\s*ask_price[\s\S]*?bid_price\s+IS\s+NULL\s+OR\s+ask_price\s+IS\s+NULL\s+OR\s+bid_price\s*<=\s*ask_price/i.test(
+    tables.get("market_snapshots").body,
+  ),
+  "market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present",
+);
+assert.ok(
   /side\s+IN\s*\(\s*'buy'\s*,\s*'sell'\s*\)/i.test(tables.get("hedge_orders").body),
   "hedge side constraint must match backend HedgeIntent side values",
 );

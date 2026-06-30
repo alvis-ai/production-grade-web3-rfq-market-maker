@@ -563,6 +563,8 @@ grep -q 'nonce IS NULL OR nonce > 0' docs/database/schema.sql
 grep -q 'amount_out >= min_amount_out' docs/database/schema.sql
 grep -q 'chk_settlement_events_hashes' docs/database/schema.sql
 grep -q 'AND nonce > 0' docs/database/schema.sql
+grep -q 'bid_price <= mid_price' docs/database/schema.sql
+grep -q 'mid_price <= ask_price' docs/database/schema.sql
 grep -q 'chk_hedge_orders_side' docs/database/schema.sql
 grep -q 'chk_pnl_records_model' docs/database/schema.sql
 grep -q 'user_address TEXT NOT NULL' docs/database/schema.sql
@@ -579,6 +581,7 @@ grep -q 'submitted and settled quotes must keep tx_hash and settlement_event_id 
 grep -q 'quotes must require positive signed amount and nonce fields when present' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must require amount_out to satisfy min_amount_out when both are present' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must require positive settled amount and nonce fields' scripts/check-database-schema-consistency.mjs
+grep -q 'market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present' scripts/check-database-schema-consistency.mjs
 grep -q 'non-settlement quote statuses must not expose settlement, hedge, or PnL pointers' scripts/check-database-schema-consistency.mjs
 grep -q 'signed lifecycle statuses must keep complete signed quote payload metadata' scripts/check-database-schema-consistency.mjs
 grep -q 'rejected and failed quote statuses must keep reject_code' scripts/check-database-schema-consistency.mjs
@@ -586,6 +589,7 @@ grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-data
 grep -q 'hedge_orders must constrain side enum values' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
 grep -q 'distinct token pair' docs/database/er-diagram.md
+grep -q 'bid_price <= mid_price <= ask_price' docs/database/er-diagram.md
 grep -q '正数 signed amount/nonce' docs/database/er-diagram.md
 grep -q 'amount_out >= min_amount_out' docs/database/er-diagram.md
 grep -q 'status payload consistency' docs/database/er-diagram.md
