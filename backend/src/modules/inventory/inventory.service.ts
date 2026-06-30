@@ -45,12 +45,15 @@ export const defaultInventoryServiceConfig: InventoryServiceConfig = {
 };
 
 export class InventoryService {
+  private readonly config: InventoryServiceConfig;
   private readonly balances = new Map<string, bigint>();
 
-  constructor(private readonly config: InventoryServiceConfig = defaultInventoryServiceConfig) {
+  constructor(config: InventoryServiceConfig = defaultInventoryServiceConfig) {
     assertPositiveBigInt(config.skewUnit, "skewUnit");
     assertBpsUpperBound(config.maxPositiveSkewBps, "maxPositiveSkewBps");
     assertBpsUpperBound(config.maxNegativeSkewBps, "maxNegativeSkewBps");
+
+    this.config = cloneInventoryServiceConfig(config);
   }
 
   checkHealth(): void {
@@ -133,6 +136,10 @@ export class InventoryService {
 
 function abs(value: bigint): bigint {
   return value < 0n ? -value : value;
+}
+
+function cloneInventoryServiceConfig(config: InventoryServiceConfig): InventoryServiceConfig {
+  return { ...config };
 }
 
 function assertPositiveBigInt(value: bigint, field: keyof InventoryServiceConfig): void {

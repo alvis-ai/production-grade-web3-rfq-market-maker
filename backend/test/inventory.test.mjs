@@ -56,6 +56,30 @@ test("InventoryService calculates bounded quote skew by inventory direction", ()
   assert.equal(inventory.calculateQuoteSkewBps({ chainId: 1, token: tokenOut }), 15);
 });
 
+test("InventoryService snapshots skew configuration at construction", () => {
+  const mutableConfig = {
+    skewUnit: 10n,
+    maxPositiveSkewBps: 15,
+    maxNegativeSkewBps: 6,
+  };
+  const inventory = new InventoryService(mutableConfig);
+
+  mutableConfig.skewUnit = 1n;
+  mutableConfig.maxPositiveSkewBps = 100;
+  mutableConfig.maxNegativeSkewBps = 100;
+
+  inventory.applySettlement({
+    chainId: 1,
+    tokenIn,
+    tokenOut,
+    amountIn: "70",
+    amountOut: "170",
+  });
+
+  assert.equal(inventory.calculateQuoteSkewBps({ chainId: 1, token: tokenIn }), -6);
+  assert.equal(inventory.calculateQuoteSkewBps({ chainId: 1, token: tokenOut }), 15);
+});
+
 test("InventoryService rebuilds inventory from settlement replay", () => {
   const inventory = new InventoryService();
 

@@ -112,6 +112,7 @@ Inventory Service 对内部提供 `getPosition(chainId, token)`、`projectSettle
 - Hard limit 由 Risk Engine 强制拒绝签名。
 - 当前后端实现中，成交后的库存会影响下一次 `/quote` 的 `inventorySkewBps`；本次 quote 的 projected inventory 会在签名前进入 Risk Engine。
 - Inventory skew config 在构造期 fail fast：`skewUnit` 必须是正 `bigint`，`maxPositiveSkewBps` 和 `maxNegativeSkewBps` 必须是 0 到 10000 bps 内的安全整数。这样可以避免库存偏斜计算出现除零、负向封顶或超过 bps 语义的报价反馈。
+- `InventoryService` snapshots `InventoryServiceConfig` at construction after validation. External callers must not be able to mutate `skewUnit` or skew bps caps after construction and silently change quote skew.
 - Inventory runtime inputs are validated before mutation or projection: chain id must be a positive safe integer, token addresses must be 20-byte hex addresses, token pairs must be distinct, and settlement amounts must be positive uint strings. Invalid settlement deltas must fail before they can pollute balances or quote skew.
 - Inventory replay validates the entire settlement delta batch before clearing balances, then rebuilds positions from the settlement event stream. This keeps inventory recovery deterministic and prevents one malformed replay event from leaving the service in a partially rebuilt state.
 

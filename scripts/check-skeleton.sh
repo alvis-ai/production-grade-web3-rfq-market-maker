@@ -64,8 +64,10 @@ grep -q 'checkHealth' backend/src/modules/inventory/inventory.service.ts
 grep -q 'InventoryService calculates bounded quote skew by inventory direction' backend/test/inventory.test.mjs
 grep -q 'assertPositiveBigInt(config.skewUnit, "skewUnit")' backend/src/modules/inventory/inventory.service.ts
 grep -q 'assertBpsUpperBound(config.maxPositiveSkewBps, "maxPositiveSkewBps")' backend/src/modules/inventory/inventory.service.ts
+grep -q 'cloneInventoryServiceConfig' backend/src/modules/inventory/inventory.service.ts
 grep -q 'assertSettlementDelta(delta)' backend/src/modules/inventory/inventory.service.ts
 grep -q 'assertInventorySkewInput(input)' backend/src/modules/inventory/inventory.service.ts
+grep -q 'InventoryService snapshots skew configuration at construction' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects unsafe skew configuration at construction' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects unsafe settlement inputs before mutating balances' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects unsafe projection and skew inputs' backend/test/inventory.test.mjs
@@ -75,6 +77,7 @@ grep -q 'InventoryService rejects unsafe settlement replay before mutating balan
 grep -q 'Inventory settlement replay input must be an array' backend/src/modules/inventory/inventory.service.ts
 grep -q 'Inventory replay validates the entire settlement delta batch before clearing balances' book/Volume3-RiskEngine/Chapter01-Inventory.md
 grep -q 'inventory skew config fail-fast' book/Volume3-RiskEngine/Chapter01-Inventory.md
+grep -q 'snapshots `InventoryServiceConfig` at construction after validation' book/Volume3-RiskEngine/Chapter01-Inventory.md
 test -s backend/src/modules/hedge/hedge.service.ts
 grep -q 'checkHealth' backend/src/modules/hedge/hedge.service.ts
 test -s backend/src/modules/metrics/metrics.service.ts
