@@ -30,7 +30,7 @@ export class PnlService implements PnlStore {
         throw new Error(`PnL record index is inconsistent for ${existingPnlId}`);
       }
 
-      return existingRecord;
+      return clonePnlTradeRecord(existingRecord);
     }
 
     const grossPnl = calculateGrossPnl(input.quote.amountIn, input.quote.amountOut);
@@ -50,7 +50,7 @@ export class PnlService implements PnlStore {
 
     this.trades.set(record.pnlId, record);
     this.pnlIdsByQuoteModel.set(this.quoteModelKey(input.quoteId, record.model), record.pnlId);
-    return record;
+    return clonePnlTradeRecord(record);
   }
 
   summary(): PnlSummaryResponse {
@@ -61,7 +61,7 @@ export class PnlService implements PnlStore {
       status: "ok",
       totalTrades: trades.length,
       grossPnlTokenOut: grossPnl.toString() as IntString,
-      trades,
+      trades: trades.map(clonePnlTradeRecord),
     };
   }
 
@@ -72,6 +72,10 @@ export class PnlService implements PnlStore {
 
 function calculateGrossPnl(amountIn: string, amountOut: string): bigint {
   return BigInt(amountIn) - BigInt(amountOut);
+}
+
+function clonePnlTradeRecord(record: PnlTradeRecord): PnlTradeRecord {
+  return { ...record };
 }
 
 function calculateGrossPnlBps(amountIn: string, grossPnl: bigint): number {

@@ -68,6 +68,37 @@ test("PnlService returns the existing attribution record for quote retries", () 
   assert.deepEqual(summary.trades, [first]);
 });
 
+test("PnlService returns defensive copies of PnL trade records", () => {
+  const pnl = new PnlService();
+
+  const first = pnl.recordSettlement({
+    quoteId: "q_copy",
+    quote: baseQuote,
+  });
+  first.grossPnlTokenOut = "999999";
+  first.amountOut = "1";
+
+  const retry = pnl.recordSettlement({
+    quoteId: "q_copy",
+    quote: {
+      ...baseQuote,
+      amountOut: "985",
+      nonce: "2",
+    },
+  });
+
+  assert.notEqual(retry, first);
+  assert.equal(retry.grossPnlTokenOut, "10");
+  assert.equal(retry.amountOut, baseQuote.amountOut);
+
+  const summary = pnl.summary();
+  summary.trades[0].grossPnlTokenOut = "888888";
+
+  const reloaded = pnl.summary();
+  assert.equal(reloaded.grossPnlTokenOut, "10");
+  assert.equal(reloaded.trades[0].grossPnlTokenOut, "10");
+});
+
 test("PnlService rejects unsafe attribution inputs before recording", () => {
   const pnl = new PnlService();
 

@@ -609,8 +609,11 @@ grep -q 'simulated_mid_price_v1' backend/src/modules/pnl/pnl.service.ts
 grep -q 'pnlIdsByQuoteModel' backend/src/modules/pnl/pnl.service.ts
 grep -q 'assertPnlInput(input)' backend/src/modules/pnl/pnl.service.ts
 grep -q 'amountOut must be greater than or equal to quote.minAmountOut' backend/src/modules/pnl/pnl.service.ts
+grep -q 'clonePnlTradeRecord' backend/src/modules/pnl/pnl.service.ts
 grep -q 'returns the existing attribution record for quote retries' backend/test/pnl.test.mjs
+grep -q 'returns defensive copies of PnL trade records' backend/test/pnl.test.mjs
 grep -q 'PnlService rejects unsafe attribution inputs before recording' backend/test/pnl.test.mjs
+grep -q 'PnlService` returns defensive copies from `recordSettlement()` and `summary()`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_latency_seconds' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_rejections_total' backend/src/modules/metrics/metrics.service.ts
