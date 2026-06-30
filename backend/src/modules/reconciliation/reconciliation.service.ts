@@ -1,4 +1,4 @@
-import type { HedgeIntentService } from "../hedge/hedge.service.js";
+import type { HedgeIntent, HedgeIntentService } from "../hedge/hedge.service.js";
 import type { PnlStore } from "../pnl/pnl.service.js";
 import type { QuoteRecord, QuoteRepository } from "../quote/quote.repository.js";
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
@@ -164,20 +164,15 @@ export class ReconciliationService {
 
     for (const event of events) {
       try {
-        if (this.deps.hedgeService.getHedgeIntentBySettlementEvent(event.settlementEventId)) {
+        const existingIntent = this.deps.hedgeService.getHedgeIntentBySettlementEvent(event.settlementEventId);
+        const hedgeIntent = hedgeIntentFromSettlementEvent(event);
+        this.deps.hedgeService.createHedgeIntent(hedgeIntent);
+
+        if (existingIntent) {
           report.skippedHedgeIntents += 1;
           continue;
         }
 
-        this.deps.hedgeService.createHedgeIntent({
-          settlementEventId: event.settlementEventId,
-          quoteId: event.quoteId,
-          chainId: event.chainId,
-          token: event.tokenOut,
-          side: "buy",
-          amount: event.amountOut,
-          reason: "inventory_rebalance",
-        });
         report.repairedHedgeIntents += 1;
       } catch (error) {
         report.errors.push({
@@ -205,6 +200,20 @@ function isAlreadyReconciled(
 
 function cloneReconciliationServiceDeps(deps: ReconciliationServiceDeps): ReconciliationServiceDeps {
   return { ...deps };
+}
+
+function hedgeIntentFromSettlementEvent(
+  event: ReturnType<SettlementEventStore["listSettlementEvents"]>[number],
+): HedgeIntent {
+  return {
+    settlementEventId: event.settlementEventId,
+    quoteId: event.quoteId,
+    chainId: event.chainId,
+    token: event.tokenOut,
+    side: "buy",
+    amount: event.amountOut,
+    reason: "inventory_rebalance",
+  };
 }
 
 function signedQuoteFromRecord(record: QuoteRecord): SignedQuote {

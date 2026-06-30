@@ -596,6 +596,8 @@ grep -q 'cloneReconciliationServiceDeps' backend/src/modules/reconciliation/reco
 grep -q 'reconcileSettlementToQuote' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileSettlementToHedge' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileSettlementToPnl' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'hedgeIntentFromSettlementEvent' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'createHedgeIntent(hedgeIntent)' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'SIGNED_QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'repairs quote status from settlement events' backend/test/reconciliation.test.mjs
@@ -603,9 +605,11 @@ grep -q 'reports terminal quote conflicts without stopping later events' backend
 grep -q 'reports settlement events whose quotes are missing' backend/test/reconciliation.test.mjs
 grep -q 'ReconciliationService snapshots dependency object at construction' backend/test/reconciliation.test.mjs
 grep -q 'repairs hedge intents from settlement events' backend/test/reconciliation.test.mjs
+grep -q 'reports hedge intent conflicts without stopping later events' backend/test/reconciliation.test.mjs
 grep -q 'requires hedge service for settlement-to-hedge repair' backend/test/reconciliation.test.mjs
 grep -q 'repairs PnL records from settlement events and signed quotes' backend/test/reconciliation.test.mjs
 grep -q 'reports PnL reconciliation events whose signed quote is missing' backend/test/reconciliation.test.mjs
+grep -q 'reports PnL conflicts without stopping later events' backend/test/reconciliation.test.mjs
 grep -q 'requires PnL service for settlement-to-PnL repair' backend/test/reconciliation.test.mjs
 grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'SECP256K1N_HALF' backend/src/modules/settlement/settlement-verifier.service.ts
@@ -622,6 +626,8 @@ grep -q 'enabledChainIds` 和 `tokenWhitelist` 必须非空且不能包含重复
 grep -q 'snapshots `LocalSettlementVerifierPolicy` at construction after validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SkeletonExecutionService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'reports PnL attribution conflicts per settlement event' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'validates existing hedge intents against settlement events' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
 grep -q 'recordHedgeFailure' backend/src/modules/execution/execution.service.ts
 grep -q 'hedgeOrderId: hedgeResult?.hedgeOrderId' backend/src/modules/execution/execution.service.ts

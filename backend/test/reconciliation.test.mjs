@@ -230,6 +230,54 @@ test("ReconciliationService reports PnL reconciliation events whose signed quote
   });
 });
 
+test("ReconciliationService reports PnL conflicts without stopping later events", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const pnlService = new PnlService();
+  const settlementEventService = new SettlementEventService(new InventoryService());
+  const conflictingQuote = { ...quote, amountOut: "985" };
+  const laterQuote = { ...quote, amountOut: "970", minAmountOut: "960", nonce: "3" };
+  await saveSignedQuote(quoteRepository, "q_pnl_conflict", quote);
+  await saveSignedQuote(quoteRepository, "q_pnl_after_conflict", laterQuote);
+  pnlService.recordSettlement({
+    quoteId: "q_pnl_conflict",
+    quote: conflictingQuote,
+  });
+
+  const conflictSettlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_pnl_conflict",
+    quote,
+    txHash: `0x${"13".repeat(32)}`,
+  });
+  const laterSettlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_pnl_after_conflict",
+    quote: laterQuote,
+    txHash: `0x${"14".repeat(32)}`,
+  });
+
+  const report = await new ReconciliationService({
+    pnlService,
+    quoteRepository,
+    settlementEventService,
+  }).reconcileSettlementToPnl();
+
+  assert.equal(report.scannedSettlementEvents, 2);
+  assert.equal(report.repairedPnlRecords, 1);
+  assert.equal(report.skippedPnlRecords, 0);
+  assert.deepEqual(report.errors, [
+    {
+      settlementEventId: conflictSettlement.event.settlementEventId,
+      quoteId: "q_pnl_conflict",
+      reason: "PnL record conflict for pnl_q_pnl_conflict",
+    },
+  ]);
+
+  const summary = pnlService.summary();
+  assert.equal(summary.totalTrades, 2);
+  assert.equal(summary.trades.find((trade) => trade.quoteId === "q_pnl_conflict").amountOut, "985");
+  assert.equal(summary.trades.find((trade) => trade.quoteId === "q_pnl_after_conflict").pnlId, "pnl_q_pnl_after_conflict");
+  assert.equal(laterSettlement.event.quoteId, "q_pnl_after_conflict");
+});
+
 test("ReconciliationService requires PnL service for settlement-to-PnL repair", async () => {
   const reconciliation = new ReconciliationService({
     quoteRepository: new InMemoryQuoteRepository(),
@@ -277,6 +325,55 @@ test("ReconciliationService repairs hedge intents from settlement events", async
     skippedHedgeIntents: 1,
     errors: [],
   });
+});
+
+test("ReconciliationService reports hedge intent conflicts without stopping later events", async () => {
+  const hedgeService = new HedgeService();
+  const settlementEventService = new SettlementEventService(new InventoryService());
+  const laterQuote = { ...quote, amountOut: "970", minAmountOut: "960", nonce: "4" };
+  const conflictSettlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_hedge_conflict",
+    quote,
+    txHash: `0x${"15".repeat(32)}`,
+  });
+  const laterSettlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_hedge_after_conflict",
+    quote: laterQuote,
+    txHash: `0x${"16".repeat(32)}`,
+  });
+  const conflictingHedge = hedgeService.createHedgeIntent({
+    settlementEventId: conflictSettlement.event.settlementEventId,
+    quoteId: "q_different_hedge_quote",
+    chainId: quote.chainId,
+    token: quote.tokenOut,
+    side: "buy",
+    amount: "1",
+    reason: "inventory_rebalance",
+  });
+
+  const report = await new ReconciliationService({
+    hedgeService,
+    quoteRepository: new InMemoryQuoteRepository(),
+    settlementEventService,
+  }).reconcileSettlementToHedge();
+
+  assert.equal(report.scannedSettlementEvents, 2);
+  assert.equal(report.repairedHedgeIntents, 1);
+  assert.equal(report.skippedHedgeIntents, 0);
+  assert.deepEqual(report.errors, [
+    {
+      settlementEventId: conflictSettlement.event.settlementEventId,
+      quoteId: "q_hedge_conflict",
+      reason: `Hedge intent conflict for ${conflictingHedge.hedgeOrderId}`,
+    },
+  ]);
+
+  const conflictHedge = hedgeService.getHedgeIntentBySettlementEvent(conflictSettlement.event.settlementEventId);
+  const laterHedge = hedgeService.getHedgeIntentBySettlementEvent(laterSettlement.event.settlementEventId);
+  assert.equal(conflictHedge.quoteId, "q_different_hedge_quote");
+  assert.equal(conflictHedge.amount, "1");
+  assert.equal(laterHedge.quoteId, "q_hedge_after_conflict");
+  assert.equal(laterHedge.amount, "970");
 });
 
 test("ReconciliationService requires hedge service for settlement-to-hedge repair", async () => {
