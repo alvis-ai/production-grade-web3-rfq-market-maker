@@ -512,6 +512,73 @@ test("InMemoryQuoteRepository preserves settlement metadata across status update
   assert.equal(status.pnlId, "pnl_1");
 });
 
+test("InMemoryQuoteRepository rejects conflicting quote status metadata rewrites", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const signedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+    chainId: 1,
+  };
+
+  await quoteRepository.saveSigned({
+    quoteId: "q_status_conflict",
+    snapshotId: "snapshot_1",
+    quote: signedQuote,
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+  await quoteRepository.markStatus("q_status_conflict", "submitted", {
+    txHash: `0x${"aa".repeat(32)}`,
+    settlementEventId: "se_1",
+  });
+
+  await assert.rejects(
+    quoteRepository.markStatus("q_status_conflict", "settled", {
+      txHash: `0x${"bb".repeat(32)}`,
+    }),
+    /Quote status txHash cannot be changed once set/,
+  );
+  await assert.rejects(
+    quoteRepository.markStatus("q_status_conflict", "settled", {
+      settlementEventId: "se_2",
+    }),
+    /Quote status settlementEventId cannot be changed once set/,
+  );
+
+  await quoteRepository.markStatus("q_status_conflict", "settled", {
+    txHash: `0x${"AA".repeat(32)}`,
+    settlementEventId: "se_1",
+    hedgeOrderId: "h_1",
+    pnlId: "pnl_1",
+  });
+  await assert.rejects(
+    quoteRepository.markStatus("q_status_conflict", "settled", {
+      hedgeOrderId: "h_2",
+    }),
+    /Quote status hedgeOrderId cannot be changed once set/,
+  );
+  await assert.rejects(
+    quoteRepository.markStatus("q_status_conflict", "settled", {
+      pnlId: "pnl_2",
+    }),
+    /Quote status pnlId cannot be changed once set/,
+  );
+
+  const status = await quoteRepository.findStatus("q_status_conflict");
+  assert.equal(status.status, "settled");
+  assert.equal(status.txHash, `0x${"aa".repeat(32)}`);
+  assert.equal(status.settlementEventId, "se_1");
+  assert.equal(status.hedgeOrderId, "h_1");
+  assert.equal(status.pnlId, "pnl_1");
+});
+
 test("InMemoryQuoteRepository rejects terminal quote status regressions", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const signedQuote = {

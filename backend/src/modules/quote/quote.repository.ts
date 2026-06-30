@@ -210,15 +210,14 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     }
     assertStatusTransition(current, status);
     assertQuoteStatusMetadata(metadata);
+    assertQuoteStatusMetadataDoesNotConflict(current, metadata);
     assertSettlementStatusMetadata(current, status, metadata);
+    const statusMetadata = mergeQuoteStatusMetadata(current, metadata);
 
     this.records.set(quoteId, {
       ...current,
       status,
-      txHash: metadata?.txHash ?? current.txHash,
-      settlementEventId: metadata?.settlementEventId ?? current.settlementEventId,
-      hedgeOrderId: metadata?.hedgeOrderId ?? current.hedgeOrderId,
-      pnlId: metadata?.pnlId ?? current.pnlId,
+      ...statusMetadata,
     });
   }
 
@@ -561,6 +560,19 @@ function assertQuoteStatusMetadata(metadata: QuoteStatusMetadata | undefined): v
   }
 }
 
+function assertQuoteStatusMetadataDoesNotConflict(record: QuoteRecord, metadata: QuoteStatusMetadata | undefined): void {
+  if (!metadata) {
+    return;
+  }
+
+  assertMetadataFieldDoesNotConflict(record.txHash, metadata.txHash, "txHash", (left, right) => {
+    return left.toLowerCase() === right.toLowerCase();
+  });
+  assertMetadataFieldDoesNotConflict(record.settlementEventId, metadata.settlementEventId, "settlementEventId");
+  assertMetadataFieldDoesNotConflict(record.hedgeOrderId, metadata.hedgeOrderId, "hedgeOrderId");
+  assertMetadataFieldDoesNotConflict(record.pnlId, metadata.pnlId, "pnlId");
+}
+
 function assertSettlementStatusMetadata(
   record: QuoteRecord,
   nextStatus: QuoteLifecycleStatus,
@@ -577,6 +589,26 @@ function assertSettlementStatusMetadata(
   }
   if (settlementEventId === undefined) {
     throw new Error(`Quote ${record.quoteId} ${nextStatus} status requires settlementEventId`);
+  }
+}
+
+function mergeQuoteStatusMetadata(record: QuoteRecord, metadata: QuoteStatusMetadata | undefined): QuoteStatusMetadata {
+  return {
+    txHash: record.txHash ?? metadata?.txHash,
+    settlementEventId: record.settlementEventId ?? metadata?.settlementEventId,
+    hedgeOrderId: record.hedgeOrderId ?? metadata?.hedgeOrderId,
+    pnlId: record.pnlId ?? metadata?.pnlId,
+  };
+}
+
+function assertMetadataFieldDoesNotConflict(
+  currentValue: string | undefined,
+  nextValue: string | undefined,
+  field: keyof QuoteStatusMetadata,
+  compare: (left: string, right: string) => boolean = (left, right) => left === right,
+): void {
+  if (currentValue !== undefined && nextValue !== undefined && !compare(currentValue, nextValue)) {
+    throw new Error(`Quote status ${field} cannot be changed once set`);
   }
 }
 
