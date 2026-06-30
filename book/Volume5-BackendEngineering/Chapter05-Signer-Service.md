@@ -118,6 +118,7 @@ signQuote(input: SignQuoteInput): Promise<`0x${string}`>
 - `/ready` 使用固定 probe quote 执行 signer sign + verify 检查；探针签名不返回给用户，也不改变 quote repository 状态。
 - Local signer validates private key, settlement address, quoteId, snapshotId and signed quote shape before producing any EIP-712 signature; malformed verification inputs return `false` instead of leaking lower-level signing-library errors.
 - Local signer verification rejects high-s ECDSA signatures and invalid `v` values before address recovery, matching `RFQSettlement` canonical signature rules so `/submit` cannot accept a signature that chain settlement would reject.
+- `LocalEIP712SignerService` snapshots `LocalEIP712SignerConfig` at construction after validation. External callers must not be able to mutate the settlement address after construction and silently change the EIP-712 verifying contract.
 - Production signer 使用 KMS/HSM，并保持同一 `signQuote` 接口。
 - Key rotation 写入 runbook。
 

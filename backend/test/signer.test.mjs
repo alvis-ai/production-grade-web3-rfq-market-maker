@@ -89,6 +89,35 @@ test("LocalEIP712SignerService binds signatures to the settlement contract addre
   assert.equal(await otherSettlementSigner.verifyQuoteSignature(quote, signature), false);
 });
 
+test("LocalEIP712SignerService snapshots signer configuration at construction", async () => {
+  const otherSettlementAddress = "0x0000000000000000000000000000000000000005";
+  const mutableConfig = {
+    privateKey,
+    settlementAddress,
+  };
+  const signer = new LocalEIP712SignerService(mutableConfig);
+
+  mutableConfig.settlementAddress = otherSettlementAddress;
+
+  const signature = await signer.signQuote({
+    quote,
+    quoteId: "q_test",
+    snapshotId: "snapshot_test",
+  });
+  const originalSettlementSigner = new LocalEIP712SignerService({
+    privateKey,
+    settlementAddress,
+  });
+  const otherSettlementSigner = new LocalEIP712SignerService({
+    privateKey,
+    settlementAddress: otherSettlementAddress,
+  });
+
+  assert.equal(await signer.verifyQuoteSignature(quote, signature), true);
+  assert.equal(await originalSettlementSigner.verifyQuoteSignature(quote, signature), true);
+  assert.equal(await otherSettlementSigner.verifyQuoteSignature(quote, signature), false);
+});
+
 test("LocalEIP712SignerService rejects unsafe signer configuration at construction", () => {
   assert.throws(
     () =>

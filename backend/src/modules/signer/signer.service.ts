@@ -41,12 +41,14 @@ export interface LocalEIP712SignerConfig {
 }
 
 export class LocalEIP712SignerService implements SignerService {
+  private readonly config: LocalEIP712SignerConfig;
   private readonly account: PrivateKeyAccount;
 
-  constructor(private readonly config: LocalEIP712SignerConfig) {
+  constructor(config: LocalEIP712SignerConfig) {
     assertPrivateKey(config.privateKey);
     assertAddress(config.settlementAddress, "settlementAddress");
-    this.account = privateKeyToAccount(config.privateKey);
+    this.config = cloneLocalEIP712SignerConfig(config);
+    this.account = privateKeyToAccount(this.config.privateKey);
   }
 
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
@@ -69,6 +71,10 @@ export class LocalEIP712SignerService implements SignerService {
 
     return recovered.toLowerCase() === this.account.address.toLowerCase();
   }
+}
+
+function cloneLocalEIP712SignerConfig(config: LocalEIP712SignerConfig): LocalEIP712SignerConfig {
+  return { ...config };
 }
 
 export class ObservedSignerService implements SignerService {
