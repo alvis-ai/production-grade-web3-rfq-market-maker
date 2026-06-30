@@ -148,6 +148,7 @@ Key metrics include:
 - Realized PnL alerting uses output-token units in the reference implementation; production dashboards should reconcile this with quote-level ClickHouse attribution and treasury accounting.
 - PnL throughput alerting should compare settlements with realized PnL trades because best-effort attribution must not fail silently.
 - Use ClickHouse for quote-level analysis.
+- ClickHouse dashboards may explain quote funnels, latency, PnL attribution and customer support questions, but they must never be used as the operational source of truth for quote status, settlement state, inventory, hedge execution, readiness or reconciliation decisions.
 - Every critical alert links to runbook.
 
 ## Failure Scenarios

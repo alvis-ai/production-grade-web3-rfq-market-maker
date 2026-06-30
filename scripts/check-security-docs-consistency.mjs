@@ -12,6 +12,10 @@ const docs = {
   openapi: await readFile("docs/api/openapi.yaml", "utf8"),
   apiGateway: await readFile("book/Volume5-BackendEngineering/Chapter01-API-Gateway.md", "utf8"),
   riskService: await readFile("book/Volume5-BackendEngineering/Chapter04-Risk-Service.md", "utf8"),
+  storageAdr: await readFile("docs/adr/ADR-0003-Use-Postgres-Redis-Kafka-ClickHouse.md", "utf8"),
+  erDiagram: await readFile("docs/database/er-diagram.md", "utf8"),
+  metricsService: await readFile("book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md", "utf8"),
+  monitoring: await readFile("book/Volume7-ProductionDeployment/Chapter03-Monitoring.md", "utf8"),
 };
 
 const requiredHeadings = {
@@ -146,6 +150,7 @@ const implementedAuditControls = [
   "Sensitive thresholds are not exposed to users.",
   "Settlement events use `(chainId, txHash, logIndex)` idempotency.",
   "Hedge actions are linked to settlement events.",
+  "ClickHouse analytics do not become operational source of truth.",
   "Alerts exist for signer failures, risk reject spikes, event lag and hedge failures.",
   "Dashboards cover quote latency, settlement failures and inventory exposure.",
   "Signer key rotation is documented.",
@@ -164,7 +169,6 @@ const intentionallyOpenAuditControls = [
   "AccessControl protects signer and token whitelist updates.",
   "Indexer handles chain reorgs.",
   "Inventory updates are replayable.",
-  "ClickHouse analytics do not become operational source of truth.",
 ];
 
 for (const control of intentionallyOpenAuditControls) {
@@ -238,6 +242,36 @@ for (const sensitivePublicField of [
     !docs.openapi.includes(sensitivePublicField),
     `OpenAPI public contract must not expose sensitive risk field: ${sensitivePublicField}`,
   );
+}
+
+for (const term of [
+  "PostgreSQL 是操作型状态来源，ClickHouse 是分析副本",
+  "ClickHouse 保存高吞吐分析事件",
+]) {
+  assert.ok(docs.storageAdr.includes(term), `storage ADR must keep ClickHouse analytical-only boundary: ${term}`);
+}
+
+for (const term of [
+  "PostgreSQL 保存权威业务状态，ClickHouse 保存分析副本",
+  "权威成交、对冲和 PnL 明细",
+]) {
+  assert.ok(docs.erDiagram.includes(term), `ER diagram must keep operational truth boundary: ${term}`);
+}
+
+for (const term of [
+  "ClickHouse is an analytics replica only",
+  "must read operational truth from PostgreSQL, settlement events and in-process service state",
+  "never from ClickHouse query results",
+]) {
+  assert.ok(docs.metricsService.includes(term), `metrics docs must keep ClickHouse out of operational decisions: ${term}`);
+}
+
+for (const term of [
+  "ClickHouse dashboards may explain quote funnels",
+  "must never be used as the operational source of truth",
+  "quote status, settlement state, inventory, hedge execution, readiness or reconciliation decisions",
+]) {
+  assert.ok(docs.monitoring.includes(term), `monitoring docs must keep ClickHouse out of operational decisions: ${term}`);
 }
 
 const mermaidBlocks = [...docs.threatModel.matchAll(/^```mermaid$/gm)].length +

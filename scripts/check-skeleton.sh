@@ -1335,6 +1335,7 @@ grep -Fq -- '- [x] `submitQuote` rejects expired quotes.' docs/security/audit-ch
 grep -Fq -- '- [x] Risk Engine runs before Signer Service.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Sensitive thresholds are not exposed to users.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] ClickHouse analytics do not become operational source of truth.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Signer key rotation is documented.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Emergency pause procedure is documented.' docs/security/audit-checklist.md
 grep -Fq -- '- [ ] `submitQuote` uses SafeERC20 for transfers.' docs/security/audit-checklist.md
@@ -1349,6 +1350,10 @@ grep -q 'OpenAPI public contract must not expose sensitive risk field' scripts/c
 grep -q 'Public API responses must not expose internal risk thresholds' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'policyVersion or internal reasonCode values' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'pricing adjustment breakdown' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'ClickHouse is an analytics replica only' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'never from ClickHouse query results' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'must never be used as the operational source of truth' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+grep -q 'storage ADR must keep ClickHouse analytical-only boundary' scripts/check-security-docs-consistency.mjs
 grep -q 'Pod Termination Or Rollout Drain' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'Fastify close' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'terminationGracePeriodSeconds=30' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md

@@ -34,7 +34,7 @@
 - [ ] Indexer handles chain reorgs.
 - [ ] Inventory updates are replayable.
 - [x] Hedge actions are linked to settlement events.
-- [ ] ClickHouse analytics do not become operational source of truth.
+- [x] ClickHouse analytics do not become operational source of truth.
 
 ## Operations
 
