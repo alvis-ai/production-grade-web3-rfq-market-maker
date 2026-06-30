@@ -1,0 +1,113 @@
+import type { RiskDecision, RiskDecisionStatus, RiskRejectReasonCode } from "./risk.engine.js";
+
+const riskRejectReasonCodes = new Set<string>([
+  "CHAIN_NOT_ENABLED",
+  "TOKEN_NOT_ALLOWED",
+  "AMOUNT_IN_LIMIT_EXCEEDED",
+  "AMOUNT_OUT_TOO_SMALL",
+  "SLIPPAGE_TOO_WIDE",
+  "QUOTED_SPREAD_TOO_WIDE",
+  "TOXIC_FLOW_RESTRICTED_USER",
+  "TOXIC_FLOW_SCORE_EXCEEDED",
+  "TOKEN_IN_INVENTORY_LIMIT_EXCEEDED",
+  "TOKEN_OUT_INVENTORY_LIMIT_EXCEEDED",
+  "RISK_ENGINE_UNAVAILABLE",
+]);
+
+export interface RiskDecisionRecord {
+  riskDecisionId: string;
+  quoteId: string;
+  decision: RiskDecisionStatus;
+  reasonCode?: RiskRejectReasonCode;
+  policyVersion: string;
+  createdAt: string;
+}
+
+export interface SaveRiskDecisionInput {
+  quoteId: string;
+  decision: RiskDecision;
+}
+
+export interface RiskDecisionStore {
+  checkHealth?(): void | Promise<void>;
+  saveDecision(input: SaveRiskDecisionInput): Promise<RiskDecisionRecord>;
+  findByQuoteId(quoteId: string): Promise<RiskDecisionRecord | undefined>;
+}
+
+export class InMemoryRiskDecisionRepository implements RiskDecisionStore {
+  private readonly recordsByQuoteId = new Map<string, RiskDecisionRecord>();
+
+  checkHealth(): void {
+    this.recordsByQuoteId.get("__readiness_probe__");
+  }
+
+  async saveDecision(input: SaveRiskDecisionInput): Promise<RiskDecisionRecord> {
+    assertRiskDecisionInput(input);
+    const existing = this.recordsByQuoteId.get(input.quoteId);
+    const nextRecord = toRiskDecisionRecord(input);
+    if (existing) {
+      if (!isSameRiskDecision(existing, nextRecord)) {
+        throw new Error(`Risk decision conflict for ${input.quoteId}`);
+      }
+
+      return cloneRiskDecisionRecord(existing);
+    }
+
+    this.recordsByQuoteId.set(nextRecord.quoteId, nextRecord);
+    return cloneRiskDecisionRecord(nextRecord);
+  }
+
+  async findByQuoteId(quoteId: string): Promise<RiskDecisionRecord | undefined> {
+    assertNonEmptyString(quoteId, "quoteId");
+    const record = this.recordsByQuoteId.get(quoteId);
+    return record ? cloneRiskDecisionRecord(record) : undefined;
+  }
+}
+
+function toRiskDecisionRecord(input: SaveRiskDecisionInput): RiskDecisionRecord {
+  return {
+    riskDecisionId: `rd_${input.quoteId}`,
+    quoteId: input.quoteId,
+    decision: input.decision.status,
+    reasonCode: input.decision.status === "rejected" ? input.decision.reasonCode : undefined,
+    policyVersion: input.decision.policyVersion,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function assertRiskDecisionInput(input: SaveRiskDecisionInput): void {
+  assertNonEmptyString(input.quoteId, "quoteId");
+  assertNonEmptyString(input.decision.policyVersion, "policyVersion");
+
+  if (input.decision.status !== "approved" && input.decision.status !== "rejected") {
+    throw new Error("Risk decision status must be approved or rejected");
+  }
+
+  if (input.decision.status === "approved") {
+    return;
+  }
+
+  assertNonEmptyString(input.decision.reasonCode, "reasonCode");
+  if (!riskRejectReasonCodes.has(input.decision.reasonCode)) {
+    throw new Error("Risk decision reasonCode must be a stable risk reject reason");
+  }
+}
+
+function assertNonEmptyString(value: string, field: string): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Risk decision ${field} must be a non-empty string`);
+  }
+}
+
+function isSameRiskDecision(left: RiskDecisionRecord, right: RiskDecisionRecord): boolean {
+  return (
+    left.quoteId === right.quoteId &&
+    left.decision === right.decision &&
+    left.reasonCode === right.reasonCode &&
+    left.policyVersion === right.policyVersion
+  );
+}
+
+function cloneRiskDecisionRecord(record: RiskDecisionRecord): RiskDecisionRecord {
+  return { ...record };
+}

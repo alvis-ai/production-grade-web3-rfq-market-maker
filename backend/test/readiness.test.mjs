@@ -8,6 +8,7 @@ import { MetricsService } from "../dist/modules/metrics/metrics.service.js";
 import { PnlService } from "../dist/modules/pnl/pnl.service.js";
 import { FormulaPricingEngine } from "../dist/modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
+import { InMemoryRiskDecisionRepository } from "../dist/modules/risk/risk-decision.repository.js";
 import { BasicRiskEngine } from "../dist/modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "../dist/modules/routing/routing.engine.js";
 import { SettlementEventService } from "../dist/modules/settlement/settlement-event.service.js";
@@ -20,6 +21,7 @@ const readinessComponents = [
   "risk",
   "signer",
   "quoteRepository",
+  "riskDecisionStore",
   "inventory",
   "execution",
   "settlementEventStore",
@@ -51,6 +53,7 @@ test("ReadinessService degrades the aggregate status when a dependency probe fai
   assert.equal(readiness.status, "degraded");
   assert.deepEqual(Object.keys(readiness.components), readinessComponents);
   assert.equal(readiness.components.quoteRepository, "degraded");
+  assert.equal(readiness.components.riskDecisionStore, "ok");
   assert.equal(readiness.components.marketData, "ok");
   assert.equal(readiness.components.routing, "ok");
   assert.equal(readiness.components.pricing, "ok");
@@ -111,6 +114,17 @@ test("ReadinessService snapshots dependency object at construction", async () =>
       throw new Error("mutated quote repository used");
     },
   };
+  deps.riskDecisionStore = {
+    checkHealth() {
+      throw new Error("mutated risk decision store used");
+    },
+    async saveDecision() {
+      throw new Error("mutated risk decision store used");
+    },
+    async findByQuoteId() {
+      return undefined;
+    },
+  };
 
   const readiness = await service.check();
 
@@ -163,6 +177,7 @@ function readinessServiceDeps(overrides = {}) {
       settlementAddress: "0x0000000000000000000000000000000000000004",
     }),
     quoteRepository: overrides.quoteRepository ?? new InMemoryQuoteRepository(),
+    riskDecisionStore: overrides.riskDecisionStore ?? new InMemoryRiskDecisionRepository(),
     inventoryService,
     hedgeService: overrides.hedgeService ?? new HedgeService(),
     settlementEventService: overrides.settlementEventService ?? new SettlementEventService(inventoryService),

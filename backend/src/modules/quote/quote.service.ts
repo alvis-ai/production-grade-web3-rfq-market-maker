@@ -28,6 +28,7 @@ import type {
   SaveSignedQuoteInput,
 } from "./quote.repository.js";
 import type { RiskDecision, RiskEngine, RiskInput } from "../risk/risk.engine.js";
+import type { RiskDecisionStore, SaveRiskDecisionInput } from "../risk/risk-decision.repository.js";
 import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
@@ -38,6 +39,7 @@ export interface QuoteServiceDeps {
   pricingEngine: PricingEngine;
   hedgeService?: HedgeIntentService;
   quoteRepository: QuoteRepository;
+  riskDecisionStore: RiskDecisionStore;
   riskEngine: RiskEngine;
   routingEngine: RoutingEngine;
   signerService: SignerService;
@@ -117,6 +119,10 @@ export class QuoteService {
     });
 
     const risk = await this.evaluateRisk({ request: validatedRequest, pricing, inventoryProjection });
+    await this.saveRiskDecision({
+      quoteId,
+      decision: risk,
+    });
     if (risk.status !== "approved") {
       await this.saveRejectedQuoteBestEffort({
         quoteId,
@@ -237,6 +243,14 @@ export class QuoteService {
   private async saveSignedQuote(input: SaveSignedQuoteInput): Promise<void> {
     try {
       await this.deps.quoteRepository.saveSigned(input);
+    } catch (error) {
+      throw quoteStoreFailure(error);
+    }
+  }
+
+  private async saveRiskDecision(input: SaveRiskDecisionInput): Promise<void> {
+    try {
+      await this.deps.riskDecisionStore.saveDecision(input);
     } catch (error) {
       throw quoteStoreFailure(error);
     }

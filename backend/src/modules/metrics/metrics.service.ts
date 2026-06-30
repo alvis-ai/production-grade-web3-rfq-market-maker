@@ -330,6 +330,7 @@ const readinessDependencyComponents = [
   "risk",
   "signer",
   "quoteRepository",
+  "riskDecisionStore",
   "inventory",
   "execution",
   "settlementEventStore",

@@ -10,6 +10,7 @@ import { FormulaPricingEngine, type PricingEngine } from "./modules/pricing/pric
 import { InMemoryQuoteRepository, type QuoteRepository } from "./modules/quote/quote.repository.js";
 import { defaultQuoteServiceConfig, QuoteService } from "./modules/quote/quote.service.js";
 import { InMemoryRateLimiter, type RateLimitConfig, type RateLimitedEndpoint } from "./modules/rate-limit/rate-limit.service.js";
+import { InMemoryRiskDecisionRepository, type RiskDecisionStore } from "./modules/risk/risk-decision.repository.js";
 import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine, type RoutingEngine } from "./modules/routing/routing.engine.js";
 import { SettlementEventService, type SettlementEventStore } from "./modules/settlement/settlement-event.service.js";
@@ -43,6 +44,7 @@ export interface BuildServerOptions {
   marketDataService?: MarketDataService;
   pricingEngine?: PricingEngine;
   quoteRepository?: QuoteRepository;
+  riskDecisionStore?: RiskDecisionStore;
   riskEngine?: RiskEngine;
   routingEngine?: RoutingEngine;
   hedgeService?: HedgeIntentService;
@@ -85,6 +87,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const metricsService = new MetricsService();
   const signerService = options.signerService ?? new LocalEIP712SignerService(readSignerConfig());
   const quoteRepository = options.quoteRepository ?? new InMemoryQuoteRepository();
+  const riskDecisionStore = options.riskDecisionStore ?? new InMemoryRiskDecisionRepository();
   const routingEngine = options.routingEngine ?? new InternalInventoryRoutingEngine();
   const pricingEngine = options.pricingEngine ?? new FormulaPricingEngine();
   const riskEngine = options.riskEngine ?? new BasicRiskEngine();
@@ -111,6 +114,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     hedgeService,
     pricingEngine,
     quoteRepository,
+    riskDecisionStore,
     riskEngine,
     routingEngine,
     signerService: new ObservedSignerService(signerService, metricsService),
@@ -126,6 +130,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     pnlService,
     pricingEngine,
     quoteRepository,
+    riskDecisionStore,
     riskEngine,
     routingEngine,
     settlementEventService,

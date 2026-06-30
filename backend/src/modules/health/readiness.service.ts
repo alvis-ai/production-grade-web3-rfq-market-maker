@@ -11,6 +11,7 @@ import type { MetricsService } from "../metrics/metrics.service.js";
 import type { PnlStore } from "../pnl/pnl.service.js";
 import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
 import type { QuoteRepository } from "../quote/quote.repository.js";
+import type { RiskDecisionStore } from "../risk/risk-decision.repository.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
 import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
@@ -29,6 +30,7 @@ export interface ReadinessServiceDeps {
   riskEngine: RiskEngine;
   signerService: SignerService;
   quoteRepository: QuoteRepository;
+  riskDecisionStore: RiskDecisionStore;
   inventoryService: InventoryService;
   hedgeService: HedgeIntentService;
   settlementEventService: SettlementEventStore;
@@ -113,6 +115,7 @@ export class ReadinessService {
     const riskStatus = await this.checkRisk();
     const signerStatus = await this.checkSigner();
     const quoteRepositoryStatus = await this.checkDependency(this.deps.quoteRepository);
+    const riskDecisionStoreStatus = await this.checkDependency(this.deps.riskDecisionStore);
     const inventoryStatus = await this.checkDependency(this.deps.inventoryService);
     const hedgeStatus = await this.checkDependency(this.deps.hedgeService);
     const settlementEventStoreStatus = await this.checkDependency(this.deps.settlementEventService);
@@ -125,6 +128,7 @@ export class ReadinessService {
       risk: riskStatus,
       signer: signerStatus,
       quoteRepository: quoteRepositoryStatus,
+      riskDecisionStore: riskDecisionStoreStatus,
       inventory: inventoryStatus,
       // The current execution readiness probe is backed by the hedge intent store.
       execution: hedgeStatus,

@@ -22,6 +22,7 @@ test -s backend/test/quote-service.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
 test -s backend/test/readiness.test.mjs
+test -s backend/test/risk-decision.test.mjs
 test -s backend/test/routing.test.mjs
 test -s backend/test/settlement-event.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
@@ -64,6 +65,21 @@ test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
 grep -q 'checkHealth' backend/src/modules/quote/quote.repository.ts
+test -s backend/src/modules/risk/risk-decision.repository.ts
+grep -q 'interface RiskDecisionStore' backend/src/modules/risk/risk-decision.repository.ts
+grep -q 'class InMemoryRiskDecisionRepository' backend/src/modules/risk/risk-decision.repository.ts
+grep -q 'saveDecision(input: SaveRiskDecisionInput)' backend/src/modules/risk/risk-decision.repository.ts
+grep -q 'findByQuoteId' backend/src/modules/risk/risk-decision.repository.ts
+grep -q 'Risk decision conflict for' backend/src/modules/risk/risk-decision.repository.ts
+grep -q 'riskDecisionStore: RiskDecisionStore' backend/src/modules/quote/quote.service.ts
+grep -q 'await this.saveRiskDecision' backend/src/modules/quote/quote.service.ts
+grep -q 'riskDecisionStoreStatus' backend/src/modules/health/readiness.service.ts
+grep -q 'riskDecisionStore' backend/src/modules/metrics/metrics.service.ts
+grep -q 'InMemoryRiskDecisionRepository stores idempotent approved and rejected decisions' backend/test/risk-decision.test.mjs
+grep -q 'QuoteService persists approved and rejected risk decisions before signer boundary' backend/test/quote-service.test.mjs
+grep -q 'QuoteService blocks signer when risk decision persistence fails' backend/test/quote-service.test.mjs
+grep -q 'persists RiskDecisionStore audit records before signer' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'RiskDecisionStore mirrors the PostgreSQL risk_decisions contract' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 test -s backend/src/modules/execution/execution.service.ts
 test -s backend/src/modules/inventory/inventory.service.ts
 grep -q 'checkHealth' backend/src/modules/inventory/inventory.service.ts

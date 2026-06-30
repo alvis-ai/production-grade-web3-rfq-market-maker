@@ -5,7 +5,8 @@ import { StaticMarketDataService } from "../dist/modules/market-data/market-data
 import { FormulaPricingEngine } from "../dist/modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
 import { defaultQuoteServiceConfig, QuoteService } from "../dist/modules/quote/quote.service.js";
-import { BasicRiskEngine } from "../dist/modules/risk/risk.engine.js";
+import { InMemoryRiskDecisionRepository } from "../dist/modules/risk/risk-decision.repository.js";
+import { BasicRiskEngine, defaultBasicRiskPolicy } from "../dist/modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "../dist/modules/routing/routing.engine.js";
 import { APIError } from "../dist/shared/errors/api-error.js";
 
@@ -1102,6 +1103,7 @@ test("QuoteService uses configured quote TTL when generating signed quote deadli
         marketDataService: new StaticMarketDataService(),
         pricingEngine: new FormulaPricingEngine(),
         quoteRepository: new InMemoryQuoteRepository(),
+        riskDecisionStore: new InMemoryRiskDecisionRepository(),
         riskEngine: new BasicRiskEngine(),
         routingEngine: new InternalInventoryRoutingEngine(),
         signerService: {
@@ -1233,6 +1235,89 @@ test("QuoteService rejects unsafe quote requests before dependency side effects"
   assert.equal(await quoteRepository.findStatus("q_invalid_pair"), undefined);
 });
 
+test("QuoteService persists approved and rejected risk decisions before signer boundary", async () => {
+  const approvedRiskDecisionStore = new InMemoryRiskDecisionRepository();
+  const approvedService = new QuoteService({
+    ...quoteServiceDeps(),
+    riskDecisionStore: approvedRiskDecisionStore,
+  });
+
+  const approvedQuote = await approvedService.createQuote(request);
+  const approvedDecision = await approvedRiskDecisionStore.findByQuoteId(approvedQuote.quoteId);
+
+  assert.equal(approvedDecision.decision, "approved");
+  assert.equal(approvedDecision.reasonCode, undefined);
+  assert.equal(approvedDecision.policyVersion, "basic-risk-v1");
+
+  const rejectedQuoteRepository = new InMemoryQuoteRepository();
+  const rejectedRiskDecisionStore = new InMemoryRiskDecisionRepository();
+  const saveRequested = rejectedQuoteRepository.saveRequested.bind(rejectedQuoteRepository);
+  let rejectedQuoteId;
+  rejectedQuoteRepository.saveRequested = async (input) => {
+    rejectedQuoteId = input.quoteId;
+    await saveRequested(input);
+  };
+  const rejectedService = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteRepository: rejectedQuoteRepository,
+    riskDecisionStore: rejectedRiskDecisionStore,
+    riskEngine: new BasicRiskEngine({
+      ...defaultBasicRiskPolicy,
+      maxSlippageBps: 1,
+    }),
+  });
+
+  await assert.rejects(
+    rejectedService.createQuote(request),
+    (error) => {
+      assert.equal(error.code, "RISK_REJECTED");
+      return true;
+    },
+  );
+
+  const rejectedDecision = await rejectedRiskDecisionStore.findByQuoteId(rejectedQuoteId);
+  assert.equal(rejectedDecision.decision, "rejected");
+  assert.equal(rejectedDecision.reasonCode, "SLIPPAGE_TOO_WIDE");
+  assert.equal(rejectedDecision.policyVersion, "basic-risk-v1");
+});
+
+test("QuoteService blocks signer when risk decision persistence fails", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  let signerCalls = 0;
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteRepository,
+    riskDecisionStore: {
+      checkHealth() {},
+      async saveDecision() {
+        throw new Error("risk decision audit store offline");
+      },
+      async findByQuoteId() {
+        return undefined;
+      },
+    },
+    signerService: {
+      async signQuote() {
+        signerCalls += 1;
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() {
+        return true;
+      },
+    },
+  });
+
+  await assert.rejects(
+    service.createQuote(request),
+    (error) => {
+      assert.equal(error.code, "QUOTE_STORE_UNAVAILABLE");
+      return true;
+    },
+  );
+
+  assert.equal(signerCalls, 0);
+});
+
 test("QuoteService persists expired status when signed quote status is read after deadline", async () => {
   const originalDateNow = Date.now;
   let now = originalDateNow();
@@ -1246,6 +1331,7 @@ test("QuoteService persists expired status when signed quote status is read afte
         marketDataService: new StaticMarketDataService(),
         pricingEngine: new FormulaPricingEngine(),
         quoteRepository,
+        riskDecisionStore: new InMemoryRiskDecisionRepository(),
         riskEngine: new BasicRiskEngine(),
         routingEngine: new InternalInventoryRoutingEngine(),
         signerService: {
@@ -1334,6 +1420,7 @@ test("QuoteService rejects expired signed quotes before signature verification",
         marketDataService: new StaticMarketDataService(),
         pricingEngine: new FormulaPricingEngine(),
         quoteRepository,
+        riskDecisionStore: new InMemoryRiskDecisionRepository(),
         riskEngine: new BasicRiskEngine(),
         routingEngine: new InternalInventoryRoutingEngine(),
         signerService: {
@@ -1426,6 +1513,7 @@ test("QuoteService marks requested quotes as failed when signer is unavailable",
     marketDataService: new StaticMarketDataService(),
     pricingEngine: new FormulaPricingEngine(),
     quoteRepository,
+    riskDecisionStore: new InMemoryRiskDecisionRepository(),
     riskEngine: new BasicRiskEngine(),
     routingEngine: new InternalInventoryRoutingEngine(),
     signerService: {
@@ -1470,6 +1558,7 @@ test("QuoteService preserves signer errors when marking failed quotes fails", as
     marketDataService: new StaticMarketDataService(),
     pricingEngine: new FormulaPricingEngine(),
     quoteRepository,
+    riskDecisionStore: new InMemoryRiskDecisionRepository(),
     riskEngine: new BasicRiskEngine(),
     routingEngine: new InternalInventoryRoutingEngine(),
     signerService: {
@@ -1526,6 +1615,7 @@ test("QuoteService includes hedge risk penalty in pricing input", async () => {
       },
     },
     quoteRepository: new InMemoryQuoteRepository(),
+    riskDecisionStore: new InMemoryRiskDecisionRepository(),
     riskEngine: new BasicRiskEngine(),
     routingEngine: new InternalInventoryRoutingEngine(),
     signerService: {
@@ -1553,6 +1643,7 @@ function quoteServiceDeps() {
     marketDataService: new StaticMarketDataService(),
     pricingEngine: new FormulaPricingEngine(),
     quoteRepository: new InMemoryQuoteRepository(),
+    riskDecisionStore: new InMemoryRiskDecisionRepository(),
     riskEngine: new BasicRiskEngine(),
     routingEngine: new InternalInventoryRoutingEngine(),
     signerService: {
