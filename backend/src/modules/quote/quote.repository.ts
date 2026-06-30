@@ -211,6 +211,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     assertStatusTransition(current, status);
     assertQuoteStatusMetadata(metadata);
     assertQuoteStatusMetadataDoesNotConflict(current, metadata);
+    assertNonSettlementStatusMetadata(current, status, metadata);
     assertSettlementStatusMetadata(current, status, metadata);
     const statusMetadata = mergeQuoteStatusMetadata(current, metadata);
 
@@ -592,6 +593,33 @@ function assertSettlementStatusMetadata(
   }
 }
 
+function assertNonSettlementStatusMetadata(
+  record: QuoteRecord,
+  nextStatus: QuoteLifecycleStatus,
+  metadata: QuoteStatusMetadata | undefined,
+): void {
+  if (nextStatus === "submitted" || nextStatus === "settled") {
+    return;
+  }
+
+  assertNonSettlementMetadataField(record.quoteId, nextStatus, record.txHash, metadata?.txHash, "txHash");
+  assertNonSettlementMetadataField(
+    record.quoteId,
+    nextStatus,
+    record.settlementEventId,
+    metadata?.settlementEventId,
+    "settlementEventId",
+  );
+  assertNonSettlementMetadataField(
+    record.quoteId,
+    nextStatus,
+    record.hedgeOrderId,
+    metadata?.hedgeOrderId,
+    "hedgeOrderId",
+  );
+  assertNonSettlementMetadataField(record.quoteId, nextStatus, record.pnlId, metadata?.pnlId, "pnlId");
+}
+
 function mergeQuoteStatusMetadata(record: QuoteRecord, metadata: QuoteStatusMetadata | undefined): QuoteStatusMetadata {
   return {
     txHash: record.txHash ?? metadata?.txHash,
@@ -609,6 +637,22 @@ function assertMetadataFieldDoesNotConflict(
 ): void {
   if (currentValue !== undefined && nextValue !== undefined && !compare(currentValue, nextValue)) {
     throw new Error(`Quote status ${field} cannot be changed once set`);
+  }
+}
+
+function assertNonSettlementMetadataField(
+  quoteId: string,
+  nextStatus: QuoteLifecycleStatus,
+  currentValue: string | undefined,
+  nextValue: string | undefined,
+  field: keyof QuoteStatusMetadata,
+): void {
+  if (nextValue !== undefined) {
+    throw new Error(`Quote ${quoteId} ${nextStatus} status must not include ${field}`);
+  }
+
+  if (currentValue !== undefined) {
+    throw new Error(`Quote ${quoteId} ${nextStatus} status cannot retain ${field}`);
   }
 }
 
