@@ -269,6 +269,9 @@ CREATE TABLE hedge_orders (
   CONSTRAINT chk_hedge_orders_side CHECK (side IN ('buy', 'sell')),
   CONSTRAINT chk_hedge_orders_status CHECK (status IN ('queued')),
   CONSTRAINT chk_hedge_orders_venue_non_empty CHECK (btrim(venue) <> ''),
+  CONSTRAINT chk_hedge_orders_external_order_id_non_empty CHECK (
+    external_order_id IS NULL OR btrim(external_order_id) <> ''
+  ),
   CONSTRAINT chk_hedge_orders_token_hex CHECK (token_address ~ '^0x[0-9a-fA-F]{40}$'),
   CONSTRAINT chk_hedge_orders_amount_positive CHECK (amount > 0)
 );

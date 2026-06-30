@@ -189,6 +189,10 @@ const requiredCheckConstraints = {
     ["chk_hedge_orders_side", "hedge_orders must constrain side enum values"],
     ["chk_hedge_orders_status", "hedge_orders must constrain status enum values"],
     ["chk_hedge_orders_venue_non_empty", "hedge_orders must constrain venue to be non-empty"],
+    [
+      "chk_hedge_orders_external_order_id_non_empty",
+      "hedge_orders must constrain nullable external order ids to be non-empty when present",
+    ],
     ["chk_hedge_orders_token_hex", "hedge_orders must constrain token address shape"],
     ["chk_hedge_orders_amount_positive", "hedge_orders must constrain positive hedge amounts"],
   ],
@@ -344,6 +348,12 @@ assert.ok(
 assert.ok(
   /btrim\s*\(\s*venue\s*\)\s*<>\s*''/i.test(tables.get("hedge_orders").body),
   "hedge_orders must reject empty venue values",
+);
+assert.ok(
+  /external_order_id\s+IS\s+NULL\s+OR\s+btrim\s*\(\s*external_order_id\s*\)\s*<>\s*''/i.test(
+    tables.get("hedge_orders").body,
+  ),
+  "hedge_orders must reject empty external_order_id values when present",
 );
 assert.ok(
   /model\s+IN\s*\(\s*'simulated_mid_price_v1'\s*\)/i.test(tables.get("pnl_records").body),

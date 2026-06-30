@@ -572,6 +572,7 @@ grep -q 'bid_price <= mid_price' docs/database/schema.sql
 grep -q 'mid_price <= ask_price' docs/database/schema.sql
 grep -q 'chk_hedge_orders_side' docs/database/schema.sql
 grep -q 'chk_hedge_orders_venue_non_empty' docs/database/schema.sql
+grep -q 'chk_hedge_orders_external_order_id_non_empty' docs/database/schema.sql
 grep -q 'chk_pnl_records_model' docs/database/schema.sql
 grep -q 'user_address TEXT NOT NULL' docs/database/schema.sql
 grep -q 'min_amount_out NUMERIC(78, 0) NOT NULL' docs/database/schema.sql
@@ -601,12 +602,14 @@ grep -q 'risk decision reason_code must be present only for rejected decisions' 
 grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must constrain side enum values' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must reject empty venue values' scripts/check-database-schema-consistency.mjs
+grep -q 'hedge_orders must reject empty external_order_id values when present' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
 grep -q 'distinct token pair' docs/database/er-diagram.md
 grep -q 'bid_price <= mid_price <= ask_price' docs/database/er-diagram.md
 grep -q 'canonical low-s EIP-712 signature' docs/database/er-diagram.md
 grep -q 'market_snapshots.source` 必须是非空字符串' docs/database/er-diagram.md
 grep -q 'hedge `venue` 非空' docs/database/er-diagram.md
+grep -q 'external_order_id` 可以在内部 queued intent 阶段为 NULL' docs/database/er-diagram.md
 grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/database/er-diagram.md
 grep -q 'reason_code` 只允许出现在 rejected decision 上' docs/database/er-diagram.md
 grep -q 'signed payload 字段全有或全无' docs/database/er-diagram.md
@@ -750,6 +753,7 @@ grep -q 'rejects conflicting retry payloads for the same settlement event' backe
 grep -q 'returns defensive copies of hedge intent status records' backend/test/hedge.test.mjs
 grep -q 'Hedge idempotency requires repeated `settlementEventId` input to match the stored hedge intent payload' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'returns defensive copies from create and status lookup operations' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
+grep -q 'non-null external order reference must be non-empty' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'getHedgeIntentBySettlementEvent' backend/test/hedge.test.mjs
 grep -q 'settlementEventId: submitResponse.settlementEventId' sdk/test/sdk.test.mjs
 grep -q 'hedge settlement event id' scripts/smoke-api.mjs
