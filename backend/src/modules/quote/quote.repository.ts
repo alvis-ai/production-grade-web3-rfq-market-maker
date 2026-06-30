@@ -23,6 +23,9 @@ export interface QuoteRecord {
   deadline?: number;
   snapshotId?: string;
   pricingVersion?: string;
+  spreadBps?: number;
+  sizeImpactBps?: number;
+  inventorySkewBps?: number;
   riskPolicyVersion?: string;
   status: QuoteLifecycleStatus;
   signature?: `0x${string}`;
@@ -73,6 +76,9 @@ export interface SaveSignedQuoteInput {
   slippageBps: number;
   quote: SignedQuote;
   pricingVersion: string;
+  spreadBps: number;
+  sizeImpactBps: number;
+  inventorySkewBps: number;
   riskPolicyVersion: string;
   signature: `0x${string}`;
 }
@@ -166,6 +172,9 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       deadline: input.quote.deadline,
       snapshotId: input.snapshotId,
       pricingVersion: input.pricingVersion,
+      spreadBps: input.spreadBps,
+      sizeImpactBps: input.sizeImpactBps,
+      inventorySkewBps: input.inventorySkewBps,
       riskPolicyVersion: input.riskPolicyVersion,
       status: "signed",
       signature: input.signature,
@@ -238,7 +247,16 @@ export class InMemoryQuoteRepository implements QuoteRepository {
 
   async findSignedQuoteByQuoteId(quoteId: string): Promise<QuoteRecord | undefined> {
     const record = this.records.get(quoteId);
-    if (!record?.nonce || !record.amountOut || !record.minAmountOut || !record.deadline || !record.signature) {
+    if (
+      !record?.nonce ||
+      !record.amountOut ||
+      !record.minAmountOut ||
+      !record.deadline ||
+      !record.signature ||
+      record.spreadBps === undefined ||
+      record.sizeImpactBps === undefined ||
+      record.inventorySkewBps === undefined
+    ) {
       return undefined;
     }
 
@@ -309,6 +327,9 @@ function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertNonEmptyString(input.pricingVersion, "pricingVersion");
   assertNonEmptyString(input.riskPolicyVersion, "riskPolicyVersion");
   assertNonNegativeBps(input.slippageBps, "slippageBps", "Signed quote");
+  assertNonNegativeBps(input.spreadBps, "spreadBps", "Signed quote");
+  assertNonNegativeBps(input.sizeImpactBps, "sizeImpactBps", "Signed quote");
+  assertBpsMagnitude(input.inventorySkewBps, "inventorySkewBps", "Signed quote");
   assertSignature(input.signature);
   assertPositiveSafeInteger(input.quote.chainId, "quote.chainId");
   assertAddress(input.quote.user, "quote.user");
@@ -361,6 +382,16 @@ function assertNonNegativeBps(value: number, field: string, subject: string): vo
 
   if (value > 10_000) {
     throw new Error(`${subject} ${field} must be less than or equal to 10000 bps`);
+  }
+}
+
+function assertBpsMagnitude(value: number, field: string, subject: string): void {
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(`${subject} ${field} must be a safe integer`);
+  }
+
+  if (Math.abs(value) > 10_000) {
+    throw new Error(`${subject} ${field} magnitude must be less than or equal to 10000 bps`);
   }
 }
 
@@ -506,6 +537,9 @@ function isSameSignedQuotePayload(record: QuoteRecord, input: SaveSignedQuoteInp
     record.deadline === input.quote.deadline &&
     record.snapshotId === input.snapshotId &&
     record.pricingVersion === input.pricingVersion &&
+    record.spreadBps === input.spreadBps &&
+    record.sizeImpactBps === input.sizeImpactBps &&
+    record.inventorySkewBps === input.inventorySkewBps &&
     record.riskPolicyVersion === input.riskPolicyVersion &&
     record.signature?.toLowerCase() === input.signature.toLowerCase()
   );

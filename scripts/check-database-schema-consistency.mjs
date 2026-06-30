@@ -28,6 +28,11 @@ const requiredTables = {
     "nonce",
     "deadline",
     "snapshot_id",
+    "pricing_version",
+    "spread_bps",
+    "size_impact_bps",
+    "inventory_skew_bps",
+    "risk_policy_version",
     "status",
     "signature",
     "reject_code",
@@ -162,6 +167,7 @@ const requiredCheckConstraints = {
     ["chk_quotes_status", "quotes must constrain lifecycle status values"],
     ["chk_quotes_chain_id_safe", "quotes must constrain chain_id to JavaScript safe integer range"],
     ["chk_quotes_slippage_bps", "quotes must constrain requested slippage_bps to bps range"],
+    ["chk_quotes_pricing_bps", "quotes must constrain signed pricing bps ranges"],
     ["chk_quotes_amounts_non_negative", "quotes must constrain unsigned quote amount fields"],
     ["chk_quotes_addresses_hex", "quotes must constrain address-shaped fields"],
     ["chk_quotes_distinct_tokens", "quotes must constrain token_in and token_out to distinct addresses"],
@@ -295,6 +301,66 @@ assert.ok(
   /record\.slippageBps\s*===\s*input\.slippageBps/i.test(quoteRepositorySource),
   "signed quote persistence must reject slippageBps rewrites",
 );
+for (const columnName of ["spread_bps", "size_impact_bps", "inventory_skew_bps"]) {
+  assert.ok(
+    new RegExp(`\\b${columnName}\\s+INTEGER\\b`, "i").test(tables.get("quotes").body),
+    `quotes.${columnName} must persist signed quote pricing bps components`,
+  );
+}
+assert.ok(
+  /spread_bps\s+IS\s+NULL\s+OR\s+spread_bps\s+BETWEEN\s+0\s+AND\s+10000/i.test(tables.get("quotes").body),
+  "quotes must constrain spread_bps to the 0..10000 bps range when present",
+);
+assert.ok(
+  /size_impact_bps\s+IS\s+NULL\s+OR\s+size_impact_bps\s+BETWEEN\s+0\s+AND\s+10000/i.test(
+    tables.get("quotes").body,
+  ),
+  "quotes must constrain size_impact_bps to the 0..10000 bps range when present",
+);
+assert.ok(
+  /inventory_skew_bps\s+IS\s+NULL\s+OR\s+inventory_skew_bps\s+BETWEEN\s+-10000\s+AND\s+10000/i.test(
+    tables.get("quotes").body,
+  ),
+  "quotes must constrain inventory_skew_bps to the signed -10000..10000 bps range when present",
+);
+assert.ok(
+  /export\s+interface\s+SaveSignedQuoteInput\s*\{[\s\S]*?spreadBps:\s*number;[\s\S]*?sizeImpactBps:\s*number;[\s\S]*?inventorySkewBps:\s*number;/i.test(
+    quoteRepositorySource,
+  ),
+  "SaveSignedQuoteInput must carry pricing bps components for quote replay",
+);
+assert.ok(
+  /assertNonNegativeBps\s*\(\s*input\.spreadBps\s*,\s*"spreadBps"\s*,\s*"Signed quote"\s*\)/i.test(
+    quoteRepositorySource,
+  ),
+  "signed quote persistence must validate spreadBps before writing quote state",
+);
+assert.ok(
+  /assertNonNegativeBps\s*\(\s*input\.sizeImpactBps\s*,\s*"sizeImpactBps"\s*,\s*"Signed quote"\s*\)/i.test(
+    quoteRepositorySource,
+  ),
+  "signed quote persistence must validate sizeImpactBps before writing quote state",
+);
+assert.ok(
+  /assertBpsMagnitude\s*\(\s*input\.inventorySkewBps\s*,\s*"inventorySkewBps"\s*,\s*"Signed quote"\s*\)/i.test(
+    quoteRepositorySource,
+  ),
+  "signed quote persistence must validate inventorySkewBps before writing quote state",
+);
+assert.ok(
+  /record\.spreadBps\s*===\s*input\.spreadBps[\s\S]*?record\.sizeImpactBps\s*===\s*input\.sizeImpactBps[\s\S]*?record\.inventorySkewBps\s*===\s*input\.inventorySkewBps/i.test(
+    quoteRepositorySource,
+  ),
+  "signed quote persistence must reject pricing bps rewrites",
+);
+for (const columnName of ["spread_bps", "size_impact_bps", "inventory_skew_bps"]) {
+  assert.ok(
+    new RegExp(`${columnName}\\s+IS\\s+NULL[\\s\\S]*?${columnName}\\s+IS\\s+NOT\\s+NULL`, "i").test(
+      tables.get("quotes").body,
+    ),
+    `quotes signed payload constraints must require ${columnName} to be atomic with signed quote state`,
+  );
+}
 assert.ok(
   /signature\s+~\s+'\^0x\[0-9a-fA-F\]\{130\}\$'/i.test(tables.get("quotes").body),
   "quotes signature constraint must require 65-byte EIP-712 signatures",

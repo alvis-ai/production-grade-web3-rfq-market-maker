@@ -525,11 +525,12 @@ grep -q 'including a different `slippageBps`' book/Volume5-BackendEngineering/Ch
 grep -q 'must start from the matching requested quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'bind to the same requested `quoteId`, `snapshotId`, chain, user, token pair, `amountIn` and `slippageBps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'exact same signed payload' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'including snapshot, request `slippageBps`, pricing/risk versions and signature' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'pricing bps components, pricing/risk versions and signature' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'must not move submitted, settled, failed, rejected or expired quotes back to `signed`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requested/rejected quote persistence validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'signed quote persistence validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'bounded request `slippageBps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'bounded pricing bps components' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'terminal quote status invariants' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requested quotes cannot be marked submitted, settled or expired through the status updater' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'already failed quote may replay the same `errorCode`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -580,6 +581,13 @@ grep -q 'amount_out >= min_amount_out' docs/database/schema.sql
 grep -q 'slippage_bps INTEGER NOT NULL' docs/database/schema.sql
 grep -q 'chk_quotes_slippage_bps' docs/database/schema.sql
 grep -q 'slippage_bps BETWEEN 0 AND 10000' docs/database/schema.sql
+grep -q 'spread_bps INTEGER' docs/database/schema.sql
+grep -q 'size_impact_bps INTEGER' docs/database/schema.sql
+grep -q 'inventory_skew_bps INTEGER' docs/database/schema.sql
+grep -q 'chk_quotes_pricing_bps' docs/database/schema.sql
+grep -q 'spread_bps BETWEEN 0 AND 10000' docs/database/schema.sql
+grep -q 'size_impact_bps BETWEEN 0 AND 10000' docs/database/schema.sql
+grep -q 'inventory_skew_bps BETWEEN -10000 AND 10000' docs/database/schema.sql
 grep -q 'chk_settlement_events_hashes' docs/database/schema.sql
 grep -q 'AND nonce > 0' docs/database/schema.sql
 grep -q 'bid_price <= mid_price' docs/database/schema.sql
@@ -611,6 +619,9 @@ grep -q 'slippageBps: "slippage_bps"' scripts/check-database-schema-consistency.
 grep -q 'quotes.slippage_bps must persist QuoteRequest.slippageBps for quote replay' scripts/check-database-schema-consistency.mjs
 grep -q 'SaveSignedQuoteInput must carry slippageBps so signed quote persistence can populate quotes.slippage_bps' scripts/check-database-schema-consistency.mjs
 grep -q 'signed quote persistence must validate slippageBps before writing quote state' scripts/check-database-schema-consistency.mjs
+grep -q 'SaveSignedQuoteInput must carry pricing bps components for quote replay' scripts/check-database-schema-consistency.mjs
+grep -q 'signed quote persistence must reject pricing bps rewrites' scripts/check-database-schema-consistency.mjs
+grep -q 'quotes signed payload constraints must require ${columnName} to be atomic with signed quote state' scripts/check-database-schema-consistency.mjs
 grep -q 'signed attribution snapshot' docs/database/er-diagram.md
 grep -q 'id must reject empty primary key values' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must constrain lifecycle status values' scripts/check-database-schema-consistency.mjs
@@ -668,6 +679,7 @@ grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/dat
 grep -q 'quotes.pricing_version`、`quotes.risk_policy_version` 和 `quotes.reject_code`' docs/database/er-diagram.md
 grep -q 'quotes.deadline` 使用 BIGINT 保存 EIP-712 signed quote 的 Unix seconds' docs/database/er-diagram.md
 grep -q 'quotes.slippage_bps` 保存原始 `QuoteRequest.slippageBps`' docs/database/er-diagram.md
+grep -q 'quotes.spread_bps`、`quotes.size_impact_bps` 和 `quotes.inventory_skew_bps`' docs/database/er-diagram.md
 grep -q 'safe-integer `deadline` 和 safe-integer signed `gross_pnl_bps` 作为 signed attribution snapshot' docs/database/er-diagram.md
 grep -q 'safe-integer signed `gross_pnl_bps`' docs/database/er-diagram.md
 grep -q 'settlement_events.log_index` 和 `settlement_events.block_number` 使用 BIGINT 保存链上 event ordinal' docs/database/er-diagram.md
@@ -682,7 +694,8 @@ grep -q 'PostgreSQL schema mirrors these invariants with quote status payload co
 grep -q '`pricing_version` / `risk_policy_version` / `reject_code` must be non-empty whenever present' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'PostgreSQL stores `quotes.deadline` as BIGINT Unix seconds in the JavaScript safe integer range' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'PostgreSQL stores `quotes.slippage_bps` as the original `QuoteRequest.slippageBps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'signed payload fields must be all present or all absent' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'PostgreSQL stores `quotes.spread_bps`, `quotes.size_impact_bps` and `quotes.inventory_skew_bps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'signed payload fields and pricing bps components must be all present or all absent' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'PostgreSQL requires `quotes.snapshot_id` for every persisted quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'snapshot_id TEXT NOT NULL' docs/database/schema.sql
 grep -q 'fk_quotes_snapshot_id' docs/database/schema.sql
@@ -729,11 +742,23 @@ grep -q 'uq_settlement_events_quote_id' docs/database/schema.sql
 grep -q 'settlement_events must keep one settlement event per quote' scripts/check-database-schema-consistency.mjs
 grep -q 'slippageBps: input.request.slippageBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'slippageBps: input.slippageBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'spreadBps: input.spreadBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'sizeImpactBps: input.sizeImpactBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'inventorySkewBps: input.inventorySkewBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'spreadBps: pricing.spreadBps' backend/src/modules/quote/quote.service.ts
+grep -q 'sizeImpactBps: pricing.sizeImpactBps' backend/src/modules/quote/quote.service.ts
+grep -q 'inventorySkewBps: pricing.inventorySkewBps' backend/src/modules/quote/quote.service.ts
 grep -q 'record.slippageBps === input.request.slippageBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'record.slippageBps === input.slippageBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'record.spreadBps === input.spreadBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'record.sizeImpactBps === input.sizeImpactBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'record.inventorySkewBps === input.inventorySkewBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'slippageBps: request.slippageBps + 1' backend/test/quote-service.test.mjs
 grep -q 'Signed quote slippageBps must be less than or equal to 10000 bps' backend/test/quote-service.test.mjs
+grep -q 'Signed quote spreadBps must be less than or equal to 10000 bps' backend/test/quote-service.test.mjs
+grep -q 'Signed quote inventorySkewBps magnitude must be less than or equal to 10000 bps' backend/test/quote-service.test.mjs
 grep -q 'slippageBps: 50' scripts/reconciliation-check.mjs
+grep -q 'spreadBps: 8' scripts/reconciliation-check.mjs
 grep -q 'unique index `(quote_id)`' docs/database/er-diagram.md
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts

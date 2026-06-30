@@ -165,6 +165,9 @@ export class QuoteService {
       slippageBps: validatedRequest.slippageBps,
       quote: signedQuote,
       pricingVersion: pricing.pricingVersion,
+      spreadBps: pricing.spreadBps,
+      sizeImpactBps: pricing.sizeImpactBps,
+      inventorySkewBps: pricing.inventorySkewBps,
       riskPolicyVersion: risk.policyVersion,
       signature,
     });

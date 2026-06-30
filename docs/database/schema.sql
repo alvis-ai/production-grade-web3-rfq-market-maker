@@ -12,6 +12,9 @@ CREATE TABLE quotes (
   deadline BIGINT,
   snapshot_id TEXT NOT NULL,
   pricing_version TEXT,
+  spread_bps INTEGER,
+  size_impact_bps INTEGER,
+  inventory_skew_bps INTEGER,
   risk_policy_version TEXT,
   status TEXT NOT NULL,
   signature TEXT,
@@ -28,6 +31,11 @@ CREATE TABLE quotes (
   ),
   CONSTRAINT chk_quotes_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_quotes_slippage_bps CHECK (slippage_bps BETWEEN 0 AND 10000),
+  CONSTRAINT chk_quotes_pricing_bps CHECK (
+    (spread_bps IS NULL OR spread_bps BETWEEN 0 AND 10000)
+    AND (size_impact_bps IS NULL OR size_impact_bps BETWEEN 0 AND 10000)
+    AND (inventory_skew_bps IS NULL OR inventory_skew_bps BETWEEN -10000 AND 10000)
+  ),
   CONSTRAINT chk_quotes_amounts_non_negative CHECK (
     amount_in > 0
     AND (amount_out IS NULL OR amount_out > 0)
@@ -79,6 +87,9 @@ CREATE TABLE quotes (
       AND nonce IS NULL
       AND deadline IS NULL
       AND pricing_version IS NULL
+      AND spread_bps IS NULL
+      AND size_impact_bps IS NULL
+      AND inventory_skew_bps IS NULL
       AND signature IS NULL
     )
     OR (
@@ -87,6 +98,9 @@ CREATE TABLE quotes (
       AND nonce IS NOT NULL
       AND deadline IS NOT NULL
       AND pricing_version IS NOT NULL
+      AND spread_bps IS NOT NULL
+      AND size_impact_bps IS NOT NULL
+      AND inventory_skew_bps IS NOT NULL
       AND signature IS NOT NULL
     )
   ),
@@ -98,6 +112,9 @@ CREATE TABLE quotes (
       AND nonce IS NULL
       AND deadline IS NULL
       AND pricing_version IS NULL
+      AND spread_bps IS NULL
+      AND size_impact_bps IS NULL
+      AND inventory_skew_bps IS NULL
       AND signature IS NULL
     )
   ),
@@ -109,6 +126,9 @@ CREATE TABLE quotes (
       AND nonce IS NOT NULL
       AND deadline IS NOT NULL
       AND pricing_version IS NOT NULL
+      AND spread_bps IS NOT NULL
+      AND size_impact_bps IS NOT NULL
+      AND inventory_skew_bps IS NOT NULL
       AND risk_policy_version IS NOT NULL
       AND signature IS NOT NULL
     )
