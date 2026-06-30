@@ -357,6 +357,7 @@ grep -q 'per-millisecond sequence wraps' backend/test/quote-identity.test.mjs
 grep -q 'QuoteIdentityGenerator uses Web Crypto instead of Math.random' backend/test/quote-identity.test.mjs
 grep -q 'class InMemoryQuoteRepository' backend/src/modules/quote/quote.repository.ts
 grep -q 'markFailed' backend/src/modules/quote/quote.repository.ts
+grep -q 'cloneQuoteRecord' backend/src/modules/quote/quote.repository.ts
 grep -q 'class BasicRiskEngine' backend/src/modules/risk/risk.engine.ts
 ! grep -q 'AllowAllRiskEngine' backend/src/modules/risk/risk.engine.ts
 ! grep -q 'allow-all-skeleton-v0' backend/src/modules/risk/risk.engine.ts
@@ -437,6 +438,7 @@ grep -q 'assertQuoteStatusMetadata(metadata)' backend/src/modules/quote/quote.re
 grep -q 'Quote status txHash must be a 32-byte hex string' backend/src/modules/quote/quote.repository.ts
 grep -q 'rejects signed quote nonce key conflicts' backend/test/quote-service.test.mjs
 grep -q 'findSignedQuoteByQuoteId' backend/test/quote-service.test.mjs
+grep -q 'returns defensive copies of signed quote records' backend/test/quote-service.test.mjs
 grep -q 'rejects signed quote identity rewrites' backend/test/quote-service.test.mjs
 grep -q 'rejects unsafe signed quote persistence inputs' backend/test/quote-service.test.mjs
 grep -q 'persists expired status when signed quote status is read after deadline' backend/test/quote-service.test.mjs
@@ -454,6 +456,7 @@ grep -q 'signed quote persistence validation' book/Volume5-BackendEngineering/Ch
 grep -q 'terminal quote status invariants' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requested quotes cannot be marked submitted, settled or expired through the status updater' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'quote status metadata validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'returns defensive copies from signed quote lookup operations' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'indexes signed quotes by chain, user, and nonce' backend/test/quote-service.test.mjs
 grep -q 'uq_quotes_chain_user_nonce' docs/database/schema.sql
 grep -q 'quotes must keep the chain_id, user_address, nonce signed-quote lookup key' scripts/check-database-schema-consistency.mjs

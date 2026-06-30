@@ -215,7 +215,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       return undefined;
     }
 
-    return record;
+    return cloneQuoteRecord(record);
   }
 
   async findSignedQuoteByChainUserNonce(
@@ -226,7 +226,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     const quoteId = await this.findQuoteIdByChainUserNonce(chainId, user, nonce);
     if (!quoteId) return undefined;
 
-    return this.records.get(quoteId);
+    return this.findSignedQuoteByQuoteId(quoteId);
   }
 
   private chainUserNonceKey(chainId: number, user: Address, nonce: UIntString): string {
@@ -240,6 +240,10 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       record.nonce === quote.nonce
     );
   }
+}
+
+function cloneQuoteRecord(record: QuoteRecord): QuoteRecord {
+  return { ...record };
 }
 
 function assertRequestedQuoteInput(input: SaveRequestedQuoteInput): void {

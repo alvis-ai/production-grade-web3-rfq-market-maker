@@ -68,6 +68,46 @@ test("InMemoryQuoteRepository indexes signed quotes by chain, user, and nonce", 
   assert.equal(missing, undefined);
 });
 
+test("InMemoryQuoteRepository returns defensive copies of signed quote records", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const signedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+    chainId: 1,
+  };
+
+  await quoteRepository.saveSigned({
+    quoteId: "q_copy",
+    snapshotId: "snapshot_1",
+    quote: signedQuote,
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+
+  const byQuoteId = await quoteRepository.findSignedQuoteByQuoteId("q_copy");
+  const byNonce = await quoteRepository.findSignedQuoteByChainUserNonce(1, request.user, "42");
+  byQuoteId.amountOut = "1";
+  byQuoteId.signature = `0x${"22".repeat(65)}`;
+  byNonce.status = "settled";
+  byNonce.txHash = `0x${"aa".repeat(32)}`;
+
+  const reloadedByQuoteId = await quoteRepository.findSignedQuoteByQuoteId("q_copy");
+  const reloadedByNonce = await quoteRepository.findSignedQuoteByChainUserNonce(1, request.user, "42");
+  assert.notEqual(reloadedByQuoteId, byQuoteId);
+  assert.notEqual(reloadedByNonce, byNonce);
+  assert.equal(reloadedByQuoteId.amountOut, "998400000");
+  assert.equal(reloadedByQuoteId.signature, fixedSignature());
+  assert.equal(reloadedByNonce.status, "signed");
+  assert.equal(reloadedByNonce.txHash, undefined);
+});
+
 test("InMemoryQuoteRepository rejects signed quote nonce key conflicts", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const baseSignedQuote = {
