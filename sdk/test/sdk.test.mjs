@@ -124,6 +124,18 @@ test("buildQuoteTypedData rejects invalid EIP-712 domain and quote fields", () =
       buildQuoteTypedData(
         {
           ...quote,
+          nonce: "0",
+        },
+        verifyingContract,
+      ),
+    /quote\.nonce must be a positive uint string/,
+  );
+
+  assert.throws(
+    () =>
+      buildQuoteTypedData(
+        {
+          ...quote,
           tokenOut: quote.tokenIn,
         },
         verifyingContract,
@@ -223,6 +235,18 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
         signature,
       ),
     /quote\.amountIn must be a uint string/,
+  );
+
+  assert.throws(
+    () =>
+      buildSubmitQuoteArgs(
+        {
+          ...quote,
+          nonce: "0",
+        },
+        signature,
+      ),
+    /quote\.nonce must be a positive uint string/,
   );
 
   assert.throws(

@@ -56,7 +56,7 @@ export function toSettlementQuote(quote: Quote): SettlementQuote {
     amountIn: parsePositiveUInt(quote.amountIn, "quote.amountIn"),
     amountOut,
     minAmountOut,
-    nonce: parseUInt(quote.nonce, "quote.nonce"),
+    nonce: parsePositiveUInt(quote.nonce, "quote.nonce"),
     deadline: parsePositiveInteger(quote.deadline, "quote.deadline"),
     chainId: parsePositiveInteger(quote.chainId, "quote.chainId"),
   };

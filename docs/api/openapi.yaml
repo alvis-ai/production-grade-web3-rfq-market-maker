@@ -379,6 +379,9 @@ components:
     UIntString:
       type: string
       pattern: "^[0-9]+$"
+    PositiveUIntString:
+      type: string
+      pattern: "^[1-9][0-9]*$"
     IntString:
       type: string
       pattern: "^-?[0-9]+$"
@@ -405,7 +408,7 @@ components:
         tokenOut:
           $ref: "#/components/schemas/Address"
         amountIn:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         slippageBps:
           type: integer
           minimum: 0
@@ -426,14 +429,14 @@ components:
         snapshotId:
           type: string
         amountOut:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         minAmountOut:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         deadline:
           type: integer
           description: Unix timestamp generated from the configured RFQ_QUOTE_TTL_SECONDS signed quote lifetime.
         nonce:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         signature:
           type: string
           pattern: "^0x[a-fA-F0-9]{130}$"
@@ -483,8 +486,8 @@ components:
       additionalProperties: false
       description: >
         EIP-712 quote payload submitted for settlement. tokenIn and tokenOut must be
-        different addresses, amountIn/amountOut/minAmountOut must be positive uint
-        strings, and amountOut must be greater than or equal to minAmountOut.
+        different addresses, amountIn/amountOut/minAmountOut/nonce must be
+        positive uint strings, and amountOut must be greater than or equal to minAmountOut.
       required:
         - user
         - tokenIn
@@ -503,13 +506,13 @@ components:
         tokenOut:
           $ref: "#/components/schemas/Address"
         amountIn:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         amountOut:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         minAmountOut:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         nonce:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         deadline:
           type: integer
           minimum: 1
@@ -594,7 +597,7 @@ components:
             - buy
             - sell
         amount:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         reason:
           type: string
           enum:
@@ -650,9 +653,9 @@ components:
         tokenOut:
           $ref: "#/components/schemas/Address"
         amountIn:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         amountOut:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         observedAt:
           type: string
           format: date-time
@@ -682,9 +685,9 @@ components:
         tokenOut:
           $ref: "#/components/schemas/Address"
         amountIn:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         amountOut:
-          $ref: "#/components/schemas/UIntString"
+          $ref: "#/components/schemas/PositiveUIntString"
         grossPnlTokenOut:
           $ref: "#/components/schemas/IntString"
         grossPnlBps:

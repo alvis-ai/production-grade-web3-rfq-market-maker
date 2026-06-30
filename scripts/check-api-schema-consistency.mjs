@@ -80,6 +80,33 @@ assert.equal(
   "^0x[a-fA-F0-9]{130}$",
   "QuoteResponse.signature must be a 65-byte EIP-712 signature",
 );
+assert.equal(
+  extractOpenApiSchemaPattern(openapiSource, "PositiveUIntString"),
+  "^[1-9][0-9]*$",
+  "PositiveUIntString must reject zero and negative values",
+);
+
+for (const [schemaName, propertyName] of [
+  ["QuoteRequest", "amountIn"],
+  ["QuoteResponse", "amountOut"],
+  ["QuoteResponse", "minAmountOut"],
+  ["QuoteResponse", "nonce"],
+  ["SignedQuote", "amountIn"],
+  ["SignedQuote", "amountOut"],
+  ["SignedQuote", "minAmountOut"],
+  ["SignedQuote", "nonce"],
+  ["HedgeIntentStatus", "amount"],
+  ["SettlementEventStatus", "amountIn"],
+  ["SettlementEventStatus", "amountOut"],
+  ["PnlTradeRecord", "amountIn"],
+  ["PnlTradeRecord", "amountOut"],
+]) {
+  assert.equal(
+    extractOpenApiPropertyRef(openapiSource, schemaName, propertyName),
+    "#/components/schemas/PositiveUIntString",
+    `${schemaName}.${propertyName} must use PositiveUIntString`,
+  );
+}
 
 for (const [schemaName, propertyName] of [
   ["QuoteRequest", "chainId"],
@@ -218,6 +245,33 @@ function extractOpenApiPropertyPattern(source, schemaName, propertyName) {
   assert.ok(patternLine, `Unable to find pattern for ${schemaName}.${propertyName}`);
 
   return patternLine.trim().slice("pattern: ".length).replace(/^"|"$/g, "");
+}
+
+function extractOpenApiSchemaPattern(source, schemaName) {
+  const lines = extractOpenApiSchemaLines(source, schemaName);
+  const patternLine = lines.find((line) => line.trim().startsWith("pattern: "));
+  assert.ok(patternLine, `Unable to find pattern for ${schemaName}`);
+
+  return patternLine.trim().slice("pattern: ".length).replace(/^"|"$/g, "");
+}
+
+function extractOpenApiPropertyRef(source, schemaName, propertyName) {
+  const lines = extractOpenApiSchemaLines(source, schemaName);
+  const propertyIndex = lines.findIndex((line) => line === `        ${propertyName}:`);
+  assert.ok(propertyIndex >= 0, `Unable to find ${schemaName}.${propertyName}`);
+
+  const propertyLines = [];
+  for (const line of lines.slice(propertyIndex + 1)) {
+    if (/^        [a-zA-Z][a-zA-Z0-9]*:$/.test(line)) {
+      break;
+    }
+    propertyLines.push(line);
+  }
+
+  const refLine = propertyLines.find((line) => line.trim().startsWith("$ref: "));
+  assert.ok(refLine, `Unable to find $ref for ${schemaName}.${propertyName}`);
+
+  return refLine.trim().slice("$ref: ".length).replace(/^"|"$/g, "");
 }
 
 function extractOpenApiPropertyNumericBound(source, schemaName, propertyName, boundName) {

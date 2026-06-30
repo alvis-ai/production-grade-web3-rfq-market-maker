@@ -63,7 +63,7 @@ export function validateSubmitQuoteRequest(input: unknown): SubmitQuoteRequest {
       amountIn,
       amountOut,
       minAmountOut,
-      nonce: readUint(quote.nonce, "quote.nonce"),
+      nonce: readPositiveUint(quote.nonce, "quote.nonce"),
       deadline,
       chainId: readPositiveInteger(quote.chainId, "quote.chainId"),
     },

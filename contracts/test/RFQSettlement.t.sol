@@ -558,6 +558,15 @@ contract RFQSettlementTest {
         settlement.submitQuote(quote, signature);
     }
 
+    function testSubmitQuoteRejectsZeroNonce() public {
+        IRFQSettlement.Quote memory quote = _quote(0);
+        bytes memory signature = _sign(quote);
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.InvalidNonce.selector);
+        settlement.submitQuote(quote, signature);
+    }
+
     function _quote(uint256 nonce) private view returns (IRFQSettlement.Quote memory) {
         return IRFQSettlement.Quote({
             user: user,

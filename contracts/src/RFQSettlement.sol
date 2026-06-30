@@ -58,6 +58,7 @@ contract RFQSettlement is IRFQSettlement {
     error InvalidQuoteUser();
     error InvalidTokenPair();
     error InvalidAmount();
+    error InvalidNonce();
     error AmountOutBelowMinimum();
     error TransferFailed();
     error MissingRole(bytes32 role, address account);
@@ -214,6 +215,7 @@ contract RFQSettlement is IRFQSettlement {
         if (quote.amountIn == 0 || quote.amountOut == 0 || quote.minAmountOut == 0) {
             revert InvalidAmount();
         }
+        if (quote.nonce == 0) revert InvalidNonce();
         if (!tokenWhitelist[quote.tokenIn] || !tokenWhitelist[quote.tokenOut]) {
             revert TokenNotWhitelisted();
         }

@@ -212,8 +212,12 @@ grep -q 'assertExactFields' backend/src/shared/validation/submit-request.ts
 grep -q 'unknown request fields' backend/test/api.test.mjs
 grep -q 'Number.MAX_SAFE_INTEGER + 1' backend/test/api.test.mjs
 grep -q 'additionalProperties: false' docs/api/openapi.yaml
+grep -q 'PositiveUIntString' docs/api/openapi.yaml
+grep -Fq 'pattern: "^[1-9][0-9]*$"' docs/api/openapi.yaml
 grep -q 'maximum: 9007199254740991' docs/api/openapi.yaml
 grep -q 'JavaScript safe integer maximum' scripts/check-api-schema-consistency.mjs
+grep -q 'PositiveUIntString must reject zero and negative values' scripts/check-api-schema-consistency.mjs
+grep -q 'SignedQuote", "nonce"' scripts/check-api-schema-consistency.mjs
 grep -q 'must reject unknown request fields' scripts/check-api-schema-consistency.mjs
 grep -q 'QuoteResponse.signature must be a 65-byte EIP-712 signature' scripts/check-api-schema-consistency.mjs
 grep -q 'SubmitQuoteResponse", "QuoteStatus", "SettlementEventStatus' scripts/check-api-schema-consistency.mjs
@@ -223,6 +227,7 @@ grep -q 'RATE_LIMITED' backend/src/main.ts
 grep -q 'retry-after' backend/src/main.ts
 grep -q 'signature must be 65 bytes' backend/src/shared/validation/submit-request.ts
 grep -q 'readPositiveUint' backend/src/shared/validation/submit-request.ts
+grep -q 'nonce: readPositiveUint(quote.nonce, "quote.nonce")' backend/src/shared/validation/submit-request.ts
 grep -q 'greater than or equal to quote.minAmountOut' backend/src/shared/validation/submit-request.ts
 grep -q 'QUOTE_EXPIRED' backend/src/shared/validation/submit-request.ts
 grep -q 'InMemoryQuoteRepository' backend/src/main.ts
@@ -712,11 +717,14 @@ grep -q 'toSettlementQuote' sdk/src/quote-hash.ts
 grep -q 'parseAddress' sdk/src/settlement.ts
 grep -q 'parseSignature' sdk/src/settlement.ts
 grep -q 'parsePositiveUInt' sdk/src/settlement.ts
+grep -q 'nonce: parsePositiveUInt(quote.nonce, "quote.nonce")' sdk/src/settlement.ts
 grep -q 'treasury transfer input must be an object' sdk/test/sdk.test.mjs
 grep -q 'quote must be an object' sdk/test/sdk.test.mjs
+grep -Fq 'quote\.nonce must be a positive uint string' sdk/test/sdk.test.mjs
 grep -q 'quote.amountOut must be greater than or equal to quote.minAmountOut' sdk/src/settlement.ts
 grep -q 'buildQuoteTypedData' sdk/src/eip712.ts
 grep -q 'assertQuoteShape' sdk/src/eip712.ts
+grep -q 'parsePositiveUInt(quote.nonce, "quote.nonce")' sdk/src/eip712.ts
 grep -q 'quote.tokenIn and quote.tokenOut must be different' sdk/src/eip712.ts
 grep -q 'ProductionGradeRFQ' sdk/src/eip712.ts
 grep -q 'RFQClientError' sdk/test/sdk.test.mjs
@@ -795,6 +803,8 @@ grep -q 'exposes Retry-After seconds for rate limited responses' sdk/test/sdk.te
 grep -q 'retryAfterSeconds' README.md
 grep -q 'client.metrics' sdk/test/sdk.test.mjs
 grep -q 'function submitQuote' contracts/src/RFQSettlement.sol
+grep -q 'InvalidNonce' contracts/src/RFQSettlement.sol
+grep -q 'quote.nonce == 0' contracts/src/RFQSettlement.sol
 grep -q 'ITreasuryMinimal' contracts/src/RFQSettlement.sol
 grep -q 'release(quote.tokenOut, quote.user, quote.amountOut)' contracts/src/RFQSettlement.sol
 grep -q 'function setTreasury' contracts/src/RFQSettlement.sol
@@ -840,6 +850,7 @@ grep -q 'testSubmitQuoteRejectsUnwhitelistedToken' contracts/test/RFQSettlement.
 grep -q 'testSubmitQuoteRejectsNonContractTokenIn' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsNonContractTokenOut' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsAmountOutBelowMinimum' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsZeroNonce' contracts/test/RFQSettlement.t.sol
 grep -q 'contract DeployRFQSettlement' contracts/script/Deploy.s.sol
 grep -q 'new Treasury' contracts/script/Deploy.s.sol
 grep -q 'treasury.setSettlement' contracts/script/Deploy.s.sol
@@ -1197,6 +1208,7 @@ grep -q 'LocalSettlementVerifier rejects invalid settlement amounts' backend/tes
 grep -q 'LocalSettlementVerifier rejects settlement amountOut below minimum' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects unsafe policy configuration at construction' backend/test/settlement-verifier.test.mjs
 grep -q 'settlement verifier policy fail-fast' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'amount fields and nonce must be positive uint strings' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'risk rejection when rejected quote persistence fails' backend/test/api.test.mjs
 grep -q 'Rejected quote persistence unavailable' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
@@ -1249,6 +1261,8 @@ grep -q 'graceful shutdown failures' backend/test/api.test.mjs
 grep -q 'unmatched routes to structured errors' backend/test/api.test.mjs
 grep -q 'settlement shape' backend/test/api.test.mjs
 grep -q 'expired submit quotes' backend/test/api.test.mjs
+grep -q 'quote.nonce must be a positive uint string' backend/test/validation.test.mjs
+grep -q 'Settlement event quote.nonce must be a positive uint string' backend/test/settlement-event.test.mjs
 grep -q 'unissued submit quotes' backend/test/api.test.mjs
 grep -q 'replayed submit quotes' backend/test/api.test.mjs
 grep -q 'same millisecond' backend/test/api.test.mjs

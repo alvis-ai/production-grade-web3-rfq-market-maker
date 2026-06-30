@@ -283,7 +283,7 @@ function assertSettlementQuote(quote: SignedQuote): void {
   assertPositiveUIntString(quote.amountIn, "quote.amountIn");
   assertPositiveUIntString(quote.amountOut, "quote.amountOut");
   assertPositiveUIntString(quote.minAmountOut, "quote.minAmountOut");
-  assertUintString(quote.nonce, "quote.nonce");
+  assertPositiveUIntString(quote.nonce, "quote.nonce");
   assertPositiveSafeInteger(quote.deadline, "quote.deadline");
 
   if (BigInt(quote.amountOut) < BigInt(quote.minAmountOut)) {

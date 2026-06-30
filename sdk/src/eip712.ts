@@ -58,7 +58,7 @@ function assertQuoteShape(quote: Quote): void {
   if (amountOut < minAmountOut) {
     throw new Error("quote.amountOut must be greater than or equal to quote.minAmountOut");
   }
-  parseUInt(quote.nonce, "quote.nonce");
+  parsePositiveUInt(quote.nonce, "quote.nonce");
   parsePositiveInteger(quote.deadline, "quote.deadline");
   parsePositiveInteger(quote.chainId, "quote.chainId");
 }

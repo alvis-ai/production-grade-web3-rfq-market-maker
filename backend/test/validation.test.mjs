@@ -100,6 +100,19 @@ test("validateSubmitQuoteRequest rejects unsafe submit payloads before execution
       validateSubmitQuoteRequest({
         quote: {
           ...signedQuote,
+          nonce: "0",
+        },
+        signature,
+      }),
+    "INVALID_REQUEST",
+    "quote.nonce must be a positive uint string",
+    400,
+  );
+  assertAPIError(
+    () =>
+      validateSubmitQuoteRequest({
+        quote: {
+          ...signedQuote,
           deadline: Math.floor(Date.now() / 1000) - 1,
         },
         signature,
