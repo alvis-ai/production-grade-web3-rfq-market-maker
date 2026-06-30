@@ -607,15 +607,19 @@ grep -q 'status payload consistency' docs/database/er-diagram.md
 grep -q 'JavaScript safe integer range `1..9007199254740991`' docs/database/er-diagram.md
 grep -q 'PostgreSQL schema mirrors these invariants with quote status payload consistency checks' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'signed payload fields must be all present or all absent' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'PostgreSQL requires `quotes.snapshot_id` for every persisted quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'snapshot_id TEXT NOT NULL' docs/database/schema.sql
 grep -q 'fk_quotes_snapshot_id' docs/database/schema.sql
 grep -q 'fk_quotes_settlement_event_id' docs/database/schema.sql
 grep -q 'fk_quotes_hedge_order_id' docs/database/schema.sql
 grep -q 'fk_quotes_pnl_id' docs/database/schema.sql
 grep -q 'quotes.snapshot_id must reference market_snapshots(id)' scripts/check-database-schema-consistency.mjs
+grep -q 'quotes.snapshot_id must be required for quote replay' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes.settlement_event_id must reference settlement_events(id)' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes.hedge_order_id must reference hedge_orders(id)' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes.pnl_id must reference pnl_records(id)' scripts/check-database-schema-consistency.mjs
 grep -q '状态指针不能悬空' docs/database/er-diagram.md
+grep -q 'quotes.snapshot_id` 是指向 `market_snapshots.id` 的必填 foreign key' docs/database/er-diagram.md
 grep -q 'idx_market_snapshots_pair_observed_at' docs/database/schema.sql
 grep -q 'idx_quotes_snapshot_id' docs/database/schema.sql
 grep -q 'idx_quotes_settlement_event_id' docs/database/schema.sql

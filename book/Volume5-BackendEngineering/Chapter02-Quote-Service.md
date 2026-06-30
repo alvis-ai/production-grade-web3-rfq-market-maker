@@ -137,6 +137,7 @@ markQuoteStatus(quoteId, status, metadata): Promise<void>
 - Risk Engine 抛错时按 fail-closed 处理，返回 `RISK_REJECTED`，内部拒绝原因为 `RISK_ENGINE_UNAVAILABLE`，不调用 Signer。
 - Risk rejected 后 rejected 状态持久化失败时，API 仍返回原始 `RISK_REJECTED`，不调用 Signer；遗留的 `requested` quote 由 reconciliation 处理。
 - Requested and rejected quote persistence validates `quoteId`, `snapshotId`, request chain id, user/token addresses, distinct token pair, positive `amountIn`, bounded `slippageBps`, and non-empty reject metadata before writing quote state. Direct repository calls must not be able to persist malformed request or rejection records.
+- PostgreSQL requires `quotes.snapshot_id` for every persisted quote and keeps it as a foreign key to `market_snapshots.id`, so requested, rejected, signed, failed, expired, submitted and settled records remain replayable from their pricing snapshot.
 - Signer failure 映射为 503，并 best-effort 将已 requested 的 quote 标记为 `failed`，`errorCode` 记录 `SIGNER_UNAVAILABLE`，避免状态长期停留在 `requested`。
 - 如果 signer failure 后的 failed 状态持久化也失败，API 仍保留原始 `SIGNER_UNAVAILABLE`，不能用 `QUOTE_STORE_UNAVAILABLE` 掩盖真实故障；遗留的 `requested` quote 由 reconciliation 从审计日志和 signer error metric 中恢复。
 - Signed quote TTL 由 `RFQ_QUOTE_TTL_SECONDS` 控制，默认 30 秒，启动时必须校验为 1 到 3600 的整数。TTL 过长会增加 stale price 被执行的窗口，TTL 过短会降低钱包确认和链上提交成功率。

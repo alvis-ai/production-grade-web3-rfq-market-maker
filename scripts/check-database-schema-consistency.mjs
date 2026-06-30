@@ -131,6 +131,10 @@ assert.ok(
   "quotes.snapshot_id must reference market_snapshots(id)",
 );
 assert.ok(
+  /\bsnapshot_id\s+TEXT\s+NOT\s+NULL\b/i.test(tables.get("quotes").body),
+  "quotes.snapshot_id must be required for quote replay",
+);
+assert.ok(
   hasAlterTableForeignKey("quotes", "fk_quotes_settlement_event_id", "settlement_event_id", "settlement_events", "id"),
   "quotes.settlement_event_id must reference settlement_events(id)",
 );

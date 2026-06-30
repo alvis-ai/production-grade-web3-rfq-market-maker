@@ -9,7 +9,7 @@ CREATE TABLE quotes (
   min_amount_out NUMERIC(78, 0),
   nonce NUMERIC(78, 0),
   deadline TIMESTAMPTZ,
-  snapshot_id TEXT,
+  snapshot_id TEXT NOT NULL,
   pricing_version TEXT,
   risk_policy_version TEXT,
   status TEXT NOT NULL,
