@@ -505,12 +505,12 @@ function clientIdForRateLimit(request: FastifyRequest): string {
 
 function readSignerConfig() {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const isProduction = env?.NODE_ENV === "production";
+  const nodeEnv = env?.NODE_ENV;
   const privateKey = env?.RFQ_SIGNER_PRIVATE_KEY;
   const settlementAddress = env?.RFQ_SETTLEMENT_ADDRESS;
-  if (isProduction) {
-    requireProductionPrivateKey(privateKey);
-    requireProductionAddress(settlementAddress, "RFQ_SETTLEMENT_ADDRESS");
+  if (requiresExplicitSignerConfig(nodeEnv)) {
+    requireConfiguredPrivateKey(privateKey, nodeEnv);
+    requireConfiguredAddress(settlementAddress, "RFQ_SETTLEMENT_ADDRESS", nodeEnv);
   }
 
   return {
@@ -519,25 +519,29 @@ function readSignerConfig() {
   };
 }
 
-function requireProductionEnv(value: string | undefined, name: string): string {
+function requiresExplicitSignerConfig(nodeEnv: string | undefined): boolean {
+  return nodeEnv !== undefined && !["development", "test"].includes(nodeEnv);
+}
+
+function requireConfiguredEnv(value: string | undefined, name: string, nodeEnv: string | undefined): string {
   if (!value || value.trim().length === 0) {
-    throw new Error(`${name} is required when NODE_ENV=production`);
+    throw new Error(`${name} is required when NODE_ENV=${nodeEnv}`);
   }
 
   return value;
 }
 
-function requireProductionPrivateKey(value: string | undefined): void {
-  const privateKey = requireProductionEnv(value, "RFQ_SIGNER_PRIVATE_KEY");
+function requireConfiguredPrivateKey(value: string | undefined, nodeEnv: string | undefined): void {
+  const privateKey = requireConfiguredEnv(value, "RFQ_SIGNER_PRIVATE_KEY", nodeEnv);
   if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
-    throw new Error("RFQ_SIGNER_PRIVATE_KEY must be a 32-byte hex string when NODE_ENV=production");
+    throw new Error(`RFQ_SIGNER_PRIVATE_KEY must be a 32-byte hex string when NODE_ENV=${nodeEnv}`);
   }
 }
 
-function requireProductionAddress(value: string | undefined, name: string): void {
-  const address = requireProductionEnv(value, name);
+function requireConfiguredAddress(value: string | undefined, name: string, nodeEnv: string | undefined): void {
+  const address = requireConfiguredEnv(value, name, nodeEnv);
   if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
-    throw new Error(`${name} must be a 20-byte hex address when NODE_ENV=production`);
+    throw new Error(`${name} must be a 20-byte hex address when NODE_ENV=${nodeEnv}`);
   }
 }
 

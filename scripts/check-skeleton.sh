@@ -246,6 +246,8 @@ grep -q 'LocalEIP712SignerService' backend/src/main.ts
 grep -q 'ObservedSignerService' backend/src/main.ts
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' backend/src/main.ts
 grep -q 'RFQ_SETTLEMENT_ADDRESS' backend/src/main.ts
+grep -q 'requiresExplicitSignerConfig' backend/src/main.ts
+grep -q '"development", "test"' backend/src/main.ts
 grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/src/main.ts
 grep -q 'readQuoteTtlSeconds' backend/src/main.ts
 grep -q 'RFQ_BODY_LIMIT_BYTES' backend/src/main.ts
@@ -273,10 +275,10 @@ grep -q 'Route not found' backend/src/main.ts
 grep -q 'server.setErrorHandler' backend/src/main.ts
 grep -q 'frameworkErrorToAPIError' backend/src/main.ts
 grep -q 'FST_ERR_CTP_BODY_TOO_LARGE' backend/src/main.ts
-grep -q 'requireProductionEnv' backend/src/main.ts
-grep -q 'requireProductionPrivateKey' backend/src/main.ts
-grep -q 'requireProductionAddress' backend/src/main.ts
-grep -q 'NODE_ENV=production' backend/src/main.ts
+grep -q 'requireConfiguredEnv' backend/src/main.ts
+grep -q 'requireConfiguredPrivateKey' backend/src/main.ts
+grep -q 'requireConfiguredAddress' backend/src/main.ts
+grep -q 'NODE_ENV=${nodeEnv}' backend/src/main.ts
 grep -q 'HOST' backend/src/main.ts
 grep -q 'x-trace-id' backend/src/main.ts
 grep -q 'server.addHook("onRequest"' backend/src/main.ts
@@ -1133,9 +1135,13 @@ grep -q 'rfq_quote_status_update_errors_total' book/Volume5-BackendEngineering/C
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
 grep -q 'production startup requires explicit signer configuration' backend/test/api.test.mjs
+grep -q 'non-local startup requires explicit signer configuration' backend/test/api.test.mjs
+grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=staging' backend/test/api.test.mjs
 grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=production' backend/test/api.test.mjs
 grep -q 'RFQ_SIGNER_PRIVATE_KEY must be a 32-byte hex string when NODE_ENV=production' backend/test/api.test.mjs
 grep -q 'RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address when NODE_ENV=production' backend/test/api.test.mjs
+grep -q 'built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`' README.md
+grep -q '默认 Anvil signer 只允许用于 unset `NODE_ENV`、`development` 或 `test`' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'marks requested quotes as failed when signer is unavailable' backend/test/quote-service.test.mjs
 grep -q 'preserves signer errors when marking failed quotes fails' backend/test/quote-service.test.mjs
 grep -q 'signing is unavailable' backend/test/api.test.mjs

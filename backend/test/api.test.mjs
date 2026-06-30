@@ -77,6 +77,37 @@ test("production startup requires explicit signer configuration", () => {
   }
 });
 
+test("non-local startup requires explicit signer configuration", () => {
+  const originalEnv = {
+    NODE_ENV: process.env.NODE_ENV,
+    RFQ_SIGNER_PRIVATE_KEY: process.env.RFQ_SIGNER_PRIVATE_KEY,
+    RFQ_SETTLEMENT_ADDRESS: process.env.RFQ_SETTLEMENT_ADDRESS,
+  };
+
+  try {
+    process.env.NODE_ENV = "staging";
+    delete process.env.RFQ_SIGNER_PRIVATE_KEY;
+    delete process.env.RFQ_SETTLEMENT_ADDRESS;
+
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=staging/,
+    );
+
+    process.env.RFQ_SIGNER_PRIVATE_KEY =
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_SETTLEMENT_ADDRESS is required when NODE_ENV=staging/,
+    );
+  } finally {
+    restoreEnv("NODE_ENV", originalEnv.NODE_ENV);
+    restoreEnv("RFQ_SIGNER_PRIVATE_KEY", originalEnv.RFQ_SIGNER_PRIVATE_KEY);
+    restoreEnv("RFQ_SETTLEMENT_ADDRESS", originalEnv.RFQ_SETTLEMENT_ADDRESS);
+  }
+});
+
 test("RFQ API uses RFQ_QUOTE_TTL_SECONDS for signed quote deadlines", async () => {
   const originalTtl = process.env.RFQ_QUOTE_TTL_SECONDS;
   const originalDateNow = Date.now;

@@ -161,7 +161,7 @@ Local ports:
 
 ## Production Configuration
 
-When `NODE_ENV=production`, the backend refuses to start unless `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` are explicitly configured. The signer private key must be a 32-byte hex string and the settlement address must be a 20-byte hex address.
+When `NODE_ENV` is set to any non-local environment such as `production` or `staging`, the backend refuses to start unless `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` are explicitly configured. The signer private key must be a 32-byte hex string and the settlement address must be a 20-byte hex address. The built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`.
 
 Kubernetes deployments load these values from `rfq-backend-secrets`. Replace the placeholders in `infra/k8s/backend-secret.yaml` before applying manifests, or create the same Secret out of band:
 
