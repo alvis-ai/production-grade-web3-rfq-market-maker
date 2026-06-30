@@ -45,10 +45,12 @@ export class InMemoryRateLimiter {
 
   check(input: RateLimitInput, now = Date.now()): RateLimitDecision {
     assertRateLimitInput(input);
+    assertRateLimitTimestamp(now);
+    this.sweepExpiredBuckets(now);
+
     const limit = this.limitFor(input.endpoint);
     const bucketKey = `${input.endpoint}:${input.clientId}`;
-    const current = this.buckets.get(bucketKey);
-    const bucket = current && current.resetAt > now ? current : { count: 0, resetAt: now + this.config.windowMs };
+    const bucket = this.buckets.get(bucketKey) ?? { count: 0, resetAt: resetAtFor(now, this.config.windowMs) };
 
     if (bucket.count >= limit) {
       this.buckets.set(bucketKey, bucket);
@@ -76,6 +78,14 @@ export class InMemoryRateLimiter {
 
     return endpoint === "submit" ? this.config.maxSubmitRequests : this.config.maxStatusRequests;
   }
+
+  private sweepExpiredBuckets(now: number): void {
+    for (const [bucketKey, bucket] of this.buckets.entries()) {
+      if (bucket.resetAt <= now) {
+        this.buckets.delete(bucketKey);
+      }
+    }
+  }
 }
 
 function cloneRateLimitConfig(config: RateLimitConfig): RateLimitConfig {
@@ -95,4 +105,19 @@ function assertRateLimitInput(input: RateLimitInput): void {
   if (typeof input.clientId !== "string" || input.clientId.trim().length === 0) {
     throw new Error("Rate limit clientId must be a non-empty string");
   }
+}
+
+function assertRateLimitTimestamp(now: number): void {
+  if (!Number.isSafeInteger(now) || now < 0) {
+    throw new Error("Rate limit timestamp must be a non-negative safe integer");
+  }
+}
+
+function resetAtFor(now: number, windowMs: number): number {
+  const resetAt = now + windowMs;
+  if (!Number.isSafeInteger(resetAt)) {
+    throw new Error("Rate limit reset timestamp must be a safe integer");
+  }
+
+  return resetAt;
 }

@@ -388,6 +388,8 @@ grep -q 'class InMemoryRateLimiter' backend/src/modules/rate-limit/rate-limit.se
 grep -q 'cloneRateLimitConfig' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'assertPositiveSafeInteger' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'assertRateLimitInput(input)' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'assertRateLimitTimestamp(now)' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'sweepExpiredBuckets(now)' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'Rate limit clientId must be a non-empty string' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxQuoteRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxSubmitRequests' backend/src/modules/rate-limit/rate-limit.service.ts
@@ -1477,7 +1479,10 @@ grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/ra
 grep -q 'InMemoryRateLimiter snapshots configuration at construction' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter rejects unsafe configuration at construction' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter rejects unsafe request inputs before writing buckets' backend/test/rate-limit.test.mjs
+grep -q 'InMemoryRateLimiter rejects unsafe timestamps before writing buckets' backend/test/rate-limit.test.mjs
+grep -q 'InMemoryRateLimiter evicts expired client buckets before checking' backend/test/rate-limit.test.mjs
 grep -q 'snapshots `RateLimitConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'evicts expired client buckets before checking' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'unsafe rate limit configuration at startup' backend/test/api.test.mjs
 grep -q 'assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertBpsUpperBound(config.maxTotalAdjustmentBps, "maxTotalAdjustmentBps")' backend/src/modules/pricing/pricing.engine.ts

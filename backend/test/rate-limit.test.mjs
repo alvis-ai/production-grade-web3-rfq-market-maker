@@ -136,3 +136,62 @@ test("InMemoryRateLimiter rejects unsafe request inputs before writing buckets",
     retryAfterSeconds: 1,
   });
 });
+
+test("InMemoryRateLimiter rejects unsafe timestamps before writing buckets", () => {
+  const limiter = new InMemoryRateLimiter({
+    windowMs: 1000,
+    maxQuoteRequests: 2,
+    maxSubmitRequests: 1,
+    maxStatusRequests: 1,
+  });
+
+  assert.throws(
+    () => limiter.check({ endpoint: "quote", clientId: "client-a" }, Number.NaN),
+    /Rate limit timestamp must be a non-negative safe integer/,
+  );
+  assert.throws(
+    () => limiter.check({ endpoint: "quote", clientId: "client-a" }, -1),
+    /Rate limit timestamp must be a non-negative safe integer/,
+  );
+  assert.equal(limiter.buckets.size, 0);
+
+  assert.deepEqual(limiter.check({ endpoint: "quote", clientId: "client-a" }, 1000), {
+    allowed: true,
+    remaining: 1,
+    retryAfterSeconds: 1,
+  });
+});
+
+test("InMemoryRateLimiter rejects unsafe reset timestamps", () => {
+  const limiter = new InMemoryRateLimiter({
+    windowMs: Number.MAX_SAFE_INTEGER,
+    maxQuoteRequests: 2,
+    maxSubmitRequests: 1,
+    maxStatusRequests: 1,
+  });
+
+  assert.throws(
+    () => limiter.check({ endpoint: "quote", clientId: "client-a" }, 1),
+    /Rate limit reset timestamp must be a safe integer/,
+  );
+  assert.equal(limiter.buckets.size, 0);
+});
+
+test("InMemoryRateLimiter evicts expired client buckets before checking", () => {
+  const limiter = new InMemoryRateLimiter({
+    windowMs: 1000,
+    maxQuoteRequests: 2,
+    maxSubmitRequests: 2,
+    maxStatusRequests: 2,
+  });
+
+  assert.equal(limiter.check({ endpoint: "quote", clientId: "client-a" }, 1000).allowed, true);
+  assert.equal(limiter.check({ endpoint: "quote", clientId: "client-b" }, 1100).allowed, true);
+  assert.equal(limiter.buckets.size, 2);
+
+  assert.equal(limiter.check({ endpoint: "submit", clientId: "client-c" }, 2001).allowed, true);
+  assert.equal(limiter.buckets.has("quote:client-a"), false);
+  assert.equal(limiter.buckets.has("quote:client-b"), true);
+  assert.equal(limiter.buckets.has("submit:client-c"), true);
+  assert.equal(limiter.buckets.size, 2);
+});
