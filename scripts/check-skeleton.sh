@@ -111,6 +111,16 @@ test -s backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'checkHealth' backend/src/modules/settlement/settlement-event.service.ts
 test -s backend/src/modules/settlement/settlement-verifier.service.ts
 test -s backend/src/modules/market-data/market-data.service.ts
+test -s backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'interface MarketSnapshotStore' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'class InMemoryMarketSnapshotRepository' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'saveSnapshot(input: SaveMarketSnapshotInput)' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'findBySnapshotId' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'Market snapshot conflict for' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'marketSnapshotStore: MarketSnapshotStore' backend/src/modules/quote/quote.service.ts
+grep -q 'await this.saveMarketSnapshot' backend/src/modules/quote/quote.service.ts
+grep -q 'marketSnapshotStoreStatus' backend/src/modules/health/readiness.service.ts
+grep -q 'marketSnapshotStore' backend/src/modules/metrics/metrics.service.ts
 grep -q 'getMarketSnapshotIssue' backend/src/modules/market-data/market-data.service.ts
 grep -q 'defaultStaticMarketDataConfig' backend/src/modules/market-data/market-data.service.ts
 grep -q 'Market data pair is not configured' backend/src/modules/market-data/market-data.service.ts
@@ -123,9 +133,18 @@ grep -q 'cloneStaticMarketDataConfig' backend/src/modules/market-data/market-dat
 grep -q 'Static market data supportedPairs must not contain duplicate pairs' backend/src/modules/market-data/market-data.service.ts
 grep -q 'getMarketSnapshotIssue rejects stale or future-skewed market snapshots' backend/test/market-data.test.mjs
 grep -q 'StaticMarketDataService rejects unconfigured token pairs' backend/test/market-data.test.mjs
+grep -q 'StaticMarketDataService returns unique pair snapshots' backend/test/market-data.test.mjs
 grep -q 'StaticMarketDataService snapshots supported pairs at construction' backend/test/market-data.test.mjs
 grep -q 'StaticMarketDataService rejects unsafe static market data config' backend/test/market-data.test.mjs
+grep -q 'InMemoryMarketSnapshotRepository stores idempotent market snapshots' backend/test/market-data.test.mjs
+grep -q 'InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots' backend/test/market-data.test.mjs
+grep -q 'InMemoryMarketSnapshotRepository returns defensive copies' backend/test/market-data.test.mjs
+grep -q 'QuoteService persists market snapshots before downstream quote side effects' backend/test/quote-service.test.mjs
+grep -q 'QuoteService blocks routing and signer when market snapshot persistence fails' backend/test/quote-service.test.mjs
 grep -q '快照 `StaticMarketDataConfig`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q 'InMemoryMarketSnapshotRepository` mirrors the PostgreSQL market_snapshots contract' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q 'persists MarketSnapshotStore audit records before routing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'runtime `MarketSnapshotStore` 必须镜像 `market_snapshots` 表的核心契约' docs/database/er-diagram.md
 test -s backend/src/modules/rate-limit/rate-limit.service.ts
 test -s backend/src/shared/errors/api-error.ts
 grep -q 'APIError serializes stable client responses without internal reason codes' backend/test/api-error.test.mjs

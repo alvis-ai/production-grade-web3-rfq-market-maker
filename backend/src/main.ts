@@ -4,6 +4,7 @@ import { HedgeService, type HedgeIntentService } from "./modules/hedge/hedge.ser
 import { ReadinessService } from "./modules/health/readiness.service.js";
 import { InventoryService } from "./modules/inventory/inventory.service.js";
 import { StaticMarketDataService, type MarketDataService } from "./modules/market-data/market-data.service.js";
+import { InMemoryMarketSnapshotRepository, type MarketSnapshotStore } from "./modules/market-data/market-snapshot.repository.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { PnlService, type PnlStore, type RecordPnlInput } from "./modules/pnl/pnl.service.js";
 import { FormulaPricingEngine, type PricingEngine } from "./modules/pricing/pricing.engine.js";
@@ -42,6 +43,7 @@ interface ShutdownLogger {
 export interface BuildServerOptions {
   logger?: boolean;
   marketDataService?: MarketDataService;
+  marketSnapshotStore?: MarketSnapshotStore;
   pricingEngine?: PricingEngine;
   quoteRepository?: QuoteRepository;
   riskDecisionStore?: RiskDecisionStore;
@@ -84,6 +86,7 @@ export function buildServer(options: BuildServerOptions = {}) {
 
   const hedgeService = options.hedgeService ?? new HedgeService();
   const marketDataService = options.marketDataService ?? new StaticMarketDataService();
+  const marketSnapshotStore = options.marketSnapshotStore ?? new InMemoryMarketSnapshotRepository();
   const metricsService = new MetricsService();
   const signerService = options.signerService ?? new LocalEIP712SignerService(readSignerConfig());
   const quoteRepository = options.quoteRepository ?? new InMemoryQuoteRepository();
@@ -111,6 +114,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const quoteService = new QuoteService({
     inventoryService,
     marketDataService,
+    marketSnapshotStore,
     hedgeService,
     pricingEngine,
     quoteRepository,
@@ -126,6 +130,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     hedgeService,
     inventoryService,
     marketDataService,
+    marketSnapshotStore,
     metricsService,
     pnlService,
     pricingEngine,

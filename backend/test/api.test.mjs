@@ -435,6 +435,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(ready.body.components.routing, "ok");
     assert.equal(ready.body.components.pricing, "ok");
     assert.equal(ready.body.components.risk, "ok");
+    assert.equal(ready.body.components.marketSnapshotStore, "ok");
     assert.equal(ready.body.components.quoteRepository, "ok");
     assert.equal(ready.body.components.riskDecisionStore, "ok");
     assert.equal(ready.body.components.inventory, "ok");
@@ -953,6 +954,17 @@ test("RFQ API degrades readiness when storage dependency probes fail", async () 
   const server = buildServer({
     logger: false,
     quoteRepository,
+    marketSnapshotStore: {
+      checkHealth() {
+        throw new Error("market snapshot store offline");
+      },
+      async saveSnapshot() {
+        throw new Error("unused");
+      },
+      async findBySnapshotId() {
+        return undefined;
+      },
+    },
     riskDecisionStore: {
       checkHealth() {
         throw new Error("risk decision store offline");
@@ -1015,6 +1027,7 @@ test("RFQ API degrades readiness when storage dependency probes fail", async () 
     assert.equal(response.body.status, "degraded");
     assert.equal(response.body.components.marketData, "ok");
     assert.equal(response.body.components.signer, "ok");
+    assert.equal(response.body.components.marketSnapshotStore, "degraded");
     assert.equal(response.body.components.quoteRepository, "degraded");
     assert.equal(response.body.components.riskDecisionStore, "degraded");
     assert.equal(response.body.components.execution, "degraded");
@@ -1023,6 +1036,7 @@ test("RFQ API degrades readiness when storage dependency probes fail", async () 
 
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_dependency_status\{component="marketSnapshotStore",status="degraded"\} 1/);
     assert.match(metrics.payload, /rfq_dependency_status\{component="quoteRepository",status="degraded"\} 1/);
     assert.match(metrics.payload, /rfq_dependency_status\{component="riskDecisionStore",status="degraded"\} 1/);
     assert.match(metrics.payload, /rfq_dependency_status\{component="execution",status="degraded"\} 1/);

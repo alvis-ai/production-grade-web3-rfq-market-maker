@@ -3,6 +3,7 @@ import {
   getMarketSnapshotIssue,
   type MarketDataService,
 } from "../market-data/market-data.service.js";
+import type { MarketSnapshotStore } from "../market-data/market-snapshot.repository.js";
 import type { MarketSnapshot, QuoteRequest, SignedQuote } from "../../shared/types/rfq.js";
 import type { SignerService } from "../signer/signer.service.js";
 import type { HedgeIntentService } from "../hedge/hedge.service.js";
@@ -25,6 +26,7 @@ export interface ReadinessResponse {
 
 export interface ReadinessServiceDeps {
   marketDataService: MarketDataService;
+  marketSnapshotStore: MarketSnapshotStore;
   routingEngine: RoutingEngine;
   pricingEngine: PricingEngine;
   riskEngine: RiskEngine;
@@ -110,6 +112,7 @@ export class ReadinessService {
 
   async check(): Promise<ReadinessResponse> {
     const marketDataStatus = await this.checkMarketData();
+    const marketSnapshotStoreStatus = await this.checkDependency(this.deps.marketSnapshotStore);
     const routingStatus = await this.checkRouting();
     const pricingStatus = await this.checkPricing();
     const riskStatus = await this.checkRisk();
@@ -123,6 +126,7 @@ export class ReadinessService {
     const metricsStatus = await this.checkDependency(this.deps.metricsService);
     const components = {
       marketData: marketDataStatus,
+      marketSnapshotStore: marketSnapshotStoreStatus,
       routing: routingStatus,
       pricing: pricingStatus,
       risk: riskStatus,

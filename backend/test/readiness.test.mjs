@@ -4,6 +4,7 @@ import { HedgeService } from "../dist/modules/hedge/hedge.service.js";
 import { ReadinessService, defaultReadinessServiceConfig } from "../dist/modules/health/readiness.service.js";
 import { InventoryService } from "../dist/modules/inventory/inventory.service.js";
 import { StaticMarketDataService } from "../dist/modules/market-data/market-data.service.js";
+import { InMemoryMarketSnapshotRepository } from "../dist/modules/market-data/market-snapshot.repository.js";
 import { MetricsService } from "../dist/modules/metrics/metrics.service.js";
 import { PnlService } from "../dist/modules/pnl/pnl.service.js";
 import { FormulaPricingEngine } from "../dist/modules/pricing/pricing.engine.js";
@@ -16,6 +17,7 @@ import { LocalEIP712SignerService } from "../dist/modules/signer/signer.service.
 
 const readinessComponents = [
   "marketData",
+  "marketSnapshotStore",
   "routing",
   "pricing",
   "risk",
@@ -53,6 +55,7 @@ test("ReadinessService degrades the aggregate status when a dependency probe fai
   assert.equal(readiness.status, "degraded");
   assert.deepEqual(Object.keys(readiness.components), readinessComponents);
   assert.equal(readiness.components.quoteRepository, "degraded");
+  assert.equal(readiness.components.marketSnapshotStore, "ok");
   assert.equal(readiness.components.riskDecisionStore, "ok");
   assert.equal(readiness.components.marketData, "ok");
   assert.equal(readiness.components.routing, "ok");
@@ -102,6 +105,17 @@ test("ReadinessService snapshots dependency object at construction", async () =>
   deps.marketDataService = {
     async getSnapshot() {
       throw new Error("mutated market data used");
+    },
+  };
+  deps.marketSnapshotStore = {
+    checkHealth() {
+      throw new Error("mutated market snapshot store used");
+    },
+    async saveSnapshot() {
+      throw new Error("mutated market snapshot store used");
+    },
+    async findBySnapshotId() {
+      return undefined;
     },
   };
   deps.routingEngine = {
@@ -169,6 +183,7 @@ function readinessServiceDeps(overrides = {}) {
 
   return {
     marketDataService: overrides.marketDataService ?? new StaticMarketDataService(),
+    marketSnapshotStore: overrides.marketSnapshotStore ?? new InMemoryMarketSnapshotRepository(),
     routingEngine: overrides.routingEngine ?? new InternalInventoryRoutingEngine(),
     pricingEngine: overrides.pricingEngine ?? new FormulaPricingEngine(),
     riskEngine: overrides.riskEngine ?? new BasicRiskEngine(),

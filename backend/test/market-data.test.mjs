@@ -4,6 +4,7 @@ import {
   getMarketSnapshotIssue,
   StaticMarketDataService,
 } from "../dist/modules/market-data/market-data.service.js";
+import { InMemoryMarketSnapshotRepository } from "../dist/modules/market-data/market-snapshot.repository.js";
 
 const request = {
   chainId: 1,
@@ -22,11 +23,14 @@ const snapshot = {
   observedAt: "2026-06-29T00:00:00.000Z",
 };
 
-test("StaticMarketDataService returns deterministic pair snapshots", async () => {
+test("StaticMarketDataService returns unique pair snapshots", async () => {
   const service = new StaticMarketDataService();
   const result = await service.getSnapshot(request);
+  const second = await service.getSnapshot(request);
 
-  assert.equal(result.snapshotId, "snapshot_1_00000000_00000000");
+  assert.match(result.snapshotId, /^snapshot_1_00000000_00000000_[0-9a-z]+_[0-9a-z]+$/);
+  assert.match(second.snapshotId, /^snapshot_1_00000000_00000000_[0-9a-z]+_[0-9a-z]+$/);
+  assert.notEqual(result.snapshotId, second.snapshotId);
   assert.equal(result.midPrice, "1");
   assert.equal(result.liquidityUsd, "10000000000000");
   assert.equal(result.volatilityBps, 25);
@@ -64,7 +68,7 @@ test("StaticMarketDataService snapshots supported pairs at construction", async 
   });
 
   const result = await service.getSnapshot(request);
-  assert.equal(result.snapshotId, "snapshot_1_00000000_00000000");
+  assert.match(result.snapshotId, /^snapshot_1_00000000_00000000_[0-9a-z]+_[0-9a-z]+$/);
 
   await assert.rejects(
     service.getSnapshot({
@@ -157,6 +161,99 @@ test("getMarketSnapshotIssue rejects invalid market snapshot shape", () => {
       assert.equal(getMarketSnapshotIssue(invalidSnapshot, 5_000), expectedIssue);
     }
   });
+});
+
+test("InMemoryMarketSnapshotRepository stores idempotent market snapshots", async () => {
+  const repository = new InMemoryMarketSnapshotRepository();
+  const stored = await repository.saveSnapshot({ request, snapshot });
+  const replayed = await repository.saveSnapshot({ request, snapshot });
+  const reloaded = await repository.findBySnapshotId(snapshot.snapshotId);
+
+  assert.equal(stored.snapshotId, snapshot.snapshotId);
+  assert.equal(stored.chainId, request.chainId);
+  assert.equal(stored.tokenIn, request.tokenIn);
+  assert.equal(stored.tokenOut, request.tokenOut);
+  assert.equal(stored.midPrice, snapshot.midPrice);
+  assert.equal(stored.liquidityUsd, snapshot.liquidityUsd);
+  assert.equal(stored.volatilityBps, snapshot.volatilityBps);
+  assert.equal(stored.source, "static-market-data-v1");
+  assert.equal(stored.observedAt, snapshot.observedAt);
+  assert.equal(replayed.createdAt, stored.createdAt);
+  assert.deepEqual(reloaded, stored);
+});
+
+test("InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots", async () => {
+  const repository = new InMemoryMarketSnapshotRepository();
+
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: { ...snapshot, snapshotId: " " },
+    }),
+    /Market snapshot snapshotId must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: { ...snapshot, midPrice: "0" },
+    }),
+    /Market snapshot midPrice must be a positive decimal/,
+  );
+
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: { ...snapshot, liquidityUsd: "0" },
+    }),
+    /Market snapshot liquidityUsd must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: { ...snapshot, volatilityBps: 10001 },
+    }),
+    /Market snapshot volatilityBps must be an integer from 0 to 10000/,
+  );
+
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: { ...snapshot, observedAt: "not-a-date" },
+    }),
+    /Market snapshot observedAt must be an ISO timestamp/,
+  );
+
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot,
+      source: " ",
+    }),
+    /Market snapshot source must be a non-empty string/,
+  );
+
+  await repository.saveSnapshot({ request, snapshot });
+
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: { ...snapshot, midPrice: "1.26" },
+    }),
+    /Market snapshot conflict for snapshot_1/,
+  );
+});
+
+test("InMemoryMarketSnapshotRepository returns defensive copies", async () => {
+  const repository = new InMemoryMarketSnapshotRepository();
+  const stored = await repository.saveSnapshot({ request, snapshot });
+
+  stored.midPrice = "999";
+  const reloaded = await repository.findBySnapshotId(snapshot.snapshotId);
+
+  assert.notEqual(reloaded, stored);
+  assert.equal(reloaded.midPrice, snapshot.midPrice);
 });
 
 function withFixedNow(isoTimestamp, callback) {

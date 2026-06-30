@@ -17,6 +17,7 @@ import {
   getMarketSnapshotIssue,
   type MarketDataService,
 } from "../market-data/market-data.service.js";
+import type { MarketSnapshotStore, SaveMarketSnapshotInput } from "../market-data/market-snapshot.repository.js";
 import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
 import type { HedgeIntentService } from "../hedge/hedge.service.js";
 import type {
@@ -36,6 +37,7 @@ import { QuoteIdentityGenerator } from "./quote-identity.js";
 export interface QuoteServiceDeps {
   inventoryService: InventoryService;
   marketDataService: MarketDataService;
+  marketSnapshotStore: MarketSnapshotStore;
   pricingEngine: PricingEngine;
   hedgeService?: HedgeIntentService;
   quoteRepository: QuoteRepository;
@@ -76,6 +78,10 @@ export class QuoteService {
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
     const validatedRequest = validateQuoteRequest(request);
     const snapshot = await this.getUsableSnapshot(validatedRequest);
+    await this.saveMarketSnapshot({
+      request: validatedRequest,
+      snapshot,
+    });
     let routePlan: RoutePlan;
     try {
       routePlan = await this.deps.routingEngine.selectRoute({ request: validatedRequest, snapshot });
@@ -219,6 +225,14 @@ export class QuoteService {
   private async saveRequestedQuote(input: SaveRequestedQuoteInput): Promise<void> {
     try {
       await this.deps.quoteRepository.saveRequested(input);
+    } catch (error) {
+      throw quoteStoreFailure(error);
+    }
+  }
+
+  private async saveMarketSnapshot(input: SaveMarketSnapshotInput): Promise<void> {
+    try {
+      await this.deps.marketSnapshotStore.saveSnapshot(input);
     } catch (error) {
       throw quoteStoreFailure(error);
     }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { InventoryService } from "../dist/modules/inventory/inventory.service.js";
 import { StaticMarketDataService } from "../dist/modules/market-data/market-data.service.js";
+import { InMemoryMarketSnapshotRepository } from "../dist/modules/market-data/market-snapshot.repository.js";
 import { FormulaPricingEngine } from "../dist/modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
 import { defaultQuoteServiceConfig, QuoteService } from "../dist/modules/quote/quote.service.js";
@@ -1101,6 +1102,7 @@ test("QuoteService uses configured quote TTL when generating signed quote deadli
       {
         inventoryService: new InventoryService(),
         marketDataService: new StaticMarketDataService(),
+        marketSnapshotStore: new InMemoryMarketSnapshotRepository(),
         pricingEngine: new FormulaPricingEngine(),
         quoteRepository: new InMemoryQuoteRepository(),
         riskDecisionStore: new InMemoryRiskDecisionRepository(),
@@ -1186,6 +1188,17 @@ test("QuoteService snapshots dependency object at construction", async () => {
       throw new Error("mutated market data used");
     },
   };
+  deps.marketSnapshotStore = {
+    checkHealth() {
+      throw new Error("mutated market snapshot store used");
+    },
+    async saveSnapshot() {
+      throw new Error("mutated market snapshot store used");
+    },
+    async findBySnapshotId() {
+      return undefined;
+    },
+  };
   deps.pricingEngine = {
     async price() {
       throw new Error("mutated pricing engine used");
@@ -1204,7 +1217,7 @@ test("QuoteService snapshots dependency object at construction", async () => {
   const quote = await service.createQuote(request);
 
   assert.equal(quote.signature, fixedSignature());
-  assert.equal(quote.snapshotId, "snapshot_1_00000000_00000000");
+  assert.match(quote.snapshotId, /^snapshot_1_00000000_00000000_[0-9a-z]+_[0-9a-z]+$/);
   assert.equal((await quoteRepository.findStatus(quote.quoteId)).status, "signed");
   assert.equal(await replacementQuoteRepository.findStatus(quote.quoteId), undefined);
 });
@@ -1233,6 +1246,69 @@ test("QuoteService rejects unsafe quote requests before dependency side effects"
 
   assert.equal(marketDataCalls, 0);
   assert.equal(await quoteRepository.findStatus("q_invalid_pair"), undefined);
+});
+
+test("QuoteService persists market snapshots before downstream quote side effects", async () => {
+  const marketSnapshotStore = new InMemoryMarketSnapshotRepository();
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    marketSnapshotStore,
+  });
+
+  const quote = await service.createQuote(request);
+  const storedSnapshot = await marketSnapshotStore.findBySnapshotId(quote.snapshotId);
+
+  assert.ok(storedSnapshot);
+  assert.equal(storedSnapshot.chainId, request.chainId);
+  assert.equal(storedSnapshot.tokenIn, request.tokenIn);
+  assert.equal(storedSnapshot.tokenOut, request.tokenOut);
+  assert.equal(storedSnapshot.midPrice, "1");
+  assert.equal(storedSnapshot.liquidityUsd, "10000000000000");
+  assert.equal(storedSnapshot.volatilityBps, 25);
+  assert.equal(storedSnapshot.source, "static-market-data-v1");
+});
+
+test("QuoteService blocks routing and signer when market snapshot persistence fails", async () => {
+  let routingCalls = 0;
+  let signerCalls = 0;
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    marketSnapshotStore: {
+      checkHealth() {},
+      async saveSnapshot() {
+        throw new Error("market snapshot store offline");
+      },
+      async findBySnapshotId() {
+        return undefined;
+      },
+    },
+    routingEngine: {
+      async selectRoute() {
+        routingCalls += 1;
+        throw new Error("routing should not be called");
+      },
+    },
+    signerService: {
+      async signQuote() {
+        signerCalls += 1;
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() {
+        return true;
+      },
+    },
+  });
+
+  await assert.rejects(
+    service.createQuote(request),
+    (error) => {
+      assert.equal(error.code, "QUOTE_STORE_UNAVAILABLE");
+      return true;
+    },
+  );
+
+  assert.equal(routingCalls, 0);
+  assert.equal(signerCalls, 0);
 });
 
 test("QuoteService persists approved and rejected risk decisions before signer boundary", async () => {
@@ -1329,6 +1405,7 @@ test("QuoteService persists expired status when signed quote status is read afte
       {
         inventoryService: new InventoryService(),
         marketDataService: new StaticMarketDataService(),
+        marketSnapshotStore: new InMemoryMarketSnapshotRepository(),
         pricingEngine: new FormulaPricingEngine(),
         quoteRepository,
         riskDecisionStore: new InMemoryRiskDecisionRepository(),
@@ -1418,6 +1495,7 @@ test("QuoteService rejects expired signed quotes before signature verification",
       {
         inventoryService: new InventoryService(),
         marketDataService: new StaticMarketDataService(),
+        marketSnapshotStore: new InMemoryMarketSnapshotRepository(),
         pricingEngine: new FormulaPricingEngine(),
         quoteRepository,
         riskDecisionStore: new InMemoryRiskDecisionRepository(),
@@ -1511,6 +1589,7 @@ test("QuoteService marks requested quotes as failed when signer is unavailable",
   const service = new QuoteService({
     inventoryService: new InventoryService(),
     marketDataService: new StaticMarketDataService(),
+    marketSnapshotStore: new InMemoryMarketSnapshotRepository(),
     pricingEngine: new FormulaPricingEngine(),
     quoteRepository,
     riskDecisionStore: new InMemoryRiskDecisionRepository(),
@@ -1538,7 +1617,7 @@ test("QuoteService marks requested quotes as failed when signer is unavailable",
   const status = await quoteRepository.findStatus(requestedQuoteId);
   assert.equal(status.status, "failed");
   assert.equal(status.errorCode, "SIGNER_UNAVAILABLE");
-  assert.equal(status.snapshotId, "snapshot_1_00000000_00000000");
+  assert.match(status.snapshotId, /^snapshot_1_00000000_00000000_[0-9a-z]+_[0-9a-z]+$/);
 });
 
 test("QuoteService preserves signer errors when marking failed quotes fails", async () => {
@@ -1556,6 +1635,7 @@ test("QuoteService preserves signer errors when marking failed quotes fails", as
   const service = new QuoteService({
     inventoryService: new InventoryService(),
     marketDataService: new StaticMarketDataService(),
+    marketSnapshotStore: new InMemoryMarketSnapshotRepository(),
     pricingEngine: new FormulaPricingEngine(),
     quoteRepository,
     riskDecisionStore: new InMemoryRiskDecisionRepository(),
@@ -1590,6 +1670,7 @@ test("QuoteService includes hedge risk penalty in pricing input", async () => {
   const service = new QuoteService({
     inventoryService: new InventoryService(),
     marketDataService: new StaticMarketDataService(),
+    marketSnapshotStore: new InMemoryMarketSnapshotRepository(),
     pricingEngine: {
       async price(input) {
         observedInventorySkewBps = input.inventorySkewBps;
@@ -1641,6 +1722,7 @@ function quoteServiceDeps() {
   return {
     inventoryService: new InventoryService(),
     marketDataService: new StaticMarketDataService(),
+    marketSnapshotStore: new InMemoryMarketSnapshotRepository(),
     pricingEngine: new FormulaPricingEngine(),
     quoteRepository: new InMemoryQuoteRepository(),
     riskDecisionStore: new InMemoryRiskDecisionRepository(),

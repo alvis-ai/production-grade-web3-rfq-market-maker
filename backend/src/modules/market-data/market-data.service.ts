@@ -31,6 +31,7 @@ export const defaultStaticMarketDataConfig: StaticMarketDataConfig = {
 
 export class StaticMarketDataService implements MarketDataService {
   private readonly supportedPairs: ReadonlySet<string>;
+  private snapshotSequence = 0;
 
   constructor(config: StaticMarketDataConfig = defaultStaticMarketDataConfig) {
     assertStaticMarketDataConfig(config);
@@ -43,17 +44,22 @@ export class StaticMarketDataService implements MarketDataService {
       throw new Error("Market data pair is not configured");
     }
 
+    const observedAtMs = Date.now();
+    this.snapshotSequence += 1;
+
     return {
       snapshotId: [
         "snapshot",
         request.chainId.toString(),
         request.tokenIn.slice(2, 10).toLowerCase(),
         request.tokenOut.slice(2, 10).toLowerCase(),
+        observedAtMs.toString(36),
+        this.snapshotSequence.toString(36),
       ].join("_"),
       midPrice: "1",
       liquidityUsd: "10000000000000",
       volatilityBps: 25,
-      observedAt: new Date().toISOString(),
+      observedAt: new Date(observedAtMs).toISOString(),
     };
   }
 }
