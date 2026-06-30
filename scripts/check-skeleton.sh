@@ -329,6 +329,7 @@ grep -q 'maxSnapshotAgeMs' backend/src/modules/quote/quote.service.ts
 grep -q 'maxSnapshotFutureSkewMs' backend/src/modules/quote/quote.service.ts
 grep -q 'assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds")' backend/src/modules/quote/quote.service.ts
+grep -q 'cloneQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
 grep -q 'MARKET_DATA_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'ROUTING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'routingFailure' backend/src/modules/quote/quote.service.ts
@@ -1205,7 +1206,9 @@ grep -q '未匹配路由' docs/api/errors.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/test/api.test.mjs
 grep -q 'configured quote TTL' backend/test/quote-service.test.mjs
+grep -q 'QuoteService snapshots runtime configuration at construction' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe runtime configuration at construction' backend/test/quote-service.test.mjs
+grep -q 'snapshots `QuoteServiceConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'runtime config fail-fast' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '"viem"' backend/package.json
 grep -q '"@types/react"' frontend/package.json

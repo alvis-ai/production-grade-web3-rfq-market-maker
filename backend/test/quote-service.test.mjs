@@ -630,6 +630,49 @@ test("QuoteService uses configured quote TTL when generating signed quote deadli
   }
 });
 
+test("QuoteService snapshots runtime configuration at construction", async () => {
+  const originalDateNow = Date.now;
+  const fixedNow = originalDateNow();
+  Date.now = () => fixedNow;
+  const mutableConfig = {
+    ...defaultQuoteServiceConfig,
+    maxSnapshotAgeMs: 5_000,
+    maxSnapshotFutureSkewMs: 1_000,
+    quoteTtlSeconds: 120,
+  };
+
+  try {
+    const service = new QuoteService(
+      {
+        ...quoteServiceDeps(),
+        marketDataService: {
+          async getSnapshot() {
+            return {
+              snapshotId: "snapshot_mutable_config",
+              midPrice: "1",
+              liquidityUsd: "10000000000000",
+              volatilityBps: 25,
+              observedAt: new Date(fixedNow - 2_000).toISOString(),
+            };
+          },
+        },
+      },
+      mutableConfig,
+    );
+
+    mutableConfig.maxSnapshotAgeMs = 1;
+    mutableConfig.maxSnapshotFutureSkewMs = 1;
+    mutableConfig.quoteTtlSeconds = 1;
+
+    const quote = await service.createQuote(request);
+
+    assert.equal(quote.deadline, Math.floor(fixedNow / 1000) + 120);
+    assert.equal(quote.snapshotId, "snapshot_mutable_config");
+  } finally {
+    Date.now = originalDateNow;
+  }
+});
+
 test("QuoteService persists expired status when signed quote status is read after deadline", async () => {
   const originalDateNow = Date.now;
   let now = originalDateNow();

@@ -55,14 +55,16 @@ export const defaultQuoteServiceConfig: QuoteServiceConfig = {
 
 export class QuoteService {
   private readonly identityGenerator = new QuoteIdentityGenerator();
+  private readonly config: QuoteServiceConfig;
 
   constructor(
     private readonly deps: QuoteServiceDeps,
-    private readonly config: QuoteServiceConfig = defaultQuoteServiceConfig,
+    config: QuoteServiceConfig = defaultQuoteServiceConfig,
   ) {
     assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
     assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
     assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds");
+    this.config = cloneQuoteServiceConfig(config);
   }
 
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
@@ -384,6 +386,10 @@ function assertUsableSnapshot(
   if (issue) {
     throw new APIError("MARKET_DATA_UNAVAILABLE", `Market data ${issue}`, 503);
   }
+}
+
+function cloneQuoteServiceConfig(config: QuoteServiceConfig): QuoteServiceConfig {
+  return { ...config };
 }
 
 function assertPositiveSafeInteger(value: number, field: keyof QuoteServiceConfig): void {
