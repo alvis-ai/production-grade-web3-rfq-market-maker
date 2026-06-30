@@ -386,6 +386,93 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
   assert.equal(await quoteRepository.findStatus("q_bad_reject"), undefined);
 });
 
+test("InMemoryQuoteRepository rejects requested quote payload rewrites", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const input = {
+    quoteId: "q_requested_payload",
+    snapshotId: "snapshot_1",
+    request,
+  };
+
+  await quoteRepository.saveRequested(input);
+  await quoteRepository.saveRequested(input);
+  await assert.rejects(
+    quoteRepository.saveRequested({
+      ...input,
+      snapshotId: "snapshot_2",
+    }),
+    /Requested quote payload cannot be changed/,
+  );
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      quoteId: "q_requested_payload",
+      snapshotId: "snapshot_1",
+      quote: {
+        user: request.user,
+        tokenIn: request.tokenIn,
+        tokenOut: request.tokenOut,
+        amountIn: "999",
+        amountOut: "998",
+        minAmountOut: "990",
+        nonce: "42",
+        deadline: Math.floor(Date.now() / 1000) + 30,
+        chainId: request.chainId,
+      },
+      pricingVersion: "test-pricing",
+      riskPolicyVersion: "test-risk",
+      signature: fixedSignature(),
+    }),
+    /Signed quote request cannot differ from requested quote/,
+  );
+
+  const status = await quoteRepository.findStatus("q_requested_payload");
+  assert.equal(status.status, "requested");
+  assert.equal(status.snapshotId, "snapshot_1");
+});
+
+test("InMemoryQuoteRepository rejects rejected quote payload rewrites", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const requestedInput = {
+    quoteId: "q_rejected_payload",
+    snapshotId: "snapshot_1",
+    request,
+  };
+  const rejectedInput = {
+    ...requestedInput,
+    rejectCode: "RISK_REJECTED",
+    riskPolicyVersion: "test-risk",
+  };
+
+  await assert.rejects(
+    quoteRepository.saveRejected({
+      quoteId: "q_missing_rejected",
+      snapshotId: "snapshot_1",
+      request,
+      rejectCode: "RISK_REJECTED",
+    }),
+    /cannot save rejected quote without requested state/,
+  );
+
+  await quoteRepository.saveRequested(requestedInput);
+  await quoteRepository.saveRejected(rejectedInput);
+  await quoteRepository.saveRejected(rejectedInput);
+  await assert.rejects(
+    quoteRepository.saveRejected({
+      ...rejectedInput,
+      rejectCode: "TOXIC_FLOW",
+    }),
+    /Rejected quote payload cannot be changed/,
+  );
+  await assert.rejects(
+    quoteRepository.saveRequested(requestedInput),
+    /cannot save requested quote from rejected/,
+  );
+
+  const status = await quoteRepository.findStatus("q_rejected_payload");
+  assert.equal(status.status, "rejected");
+  assert.equal(status.errorCode, "RISK_REJECTED");
+});
+
 test("InMemoryQuoteRepository preserves settlement metadata across status updates", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const signedQuote = {
@@ -494,6 +581,11 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
   assert.equal(settled.hedgeOrderId, "h_1");
   assert.equal(settled.pnlId, "pnl_1");
 
+  await quoteRepository.saveRequested({
+    quoteId: "q_rejected",
+    snapshotId: "snapshot_2",
+    request,
+  });
   await quoteRepository.saveRejected({
     quoteId: "q_rejected",
     snapshotId: "snapshot_2",

@@ -448,6 +448,13 @@ grep -q 'findSignedQuoteByQuoteId' backend/src/modules/quote/quote.repository.ts
 grep -q 'chainUserNonceKey' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertRequestedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertRejectedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertCanSaveRequestedQuote(current, input)' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertCanSaveRejectedQuote(current, input)' backend/src/modules/quote/quote.repository.ts
+grep -q 'isSameRequestedQuotePayload' backend/src/modules/quote/quote.repository.ts
+grep -q 'isSameRequestedQuotePayloadAsSigned' backend/src/modules/quote/quote.repository.ts
+grep -q 'Requested quote payload cannot be changed' backend/src/modules/quote/quote.repository.ts
+grep -q 'cannot save rejected quote without requested state' backend/src/modules/quote/quote.repository.ts
+grep -q 'Signed quote request cannot differ from requested quote' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote nonce key already exists' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertSignedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote signature must be a 65-byte hex string' backend/src/modules/quote/quote.repository.ts
@@ -482,6 +489,8 @@ grep -q 'rejects unsafe signed quote persistence inputs' backend/test/quote-serv
 grep -q 'persists expired status when signed quote status is read after deadline' backend/test/quote-service.test.mjs
 grep -q 'rejects expired signed quotes before signature verification' backend/test/quote-service.test.mjs
 grep -q 'rejects unsafe requested and rejected quote persistence inputs' backend/test/quote-service.test.mjs
+grep -q 'rejects requested quote payload rewrites' backend/test/quote-service.test.mjs
+grep -q 'rejects rejected quote payload rewrites' backend/test/quote-service.test.mjs
 grep -q 'rejects terminal quote status regressions' backend/test/quote-service.test.mjs
 grep -q 'cannot transition from requested to settled through markStatus' backend/test/quote-service.test.mjs
 grep -q 'cannot transition from submitted to expired' backend/test/quote-service.test.mjs
@@ -490,6 +499,9 @@ grep -q 'rejects settlement statuses without chain pointers' backend/test/quote-
 grep -q 'rejects malformed failed quote metadata' backend/test/quote-service.test.mjs
 grep -q 'preserves settlement metadata across status updates' backend/test/quote-service.test.mjs
 grep -q 'chainId:user:nonce' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Requested quote storage is write-once by `quoteId`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'must start from the matching requested quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'bind to the same requested `quoteId`, `snapshotId`, chain, user, token pair and `amountIn`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'exact same signed payload' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'must not move submitted, settled, failed, rejected or expired quotes back to `signed`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requested/rejected quote persistence validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md

@@ -86,6 +86,12 @@ export class InMemoryQuoteRepository implements QuoteRepository {
   async saveRequested(input: SaveRequestedQuoteInput): Promise<void> {
     assertRequestedQuoteInput(input);
 
+    const current = this.records.get(input.quoteId);
+    if (current) {
+      assertCanSaveRequestedQuote(current, input);
+      return;
+    }
+
     this.records.set(input.quoteId, {
       quoteId: input.quoteId,
       chainId: input.request.chainId,
@@ -102,8 +108,13 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     assertRejectedQuoteInput(input);
 
     const current = this.records.get(input.quoteId);
+    assertCanSaveRejectedQuote(current, input);
+    if (!current || current.status === "rejected") {
+      return;
+    }
+
     this.records.set(input.quoteId, {
-      ...(current ?? {}),
+      ...current,
       quoteId: input.quoteId,
       chainId: input.request.chainId,
       user: input.request.user,
@@ -366,9 +377,49 @@ function assertCanMarkFailed(record: QuoteRecord): void {
   }
 }
 
+function assertCanSaveRequestedQuote(record: QuoteRecord, input: SaveRequestedQuoteInput): void {
+  if (record.status === "requested") {
+    if (isSameRequestedQuotePayload(record, input)) {
+      return;
+    }
+
+    throw new Error(`Requested quote payload cannot be changed for ${input.quoteId}`);
+  }
+
+  throw new Error(`Quote ${input.quoteId} cannot save requested quote from ${record.status}`);
+}
+
+function assertCanSaveRejectedQuote(record: QuoteRecord | undefined, input: SaveRejectedQuoteInput): void {
+  if (!record) {
+    throw new Error(`Quote ${input.quoteId} cannot save rejected quote without requested state`);
+  }
+
+  if (record.status === "requested") {
+    if (isSameRequestedQuotePayload(record, input)) {
+      return;
+    }
+
+    throw new Error(`Rejected quote request cannot differ from requested quote ${input.quoteId}`);
+  }
+
+  if (record.status === "rejected") {
+    if (isSameRejectedQuotePayload(record, input)) {
+      return;
+    }
+
+    throw new Error(`Rejected quote payload cannot be changed for ${input.quoteId}`);
+  }
+
+  throw new Error(`Quote ${input.quoteId} cannot save rejected quote from ${record.status}`);
+}
+
 function assertCanSaveSignedQuote(record: QuoteRecord, input: SaveSignedQuoteInput): void {
   if (record.status === "requested") {
-    return;
+    if (isSameRequestedQuotePayloadAsSigned(record, input)) {
+      return;
+    }
+
+    throw new Error(`Signed quote request cannot differ from requested quote ${input.quoteId}`);
   }
 
   if (record.status === "signed") {
@@ -380,6 +431,38 @@ function assertCanSaveSignedQuote(record: QuoteRecord, input: SaveSignedQuoteInp
   }
 
   throw new Error(`Quote ${input.quoteId} cannot save signed quote from ${record.status}`);
+}
+
+function isSameRequestedQuotePayload(record: QuoteRecord, input: SaveRequestedQuoteInput | SaveRejectedQuoteInput): boolean {
+  return (
+    record.quoteId === input.quoteId &&
+    record.chainId === input.request.chainId &&
+    record.user.toLowerCase() === input.request.user.toLowerCase() &&
+    record.tokenIn.toLowerCase() === input.request.tokenIn.toLowerCase() &&
+    record.tokenOut.toLowerCase() === input.request.tokenOut.toLowerCase() &&
+    record.amountIn === input.request.amountIn &&
+    record.snapshotId === input.snapshotId
+  );
+}
+
+function isSameRejectedQuotePayload(record: QuoteRecord, input: SaveRejectedQuoteInput): boolean {
+  return (
+    isSameRequestedQuotePayload(record, input) &&
+    record.rejectCode === input.rejectCode &&
+    record.riskPolicyVersion === input.riskPolicyVersion
+  );
+}
+
+function isSameRequestedQuotePayloadAsSigned(record: QuoteRecord, input: SaveSignedQuoteInput): boolean {
+  return (
+    record.quoteId === input.quoteId &&
+    record.chainId === input.quote.chainId &&
+    record.user.toLowerCase() === input.quote.user.toLowerCase() &&
+    record.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
+    record.tokenOut.toLowerCase() === input.quote.tokenOut.toLowerCase() &&
+    record.amountIn === input.quote.amountIn &&
+    record.snapshotId === input.snapshotId
+  );
 }
 
 function isSameSignedQuotePayload(record: QuoteRecord, input: SaveSignedQuoteInput): boolean {
