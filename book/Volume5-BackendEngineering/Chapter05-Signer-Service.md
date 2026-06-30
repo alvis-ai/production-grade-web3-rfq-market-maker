@@ -39,7 +39,7 @@ Signed quote 是链上结算授权。Signer 如果被滥用，攻击者可以构
 
 ## Existing Solutions
 
-本地私钥适合开发，不适合生产。KMS/HSM 更适合生产 signer。当前后端 skeleton 已提供 `LocalEIP712SignerService`，使用 `viem/accounts` 对 `ProductionGradeRFQ` EIP-712 typed data 签名；`PlaceholderSignerService` 仅作为测试 fallback。
+本地私钥适合开发，不适合生产。KMS/HSM 更适合生产 signer。当前后端 skeleton 已提供 `LocalEIP712SignerService`，使用 `viem/accounts` 对 `ProductionGradeRFQ` EIP-712 typed data 签名。代码库不保留 placeholder signer 或 deterministic fake signature 实现；测试如果需要 signer stub，必须在测试文件内局部定义并显式注入，生产构建默认只能使用 `LocalEIP712SignerService` 或外部注入的真实 `SignerService`。
 
 ## Trade-Off Analysis
 
@@ -118,6 +118,7 @@ signQuote(input: SignQuoteInput): Promise<`0x${string}`>
 - `/ready` 使用固定 probe quote 执行 signer sign + verify 检查；探针签名不返回给用户，也不改变 quote repository 状态。
 - Local signer validates private key, settlement address, quoteId, snapshotId and signed quote shape before producing any EIP-712 signature; malformed verification inputs return `false` instead of leaking lower-level signing-library errors.
 - Local signer verification rejects high-s ECDSA signatures and invalid `v` values before address recovery, matching `RFQSettlement` canonical signature rules so `/submit` cannot accept a signature that chain settlement would reject.
+- Production code does not ship a placeholder signer; tests that need signer behavior must inject local test doubles from test files so fake signatures cannot be imported into runtime wiring.
 - `LocalEIP712SignerService` snapshots `LocalEIP712SignerConfig` at construction after validation. External callers must not be able to mutate the settlement address after construction and silently change the EIP-712 verifying contract.
 - Production signer 使用 KMS/HSM，并保持同一 `signQuote` 接口。
 - Key rotation 写入 runbook。

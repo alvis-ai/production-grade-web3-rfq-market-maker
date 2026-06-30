@@ -3,7 +3,6 @@ import { privateKeyToAccount } from "viem/accounts";
 import type { PrivateKeyAccount } from "viem/accounts";
 import type { SignedQuote } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
-import { toFixedHex } from "../../shared/types/hex.js";
 import type { MetricsService, SignerMetricOperation } from "../metrics/metrics.service.js";
 
 const RFQ_EIP712_DOMAIN_NAME = "ProductionGradeRFQ";
@@ -201,17 +200,5 @@ function assertPositiveUIntString(value: string, field: string): void {
 function assertPositiveSafeInteger(value: number, field: string): void {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`Signer ${field} must be a positive safe integer`);
-  }
-}
-
-export class PlaceholderSignerService implements SignerService {
-  async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
-    const seed = `${input.quoteId}:${input.snapshotId}:${input.quote.nonce}`;
-    const hex = toFixedHex(seed, 130);
-    return `0x${hex}`;
-  }
-
-  async verifyQuoteSignature(): Promise<boolean> {
-    return false;
   }
 }
