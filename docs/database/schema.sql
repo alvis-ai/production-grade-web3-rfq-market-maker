@@ -39,7 +39,14 @@ CREATE TABLE quotes (
   ),
   CONSTRAINT chk_quotes_distinct_tokens CHECK (lower(token_in) <> lower(token_out)),
   CONSTRAINT chk_quotes_signature_and_tx_hash_hex CHECK (
-    (signature IS NULL OR signature ~ '^0x[0-9a-fA-F]{130}$')
+    (
+      signature IS NULL
+      OR (
+        signature ~ '^0x[0-9a-fA-F]{130}$'
+        AND lower(substring(signature from 67 for 64)) <= '7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0'
+        AND lower(substring(signature from 131 for 2)) IN ('1b', '1c')
+      )
+    )
     AND (tx_hash IS NULL OR tx_hash ~ '^0x[0-9a-fA-F]{64}$')
   ),
   CONSTRAINT chk_quotes_status_payload_consistency CHECK (

@@ -556,6 +556,8 @@ grep -q 'chk_market_snapshots_distinct_tokens' docs/database/schema.sql
 grep -q 'chk_settlement_events_distinct_tokens' docs/database/schema.sql
 grep -q 'chk_pnl_records_distinct_tokens' docs/database/schema.sql
 grep -q 'chk_quotes_signature_and_tx_hash_hex' docs/database/schema.sql
+grep -q 'substring(signature from 67 for 64)' docs/database/schema.sql
+grep -q "substring(signature from 131 for 2)) IN ('1b', '1c')" docs/database/schema.sql
 grep -q 'chk_quotes_status_payload_consistency' docs/database/schema.sql
 grep -q 'chk_quotes_signed_payload_consistency' docs/database/schema.sql
 grep -q 'chk_quotes_rejection_payload_consistency' docs/database/schema.sql
@@ -577,6 +579,8 @@ grep -q 'signed attribution snapshot' docs/database/er-diagram.md
 grep -q 'quotes must constrain lifecycle status values' scripts/check-database-schema-consistency.mjs
 grep -q 'chain_id must be constrained to the JavaScript safe integer range' scripts/check-database-schema-consistency.mjs
 grep -q 'must require distinct token_in and token_out addresses' scripts/check-database-schema-consistency.mjs
+grep -q 'canonical low-s EIP-712 signatures' scripts/check-database-schema-consistency.mjs
+grep -q 'recovery id 27 or 28' scripts/check-database-schema-consistency.mjs
 grep -q 'submitted and settled quotes must keep tx_hash and settlement_event_id pointers' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must require positive signed amount and nonce fields when present' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must require amount_out to satisfy min_amount_out when both are present' scripts/check-database-schema-consistency.mjs
@@ -590,6 +594,7 @@ grep -q 'hedge_orders must constrain side enum values' scripts/check-database-sc
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
 grep -q 'distinct token pair' docs/database/er-diagram.md
 grep -q 'bid_price <= mid_price <= ask_price' docs/database/er-diagram.md
+grep -q 'canonical low-s EIP-712 signature' docs/database/er-diagram.md
 grep -q '正数 signed amount/nonce' docs/database/er-diagram.md
 grep -q 'amount_out >= min_amount_out' docs/database/er-diagram.md
 grep -q 'status payload consistency' docs/database/er-diagram.md

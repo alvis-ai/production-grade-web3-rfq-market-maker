@@ -8,6 +8,7 @@ const erDiagramSource = await readFile("docs/database/er-diagram.md", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");
 const maxSafeInteger = "9007199254740991";
+const secp256k1HalfOrder = "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0";
 
 const tables = extractTables(schemaSource);
 
@@ -230,8 +231,21 @@ assert.ok(
   "quotes status constraint must match backend QuoteLifecycleStatus values",
 );
 assert.ok(
-  /signature\s+IS\s+NULL\s+OR\s+signature\s+~\s+'\^0x\[0-9a-fA-F\]\{130\}\$'/i.test(tables.get("quotes").body),
+  /signature\s+~\s+'\^0x\[0-9a-fA-F\]\{130\}\$'/i.test(tables.get("quotes").body),
   "quotes signature constraint must require 65-byte EIP-712 signatures",
+);
+assert.ok(
+  new RegExp(
+    `lower\\s*\\(\\s*substring\\s*\\(\\s*signature\\s+from\\s+67\\s+for\\s+64\\s*\\)\\s*\\)\\s*<=\\s*'${secp256k1HalfOrder}'`,
+    "i",
+  ).test(tables.get("quotes").body),
+  "quotes signature constraint must require canonical low-s EIP-712 signatures",
+);
+assert.ok(
+  /lower\s*\(\s*substring\s*\(\s*signature\s+from\s+131\s+for\s+2\s*\)\s*\)\s+IN\s*\(\s*'1b'\s*,\s*'1c'\s*\)/i.test(
+    tables.get("quotes").body,
+  ),
+  "quotes signature constraint must require EIP-712 recovery id 27 or 28",
 );
 assert.ok(
   /tx_hash\s+IS\s+NULL\s+OR\s+tx_hash\s+~\s+'\^0x\[0-9a-fA-F\]\{64\}\$'/i.test(tables.get("quotes").body),
