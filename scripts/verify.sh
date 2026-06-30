@@ -26,6 +26,7 @@ run_step make api-error-check
 run_step make api-schema-check
 run_step make api-route-check
 run_step make database-schema-check
+run_step make reconciliation-check
 run_step make benchmark-quote
 run_step make backend-test
 run_step make sdk-test

@@ -23,6 +23,7 @@
     "api:schema:check": "make api-schema-check",
     "api:route:check": "make api-route-check",
     "database:schema:check": "make database-schema-check",
+    "reconciliation:check": "make reconciliation-check",
     "benchmark:quote": "make benchmark-quote",
     "backend:build": "make backend-build",
     "backend:test": "make backend-test",

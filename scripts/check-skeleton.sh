@@ -139,6 +139,7 @@ test -s scripts/check-api-error-consistency.mjs
 test -s scripts/check-api-schema-consistency.mjs
 test -s scripts/check-api-route-consistency.mjs
 test -s scripts/check-database-schema-consistency.mjs
+test -s scripts/reconciliation-check.mjs
 test -s scripts/verify.sh
 test -s scripts/smoke-api.mjs
 test -s scripts/smoke-api-local.sh
@@ -1149,6 +1150,7 @@ grep -q 'rfq_pnl_record_errors_total' book/Volume5-BackendEngineering/Chapter08-
 grep -q 'PnL attribution after settlement is best-effort' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService.reconcileSettlementToQuote()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService.reconcileSettlementToPnl()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'make reconciliation-check' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnL attribution input validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'signed realized PnL' backend/test/pnl.test.mjs
 grep -q 'applies each chain event idempotently' backend/test/settlement-event.test.mjs
@@ -1214,6 +1216,15 @@ grep -q 'settlement-to-quote reconciliation' book/Volume7-ProductionDeployment/C
 grep -q 'ReconciliationService.reconcileSettlementToQuote()' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'settlement-to-PnL reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'ReconciliationService.reconcileSettlementToPnl()' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'make reconciliation-check' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'reconciliation-check: backend-build' Makefile
+grep -q 'scripts/reconciliation-check.mjs' Makefile
+grep -q 'run_step make reconciliation-check' scripts/verify.sh
+grep -q 'reconciliation:check' package.json
+grep -q 'reconcileSettlementToQuote' scripts/reconciliation-check.mjs
+grep -q 'reconcileSettlementToPnl' scripts/reconciliation-check.mjs
+grep -q 'quoteRetryReport' scripts/reconciliation-check.mjs
+grep -q 'pnlRetryReport' scripts/reconciliation-check.mjs
 grep -q 'rfq-backend-secrets' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'Missing or malformed signer Secret' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q '32-byte hex string' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
