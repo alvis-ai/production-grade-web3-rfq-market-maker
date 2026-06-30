@@ -177,6 +177,18 @@ CREATE TABLE risk_decisions (
   inventory_exposure_before NUMERIC(78, 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_risk_decisions_status CHECK (decision IN ('approved', 'rejected')),
+  CONSTRAINT chk_risk_decisions_policy_version_non_empty CHECK (btrim(policy_version) <> ''),
+  CONSTRAINT chk_risk_decisions_reason_code_consistency CHECK (
+    (
+      decision = 'approved'
+      AND reason_code IS NULL
+    )
+    OR (
+      decision = 'rejected'
+      AND reason_code IS NOT NULL
+      AND btrim(reason_code) <> ''
+    )
+  ),
   CONSTRAINT chk_risk_decisions_limits CHECK (
     (max_notional_usd IS NULL OR max_notional_usd >= 0)
     AND (inventory_exposure_before IS NULL OR inventory_exposure_before >= 0)

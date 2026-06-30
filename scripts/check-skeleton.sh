@@ -593,6 +593,8 @@ grep -q 'quote signed payload fields must be all present or all absent' scripts/
 grep -q 'requested and rejected quotes must not carry signed payload fields' scripts/check-database-schema-consistency.mjs
 grep -q 'signed lifecycle statuses must keep complete signed quote payload metadata' scripts/check-database-schema-consistency.mjs
 grep -q 'only rejected and failed quote statuses may keep reject_code' scripts/check-database-schema-consistency.mjs
+grep -q 'risk decision policy_version must be non-empty' scripts/check-database-schema-consistency.mjs
+grep -q 'risk decision reason_code must be present only for rejected decisions' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must constrain side enum values' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
@@ -600,6 +602,7 @@ grep -q 'distinct token pair' docs/database/er-diagram.md
 grep -q 'bid_price <= mid_price <= ask_price' docs/database/er-diagram.md
 grep -q 'canonical low-s EIP-712 signature' docs/database/er-diagram.md
 grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/database/er-diagram.md
+grep -q 'reason_code` 只允许出现在 rejected decision 上' docs/database/er-diagram.md
 grep -q 'signed payload 字段全有或全无' docs/database/er-diagram.md
 grep -q '正数 signed amount/nonce' docs/database/er-diagram.md
 grep -q 'amount_out >= min_amount_out' docs/database/er-diagram.md
@@ -1676,6 +1679,7 @@ grep -q 'two-person approval' book/Volume7-ProductionDeployment/Chapter05-Runboo
 grep -q 'OpenAPI public contract must not expose sensitive risk field' scripts/check-security-docs-consistency.mjs
 grep -q 'Public API responses must not expose internal risk thresholds' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'policyVersion or internal reasonCode values' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'approved decision 的 `reasonCode` 为 NULL' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'pricing adjustment breakdown' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'ClickHouse is an analytics replica only' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'never from ClickHouse query results' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md

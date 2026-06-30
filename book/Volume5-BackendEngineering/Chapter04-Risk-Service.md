@@ -97,7 +97,7 @@ stateDiagram-v2
 
 ## Data Model
 
-`RiskDecision` includes `status`, `reasonCode`, `policyVersion`, `checks`, `createdAt`, `traceId`. 当前实现输出稳定 reasonCode：`CHAIN_NOT_ENABLED`、`TOKEN_NOT_ALLOWED`、`AMOUNT_IN_LIMIT_EXCEEDED`、`AMOUNT_OUT_TOO_SMALL`、`SLIPPAGE_TOO_WIDE`、`QUOTED_SPREAD_TOO_WIDE`、`TOXIC_FLOW_RESTRICTED_USER`、`TOXIC_FLOW_SCORE_EXCEEDED`、`TOKEN_IN_INVENTORY_LIMIT_EXCEEDED`、`TOKEN_OUT_INVENTORY_LIMIT_EXCEEDED`。当 Risk Engine 依赖不可用或抛出异常时，Quote Service 使用 `RISK_ENGINE_UNAVAILABLE` 作为内部拒绝原因。
+`RiskDecision` includes `status`, `reasonCode`, `policyVersion`, `checks`, `createdAt`, `traceId`. 当前实现输出稳定 reasonCode：`CHAIN_NOT_ENABLED`、`TOKEN_NOT_ALLOWED`、`AMOUNT_IN_LIMIT_EXCEEDED`、`AMOUNT_OUT_TOO_SMALL`、`SLIPPAGE_TOO_WIDE`、`QUOTED_SPREAD_TOO_WIDE`、`TOXIC_FLOW_RESTRICTED_USER`、`TOXIC_FLOW_SCORE_EXCEEDED`、`TOKEN_IN_INVENTORY_LIMIT_EXCEEDED`、`TOKEN_OUT_INVENTORY_LIMIT_EXCEEDED`。当 Risk Engine 依赖不可用或抛出异常时，Quote Service 使用 `RISK_ENGINE_UNAVAILABLE` 作为内部拒绝原因。持久化记录必须保留同一契约：`policyVersion` 非空，approved decision 的 `reasonCode` 为 NULL，rejected decision 的 `reasonCode` 为非空稳定代码。
 
 ## API Design
 

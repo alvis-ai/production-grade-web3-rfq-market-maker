@@ -310,6 +310,16 @@ assert.ok(
   "risk decision status constraint must match backend RiskDecisionStatus values",
 );
 assert.ok(
+  /btrim\s*\(\s*policy_version\s*\)\s*<>\s*''/i.test(tables.get("risk_decisions").body),
+  "risk decision policy_version must be non-empty",
+);
+assert.ok(
+  /decision\s*=\s*'approved'[\s\S]*?reason_code\s+IS\s+NULL[\s\S]*?decision\s*=\s*'rejected'[\s\S]*?reason_code\s+IS\s+NOT\s+NULL[\s\S]*?btrim\s*\(\s*reason_code\s*\)\s*<>\s*''/i.test(
+    tables.get("risk_decisions").body,
+  ),
+  "risk decision reason_code must be present only for rejected decisions",
+);
+assert.ok(
   /amount_in\s*>\s*0[\s\S]*?amount_out\s*>\s*0[\s\S]*?nonce\s*>\s*0[\s\S]*?log_index\s*>=\s*0[\s\S]*?block_number\s*>=\s*0/i.test(
     tables.get("settlement_events").body,
   ),
