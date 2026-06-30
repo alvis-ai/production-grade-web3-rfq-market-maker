@@ -580,9 +580,11 @@ grep -q 'TOKEN_NOT_WHITELISTED' backend/src/modules/settlement/settlement-verifi
 grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertChainIds(policy.enabledChainIds)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertTokenWhitelist(policy.tokenWhitelist)' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'cloneLocalSettlementVerifierPolicy' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'Local settlement verifier enabledChainIds must not contain duplicate chain ids' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'Local settlement verifier tokenWhitelist must not contain duplicate addresses' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'enabledChainIds` 和 `tokenWhitelist` 必须非空且不能包含重复项' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'snapshots `LocalSettlementVerifierPolicy` at construction after validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts
 grep -q 'recordHedgeFailure' backend/src/modules/execution/execution.service.ts
 grep -q 'hedgeOrderId: hedgeResult?.hedgeOrderId' backend/src/modules/execution/execution.service.ts
@@ -1270,6 +1272,7 @@ grep -q 'LocalSettlementVerifier rejects invalid settlement token pairs' backend
 grep -q 'LocalSettlementVerifier rejects invalid settlement amounts' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects settlement amountOut below minimum' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects non-canonical settlement signatures' backend/test/settlement-verifier.test.mjs
+grep -q 'LocalSettlementVerifier snapshots policy configuration at construction' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects unsafe policy configuration at construction' backend/test/settlement-verifier.test.mjs
 grep -q 'signature shape, canonical low-s/v checks' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'settlement verifier policy fail-fast' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md

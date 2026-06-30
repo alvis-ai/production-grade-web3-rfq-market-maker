@@ -34,16 +34,18 @@ export const defaultLocalSettlementVerifierPolicy: LocalSettlementVerifierPolicy
 };
 
 export class LocalSettlementVerifier implements SettlementVerifier {
+  private readonly policy: LocalSettlementVerifierPolicy;
   private readonly enabledChainIds: ReadonlySet<number>;
   private readonly tokenWhitelist: ReadonlySet<string>;
 
-  constructor(private readonly policy: LocalSettlementVerifierPolicy = defaultLocalSettlementVerifierPolicy) {
+  constructor(policy: LocalSettlementVerifierPolicy = defaultLocalSettlementVerifierPolicy) {
     assertNonEmptyString(policy.verifierVersion, "verifierVersion");
     assertChainIds(policy.enabledChainIds);
     assertTokenWhitelist(policy.tokenWhitelist);
 
-    this.enabledChainIds = new Set(policy.enabledChainIds);
-    this.tokenWhitelist = new Set(policy.tokenWhitelist.map((token) => token.toLowerCase()));
+    this.policy = cloneLocalSettlementVerifierPolicy(policy);
+    this.enabledChainIds = new Set(this.policy.enabledChainIds);
+    this.tokenWhitelist = new Set(this.policy.tokenWhitelist.map((token) => token.toLowerCase()));
   }
 
   async verify(input: SettlementVerificationInput): Promise<SettlementVerificationResult> {
@@ -106,6 +108,14 @@ export class LocalSettlementVerifier implements SettlementVerifier {
       throw this.reverted("INVALID_SIGNATURE", "Settlement signature v value must be 27 or 28");
     }
   }
+}
+
+function cloneLocalSettlementVerifierPolicy(policy: LocalSettlementVerifierPolicy): LocalSettlementVerifierPolicy {
+  return {
+    ...policy,
+    enabledChainIds: [...policy.enabledChainIds],
+    tokenWhitelist: [...policy.tokenWhitelist],
+  };
 }
 
 function assertNonEmptyString(value: string, field: keyof LocalSettlementVerifierPolicy): void {

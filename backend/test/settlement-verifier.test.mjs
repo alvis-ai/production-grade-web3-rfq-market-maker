@@ -158,6 +158,29 @@ test("LocalSettlementVerifier rejects non-canonical settlement signatures", asyn
   );
 });
 
+test("LocalSettlementVerifier snapshots policy configuration at construction", async () => {
+  const mutablePolicy = {
+    ...defaultLocalSettlementVerifierPolicy,
+    verifierVersion: "snapshot-settlement-v1",
+    enabledChainIds: [1],
+    tokenWhitelist: [quote.tokenIn, quote.tokenOut],
+  };
+  const verifier = new LocalSettlementVerifier(mutablePolicy);
+
+  mutablePolicy.verifierVersion = "mutated-settlement-v2";
+  mutablePolicy.enabledChainIds.length = 0;
+  mutablePolicy.tokenWhitelist.length = 0;
+
+  const result = await verifier.verify({
+    quoteId: "q_snapshot",
+    request,
+  });
+
+  assert.equal(result.status, "verified");
+  assert.equal(result.verifierVersion, "snapshot-settlement-v1");
+  assert.equal(result.amountOut, quote.amountOut);
+});
+
 test("LocalSettlementVerifier rejects unsafe policy configuration at construction", () => {
   assert.throws(
     () =>
