@@ -114,6 +114,9 @@ for (const [schemaName, propertyName] of [
   ["QuoteRequest", "chainId"],
   ["SignedQuote", "chainId"],
   ["SignedQuote", "deadline"],
+  ["SettlementEventStatus", "chainId"],
+  ["SettlementEventStatus", "blockNumber"],
+  ["SettlementEventStatus", "logIndex"],
   ["PnlTradeRecord", "deadline"],
 ]) {
   assert.equal(

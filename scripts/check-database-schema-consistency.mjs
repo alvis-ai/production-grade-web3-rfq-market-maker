@@ -353,10 +353,14 @@ assert.ok(
   "risk decision reason_code must be present only for rejected decisions",
 );
 assert.ok(
-  /amount_in\s*>\s*0[\s\S]*?amount_out\s*>\s*0[\s\S]*?nonce\s*>\s*0[\s\S]*?log_index\s*>=\s*0[\s\S]*?block_number\s+BETWEEN\s+0\s+AND\s+9007199254740991/i.test(
+  /\blog_index\s+BIGINT\s+NOT\s+NULL/i.test(tables.get("settlement_events").body),
+  "settlement_events.log_index must be stored as a JavaScript safe-integer sized ordinal",
+);
+assert.ok(
+  /amount_in\s*>\s*0[\s\S]*?amount_out\s*>\s*0[\s\S]*?nonce\s*>\s*0[\s\S]*?log_index\s+BETWEEN\s+0\s+AND\s+9007199254740991[\s\S]*?block_number\s+BETWEEN\s+0\s+AND\s+9007199254740991/i.test(
     tables.get("settlement_events").body,
   ),
-  "settlement_events must require positive settled amount and nonce fields plus safe-integer block numbers",
+  "settlement_events must require positive settled amount and nonce fields plus safe-integer event ordinals",
 );
 assert.ok(
   /bid_price\s+IS\s+NULL\s+OR\s+bid_price\s*<=\s*mid_price[\s\S]*?ask_price\s+IS\s+NULL\s+OR\s+mid_price\s*<=\s*ask_price[\s\S]*?bid_price\s+IS\s+NULL\s+OR\s+ask_price\s+IS\s+NULL\s+OR\s+bid_price\s*<=\s*ask_price/i.test(

@@ -213,7 +213,7 @@ CREATE TABLE settlement_events (
   chain_id BIGINT NOT NULL,
   tx_hash TEXT NOT NULL,
   quote_hash TEXT NOT NULL,
-  log_index INTEGER NOT NULL,
+  log_index BIGINT NOT NULL,
   block_number BIGINT NOT NULL,
   user_address TEXT NOT NULL,
   token_in TEXT NOT NULL,
@@ -239,7 +239,7 @@ CREATE TABLE settlement_events (
     amount_in > 0
     AND amount_out > 0
     AND nonce > 0
-    AND log_index >= 0
+    AND log_index BETWEEN 0 AND 9007199254740991
     AND block_number BETWEEN 0 AND 9007199254740991
   )
 );

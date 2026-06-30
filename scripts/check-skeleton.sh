@@ -588,6 +588,8 @@ grep -q 'deadline IS NULL OR deadline BETWEEN 1 AND 9007199254740991' docs/datab
 grep -q 'min_amount_out NUMERIC(78, 0) NOT NULL' docs/database/schema.sql
 grep -q 'deadline BIGINT NOT NULL' docs/database/schema.sql
 grep -q 'deadline BETWEEN 1 AND 9007199254740991' docs/database/schema.sql
+grep -q 'log_index BIGINT NOT NULL' docs/database/schema.sql
+grep -q 'log_index BETWEEN 0 AND 9007199254740991' docs/database/schema.sql
 grep -q 'block_number BETWEEN 0 AND 9007199254740991' docs/database/schema.sql
 grep -q 'user: "user_address"' scripts/check-database-schema-consistency.mjs
 grep -q 'minAmountOut: "min_amount_out"' scripts/check-database-schema-consistency.mjs
@@ -604,7 +606,8 @@ grep -q 'quotes.deadline must be stored as signed quote Unix seconds' scripts/ch
 grep -q 'quotes must require positive signed amount and nonce fields plus safe-integer deadlines when present' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must require amount_out to satisfy min_amount_out when both are present' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must require safe-integer signed attribution deadlines' scripts/check-database-schema-consistency.mjs
-grep -q 'settlement_events must require positive settled amount and nonce fields plus safe-integer block numbers' scripts/check-database-schema-consistency.mjs
+grep -q 'settlement_events.log_index must be stored as a JavaScript safe-integer sized ordinal' scripts/check-database-schema-consistency.mjs
+grep -q 'settlement_events must require positive settled amount and nonce fields plus safe-integer event ordinals' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must reject empty source values' scripts/check-database-schema-consistency.mjs
 grep -q 'non-settlement quote statuses must not expose settlement, hedge, or PnL pointers' scripts/check-database-schema-consistency.mjs
@@ -633,7 +636,7 @@ grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/dat
 grep -q 'quotes.pricing_version`、`quotes.risk_policy_version` 和 `quotes.reject_code`' docs/database/er-diagram.md
 grep -q 'quotes.deadline` 使用 BIGINT 保存 EIP-712 signed quote 的 Unix seconds' docs/database/er-diagram.md
 grep -q 'safe-integer `deadline` 作为 signed attribution snapshot' docs/database/er-diagram.md
-grep -q 'settlement_events.block_number` 使用 BIGINT 保存链上 block number' docs/database/er-diagram.md
+grep -q 'settlement_events.log_index` 和 `settlement_events.block_number` 使用 BIGINT 保存链上 event ordinal' docs/database/er-diagram.md
 grep -q 'reason_code` 只允许出现在 rejected decision 上' docs/database/er-diagram.md
 grep -q 'signed payload 字段全有或全无' docs/database/er-diagram.md
 grep -q '正数 signed amount/nonce' docs/database/er-diagram.md
@@ -1341,7 +1344,7 @@ grep -q 'Block' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'blockNumber' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'txHash` as a 32-byte hex string' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'non-negative safe integers' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'settlement_events.block_number` with a `0..9007199254740991` range check' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'settlement_events.block_number` and `settlement_events.log_index` with a `0..9007199254740991` range check' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'blockNumber' docs/diagrams/submit-sequence.md
 grep -q 'backend settlement quote hash fields must match RFQSettlement QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
 grep -q 'SDK settlement quote hash fields must match RFQSettlement QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
