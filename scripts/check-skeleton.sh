@@ -631,8 +631,12 @@ grep -q 'settlementEventId: intent.settlementEventId' backend/src/modules/hedge/
 grep -q 'hedgeOrderIdsBySettlementEvent' backend/src/modules/hedge/hedge.service.ts
 grep -q 'cloneHedgeIntentStatus' backend/src/modules/hedge/hedge.service.ts
 grep -q 'cloneHedgeServiceConfig' backend/src/modules/hedge/hedge.service.ts
+grep -q 'matchesHedgeIntent' backend/src/modules/hedge/hedge.service.ts
+grep -q 'Hedge intent conflict' backend/src/modules/hedge/hedge.service.ts
 grep -q 'returns the existing hedge intent for settlement retries' backend/test/hedge.test.mjs
+grep -q 'rejects conflicting retry payloads for the same settlement event' backend/test/hedge.test.mjs
 grep -q 'returns defensive copies of hedge intent status records' backend/test/hedge.test.mjs
+grep -q 'Hedge idempotency requires repeated `settlementEventId` input to match the stored hedge intent payload' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'returns defensive copies from create and status lookup operations' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'getHedgeIntentBySettlementEvent' backend/test/hedge.test.mjs
 grep -q 'settlementEventId: submitResponse.settlementEventId' sdk/test/sdk.test.mjs

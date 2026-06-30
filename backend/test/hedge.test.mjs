@@ -55,11 +55,7 @@ test("HedgeService returns the existing hedge intent for settlement retries", ()
   const service = new HedgeService();
 
   const first = service.createHedgeIntent(intent);
-  const retry = service.createHedgeIntent({
-    ...intent,
-    quoteId: "q_retry_should_not_replace_original",
-    amount: "2000000000",
-  });
+  const retry = service.createHedgeIntent(intent);
 
   assert.equal(retry.hedgeOrderId, first.hedgeOrderId);
   assert.deepEqual(retry.record, first.record);
@@ -72,6 +68,23 @@ test("HedgeService returns the existing hedge intent for settlement retries", ()
     settlementEventId: "se_1_33333333_0",
   });
   assert.notEqual(next.hedgeOrderId, first.hedgeOrderId);
+});
+
+test("HedgeService rejects conflicting retry payloads for the same settlement event", () => {
+  const service = new HedgeService();
+  const first = service.createHedgeIntent(intent);
+
+  assert.throws(
+    () =>
+      service.createHedgeIntent({
+        ...intent,
+        quoteId: "q_retry_should_not_replace_original",
+        amount: "2000000000",
+      }),
+    /Hedge intent conflict/,
+  );
+
+  assert.deepEqual(service.getHedgeIntent(first.hedgeOrderId), first.record);
 });
 
 test("HedgeService returns defensive copies of hedge intent status records", () => {

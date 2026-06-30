@@ -72,6 +72,9 @@ export class HedgeService implements HedgeIntentService {
       if (!existingRecord) {
         throw new Error(`Hedge intent index is inconsistent for ${existingHedgeOrderId}`);
       }
+      if (!matchesHedgeIntent(existingRecord, intent)) {
+        throw new Error(`Hedge intent conflict for ${existingHedgeOrderId}`);
+      }
 
       return {
         status: "queued",
@@ -144,6 +147,18 @@ function cloneHedgeIntentStatus(intent: HedgeIntentStatusResponse): HedgeIntentS
 
 function cloneHedgeServiceConfig(config: HedgeServiceConfig): HedgeServiceConfig {
   return { ...config };
+}
+
+function matchesHedgeIntent(record: HedgeIntentStatusResponse, intent: HedgeIntent): boolean {
+  return (
+    record.settlementEventId === intent.settlementEventId &&
+    record.quoteId === intent.quoteId &&
+    record.chainId === intent.chainId &&
+    record.token.toLowerCase() === intent.token.toLowerCase() &&
+    record.side === intent.side &&
+    record.amount === intent.amount &&
+    record.reason === intent.reason
+  );
 }
 
 function assertPositiveBps(value: number, field: keyof HedgeServiceConfig): void {
