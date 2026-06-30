@@ -7,6 +7,8 @@ import type {
   UIntString,
 } from "../../shared/types/rfq.js";
 
+const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
+
 export interface QuoteRecord {
   quoteId: string;
   chainId: number;
@@ -333,6 +335,17 @@ function assertNonNegativeBps(value: number, field: string, subject: string): vo
 function assertSignature(value: `0x${string}`): void {
   if (!/^0x[0-9a-fA-F]{130}$/.test(value)) {
     throw new Error("Signed quote signature must be a 65-byte hex string");
+  }
+
+  const s = BigInt(`0x${value.slice(66, 130)}`);
+  if (s > SECP256K1N_HALF) {
+    throw new Error("Signed quote signature s value must be in the lower half order");
+  }
+
+  const v = Number.parseInt(value.slice(130, 132), 16);
+  const normalizedV = v < 27 ? v + 27 : v;
+  if (normalizedV !== 27 && normalizedV !== 28) {
+    throw new Error("Signed quote signature v value must be 27 or 28");
   }
 }
 

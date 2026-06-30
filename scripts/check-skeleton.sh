@@ -421,6 +421,11 @@ grep -q 'assertRejectedQuoteInput(input)' backend/src/modules/quote/quote.reposi
 grep -q 'Signed quote nonce key already exists' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertSignedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote signature must be a 65-byte hex string' backend/src/modules/quote/quote.repository.ts
+grep -q 'SECP256K1N_HALF' backend/src/modules/quote/quote.repository.ts
+grep -q 'Signed quote signature s value must be in the lower half order' backend/src/modules/quote/quote.repository.ts
+grep -q 'Signed quote signature v value must be 27 or 28' backend/src/modules/quote/quote.repository.ts
+grep -q 'Signed quote signature s value must be in the lower half order' backend/test/quote-service.test.mjs
+grep -q '65-byte canonical low-s EIP-712 signature before writing the `chainId:user:nonce` index' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'assertStatusTransition(current, status)' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertCanMarkFailed(current)' backend/src/modules/quote/quote.repository.ts
 grep -q 'cannot transition from requested to ${nextStatus} through markStatus' backend/src/modules/quote/quote.repository.ts
@@ -1394,6 +1399,7 @@ grep -q 'reconciliation:check' package.json
 grep -q 'reconcileSettlementToQuote' scripts/reconciliation-check.mjs
 grep -q 'reconcileSettlementToHedge' scripts/reconciliation-check.mjs
 grep -q 'reconcileSettlementToPnl' scripts/reconciliation-check.mjs
+grep -q '"11".repeat(64)}1b' scripts/reconciliation-check.mjs
 grep -q 'quoteRetryReport' scripts/reconciliation-check.mjs
 grep -q 'hedgeRetryReport' scripts/reconciliation-check.mjs
 grep -q 'pnlRetryReport' scripts/reconciliation-check.mjs

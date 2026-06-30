@@ -31,7 +31,7 @@ await quoteRepository.saveSigned({
   quote,
   pricingVersion: "reconciliation-check-pricing",
   riskPolicyVersion: "reconciliation-check-risk",
-  signature: `0x${"11".repeat(65)}`,
+  signature: `0x${"11".repeat(64)}1b`,
 });
 
 const settlement = settlementEventService.applySettlementEvent({

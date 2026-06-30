@@ -225,6 +225,22 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
     /Signed quote signature must be a 65-byte hex string/,
   );
 
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      signature: `0x${"11".repeat(64)}02`,
+    }),
+    /Signed quote signature v value must be 27 or 28/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      signature: `0x${"11".repeat(32)}${"f".repeat(64)}1b`,
+    }),
+    /Signed quote signature s value must be in the lower half order/,
+  );
+
   assert.equal(await quoteRepository.findSignedQuoteByChainUserNonce(1, request.user, "42"), undefined);
 });
 
@@ -841,7 +857,7 @@ test("QuoteService includes hedge risk penalty in pricing input", async () => {
 });
 
 function fixedSignature() {
-  return `0x${"11".repeat(65)}`;
+  return `0x${"11".repeat(64)}1b`;
 }
 
 function quoteServiceDeps() {

@@ -264,6 +264,6 @@ async function saveSignedQuote(quoteRepository, quoteId, signedQuote) {
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
-    signature: `0x${"11".repeat(65)}`,
+    signature: `0x${"11".repeat(64)}1b`,
   });
 }
