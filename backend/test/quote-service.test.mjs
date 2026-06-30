@@ -57,8 +57,11 @@ test("InMemoryQuoteRepository indexes signed quotes by chain, user, and nonce", 
   const mainnet = await quoteRepository.findSignedQuoteByChainUserNonce(1, request.user, "42");
   const polygon = await quoteRepository.findSignedQuoteByChainUserNonce(137, request.user, "42");
   const missing = await quoteRepository.findSignedQuoteByChainUserNonce(10, request.user, "42");
+  const byQuoteId = await quoteRepository.findSignedQuoteByQuoteId("q_chain_1");
 
   assert.equal(mainnet.quoteId, "q_chain_1");
+  assert.equal(byQuoteId.quoteId, "q_chain_1");
+  assert.equal(byQuoteId.nonce, "42");
   assert.equal(mainnet.chainId, 1);
   assert.equal(polygon.quoteId, "q_chain_137");
   assert.equal(polygon.chainId, 137);

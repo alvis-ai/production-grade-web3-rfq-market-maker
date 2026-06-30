@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { InventoryService } from "../dist/modules/inventory/inventory.service.js";
+import { PnlService } from "../dist/modules/pnl/pnl.service.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
 import { ReconciliationService } from "../dist/modules/reconciliation/reconciliation.service.js";
 import { SettlementEventService } from "../dist/modules/settlement/settlement-event.service.js";
@@ -126,6 +127,84 @@ test("ReconciliationService reports settlement events whose quotes are missing",
       },
     ],
   });
+});
+
+test("ReconciliationService repairs PnL records from settlement events and signed quotes", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const pnlService = new PnlService();
+  const settlementEventService = new SettlementEventService(new InventoryService());
+  await saveSignedQuote(quoteRepository, "q_pnl", quote);
+  const settlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_pnl",
+    quote,
+    txHash: `0x${"ee".repeat(32)}`,
+  });
+
+  const reconciliation = new ReconciliationService({
+    pnlService,
+    quoteRepository,
+    settlementEventService,
+  });
+
+  const firstReport = await reconciliation.reconcileSettlementToPnl();
+  assert.deepEqual(firstReport, {
+    scannedSettlementEvents: 1,
+    repairedPnlRecords: 1,
+    skippedPnlRecords: 0,
+    errors: [],
+  });
+  assert.equal(pnlService.summary().totalTrades, 1);
+  assert.equal(pnlService.summary().trades[0].pnlId, "pnl_q_pnl");
+  assert.equal(pnlService.summary().trades[0].quoteId, settlement.event.quoteId);
+
+  const secondReport = await reconciliation.reconcileSettlementToPnl();
+  assert.deepEqual(secondReport, {
+    scannedSettlementEvents: 1,
+    repairedPnlRecords: 0,
+    skippedPnlRecords: 1,
+    errors: [],
+  });
+  assert.equal(pnlService.summary().totalTrades, 1);
+});
+
+test("ReconciliationService reports PnL reconciliation events whose signed quote is missing", async () => {
+  const settlementEventService = new SettlementEventService(new InventoryService());
+  const settlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_missing_pnl",
+    quote,
+    txHash: `0x${"ff".repeat(32)}`,
+  });
+
+  const report = await new ReconciliationService({
+    pnlService: new PnlService(),
+    quoteRepository: new InMemoryQuoteRepository(),
+    settlementEventService,
+  }).reconcileSettlementToPnl();
+
+  assert.deepEqual(report, {
+    scannedSettlementEvents: 1,
+    repairedPnlRecords: 0,
+    skippedPnlRecords: 0,
+    errors: [
+      {
+        settlementEventId: settlement.event.settlementEventId,
+        quoteId: "q_missing_pnl",
+        reason: "SIGNED_QUOTE_NOT_FOUND",
+      },
+    ],
+  });
+});
+
+test("ReconciliationService requires PnL service for settlement-to-PnL repair", async () => {
+  const reconciliation = new ReconciliationService({
+    quoteRepository: new InMemoryQuoteRepository(),
+    settlementEventService: new SettlementEventService(new InventoryService()),
+  });
+
+  await assert.rejects(
+    reconciliation.reconcileSettlementToPnl(),
+    /pnlService is required for settlement-to-PnL reconciliation/,
+  );
 });
 
 async function saveSignedQuote(quoteRepository, quoteId, signedQuote) {

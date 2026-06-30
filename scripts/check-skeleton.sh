@@ -356,6 +356,7 @@ grep -q 'QUOTE_FAILED' backend/src/modules/quote/quote.service.ts
 grep -q 'markQuoteExpiredBestEffort' backend/src/modules/quote/quote.service.ts
 grep -q 'QUOTE_EXPIRED' backend/src/modules/quote/quote.service.ts
 grep -q 'findSignedQuoteByChainUserNonce' backend/src/modules/quote/quote.repository.ts
+grep -q 'findSignedQuoteByQuoteId' backend/src/modules/quote/quote.repository.ts
 grep -q 'chainUserNonceKey' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertRequestedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertRejectedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
@@ -369,6 +370,7 @@ grep -q 'assertNonEmptyString(errorCode, "errorCode", "Failed quote")' backend/s
 grep -q 'assertQuoteStatusMetadata(metadata)' backend/src/modules/quote/quote.repository.ts
 grep -q 'Quote status txHash must be a 32-byte hex string' backend/src/modules/quote/quote.repository.ts
 grep -q 'rejects signed quote nonce key conflicts' backend/test/quote-service.test.mjs
+grep -q 'findSignedQuoteByQuoteId' backend/test/quote-service.test.mjs
 grep -q 'rejects signed quote identity rewrites' backend/test/quote-service.test.mjs
 grep -q 'rejects unsafe signed quote persistence inputs' backend/test/quote-service.test.mjs
 grep -q 'persists expired status when signed quote status is read after deadline' backend/test/quote-service.test.mjs
@@ -427,10 +429,15 @@ grep -q 'SettlementEventService rejects unsafe settlement quote inputs before si
 grep -q 'hashSettlementQuote rejects malformed quote fields before ABI encoding' backend/test/settlement-event.test.mjs
 grep -q 'class ReconciliationService' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileSettlementToQuote' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'reconcileSettlementToPnl' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'SIGNED_QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'repairs quote status from settlement events' backend/test/reconciliation.test.mjs
 grep -q 'reports terminal quote conflicts without stopping later events' backend/test/reconciliation.test.mjs
 grep -q 'reports settlement events whose quotes are missing' backend/test/reconciliation.test.mjs
+grep -q 'repairs PnL records from settlement events and signed quotes' backend/test/reconciliation.test.mjs
+grep -q 'reports PnL reconciliation events whose signed quote is missing' backend/test/reconciliation.test.mjs
+grep -q 'requires PnL service for settlement-to-PnL repair' backend/test/reconciliation.test.mjs
 grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'TOKEN_NOT_WHITELISTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier.service.ts
@@ -1141,6 +1148,7 @@ grep -q 'PnL summary store failures' backend/test/api.test.mjs
 grep -q 'rfq_pnl_record_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'PnL attribution after settlement is best-effort' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService.reconcileSettlementToQuote()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'ReconciliationService.reconcileSettlementToPnl()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnL attribution input validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'signed realized PnL' backend/test/pnl.test.mjs
 grep -q 'applies each chain event idempotently' backend/test/settlement-event.test.mjs
@@ -1205,6 +1213,7 @@ grep -q 'Post-Settlement Persistence Drift' book/Volume7-ProductionDeployment/Ch
 grep -q 'settlement-to-quote reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'ReconciliationService.reconcileSettlementToQuote()' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'settlement-to-PnL reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'ReconciliationService.reconcileSettlementToPnl()' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'rfq-backend-secrets' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'Missing or malformed signer Secret' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q '32-byte hex string' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md

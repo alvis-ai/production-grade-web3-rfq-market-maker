@@ -1,5 +1,7 @@
-import type { QuoteRepository } from "../quote/quote.repository.js";
+import type { PnlStore } from "../pnl/pnl.service.js";
+import type { QuoteRecord, QuoteRepository } from "../quote/quote.repository.js";
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
+import type { SignedQuote } from "../../shared/types/rfq.js";
 
 export interface SettlementToQuoteReconciliationReport {
   scannedSettlementEvents: number;
@@ -14,7 +16,21 @@ export interface SettlementToQuoteReconciliationError {
   reason: string;
 }
 
+export interface SettlementToPnlReconciliationReport {
+  scannedSettlementEvents: number;
+  repairedPnlRecords: number;
+  skippedPnlRecords: number;
+  errors: SettlementToPnlReconciliationError[];
+}
+
+export interface SettlementToPnlReconciliationError {
+  settlementEventId: string;
+  quoteId: string;
+  reason: string;
+}
+
 export interface ReconciliationServiceDeps {
+  pnlService?: PnlStore;
   quoteRepository: QuoteRepository;
   settlementEventService: SettlementEventStore;
 }
@@ -64,6 +80,55 @@ export class ReconciliationService {
 
     return report;
   }
+
+  async reconcileSettlementToPnl(): Promise<SettlementToPnlReconciliationReport> {
+    if (!this.deps.pnlService) {
+      throw new Error("ReconciliationService pnlService is required for settlement-to-PnL reconciliation");
+    }
+
+    const events = this.deps.settlementEventService.listSettlementEvents();
+    const report: SettlementToPnlReconciliationReport = {
+      scannedSettlementEvents: events.length,
+      repairedPnlRecords: 0,
+      skippedPnlRecords: 0,
+      errors: [],
+    };
+
+    for (const event of events) {
+      try {
+        const beforeCount = this.deps.pnlService.summary().totalTrades;
+        const record = await this.deps.quoteRepository.findSignedQuoteByQuoteId(event.quoteId);
+        if (!record) {
+          report.errors.push({
+            settlementEventId: event.settlementEventId,
+            quoteId: event.quoteId,
+            reason: "SIGNED_QUOTE_NOT_FOUND",
+          });
+          continue;
+        }
+
+        this.deps.pnlService.recordSettlement({
+          quoteId: event.quoteId,
+          quote: signedQuoteFromRecord(record),
+        });
+
+        const afterCount = this.deps.pnlService.summary().totalTrades;
+        if (afterCount === beforeCount) {
+          report.skippedPnlRecords += 1;
+        } else {
+          report.repairedPnlRecords += 1;
+        }
+      } catch (error) {
+        report.errors.push({
+          settlementEventId: event.settlementEventId,
+          quoteId: event.quoteId,
+          reason: error instanceof Error ? error.message : "RECONCILIATION_FAILED",
+        });
+      }
+    }
+
+    return report;
+  }
 }
 
 function isAlreadyReconciled(
@@ -75,4 +140,22 @@ function isAlreadyReconciled(
     status.txHash?.toLowerCase() === event.txHash.toLowerCase() &&
     status.settlementEventId === event.settlementEventId
   );
+}
+
+function signedQuoteFromRecord(record: QuoteRecord): SignedQuote {
+  if (!record.amountOut || !record.minAmountOut || !record.nonce || !record.deadline) {
+    throw new Error(`Quote ${record.quoteId} is missing signed quote fields`);
+  }
+
+  return {
+    user: record.user,
+    tokenIn: record.tokenIn,
+    tokenOut: record.tokenOut,
+    amountIn: record.amountIn,
+    amountOut: record.amountOut,
+    minAmountOut: record.minAmountOut,
+    nonce: record.nonce,
+    deadline: record.deadline,
+    chainId: record.chainId,
+  };
 }
