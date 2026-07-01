@@ -141,6 +141,42 @@ test("SkeletonExecutionService rejects unsafe dependency configuration at constr
     /Execution service deps must be an object/,
   );
   assert.throws(
+    () => new SkeletonExecutionService([]),
+    /Execution service deps must be an object/,
+  );
+  assert.throws(
+    () =>
+      new SkeletonExecutionService({
+        ...deps,
+        hedgeService: [],
+      }),
+    /Execution service hedgeService must be an object/,
+  );
+  assert.throws(
+    () =>
+      new SkeletonExecutionService({
+        ...deps,
+        inventoryService: [],
+      }),
+    /Execution service inventoryService must be an object/,
+  );
+  assert.throws(
+    () =>
+      new SkeletonExecutionService({
+        ...deps,
+        settlementEventService: [],
+      }),
+    /Execution service settlementEventService must be an object/,
+  );
+  assert.throws(
+    () =>
+      new SkeletonExecutionService({
+        ...deps,
+        settlementVerifier: [],
+      }),
+    /Execution service settlementVerifier must be an object/,
+  );
+  assert.throws(
     () =>
       new SkeletonExecutionService({
         ...deps,

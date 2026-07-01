@@ -167,10 +167,7 @@ function cloneExecutionServiceDeps(deps: ExecutionServiceDeps): ExecutionService
 }
 
 function assertExecutionServiceDeps(deps: ExecutionServiceDeps): void {
-  if (typeof deps !== "object" || deps === null) {
-    throw new Error("Execution service deps must be an object");
-  }
-
+  assertRecord(deps, "deps");
   assertDependencyMethod(deps.hedgeService, "hedgeService", "createHedgeIntent");
   assertDependencyMethod(deps.inventoryService, "inventoryService", "getPosition");
   assertDependencyMethod(deps.settlementEventService, "settlementEventService", "applySettlementEvent");
@@ -182,11 +179,16 @@ function assertDependencyMethod(
   dependencyName: keyof ExecutionServiceDeps,
   methodName: string,
 ): void {
-  const method = typeof dependency === "object" && dependency !== null
-    ? (dependency as Record<string, unknown>)[methodName]
-    : undefined;
+  assertRecord(dependency, dependencyName);
+  const method = (dependency as Record<string, unknown>)[methodName];
   if (typeof method !== "function") {
     throw new Error(`Execution service ${dependencyName}.${methodName} must be a function`);
+  }
+}
+
+function assertRecord(value: unknown, field: "deps" | keyof ExecutionServiceDeps): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Execution service ${field} must be an object`);
   }
 }
 

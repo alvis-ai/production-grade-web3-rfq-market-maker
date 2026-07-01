@@ -873,6 +873,8 @@ grep -q 'SETTLEMENT_UNAVAILABLE' backend/src/modules/execution/execution.service
 grep -q 'SettlementEventStore' backend/src/modules/execution/execution.service.ts
 grep -q 'settlementEventStoreFailure' backend/src/modules/execution/execution.service.ts
 grep -q 'assertExecutionServiceDeps(deps)' backend/src/modules/execution/execution.service.ts
+grep -q 'assertRecord(deps, "deps")' backend/src/modules/execution/execution.service.ts
+grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/execution/execution.service.ts
 grep -q 'assertDependencyMethod(deps.settlementVerifier, "settlementVerifier", "verify")' backend/src/modules/execution/execution.service.ts
 grep -q 'cloneExecutionServiceDeps' backend/src/modules/execution/execution.service.ts
 grep -q 'keccak256(toBytes(payload))' backend/src/modules/execution/execution.service.ts
@@ -881,6 +883,8 @@ grep -q 'buildSyntheticTxHash rejects malformed submit payloads before hashing' 
 grep -q 'SkeletonExecutionService suppresses duplicate settlement side effects' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService snapshots dependency object at construction' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService rejects unsafe dependency configuration at construction' backend/test/execution.test.mjs
+grep -q 'Execution service hedgeService must be an object' backend/test/execution.test.mjs
+grep -q 'Execution service settlementVerifier must be an object' backend/test/execution.test.mjs
 grep -q 'validateSubmitQuoteRequest(request)' backend/src/modules/execution/execution.service.ts
 grep -q 'Execution context quoteId must be a non-empty string' backend/src/modules/execution/execution.service.ts
 grep -q 'SkeletonExecutionService rejects unsafe execution inputs before settlement side effects' backend/test/execution.test.mjs
@@ -968,6 +972,7 @@ grep -q '`buildSyntheticTxHash()` also reuses submit request validation before h
 grep -q 'snapshots `LocalSettlementVerifierPolicy` at construction after validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SkeletonExecutionService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'SkeletonExecutionService` rejects malformed dependency envelopes as non-array objects before reading required dependency methods' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService` validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService` rejects malformed dependency envelopes as non-array objects before reading required or optional recovery methods' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
