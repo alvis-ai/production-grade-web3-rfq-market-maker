@@ -562,8 +562,15 @@ function formatMetricNumber(value: number): string {
 }
 
 function metricLabelValue(value: string): string {
+  assertMetricLabelValue(value);
   const normalized = value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_");
   return normalized.length > 0 ? normalized : "UNKNOWN";
+}
+
+function assertMetricLabelValue(value: string): void {
+  if (typeof value !== "string") {
+    throw new Error("Metrics label value must be a string");
+  }
 }
 
 function metricLabelString(value: string): string {

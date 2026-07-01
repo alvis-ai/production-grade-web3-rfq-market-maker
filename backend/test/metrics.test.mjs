@@ -199,6 +199,34 @@ test("MetricsService rejects unsupported fixed-label inputs before mutating stat
   assert.match(output, /rfq_dependency_status\{component="signer",status="degraded"\} 0/);
 });
 
+test("MetricsService rejects non-string dynamic label values before mutating state", () => {
+  const metrics = new MetricsService();
+
+  assert.throws(
+    () => metrics.recordQuoteRejection(null),
+    /Metrics label value must be a string/,
+  );
+  assert.throws(
+    () => metrics.recordHedgeIntentError([]),
+    /Metrics label value must be a string/,
+  );
+  assert.throws(
+    () => metrics.recordQuoteStatusUpdateError({}),
+    /Metrics label value must be a string/,
+  );
+  assert.throws(
+    () => metrics.recordPnlRecordError(undefined),
+    /Metrics label value must be a string/,
+  );
+
+  const output = metrics.renderPrometheus();
+
+  assert.doesNotMatch(output, /rfq_quote_rejections_total\{reason=/);
+  assert.doesNotMatch(output, /rfq_hedge_intent_errors_total\{reason=/);
+  assert.doesNotMatch(output, /rfq_quote_status_update_errors_total\{target_status=/);
+  assert.doesNotMatch(output, /rfq_pnl_record_errors_total\{reason=/);
+});
+
 test("MetricsService rejects non-finite histogram observations before mutating state", () => {
   const metrics = new MetricsService();
 
