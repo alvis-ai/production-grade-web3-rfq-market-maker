@@ -304,6 +304,12 @@ grep -q 'JavaScript safe integer maximum' scripts/check-api-schema-consistency.m
 grep -q 'PositiveUIntString must reject zero and negative values' scripts/check-api-schema-consistency.mjs
 grep -q 'SignedQuote", "nonce"' scripts/check-api-schema-consistency.mjs
 grep -q 'must reject unknown request fields' scripts/check-api-schema-consistency.mjs
+grep -q 'backend/src/modules/health/readiness.service.ts' scripts/check-api-schema-consistency.mjs
+grep -q 'SDK ReadinessComponentName must match backend readiness components' scripts/check-api-schema-consistency.mjs
+grep -q 'ReadinessResponse.components OpenAPI properties must match backend readiness components' scripts/check-api-schema-consistency.mjs
+grep -q 'ReadinessResponse.components OpenAPI schema must reject unknown readiness components' scripts/check-api-schema-consistency.mjs
+grep -q 'OpenAPI ReadinessComponentStatus enum must match backend' scripts/check-api-schema-consistency.mjs
+grep -q 'extractOpenApiNestedObjectSchema' scripts/check-api-schema-consistency.mjs
 grep -q 'QuoteResponse.signature must be a 65-byte canonical low-s EIP-712 signature' scripts/check-api-schema-consistency.mjs
 grep -q 'SubmitQuoteResponse", "QuoteStatus", "SettlementEventStatus' scripts/check-api-schema-consistency.mjs
 grep -q 'txHash must be a 32-byte transaction hash' scripts/check-api-schema-consistency.mjs

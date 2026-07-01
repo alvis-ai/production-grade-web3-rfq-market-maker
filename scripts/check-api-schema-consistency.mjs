@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");
+const backendReadinessSource = await readFile("backend/src/modules/health/readiness.service.ts", "utf8");
 const sdkTypesSource = await readFile("sdk/src/types.ts", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 
@@ -53,6 +54,9 @@ assert.deepEqual(healthResponse.required, ["status"], "HealthResponse.status mus
 
 const readinessResponse = extractOpenApiSchema(openapiSource, "ReadinessResponse");
 const sdkReadiness = extractInterfaceFields(sdkTypesSource, "ReadinessResponse");
+const backendReadinessComponents = extractStringUnionValues(backendReadinessSource, "ReadinessComponentName");
+const sdkReadinessComponents = extractStringUnionValues(sdkTypesSource, "ReadinessComponentName");
+const readinessComponents = extractOpenApiNestedObjectSchema(openapiSource, "ReadinessResponse", "components");
 assert.deepEqual(
   readinessResponse.properties,
   sdkReadiness.map((field) => field.name),
@@ -62,6 +66,43 @@ assert.deepEqual(
   readinessResponse.required,
   sdkReadiness.filter((field) => !field.optional).map((field) => field.name),
   "ReadinessResponse OpenAPI required fields must match SDK",
+);
+assert.deepEqual(
+  sdkReadinessComponents,
+  backendReadinessComponents,
+  "SDK ReadinessComponentName must match backend readiness components",
+);
+assert.deepEqual(
+  readinessComponents.properties,
+  backendReadinessComponents,
+  "ReadinessResponse.components OpenAPI properties must match backend readiness components",
+);
+assert.deepEqual(
+  readinessComponents.required,
+  backendReadinessComponents,
+  "ReadinessResponse.components OpenAPI required fields must match backend readiness components",
+);
+assert.equal(
+  readinessComponents.additionalProperties,
+  "false",
+  "ReadinessResponse.components OpenAPI schema must reject unknown readiness components",
+);
+for (const component of backendReadinessComponents) {
+  assert.equal(
+    readinessComponents.refs.get(component),
+    "#/components/schemas/ReadinessComponentStatus",
+    `ReadinessResponse.components.${component} must use ReadinessComponentStatus`,
+  );
+}
+assert.deepEqual(
+  extractStringUnionValues(sdkTypesSource, "ReadinessComponentStatus"),
+  extractStringUnionValues(backendReadinessSource, "ReadinessComponentStatus"),
+  "SDK ReadinessComponentStatus must match backend",
+);
+assert.deepEqual(
+  extractOpenApiSchemaEnum(openapiSource, "ReadinessComponentStatus"),
+  extractStringUnionValues(backendReadinessSource, "ReadinessComponentStatus"),
+  "OpenAPI ReadinessComponentStatus enum must match backend",
 );
 
 assert.deepEqual(
@@ -141,7 +182,7 @@ for (const schemaName of ["SubmitQuoteResponse", "QuoteStatus", "SettlementEvent
   );
 }
 
-console.log(`API schema consistency check passed (${schemaMappings.length + 2} schemas)`);
+console.log(`API schema consistency check passed (${schemaMappings.length + 3} schemas)`);
 
 function extractInterfaceFields(source, interfaceName) {
   const match = source.match(new RegExp(`export\\s+interface\\s+${interfaceName}\\s+\\{([\\s\\S]*?)\\n\\}`));
@@ -304,6 +345,79 @@ function extractOpenApiPropertyNumericBound(source, schemaName, propertyName, bo
   assert.ok(boundLine, `Unable to find ${boundName} for ${schemaName}.${propertyName}`);
 
   return boundLine.trim().slice(`${boundName}: `.length);
+}
+
+function extractOpenApiSchemaEnum(source, schemaName) {
+  const lines = extractOpenApiSchemaLines(source, schemaName);
+  const enumIndex = lines.findIndex((line) => line === "      enum:");
+  assert.ok(enumIndex >= 0, `Unable to find enum for ${schemaName}`);
+
+  const values = [];
+  for (const line of lines.slice(enumIndex + 1)) {
+    if (!line.startsWith("        - ")) {
+      break;
+    }
+    values.push(line.slice("        - ".length));
+  }
+
+  assert.ok(values.length > 0, `${schemaName}.enum must not be empty`);
+  return values;
+}
+
+function extractOpenApiNestedObjectSchema(source, schemaName, propertyName) {
+  const lines = extractOpenApiSchemaLines(source, schemaName);
+  const propertyIndex = lines.findIndex((line) => line === `        ${propertyName}:`);
+  assert.ok(propertyIndex >= 0, `Unable to find ${schemaName}.${propertyName}`);
+
+  const propertyLines = [];
+  for (const line of lines.slice(propertyIndex + 1)) {
+    if (/^        [a-zA-Z][a-zA-Z0-9]*:$/.test(line)) {
+      break;
+    }
+    propertyLines.push(line);
+  }
+
+  const additionalPropertiesLine = propertyLines.find((line) => line.trim().startsWith("additionalProperties: "));
+  assert.ok(additionalPropertiesLine, `Unable to find additionalProperties for ${schemaName}.${propertyName}`);
+
+  const requiredIndex = propertyLines.findIndex((line) => line === "          required:");
+  assert.ok(requiredIndex >= 0, `Unable to find required list for ${schemaName}.${propertyName}`);
+  const required = [];
+  for (const line of propertyLines.slice(requiredIndex + 1)) {
+    if (!line.startsWith("            - ")) {
+      break;
+    }
+    required.push(line.slice("            - ".length));
+  }
+
+  const propertiesIndex = propertyLines.findIndex((line) => line === "          properties:");
+  assert.ok(propertiesIndex >= 0, `Unable to find properties for ${schemaName}.${propertyName}`);
+  const properties = [];
+  const refs = new Map();
+  for (let index = propertiesIndex + 1; index < propertyLines.length; index += 1) {
+    const match = propertyLines[index].match(/^            ([a-zA-Z][a-zA-Z0-9]*):$/);
+    if (!match) {
+      continue;
+    }
+
+    const name = match[1];
+    properties.push(name);
+    const refLine = propertyLines.slice(index + 1).find((line) => {
+      return line.trim().startsWith("$ref: ") || /^            [a-zA-Z][a-zA-Z0-9]*:$/.test(line);
+    });
+    assert.ok(refLine?.trim().startsWith("$ref: "), `Unable to find $ref for ${schemaName}.${propertyName}.${name}`);
+    refs.set(name, refLine.trim().slice("$ref: ".length).replace(/^"|"$/g, ""));
+  }
+
+  assert.ok(required.length > 0, `${schemaName}.${propertyName}.required must not be empty`);
+  assert.ok(properties.length > 0, `${schemaName}.${propertyName}.properties must not be empty`);
+
+  return {
+    additionalProperties: additionalPropertiesLine.trim().slice("additionalProperties: ".length),
+    required,
+    properties,
+    refs,
+  };
 }
 
 function assertOpenApiSchemaClosed(schemaName) {
