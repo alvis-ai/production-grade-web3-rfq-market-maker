@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 
 const metricsSource = await readFile("backend/src/modules/metrics/metrics.service.ts", "utf8");
+const readinessSource = await readFile("backend/src/modules/health/readiness.service.ts", "utf8");
 const prometheusConfigSource = await readFile("infra/prometheus/prometheus.yml", "utf8");
 const alertRulesSource = await readFile("infra/prometheus/rules/rfq-alerts.yml", "utf8");
 const backendMetricsChapter = await readFile("book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md", "utf8");
@@ -14,9 +15,16 @@ const alertMetrics = extractAlertMetrics(alertRulesSource);
 const backendDocMetrics = extractDocumentedMetrics(backendMetricsChapter);
 const monitoringDocMetrics = extractDocumentedMetrics(monitoringChapter);
 const alertNames = extractAlertNames(alertRulesSource);
+const readinessComponents = extractStringUnionValues(readinessSource, "ReadinessComponentName");
+const metricsReadinessComponents = extractConstStringArray(metricsSource, "readinessDependencyComponents");
 
 assert.ok(emittedMetrics.length >= 20, "MetricsService must expose a production-grade metric surface");
 assert.equal(new Set(emittedMetrics).size, emittedMetrics.length, "MetricsService metric HELP blocks must be unique");
+assert.deepEqual(
+  metricsReadinessComponents,
+  readinessComponents,
+  "MetricsService readiness dependency labels must match backend readiness components",
+);
 
 for (const metric of emittedMetrics) {
   assert.ok(backendDocMetrics.has(metric), `Chapter08 Metrics Service must document ${metric}`);
@@ -81,6 +89,22 @@ function extractAlertBlock(source, alertName) {
   }
 
   return lines.slice(start, end).join("\n");
+}
+
+function extractStringUnionValues(source, typeName) {
+  const match = source.match(new RegExp(`export\\s+type\\s+${typeName}\\s*=([\\s\\S]*?);`));
+  assert.ok(match, `Unable to find TypeScript string union ${typeName}`);
+
+  return [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+}
+
+function extractConstStringArray(source, constName) {
+  const match = source.match(new RegExp(`const\\s+${constName}[^=]*=\\s*\\[([\\s\\S]*?)\\]\\s+as\\s+const;`));
+  assert.ok(match, `Unable to find const string array ${constName}`);
+
+  const values = [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+  assert.ok(values.length > 0, `${constName} must not be empty`);
+  return values;
 }
 
 function normalizeMetricName(metricName) {

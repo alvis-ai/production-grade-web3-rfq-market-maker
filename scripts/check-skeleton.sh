@@ -1082,6 +1082,7 @@ grep -q 'rfq_signer_latency_seconds' backend/src/modules/metrics/metrics.service
 grep -q 'rfq_readiness_status' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_dependency_status' backend/src/modules/metrics/metrics.service.ts
 grep -q '"routing"' backend/src/modules/metrics/metrics.service.ts
+grep -q 'readonly ReadinessComponentName\[\]' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertRateLimitedEndpoint(endpoint)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertSignerMetricOperation(operation)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertReadinessMetricInput(readiness)' backend/src/modules/metrics/metrics.service.ts
@@ -1097,7 +1098,8 @@ grep -q 'recordReadiness' backend/src/main.ts
 grep -q 'rfq_readiness_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_dependency_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_rate_limited_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
-grep -q 'marketData、routing、pricing' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'marketData、marketSnapshotStore、routing、pricing' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'riskDecisionStore、inventory' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_readiness_status' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_dependency_status' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_rate_limited_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
@@ -1567,6 +1569,8 @@ grep -q 'retryAfterSeconds' scripts/check-rate-limit-consistency.mjs
 grep -q 'sdk/src/client.ts' scripts/check-ci-workflows-consistency.mjs
 grep -q 'make rate-limit-check' scripts/check-ci-workflows-consistency.mjs
 grep -q 'Prometheus alert rules must cover backend metric' scripts/check-metrics-consistency.mjs
+grep -q 'MetricsService readiness dependency labels must match backend readiness components' scripts/check-metrics-consistency.mjs
+grep -q 'extractConstStringArray' scripts/check-metrics-consistency.mjs
 grep -q 'Grafana overview dashboard must query alert metric' scripts/check-grafana-dashboard-consistency.mjs
 grep -q 'typescript-check' Makefile
 grep -q 'api-error-check' Makefile

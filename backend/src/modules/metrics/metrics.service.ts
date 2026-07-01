@@ -1,4 +1,4 @@
-import type { ReadinessResponse } from "../health/readiness.service.js";
+import type { ReadinessComponentName, ReadinessResponse } from "../health/readiness.service.js";
 import type { Address, PnlTradeRecord } from "../../shared/types/rfq.js";
 import type { RateLimitedEndpoint } from "../rate-limit/rate-limit.service.js";
 
@@ -333,7 +333,7 @@ const signerMetricOperations: readonly SignerMetricOperation[] = ["sign", "verif
 const rateLimitedEndpoints: readonly RateLimitedEndpoint[] = ["quote", "submit", "status"];
 const readinessMetricStatuses: readonly ReadinessMetricStatus[] = ["ready", "degraded"];
 const dependencyMetricStatuses: readonly DependencyMetricStatus[] = ["ok", "degraded"];
-const readinessDependencyComponents = [
+const readinessDependencyComponents: readonly ReadinessComponentName[] = [
   "marketData",
   "marketSnapshotStore",
   "routing",
