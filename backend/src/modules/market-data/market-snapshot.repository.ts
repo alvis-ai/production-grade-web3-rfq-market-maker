@@ -58,6 +58,7 @@ export class InMemoryMarketSnapshotRepository implements MarketSnapshotStore {
 }
 
 function toMarketSnapshotRecord(input: SaveMarketSnapshotInput): MarketSnapshotRecord {
+  assertSaveMarketSnapshotInput(input);
   const request = validateQuoteRequest(input.request);
   assertMarketSnapshot(input.snapshot);
   const source = input.source ?? defaultMarketSnapshotSource;
@@ -77,6 +78,12 @@ function toMarketSnapshotRecord(input: SaveMarketSnapshotInput): MarketSnapshotR
   };
 }
 
+function assertSaveMarketSnapshotInput(input: SaveMarketSnapshotInput): void {
+  assertObject(input, "input");
+  assertObject(input.request, "request");
+  assertObject(input.snapshot, "snapshot");
+}
+
 function assertMarketSnapshot(snapshot: MarketSnapshot): void {
   assertNonEmptyString(snapshot.snapshotId, "snapshotId");
   if (!isPositiveDecimal(snapshot.midPrice)) {
@@ -90,6 +97,12 @@ function assertMarketSnapshot(snapshot: MarketSnapshot): void {
   }
   if (!Number.isFinite(Date.parse(snapshot.observedAt))) {
     throw new Error("Market snapshot observedAt must be an ISO timestamp");
+  }
+}
+
+function assertObject(value: unknown, field: "input" | "request" | "snapshot"): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Market snapshot ${field} must be an object`);
   }
 }
 

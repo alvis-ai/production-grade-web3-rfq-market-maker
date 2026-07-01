@@ -123,6 +123,9 @@ grep -q 'class InMemoryMarketSnapshotRepository' backend/src/modules/market-data
 grep -q 'saveSnapshot(input: SaveMarketSnapshotInput)' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'findBySnapshotId' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'Market snapshot conflict for' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'assertSaveMarketSnapshotInput(input)' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'assertObject(input.request, "request")' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'assertObject(input.snapshot, "snapshot")' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'marketSnapshotStore: MarketSnapshotStore' backend/src/modules/quote/quote.service.ts
 grep -q 'await this.saveMarketSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'marketSnapshotStoreStatus' backend/src/modules/health/readiness.service.ts
@@ -143,6 +146,7 @@ grep -q 'StaticMarketDataService returns unique pair snapshots' backend/test/mar
 grep -q 'StaticMarketDataService snapshots supported pairs at construction' backend/test/market-data.test.mjs
 grep -q 'StaticMarketDataService rejects unsafe static market data config' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository stores idempotent market snapshots' backend/test/market-data.test.mjs
+grep -q 'InMemoryMarketSnapshotRepository rejects malformed snapshot payload envelopes before storing' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository returns defensive copies' backend/test/market-data.test.mjs
 grep -q 'QuoteService persists market snapshots before downstream quote side effects' backend/test/quote-service.test.mjs
@@ -151,6 +155,7 @@ grep -q 'QuoteService marks requested quotes as failed when routing is unavailab
 grep -q 'QuoteService marks requested quotes as failed when pricing is unavailable' backend/test/quote-service.test.mjs
 grep -q '快照 `StaticMarketDataConfig`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'InMemoryMarketSnapshotRepository` mirrors the PostgreSQL market_snapshots contract' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q 'Snapshot persistence rejects malformed root payloads and missing `request` / `snapshot` objects before field access or state mutation' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'persists MarketSnapshotStore audit records before routing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Requested quote persistence happens immediately after market snapshot persistence and before routing or pricing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'runtime `MarketSnapshotStore` 必须镜像 `market_snapshots` 表的核心契约' docs/database/er-diagram.md

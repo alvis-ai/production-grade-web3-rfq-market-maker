@@ -182,6 +182,32 @@ test("InMemoryMarketSnapshotRepository stores idempotent market snapshots", asyn
   assert.deepEqual(reloaded, stored);
 });
 
+test("InMemoryMarketSnapshotRepository rejects malformed snapshot payload envelopes before storing", async () => {
+  const repository = new InMemoryMarketSnapshotRepository();
+
+  await assert.rejects(
+    repository.saveSnapshot(undefined),
+    /Market snapshot input must be an object/,
+  );
+
+  await assert.rejects(
+    repository.saveSnapshot({
+      snapshot,
+    }),
+    /Market snapshot request must be an object/,
+  );
+
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: null,
+    }),
+    /Market snapshot snapshot must be an object/,
+  );
+
+  assert.equal(await repository.findBySnapshotId(snapshot.snapshotId), undefined);
+});
+
 test("InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots", async () => {
   const repository = new InMemoryMarketSnapshotRepository();
 
