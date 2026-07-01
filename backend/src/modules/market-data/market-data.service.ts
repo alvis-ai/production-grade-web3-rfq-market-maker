@@ -75,12 +75,14 @@ function cloneStaticMarketDataConfig(config: StaticMarketDataConfig): StaticMark
 }
 
 function assertStaticMarketDataConfig(config: StaticMarketDataConfig): void {
+  assertObject(config, "config");
   if (!Array.isArray(config.supportedPairs) || config.supportedPairs.length === 0) {
     throw new Error("Static market data supportedPairs must contain at least one pair");
   }
 
   const seenPairs = new Set<string>();
   for (const pair of config.supportedPairs) {
+    assertObject(pair, "supportedPairs entry");
     assertPositiveSafeInteger(pair.chainId, "supportedPairs.chainId");
     assertAddress(pair.tokenIn, "supportedPairs.tokenIn");
     assertAddress(pair.tokenOut, "supportedPairs.tokenOut");
@@ -94,6 +96,12 @@ function assertStaticMarketDataConfig(config: StaticMarketDataConfig): void {
       throw new Error("Static market data supportedPairs must not contain duplicate pairs");
     }
     seenPairs.add(key);
+  }
+}
+
+function assertObject(value: unknown, field: "config" | "supportedPairs entry"): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Static market data ${field} must be an object`);
   }
 }
 

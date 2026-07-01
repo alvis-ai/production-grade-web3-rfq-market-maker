@@ -153,6 +153,8 @@ grep -q 'snapshot timestamp is too far in the future' backend/src/modules/market
 grep -q 'mid price is invalid' backend/src/modules/market-data/market-data.service.ts
 grep -q 'liquidity is invalid' backend/src/modules/market-data/market-data.service.ts
 grep -q 'assertStaticMarketDataConfig' backend/src/modules/market-data/market-data.service.ts
+grep -q 'assertObject(config, "config")' backend/src/modules/market-data/market-data.service.ts
+grep -q 'assertObject(pair, "supportedPairs entry")' backend/src/modules/market-data/market-data.service.ts
 grep -q 'cloneStaticMarketDataConfig' backend/src/modules/market-data/market-data.service.ts
 grep -q 'Static market data supportedPairs must not contain duplicate pairs' backend/src/modules/market-data/market-data.service.ts
 grep -q 'getMarketSnapshotIssue rejects stale or future-skewed market snapshots' backend/test/market-data.test.mjs
@@ -160,6 +162,8 @@ grep -q 'StaticMarketDataService rejects unconfigured token pairs' backend/test/
 grep -q 'StaticMarketDataService returns unique pair snapshots' backend/test/market-data.test.mjs
 grep -q 'StaticMarketDataService snapshots supported pairs at construction' backend/test/market-data.test.mjs
 grep -q 'StaticMarketDataService rejects unsafe static market data config' backend/test/market-data.test.mjs
+grep -q 'Static market data config must be an object' backend/test/market-data.test.mjs
+grep -q 'Static market data supportedPairs entry must be an object' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository stores idempotent market snapshots' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository rejects malformed snapshot payload envelopes before storing' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots' backend/test/market-data.test.mjs
@@ -169,6 +173,7 @@ grep -q 'QuoteService blocks routing and signer when market snapshot persistence
 grep -q 'QuoteService marks requested quotes as failed when routing is unavailable' backend/test/quote-service.test.mjs
 grep -q 'QuoteService marks requested quotes as failed when pricing is unavailable' backend/test/quote-service.test.mjs
 grep -q '快照 `StaticMarketDataConfig`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q 'StaticMarketDataService` rejects malformed config and `supportedPairs` entries as non-array objects before reading fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'InMemoryMarketSnapshotRepository` mirrors the PostgreSQL market_snapshots contract' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'Snapshot persistence rejects malformed root payloads and missing `request` / `snapshot` objects before field access or state mutation' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'persists MarketSnapshotStore audit records before routing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md

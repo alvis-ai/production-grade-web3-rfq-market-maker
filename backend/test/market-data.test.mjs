@@ -87,6 +87,16 @@ test("StaticMarketDataService rejects unsafe static market data config", () => {
   };
 
   assert.throws(
+    () => new StaticMarketDataService(null),
+    /Static market data config must be an object/,
+  );
+
+  assert.throws(
+    () => new StaticMarketDataService([]),
+    /Static market data config must be an object/,
+  );
+
+  assert.throws(
     () => new StaticMarketDataService({ supportedPairs: [] }),
     /Static market data supportedPairs must contain at least one pair/,
   );
@@ -94,6 +104,22 @@ test("StaticMarketDataService rejects unsafe static market data config", () => {
   assert.throws(
     () => new StaticMarketDataService({ supportedPairs: undefined }),
     /Static market data supportedPairs must contain at least one pair/,
+  );
+
+  assert.throws(
+    () =>
+      new StaticMarketDataService({
+        supportedPairs: [null],
+      }),
+    /Static market data supportedPairs entry must be an object/,
+  );
+
+  assert.throws(
+    () =>
+      new StaticMarketDataService({
+        supportedPairs: [[]],
+      }),
+    /Static market data supportedPairs entry must be an object/,
   );
 
   assert.throws(
