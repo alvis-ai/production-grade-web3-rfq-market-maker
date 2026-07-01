@@ -869,11 +869,15 @@ test("RFQClient rejects empty dynamic status identifiers before fetch", async ()
 
 test("RFQClient throws structured RFQClientError for API errors", async () => {
   const restoreFetch = installFetch(async () =>
-    jsonResponse(409, {
-      code: "RISK_REJECTED",
-      message: "Risk policy rejected quote",
-      traceId: "trace_test",
-    }),
+    jsonResponse(
+      409,
+      {
+        code: "RISK_REJECTED",
+        message: "Risk policy rejected quote",
+        traceId: "trace_test",
+      },
+      { "x-trace-id": "trace_header_should_not_win" },
+    ),
   );
 
   try {
@@ -944,11 +948,15 @@ test("RFQClient exposes Retry-After seconds for rate limited responses", async (
 
 test("RFQClient falls back for unknown API error codes", async () => {
   const restoreFetch = installFetch(async () =>
-    jsonResponse(500, {
-      code: "NEW_SERVER_ERROR",
-      message: "Unexpected server error",
-      traceId: "trace_unknown",
-    }),
+    jsonResponse(
+      500,
+      {
+        code: "NEW_SERVER_ERROR",
+        message: "Unexpected server error",
+        traceId: "trace_unknown",
+      },
+      { "x-trace-id": "trace_header_unknown" },
+    ),
   );
 
   try {
@@ -961,7 +969,7 @@ test("RFQClient falls back for unknown API error codes", async () => {
         assert.equal(error.status, 500);
         assert.equal(error.code, "RFQ_CLIENT_ERROR");
         assert.equal(error.message, "RFQ metrics request failed");
-        assert.equal(error.traceId, undefined);
+        assert.equal(error.traceId, "trace_header_unknown");
         return true;
       },
     );
@@ -971,7 +979,7 @@ test("RFQClient falls back for unknown API error codes", async () => {
 });
 
 test("RFQClient rejects malformed successful JSON responses", async () => {
-  const restoreFetch = installFetch(async () => textResponse(200, "not json"));
+  const restoreFetch = installFetch(async () => textResponse(200, "not json", { "x-trace-id": "trace_malformed_json" }));
 
   try {
     const client = new RFQClient("http://127.0.0.1:3000");
@@ -990,6 +998,7 @@ test("RFQClient rejects malformed successful JSON responses", async () => {
         assert.equal(error.status, 200);
         assert.equal(error.code, "RFQ_CLIENT_ERROR");
         assert.equal(error.message, "RFQ quote response returned malformed JSON");
+        assert.equal(error.traceId, "trace_malformed_json");
         return true;
       },
     );

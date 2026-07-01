@@ -215,7 +215,7 @@ async function readJsonResponse(response: Response, label: string): Promise<unkn
   try {
     return await response.json();
   } catch {
-    throw new RFQClientError(`${label} returned malformed JSON`, response.status);
+    throw new RFQClientError(`${label} returned malformed JSON`, response.status, "RFQ_CLIENT_ERROR", traceIdFromResponse(response));
   }
 }
 
@@ -238,7 +238,7 @@ function clientErrorFromResponse(response: Response, payload: unknown, fallbackM
     error?.message ?? fallbackMessage,
     response.status,
     error?.code,
-    error?.traceId,
+    error?.traceId ?? traceIdFromResponse(response),
     retryAfterSeconds(response),
   );
 }
@@ -668,6 +668,11 @@ function retryAfterSeconds(response: Response): number | undefined {
 
   const seconds = Number(value);
   return Number.isInteger(seconds) && seconds > 0 ? seconds : undefined;
+}
+
+function traceIdFromResponse(response: Response): string | undefined {
+  const value = response.headers.get("x-trace-id");
+  return value && value.trim().length > 0 ? value : undefined;
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
