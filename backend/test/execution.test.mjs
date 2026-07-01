@@ -112,6 +112,47 @@ test("SkeletonExecutionService snapshots dependency object at construction", asy
   assert.equal(replacementInventoryService.getPosition(request.quote.chainId, request.quote.tokenIn).balance, 0n);
 });
 
+test("SkeletonExecutionService rejects unsafe dependency configuration at construction", () => {
+  const deps = buildExecutionServiceDeps();
+
+  assert.throws(
+    () => new SkeletonExecutionService(undefined),
+    /Execution service deps must be an object/,
+  );
+  assert.throws(
+    () =>
+      new SkeletonExecutionService({
+        ...deps,
+        hedgeService: {},
+      }),
+    /Execution service hedgeService.createHedgeIntent must be a function/,
+  );
+  assert.throws(
+    () =>
+      new SkeletonExecutionService({
+        ...deps,
+        inventoryService: {},
+      }),
+    /Execution service inventoryService.getPosition must be a function/,
+  );
+  assert.throws(
+    () =>
+      new SkeletonExecutionService({
+        ...deps,
+        settlementEventService: {},
+      }),
+    /Execution service settlementEventService.applySettlementEvent must be a function/,
+  );
+  assert.throws(
+    () =>
+      new SkeletonExecutionService({
+        ...deps,
+        settlementVerifier: {},
+      }),
+    /Execution service settlementVerifier.verify must be a function/,
+  );
+});
+
 test("SkeletonExecutionService rejects unsafe execution inputs before settlement side effects", async () => {
   const inventoryService = new InventoryService();
   const hedgeService = new HedgeService();
@@ -179,3 +220,13 @@ test("SkeletonExecutionService rejects unsafe execution inputs before settlement
   assert.equal(inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut).balance, 0n);
   assert.equal(settlementEventService.getSettlementEvent("q_invalid_pair"), undefined);
 });
+
+function buildExecutionServiceDeps() {
+  const inventoryService = new InventoryService();
+  return {
+    hedgeService: new HedgeService(),
+    inventoryService,
+    settlementEventService: new SettlementEventService(inventoryService),
+    settlementVerifier: new LocalSettlementVerifier(),
+  };
+}

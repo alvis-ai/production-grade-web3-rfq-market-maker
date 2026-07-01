@@ -48,6 +48,7 @@ export class SkeletonExecutionService implements ExecutionService {
   private readonly deps: ExecutionServiceDeps;
 
   constructor(deps: ExecutionServiceDeps) {
+    assertExecutionServiceDeps(deps);
     this.deps = cloneExecutionServiceDeps(deps);
   }
 
@@ -162,6 +163,30 @@ function elapsedSeconds(startedAtMs: number): number {
 
 function cloneExecutionServiceDeps(deps: ExecutionServiceDeps): ExecutionServiceDeps {
   return { ...deps };
+}
+
+function assertExecutionServiceDeps(deps: ExecutionServiceDeps): void {
+  if (typeof deps !== "object" || deps === null) {
+    throw new Error("Execution service deps must be an object");
+  }
+
+  assertDependencyMethod(deps.hedgeService, "hedgeService", "createHedgeIntent");
+  assertDependencyMethod(deps.inventoryService, "inventoryService", "getPosition");
+  assertDependencyMethod(deps.settlementEventService, "settlementEventService", "applySettlementEvent");
+  assertDependencyMethod(deps.settlementVerifier, "settlementVerifier", "verify");
+}
+
+function assertDependencyMethod(
+  dependency: unknown,
+  dependencyName: keyof ExecutionServiceDeps,
+  methodName: string,
+): void {
+  const method = typeof dependency === "object" && dependency !== null
+    ? (dependency as Record<string, unknown>)[methodName]
+    : undefined;
+  if (typeof method !== "function") {
+    throw new Error(`Execution service ${dependencyName}.${methodName} must be a function`);
+  }
 }
 
 function assertExecutionContext(context: ExecutionContext): void {
