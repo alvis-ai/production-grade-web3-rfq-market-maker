@@ -1582,6 +1582,11 @@ grep -q 'extractOpenApiNon2xxResponses' scripts/check-api-error-consistency.mjs
 grep -q 'OpenAPI ${response.key} error response must use ErrorResponse' scripts/check-api-error-consistency.mjs
 grep -Fq '["GET /ready 503", "#/components/schemas/ReadinessResponse"]' scripts/check-api-error-consistency.mjs
 grep -q 'extractOpenApiResponseSchemaRef' scripts/check-api-error-consistency.mjs
+grep -q 'backend/test/api.test.mjs' scripts/check-api-error-consistency.mjs
+grep -q 'assertTraceHeaderContract' scripts/check-api-error-consistency.mjs
+grep -q 'backend onRequest hook must attach x-trace-id to every response' scripts/check-api-error-consistency.mjs
+grep -q 'backend sendError must keep x-trace-id aligned with ErrorResponse.traceId' scripts/check-api-error-consistency.mjs
+grep -q 'backend API tests must assert x-trace-id exists on successful responses' scripts/check-api-error-consistency.mjs
 grep -q 'defaultRateLimitConfig' scripts/check-rate-limit-consistency.mjs
 grep -q 'Retry-After' scripts/check-rate-limit-consistency.mjs
 grep -q 'sdk/src/client.ts' scripts/check-rate-limit-consistency.mjs

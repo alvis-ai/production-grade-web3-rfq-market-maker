@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 const apiErrorSource = await readFile("backend/src/shared/errors/api-error.ts", "utf8");
 const backendSource = await readSourceTree("backend/src");
+const apiTestSource = await readFile("backend/test/api.test.mjs", "utf8");
 const sdkTypesSource = await readFile("sdk/src/types.ts", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const errorDocsSource = await readFile("docs/api/errors.md", "utf8");
@@ -41,6 +42,7 @@ for (const response of openapiNon2xxResponses) {
       : `OpenAPI ${response.key} error response must use ErrorResponse`,
   );
 }
+assertTraceHeaderContract(backendSource, apiTestSource, openapiSource);
 
 console.log(`API error code consistency check passed (${backendCodes.length} codes)`);
 
@@ -154,5 +156,35 @@ function extractBackendApiErrorStatuses(source) {
   assert.ok(statusByCode.size > 0, "backend/src must construct APIError statuses");
   return new Map(
     [...statusByCode].map(([code, statuses]) => [code, [...statuses].sort((left, right) => left - right)]),
+  );
+}
+
+function assertTraceHeaderContract(backend, apiTest, openapi) {
+  assert.ok(
+    openapi.includes("Every response includes an x-trace-id header"),
+    "OpenAPI info description must document the x-trace-id response header",
+  );
+  assert.ok(
+    backend.includes('reply.header("x-trace-id", requestTraceId(request))'),
+    "backend onRequest hook must attach x-trace-id to every response",
+  );
+  assert.ok(
+    backend.includes('return reply.header("x-trace-id", traceId).code(error.statusCode).send(error.toResponse(traceId));'),
+    "backend sendError must keep x-trace-id aligned with ErrorResponse.traceId",
+  );
+  assert.ok(
+    backend.includes("function requestTraceId(request: FastifyRequest): string") &&
+      backend.includes("return `tr_${request.id}`;"),
+    "backend requestTraceId must keep stable tr_ prefixed request ids",
+  );
+
+  const headerBodyAssertions = [...apiTest.matchAll(/headers\["x-trace-id"\],\s*[^,\n]+\.body\.traceId/g)];
+  assert.ok(
+    headerBodyAssertions.length >= 10,
+    "backend API tests must assert x-trace-id matches ErrorResponse.traceId across error paths",
+  );
+  assert.ok(
+    apiTest.includes('assert.match(String(response.headers["x-trace-id"]), /^tr_/)'),
+    "backend API tests must assert x-trace-id exists on successful responses",
   );
 }
