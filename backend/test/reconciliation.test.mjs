@@ -100,6 +100,26 @@ test("ReconciliationService rejects unsafe dependency configuration at construct
     /ReconciliationService deps must be an object/,
   );
   assert.throws(
+    () => new ReconciliationService([]),
+    /ReconciliationService deps must be an object/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
+        settlementEventService: [],
+      }),
+    /ReconciliationService settlementEventService must be an object/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
+        quoteRepository: [],
+      }),
+    /ReconciliationService quoteRepository must be an object/,
+  );
+  assert.throws(
     () =>
       new ReconciliationService({
         ...deps,
@@ -127,6 +147,14 @@ test("ReconciliationService rejects unsafe dependency configuration at construct
     () =>
       new ReconciliationService({
         ...deps,
+        pnlService: [],
+      }),
+    /ReconciliationService pnlService must be an object when provided/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
         pnlService: {
           summary() {
             return { totalTrades: 0 };
@@ -140,6 +168,14 @@ test("ReconciliationService rejects unsafe dependency configuration at construct
       new ReconciliationService({
         ...deps,
         hedgeService: "bad hedge dependency",
+      }),
+    /ReconciliationService hedgeService must be an object when provided/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
+        hedgeService: [],
       }),
     /ReconciliationService hedgeService must be an object when provided/,
   );

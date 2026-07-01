@@ -204,10 +204,7 @@ function cloneReconciliationServiceDeps(deps: ReconciliationServiceDeps): Reconc
 }
 
 function assertReconciliationServiceDeps(deps: ReconciliationServiceDeps): void {
-  if (typeof deps !== "object" || deps === null) {
-    throw new Error("ReconciliationService deps must be an object");
-  }
-
+  assertRecord(deps, "deps");
   assertDependencyMethod(deps.settlementEventService, "settlementEventService", "listSettlementEvents");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findStatus");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markStatus");
@@ -223,9 +220,8 @@ function assertDependencyMethod(
   dependencyName: keyof ReconciliationServiceDeps,
   methodName: string,
 ): void {
-  const method = typeof dependency === "object" && dependency !== null
-    ? (dependency as Record<string, unknown>)[methodName]
-    : undefined;
+  assertRecord(dependency, dependencyName);
+  const method = (dependency as Record<string, unknown>)[methodName];
   if (typeof method !== "function") {
     throw new Error(`ReconciliationService ${dependencyName}.${methodName} must be a function`);
   }
@@ -239,7 +235,7 @@ function assertOptionalDependencyMethod(
   if (dependency === undefined) {
     return;
   }
-  if (typeof dependency !== "object" || dependency === null) {
+  if (!isRecord(dependency)) {
     throw new Error(`ReconciliationService ${dependencyName} must be an object when provided`);
   }
 
@@ -247,6 +243,16 @@ function assertOptionalDependencyMethod(
   if (typeof method !== "function") {
     throw new Error(`ReconciliationService ${dependencyName}.${methodName} must be a function when provided`);
   }
+}
+
+function assertRecord(value: unknown, field: "deps" | keyof ReconciliationServiceDeps): void {
+  if (!isRecord(value)) {
+    throw new Error(`ReconciliationService ${field} must be an object`);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function hedgeIntentFromSettlementEvent(
