@@ -79,6 +79,11 @@ test("FormulaPricingEngine snapshots pricing configuration at construction", asy
 
 test("FormulaPricingEngine rejects unsafe pricing configuration at construction", () => {
   assert.throws(
+    () => new FormulaPricingEngine(null),
+    /Formula pricing config must be an object/,
+  );
+
+  assert.throws(
     () => new FormulaPricingEngine({ ...defaultFormulaPricingConfig, baseSpreadBps: -1 }),
     /Formula pricing baseSpreadBps must be a non-negative safe integer/,
   );
@@ -101,6 +106,40 @@ test("FormulaPricingEngine rejects unsafe pricing configuration at construction"
         maxTotalAdjustmentBps: 2500,
       }),
     /Formula pricing maxSizeImpactBps must be less than or equal to maxTotalAdjustmentBps/,
+  );
+});
+
+test("FormulaPricingEngine rejects malformed pricing payload envelopes before quoting", async () => {
+  const engine = new FormulaPricingEngine();
+
+  await assert.rejects(
+    engine.price(undefined),
+    /Formula pricing input must be an object/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      snapshot: baseInput.snapshot,
+      routePlan: baseInput.routePlan,
+      inventorySkewBps: 0,
+    }),
+    /Formula pricing request must be an object/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      snapshot: null,
+    }),
+    /Formula pricing snapshot must be an object/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      routePlan: [],
+    }),
+    /Formula pricing routePlan must be an object/,
   );
 });
 

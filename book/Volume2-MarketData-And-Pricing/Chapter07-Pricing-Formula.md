@@ -63,7 +63,7 @@ minAmountOut = amountOut * (1 - slippageBps / 10000)
 
 当前后端 `formula-v1` 先实现可测试的实时路径子集：`baseSpreadBps = 8`，`internalInventoryBufferBps = 2`，`volatilityPremiumBps = ceil(volatilityBps / 5)`，`sizeImpactBps = ceil(amountIn * 10000 / expectedLiquidity)` 且最高 250 bps，最终 `totalAdjustmentBps` 被限制在 0 到 2500 bps。`hedgeCostBps` 暂未进入公开结果字段，后续会在 Hedge Engine 和外部 venue 成本模型稳定后加入。
 
-`FormulaPricingEngine` 在构造期验证 pricing config，避免错误参数进入报价路径。`baseSpreadBps`、`internalInventoryBufferBps` 和 `maxSizeImpactBps` 必须是非负安全整数；`volatilityDivisor` 必须是正安全整数；`maxTotalAdjustmentBps` 必须是 0 到 10000 bps 内的安全整数；`maxSizeImpactBps` 不得大于 `maxTotalAdjustmentBps`。这些约束保证 volatility premium 不会出现除零或 `Infinity`，也保证 `amountOut` 的 bps multiplier 不会因为总调整超过 10000 bps 变成负数。错误配置必须在服务启动或依赖注入阶段 fail fast，而不是等到用户 quote 请求触发运行期异常。
+`FormulaPricingEngine` 在构造期先拒绝 malformed pricing config object，再验证 pricing config 数值，避免错误参数进入报价路径。`baseSpreadBps`、`internalInventoryBufferBps` 和 `maxSizeImpactBps` 必须是非负安全整数；`volatilityDivisor` 必须是正安全整数；`maxTotalAdjustmentBps` 必须是 0 到 10000 bps 内的安全整数；`maxSizeImpactBps` 不得大于 `maxTotalAdjustmentBps`。这些约束保证 volatility premium 不会出现除零或 `Infinity`，也保证 `amountOut` 的 bps multiplier 不会因为总调整超过 10000 bps 变成负数。错误配置必须在服务启动或依赖注入阶段 fail fast，而不是等到用户 quote 请求触发运行期异常。
 
 ## Architecture Diagram
 

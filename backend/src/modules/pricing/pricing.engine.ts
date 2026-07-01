@@ -44,6 +44,7 @@ export class FormulaPricingEngine implements PricingEngine {
   private readonly config: FormulaPricingConfig;
 
   constructor(config: FormulaPricingConfig = defaultFormulaPricingConfig) {
+    assertObject(config, "config");
     assertNonNegativeSafeInteger(config.baseSpreadBps, "baseSpreadBps");
     assertNonNegativeSafeInteger(config.internalInventoryBufferBps, "internalInventoryBufferBps");
     assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor");
@@ -140,6 +141,10 @@ function assertBpsUpperBound(value: number, field: string): void {
 }
 
 function assertPricingInput(input: PricingInput): void {
+  assertObject(input, "input");
+  assertObject(input.request, "request");
+  assertObject(input.snapshot, "snapshot");
+  assertObject(input.routePlan, "routePlan");
   assertPositiveSafeInteger(input.request.chainId, "request.chainId");
   assertAddress(input.request.user, "request.user");
   assertAddress(input.request.tokenIn, "request.tokenIn");
@@ -169,6 +174,12 @@ function assertPricingInput(input: PricingInput): void {
   }
   assertPositiveUIntString(input.routePlan.expectedLiquidityUsd, "routePlan.expectedLiquidityUsd");
   assertBpsMagnitude(input.inventorySkewBps, "inventorySkewBps");
+}
+
+function assertObject(value: unknown, field: "config" | "input" | "request" | "snapshot" | "routePlan"): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Formula pricing ${field} must be an object`);
+  }
 }
 
 function assertNonEmptyString(value: string, field: string): void {
