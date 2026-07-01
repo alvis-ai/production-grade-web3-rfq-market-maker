@@ -3,6 +3,23 @@ import test from "node:test";
 import { MetricsService } from "../dist/modules/metrics/metrics.service.js";
 
 const token = "0x0000000000000000000000000000000000000003";
+const pnlTradeRecord = {
+  pnlId: "pnl_q_1",
+  quoteId: "q_1",
+  chainId: 1,
+  user: "0x0000000000000000000000000000000000000001",
+  tokenIn: "0x0000000000000000000000000000000000000002",
+  tokenOut: token,
+  amountIn: "1000000000",
+  amountOut: "998400000",
+  minAmountOut: "995000000",
+  nonce: "1",
+  deadline: 1893456000,
+  grossPnlTokenOut: "1600000",
+  grossPnlBps: 16,
+  model: "simulated_mid_price_v1",
+  realizedAt: "2026-06-29T00:00:00.000Z",
+};
 
 test("MetricsService renders fixed readiness and dependency labels", () => {
   const metrics = new MetricsService();
@@ -47,19 +64,7 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
     token,
     balance: -998400000n,
   });
-  metrics.recordPnlTrade({
-    pnlId: "pnl_q_1",
-    quoteId: "q_1",
-    chainId: 1,
-    tokenIn: "0x0000000000000000000000000000000000000002",
-    tokenOut: token,
-    amountIn: "1000000000",
-    amountOut: "998400000",
-    grossPnlTokenOut: "1600000",
-    grossPnlBps: 16,
-    model: "simulated_mid_price_v1",
-    realizedAt: "2026-06-29T00:00:00.000Z",
-  });
+  metrics.recordPnlTrade(pnlTradeRecord);
 
   const output = metrics.renderPrometheus();
 
@@ -73,4 +78,60 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   assert.match(output, /rfq_inventory_balance\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} -998400000/);
   assert.match(output, /rfq_pnl_trades_total 1/);
   assert.match(output, /rfq_realized_pnl_token_out\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} 1600000/);
+});
+
+test("MetricsService validates inventory and PnL metric inputs before mutating state", () => {
+  const metrics = new MetricsService();
+
+  assert.throws(
+    () =>
+      metrics.recordInventoryPosition({
+        chainId: 1,
+        token: "0x1234",
+        balance: 1n,
+      }),
+    /Metrics inventory token must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        grossPnlTokenOut: "not-an-int",
+      }),
+    /Metrics PnL trade grossPnlTokenOut must be an int string/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        minAmountOut: "999000000",
+      }),
+    /Metrics PnL trade amountOut must be greater than or equal to minAmountOut/,
+  );
+
+  const output = metrics.renderPrometheus();
+
+  assert.match(output, /rfq_inventory_balance/);
+  assert.doesNotMatch(output, /rfq_inventory_balance\{chain_id="1",token="0x1234"\}/);
+  assert.match(output, /rfq_pnl_trades_total 0/);
+  assert.doesNotMatch(output, /rfq_realized_pnl_token_out\{chain_id="1",token="0x0000000000000000000000000000000000000003"\}/);
+});
+
+test("MetricsService snapshots inventory positions before storing gauges", () => {
+  const metrics = new MetricsService();
+  const position = {
+    chainId: 1,
+    token,
+    balance: -998400000n,
+  };
+
+  metrics.recordInventoryPosition(position);
+  position.chainId = 2;
+  position.token = "0x0000000000000000000000000000000000000004";
+  position.balance = 123n;
+
+  const output = metrics.renderPrometheus();
+
+  assert.match(output, /rfq_inventory_balance\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} -998400000/);
+  assert.doesNotMatch(output, /rfq_inventory_balance\{chain_id="2",token="0x0000000000000000000000000000000000000004"\} 123/);
 });

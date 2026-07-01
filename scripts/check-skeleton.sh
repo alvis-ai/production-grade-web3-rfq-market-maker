@@ -1031,6 +1031,12 @@ grep -q 'rfq_pnl_trades_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_pnl_record_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'recordPnlRecordError' backend/src/main.ts
 grep -q 'rfq_realized_pnl_token_out' backend/src/modules/metrics/metrics.service.ts
+grep -q 'assertInventoryMetricPosition(position)' backend/src/modules/metrics/metrics.service.ts
+grep -q 'assertPnlTradeMetricRecord(record)' backend/src/modules/metrics/metrics.service.ts
+grep -q 'cloneInventoryMetricPosition' backend/src/modules/metrics/metrics.service.ts
+grep -q 'MetricsService validates inventory and PnL metric inputs before mutating state' backend/test/metrics.test.mjs
+grep -q 'MetricsService snapshots inventory positions before storing gauges' backend/test/metrics.test.mjs
+grep -q 'validates inventory gauge positions and PnL trade records before mutating counters or gauges' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 ! grep -q 'rfq_settlement_event_lag_seconds' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 ! grep -q 'rfq_inventory_exposure_usd' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 ! grep -q 'rfq_inventory_exposure_usd' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md

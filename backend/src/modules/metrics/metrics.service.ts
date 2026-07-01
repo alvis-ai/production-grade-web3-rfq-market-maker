@@ -133,13 +133,18 @@ export class MetricsService {
   }
 
   recordInventoryPosition(position: InventoryMetricPosition): void {
-    this.inventoryBalances.set(this.inventoryKey(position.chainId, position.token), position);
+    assertInventoryMetricPosition(position);
+    const safePosition = cloneInventoryMetricPosition(position);
+    this.inventoryBalances.set(this.inventoryKey(safePosition.chainId, safePosition.token), safePosition);
   }
 
   recordPnlTrade(record: PnlTradeRecord): void {
-    this.pnlTrades += 1;
+    assertPnlTradeMetricRecord(record);
+    const realizedPnl = BigInt(record.grossPnlTokenOut);
     const key = this.inventoryKey(record.chainId, record.tokenOut);
-    this.realizedPnl.set(key, (this.realizedPnl.get(key) ?? 0n) + BigInt(record.grossPnlTokenOut));
+
+    this.pnlTrades += 1;
+    this.realizedPnl.set(key, (this.realizedPnl.get(key) ?? 0n) + realizedPnl);
   }
 
   recordPnlRecordError(reasonCode: string): void {
@@ -345,6 +350,106 @@ function createHistogramState(): HistogramState {
     count: 0,
     buckets: latencyBucketsSeconds.map(() => 0),
   };
+}
+
+function cloneInventoryMetricPosition(position: InventoryMetricPosition): InventoryMetricPosition {
+  return { ...position };
+}
+
+function assertInventoryMetricPosition(position: InventoryMetricPosition): void {
+  if (!isRecord(position)) {
+    throw new Error("Metrics inventory position must be an object");
+  }
+  assertPositiveSafeInteger(position.chainId, "inventory chainId");
+  assertAddress(position.token, "inventory token");
+  assertBigInt(position.balance, "inventory balance");
+}
+
+function assertPnlTradeMetricRecord(record: PnlTradeRecord): void {
+  if (!isRecord(record)) {
+    throw new Error("Metrics PnL trade record must be an object");
+  }
+
+  assertNonEmptyString(record.pnlId, "PnL trade pnlId");
+  assertNonEmptyString(record.quoteId, "PnL trade quoteId");
+  assertPositiveSafeInteger(record.chainId, "PnL trade chainId");
+  assertAddress(record.user, "PnL trade user");
+  assertAddress(record.tokenIn, "PnL trade tokenIn");
+  assertAddress(record.tokenOut, "PnL trade tokenOut");
+
+  if (record.tokenIn.toLowerCase() === record.tokenOut.toLowerCase()) {
+    throw new Error("Metrics PnL trade token pair must contain distinct tokens");
+  }
+
+  assertPositiveUIntString(record.amountIn, "PnL trade amountIn");
+  assertPositiveUIntString(record.amountOut, "PnL trade amountOut");
+  assertPositiveUIntString(record.minAmountOut, "PnL trade minAmountOut");
+  assertPositiveUIntString(record.nonce, "PnL trade nonce");
+  assertPositiveSafeInteger(record.deadline, "PnL trade deadline");
+
+  if (BigInt(record.amountOut) < BigInt(record.minAmountOut)) {
+    throw new Error("Metrics PnL trade amountOut must be greater than or equal to minAmountOut");
+  }
+
+  assertIntString(record.grossPnlTokenOut, "PnL trade grossPnlTokenOut");
+  assertSafeInteger(record.grossPnlBps, "PnL trade grossPnlBps");
+
+  if (record.model !== "simulated_mid_price_v1") {
+    throw new Error("Metrics PnL trade model must be simulated_mid_price_v1");
+  }
+  if (!isNonEmptyString(record.realizedAt) || Number.isNaN(Date.parse(record.realizedAt))) {
+    throw new Error("Metrics PnL trade realizedAt must be a parseable timestamp");
+  }
+}
+
+function assertPositiveSafeInteger(value: number, field: string): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Metrics ${field} must be a positive safe integer`);
+  }
+}
+
+function assertSafeInteger(value: number, field: string): void {
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(`Metrics ${field} must be a safe integer`);
+  }
+}
+
+function assertAddress(value: Address, field: string): void {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Metrics ${field} must be a 20-byte hex address`);
+  }
+}
+
+function assertBigInt(value: bigint, field: string): void {
+  if (typeof value !== "bigint") {
+    throw new Error(`Metrics ${field} must be a bigint`);
+  }
+}
+
+function assertNonEmptyString(value: string, field: string): void {
+  if (!isNonEmptyString(value)) {
+    throw new Error(`Metrics ${field} must be a non-empty string`);
+  }
+}
+
+function assertPositiveUIntString(value: string, field: string): void {
+  if (!/^[0-9]+$/.test(value) || BigInt(value) <= 0n) {
+    throw new Error(`Metrics ${field} must be a positive uint string`);
+  }
+}
+
+function assertIntString(value: string, field: string): void {
+  if (!/^-?[0-9]+$/.test(value)) {
+    throw new Error(`Metrics ${field} must be an int string`);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function recordHistogram(state: HistogramState, value: number): void {
