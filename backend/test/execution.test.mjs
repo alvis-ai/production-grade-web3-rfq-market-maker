@@ -37,6 +37,27 @@ test("buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes", () =
   assert.equal(txHash, expectedHash);
 });
 
+test("buildSyntheticTxHash rejects malformed submit payloads before hashing", () => {
+  const context = { quoteId: "q_hash_validation" };
+
+  assert.throws(
+    () => buildSyntheticTxHash(undefined, context),
+    /Submit request must include a quote object/,
+  );
+  assert.throws(
+    () => buildSyntheticTxHash({ signature: request.signature }, context),
+    /Submit request must include a quote object/,
+  );
+  assert.throws(
+    () => buildSyntheticTxHash({ ...request, signature: "0x1234" }, context),
+    /signature must be 65 bytes/,
+  );
+  assert.throws(
+    () => buildSyntheticTxHash(request, { quoteId: " " }),
+    /Execution context quoteId must be a non-empty string/,
+  );
+});
+
 test("SkeletonExecutionService suppresses duplicate settlement side effects", async () => {
   const inventoryService = new InventoryService();
   const hedgeService = new HedgeService();

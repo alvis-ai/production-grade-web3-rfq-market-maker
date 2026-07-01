@@ -148,10 +148,11 @@ export class SkeletonExecutionService implements ExecutionService {
 
 export function buildSyntheticTxHash(request: SubmitQuoteRequest, context: ExecutionContext): `0x${string}` {
   assertExecutionContext(context);
+  const validatedRequest = validateSubmitQuoteRequest(request);
   const payload = JSON.stringify({
     quoteId: context.quoteId,
-    quote: request.quote,
-    signature: request.signature,
+    quote: validatedRequest.quote,
+    signature: validatedRequest.signature,
   });
 
   return keccak256(toBytes(payload));

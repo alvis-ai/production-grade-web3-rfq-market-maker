@@ -859,6 +859,7 @@ grep -q 'assertDependencyMethod(deps.settlementVerifier, "settlementVerifier", "
 grep -q 'cloneExecutionServiceDeps' backend/src/modules/execution/execution.service.ts
 grep -q 'keccak256(toBytes(payload))' backend/src/modules/execution/execution.service.ts
 grep -q 'buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes' backend/test/execution.test.mjs
+grep -q 'buildSyntheticTxHash rejects malformed submit payloads before hashing' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService suppresses duplicate settlement side effects' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService snapshots dependency object at construction' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService rejects unsafe dependency configuration at construction' backend/test/execution.test.mjs
@@ -935,6 +936,7 @@ grep -q 'Local settlement verifier tokenWhitelist must not contain duplicate add
 grep -q 'enabledChainIds` 和 `tokenWhitelist` 必须非空且不能包含重复项' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'malformed policy object and policy array fields must be rejected before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'LocalSettlementVerifier.verify()` rejects malformed root payloads, blank `quoteId`, missing `request`, and missing `request.quote` before signature shape' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q '`buildSyntheticTxHash()` also reuses submit request validation before hashing' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'snapshots `LocalSettlementVerifierPolicy` at construction after validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SkeletonExecutionService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
