@@ -495,6 +495,7 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 function recordHistogram(state: HistogramState, value: number): void {
+  assertFiniteHistogramObservation(value);
   const normalized = Math.max(0, value);
   state.count += 1;
   state.sum += normalized;
@@ -503,6 +504,12 @@ function recordHistogram(state: HistogramState, value: number): void {
     if (normalized <= latencyBucketsSeconds[index]!) {
       state.buckets[index] += 1;
     }
+  }
+}
+
+function assertFiniteHistogramObservation(value: number): void {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("Metrics histogram observation must be a finite number");
   }
 }
 

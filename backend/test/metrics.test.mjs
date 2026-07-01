@@ -198,3 +198,36 @@ test("MetricsService rejects unsupported fixed-label inputs before mutating stat
   assert.match(output, /rfq_dependency_status\{component="signer",status="ok"\} 0/);
   assert.match(output, /rfq_dependency_status\{component="signer",status="degraded"\} 0/);
 });
+
+test("MetricsService rejects non-finite histogram observations before mutating state", () => {
+  const metrics = new MetricsService();
+
+  assert.throws(
+    () => metrics.recordQuoteLatency(Number.NaN),
+    /Metrics histogram observation must be a finite number/,
+  );
+  assert.throws(
+    () => metrics.recordSubmitLatency(Number.POSITIVE_INFINITY),
+    /Metrics histogram observation must be a finite number/,
+  );
+  assert.throws(
+    () => metrics.recordSignerLatency("sign", Number.NEGATIVE_INFINITY),
+    /Metrics histogram observation must be a finite number/,
+  );
+  assert.throws(
+    () => metrics.recordHedgeLag(Number.NaN),
+    /Metrics histogram observation must be a finite number/,
+  );
+
+  const output = metrics.renderPrometheus();
+
+  assert.match(output, /rfq_quote_latency_seconds_sum 0/);
+  assert.match(output, /rfq_quote_latency_seconds_count 0/);
+  assert.match(output, /rfq_submit_latency_seconds_sum 0/);
+  assert.match(output, /rfq_submit_latency_seconds_count 0/);
+  assert.match(output, /rfq_signer_latency_seconds_sum\{operation="sign"\} 0/);
+  assert.match(output, /rfq_signer_latency_seconds_count\{operation="sign"\} 0/);
+  assert.match(output, /rfq_hedge_lag_seconds_sum 0/);
+  assert.match(output, /rfq_hedge_lag_seconds_count 0/);
+  assert.doesNotMatch(output, /NaN|Infinity/);
+});

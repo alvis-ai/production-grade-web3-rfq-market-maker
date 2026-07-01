@@ -982,8 +982,11 @@ grep -q '"routing"' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertRateLimitedEndpoint(endpoint)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertSignerMetricOperation(operation)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertReadinessMetricInput(readiness)' backend/src/modules/metrics/metrics.service.ts
+grep -q 'assertFiniteHistogramObservation(value)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'MetricsService rejects unsupported fixed-label inputs before mutating state' backend/test/metrics.test.mjs
+grep -q 'MetricsService rejects non-finite histogram observations before mutating state' backend/test/metrics.test.mjs
 grep -q 'validates fixed-label inputs before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'Histogram observations must be finite numbers before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'recordReadiness' backend/src/main.ts
 grep -q 'rfq_readiness_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_dependency_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
