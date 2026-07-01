@@ -76,6 +76,8 @@ function toRiskDecisionRecord(input: SaveRiskDecisionInput): RiskDecisionRecord 
 }
 
 function assertRiskDecisionInput(input: SaveRiskDecisionInput): void {
+  assertObject(input, "input");
+  assertObject(input.decision, "decision");
   assertNonEmptyString(input.quoteId, "quoteId");
   assertNonEmptyString(input.decision.policyVersion, "policyVersion");
 
@@ -90,6 +92,12 @@ function assertRiskDecisionInput(input: SaveRiskDecisionInput): void {
   assertNonEmptyString(input.decision.reasonCode, "reasonCode");
   if (!riskRejectReasonCodes.has(input.decision.reasonCode)) {
     throw new Error("Risk decision reasonCode must be a stable risk reject reason");
+  }
+}
+
+function assertObject(value: unknown, field: "input" | "decision"): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Risk decision ${field} must be an object`);
   }
 }
 

@@ -38,6 +38,30 @@ test("InMemoryRiskDecisionRepository stores idempotent approved and rejected dec
   assert.equal(rejected.reasonCode, "SLIPPAGE_TOO_WIDE");
 });
 
+test("InMemoryRiskDecisionRepository rejects malformed decision payload envelopes before storing", async () => {
+  const repository = new InMemoryRiskDecisionRepository();
+
+  await assert.rejects(repository.saveDecision(undefined), /Risk decision input must be an object/);
+
+  await assert.rejects(
+    repository.saveDecision({
+      quoteId: "q_missing_decision",
+    }),
+    /Risk decision decision must be an object/,
+  );
+
+  await assert.rejects(
+    repository.saveDecision({
+      quoteId: "q_null_decision",
+      decision: null,
+    }),
+    /Risk decision decision must be an object/,
+  );
+
+  assert.equal(await repository.findByQuoteId("q_missing_decision"), undefined);
+  assert.equal(await repository.findByQuoteId("q_null_decision"), undefined);
+});
+
 test("InMemoryRiskDecisionRepository rejects conflicts and unsafe decisions", async () => {
   const repository = new InMemoryRiskDecisionRepository();
 
