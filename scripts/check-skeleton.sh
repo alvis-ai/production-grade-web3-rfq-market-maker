@@ -305,10 +305,13 @@ grep -q 'PositiveUIntString must reject zero and negative values' scripts/check-
 grep -q 'SignedQuote", "nonce"' scripts/check-api-schema-consistency.mjs
 grep -q 'must reject unknown request fields' scripts/check-api-schema-consistency.mjs
 grep -q 'backend/src/modules/health/readiness.service.ts' scripts/check-api-schema-consistency.mjs
+grep -q 'sdk/src/client.ts' scripts/check-api-schema-consistency.mjs
 grep -q 'SDK ReadinessComponentName must match backend readiness components' scripts/check-api-schema-consistency.mjs
+grep -q 'SDK client readiness runtime components must match backend readiness components' scripts/check-api-schema-consistency.mjs
 grep -q 'ReadinessResponse.components OpenAPI properties must match backend readiness components' scripts/check-api-schema-consistency.mjs
 grep -q 'ReadinessResponse.components OpenAPI schema must reject unknown readiness components' scripts/check-api-schema-consistency.mjs
 grep -q 'OpenAPI ReadinessComponentStatus enum must match backend' scripts/check-api-schema-consistency.mjs
+grep -q 'extractConstStringArray' scripts/check-api-schema-consistency.mjs
 grep -q 'extractOpenApiNestedObjectSchema' scripts/check-api-schema-consistency.mjs
 grep -q 'QuoteResponse.signature must be a 65-byte canonical low-s EIP-712 signature' scripts/check-api-schema-consistency.mjs
 grep -q 'SubmitQuoteResponse", "QuoteStatus", "SettlementEventStatus' scripts/check-api-schema-consistency.mjs

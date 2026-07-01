@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");
 const backendReadinessSource = await readFile("backend/src/modules/health/readiness.service.ts", "utf8");
+const sdkClientSource = await readFile("sdk/src/client.ts", "utf8");
 const sdkTypesSource = await readFile("sdk/src/types.ts", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 
@@ -56,6 +57,7 @@ const readinessResponse = extractOpenApiSchema(openapiSource, "ReadinessResponse
 const sdkReadiness = extractInterfaceFields(sdkTypesSource, "ReadinessResponse");
 const backendReadinessComponents = extractStringUnionValues(backendReadinessSource, "ReadinessComponentName");
 const sdkReadinessComponents = extractStringUnionValues(sdkTypesSource, "ReadinessComponentName");
+const sdkClientReadinessComponents = extractConstStringArray(sdkClientSource, "readinessDependencyComponents");
 const readinessComponents = extractOpenApiNestedObjectSchema(openapiSource, "ReadinessResponse", "components");
 assert.deepEqual(
   readinessResponse.properties,
@@ -71,6 +73,11 @@ assert.deepEqual(
   sdkReadinessComponents,
   backendReadinessComponents,
   "SDK ReadinessComponentName must match backend readiness components",
+);
+assert.deepEqual(
+  sdkClientReadinessComponents,
+  backendReadinessComponents,
+  "SDK client readiness runtime components must match backend readiness components",
 );
 assert.deepEqual(
   readinessComponents.properties,
@@ -199,6 +206,15 @@ function extractStringUnionValues(source, typeName) {
   assert.ok(match, `Unable to find TypeScript string union ${typeName}`);
 
   return [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+}
+
+function extractConstStringArray(source, constName) {
+  const match = source.match(new RegExp(`const\\s+${constName}\\s*=\\s*\\[([\\s\\S]*?)\\]\\s+as\\s+const;`));
+  assert.ok(match, `Unable to find const string array ${constName}`);
+
+  const values = [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+  assert.ok(values.length > 0, `${constName} must not be empty`);
+  return values;
 }
 
 function extractOpenApiSchema(source, schemaName) {
