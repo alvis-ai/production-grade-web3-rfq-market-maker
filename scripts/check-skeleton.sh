@@ -1221,7 +1221,11 @@ grep -q 'WagmiProvider' frontend/src/app/web3.tsx
 grep -q 'RainbowKitProvider' frontend/src/app/web3.tsx
 grep -q 'QueryClientProvider' frontend/src/app/web3.tsx
 grep -q 'Web3Provider' frontend/src/components/WalletSubmitControl.tsx
-grep -q 'new RFQClient(rfqApiBaseUrl)' frontend/src/lib/rfq.ts
+grep -q 'nextFrontendTraceId' frontend/src/lib/rfq.ts
+grep -q 'tr_web_' frontend/src/lib/rfq.ts
+grep -q 'traceId: nextFrontendTraceId' frontend/src/lib/rfq.ts
+grep -Fq 'sends a dynamic `tr_web_*` `x-trace-id` through the SDK' README.md
+grep -Fq '每个浏览器 API 请求都会发送一个符合 gateway 规则的 `tr_web_*` `x-trace-id`' book/Volume6-Frontend-And-SDK/Chapter01-Frontend-Architecture.md
 grep -q 'Hedge Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Settlement Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Realized PnL' frontend/src/components/QuoteStatusPanel.tsx
