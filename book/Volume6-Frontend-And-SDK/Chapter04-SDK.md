@@ -137,6 +137,7 @@ const treasuryArgs = buildTreasuryTransferArgs({ token, to, amount });
 - `RFQClient.getSettlement()` validates successful settlement payloads field by field, including event/quote identifiers, positive chain id, 32-byte transaction and quote hashes, non-negative block/log ordinals, user/token addresses, distinct token pair, positive amount strings, and parseable `observedAt` timestamp.
 - `RFQClient.getHedge()` validates successful hedge payloads field by field, including non-empty identifiers, positive chain id, token address, side/reason enums, positive uint amount string, and parseable `createdAt` timestamp.
 - `RFQClient.pnl()` validates successful PnL payloads field by field, including non-empty identifiers, token addresses, positive uint amount strings, signed gross PnL strings, ISO-like timestamps, `totalTrades === trades.length`, and summary gross PnL matching the trade-level sum.
+- `RFQClient.ready()` validates readiness payloads against the fixed backend component set: marketData, marketSnapshotStore, routing, pricing, risk, signer, quoteRepository, riskDecisionStore, inventory, execution, settlementEventStore, pnl and metrics. Missing or unknown readiness components are rejected instead of being treated as valid routability state.
 - SDK exposes API errors instead of flattening everything to generic Error in production.
 
 ## Failure Scenarios

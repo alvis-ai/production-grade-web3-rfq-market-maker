@@ -32,6 +32,21 @@ const verifyingContract = "0x0000000000000000000000000000000000000004";
 const signature = `0x${"11".repeat(64)}1b`;
 const signerPrivateKey = "0x59c6995e998f97a5a0044966f094538d9dae1ffc26a3b6d86dae8e3a0b97e6a0";
 const secp256k1n = BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+const readinessComponents = {
+  marketData: "ok",
+  marketSnapshotStore: "ok",
+  routing: "ok",
+  pricing: "ok",
+  risk: "ok",
+  signer: "ok",
+  quoteRepository: "ok",
+  riskDecisionStore: "ok",
+  inventory: "ok",
+  execution: "ok",
+  settlementEventStore: "ok",
+  pnl: "ok",
+  metrics: "ok",
+};
 
 test("buildRFQDomain and buildQuoteTypedData preserve EIP-712 quote schema", () => {
   assert.deepEqual(buildRFQDomain(quote.chainId, verifyingContract), {
@@ -456,10 +471,7 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
   const healthResponse = { status: "ok" };
   const readinessResponse = {
     status: "ready",
-    components: {
-      signer: "ok",
-      marketData: "ok",
-    },
+    components: readinessComponents,
   };
   const metricsResponse = [
     "# TYPE rfq_quote_requests_total counter",
@@ -1006,30 +1018,48 @@ test("RFQClient rejects malformed health and readiness status responses", async 
     restoreHealthFetch();
   }
 
-  const restoreReadyFetch = installFetch(async () =>
-    jsonResponse(200, {
+  const malformedReadinessCases = [
+    {
       status: "ready",
       components: {
+        ...readinessComponents,
         signer: "unknown",
       },
-    }),
-  );
-
-  try {
-    const client = new RFQClient("http://127.0.0.1:3000");
-
-    await assert.rejects(
-      client.ready(),
-      (error) => {
-        assert.ok(error instanceof RFQClientError);
-        assert.equal(error.status, 200);
-        assert.equal(error.code, "RFQ_CLIENT_ERROR");
-        assert.equal(error.message, "RFQ readiness response returned malformed status");
-        return true;
+    },
+    {
+      status: "ready",
+      components: {
+        signer: "ok",
       },
-    );
-  } finally {
-    restoreReadyFetch();
+    },
+    {
+      status: "ready",
+      components: {
+        ...readinessComponents,
+        externalUrl: "ok",
+      },
+    },
+  ];
+
+  for (const payload of malformedReadinessCases) {
+    const restoreReadyFetch = installFetch(async () => jsonResponse(200, payload));
+
+    try {
+      const client = new RFQClient("http://127.0.0.1:3000");
+
+      await assert.rejects(
+        client.ready(),
+        (error) => {
+          assert.ok(error instanceof RFQClientError);
+          assert.equal(error.status, 200);
+          assert.equal(error.code, "RFQ_CLIENT_ERROR");
+          assert.equal(error.message, "RFQ readiness response returned malformed status");
+          return true;
+        },
+      );
+    } finally {
+      restoreReadyFetch();
+    }
   }
 });
 
@@ -1612,8 +1642,8 @@ test("RFQClient returns degraded readiness payloads from HTTP 503", async () => 
   const readinessResponse = {
     status: "degraded",
     components: {
+      ...readinessComponents,
       marketData: "degraded",
-      signer: "ok",
     },
   };
   const restoreFetch = installFetch(async () => jsonResponse(503, readinessResponse));

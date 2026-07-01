@@ -18,10 +18,25 @@ import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
 
 export type ReadinessComponentStatus = "ok" | "degraded";
+export type ReadinessComponentName =
+  | "marketData"
+  | "marketSnapshotStore"
+  | "routing"
+  | "pricing"
+  | "risk"
+  | "signer"
+  | "quoteRepository"
+  | "riskDecisionStore"
+  | "inventory"
+  | "execution"
+  | "settlementEventStore"
+  | "pnl"
+  | "metrics";
+export type ReadinessComponents = Record<ReadinessComponentName, ReadinessComponentStatus>;
 
 export interface ReadinessResponse {
   status: "ready" | "degraded";
-  components: Record<string, ReadinessComponentStatus>;
+  components: ReadinessComponents;
 }
 
 export interface ReadinessServiceDeps {

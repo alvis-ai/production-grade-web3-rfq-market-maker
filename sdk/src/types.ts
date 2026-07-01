@@ -51,10 +51,25 @@ export interface HealthResponse {
 }
 
 export type ReadinessComponentStatus = "ok" | "degraded";
+export type ReadinessComponentName =
+  | "marketData"
+  | "marketSnapshotStore"
+  | "routing"
+  | "pricing"
+  | "risk"
+  | "signer"
+  | "quoteRepository"
+  | "riskDecisionStore"
+  | "inventory"
+  | "execution"
+  | "settlementEventStore"
+  | "pnl"
+  | "metrics";
+export type ReadinessComponents = Record<ReadinessComponentName, ReadinessComponentStatus>;
 
 export interface ReadinessResponse {
   status: "ready" | "degraded";
-  components: Record<string, ReadinessComponentStatus>;
+  components: ReadinessComponents;
 }
 
 export type QuoteLifecycleStatus =

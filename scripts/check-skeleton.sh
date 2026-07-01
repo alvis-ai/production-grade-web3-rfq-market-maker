@@ -1281,9 +1281,13 @@ grep -q 'assertPnlTradeRecord' sdk/src/client.ts
 grep -q 'isHealthResponse' sdk/src/client.ts
 grep -q 'isReadinessResponse' sdk/src/client.ts
 grep -q 'isReadinessComponents' sdk/src/client.ts
+grep -q 'const readinessDependencyComponents' sdk/src/client.ts
+grep -q 'expectedComponents.has(key)' sdk/src/client.ts
 grep -q 'async metrics' sdk/src/client.ts
 grep -q 'normalizeBaseUrl' sdk/src/client.ts
 grep -q 'traceId: string' sdk/src/types.ts
+grep -q 'export type ReadinessComponentName' sdk/src/types.ts
+grep -q 'components: ReadinessComponents' sdk/src/types.ts
 grep -q 'export const rfqErrorCodes' sdk/src/types.ts
 grep -q 'export type RFQErrorCode' sdk/src/types.ts
 grep -q 'code: RFQErrorCode' sdk/src/types.ts
@@ -1308,6 +1312,7 @@ grep -q 'assertSubmitQuoteResponse' sdk/src/client.ts
 grep -q 'readJsonResponse' sdk/src/client.ts
 grep -q 'malformed successful JSON responses' sdk/test/sdk.test.mjs
 grep -q 'malformed health and readiness status responses' sdk/test/sdk.test.mjs
+grep -q 'externalUrl: "ok"' sdk/test/sdk.test.mjs
 grep -q 'malformed hedge status responses' sdk/test/sdk.test.mjs
 grep -q 'malformed submit and quote status responses' sdk/test/sdk.test.mjs
 grep -q 'q_rejected' sdk/test/sdk.test.mjs
@@ -1325,6 +1330,7 @@ grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs
 grep -q 'client.pnl' sdk/test/sdk.test.mjs
 grep -q 'client.ready' sdk/test/sdk.test.mjs
+grep -q 'RFQClient.ready()` validates readiness payloads against the fixed backend component set' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'percent-encodes dynamic status path identifiers' sdk/test/sdk.test.mjs
 grep -q 'new RFQClient("http://127.0.0.1:3000/")' sdk/test/sdk.test.mjs
 grep -q 'degraded readiness payloads' sdk/test/sdk.test.mjs
@@ -1574,6 +1580,8 @@ grep -q 'RISK_ENGINE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter04-Risk
 grep -q 'stale' docs/api/openapi.yaml
 grep -q 'getReadiness' docs/api/openapi.yaml
 grep -q 'ReadinessResponse' docs/api/openapi.yaml
+grep -q 'ReadinessComponentStatus' docs/api/openapi.yaml
+grep -q 'marketSnapshotStore:' docs/api/openapi.yaml
 grep -q 'not ready because at least one quote dependency is degraded' docs/api/openapi.yaml
 grep -q 'signer sign/verify capability' docs/api/openapi.yaml
 grep -q 'getHedgeIntent' docs/api/openapi.yaml

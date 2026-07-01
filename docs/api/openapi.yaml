@@ -770,11 +770,53 @@ components:
             - degraded
         components:
           type: object
-          additionalProperties:
-            type: string
-            enum:
-              - ok
-              - degraded
+          additionalProperties: false
+          required:
+            - marketData
+            - marketSnapshotStore
+            - routing
+            - pricing
+            - risk
+            - signer
+            - quoteRepository
+            - riskDecisionStore
+            - inventory
+            - execution
+            - settlementEventStore
+            - pnl
+            - metrics
+          properties:
+            marketData:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            marketSnapshotStore:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            routing:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            pricing:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            risk:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            signer:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            quoteRepository:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            riskDecisionStore:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            inventory:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            execution:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            settlementEventStore:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            pnl:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            metrics:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+    ReadinessComponentStatus:
+      type: string
+      enum:
+        - ok
+        - degraded
     ErrorResponse:
       type: object
       required:

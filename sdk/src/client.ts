@@ -26,6 +26,21 @@ export interface RFQClientOptions {
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const rfqErrorCodeSet: ReadonlySet<string> = new Set(rfqErrorCodes);
+const readinessDependencyComponents = [
+  "marketData",
+  "marketSnapshotStore",
+  "routing",
+  "pricing",
+  "risk",
+  "signer",
+  "quoteRepository",
+  "riskDecisionStore",
+  "inventory",
+  "execution",
+  "settlementEventStore",
+  "pnl",
+  "metrics",
+] as const;
 
 export class RFQClientError extends Error {
   constructor(
@@ -716,5 +731,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isReadinessComponents(value: unknown): value is ReadinessResponse["components"] {
-  return isRecord(value) && Object.values(value).every((status) => status === "ok" || status === "degraded");
+  if (!isRecord(value)) return false;
+
+  const keys = Object.keys(value);
+  if (keys.length !== readinessDependencyComponents.length) {
+    return false;
+  }
+
+  const expectedComponents = new Set<string>(readinessDependencyComponents);
+  for (const key of keys) {
+    if (!expectedComponents.has(key)) {
+      return false;
+    }
+  }
+
+  return readinessDependencyComponents.every((component) => {
+    const status = value[component];
+    return status === "ok" || status === "degraded";
+  });
 }
