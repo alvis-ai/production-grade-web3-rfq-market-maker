@@ -49,6 +49,7 @@ export class InventoryService {
   private readonly balances = new Map<string, bigint>();
 
   constructor(config: InventoryServiceConfig = defaultInventoryServiceConfig) {
+    assertObject(config, "config");
     assertPositiveBigInt(config.skewUnit, "skewUnit");
     assertBpsUpperBound(config.maxPositiveSkewBps, "maxPositiveSkewBps");
     assertBpsUpperBound(config.maxNegativeSkewBps, "maxNegativeSkewBps");
@@ -159,6 +160,7 @@ function assertBpsUpperBound(value: number, field: keyof InventoryServiceConfig)
 }
 
 function assertSettlementDelta(input: SettlementDelta | InventoryProjectionInput): void {
+  assertObject(input, "settlement delta");
   assertPositiveSafeInteger(input.chainId, "chainId");
   assertAddress(input.tokenIn, "tokenIn");
   assertAddress(input.tokenOut, "tokenOut");
@@ -170,8 +172,15 @@ function assertSettlementDelta(input: SettlementDelta | InventoryProjectionInput
 }
 
 function assertInventorySkewInput(input: InventorySkewInput): void {
+  assertObject(input, "skew input");
   assertPositiveSafeInteger(input.chainId, "chainId");
   assertAddress(input.token, "token");
+}
+
+function assertObject(value: unknown, field: "config" | "settlement delta" | "skew input"): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Inventory ${field} must be an object`);
+  }
 }
 
 function assertPositiveSafeInteger(value: number, field: string): void {

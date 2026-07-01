@@ -153,6 +153,15 @@ test("InventoryService rejects unsafe settlement replay before mutating balances
 
 test("InventoryService rejects unsafe skew configuration at construction", () => {
   assert.throws(
+    () => new InventoryService(null),
+    /Inventory config must be an object/,
+  );
+  assert.throws(
+    () => new InventoryService([]),
+    /Inventory config must be an object/,
+  );
+
+  assert.throws(
     () =>
       new InventoryService({
         skewUnit: 0n,
@@ -191,6 +200,30 @@ test("InventoryService rejects unsafe skew configuration at construction", () =>
       }),
     /Inventory maxPositiveSkewBps must be less than or equal to 10000 bps/,
   );
+});
+
+test("InventoryService rejects malformed runtime payload envelopes before mutating balances", () => {
+  const inventory = new InventoryService();
+
+  assert.throws(
+    () => inventory.applySettlement(undefined),
+    /Inventory settlement delta must be an object/,
+  );
+  assert.throws(
+    () => inventory.projectSettlement(null),
+    /Inventory settlement delta must be an object/,
+  );
+  assert.throws(
+    () => inventory.calculateQuoteSkewBps([]),
+    /Inventory skew input must be an object/,
+  );
+  assert.throws(
+    () => inventory.rebuildFromSettlements([undefined]),
+    /Inventory settlement delta must be an object/,
+  );
+
+  assert.equal(inventory.getPosition(1, tokenIn).balance, 0n);
+  assert.equal(inventory.getPosition(1, tokenOut).balance, 0n);
 });
 
 test("InventoryService rejects unsafe settlement inputs before mutating balances", () => {
