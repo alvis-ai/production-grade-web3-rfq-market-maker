@@ -80,7 +80,9 @@ export class ObservedSignerService implements SignerService {
   constructor(
     private readonly inner: SignerService,
     private readonly metricsService: MetricsService,
-  ) {}
+  ) {
+    assertObservedSignerDeps(inner, metricsService);
+  }
 
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
     return this.observe("sign", () => this.inner.signQuote(input));
@@ -105,6 +107,27 @@ export class ObservedSignerService implements SignerService {
     } finally {
       this.metricsService.recordSignerLatency(operation, (Date.now() - startedAt) / 1000);
     }
+  }
+}
+
+function assertObservedSignerDeps(inner: SignerService, metricsService: MetricsService): void {
+  assertDependencyMethod(inner, "inner", "signQuote");
+  assertDependencyMethod(inner, "inner", "verifyQuoteSignature");
+  assertDependencyMethod(metricsService, "metricsService", "recordSignerRequest");
+  assertDependencyMethod(metricsService, "metricsService", "recordSignerError");
+  assertDependencyMethod(metricsService, "metricsService", "recordSignerLatency");
+}
+
+function assertDependencyMethod(
+  dependency: unknown,
+  dependencyName: "inner" | "metricsService",
+  methodName: string,
+): void {
+  const method = typeof dependency === "object" && dependency !== null
+    ? (dependency as Record<string, unknown>)[methodName]
+    : undefined;
+  if (typeof method !== "function") {
+    throw new Error(`Signer ${dependencyName}.${methodName} must be a function`);
   }
 }
 

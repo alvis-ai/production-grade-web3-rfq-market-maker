@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { LocalEIP712SignerService } from "../dist/modules/signer/signer.service.js";
+import { LocalEIP712SignerService, ObservedSignerService } from "../dist/modules/signer/signer.service.js";
 
 const privateKey = "0x59c6995e998f97a5a0044966f094538d9dae1ffc26a3b6d86dae8e3a0b97e6a0";
 const settlementAddress = "0x0000000000000000000000000000000000000004";
@@ -185,6 +185,55 @@ test("LocalEIP712SignerService returns false for malformed verification inputs",
     false,
   );
 });
+
+test("ObservedSignerService rejects unsafe wrapper dependencies at construction", () => {
+  assert.throws(
+    () => new ObservedSignerService(undefined, signerMetrics()),
+    /Signer inner.signQuote must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ObservedSignerService(
+        {
+          async signQuote() {
+            return fixedSignature();
+          },
+        },
+        signerMetrics(),
+      ),
+    /Signer inner.verifyQuoteSignature must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ObservedSignerService(
+        {
+          async signQuote() {
+            return fixedSignature();
+          },
+          async verifyQuoteSignature() {
+            return true;
+          },
+        },
+        {
+          recordSignerRequest() {},
+          recordSignerError() {},
+        },
+      ),
+    /Signer metricsService.recordSignerLatency must be a function/,
+  );
+});
+
+function fixedSignature() {
+  return `0x${"11".repeat(64)}1b`;
+}
+
+function signerMetrics() {
+  return {
+    recordSignerRequest() {},
+    recordSignerError() {},
+    recordSignerLatency() {},
+  };
+}
 
 function malleateSignature(signature) {
   const r = signature.slice(2, 66);

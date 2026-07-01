@@ -115,6 +115,7 @@ signQuote(input: SignQuoteInput): Promise<`0x${string}`>
 - Signer 验证 approved context。
 - 当前 skeleton 使用本地 EIP-712 signer，配置来自 `RFQ_SIGNER_PRIVATE_KEY` 和 `RFQ_SETTLEMENT_ADDRESS`。当 `NODE_ENV` 是 `production`、`staging` 或任何非本地环境名时，后端必须显式配置这两个值；默认 Anvil signer 只允许用于 unset `NODE_ENV`、`development` 或 `test`。
 - 当前后端使用 `ObservedSignerService` 包装 signer，记录 `rfq_signer_requests_total`、`rfq_signer_errors_total` 和 `rfq_signer_latency_seconds`，固定 `operation` label 为 `sign` 或 `verify`。
+- `ObservedSignerService` validates inner signer and metrics dependency methods at construction. Missing `inner.signQuote`, `inner.verifyQuoteSignature`, `metricsService.recordSignerRequest`, `metricsService.recordSignerError` or `metricsService.recordSignerLatency` must fail before quote signing starts.
 - `/ready` 使用固定 probe quote 执行 signer sign + verify 检查；探针签名不返回给用户，也不改变 quote repository 状态。
 - Local signer validates private key, settlement address, quoteId, snapshotId and signed quote shape before producing any EIP-712 signature; malformed verification inputs return `false` instead of leaking lower-level signing-library errors.
 - Local signer verification rejects high-s ECDSA signatures and invalid `v` values before address recovery, matching `RFQSettlement` canonical signature rules so `/submit` cannot accept a signature that chain settlement would reject.
