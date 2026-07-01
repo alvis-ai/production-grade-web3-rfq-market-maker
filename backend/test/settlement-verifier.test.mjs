@@ -33,6 +33,41 @@ test("LocalSettlementVerifier accepts contract-shaped settlement quotes", async 
   assert.equal(result.amountOut, quote.amountOut);
 });
 
+test("LocalSettlementVerifier rejects malformed verification payload envelopes before settlement checks", async () => {
+  const verifier = new LocalSettlementVerifier();
+
+  await assert.rejects(
+    verifier.verify(undefined),
+    /Local settlement verifier input must be an object/,
+  );
+
+  await assert.rejects(
+    verifier.verify({
+      quoteId: " ",
+      request,
+    }),
+    /Local settlement verifier quoteId must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    verifier.verify({
+      quoteId: "q_missing_request",
+    }),
+    /Local settlement verifier request must be an object/,
+  );
+
+  await assert.rejects(
+    verifier.verify({
+      quoteId: "q_missing_quote",
+      request: {
+        signature: request.signature,
+        quote: null,
+      },
+    }),
+    /Local settlement verifier request.quote must be an object/,
+  );
+});
+
 test("LocalSettlementVerifier rejects non-whitelisted settlement tokens", async () => {
   await assertSettlementRevert(
     new LocalSettlementVerifier({
@@ -182,6 +217,20 @@ test("LocalSettlementVerifier snapshots policy configuration at construction", a
 });
 
 test("LocalSettlementVerifier rejects unsafe policy configuration at construction", () => {
+  assert.throws(
+    () => new LocalSettlementVerifier(null),
+    /Local settlement verifier policy must be an object/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
+        enabledChainIds: undefined,
+      }),
+    /Local settlement verifier enabledChainIds must be an array/,
+  );
+
   assert.throws(
     () =>
       new LocalSettlementVerifier({

@@ -907,12 +907,19 @@ grep -q 'Settlement signature s value must be in the lower half order' backend/s
 grep -q 'Settlement signature v value must be 27 or 28' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'TOKEN_NOT_WHITELISTED' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertObject(policy, "policy")' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertArray(chainIds, "enabledChainIds")' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertVerificationInput(input)' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertObject(input.request, "request")' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertObject(input.request.quote, "request.quote")' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertChainIds(policy.enabledChainIds)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertTokenWhitelist(policy.tokenWhitelist)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'cloneLocalSettlementVerifierPolicy' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'Local settlement verifier enabledChainIds must not contain duplicate chain ids' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'Local settlement verifier tokenWhitelist must not contain duplicate addresses' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'enabledChainIds` 和 `tokenWhitelist` 必须非空且不能包含重复项' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'malformed policy object and policy array fields must be rejected before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'LocalSettlementVerifier.verify()` rejects malformed root payloads, blank `quoteId`, missing `request`, and missing `request.quote` before signature shape' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'snapshots `LocalSettlementVerifierPolicy` at construction after validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SkeletonExecutionService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -1658,6 +1665,7 @@ grep -q 'A signed quote may bind to only one settlement event' book/Volume5-Back
 grep -q 'errorCode, "TOKEN_NOT_WHITELISTED"' backend/test/api.test.mjs
 grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs
+grep -q 'LocalSettlementVerifier rejects malformed verification payload envelopes before settlement checks' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects disabled settlement chains' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects expired settlement quotes' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects invalid settlement token pairs' backend/test/settlement-verifier.test.mjs

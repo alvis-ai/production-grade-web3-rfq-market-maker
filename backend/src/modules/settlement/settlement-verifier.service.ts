@@ -39,6 +39,7 @@ export class LocalSettlementVerifier implements SettlementVerifier {
   private readonly tokenWhitelist: ReadonlySet<string>;
 
   constructor(policy: LocalSettlementVerifierPolicy = defaultLocalSettlementVerifierPolicy) {
+    assertObject(policy, "policy");
     assertNonEmptyString(policy.verifierVersion, "verifierVersion");
     assertChainIds(policy.enabledChainIds);
     assertTokenWhitelist(policy.tokenWhitelist);
@@ -49,6 +50,7 @@ export class LocalSettlementVerifier implements SettlementVerifier {
   }
 
   async verify(input: SettlementVerificationInput): Promise<SettlementVerificationResult> {
+    assertVerificationInput(input);
     const { quote, signature } = input.request;
 
     this.assertCanonicalSignature(signature);
@@ -118,13 +120,21 @@ function cloneLocalSettlementVerifierPolicy(policy: LocalSettlementVerifierPolic
   };
 }
 
-function assertNonEmptyString(value: string, field: keyof LocalSettlementVerifierPolicy): void {
+function assertNonEmptyString(value: string, field: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`Local settlement verifier ${field} must be a non-empty string`);
   }
 }
 
+function assertVerificationInput(input: SettlementVerificationInput): void {
+  assertObject(input, "input");
+  assertNonEmptyString(input.quoteId, "quoteId");
+  assertObject(input.request, "request");
+  assertObject(input.request.quote, "request.quote");
+}
+
 function assertChainIds(chainIds: readonly number[]): void {
+  assertArray(chainIds, "enabledChainIds");
   if (chainIds.length === 0) {
     throw new Error("Local settlement verifier enabledChainIds must contain at least one chain id");
   }
@@ -142,6 +152,7 @@ function assertChainIds(chainIds: readonly number[]): void {
 }
 
 function assertTokenWhitelist(tokens: readonly `0x${string}`[]): void {
+  assertArray(tokens, "tokenWhitelist");
   if (tokens.length === 0) {
     throw new Error("Local settlement verifier tokenWhitelist must contain at least one address");
   }
@@ -156,5 +167,17 @@ function assertTokenWhitelist(tokens: readonly `0x${string}`[]): void {
       throw new Error("Local settlement verifier tokenWhitelist must not contain duplicate addresses");
     }
     seenTokens.add(normalized);
+  }
+}
+
+function assertObject(value: unknown, field: string): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Local settlement verifier ${field} must be an object`);
+  }
+}
+
+function assertArray(value: unknown, field: string): void {
+  if (!Array.isArray(value)) {
+    throw new Error(`Local settlement verifier ${field} must be an array`);
   }
 }
