@@ -77,8 +77,7 @@ export class RFQClient {
     await assertOk(response, "RFQ quote failed");
 
     const payload = await readJsonResponse(response, "RFQ quote response");
-    assertQuoteResponse(payload, response.status);
-    return payload;
+    return assertResponsePayload(payload, response, assertQuoteResponse);
   }
 
   async submit(request: SubmitQuoteRequest): Promise<SubmitQuoteResponse> {
@@ -94,8 +93,7 @@ export class RFQClient {
     await assertOk(response, "RFQ submit failed");
 
     const payload = await readJsonResponse(response, "RFQ submit response");
-    assertSubmitQuoteResponse(payload, response.status);
-    return payload;
+    return assertResponsePayload(payload, response, assertSubmitQuoteResponse);
   }
 
   async getQuote(quoteId: string): Promise<QuoteStatus> {
@@ -105,8 +103,7 @@ export class RFQClient {
     await assertOk(response, "RFQ quote status failed");
 
     const payload = await readJsonResponse(response, "RFQ quote status response");
-    assertQuoteStatus(payload, response.status);
-    return payload;
+    return assertResponsePayload(payload, response, assertQuoteStatus);
   }
 
   async getHedge(hedgeOrderId: string): Promise<HedgeIntentStatus> {
@@ -116,9 +113,7 @@ export class RFQClient {
     await assertOk(response, "RFQ hedge status failed");
 
     const payload = await readJsonResponse(response, "RFQ hedge status response");
-    assertHedgeIntentStatus(payload, response.status);
-
-    return payload;
+    return assertResponsePayload(payload, response, assertHedgeIntentStatus);
   }
 
   async getSettlement(settlementEventId: string): Promise<SettlementEventStatus> {
@@ -128,8 +123,7 @@ export class RFQClient {
     await assertOk(response, "RFQ settlement event status failed");
 
     const payload = await readJsonResponse(response, "RFQ settlement event status response");
-    assertSettlementEventStatus(payload, response.status);
-    return payload;
+    return assertResponsePayload(payload, response, assertSettlementEventStatus);
   }
 
   async pnl(): Promise<PnlSummary> {
@@ -138,9 +132,7 @@ export class RFQClient {
     await assertOk(response, "RFQ PnL summary failed");
 
     const payload = await readJsonResponse(response, "RFQ PnL summary response");
-    assertPnlSummary(payload, response.status);
-
-    return payload;
+    return assertResponsePayload(payload, response, assertPnlSummary);
   }
 
   async health(): Promise<HealthResponse> {
@@ -150,7 +142,12 @@ export class RFQClient {
 
     const payload = await readJsonResponse(response, "RFQ health response");
     if (!isHealthResponse(payload)) {
-      throw new RFQClientError("RFQ health response returned malformed status", response.status);
+      throw new RFQClientError(
+        "RFQ health response returned malformed status",
+        response.status,
+        "RFQ_CLIENT_ERROR",
+        traceIdFromResponse(response),
+      );
     }
 
     return payload;
@@ -176,7 +173,12 @@ export class RFQClient {
 
     const payload = await readJsonResponse(response, "RFQ readiness response");
     if (!isReadinessResponse(payload)) {
-      throw new RFQClientError("RFQ readiness response returned malformed status", response.status);
+      throw new RFQClientError(
+        "RFQ readiness response returned malformed status",
+        response.status,
+        "RFQ_CLIENT_ERROR",
+        traceIdFromResponse(response),
+      );
     }
 
     return payload;
@@ -215,8 +217,40 @@ async function readJsonResponse(response: Response, label: string): Promise<unkn
   try {
     return await response.json();
   } catch {
-    throw new RFQClientError(`${label} returned malformed JSON`, response.status, "RFQ_CLIENT_ERROR", traceIdFromResponse(response));
+    throw new RFQClientError(
+      `${label} returned malformed JSON`,
+      response.status,
+      "RFQ_CLIENT_ERROR",
+      traceIdFromResponse(response),
+    );
   }
+}
+
+function assertResponsePayload<T>(
+  payload: unknown,
+  response: Response,
+  assertion: (payload: unknown, status: number) => asserts payload is T,
+): T {
+  try {
+    assertion(payload, response.status);
+    return payload;
+  } catch (error) {
+    throw withResponseTrace(error, response);
+  }
+}
+
+function withResponseTrace(error: unknown, response: Response): unknown {
+  if (error instanceof RFQClientError && !error.traceId) {
+    return new RFQClientError(
+      error.message,
+      error.status,
+      error.code,
+      traceIdFromResponse(response),
+      error.retryAfterSeconds,
+    );
+  }
+
+  return error;
 }
 
 async function assertOk(response: Response, fallbackMessage: string): Promise<void> {

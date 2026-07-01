@@ -1321,9 +1321,12 @@ grep -q 'RFQClientErrorCode' sdk/src/client.ts
 grep -q 'retryAfterSeconds' sdk/src/client.ts
 grep -q 'response.headers.get("retry-after")' sdk/src/client.ts
 grep -q 'traceIdFromResponse' sdk/src/client.ts
+grep -q 'assertResponsePayload' sdk/src/client.ts
+grep -q 'withResponseTrace' sdk/src/client.ts
 grep -q 'response.headers.get("x-trace-id")' sdk/src/client.ts
 grep -q 'trace_header_unknown' sdk/test/sdk.test.mjs
 grep -q 'trace_malformed_json' sdk/test/sdk.test.mjs
+grep -q 'trace_malformed_field' sdk/test/sdk.test.mjs
 grep -q 'falls back to the `x-trace-id` response header' README.md
 grep -q 'falls back to the `x-trace-id` response header' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient baseUrl must be a string' sdk/src/client.ts

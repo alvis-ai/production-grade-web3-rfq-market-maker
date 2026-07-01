@@ -1500,6 +1500,7 @@ test("RFQClient rejects malformed successful response fields", async () => {
     {
       payload: { ...quoteResponse, quoteId: "" },
       message: "RFQ quote response returned malformed quoteId",
+      traceId: "trace_malformed_field",
     },
     {
       payload: { ...quoteResponse, snapshotId: "" },
@@ -1535,8 +1536,10 @@ test("RFQClient rejects malformed successful response fields", async () => {
     },
   ];
 
-  for (const { payload, message } of quoteCases) {
-    const restoreQuoteFetch = installFetch(async () => jsonResponse(200, payload));
+  for (const { payload, message, traceId } of quoteCases) {
+    const restoreQuoteFetch = installFetch(async () =>
+      jsonResponse(200, payload, traceId ? { "x-trace-id": traceId } : {}),
+    );
 
     try {
       const client = new RFQClient("http://127.0.0.1:3000");
@@ -1555,6 +1558,9 @@ test("RFQClient rejects malformed successful response fields", async () => {
           assert.equal(error.status, 200);
           assert.equal(error.code, "RFQ_CLIENT_ERROR");
           assert.equal(error.message, message);
+          if (traceId) {
+            assert.equal(error.traceId, traceId);
+          }
           return true;
         },
       );
