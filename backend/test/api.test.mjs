@@ -416,6 +416,40 @@ test("RFQ API rejects CORS preflight for disallowed origins", async () => {
   }
 });
 
+test("RFQ API propagates safe incoming trace ids and falls back for unsafe values", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const health = await injectJson(server, "GET", "/health", undefined, {
+      "x-trace-id": "tr_client_123",
+    });
+
+    assert.equal(health.statusCode, 200);
+    assert.equal(health.headers["x-trace-id"], "tr_client_123");
+
+    const missingQuote = await injectJson(server, "GET", "/quote/q_missing", undefined, {
+      "x-trace-id": "tr_client_error",
+    });
+
+    assert.equal(missingQuote.statusCode, 404);
+    assert.equal(missingQuote.body.code, "QUOTE_NOT_FOUND");
+    assert.equal(missingQuote.headers["x-trace-id"], "tr_client_error");
+    assert.equal(missingQuote.body.traceId, "tr_client_error");
+
+    const unsafeTrace = await injectJson(server, "GET", "/quote/q_missing", undefined, {
+      "x-trace-id": "trace with spaces",
+    });
+
+    assert.equal(unsafeTrace.statusCode, 404);
+    assert.match(unsafeTrace.body.traceId, /^tr_/);
+    assert.equal(unsafeTrace.headers["x-trace-id"], unsafeTrace.body.traceId);
+    assert.notEqual(unsafeTrace.body.traceId, "trace with spaces");
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
   const server = buildServer({ logger: false });
   await server.ready();

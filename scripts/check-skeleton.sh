@@ -409,6 +409,9 @@ grep -q 'HOST' backend/src/main.ts
 grep -q 'x-trace-id' backend/src/main.ts
 grep -q 'server.addHook("onRequest"' backend/src/main.ts
 grep -q 'requestTraceId' backend/src/main.ts
+grep -q 'safeIncomingTraceId' backend/src/main.ts
+grep -q 'traceIdPattern' backend/src/main.ts
+grep -q 'RFQ API propagates safe incoming trace ids and falls back for unsafe values' backend/test/api.test.mjs
 grep -q 'RFQ_TRUST_PROXY=false' .env.example
 grep -q 'RFQ_TRUST_PROXY: "false"' docker-compose.yml
 grep -q 'RFQ_TRUST_PROXY: "false"' infra/k8s/configmap.yaml
@@ -1318,6 +1321,9 @@ grep -q 'export type RFQErrorCode' sdk/src/types.ts
 grep -q 'code: RFQErrorCode' sdk/src/types.ts
 grep -q 'rfqErrorCodeSet.has' sdk/src/client.ts
 grep -q 'RFQClientErrorCode' sdk/src/client.ts
+grep -q 'RFQClientTraceIdProvider' sdk/src/client.ts
+grep -q 'resolveTraceIdProvider' sdk/src/client.ts
+grep -q 'requestHeaders' sdk/src/client.ts
 grep -q 'retryAfterSeconds' sdk/src/client.ts
 grep -q 'response.headers.get("retry-after")' sdk/src/client.ts
 grep -q 'traceIdFromResponse' sdk/src/client.ts
@@ -1333,8 +1339,12 @@ grep -q 'RFQClient baseUrl must be a string' sdk/src/client.ts
 grep -q 'RFQClient baseUrl must be an absolute http(s) URL' sdk/src/client.ts
 grep -q 'RFQClient rejects unsafe base URLs at construction' sdk/test/sdk.test.mjs
 grep -q 'RFQClient baseUrl must be a string' sdk/test/sdk.test.mjs
+grep -q 'RFQClient rejects unsafe trace id options' sdk/test/sdk.test.mjs
+grep -q 'tr_sdk_' sdk/test/sdk.test.mjs
 grep -q 'RFQClient rejects unsafe quote requests before sending HTTP' sdk/test/sdk.test.mjs
 grep -q 'base URL must be a runtime string before URL parsing' README.md
+grep -q 'Integrators can pass `{ traceId:' README.md
+grep -q 'static or dynamic `traceId` option' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'rejects non-string, empty, relative or non-`http(s)` base URLs' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient.quote()` validates outgoing quote requests locally' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient rejects unsafe submit requests before sending HTTP' sdk/test/sdk.test.mjs
@@ -1366,7 +1376,7 @@ grep -q 'client.pnl' sdk/test/sdk.test.mjs
 grep -q 'client.ready' sdk/test/sdk.test.mjs
 grep -q 'RFQClient.ready()` validates readiness payloads against the fixed backend component set' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'percent-encodes dynamic status path identifiers' sdk/test/sdk.test.mjs
-grep -q 'new RFQClient("http://127.0.0.1:3000/")' sdk/test/sdk.test.mjs
+grep -q 'new RFQClient("http://127.0.0.1:3000/", {' sdk/test/sdk.test.mjs
 grep -q 'degraded readiness payloads' sdk/test/sdk.test.mjs
 grep -q 'falls back for unknown API error codes' sdk/test/sdk.test.mjs
 grep -q 'exposes Retry-After seconds for rate limited responses' sdk/test/sdk.test.mjs
@@ -1593,6 +1603,8 @@ grep -Fq '["GET /ready 503", "#/components/schemas/ReadinessResponse"]' scripts/
 grep -q 'extractOpenApiResponseSchemaRef' scripts/check-api-error-consistency.mjs
 grep -q 'extractOpenApiTraceHeaderRef' scripts/check-api-error-consistency.mjs
 grep -q 'OpenAPI components.headers.TraceId must define the reusable trace header' scripts/check-api-error-consistency.mjs
+grep -q 'safe incoming x-trace-id propagation' scripts/check-api-error-consistency.mjs
+grep -q 'safe incoming trace propagation and unsafe trace fallback' scripts/check-api-error-consistency.mjs
 grep -q 'OpenAPI ${response.key} must reference components.headers.TraceId' scripts/check-api-error-consistency.mjs
 grep -q 'TraceId:' docs/api/openapi.yaml
 grep -q '#/components/headers/TraceId' docs/api/openapi.yaml

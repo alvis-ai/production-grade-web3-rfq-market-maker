@@ -512,7 +512,9 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
   });
 
   try {
-    const client = new RFQClient("http://127.0.0.1:3000/");
+    const client = new RFQClient("http://127.0.0.1:3000/", {
+      traceId: () => `tr_sdk_${calls.length + 1}`,
+    });
 
     assert.deepEqual(await client.quote({
       chainId: quote.chainId,
@@ -542,6 +544,9 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     assert.equal(calls[6].url, "http://127.0.0.1:3000/health");
     assert.equal(calls[7].url, "http://127.0.0.1:3000/ready");
     assert.equal(calls[8].url, "http://127.0.0.1:3000/metrics");
+    for (const [index, call] of calls.entries()) {
+      assert.equal(call.init.headers["x-trace-id"], `tr_sdk_${index + 1}`);
+    }
   } finally {
     restoreFetch();
   }
@@ -608,6 +613,56 @@ test("RFQClient rejects unsafe fetch dependencies at construction", () => {
     );
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("RFQClient rejects unsafe trace id options", async () => {
+  assert.throws(
+    () => new RFQClient("http://127.0.0.1:3000", { traceId: "client_trace" }),
+    (error) => {
+      assert.ok(error instanceof RFQClientError);
+      assert.equal(error.status, 0);
+      assert.equal(error.message, "RFQClient traceId must match tr_[A-Za-z0-9._:-]+ and be 128 characters or fewer");
+      return true;
+    },
+  );
+
+  assert.throws(
+    () => new RFQClient("http://127.0.0.1:3000", { traceId: 123 }),
+    (error) => {
+      assert.ok(error instanceof RFQClientError);
+      assert.equal(error.status, 0);
+      assert.equal(error.message, "RFQClient traceId option must be a string or function");
+      return true;
+    },
+  );
+
+  const calls = [];
+  const restoreFetch = installFetch(async (url, init = {}) => {
+    calls.push({ url, init });
+    return jsonResponse(200, { status: "ok" });
+  });
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000", {
+      traceId: () => "trace with spaces",
+    });
+
+    await assert.rejects(
+      client.health(),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(
+          error.message,
+          "RFQClient traceId provider result must match tr_[A-Za-z0-9._:-]+ and be 128 characters or fewer",
+        );
+        return true;
+      },
+    );
+    assert.equal(calls.length, 0);
+  } finally {
+    restoreFetch();
   }
 });
 

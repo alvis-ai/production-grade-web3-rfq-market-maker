@@ -170,8 +170,13 @@ function assertTraceHeaderContract(backend, apiTest, openapi, responses) {
     "OpenAPI info description must document the x-trace-id response header",
   );
   assert.ok(
+    openapi.includes("Clients may send a safe tr_-prefixed x-trace-id request header"),
+    "OpenAPI info description must document safe incoming x-trace-id propagation",
+  );
+  assert.ok(
     openapi.includes("  headers:\n    TraceId:") &&
       openapi.includes("Request correlation id attached to every response") &&
+      openapi.includes("Safe tr_-prefixed request header values may be echoed") &&
       openapi.includes('pattern: "^tr_.+"'),
     "OpenAPI components.headers.TraceId must define the reusable trace header",
   );
@@ -192,8 +197,10 @@ function assertTraceHeaderContract(backend, apiTest, openapi, responses) {
   );
   assert.ok(
     backend.includes("function requestTraceId(request: FastifyRequest): string") &&
+      backend.includes('request.headers["x-trace-id"]') &&
+      backend.includes("function safeIncomingTraceId(value: unknown): string | undefined") &&
       backend.includes("return `tr_${request.id}`;"),
-    "backend requestTraceId must keep stable tr_ prefixed request ids",
+    "backend requestTraceId must echo safe incoming trace ids and keep stable tr_ prefixed fallback ids",
   );
 
   const headerBodyAssertions = [...apiTest.matchAll(/headers\["x-trace-id"\],\s*[^,\n]+\.body\.traceId/g)];
@@ -204,5 +211,11 @@ function assertTraceHeaderContract(backend, apiTest, openapi, responses) {
   assert.ok(
     apiTest.includes('assert.match(String(response.headers["x-trace-id"]), /^tr_/)'),
     "backend API tests must assert x-trace-id exists on successful responses",
+  );
+  assert.ok(
+    apiTest.includes("RFQ API propagates safe incoming trace ids and falls back for unsafe values") &&
+      apiTest.includes('"x-trace-id": "tr_client_123"') &&
+      apiTest.includes('"x-trace-id": "trace with spaces"'),
+    "backend API tests must cover safe incoming trace propagation and unsafe trace fallback",
   );
 }

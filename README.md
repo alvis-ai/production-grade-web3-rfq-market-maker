@@ -59,7 +59,7 @@ infra/       Docker, Kubernetes, Helm, Prometheus and Grafana configuration
 
 The OpenAPI specification lives in [`docs/api/openapi.yaml`](docs/api/openapi.yaml). Core endpoints:
 
-Every HTTP response includes an `x-trace-id` header for request correlation. Structured error responses also include the same value in `traceId`, so SDKs, frontend error panels, logs, and metrics can be joined during incident triage.
+Every HTTP response includes an `x-trace-id` header for request correlation. Clients may send a safe `tr_`-prefixed `x-trace-id`; the gateway echoes it when it passes length and character checks, otherwise it falls back to a generated request id. Structured error responses also include the same value in `traceId`, so SDKs, frontend error panels, logs, and metrics can be joined during incident triage.
 
 ```http
 POST /quote
@@ -205,6 +205,7 @@ The benchmark builds the backend and exercises `POST /quote` through Fastify inj
 ```ts
 const client = new RFQClient("http://localhost:3000");
 const clientWithCustomFetch = new RFQClient("http://localhost:3000", { fetch: customFetch });
+const tracedClient = new RFQClient("http://localhost:3000", { traceId: () => "tr_request_123" });
 
 await client.quote(request);
 await client.submit({ quote, signature });
@@ -219,7 +220,7 @@ await client.metrics();
 
 `RFQClientError` preserves structured API errors. It uses `ErrorResponse.traceId` when the backend returns the standard error body, and falls back to the `x-trace-id` response header when an upstream proxy, malformed JSON, or malformed successful response field prevents normal error parsing. For HTTP 429 `RATE_LIMITED` responses, the SDK exposes `retryAfterSeconds` from the `Retry-After` header so callers can back off without parsing headers directly. Successful quote, submit, quote status, settlement, hedge, and PnL responses are validated field by field, including identifiers, signatures, token addresses, hashes, uint/int amount strings, timestamps, `totalTrades`, and aggregate gross PnL consistency.
 
-`RFQClient` validates its base URL and fetch dependency at construction. The base URL must be a runtime string before URL parsing, so JavaScript callers get a stable `RFQClientError` instead of a native `.trim()` failure. By default it uses `globalThis.fetch`; server-side runtimes, tests, and constrained execution environments can pass `{ fetch: customFetch }` to keep transport ownership explicit.
+`RFQClient` validates its base URL, static `traceId` values, trace provider type, and fetch dependency at construction. Dynamic trace provider results are validated before each request. The base URL must be a runtime string before URL parsing, so JavaScript callers get a stable `RFQClientError` instead of a native `.trim()` failure. By default it uses `globalThis.fetch`; server-side runtimes, tests, and constrained execution environments can pass `{ fetch: customFetch }` to keep transport ownership explicit. Integrators can pass `{ traceId: "tr_session_123" }` or `{ traceId: () => "tr_request_123" }` to propagate a safe `x-trace-id` header on SDK requests.
 
 The SDK also exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs`, `hashSettlementQuote`, and `buildTreasuryTransferArgs` for viem/wagmi contract calls and event reconciliation.
 

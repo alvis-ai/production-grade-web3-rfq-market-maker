@@ -33,6 +33,8 @@ const defaultEnableHsts = false;
 const defaultListenHost = "127.0.0.1";
 const defaultListenPort = 3000;
 const defaultTrustProxy = false;
+const maxTraceIdLength = 128;
+const traceIdPattern = /^tr_[A-Za-z0-9._:-]+$/;
 
 interface RuntimeProcess {
   argv?: string[];
@@ -510,7 +512,25 @@ function settlementRejectionFailureCode(error: APIError): string {
 }
 
 function requestTraceId(request: FastifyRequest): string {
+  const incomingTraceId = safeIncomingTraceId(request.headers["x-trace-id"]);
+  if (incomingTraceId) {
+    return incomingTraceId;
+  }
+
   return `tr_${request.id}`;
+}
+
+function safeIncomingTraceId(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  if (normalized.length === 0 || normalized.length > maxTraceIdLength || !traceIdPattern.test(normalized)) {
+    return undefined;
+  }
+
+  return normalized;
 }
 
 function elapsedSeconds(startedAt: number): number {

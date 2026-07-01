@@ -18,12 +18,16 @@ import type {
 
 export type RFQClientErrorCode = RFQErrorCode | "RFQ_CLIENT_ERROR";
 export type RFQClientFetch = (input: string, init?: RequestInit) => Promise<Response>;
+export type RFQClientTraceIdProvider = () => string | undefined;
 
 export interface RFQClientOptions {
   readonly fetch?: RFQClientFetch;
+  readonly traceId?: string | RFQClientTraceIdProvider;
 }
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
+const maxTraceIdLength = 128;
+const traceIdPattern = /^tr_[A-Za-z0-9._:-]+$/;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const rfqErrorCodeSet: ReadonlySet<string> = new Set(rfqErrorCodes);
 const readinessDependencyComponents = [
@@ -58,19 +62,21 @@ export class RFQClientError extends Error {
 export class RFQClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: RFQClientFetch;
+  private readonly traceIdProvider?: RFQClientTraceIdProvider;
 
   constructor(baseUrl: string, options: RFQClientOptions = {}) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
     this.fetchImpl = resolveFetch(options);
+    this.traceIdProvider = resolveTraceIdProvider(options);
   }
 
   async quote(request: QuoteRequest): Promise<QuoteResponse> {
     assertQuoteRequest(request);
     const response = await this.fetchImpl(`${this.baseUrl}/quote`, {
       method: "POST",
-      headers: {
+      headers: this.requestHeaders({
         "content-type": "application/json",
-      },
+      }),
       body: JSON.stringify(request),
     });
 
@@ -84,9 +90,9 @@ export class RFQClient {
     assertSubmitQuoteRequest(request);
     const response = await this.fetchImpl(`${this.baseUrl}/submit`, {
       method: "POST",
-      headers: {
+      headers: this.requestHeaders({
         "content-type": "application/json",
-      },
+      }),
       body: JSON.stringify(request),
     });
 
@@ -98,7 +104,7 @@ export class RFQClient {
 
   async getQuote(quoteId: string): Promise<QuoteStatus> {
     const safeQuoteId = assertNonEmptyIdentifier(quoteId, "quoteId");
-    const response = await this.fetchImpl(`${this.baseUrl}/quote/${encodeURIComponent(safeQuoteId)}`);
+    const response = await this.fetchImpl(`${this.baseUrl}/quote/${encodeURIComponent(safeQuoteId)}`, this.requestInit());
 
     await assertOk(response, "RFQ quote status failed");
 
@@ -108,7 +114,7 @@ export class RFQClient {
 
   async getHedge(hedgeOrderId: string): Promise<HedgeIntentStatus> {
     const safeHedgeOrderId = assertNonEmptyIdentifier(hedgeOrderId, "hedgeOrderId");
-    const response = await this.fetchImpl(`${this.baseUrl}/hedges/${encodeURIComponent(safeHedgeOrderId)}`);
+    const response = await this.fetchImpl(`${this.baseUrl}/hedges/${encodeURIComponent(safeHedgeOrderId)}`, this.requestInit());
 
     await assertOk(response, "RFQ hedge status failed");
 
@@ -118,7 +124,10 @@ export class RFQClient {
 
   async getSettlement(settlementEventId: string): Promise<SettlementEventStatus> {
     const safeSettlementEventId = assertNonEmptyIdentifier(settlementEventId, "settlementEventId");
-    const response = await this.fetchImpl(`${this.baseUrl}/settlements/${encodeURIComponent(safeSettlementEventId)}`);
+    const response = await this.fetchImpl(
+      `${this.baseUrl}/settlements/${encodeURIComponent(safeSettlementEventId)}`,
+      this.requestInit(),
+    );
 
     await assertOk(response, "RFQ settlement event status failed");
 
@@ -127,7 +136,7 @@ export class RFQClient {
   }
 
   async pnl(): Promise<PnlSummary> {
-    const response = await this.fetchImpl(`${this.baseUrl}/pnl`);
+    const response = await this.fetchImpl(`${this.baseUrl}/pnl`, this.requestInit());
 
     await assertOk(response, "RFQ PnL summary failed");
 
@@ -136,7 +145,7 @@ export class RFQClient {
   }
 
   async health(): Promise<HealthResponse> {
-    const response = await this.fetchImpl(`${this.baseUrl}/health`);
+    const response = await this.fetchImpl(`${this.baseUrl}/health`, this.requestInit());
 
     await assertOk(response, "RFQ health check failed");
 
@@ -154,7 +163,7 @@ export class RFQClient {
   }
 
   async ready(): Promise<ReadinessResponse> {
-    const response = await this.fetchImpl(`${this.baseUrl}/ready`);
+    const response = await this.fetchImpl(`${this.baseUrl}/ready`, this.requestInit());
 
     if (!response.ok) {
       let payload: unknown;
@@ -185,11 +194,21 @@ export class RFQClient {
   }
 
   async metrics(): Promise<string> {
-    const response = await this.fetchImpl(`${this.baseUrl}/metrics`);
+    const response = await this.fetchImpl(`${this.baseUrl}/metrics`, this.requestInit());
 
     await assertOk(response, "RFQ metrics request failed");
 
     return response.text();
+  }
+
+  private requestInit(headers: Record<string, string> = {}): RequestInit | undefined {
+    const requestHeaders = this.requestHeaders(headers);
+    return Object.keys(requestHeaders).length > 0 ? { headers: requestHeaders } : undefined;
+  }
+
+  private requestHeaders(headers: Record<string, string>): Record<string, string> {
+    const traceId = this.traceIdProvider?.();
+    return traceId ? { ...headers, "x-trace-id": traceId } : headers;
   }
 }
 
@@ -211,6 +230,44 @@ function resolveFetch(options: RFQClientOptions): RFQClientFetch {
   }
 
   return globalThis.fetch.bind(globalThis);
+}
+
+function resolveTraceIdProvider(options: RFQClientOptions): RFQClientTraceIdProvider | undefined {
+  const traceId = options.traceId;
+  if (traceId === undefined) {
+    return undefined;
+  }
+
+  if (typeof traceId === "string") {
+    const normalized = assertClientTraceId(traceId, "RFQClient traceId");
+    return () => normalized;
+  }
+
+  if (typeof traceId === "function") {
+    return () => {
+      const nextTraceId = traceId();
+      if (nextTraceId === undefined) {
+        return undefined;
+      }
+
+      return assertClientTraceId(nextTraceId, "RFQClient traceId provider result");
+    };
+  }
+
+  throw new RFQClientError("RFQClient traceId option must be a string or function", 0);
+}
+
+function assertClientTraceId(value: unknown, label: string): string {
+  if (typeof value !== "string") {
+    throw new RFQClientError(`${label} must be a string`, 0);
+  }
+
+  const normalized = value.trim();
+  if (normalized.length === 0 || normalized.length > maxTraceIdLength || !traceIdPattern.test(normalized)) {
+    throw new RFQClientError(`${label} must match tr_[A-Za-z0-9._:-]+ and be 128 characters or fewer`, 0);
+  }
+
+  return normalized;
 }
 
 async function readJsonResponse(response: Response, label: string): Promise<unknown> {

@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Production-Grade Web3 RFQ Market Maker API
   version: 0.1.0
-  description: API draft for RFQ quote, submit, health, and metrics flows. Every response includes an x-trace-id header for request correlation; structured error bodies also include the same traceId value. Browser access is controlled by the RFQ_CORS_ALLOWED_ORIGINS allowlist. The gateway emits no-store cache control and baseline browser security headers on every response. Unknown routes and unsupported methods return the standard ErrorResponse shape.
+  description: API draft for RFQ quote, submit, health, and metrics flows. Every response includes an x-trace-id header for request correlation; structured error bodies also include the same traceId value. Clients may send a safe tr_-prefixed x-trace-id request header, which the gateway echoes after length and character validation; unsafe values fall back to a generated request id. Browser access is controlled by the RFQ_CORS_ALLOWED_ORIGINS allowlist. The gateway emits no-store cache control and baseline browser security headers on every response. Unknown routes and unsupported methods return the standard ErrorResponse shape.
 servers:
   - url: http://localhost:3000
 paths:
@@ -464,7 +464,7 @@ paths:
 components:
   headers:
     TraceId:
-      description: Request correlation id attached to every response. ErrorResponse.traceId contains the same value for structured error bodies.
+      description: Request correlation id attached to every response. ErrorResponse.traceId contains the same value for structured error bodies. Safe tr_-prefixed request header values may be echoed; unsafe values are replaced with a generated request id.
       schema:
         type: string
         pattern: "^tr_.+"
