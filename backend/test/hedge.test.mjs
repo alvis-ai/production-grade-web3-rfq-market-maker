@@ -106,6 +106,15 @@ test("HedgeService returns defensive copies of hedge intent status records", () 
 
 test("HedgeService rejects unsafe failure penalty configuration at construction", () => {
   assert.throws(
+    () => new HedgeService(null),
+    /Hedge config must be an object/,
+  );
+  assert.throws(
+    () => new HedgeService([]),
+    /Hedge config must be an object/,
+  );
+
+  assert.throws(
     () =>
       new HedgeService({
         failurePenaltyBps: 0,
@@ -140,6 +149,33 @@ test("HedgeService rejects unsafe failure penalty configuration at construction"
       }),
     /Hedge failurePenaltyBps must be less than or equal to maxFailurePenaltyBps/,
   );
+});
+
+test("HedgeService rejects malformed intent and risk payload envelopes before state writes", () => {
+  const service = new HedgeService();
+
+  assert.throws(
+    () => service.createHedgeIntent(undefined),
+    /Hedge intent must be an object/,
+  );
+  assert.throws(
+    () => service.createHedgeIntent([]),
+    /Hedge intent must be an object/,
+  );
+  assert.throws(
+    () => service.recordHedgeFailure(undefined, "HEDGE_INTENT_FAILED"),
+    /Hedge intent must be an object/,
+  );
+  assert.throws(
+    () => service.quoteRiskPenaltyBps(undefined),
+    /Hedge risk input must be an object/,
+  );
+
+  assert.equal(service.getHedgeIntentBySettlementEvent(intent.settlementEventId), undefined);
+  assert.equal(service.quoteRiskPenaltyBps({ chainId: intent.chainId, token: intent.token }), 0);
+
+  const valid = service.createHedgeIntent(intent);
+  assert.equal(valid.hedgeOrderId, "h_1_00000000_000001");
 });
 
 test("HedgeService rejects unsafe intent inputs before writing hedge state", () => {

@@ -120,6 +120,7 @@ Hedge Service uses internal event APIs. It does not expose public user API.
 - Hedge failure penalty config is validated at construction: `failurePenaltyBps` and `maxFailurePenaltyBps` must be positive safe integers, each must be at most 10000 bps, and `failurePenaltyBps` must not exceed `maxFailurePenaltyBps`. Invalid config fails fast before `/submit` can accept a settlement whose follow-up quote risk feedback would be nonsensical.
 - `HedgeService` snapshots `HedgeServiceConfig` at construction after validation. External callers must not be able to mutate failure penalty increments or caps after construction and silently change follow-up quote risk feedback.
 - Hedge intent and risk feedback inputs are validated before writing hedge state: `settlementEventId` and `quoteId` must be non-empty, `chainId` must be a positive safe integer, `token` must be a 20-byte address, `amount` must be a positive uint string, and `side` / `reason` must match the supported enum values.
+- Malformed hedge config, intent and risk feedback root payloads are rejected before field access or state mutation, so post-trade hedge failures cannot turn into unclassified `TypeError` paths or partial failure-pressure updates.
 - Persistent hedge rows keep `externalOrderId` nullable while an intent is only queued internally, but any non-null external order reference must be non-empty so venue reconciliation can trace it.
 - Hedge credentials isolated from Quote Service.
 

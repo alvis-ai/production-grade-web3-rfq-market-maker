@@ -50,6 +50,7 @@ export class HedgeService implements HedgeIntentService {
   private sequence = 0;
 
   constructor(config: HedgeServiceConfig = defaultHedgeServiceConfig) {
+    assertObject(config, "config");
     assertPositiveBps(config.failurePenaltyBps, "failurePenaltyBps");
     assertPositiveBps(config.maxFailurePenaltyBps, "maxFailurePenaltyBps");
 
@@ -172,6 +173,7 @@ function assertPositiveBps(value: number, field: keyof HedgeServiceConfig): void
 }
 
 function assertHedgeIntent(intent: HedgeIntent): void {
+  assertObject(intent, "intent");
   assertNonEmptyString(intent.settlementEventId, "settlementEventId");
   assertNonEmptyString(intent.quoteId, "quoteId");
   assertHedgeRiskInput(intent);
@@ -185,11 +187,18 @@ function assertHedgeIntent(intent: HedgeIntent): void {
 }
 
 function assertHedgeRiskInput(input: HedgeRiskInput): void {
+  assertObject(input, "risk input");
   if (!Number.isSafeInteger(input.chainId) || input.chainId <= 0) {
     throw new Error("Hedge chainId must be a positive safe integer");
   }
   if (!/^0x[0-9a-fA-F]{40}$/.test(input.token)) {
     throw new Error("Hedge token must be a 20-byte hex address");
+  }
+}
+
+function assertObject(value: unknown, field: "config" | "intent" | "risk input"): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Hedge ${field} must be an object`);
   }
 }
 
