@@ -22,6 +22,15 @@ const schemaMappings = [
   ["PnlSummaryResponse", "PnlSummary", "PnlSummary"],
 ];
 const closedRequestSchemas = ["QuoteRequest", "SubmitQuoteRequest", "SignedQuote"];
+const inlineEnumMappings = [
+  ["SubmitQuoteResponse", "SubmitQuoteResponse", "SubmitQuoteResponse", "status"],
+  ["HedgeIntentStatusResponse", "HedgeIntentStatus", "HedgeIntentStatus", "status"],
+  ["HedgeIntentStatusResponse", "HedgeIntentStatus", "HedgeIntentStatus", "side"],
+  ["HedgeIntentStatusResponse", "HedgeIntentStatus", "HedgeIntentStatus", "reason"],
+  ["SettlementEventStatusResponse", "SettlementEventStatus", "SettlementEventStatus", "status"],
+  ["PnlTradeRecord", "PnlTradeRecord", "PnlTradeRecord", "model"],
+  ["PnlSummaryResponse", "PnlSummary", "PnlSummary", "status"],
+];
 
 for (const [backendName, sdkName, openapiName] of schemaMappings) {
   const backendFields = extractInterfaceFields(backendTypesSource, backendName);
@@ -49,9 +58,28 @@ for (const schemaName of closedRequestSchemas) {
   assertOpenApiSchemaClosed(schemaName);
 }
 
+for (const [backendName, sdkName, openapiName, propertyName] of inlineEnumMappings) {
+  const backendValues = extractInterfacePropertyStringUnionValues(backendTypesSource, backendName, propertyName);
+  assert.deepEqual(
+    extractInterfacePropertyStringUnionValues(sdkTypesSource, sdkName, propertyName),
+    backendValues,
+    `SDK ${sdkName}.${propertyName} enum must match backend ${backendName}.${propertyName}`,
+  );
+  assert.deepEqual(
+    extractOpenApiEnum(openapiSource, openapiName, propertyName),
+    backendValues,
+    `OpenAPI ${openapiName}.${propertyName} enum must match backend ${backendName}.${propertyName}`,
+  );
+}
+
 const healthResponse = extractOpenApiSchema(openapiSource, "HealthResponse");
 assert.deepEqual(healthResponse.properties, ["status"], "HealthResponse properties must be stable");
 assert.deepEqual(healthResponse.required, ["status"], "HealthResponse.status must be required");
+assert.deepEqual(
+  extractOpenApiEnum(openapiSource, "HealthResponse", "status"),
+  extractInterfacePropertyStringUnionValues(sdkTypesSource, "HealthResponse", "status"),
+  "OpenAPI HealthResponse.status enum must match SDK",
+);
 
 const readinessResponse = extractOpenApiSchema(openapiSource, "ReadinessResponse");
 const sdkReadiness = extractInterfaceFields(sdkTypesSource, "ReadinessResponse");
@@ -199,6 +227,18 @@ function extractInterfaceFields(source, interfaceName) {
     name: item[1],
     optional: item[2] === "?",
   }));
+}
+
+function extractInterfacePropertyStringUnionValues(source, interfaceName, propertyName) {
+  const match = source.match(new RegExp(`export\\s+interface\\s+${interfaceName}\\s+\\{([\\s\\S]*?)\\n\\}`));
+  assert.ok(match, `Unable to find TypeScript interface ${interfaceName}`);
+
+  const propertyMatch = match[1].match(new RegExp(`^\\s+${propertyName}\\??:\\s*([^;]+);`, "m"));
+  assert.ok(propertyMatch, `Unable to find ${interfaceName}.${propertyName}`);
+
+  const values = [...propertyMatch[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+  assert.ok(values.length > 0, `${interfaceName}.${propertyName} must be a string literal union`);
+  return values;
 }
 
 function extractStringUnionValues(source, typeName) {

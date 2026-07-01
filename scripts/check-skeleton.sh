@@ -311,6 +311,12 @@ grep -q 'SDK client readiness runtime components must match backend readiness co
 grep -q 'ReadinessResponse.components OpenAPI properties must match backend readiness components' scripts/check-api-schema-consistency.mjs
 grep -q 'ReadinessResponse.components OpenAPI schema must reject unknown readiness components' scripts/check-api-schema-consistency.mjs
 grep -q 'OpenAPI ReadinessComponentStatus enum must match backend' scripts/check-api-schema-consistency.mjs
+grep -q 'inlineEnumMappings' scripts/check-api-schema-consistency.mjs
+grep -q 'extractInterfacePropertyStringUnionValues' scripts/check-api-schema-consistency.mjs
+grep -Fq '["HedgeIntentStatusResponse", "HedgeIntentStatus", "HedgeIntentStatus", "reason"]' scripts/check-api-schema-consistency.mjs
+grep -Fq 'SDK ${sdkName}.${propertyName} enum must match backend ${backendName}.${propertyName}' scripts/check-api-schema-consistency.mjs
+grep -Fq 'OpenAPI ${openapiName}.${propertyName} enum must match backend ${backendName}.${propertyName}' scripts/check-api-schema-consistency.mjs
+grep -q 'OpenAPI HealthResponse.status enum must match SDK' scripts/check-api-schema-consistency.mjs
 grep -q 'extractConstStringArray' scripts/check-api-schema-consistency.mjs
 grep -q 'extractOpenApiNestedObjectSchema' scripts/check-api-schema-consistency.mjs
 grep -q 'QuoteResponse.signature must be a 65-byte canonical low-s EIP-712 signature' scripts/check-api-schema-consistency.mjs
