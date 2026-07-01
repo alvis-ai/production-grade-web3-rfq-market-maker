@@ -105,6 +105,15 @@ test("InMemoryRateLimiter normalizes client identities before bucketing", () => 
 
 test("InMemoryRateLimiter rejects unsafe configuration at construction", () => {
   assert.throws(
+    () => new InMemoryRateLimiter(null),
+    /Rate limit config must be an object/,
+  );
+  assert.throws(
+    () => new InMemoryRateLimiter([]),
+    /Rate limit config must be an object/,
+  );
+
+  assert.throws(
     () => new InMemoryRateLimiter({
       windowMs: 0,
       maxQuoteRequests: 2,

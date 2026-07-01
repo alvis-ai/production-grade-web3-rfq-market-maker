@@ -1781,10 +1781,13 @@ grep -q 'applies each chain event idempotently' backend/test/settlement-event.te
 grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter snapshots configuration at construction' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter rejects unsafe configuration at construction' backend/test/rate-limit.test.mjs
+grep -q 'assertRateLimitConfig(config)' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'Rate limit config must be an object' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'InMemoryRateLimiter rejects unsafe request inputs before writing buckets' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter rejects unsafe timestamps before writing buckets' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter evicts expired client buckets before checking' backend/test/rate-limit.test.mjs
 grep -q 'snapshots `RateLimitConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'Malformed rate limit config objects are rejected before numeric field access' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'evicts expired client buckets before checking' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'unsafe rate limit configuration at startup' backend/test/api.test.mjs
 grep -q 'assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor")' backend/src/modules/pricing/pricing.engine.ts

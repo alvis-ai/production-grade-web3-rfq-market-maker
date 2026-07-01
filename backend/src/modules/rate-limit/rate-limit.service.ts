@@ -37,6 +37,7 @@ export class InMemoryRateLimiter {
   private readonly buckets = new Map<string, RateLimitBucket>();
 
   constructor(config: RateLimitConfig = defaultRateLimitConfig) {
+    assertRateLimitConfig(config);
     assertPositiveSafeInteger(config.windowMs, "windowMs");
     assertPositiveSafeInteger(config.maxQuoteRequests, "maxQuoteRequests");
     assertPositiveSafeInteger(config.maxSubmitRequests, "maxSubmitRequests");
@@ -92,6 +93,12 @@ export class InMemoryRateLimiter {
 
 function cloneRateLimitConfig(config: RateLimitConfig): RateLimitConfig {
   return { ...config };
+}
+
+function assertRateLimitConfig(config: RateLimitConfig): void {
+  if (!isRecord(config)) {
+    throw new Error("Rate limit config must be an object");
+  }
 }
 
 function assertPositiveSafeInteger(value: number, field: keyof RateLimitConfig): void {
