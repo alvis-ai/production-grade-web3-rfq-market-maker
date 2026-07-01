@@ -379,6 +379,8 @@ grep -q 'maxSnapshotAgeMs' backend/src/modules/quote/quote.service.ts
 grep -q 'maxSnapshotFutureSkewMs' backend/src/modules/quote/quote.service.ts
 grep -q 'assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds")' backend/src/modules/quote/quote.service.ts
+grep -q 'assertQuoteServiceDeps(deps)' backend/src/modules/quote/quote.service.ts
+grep -q 'assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByChainUserNonce")' backend/src/modules/quote/quote.service.ts
 grep -q 'cloneQuoteServiceDeps' backend/src/modules/quote/quote.service.ts
 grep -q 'cloneQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
 grep -q 'MARKET_DATA_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
@@ -402,11 +404,13 @@ grep -q 'defaultQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
 grep -q 'validateSubmitQuoteRequest({ quote, signature }, { allowExpired: true })' backend/src/modules/quote/quote.service.ts
 grep -q 'allowExpired' backend/src/shared/validation/submit-request.ts
 grep -q 'QuoteService snapshots dependency object at construction' backend/test/quote-service.test.mjs
+grep -q 'QuoteService rejects unsafe dependency configuration at construction' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe quote requests before dependency side effects' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe submit quotes before quote lookup or signature verification' backend/test/quote-service.test.mjs
 grep -q 'createQuote()` revalidates and snapshots the quote request at the service boundary' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requireSubmittableSignedQuote()` revalidates the submit quote and canonical signature' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'QuoteService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'QuoteService` validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'class QuoteIdentityGenerator' backend/src/modules/quote/quote-identity.ts
 grep -q 'randomUint64' backend/src/modules/quote/quote-identity.ts
 grep -q 'globalThis.crypto' backend/src/modules/quote/quote-identity.ts

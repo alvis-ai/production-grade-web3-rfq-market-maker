@@ -1683,6 +1683,105 @@ test("QuoteService rejects unsafe runtime configuration at construction", () => 
   );
 });
 
+test("QuoteService rejects unsafe dependency configuration at construction", () => {
+  const deps = quoteServiceDeps();
+
+  assert.throws(
+    () => new QuoteService(undefined),
+    /Quote service deps must be an object/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        marketDataService: {},
+      }),
+    /Quote service marketDataService.getSnapshot must be a function/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        marketSnapshotStore: {},
+      }),
+    /Quote service marketSnapshotStore.saveSnapshot must be a function/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        routingEngine: {},
+      }),
+    /Quote service routingEngine.selectRoute must be a function/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        pricingEngine: {},
+      }),
+    /Quote service pricingEngine.price must be a function/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        inventoryService: {},
+      }),
+    /Quote service inventoryService.calculateQuoteSkewBps must be a function/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        riskEngine: {},
+      }),
+    /Quote service riskEngine.evaluate must be a function/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        riskDecisionStore: {},
+      }),
+    /Quote service riskDecisionStore.saveDecision must be a function/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        signerService: {},
+      }),
+    /Quote service signerService.signQuote must be a function/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        quoteRepository: {},
+      }),
+    /Quote service quoteRepository.saveRequested must be a function/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        hedgeService: "bad hedge dependency",
+      }),
+    /Quote service hedgeService must be an object when provided/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        hedgeService: {
+          quoteRiskPenaltyBps: 25,
+        },
+      }),
+    /Quote service hedgeService.quoteRiskPenaltyBps must be a function when provided/,
+  );
+});
+
 test("QuoteService marks requested quotes as failed when signer is unavailable", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);

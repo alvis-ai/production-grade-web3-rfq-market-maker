@@ -71,6 +71,7 @@ export class QuoteService {
     assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
     assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
     assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds");
+    assertQuoteServiceDeps(deps);
     this.deps = cloneQuoteServiceDeps(deps);
     this.config = cloneQuoteServiceConfig(config);
   }
@@ -450,6 +451,62 @@ function cloneQuoteServiceConfig(config: QuoteServiceConfig): QuoteServiceConfig
 
 function cloneQuoteServiceDeps(deps: QuoteServiceDeps): QuoteServiceDeps {
   return { ...deps };
+}
+
+function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
+  if (typeof deps !== "object" || deps === null) {
+    throw new Error("Quote service deps must be an object");
+  }
+
+  assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
+  assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "saveSnapshot");
+  assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
+  assertDependencyMethod(deps.pricingEngine, "pricingEngine", "price");
+  assertDependencyMethod(deps.inventoryService, "inventoryService", "calculateQuoteSkewBps");
+  assertDependencyMethod(deps.inventoryService, "inventoryService", "projectSettlement");
+  assertOptionalDependencyMethod(deps.hedgeService, "hedgeService", "quoteRiskPenaltyBps");
+  assertDependencyMethod(deps.riskEngine, "riskEngine", "evaluate");
+  assertDependencyMethod(deps.riskDecisionStore, "riskDecisionStore", "saveDecision");
+  assertDependencyMethod(deps.signerService, "signerService", "signQuote");
+  assertDependencyMethod(deps.signerService, "signerService", "verifyQuoteSignature");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRequested");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRejected");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveSigned");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findStatus");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markStatus");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markFailed");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByChainUserNonce");
+}
+
+function assertDependencyMethod(
+  dependency: unknown,
+  dependencyName: keyof QuoteServiceDeps,
+  methodName: string,
+): void {
+  const method = typeof dependency === "object" && dependency !== null
+    ? (dependency as Record<string, unknown>)[methodName]
+    : undefined;
+  if (typeof method !== "function") {
+    throw new Error(`Quote service ${dependencyName}.${methodName} must be a function`);
+  }
+}
+
+function assertOptionalDependencyMethod(
+  dependency: unknown,
+  dependencyName: keyof QuoteServiceDeps,
+  methodName: string,
+): void {
+  if (dependency === undefined) {
+    return;
+  }
+  if (typeof dependency !== "object" || dependency === null) {
+    throw new Error(`Quote service ${dependencyName} must be an object when provided`);
+  }
+
+  const method = (dependency as Record<string, unknown>)[methodName];
+  if (method !== undefined && typeof method !== "function") {
+    throw new Error(`Quote service ${dependencyName}.${methodName} must be a function when provided`);
+  }
 }
 
 function assertPositiveSafeInteger(value: number, field: keyof QuoteServiceConfig): void {
