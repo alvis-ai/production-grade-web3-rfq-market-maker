@@ -88,22 +88,27 @@ export class MetricsService {
   }
 
   recordRateLimited(endpoint: RateLimitedEndpoint): void {
+    assertRateLimitedEndpoint(endpoint);
     this.rateLimited.set(endpoint, (this.rateLimited.get(endpoint) ?? 0) + 1);
   }
 
   recordSignerRequest(operation: SignerMetricOperation): void {
+    assertSignerMetricOperation(operation);
     this.signerRequests.set(operation, (this.signerRequests.get(operation) ?? 0) + 1);
   }
 
   recordSignerError(operation: SignerMetricOperation): void {
+    assertSignerMetricOperation(operation);
     this.signerErrors.set(operation, (this.signerErrors.get(operation) ?? 0) + 1);
   }
 
   recordSignerLatency(operation: SignerMetricOperation, seconds: number): void {
+    assertSignerMetricOperation(operation);
     recordHistogram(this.getSignerLatency(operation), seconds);
   }
 
   recordReadiness(readiness: ReadinessResponse): void {
+    assertReadinessMetricInput(readiness);
     this.readinessStatus = readiness.status;
     for (const component of readinessDependencyComponents) {
       this.dependencyStatuses.set(component, readiness.components[component]);
@@ -354,6 +359,43 @@ function createHistogramState(): HistogramState {
 
 function cloneInventoryMetricPosition(position: InventoryMetricPosition): InventoryMetricPosition {
   return { ...position };
+}
+
+function assertRateLimitedEndpoint(endpoint: RateLimitedEndpoint): void {
+  if (!rateLimitedEndpoints.includes(endpoint)) {
+    throw new Error("Metrics rate-limited endpoint must be quote, submit, or status");
+  }
+}
+
+function assertSignerMetricOperation(operation: SignerMetricOperation): void {
+  if (!signerMetricOperations.includes(operation)) {
+    throw new Error("Metrics signer operation must be sign or verify");
+  }
+}
+
+function assertReadinessMetricInput(readiness: ReadinessResponse): void {
+  if (!isRecord(readiness)) {
+    throw new Error("Metrics readiness input must be an object");
+  }
+  if (!readinessMetricStatuses.includes(readiness.status)) {
+    throw new Error("Metrics readiness status must be ready or degraded");
+  }
+  if (!isRecord(readiness.components)) {
+    throw new Error("Metrics readiness components must be an object");
+  }
+
+  const expectedComponents = new Set<string>(readinessDependencyComponents);
+  for (const component of Object.keys(readiness.components)) {
+    if (!expectedComponents.has(component)) {
+      throw new Error(`Metrics readiness component ${component} is not supported`);
+    }
+  }
+  for (const component of readinessDependencyComponents) {
+    const status = readiness.components[component];
+    if (!dependencyMetricStatuses.includes(status)) {
+      throw new Error(`Metrics readiness component ${component} must be ok or degraded`);
+    }
+  }
 }
 
 function assertInventoryMetricPosition(position: InventoryMetricPosition): void {

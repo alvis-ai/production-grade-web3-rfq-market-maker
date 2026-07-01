@@ -20,25 +20,28 @@ const pnlTradeRecord = {
   model: "simulated_mid_price_v1",
   realizedAt: "2026-06-29T00:00:00.000Z",
 };
+const readinessResponse = {
+  status: "degraded",
+  components: {
+    marketData: "ok",
+    marketSnapshotStore: "ok",
+    routing: "ok",
+    pricing: "ok",
+    risk: "ok",
+    signer: "degraded",
+    quoteRepository: "ok",
+    riskDecisionStore: "ok",
+    inventory: "ok",
+    execution: "ok",
+    settlementEventStore: "ok",
+    pnl: "ok",
+    metrics: "ok",
+  },
+};
 
 test("MetricsService renders fixed readiness and dependency labels", () => {
   const metrics = new MetricsService();
-  metrics.recordReadiness({
-    status: "degraded",
-    components: {
-      marketData: "ok",
-      routing: "ok",
-      pricing: "ok",
-      risk: "ok",
-      signer: "degraded",
-      quoteRepository: "ok",
-      inventory: "ok",
-      execution: "ok",
-      settlementEventStore: "ok",
-      pnl: "ok",
-      metrics: "ok",
-    },
-  });
+  metrics.recordReadiness(readinessResponse);
 
   const output = metrics.renderPrometheus();
 
@@ -46,6 +49,8 @@ test("MetricsService renders fixed readiness and dependency labels", () => {
   assert.match(output, /rfq_readiness_status\{status="degraded"\} 1/);
   assert.match(output, /rfq_dependency_status\{component="signer",status="degraded"\} 1/);
   assert.match(output, /rfq_dependency_status\{component="marketData",status="ok"\} 1/);
+  assert.match(output, /rfq_dependency_status\{component="marketSnapshotStore",status="ok"\} 1/);
+  assert.match(output, /rfq_dependency_status\{component="riskDecisionStore",status="ok"\} 1/);
   assert.match(output, /rfq_dependency_status\{component="settlementEventStore",status="ok"\} 1/);
 });
 
@@ -134,4 +139,62 @@ test("MetricsService snapshots inventory positions before storing gauges", () =>
 
   assert.match(output, /rfq_inventory_balance\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} -998400000/);
   assert.doesNotMatch(output, /rfq_inventory_balance\{chain_id="2",token="0x0000000000000000000000000000000000000004"\} 123/);
+});
+
+test("MetricsService rejects unsupported fixed-label inputs before mutating state", () => {
+  const metrics = new MetricsService();
+
+  assert.throws(
+    () => metrics.recordRateLimited("metrics"),
+    /Metrics rate-limited endpoint must be quote, submit, or status/,
+  );
+  assert.throws(
+    () => metrics.recordSignerRequest("rotate"),
+    /Metrics signer operation must be sign or verify/,
+  );
+  assert.throws(
+    () => metrics.recordSignerLatency("rotate", 0.1),
+    /Metrics signer operation must be sign or verify/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordReadiness({
+        ...readinessResponse,
+        status: "unknown",
+      }),
+    /Metrics readiness status must be ready or degraded/,
+  );
+  assert.throws(
+    () => {
+      const { signer, ...components } = readinessResponse.components;
+      metrics.recordReadiness({
+        ...readinessResponse,
+        components,
+      });
+    },
+    /Metrics readiness component signer must be ok or degraded/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordReadiness({
+        ...readinessResponse,
+        components: {
+          ...readinessResponse.components,
+          externalUrl: "ok",
+        },
+      }),
+    /Metrics readiness component externalUrl is not supported/,
+  );
+
+  const output = metrics.renderPrometheus();
+
+  assert.match(output, /rfq_rate_limited_total\{endpoint="quote"\} 0/);
+  assert.match(output, /rfq_rate_limited_total\{endpoint="submit"\} 0/);
+  assert.match(output, /rfq_rate_limited_total\{endpoint="status"\} 0/);
+  assert.match(output, /rfq_signer_requests_total\{operation="sign"\} 0/);
+  assert.match(output, /rfq_signer_latency_seconds_count\{operation="sign"\} 0/);
+  assert.match(output, /rfq_readiness_status\{status="ready"\} 0/);
+  assert.match(output, /rfq_readiness_status\{status="degraded"\} 0/);
+  assert.match(output, /rfq_dependency_status\{component="signer",status="ok"\} 0/);
+  assert.match(output, /rfq_dependency_status\{component="signer",status="degraded"\} 0/);
 });
