@@ -292,12 +292,14 @@ function cloneQuoteRecord(record: QuoteRecord): QuoteRecord {
 }
 
 function assertRequestedQuoteInput(input: SaveRequestedQuoteInput): void {
+  assertObject(input, "input", "Requested quote");
   assertNonEmptyString(input.quoteId, "quoteId", "Requested quote");
   assertNonEmptyString(input.snapshotId, "snapshotId", "Requested quote");
   assertQuoteRequest(input.request, "Requested quote");
 }
 
 function assertRejectedQuoteInput(input: SaveRejectedQuoteInput): void {
+  assertObject(input, "input", "Rejected quote");
   assertNonEmptyString(input.quoteId, "quoteId", "Rejected quote");
   assertNonEmptyString(input.snapshotId, "snapshotId", "Rejected quote");
   assertNonEmptyString(input.rejectCode, "rejectCode", "Rejected quote");
@@ -308,6 +310,7 @@ function assertRejectedQuoteInput(input: SaveRejectedQuoteInput): void {
 }
 
 function assertQuoteRequest(request: QuoteRequest, subject: "Requested quote" | "Rejected quote"): void {
+  assertObject(request, "request", subject);
   assertPositiveSafeInteger(request.chainId, "request.chainId", subject);
   assertAddress(request.user, "request.user", subject);
   assertAddress(request.tokenIn, "request.tokenIn", subject);
@@ -322,6 +325,7 @@ function assertQuoteRequest(request: QuoteRequest, subject: "Requested quote" | 
 }
 
 function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
+  assertObject(input, "input", "Signed quote");
   assertNonEmptyString(input.quoteId, "quoteId");
   assertNonEmptyString(input.snapshotId, "snapshotId");
   assertNonEmptyString(input.pricingVersion, "pricingVersion");
@@ -331,6 +335,7 @@ function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertNonNegativeBps(input.sizeImpactBps, "sizeImpactBps", "Signed quote");
   assertBpsMagnitude(input.inventorySkewBps, "inventorySkewBps", "Signed quote");
   assertSignature(input.signature);
+  assertObject(input.quote, "quote", "Signed quote");
   assertPositiveSafeInteger(input.quote.chainId, "quote.chainId");
   assertAddress(input.quote.user, "quote.user");
   assertAddress(input.quote.tokenIn, "quote.tokenIn");
@@ -348,6 +353,12 @@ function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
 
   if (BigInt(input.quote.amountOut) < BigInt(input.quote.minAmountOut)) {
     throw new Error("Signed quote amountOut must be greater than or equal to minAmountOut");
+  }
+}
+
+function assertObject(value: unknown, field: "input" | "request" | "quote", subject: string): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${subject} ${field} must be an object`);
   }
 }
 

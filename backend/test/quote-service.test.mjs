@@ -396,6 +396,64 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
   assert.equal(await quoteRepository.findSignedQuoteByChainUserNonce(1, request.user, "42"), undefined);
 });
 
+test("InMemoryQuoteRepository rejects malformed quote persistence envelopes before storing", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const signedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "42",
+    deadline: Math.floor(Date.now() / 1000) + 30,
+    chainId: 1,
+  };
+
+  await assert.rejects(
+    quoteRepository.saveRequested(undefined),
+    /Requested quote input must be an object/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRequested({
+      quoteId: "q_missing_request",
+      snapshotId: "snapshot_1",
+    }),
+    /Requested quote request must be an object/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRejected({
+      quoteId: "q_rejected_missing_request",
+      snapshotId: "snapshot_1",
+      rejectCode: "RISK_REJECTED",
+      request: null,
+    }),
+    /Rejected quote request must be an object/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      quoteId: "q_signed_missing_quote",
+      snapshotId: "snapshot_1",
+      slippageBps: request.slippageBps,
+      spreadBps: 8,
+      sizeImpactBps: 0,
+      inventorySkewBps: 0,
+      quote: null,
+      pricingVersion: "test-pricing",
+      riskPolicyVersion: "test-risk",
+      signature: fixedSignature(),
+    }),
+    /Signed quote quote must be an object/,
+  );
+
+  assert.equal(await quoteRepository.findStatus("q_missing_request"), undefined);
+  assert.equal(await quoteRepository.findStatus("q_rejected_missing_request"), undefined);
+  assert.equal(await quoteRepository.findSignedQuoteByChainUserNonce(1, signedQuote.user, signedQuote.nonce), undefined);
+});
+
 test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persistence inputs", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
 

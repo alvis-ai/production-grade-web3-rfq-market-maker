@@ -528,6 +528,9 @@ grep -q 'findSignedQuoteByQuoteId' backend/src/modules/quote/quote.repository.ts
 grep -q 'chainUserNonceKey' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertRequestedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertRejectedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertObject(input, "input", "Requested quote")' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertObject(request, "request", subject)' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertObject(input.quote, "quote", "Signed quote")' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertCanSaveRequestedQuote(current, input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertCanSaveRejectedQuote(current, input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'isSameRequestedQuotePayload' backend/src/modules/quote/quote.repository.ts
@@ -542,6 +545,9 @@ grep -q 'SECP256K1N_HALF' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote signature s value must be in the lower half order' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote signature v value must be 27 or 28' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote signature s value must be in the lower half order' backend/test/quote-service.test.mjs
+grep -q 'InMemoryQuoteRepository rejects malformed quote persistence envelopes before storing' backend/test/quote-service.test.mjs
+grep -q 'Requested and rejected quote persistence rejects malformed root payloads and missing `request` objects before field access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Signed quote persistence rejects malformed root payloads and missing `quote` objects before field access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '65-byte canonical low-s EIP-712 signature before writing the `chainId:user:nonce` index' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'assertCanSaveSignedQuote(current, input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'isSameSignedQuotePayload' backend/src/modules/quote/quote.repository.ts
