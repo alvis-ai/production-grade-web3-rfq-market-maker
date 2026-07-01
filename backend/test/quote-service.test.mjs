@@ -1714,6 +1714,15 @@ test("QuoteService rejects expired signed quotes before signature verification",
 
 test("QuoteService rejects unsafe runtime configuration at construction", () => {
   assert.throws(
+    () => new QuoteService(quoteServiceDeps(), null),
+    /Quote service config must be an object/,
+  );
+  assert.throws(
+    () => new QuoteService(quoteServiceDeps(), []),
+    /Quote service config must be an object/,
+  );
+
+  assert.throws(
     () =>
       new QuoteService(quoteServiceDeps(), {
         ...defaultQuoteServiceConfig,
@@ -1747,6 +1756,26 @@ test("QuoteService rejects unsafe dependency configuration at construction", () 
   assert.throws(
     () => new QuoteService(undefined),
     /Quote service deps must be an object/,
+  );
+  assert.throws(
+    () => new QuoteService([]),
+    /Quote service deps must be an object/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        marketDataService: [],
+      }),
+    /Quote service marketDataService must be an object/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        quoteRepository: [],
+      }),
+    /Quote service quoteRepository must be an object/,
   );
   assert.throws(
     () =>
@@ -1825,6 +1854,14 @@ test("QuoteService rejects unsafe dependency configuration at construction", () 
       new QuoteService({
         ...deps,
         hedgeService: "bad hedge dependency",
+      }),
+    /Quote service hedgeService must be an object when provided/,
+  );
+  assert.throws(
+    () =>
+      new QuoteService({
+        ...deps,
+        hedgeService: [],
       }),
     /Quote service hedgeService must be an object when provided/,
   );

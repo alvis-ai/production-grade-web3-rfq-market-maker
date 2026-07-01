@@ -68,6 +68,7 @@ export class QuoteService {
     deps: QuoteServiceDeps,
     config: QuoteServiceConfig = defaultQuoteServiceConfig,
   ) {
+    assertRecord(config, "config");
     assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
     assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
     assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds");
@@ -454,10 +455,7 @@ function cloneQuoteServiceDeps(deps: QuoteServiceDeps): QuoteServiceDeps {
 }
 
 function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
-  if (typeof deps !== "object" || deps === null) {
-    throw new Error("Quote service deps must be an object");
-  }
-
+  assertRecord(deps, "deps");
   assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
   assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "saveSnapshot");
   assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
@@ -483,9 +481,8 @@ function assertDependencyMethod(
   dependencyName: keyof QuoteServiceDeps,
   methodName: string,
 ): void {
-  const method = typeof dependency === "object" && dependency !== null
-    ? (dependency as Record<string, unknown>)[methodName]
-    : undefined;
+  assertRecord(dependency, dependencyName);
+  const method = (dependency as Record<string, unknown>)[methodName];
   if (typeof method !== "function") {
     throw new Error(`Quote service ${dependencyName}.${methodName} must be a function`);
   }
@@ -499,7 +496,7 @@ function assertOptionalDependencyMethod(
   if (dependency === undefined) {
     return;
   }
-  if (typeof dependency !== "object" || dependency === null) {
+  if (!isRecord(dependency)) {
     throw new Error(`Quote service ${dependencyName} must be an object when provided`);
   }
 
@@ -507,6 +504,16 @@ function assertOptionalDependencyMethod(
   if (method !== undefined && typeof method !== "function") {
     throw new Error(`Quote service ${dependencyName}.${methodName} must be a function when provided`);
   }
+}
+
+function assertRecord(value: unknown, field: "config" | "deps" | keyof QuoteServiceDeps): void {
+  if (!isRecord(value)) {
+    throw new Error(`Quote service ${field} must be an object`);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function assertPositiveSafeInteger(value: number, field: keyof QuoteServiceConfig): void {

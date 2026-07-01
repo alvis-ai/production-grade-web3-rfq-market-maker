@@ -436,8 +436,15 @@ grep -q 'validateSubmitQuoteRequest({ quote, signature }, { allowExpired: true }
 grep -q 'allowExpired' backend/src/shared/validation/submit-request.ts
 grep -q 'QuoteService snapshots dependency object at construction' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe dependency configuration at construction' backend/test/quote-service.test.mjs
+grep -q 'assertRecord(config, "config")' backend/src/modules/quote/quote.service.ts
+grep -q 'assertRecord(deps, "deps")' backend/src/modules/quote/quote.service.ts
+grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/quote/quote.service.ts
+grep -q 'Quote service config must be an object' backend/test/quote-service.test.mjs
+grep -q 'Quote service marketDataService must be an object' backend/test/quote-service.test.mjs
+grep -q 'Quote service hedgeService must be an object when provided' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe quote requests before dependency side effects' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe submit quotes before quote lookup or signature verification' backend/test/quote-service.test.mjs
+grep -q 'QuoteService` rejects malformed config, dependency map and dependency entries as non-array objects before reading runtime fields or service methods' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'createQuote()` revalidates and snapshots the quote request at the service boundary' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requireSubmittableSignedQuote()` revalidates the submit quote and canonical signature' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'QuoteService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
