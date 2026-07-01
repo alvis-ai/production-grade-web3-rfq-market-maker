@@ -215,6 +215,29 @@ test("LocalEIP712SignerService returns false for malformed verification inputs",
 test("ObservedSignerService rejects unsafe wrapper dependencies at construction", () => {
   assert.throws(
     () => new ObservedSignerService(undefined, signerMetrics()),
+    /Signer inner must be an object/,
+  );
+  assert.throws(
+    () => new ObservedSignerService([], signerMetrics()),
+    /Signer inner must be an object/,
+  );
+  assert.throws(
+    () =>
+      new ObservedSignerService(
+        {
+          async signQuote() {
+            return fixedSignature();
+          },
+          async verifyQuoteSignature() {
+            return true;
+          },
+        },
+        [],
+      ),
+    /Signer metricsService must be an object/,
+  );
+  assert.throws(
+    () => new ObservedSignerService({}, signerMetrics()),
     /Signer inner.signQuote must be a function/,
   );
   assert.throws(

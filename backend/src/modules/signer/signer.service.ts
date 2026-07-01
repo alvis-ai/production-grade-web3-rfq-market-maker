@@ -124,11 +124,16 @@ function assertDependencyMethod(
   dependencyName: "inner" | "metricsService",
   methodName: string,
 ): void {
-  const method = typeof dependency === "object" && dependency !== null
-    ? (dependency as Record<string, unknown>)[methodName]
-    : undefined;
+  assertDependencyObject(dependency, dependencyName);
+  const method = (dependency as Record<string, unknown>)[methodName];
   if (typeof method !== "function") {
     throw new Error(`Signer ${dependencyName}.${methodName} must be a function`);
+  }
+}
+
+function assertDependencyObject(dependency: unknown, dependencyName: "inner" | "metricsService"): void {
+  if (typeof dependency !== "object" || dependency === null || Array.isArray(dependency)) {
+    throw new Error(`Signer ${dependencyName} must be an object`);
   }
 }
 
