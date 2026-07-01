@@ -120,6 +120,11 @@ test("LocalEIP712SignerService snapshots signer configuration at construction", 
 
 test("LocalEIP712SignerService rejects unsafe signer configuration at construction", () => {
   assert.throws(
+    () => new LocalEIP712SignerService(null),
+    /Signer config must be an object/,
+  );
+
+  assert.throws(
     () =>
       new LocalEIP712SignerService({
         privateKey: "0x1234",
@@ -135,6 +140,27 @@ test("LocalEIP712SignerService rejects unsafe signer configuration at constructi
         settlementAddress: "0x1234",
       }),
     /Signer settlementAddress must be a 20-byte hex address/,
+  );
+});
+
+test("LocalEIP712SignerService rejects malformed signer payload envelopes before signing", async () => {
+  const signer = new LocalEIP712SignerService({
+    privateKey,
+    settlementAddress,
+  });
+
+  await assert.rejects(
+    signer.signQuote(undefined),
+    /Signer input must be an object/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
+      quoteId: "q_test",
+      snapshotId: "snapshot_test",
+      quote: null,
+    }),
+    /Signer quote must be an object/,
   );
 });
 

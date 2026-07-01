@@ -489,6 +489,9 @@ grep -q 'assertObservedSignerDeps(inner, metricsService)' backend/src/modules/si
 grep -q 'assertDependencyMethod(metricsService, "metricsService", "recordSignerLatency")' backend/src/modules/signer/signer.service.ts
 ! grep -q 'class PlaceholderSignerService' backend/src/modules/signer/signer.service.ts
 ! grep -q 'toFixedHex(seed' backend/src/modules/signer/signer.service.ts
+grep -q 'assertObject(config, "config")' backend/src/modules/signer/signer.service.ts
+grep -q 'assertObject(input, "input")' backend/src/modules/signer/signer.service.ts
+grep -q 'assertObject(quote, "quote")' backend/src/modules/signer/signer.service.ts
 grep -q 'assertPrivateKey(config.privateKey)' backend/src/modules/signer/signer.service.ts
 grep -q 'cloneLocalEIP712SignerConfig' backend/src/modules/signer/signer.service.ts
 grep -q 'assertSignQuoteInput(input)' backend/src/modules/signer/signer.service.ts
@@ -499,10 +502,12 @@ grep -q 'LocalEIP712SignerService binds signatures to the settlement contract ad
 grep -q 'LocalEIP712SignerService snapshots signer configuration at construction' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects high-s malleated quote signatures' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects unsafe signer configuration at construction' backend/test/signer.test.mjs
+grep -q 'LocalEIP712SignerService rejects malformed signer payload envelopes before signing' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects unsafe quote inputs before signing' backend/test/signer.test.mjs
 grep -q 'ObservedSignerService rejects unsafe wrapper dependencies at construction' backend/test/signer.test.mjs
 grep -q 'snapshots `LocalEIP712SignerConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'ObservedSignerService` validates inner signer and metrics dependency methods at construction' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
+grep -q 'validates malformed config, signing request and quote objects before field access' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q '代码库不保留 placeholder signer' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'RFQ API rejects issued quotes with high-s malleated signatures' backend/test/api.test.mjs
 grep -q 'canonical low-s ECDSA' docs/api/errors.md

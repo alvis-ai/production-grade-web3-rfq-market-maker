@@ -44,6 +44,7 @@ export class LocalEIP712SignerService implements SignerService {
   private readonly account: PrivateKeyAccount;
 
   constructor(config: LocalEIP712SignerConfig) {
+    assertObject(config, "config");
     assertPrivateKey(config.privateKey);
     assertAddress(config.settlementAddress, "settlementAddress");
     this.config = cloneLocalEIP712SignerConfig(config);
@@ -156,12 +157,14 @@ function buildQuoteTypedData(quote: SignedQuote, settlementAddress: `0x${string}
 }
 
 function assertSignQuoteInput(input: SignQuoteInput): void {
+  assertObject(input, "input");
   assertNonEmptyString(input.quoteId, "quoteId");
   assertNonEmptyString(input.snapshotId, "snapshotId");
   assertSignedQuote(input.quote);
 }
 
 function assertSignedQuote(quote: SignedQuote): void {
+  assertObject(quote, "quote");
   assertPositiveSafeInteger(quote.chainId, "quote.chainId");
   assertAddress(quote.user, "quote.user");
   assertAddress(quote.tokenIn, "quote.tokenIn");
@@ -177,6 +180,12 @@ function assertSignedQuote(quote: SignedQuote): void {
   }
   assertPositiveUIntString(quote.nonce, "quote.nonce");
   assertPositiveSafeInteger(quote.deadline, "quote.deadline");
+}
+
+function assertObject(value: unknown, field: "config" | "input" | "quote"): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Signer ${field} must be an object`);
+  }
 }
 
 function assertPrivateKey(value: string): void {
