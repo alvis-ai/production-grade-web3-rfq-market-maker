@@ -1574,6 +1574,10 @@ grep -q 'OpenAPI ErrorResponse enum must match backend RFQErrorCode' scripts/che
 grep -q 'SDK rfqErrorCodes array must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
 grep -q 'SDK rfqErrorCodes constant array not found' scripts/check-api-error-consistency.mjs
 grep -q 'docs/api/errors.md table must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
+grep -q 'readSourceTree("backend/src")' scripts/check-api-error-consistency.mjs
+grep -q 'extractDocumentedErrorStatuses' scripts/check-api-error-consistency.mjs
+grep -q 'extractBackendApiErrorStatuses' scripts/check-api-error-consistency.mjs
+grep -q 'HTTP status list must cover backend APIError statuses' scripts/check-api-error-consistency.mjs
 grep -q 'defaultRateLimitConfig' scripts/check-rate-limit-consistency.mjs
 grep -q 'Retry-After' scripts/check-rate-limit-consistency.mjs
 grep -q 'sdk/src/client.ts' scripts/check-rate-limit-consistency.mjs
