@@ -1569,6 +1569,9 @@ grep -q 'retryAfterSeconds' scripts/check-rate-limit-consistency.mjs
 grep -q 'sdk/src/client.ts' scripts/check-ci-workflows-consistency.mjs
 grep -q 'make rate-limit-check' scripts/check-ci-workflows-consistency.mjs
 grep -q 'Prometheus alert rules must cover backend metric' scripts/check-metrics-consistency.mjs
+grep -q 'backend/src/modules/rate-limit/rate-limit.service.ts' scripts/check-metrics-consistency.mjs
+grep -q 'MetricsService rate limit endpoint labels must match backend RateLimitedEndpoint' scripts/check-metrics-consistency.mjs
+grep -q 'MetricsService signer operation labels must match SignerMetricOperation' scripts/check-metrics-consistency.mjs
 grep -q 'MetricsService readiness dependency labels must match backend readiness components' scripts/check-metrics-consistency.mjs
 grep -q 'extractConstStringArray' scripts/check-metrics-consistency.mjs
 grep -q 'Grafana overview dashboard must query alert metric' scripts/check-grafana-dashboard-consistency.mjs

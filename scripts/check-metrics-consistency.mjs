@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 
 const metricsSource = await readFile("backend/src/modules/metrics/metrics.service.ts", "utf8");
 const readinessSource = await readFile("backend/src/modules/health/readiness.service.ts", "utf8");
+const rateLimitSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const prometheusConfigSource = await readFile("infra/prometheus/prometheus.yml", "utf8");
 const alertRulesSource = await readFile("infra/prometheus/rules/rfq-alerts.yml", "utf8");
 const backendMetricsChapter = await readFile("book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md", "utf8");
@@ -17,9 +18,23 @@ const monitoringDocMetrics = extractDocumentedMetrics(monitoringChapter);
 const alertNames = extractAlertNames(alertRulesSource);
 const readinessComponents = extractStringUnionValues(readinessSource, "ReadinessComponentName");
 const metricsReadinessComponents = extractConstStringArray(metricsSource, "readinessDependencyComponents");
+const rateLimitedEndpoints = extractStringUnionValues(rateLimitSource, "RateLimitedEndpoint");
+const metricsRateLimitedEndpoints = extractConstStringArray(metricsSource, "rateLimitedEndpoints");
+const signerMetricOperations = extractStringUnionValues(metricsSource, "SignerMetricOperation");
+const metricsSignerOperations = extractConstStringArray(metricsSource, "signerMetricOperations");
 
 assert.ok(emittedMetrics.length >= 20, "MetricsService must expose a production-grade metric surface");
 assert.equal(new Set(emittedMetrics).size, emittedMetrics.length, "MetricsService metric HELP blocks must be unique");
+assert.deepEqual(
+  metricsRateLimitedEndpoints,
+  rateLimitedEndpoints,
+  "MetricsService rate limit endpoint labels must match backend RateLimitedEndpoint",
+);
+assert.deepEqual(
+  metricsSignerOperations,
+  signerMetricOperations,
+  "MetricsService signer operation labels must match SignerMetricOperation",
+);
 assert.deepEqual(
   metricsReadinessComponents,
   readinessComponents,
@@ -99,7 +114,7 @@ function extractStringUnionValues(source, typeName) {
 }
 
 function extractConstStringArray(source, constName) {
-  const match = source.match(new RegExp(`const\\s+${constName}[^=]*=\\s*\\[([\\s\\S]*?)\\]\\s+as\\s+const;`));
+  const match = source.match(new RegExp(`const\\s+${constName}[^=]*=\\s*\\[([\\s\\S]*?)\\]\\s*(?:as\\s+const)?;`));
   assert.ok(match, `Unable to find const string array ${constName}`);
 
   const values = [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
