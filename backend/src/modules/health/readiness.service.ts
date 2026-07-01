@@ -106,6 +106,7 @@ export class ReadinessService {
   ) {
     assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
     assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
+    assertReadinessServiceDeps(deps);
     this.deps = cloneReadinessServiceDeps(deps);
     this.config = cloneReadinessServiceConfig(config);
   }
@@ -232,6 +233,40 @@ function assertPositiveSafeInteger(value: number, field: keyof ReadinessServiceC
 
 function cloneReadinessServiceDeps(deps: ReadinessServiceDeps): ReadinessServiceDeps {
   return { ...deps };
+}
+
+function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
+  if (typeof deps !== "object" || deps === null) {
+    throw new Error("Readiness service deps must be an object");
+  }
+
+  assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
+  assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
+  assertDependencyMethod(deps.pricingEngine, "pricingEngine", "price");
+  assertDependencyMethod(deps.riskEngine, "riskEngine", "evaluate");
+  assertDependencyMethod(deps.signerService, "signerService", "signQuote");
+  assertDependencyMethod(deps.signerService, "signerService", "verifyQuoteSignature");
+  assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "checkHealth");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "checkHealth");
+  assertDependencyMethod(deps.riskDecisionStore, "riskDecisionStore", "checkHealth");
+  assertDependencyMethod(deps.inventoryService, "inventoryService", "checkHealth");
+  assertDependencyMethod(deps.hedgeService, "hedgeService", "checkHealth");
+  assertDependencyMethod(deps.settlementEventService, "settlementEventService", "checkHealth");
+  assertDependencyMethod(deps.pnlService, "pnlService", "checkHealth");
+  assertDependencyMethod(deps.metricsService, "metricsService", "checkHealth");
+}
+
+function assertDependencyMethod(
+  dependency: unknown,
+  dependencyName: keyof ReadinessServiceDeps,
+  methodName: string,
+): void {
+  const method = typeof dependency === "object" && dependency !== null
+    ? (dependency as Record<string, unknown>)[methodName]
+    : undefined;
+  if (typeof method !== "function") {
+    throw new Error(`Readiness service ${dependencyName}.${methodName} must be a function`);
+  }
 }
 
 function cloneReadinessServiceConfig(config: ReadinessServiceConfig): ReadinessServiceConfig {

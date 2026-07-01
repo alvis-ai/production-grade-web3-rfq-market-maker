@@ -174,6 +174,75 @@ test("ReadinessService rejects unsafe freshness configuration at construction", 
   );
 });
 
+test("ReadinessService rejects unsafe dependency configuration at construction", () => {
+  const deps = readinessServiceDeps();
+
+  assert.throws(
+    () => new ReadinessService(undefined),
+    /Readiness service deps must be an object/,
+  );
+  assert.throws(
+    () =>
+      new ReadinessService({
+        ...deps,
+        marketDataService: {},
+      }),
+    /Readiness service marketDataService.getSnapshot must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ReadinessService({
+        ...deps,
+        routingEngine: {},
+      }),
+    /Readiness service routingEngine.selectRoute must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ReadinessService({
+        ...deps,
+        pricingEngine: {},
+      }),
+    /Readiness service pricingEngine.price must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ReadinessService({
+        ...deps,
+        riskEngine: {},
+      }),
+    /Readiness service riskEngine.evaluate must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ReadinessService({
+        ...deps,
+        signerService: {
+          async signQuote() {
+            return `0x${"11".repeat(64)}1b`;
+          },
+        },
+      }),
+    /Readiness service signerService.verifyQuoteSignature must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ReadinessService({
+        ...deps,
+        quoteRepository: {},
+      }),
+    /Readiness service quoteRepository.checkHealth must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ReadinessService({
+        ...deps,
+        metricsService: {},
+      }),
+    /Readiness service metricsService.checkHealth must be a function/,
+  );
+});
+
 function createReadinessService(overrides = {}, config = defaultReadinessServiceConfig) {
   return new ReadinessService(readinessServiceDeps(overrides), config);
 }

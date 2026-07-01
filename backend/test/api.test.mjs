@@ -705,6 +705,7 @@ test("RFQ API maps settlement event store failures to structured errors", async 
   const server = buildServer({
     logger: false,
     settlementEventService: {
+      checkHealth() {},
       applySettlementEvent() {
         throw new Error("not used");
       },
@@ -1067,6 +1068,7 @@ test("RFQ API maps hedge status store failures to structured errors", async () =
   const server = buildServer({
     logger: false,
     hedgeService: {
+      checkHealth() {},
       createHedgeIntent() {
         throw new Error("not used");
       },
@@ -1095,6 +1097,7 @@ test("RFQ API keeps settlement accepted when hedge intent creation fails", async
   const server = buildServer({
     logger: false,
     hedgeService: {
+      checkHealth() {},
       createHedgeIntent() {
         throw new Error("hedge venue offline");
       },
@@ -1172,6 +1175,7 @@ test("RFQ API keeps settlement accepted when PnL record creation fails", async (
   const server = buildServer({
     logger: false,
     pnlService: {
+      checkHealth() {},
       recordSettlement() {
         throw new Error("pnl store offline");
       },
@@ -1534,6 +1538,7 @@ test("RFQ API maps quote store failures before signing", async () => {
   const server = buildServer({
     logger: false,
     quoteRepository: {
+      async checkHealth() {},
       async saveRequested() {
         throw new Error("quote store offline");
       },
@@ -2104,6 +2109,7 @@ test("RFQ API maps PnL summary store failures to structured errors", async () =>
   const server = buildServer({
     logger: false,
     pnlService: {
+      checkHealth() {},
       recordSettlement() {
         throw new Error("not used");
       },
@@ -2671,6 +2677,7 @@ test("RFQ API maps settlement event write failures before inventory updates", as
   const server = buildServer({
     logger: false,
     settlementEventService: {
+      checkHealth() {},
       applySettlementEvent() {
         throw new Error("settlement event store offline");
       },

@@ -43,6 +43,8 @@ grep -q 'maxSnapshotAgeMs' backend/src/modules/health/readiness.service.ts
 grep -q 'maxSnapshotFutureSkewMs' backend/src/modules/health/readiness.service.ts
 grep -q 'assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs")' backend/src/modules/health/readiness.service.ts
 grep -q 'assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs")' backend/src/modules/health/readiness.service.ts
+grep -q 'assertReadinessServiceDeps(deps)' backend/src/modules/health/readiness.service.ts
+grep -q 'assertDependencyMethod(deps.metricsService, "metricsService", "checkHealth")' backend/src/modules/health/readiness.service.ts
 grep -q 'cloneReadinessServiceDeps' backend/src/modules/health/readiness.service.ts
 grep -q 'cloneReadinessServiceConfig' backend/src/modules/health/readiness.service.ts
 grep -q 'readiness_probe' backend/src/modules/health/readiness.service.ts
@@ -59,7 +61,9 @@ grep -q 'ReadinessService degrades the aggregate status when a dependency probe 
 grep -q 'ReadinessService snapshots dependency object at construction' backend/test/readiness.test.mjs
 grep -q 'ReadinessService snapshots readiness configuration at construction' backend/test/readiness.test.mjs
 grep -q 'ReadinessService rejects unsafe freshness configuration at construction' backend/test/readiness.test.mjs
+grep -q 'ReadinessService rejects unsafe dependency configuration at construction' backend/test/readiness.test.mjs
 grep -q 'ReadinessService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'ReadinessService` validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'snapshots `ReadinessServiceConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/quote/quote-identity.ts
