@@ -1154,6 +1154,13 @@ grep -q 'async health' sdk/src/client.ts
 grep -q 'async ready' sdk/src/client.ts
 grep -q 'assertNonEmptyIdentifier' sdk/src/client.ts
 grep -q 'RFQClient rejects empty dynamic status identifiers before fetch' sdk/test/sdk.test.mjs
+grep -q 'export interface RFQClientOptions' sdk/src/client.ts
+grep -q 'private readonly fetchImpl' sdk/src/client.ts
+grep -q 'resolveFetch(options)' sdk/src/client.ts
+grep -q 'RFQClient rejects unsafe fetch dependencies at construction' sdk/test/sdk.test.mjs
+grep -q 'RFQClient accepts injected fetch implementations' sdk/test/sdk.test.mjs
+grep -q 'can receive an injected `fetch` implementation' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'new RFQClient("http://localhost:3000", { fetch: customFetch })' README.md
 grep -q 'assertQuoteStatus' sdk/src/client.ts
 grep -q 'assertQuoteStatusPayloadConsistency' sdk/src/client.ts
 grep -q 'assertHedgeIntentStatus' sdk/src/client.ts

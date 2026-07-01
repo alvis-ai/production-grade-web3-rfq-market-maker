@@ -24,7 +24,7 @@ export type {
   TreasuryTransferArgs,
   TreasuryTransferInput,
 } from "./settlement.js";
-export type { RFQClientErrorCode } from "./client.js";
+export type { RFQClientErrorCode, RFQClientFetch, RFQClientOptions } from "./client.js";
 export type {
   Address,
   HedgeIntentStatus,

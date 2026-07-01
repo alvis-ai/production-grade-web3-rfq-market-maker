@@ -554,6 +554,75 @@ test("RFQClient rejects unsafe base URLs at construction", () => {
   }
 });
 
+test("RFQClient rejects unsafe fetch dependencies at construction", () => {
+  const originalFetch = globalThis.fetch;
+
+  try {
+    globalThis.fetch = undefined;
+
+    assert.throws(
+      () => new RFQClient("http://127.0.0.1:3000"),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQClient fetch implementation must be available or provided");
+        return true;
+      },
+    );
+
+    assert.throws(
+      () => new RFQClient("http://127.0.0.1:3000", null),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQClient options must be an object");
+        return true;
+      },
+    );
+
+    assert.throws(
+      () => new RFQClient("http://127.0.0.1:3000", { fetch: "not-a-function" }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQClient fetch option must be a function");
+        return true;
+      },
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("RFQClient accepts injected fetch implementations", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const metricsResponse = [
+    "# TYPE rfq_quote_requests_total counter",
+    "rfq_quote_requests_total 1",
+    "",
+  ].join("\n");
+
+  try {
+    globalThis.fetch = undefined;
+
+    const client = new RFQClient("http://127.0.0.1:3000/", {
+      fetch: async (url, init = {}) => {
+        calls.push({ url, init });
+        return textResponse(200, metricsResponse);
+      },
+    });
+
+    assert.equal(await client.metrics(), metricsResponse);
+    assert.deepEqual(calls, [{ url: "http://127.0.0.1:3000/metrics", init: {} }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("RFQClient rejects unsafe quote requests before sending HTTP", async () => {
   const calls = [];
   const restoreFetch = installFetch(async (url, init = {}) => {

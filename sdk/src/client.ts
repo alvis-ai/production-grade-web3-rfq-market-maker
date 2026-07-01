@@ -17,6 +17,11 @@ import type {
 } from "./types.js";
 
 export type RFQClientErrorCode = RFQErrorCode | "RFQ_CLIENT_ERROR";
+export type RFQClientFetch = (input: string, init?: RequestInit) => Promise<Response>;
+
+export interface RFQClientOptions {
+  readonly fetch?: RFQClientFetch;
+}
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
@@ -37,14 +42,16 @@ export class RFQClientError extends Error {
 
 export class RFQClient {
   private readonly baseUrl: string;
+  private readonly fetchImpl: RFQClientFetch;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, options: RFQClientOptions = {}) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
+    this.fetchImpl = resolveFetch(options);
   }
 
   async quote(request: QuoteRequest): Promise<QuoteResponse> {
     assertQuoteRequest(request);
-    const response = await fetch(`${this.baseUrl}/quote`, {
+    const response = await this.fetchImpl(`${this.baseUrl}/quote`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -61,7 +68,7 @@ export class RFQClient {
 
   async submit(request: SubmitQuoteRequest): Promise<SubmitQuoteResponse> {
     assertSubmitQuoteRequest(request);
-    const response = await fetch(`${this.baseUrl}/submit`, {
+    const response = await this.fetchImpl(`${this.baseUrl}/submit`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -78,7 +85,7 @@ export class RFQClient {
 
   async getQuote(quoteId: string): Promise<QuoteStatus> {
     const safeQuoteId = assertNonEmptyIdentifier(quoteId, "quoteId");
-    const response = await fetch(`${this.baseUrl}/quote/${encodeURIComponent(safeQuoteId)}`);
+    const response = await this.fetchImpl(`${this.baseUrl}/quote/${encodeURIComponent(safeQuoteId)}`);
 
     await assertOk(response, "RFQ quote status failed");
 
@@ -89,7 +96,7 @@ export class RFQClient {
 
   async getHedge(hedgeOrderId: string): Promise<HedgeIntentStatus> {
     const safeHedgeOrderId = assertNonEmptyIdentifier(hedgeOrderId, "hedgeOrderId");
-    const response = await fetch(`${this.baseUrl}/hedges/${encodeURIComponent(safeHedgeOrderId)}`);
+    const response = await this.fetchImpl(`${this.baseUrl}/hedges/${encodeURIComponent(safeHedgeOrderId)}`);
 
     await assertOk(response, "RFQ hedge status failed");
 
@@ -101,7 +108,7 @@ export class RFQClient {
 
   async getSettlement(settlementEventId: string): Promise<SettlementEventStatus> {
     const safeSettlementEventId = assertNonEmptyIdentifier(settlementEventId, "settlementEventId");
-    const response = await fetch(`${this.baseUrl}/settlements/${encodeURIComponent(safeSettlementEventId)}`);
+    const response = await this.fetchImpl(`${this.baseUrl}/settlements/${encodeURIComponent(safeSettlementEventId)}`);
 
     await assertOk(response, "RFQ settlement event status failed");
 
@@ -111,7 +118,7 @@ export class RFQClient {
   }
 
   async pnl(): Promise<PnlSummary> {
-    const response = await fetch(`${this.baseUrl}/pnl`);
+    const response = await this.fetchImpl(`${this.baseUrl}/pnl`);
 
     await assertOk(response, "RFQ PnL summary failed");
 
@@ -122,7 +129,7 @@ export class RFQClient {
   }
 
   async health(): Promise<HealthResponse> {
-    const response = await fetch(`${this.baseUrl}/health`);
+    const response = await this.fetchImpl(`${this.baseUrl}/health`);
 
     await assertOk(response, "RFQ health check failed");
 
@@ -135,7 +142,7 @@ export class RFQClient {
   }
 
   async ready(): Promise<ReadinessResponse> {
-    const response = await fetch(`${this.baseUrl}/ready`);
+    const response = await this.fetchImpl(`${this.baseUrl}/ready`);
 
     if (!response.ok) {
       let payload: unknown;
@@ -161,12 +168,32 @@ export class RFQClient {
   }
 
   async metrics(): Promise<string> {
-    const response = await fetch(`${this.baseUrl}/metrics`);
+    const response = await this.fetchImpl(`${this.baseUrl}/metrics`);
 
     await assertOk(response, "RFQ metrics request failed");
 
     return response.text();
   }
+}
+
+function resolveFetch(options: RFQClientOptions): RFQClientFetch {
+  if (!isRecord(options)) {
+    throw new RFQClientError("RFQClient options must be an object", 0);
+  }
+
+  if (options.fetch !== undefined) {
+    if (typeof options.fetch !== "function") {
+      throw new RFQClientError("RFQClient fetch option must be a function", 0);
+    }
+
+    return options.fetch as RFQClientFetch;
+  }
+
+  if (typeof globalThis.fetch !== "function") {
+    throw new RFQClientError("RFQClient fetch implementation must be available or provided", 0);
+  }
+
+  return globalThis.fetch.bind(globalThis);
 }
 
 async function readJsonResponse(response: Response, label: string): Promise<unknown> {

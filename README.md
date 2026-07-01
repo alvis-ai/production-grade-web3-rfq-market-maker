@@ -204,6 +204,7 @@ The benchmark builds the backend and exercises `POST /quote` through Fastify inj
 
 ```ts
 const client = new RFQClient("http://localhost:3000");
+const clientWithCustomFetch = new RFQClient("http://localhost:3000", { fetch: customFetch });
 
 await client.quote(request);
 await client.submit({ quote, signature });
@@ -217,6 +218,8 @@ await client.metrics();
 ```
 
 `RFQClientError` preserves structured API errors. For HTTP 429 `RATE_LIMITED` responses, the SDK exposes `retryAfterSeconds` from the `Retry-After` header so callers can back off without parsing headers directly. Successful quote, submit, quote status, settlement, hedge, and PnL responses are validated field by field, including identifiers, signatures, token addresses, hashes, uint/int amount strings, timestamps, `totalTrades`, and aggregate gross PnL consistency.
+
+`RFQClient` validates its base URL and fetch dependency at construction. By default it uses `globalThis.fetch`; server-side runtimes, tests, and constrained execution environments can pass `{ fetch: customFetch }` to keep transport ownership explicit.
 
 The SDK also exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs`, `hashSettlementQuote`, and `buildTreasuryTransferArgs` for viem/wagmi contract calls and event reconciliation.
 
