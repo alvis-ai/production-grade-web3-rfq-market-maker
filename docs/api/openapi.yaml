@@ -30,6 +30,9 @@ paths:
       responses:
         "200":
           description: Signed quote
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -46,18 +49,27 @@ paths:
                     signature: "0x1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
         "400":
           description: Invalid request
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: Risk rejected
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "413":
           description: Request body too large
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -65,6 +77,8 @@ paths:
         "429":
           description: Rate limited
           headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
             Retry-After:
               description: Seconds until the client should retry.
               schema:
@@ -75,6 +89,9 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: Market data unavailable, stale, too far in the future, invalid, routing unavailable, quote store unavailable, signer unavailable, or another quote dependency unavailable
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -103,30 +120,45 @@ paths:
       responses:
         "202":
           description: Submit accepted for processing
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SubmitQuoteResponse"
         "400":
           description: Invalid submit request
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Signed quote not found
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: Quote expired, already used, signature invalid, or rejected by settlement verification
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "413":
           description: Request body too large
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -134,6 +166,8 @@ paths:
         "429":
           description: Rate limited
           headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
             Retry-After:
               description: Seconds until the client should retry.
               schema:
@@ -144,6 +178,9 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: Settlement verifier, chain RPC, or another settlement dependency is unavailable before settlement is applied
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -165,12 +202,18 @@ paths:
       responses:
         "200":
           description: Quote status
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/QuoteStatus"
         "404":
           description: Quote not found
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -178,6 +221,8 @@ paths:
         "429":
           description: Rate limited
           headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
             Retry-After:
               description: Seconds until the client should retry.
               schema:
@@ -188,6 +233,9 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: Quote status store unavailable
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -214,12 +262,18 @@ paths:
       responses:
         "200":
           description: Hedge intent status
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HedgeIntentStatus"
         "404":
           description: Hedge intent not found
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -227,6 +281,8 @@ paths:
         "429":
           description: Rate limited
           headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
             Retry-After:
               description: Seconds until the client should retry.
               schema:
@@ -237,6 +293,9 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: Hedge status store unavailable
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -264,12 +323,18 @@ paths:
       responses:
         "200":
           description: Settlement event status
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SettlementEventStatus"
         "404":
           description: Settlement event not found
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -277,6 +342,8 @@ paths:
         "429":
           description: Rate limited
           headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
             Retry-After:
               description: Seconds until the client should retry.
               schema:
@@ -287,6 +354,9 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: Settlement event store unavailable
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -304,6 +374,9 @@ paths:
       responses:
         "200":
           description: Realized PnL summary
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -311,6 +384,8 @@ paths:
         "429":
           description: Rate limited
           headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
             Retry-After:
               description: Seconds until the client should retry.
               schema:
@@ -321,6 +396,9 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: PnL store unavailable
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -334,6 +412,9 @@ paths:
       responses:
         "200":
           description: Service health
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -348,12 +429,18 @@ paths:
       responses:
         "200":
           description: Service readiness and dependency state
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReadinessResponse"
         "503":
           description: Service is alive but not ready because at least one quote dependency is degraded
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             application/json:
               schema:
@@ -367,11 +454,20 @@ paths:
       responses:
         "200":
           description: Prometheus text exposition
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
           content:
             text/plain:
               schema:
                 type: string
 components:
+  headers:
+    TraceId:
+      description: Request correlation id attached to every response. ErrorResponse.traceId contains the same value for structured error bodies.
+      schema:
+        type: string
+        pattern: "^tr_.+"
   schemas:
     Address:
       type: string

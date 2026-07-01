@@ -14,7 +14,8 @@ const openapiCodes = extractOpenapiErrorCodes(openapiSource);
 const docsStatusByCode = extractDocumentedErrorStatuses(errorDocsSource);
 const docsCodes = [...docsStatusByCode.keys()];
 const backendStatusByCode = extractBackendApiErrorStatuses(backendSource);
-const openapiNon2xxResponses = extractOpenApiNon2xxResponses(openapiSource);
+const openapiResponses = extractOpenApiResponses(openapiSource);
+const openapiNon2xxResponses = openapiResponses.filter((response) => response.status >= 400 && response.status <= 599);
 const allowedNonErrorResponseSchemas = new Map([
   ["GET /ready 503", "#/components/schemas/ReadinessResponse"],
 ]);
@@ -42,7 +43,7 @@ for (const response of openapiNon2xxResponses) {
       : `OpenAPI ${response.key} error response must use ErrorResponse`,
   );
 }
-assertTraceHeaderContract(backendSource, apiTestSource, openapiSource);
+assertTraceHeaderContract(backendSource, apiTestSource, openapiSource, openapiResponses);
 
 console.log(`API error code consistency check passed (${backendCodes.length} codes)`);
 
@@ -68,7 +69,7 @@ function extractOpenapiErrorCodes(source) {
   return [...match[1].matchAll(/^\s+- ([A-Z0-9_]+)$/gm)].map((item) => item[1]);
 }
 
-function extractOpenApiNon2xxResponses(source) {
+function extractOpenApiResponses(source) {
   const pathsBlock = source.match(/^paths:\n([\s\S]*?)^components:/m);
   assert.ok(pathsBlock, "OpenAPI paths block not found");
 
@@ -95,11 +96,6 @@ function extractOpenApiNon2xxResponses(source) {
       continue;
     }
 
-    const status = Number(responseMatch[1]);
-    if (status < 400 || status > 599) {
-      continue;
-    }
-
     const block = [];
     for (const line of lines.slice(index + 1)) {
       if (/^        "\d{3}":$/.test(line) || /^    (get|post):$/.test(line) || /^  \/[^:]+:$/.test(line)) {
@@ -108,19 +104,28 @@ function extractOpenApiNon2xxResponses(source) {
       block.push(line);
     }
 
+    const status = Number(responseMatch[1]);
+    const label = `${currentMethod} ${currentPath} ${status}`;
     responses.push({
-      key: `${currentMethod} ${currentPath} ${status}`,
-      schemaRef: extractOpenApiResponseSchemaRef(block.join("\n"), `${currentMethod} ${currentPath} ${status}`),
+      key: label,
+      status,
+      schemaRef: extractOpenApiResponseSchemaRef(block.join("\n"), label),
+      traceHeaderRef: extractOpenApiTraceHeaderRef(block.join("\n"), label),
     });
   }
 
-  assert.ok(responses.length > 0, "OpenAPI paths must define non-2xx responses");
+  assert.ok(responses.length > 0, "OpenAPI paths must define responses");
   return responses;
 }
 
 function extractOpenApiResponseSchemaRef(responseBlock, label) {
-  const match = responseBlock.match(/\$ref:\s+"([^"]+)"/);
-  assert.ok(match, `OpenAPI ${label} response must define a schema $ref`);
+  const match = responseBlock.match(/\n              schema:\n                \$ref:\s+"([^"]+)"/);
+  return match?.[1];
+}
+
+function extractOpenApiTraceHeaderRef(responseBlock, label) {
+  const match = responseBlock.match(/\n            x-trace-id:\n              \$ref:\s+"([^"]+)"/);
+  assert.ok(match, `OpenAPI ${label} response must define x-trace-id header`);
   return match[1];
 }
 
@@ -159,11 +164,24 @@ function extractBackendApiErrorStatuses(source) {
   );
 }
 
-function assertTraceHeaderContract(backend, apiTest, openapi) {
+function assertTraceHeaderContract(backend, apiTest, openapi, responses) {
   assert.ok(
     openapi.includes("Every response includes an x-trace-id header"),
     "OpenAPI info description must document the x-trace-id response header",
   );
+  assert.ok(
+    openapi.includes("  headers:\n    TraceId:") &&
+      openapi.includes("Request correlation id attached to every response") &&
+      openapi.includes('pattern: "^tr_.+"'),
+    "OpenAPI components.headers.TraceId must define the reusable trace header",
+  );
+  for (const response of responses) {
+    assert.equal(
+      response.traceHeaderRef,
+      "#/components/headers/TraceId",
+      `OpenAPI ${response.key} must reference components.headers.TraceId`,
+    );
+  }
   assert.ok(
     backend.includes('reply.header("x-trace-id", requestTraceId(request))'),
     "backend onRequest hook must attach x-trace-id to every response",

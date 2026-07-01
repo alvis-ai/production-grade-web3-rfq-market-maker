@@ -1578,10 +1578,15 @@ grep -q 'readSourceTree("backend/src")' scripts/check-api-error-consistency.mjs
 grep -q 'extractDocumentedErrorStatuses' scripts/check-api-error-consistency.mjs
 grep -q 'extractBackendApiErrorStatuses' scripts/check-api-error-consistency.mjs
 grep -q 'HTTP status list must cover backend APIError statuses' scripts/check-api-error-consistency.mjs
-grep -q 'extractOpenApiNon2xxResponses' scripts/check-api-error-consistency.mjs
+grep -q 'extractOpenApiResponses' scripts/check-api-error-consistency.mjs
 grep -q 'OpenAPI ${response.key} error response must use ErrorResponse' scripts/check-api-error-consistency.mjs
 grep -Fq '["GET /ready 503", "#/components/schemas/ReadinessResponse"]' scripts/check-api-error-consistency.mjs
 grep -q 'extractOpenApiResponseSchemaRef' scripts/check-api-error-consistency.mjs
+grep -q 'extractOpenApiTraceHeaderRef' scripts/check-api-error-consistency.mjs
+grep -q 'OpenAPI components.headers.TraceId must define the reusable trace header' scripts/check-api-error-consistency.mjs
+grep -q 'OpenAPI ${response.key} must reference components.headers.TraceId' scripts/check-api-error-consistency.mjs
+grep -q 'TraceId:' docs/api/openapi.yaml
+grep -q '#/components/headers/TraceId' docs/api/openapi.yaml
 grep -q 'backend/test/api.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'assertTraceHeaderContract' scripts/check-api-error-consistency.mjs
 grep -q 'backend onRequest hook must attach x-trace-id to every response' scripts/check-api-error-consistency.mjs
