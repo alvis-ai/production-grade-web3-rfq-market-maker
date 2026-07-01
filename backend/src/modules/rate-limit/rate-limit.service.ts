@@ -23,7 +23,7 @@ interface RateLimitBucket {
   resetAt: number;
 }
 
-const maxRateLimitClientIdLength = 128;
+export const maxRateLimitClientIdLength = 128;
 
 export const defaultRateLimitConfig: RateLimitConfig = {
   windowMs: 60_000,

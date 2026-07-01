@@ -364,9 +364,12 @@ grep -q 'RFQ_TRUST_PROXY: "false"' infra/helm/rfq-market-maker/values.yaml
 grep -q 'RFQ API rejects invalid RFQ_TRUST_PROXY at startup' backend/test/api.test.mjs
 grep -q 'does not trust x-forwarded-for for rate limit identity by default' backend/test/api.test.mjs
 grep -q 'trusts x-forwarded-for for rate limit identity only when proxy trust is enabled' backend/test/api.test.mjs
+grep -q 'rejects oversized trusted forwarded rate limit identity' backend/test/api.test.mjs
 grep -q 'only enable it when a trusted reverse proxy or ingress strips untrusted' README.md
 grep -q 'x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`' docs/api/errors.md
+grep -q 'forwarded client identities longer than 128 characters are rejected as `INVALID_REQUEST`/400' docs/api/errors.md
 grep -q '默认 `RFQ_TRUST_PROXY=false`' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'trusted forwarded identity exceeding 128 characters returns `INVALID_REQUEST`/400' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'traceId: string' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts

@@ -10,7 +10,12 @@ import { PnlService, type PnlStore, type RecordPnlInput } from "./modules/pnl/pn
 import { FormulaPricingEngine, type PricingEngine } from "./modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository, type QuoteRepository } from "./modules/quote/quote.repository.js";
 import { defaultQuoteServiceConfig, QuoteService } from "./modules/quote/quote.service.js";
-import { InMemoryRateLimiter, type RateLimitConfig, type RateLimitedEndpoint } from "./modules/rate-limit/rate-limit.service.js";
+import {
+  InMemoryRateLimiter,
+  maxRateLimitClientIdLength,
+  type RateLimitConfig,
+  type RateLimitedEndpoint,
+} from "./modules/rate-limit/rate-limit.service.js";
 import { InMemoryRiskDecisionRepository, type RiskDecisionStore } from "./modules/risk/risk-decision.repository.js";
 import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine, type RoutingEngine } from "./modules/routing/routing.engine.js";
@@ -514,16 +519,30 @@ function elapsedSeconds(startedAt: number): number {
 
 function clientIdForRateLimit(request: FastifyRequest, trustProxy: boolean): string {
   if (!trustProxy) {
-    return request.ip;
+    return assertGatewayRateLimitClientId(request.ip);
   }
 
   const forwardedFor = request.headers["x-forwarded-for"];
   if (typeof forwardedFor === "string" && forwardedFor.trim().length > 0) {
     const forwardedClientId = forwardedFor.split(",")[0]?.trim().toLowerCase();
-    return forwardedClientId && forwardedClientId.length > 0 ? forwardedClientId : request.ip;
+    return forwardedClientId && forwardedClientId.length > 0
+      ? assertGatewayRateLimitClientId(forwardedClientId)
+      : assertGatewayRateLimitClientId(request.ip);
   }
 
-  return request.ip;
+  return assertGatewayRateLimitClientId(request.ip);
+}
+
+function assertGatewayRateLimitClientId(clientId: string): string {
+  const normalized = clientId.trim().toLowerCase();
+  if (normalized.length === 0) {
+    throw new APIError("INVALID_REQUEST", "Rate limit clientId must be a non-empty string", 400);
+  }
+  if (normalized.length > maxRateLimitClientIdLength) {
+    throw new APIError("INVALID_REQUEST", "Rate limit clientId must be 128 characters or fewer", 400);
+  }
+
+  return normalized;
 }
 
 function readSignerConfig() {

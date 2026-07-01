@@ -52,6 +52,9 @@ assertContains(mainSource, [
   'reply.header("x-ratelimit-remaining"',
   'reply.header("retry-after"',
   "clientIdForRateLimit(request, trustProxy)",
+  "assertGatewayRateLimitClientId",
+  "maxRateLimitClientIdLength",
+  'new APIError("INVALID_REQUEST", "Rate limit clientId must be 128 characters or fewer", 400)',
   "const defaultTrustProxy = false;",
   "trustProxy?: boolean",
   "readTrustProxy()",
@@ -66,6 +69,7 @@ assertContains(apiTestSource, [
   "rate limits quote requests by client",
   "does not trust x-forwarded-for for rate limit identity by default",
   "trusts x-forwarded-for for rate limit identity only when proxy trust is enabled",
+  "rejects oversized trusted forwarded rate limit identity",
   "rate limits submit requests before validation and settlement",
   "rate limits quote status requests by client",
   "assert.equal(secondQuote.statusCode, 429)",
@@ -122,6 +126,7 @@ assertContains(errorDocsSource, [
   "| `submit` | `POST /submit` | 60 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
   "| `status` | `GET /quote/:quoteId`, `GET /settlements/:settlementEventId`, `GET /hedges/:hedgeOrderId`, `GET /pnl` | 300 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
   "`x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`",
+  "forwarded client identities longer than 128 characters are rejected as `INVALID_REQUEST`/400",
 ], "docs/api/errors.md");
 
 assertContains(gatewayChapterSource, [
@@ -134,6 +139,7 @@ assertContains(gatewayChapterSource, [
   "启用 `RFQ_TRUST_PROXY=true`",
   "client identity trim + lowercase",
   "128 character clientId upper bound",
+  "trusted forwarded identity exceeding 128 characters returns `INVALID_REQUEST`/400",
   "`RATE_LIMITED`、HTTP 429 和 `Retry-After`",
 ], "book/Volume5-BackendEngineering/Chapter01-API-Gateway.md");
 

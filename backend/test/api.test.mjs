@@ -2016,6 +2016,32 @@ test("RFQ API trusts x-forwarded-for for rate limit identity only when proxy tru
   }
 });
 
+test("RFQ API rejects oversized trusted forwarded rate limit identity", async () => {
+  const server = buildServer({
+    logger: false,
+    trustProxy: true,
+    rateLimit: {
+      windowMs: 60_000,
+      maxQuoteRequests: 1,
+      maxSubmitRequests: 100,
+      maxStatusRequests: 100,
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest, {
+      "x-forwarded-for": "a".repeat(129),
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.body.code, "INVALID_REQUEST");
+    assert.match(response.body.message, /Rate limit clientId must be 128 characters or fewer/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rate limits submit requests before validation and settlement", async () => {
   const server = buildServer({
     logger: false,
