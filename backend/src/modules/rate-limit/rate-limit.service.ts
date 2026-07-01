@@ -49,7 +49,8 @@ export class InMemoryRateLimiter {
     this.sweepExpiredBuckets(now);
 
     const limit = this.limitFor(input.endpoint);
-    const bucketKey = `${input.endpoint}:${input.clientId}`;
+    const clientId = normalizeRateLimitClientId(input.clientId);
+    const bucketKey = `${input.endpoint}:${clientId}`;
     const bucket = this.buckets.get(bucketKey) ?? { count: 0, resetAt: resetAtFor(now, this.config.windowMs) };
 
     if (bucket.count >= limit) {
@@ -105,6 +106,10 @@ function assertRateLimitInput(input: RateLimitInput): void {
   if (typeof input.clientId !== "string" || input.clientId.trim().length === 0) {
     throw new Error("Rate limit clientId must be a non-empty string");
   }
+}
+
+function normalizeRateLimitClientId(clientId: string): string {
+  return clientId.trim().toLowerCase();
 }
 
 function assertRateLimitTimestamp(now: number): void {

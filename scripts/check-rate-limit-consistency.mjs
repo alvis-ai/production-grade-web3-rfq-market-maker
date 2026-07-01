@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 const rateLimiterSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const mainSource = await readFile("backend/src/main.ts", "utf8");
 const apiTestSource = await readFile("backend/test/api.test.mjs", "utf8");
+const rateLimitTestSource = await readFile("backend/test/rate-limit.test.mjs", "utf8");
 const sdkClientSource = await readFile("sdk/src/client.ts", "utf8");
 const sdkTestSource = await readFile("sdk/test/sdk.test.mjs", "utf8");
 const frontendErrorSource = await readFile("frontend/src/lib/errors.ts", "utf8");
@@ -30,6 +31,8 @@ assertContains(rateLimiterSource, [
   'assertPositiveSafeInteger(config.maxQuoteRequests, "maxQuoteRequests")',
   'assertPositiveSafeInteger(config.maxSubmitRequests, "maxSubmitRequests")',
   'assertPositiveSafeInteger(config.maxStatusRequests, "maxStatusRequests")',
+  "normalizeRateLimitClientId(input.clientId)",
+  "clientId.trim().toLowerCase()",
   "Rate limit ${field} must be a positive safe integer",
 ], "backend/src/modules/rate-limit/rate-limit.service.ts");
 
@@ -69,6 +72,10 @@ assertContains(apiTestSource, [
   "assert.equal(secondStatus.statusCode, 429)",
   'assert.equal(secondStatus.body.code, "RATE_LIMITED")',
 ], "backend/test/api.test.mjs");
+
+assertContains(rateLimitTestSource, [
+  "InMemoryRateLimiter normalizes client identities before bucketing",
+], "backend/test/rate-limit.test.mjs");
 
 assertContains(sdkClientSource, [
   "readonly retryAfterSeconds?: number",
@@ -120,6 +127,7 @@ assertContains(gatewayChapterSource, [
   "错误配置会在启动期 fail fast",
   "默认 `RFQ_TRUST_PROXY=false`",
   "启用 `RFQ_TRUST_PROXY=true`",
+  "client identity trim + lowercase",
   "`RATE_LIMITED`、HTTP 429 和 `Retry-After`",
 ], "book/Volume5-BackendEngineering/Chapter01-API-Gateway.md");
 

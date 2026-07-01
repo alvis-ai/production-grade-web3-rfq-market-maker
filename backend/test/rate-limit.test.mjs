@@ -80,6 +80,29 @@ test("InMemoryRateLimiter snapshots configuration at construction", () => {
   });
 });
 
+test("InMemoryRateLimiter normalizes client identities before bucketing", () => {
+  const limiter = new InMemoryRateLimiter({
+    windowMs: 1000,
+    maxQuoteRequests: 1,
+    maxSubmitRequests: 1,
+    maxStatusRequests: 1,
+  });
+
+  assert.deepEqual(limiter.check({ endpoint: "quote", clientId: " Client-A " }, 1000), {
+    allowed: true,
+    remaining: 0,
+    retryAfterSeconds: 1,
+  });
+  assert.deepEqual(limiter.check({ endpoint: "quote", clientId: "client-a" }, 1001), {
+    allowed: false,
+    remaining: 0,
+    retryAfterSeconds: 1,
+  });
+
+  assert.equal(limiter.buckets.has("quote:client-a"), true);
+  assert.equal(limiter.buckets.has("quote: Client-A "), false);
+});
+
 test("InMemoryRateLimiter rejects unsafe configuration at construction", () => {
   assert.throws(
     () => new InMemoryRateLimiter({

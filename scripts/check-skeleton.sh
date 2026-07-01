@@ -437,8 +437,11 @@ grep -q 'cloneRateLimitConfig' backend/src/modules/rate-limit/rate-limit.service
 grep -q 'assertPositiveSafeInteger' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'assertRateLimitInput(input)' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'assertRateLimitTimestamp(now)' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'normalizeRateLimitClientId(input.clientId)' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'sweepExpiredBuckets(now)' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'Rate limit clientId must be a non-empty string' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'InMemoryRateLimiter normalizes client identities before bucketing' backend/test/rate-limit.test.mjs
+grep -q 'client identity trim + lowercase' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'maxQuoteRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxSubmitRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxStatusRequests' backend/src/modules/rate-limit/rate-limit.service.ts
