@@ -656,6 +656,10 @@ function retryAfterSeconds(response: Response): number | undefined {
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
+  if (typeof baseUrl !== "string") {
+    throw new RFQClientError("RFQClient baseUrl must be a string", 0);
+  }
+
   const normalized = baseUrl.trim();
   if (normalized.length === 0) {
     throw new RFQClientError("RFQClient baseUrl must be a non-empty absolute http(s) URL", 0);

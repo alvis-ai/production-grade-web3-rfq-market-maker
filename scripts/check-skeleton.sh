@@ -1291,9 +1291,13 @@ grep -q 'rfqErrorCodeSet.has' sdk/src/client.ts
 grep -q 'RFQClientErrorCode' sdk/src/client.ts
 grep -q 'retryAfterSeconds' sdk/src/client.ts
 grep -q 'response.headers.get("retry-after")' sdk/src/client.ts
+grep -q 'RFQClient baseUrl must be a string' sdk/src/client.ts
 grep -q 'RFQClient baseUrl must be an absolute http(s) URL' sdk/src/client.ts
 grep -q 'RFQClient rejects unsafe base URLs at construction' sdk/test/sdk.test.mjs
+grep -q 'RFQClient baseUrl must be a string' sdk/test/sdk.test.mjs
 grep -q 'RFQClient rejects unsafe quote requests before sending HTTP' sdk/test/sdk.test.mjs
+grep -q 'base URL must be a runtime string before URL parsing' README.md
+grep -q 'rejects non-string, empty, relative or non-`http(s)` base URLs' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient.quote()` validates outgoing quote requests locally' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient rejects unsafe submit requests before sending HTTP' sdk/test/sdk.test.mjs
 grep -q 'RFQClient.submit()` validates outgoing submit payloads locally' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md

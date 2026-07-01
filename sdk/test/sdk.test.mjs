@@ -537,6 +537,8 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
 
 test("RFQClient rejects unsafe base URLs at construction", () => {
   for (const [baseUrl, expectedMessage] of [
+    [null, "RFQClient baseUrl must be a string"],
+    [[], "RFQClient baseUrl must be a string"],
     [" ", "RFQClient baseUrl must be a non-empty absolute http(s) URL"],
     ["/relative", "RFQClient baseUrl must be an absolute http(s) URL"],
     ["ftp://127.0.0.1:3000", "RFQClient baseUrl must use http or https"],
