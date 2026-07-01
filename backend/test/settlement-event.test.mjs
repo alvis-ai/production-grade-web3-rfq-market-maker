@@ -143,6 +143,27 @@ test("SettlementEventService returns defensive copies of settlement events", () 
   assert.equal(reloaded.txHash, `0x${"15".repeat(32)}`);
 });
 
+test("SettlementEventService rejects unsafe inventory dependency at construction", () => {
+  assert.throws(
+    () => new SettlementEventService(undefined),
+    /Settlement event inventoryService must be an object/,
+  );
+  assert.throws(
+    () =>
+      new SettlementEventService({
+        rebuildFromSettlements() {},
+      }),
+    /Settlement event inventoryService.applySettlement must be a function/,
+  );
+  assert.throws(
+    () =>
+      new SettlementEventService({
+        applySettlement() {},
+      }),
+    /Settlement event inventoryService.rebuildFromSettlements must be a function/,
+  );
+});
+
 test("SettlementEventService removes reorged events and rebuilds inventory from canonical events", () => {
   const inventory = new InventoryService();
   const settlements = new SettlementEventService(inventory);

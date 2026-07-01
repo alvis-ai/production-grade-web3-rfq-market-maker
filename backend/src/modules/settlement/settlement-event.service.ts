@@ -46,7 +46,9 @@ export class SettlementEventService implements SettlementEventStore {
   private readonly eventIdsByKey = new Map<string, string>();
   private readonly eventIdsByQuoteId = new Map<string, string>();
 
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(private readonly inventoryService: InventoryService) {
+    assertSettlementEventServiceDeps(inventoryService);
+  }
 
   checkHealth(): void {
     this.getSettlementEvent("__readiness_probe__");
@@ -203,6 +205,28 @@ export class SettlementEventService implements SettlementEventStore {
 
 function cloneSettlementEvent(event: SettlementEventStatusResponse): SettlementEventStatusResponse {
   return { ...event };
+}
+
+function assertSettlementEventServiceDeps(inventoryService: InventoryService): void {
+  if (typeof inventoryService !== "object" || inventoryService === null) {
+    throw new Error("Settlement event inventoryService must be an object");
+  }
+
+  assertDependencyMethod(inventoryService, "inventoryService", "applySettlement");
+  assertDependencyMethod(inventoryService, "inventoryService", "rebuildFromSettlements");
+}
+
+function assertDependencyMethod(
+  dependency: unknown,
+  dependencyName: "inventoryService",
+  methodName: string,
+): void {
+  const method = typeof dependency === "object" && dependency !== null
+    ? (dependency as Record<string, unknown>)[methodName]
+    : undefined;
+  if (typeof method !== "function") {
+    throw new Error(`Settlement event ${dependencyName}.${methodName} must be a function`);
+  }
 }
 
 function normalizeTxHash(value: `0x${string}`): `0x${string}` {
