@@ -13,6 +13,10 @@ const openapiCodes = extractOpenapiErrorCodes(openapiSource);
 const docsStatusByCode = extractDocumentedErrorStatuses(errorDocsSource);
 const docsCodes = [...docsStatusByCode.keys()];
 const backendStatusByCode = extractBackendApiErrorStatuses(backendSource);
+const openapiNon2xxResponses = extractOpenApiNon2xxResponses(openapiSource);
+const allowedNonErrorResponseSchemas = new Map([
+  ["GET /ready 503", "#/components/schemas/ReadinessResponse"],
+]);
 
 assert.deepEqual(sdkCodes, backendCodes, "SDK rfqErrorCodes array must match backend RFQErrorCode");
 assert.deepEqual(openapiCodes, backendCodes, "OpenAPI ErrorResponse enum must match backend RFQErrorCode");
@@ -25,6 +29,16 @@ for (const [code, statuses] of backendStatusByCode) {
     undocumentedStatuses,
     [],
     `docs/api/errors.md ${code} HTTP status list must cover backend APIError statuses`,
+  );
+}
+for (const response of openapiNon2xxResponses) {
+  const allowedSchema = allowedNonErrorResponseSchemas.get(response.key);
+  assert.equal(
+    response.schemaRef,
+    allowedSchema ?? "#/components/schemas/ErrorResponse",
+    allowedSchema
+      ? `OpenAPI ${response.key} must intentionally use ${allowedSchema}`
+      : `OpenAPI ${response.key} error response must use ErrorResponse`,
   );
 }
 
@@ -50,6 +64,62 @@ function extractOpenapiErrorCodes(source) {
   assert.ok(match, "OpenAPI ErrorResponse.code enum not found");
 
   return [...match[1].matchAll(/^\s+- ([A-Z0-9_]+)$/gm)].map((item) => item[1]);
+}
+
+function extractOpenApiNon2xxResponses(source) {
+  const pathsBlock = source.match(/^paths:\n([\s\S]*?)^components:/m);
+  assert.ok(pathsBlock, "OpenAPI paths block not found");
+
+  const responses = [];
+  const lines = pathsBlock[1].split("\n");
+  let currentPath;
+  let currentMethod;
+  for (let index = 0; index < lines.length; index += 1) {
+    const pathMatch = lines[index].match(/^  (\/[^:]+):$/);
+    if (pathMatch) {
+      currentPath = pathMatch[1];
+      currentMethod = undefined;
+      continue;
+    }
+
+    const methodMatch = lines[index].match(/^    (get|post):$/);
+    if (methodMatch) {
+      currentMethod = methodMatch[1].toUpperCase();
+      continue;
+    }
+
+    const responseMatch = lines[index].match(/^        "(\d{3})":$/);
+    if (!responseMatch || !currentPath || !currentMethod) {
+      continue;
+    }
+
+    const status = Number(responseMatch[1]);
+    if (status < 400 || status > 599) {
+      continue;
+    }
+
+    const block = [];
+    for (const line of lines.slice(index + 1)) {
+      if (/^        "\d{3}":$/.test(line) || /^    (get|post):$/.test(line) || /^  \/[^:]+:$/.test(line)) {
+        break;
+      }
+      block.push(line);
+    }
+
+    responses.push({
+      key: `${currentMethod} ${currentPath} ${status}`,
+      schemaRef: extractOpenApiResponseSchemaRef(block.join("\n"), `${currentMethod} ${currentPath} ${status}`),
+    });
+  }
+
+  assert.ok(responses.length > 0, "OpenAPI paths must define non-2xx responses");
+  return responses;
+}
+
+function extractOpenApiResponseSchemaRef(responseBlock, label) {
+  const match = responseBlock.match(/\$ref:\s+"([^"]+)"/);
+  assert.ok(match, `OpenAPI ${label} response must define a schema $ref`);
+  return match[1];
 }
 
 function extractSdkErrorCodes(source) {

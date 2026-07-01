@@ -1578,6 +1578,10 @@ grep -q 'readSourceTree("backend/src")' scripts/check-api-error-consistency.mjs
 grep -q 'extractDocumentedErrorStatuses' scripts/check-api-error-consistency.mjs
 grep -q 'extractBackendApiErrorStatuses' scripts/check-api-error-consistency.mjs
 grep -q 'HTTP status list must cover backend APIError statuses' scripts/check-api-error-consistency.mjs
+grep -q 'extractOpenApiNon2xxResponses' scripts/check-api-error-consistency.mjs
+grep -q 'OpenAPI ${response.key} error response must use ErrorResponse' scripts/check-api-error-consistency.mjs
+grep -Fq '["GET /ready 503", "#/components/schemas/ReadinessResponse"]' scripts/check-api-error-consistency.mjs
+grep -q 'extractOpenApiResponseSchemaRef' scripts/check-api-error-consistency.mjs
 grep -q 'defaultRateLimitConfig' scripts/check-rate-limit-consistency.mjs
 grep -q 'Retry-After' scripts/check-rate-limit-consistency.mjs
 grep -q 'sdk/src/client.ts' scripts/check-rate-limit-consistency.mjs
