@@ -951,6 +951,8 @@ grep -q 'recordSettlement' backend/src/modules/pnl/pnl.service.ts
 grep -q 'simulated_mid_price_v1' backend/src/modules/pnl/pnl.service.ts
 grep -q 'pnlIdsByQuoteModel' backend/src/modules/pnl/pnl.service.ts
 grep -q 'assertPnlInput(input)' backend/src/modules/pnl/pnl.service.ts
+grep -q 'Pnl input must be an object' backend/src/modules/pnl/pnl.service.ts
+grep -q 'Pnl quote must be an object' backend/src/modules/pnl/pnl.service.ts
 grep -q 'matchesPnlInput' backend/src/modules/pnl/pnl.service.ts
 grep -q 'PnL record conflict' backend/src/modules/pnl/pnl.service.ts
 grep -q 'user: input.quote.user' backend/src/modules/pnl/pnl.service.ts
@@ -964,9 +966,11 @@ grep -q 'returns defensive copies of PnL trade records' backend/test/pnl.test.mj
 grep -q 'rejects conflicting retry payloads for the same quote and model' backend/test/pnl.test.mjs
 grep -q 'rejects signed quote metadata conflicts for the same quote and model' backend/test/pnl.test.mjs
 grep -q 'rejects unsafe gross PnL bps before storing attribution' backend/test/pnl.test.mjs
+grep -q 'PnlService rejects malformed attribution payload envelopes before recording' backend/test/pnl.test.mjs
 grep -q 'PnlService rejects unsafe attribution inputs before recording' backend/test/pnl.test.mjs
 grep -q 'stored signed attribution payload' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnlService` returns defensive copies from `recordSettlement()` and `summary()`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'rejects malformed root payloads and missing `quote` objects before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'positive safe-integer deadline' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rejects values outside the JavaScript safe integer range' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'minAmountOut' docs/api/openapi.yaml

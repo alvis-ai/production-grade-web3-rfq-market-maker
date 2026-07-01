@@ -169,6 +169,34 @@ test("PnlService rejects unsafe gross PnL bps before storing attribution", () =>
   assert.equal(pnl.summary().totalTrades, 0);
 });
 
+test("PnlService rejects malformed attribution payload envelopes before recording", () => {
+  const pnl = new PnlService();
+
+  assert.throws(
+    () => pnl.recordSettlement(undefined),
+    /Pnl input must be an object/,
+  );
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q_missing_quote",
+      }),
+    /Pnl quote must be an object/,
+  );
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q_null_quote",
+        quote: null,
+      }),
+    /Pnl quote must be an object/,
+  );
+
+  assert.equal(pnl.summary().totalTrades, 0);
+});
+
 test("PnlService rejects unsafe attribution inputs before recording", () => {
   const pnl = new PnlService();
 

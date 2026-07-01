@@ -118,6 +118,8 @@ function calculateGrossPnlBps(amountIn: string, grossPnl: bigint): number {
 }
 
 function assertPnlInput(input: RecordPnlInput): void {
+  assertObject(input, "input");
+  assertObject(input.quote, "quote");
   assertNonEmptyString(input.quoteId, "quoteId");
   assertPositiveSafeInteger(input.quote.chainId, "quote.chainId");
   assertAddress(input.quote.user, "quote.user");
@@ -136,6 +138,12 @@ function assertPnlInput(input: RecordPnlInput): void {
 
   if (BigInt(input.quote.amountOut) < BigInt(input.quote.minAmountOut)) {
     throw new Error("Pnl quote.amountOut must be greater than or equal to quote.minAmountOut");
+  }
+}
+
+function assertObject(value: unknown, field: "input" | "quote"): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(field === "input" ? "Pnl input must be an object" : "Pnl quote must be an object");
   }
 }
 
