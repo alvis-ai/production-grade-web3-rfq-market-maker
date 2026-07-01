@@ -150,6 +150,15 @@ test("ReadinessService snapshots dependency object at construction", async () =>
 
 test("ReadinessService rejects unsafe freshness configuration at construction", () => {
   assert.throws(
+    () => createReadinessService({}, null),
+    /Readiness service config must be an object/,
+  );
+  assert.throws(
+    () => createReadinessService({}, []),
+    /Readiness service config must be an object/,
+  );
+
+  assert.throws(
     () =>
       createReadinessService(
         {},
@@ -180,6 +189,26 @@ test("ReadinessService rejects unsafe dependency configuration at construction",
   assert.throws(
     () => new ReadinessService(undefined),
     /Readiness service deps must be an object/,
+  );
+  assert.throws(
+    () => new ReadinessService([]),
+    /Readiness service deps must be an object/,
+  );
+  assert.throws(
+    () =>
+      new ReadinessService({
+        ...deps,
+        marketDataService: [],
+      }),
+    /Readiness service marketDataService must be an object/,
+  );
+  assert.throws(
+    () =>
+      new ReadinessService({
+        ...deps,
+        metricsService: [],
+      }),
+    /Readiness service metricsService must be an object/,
   );
   assert.throws(
     () =>

@@ -104,6 +104,7 @@ export class ReadinessService {
     deps: ReadinessServiceDeps,
     config: ReadinessServiceConfig = defaultReadinessServiceConfig,
   ) {
+    assertRecord(config, "config");
     assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
     assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
     assertReadinessServiceDeps(deps);
@@ -236,10 +237,7 @@ function cloneReadinessServiceDeps(deps: ReadinessServiceDeps): ReadinessService
 }
 
 function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
-  if (typeof deps !== "object" || deps === null) {
-    throw new Error("Readiness service deps must be an object");
-  }
-
+  assertRecord(deps, "deps");
   assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
   assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
   assertDependencyMethod(deps.pricingEngine, "pricingEngine", "price");
@@ -261,11 +259,16 @@ function assertDependencyMethod(
   dependencyName: keyof ReadinessServiceDeps,
   methodName: string,
 ): void {
-  const method = typeof dependency === "object" && dependency !== null
-    ? (dependency as Record<string, unknown>)[methodName]
-    : undefined;
+  assertRecord(dependency, dependencyName);
+  const method = (dependency as Record<string, unknown>)[methodName];
   if (typeof method !== "function") {
     throw new Error(`Readiness service ${dependencyName}.${methodName} must be a function`);
+  }
+}
+
+function assertRecord(value: unknown, field: "config" | "deps" | keyof ReadinessServiceDeps): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Readiness service ${field} must be an object`);
   }
 }
 
