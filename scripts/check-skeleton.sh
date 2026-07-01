@@ -879,6 +879,10 @@ grep -q 'removeSettlementEvent' backend/src/modules/settlement/settlement-event.
 grep -q 'rebuildFromSettlements' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'assertSettlementEventServiceDeps(inventoryService)' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'assertDependencyMethod(inventoryService, "inventoryService", "rebuildFromSettlements")' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'assertRecord(inventoryService, "inventoryService")' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'assertRecord(input, "input")' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'assertRecord(input, "reorg input")' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'assertRecord(quote, "quote")' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventIdsByQuoteId' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'txHash.slice(2)}_${logIndex}' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
@@ -891,8 +895,10 @@ grep -q 'rejects conflicting events for an already settled quote' backend/test/s
 grep -q 'lists settlement events in chain order' backend/test/settlement-event.test.mjs
 grep -q 'returns defensive copies of settlement events' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects unsafe inventory dependency at construction' backend/test/settlement-event.test.mjs
+grep -q 'SettlementEventService rejects malformed event payload envelopes before side effects' backend/test/settlement-event.test.mjs
 grep -q 'returns defensive copies from apply, remove, get and list operations' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SettlementEventService` validates inventory dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'Malformed settlement event dependency, apply input, reorg input and quote envelopes are rejected as non-array objects before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'removes reorged events and rebuilds inventory from canonical events' backend/test/settlement-event.test.mjs
 grep -q 'treats duplicate reorg removals as idempotent' backend/test/settlement-event.test.mjs
 grep -q 'rejects conflicting reorg removals before mutating state' backend/test/settlement-event.test.mjs

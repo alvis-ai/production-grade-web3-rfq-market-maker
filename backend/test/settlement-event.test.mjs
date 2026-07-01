@@ -149,6 +149,10 @@ test("SettlementEventService rejects unsafe inventory dependency at construction
     /Settlement event inventoryService must be an object/,
   );
   assert.throws(
+    () => new SettlementEventService([]),
+    /Settlement event inventoryService must be an object/,
+  );
+  assert.throws(
     () =>
       new SettlementEventService({
         rebuildFromSettlements() {},
@@ -162,6 +166,43 @@ test("SettlementEventService rejects unsafe inventory dependency at construction
       }),
     /Settlement event inventoryService.rebuildFromSettlements must be a function/,
   );
+});
+
+test("SettlementEventService rejects malformed event payload envelopes before side effects", () => {
+  const inventory = new InventoryService();
+  const settlements = new SettlementEventService(inventory);
+
+  assert.throws(
+    () => settlements.applySettlementEvent([]),
+    /Settlement event input must be an object/,
+  );
+  assert.throws(
+    () =>
+      settlements.applySettlementEvent({
+        quoteId: "q_array_quote",
+        quote: [],
+        txHash: `0x${"18".repeat(32)}`,
+      }),
+    /Settlement event quote must be an object/,
+  );
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 0n);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, 0n);
+
+  const applied = settlements.applySettlementEvent({
+    quoteId: "q_reorg_array",
+    quote,
+    txHash: `0x${"19".repeat(32)}`,
+    blockNumber: 40,
+    logIndex: 0,
+  });
+
+  assert.throws(
+    () => settlements.removeSettlementEvent([]),
+    /Settlement event reorg input must be an object/,
+  );
+  assert.deepEqual(settlements.getSettlementEvent(applied.event.settlementEventId), applied.event);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 1000n);
+  assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -990n);
 });
 
 test("SettlementEventService removes reorged events and rebuilds inventory from canonical events", () => {
@@ -440,6 +481,10 @@ test("hashSettlementQuote matches RFQSettlement.hashQuote struct hashing", () =>
 });
 
 test("hashSettlementQuote rejects malformed quote fields before ABI encoding", () => {
+  assert.throws(
+    () => hashSettlementQuote([]),
+    /Settlement event quote must be an object/,
+  );
   assert.throws(
     () =>
       hashSettlementQuote({

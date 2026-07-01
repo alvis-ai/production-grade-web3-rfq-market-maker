@@ -208,10 +208,7 @@ function cloneSettlementEvent(event: SettlementEventStatusResponse): SettlementE
 }
 
 function assertSettlementEventServiceDeps(inventoryService: InventoryService): void {
-  if (typeof inventoryService !== "object" || inventoryService === null) {
-    throw new Error("Settlement event inventoryService must be an object");
-  }
-
+  assertRecord(inventoryService, "inventoryService");
   assertDependencyMethod(inventoryService, "inventoryService", "applySettlement");
   assertDependencyMethod(inventoryService, "inventoryService", "rebuildFromSettlements");
 }
@@ -279,27 +276,18 @@ export function hashSettlementQuote(quote: SignedQuote): `0x${string}` {
 }
 
 function assertSettlementEventInput(input: ApplySettlementEventInput): void {
-  if (typeof input !== "object" || input === null) {
-    throw new Error("Settlement event input must be an object");
-  }
-
+  assertRecord(input, "input");
   assertNonEmptyString(input.quoteId, "quoteId");
   assertSettlementQuote(input.quote);
 }
 
 function assertRemoveSettlementEventInput(input: RemoveSettlementEventInput): void {
-  if (typeof input !== "object" || input === null) {
-    throw new Error("Settlement event reorg input must be an object");
-  }
-
+  assertRecord(input, "reorg input");
   assertPositiveSafeInteger(input.chainId, "reorg.chainId");
 }
 
 function assertSettlementQuote(quote: SignedQuote): void {
-  if (typeof quote !== "object" || quote === null) {
-    throw new Error("Settlement event quote must be an object");
-  }
-
+  assertRecord(quote, "quote");
   assertPositiveSafeInteger(quote.chainId, "quote.chainId");
   assertAddress(quote.user, "quote.user");
   assertAddress(quote.tokenIn, "quote.tokenIn");
@@ -317,6 +305,12 @@ function assertSettlementQuote(quote: SignedQuote): void {
 
   if (BigInt(quote.amountOut) < BigInt(quote.minAmountOut)) {
     throw new Error("Settlement event quote.amountOut must be greater than or equal to quote.minAmountOut");
+  }
+}
+
+function assertRecord(value: unknown, field: "inventoryService" | "input" | "reorg input" | "quote"): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Settlement event ${field} must be an object`);
   }
 }
 
