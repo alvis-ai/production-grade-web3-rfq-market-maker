@@ -54,6 +54,7 @@ export class ReconciliationService {
   private readonly deps: ReconciliationServiceDeps;
 
   constructor(deps: ReconciliationServiceDeps) {
+    assertReconciliationServiceDeps(deps);
     this.deps = cloneReconciliationServiceDeps(deps);
   }
 
@@ -200,6 +201,52 @@ function isAlreadyReconciled(
 
 function cloneReconciliationServiceDeps(deps: ReconciliationServiceDeps): ReconciliationServiceDeps {
   return { ...deps };
+}
+
+function assertReconciliationServiceDeps(deps: ReconciliationServiceDeps): void {
+  if (typeof deps !== "object" || deps === null) {
+    throw new Error("ReconciliationService deps must be an object");
+  }
+
+  assertDependencyMethod(deps.settlementEventService, "settlementEventService", "listSettlementEvents");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findStatus");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markStatus");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByQuoteId");
+  assertOptionalDependencyMethod(deps.pnlService, "pnlService", "summary");
+  assertOptionalDependencyMethod(deps.pnlService, "pnlService", "recordSettlement");
+  assertOptionalDependencyMethod(deps.hedgeService, "hedgeService", "getHedgeIntentBySettlementEvent");
+  assertOptionalDependencyMethod(deps.hedgeService, "hedgeService", "createHedgeIntent");
+}
+
+function assertDependencyMethod(
+  dependency: unknown,
+  dependencyName: keyof ReconciliationServiceDeps,
+  methodName: string,
+): void {
+  const method = typeof dependency === "object" && dependency !== null
+    ? (dependency as Record<string, unknown>)[methodName]
+    : undefined;
+  if (typeof method !== "function") {
+    throw new Error(`ReconciliationService ${dependencyName}.${methodName} must be a function`);
+  }
+}
+
+function assertOptionalDependencyMethod(
+  dependency: unknown,
+  dependencyName: keyof ReconciliationServiceDeps,
+  methodName: string,
+): void {
+  if (dependency === undefined) {
+    return;
+  }
+  if (typeof dependency !== "object" || dependency === null) {
+    throw new Error(`ReconciliationService ${dependencyName} must be an object when provided`);
+  }
+
+  const method = (dependency as Record<string, unknown>)[methodName];
+  if (typeof method !== "function") {
+    throw new Error(`ReconciliationService ${dependencyName}.${methodName} must be a function when provided`);
+  }
 }
 
 function hedgeIntentFromSettlementEvent(

@@ -849,6 +849,8 @@ grep -q 'rejects conflicting payloads for an existing chain event key' backend/t
 grep -q 'SettlementEventService rejects unsafe settlement quote inputs before side effects' backend/test/settlement-event.test.mjs
 grep -q 'hashSettlementQuote rejects malformed quote fields before ABI encoding' backend/test/settlement-event.test.mjs
 grep -q 'class ReconciliationService' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'assertReconciliationServiceDeps(deps)' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByQuoteId")' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'cloneReconciliationServiceDeps' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileSettlementToQuote' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileSettlementToHedge' backend/src/modules/reconciliation/reconciliation.service.ts
@@ -861,6 +863,7 @@ grep -q 'repairs quote status from settlement events' backend/test/reconciliatio
 grep -q 'reports terminal quote conflicts without stopping later events' backend/test/reconciliation.test.mjs
 grep -q 'reports settlement events whose quotes are missing' backend/test/reconciliation.test.mjs
 grep -q 'ReconciliationService snapshots dependency object at construction' backend/test/reconciliation.test.mjs
+grep -q 'ReconciliationService rejects unsafe dependency configuration at construction' backend/test/reconciliation.test.mjs
 grep -q 'repairs hedge intents from settlement events' backend/test/reconciliation.test.mjs
 grep -q 'reports hedge intent conflicts without stopping later events' backend/test/reconciliation.test.mjs
 grep -q 'requires hedge service for settlement-to-hedge repair' backend/test/reconciliation.test.mjs
@@ -884,6 +887,7 @@ grep -q 'snapshots `LocalSettlementVerifierPolicy` at construction after validat
 grep -q 'SkeletonExecutionService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'ReconciliationService` validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'reports PnL attribution conflicts per settlement event' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates existing hedge intents against settlement events' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts

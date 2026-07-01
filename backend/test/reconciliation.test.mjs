@@ -92,6 +92,71 @@ test("ReconciliationService snapshots dependency object at construction", async 
   assert.equal(await deps.quoteRepository.findStatus("q_snapshot_deps"), undefined);
 });
 
+test("ReconciliationService rejects unsafe dependency configuration at construction", () => {
+  const deps = reconciliationServiceDeps();
+
+  assert.throws(
+    () => new ReconciliationService(undefined),
+    /ReconciliationService deps must be an object/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
+        settlementEventService: {},
+      }),
+    /ReconciliationService settlementEventService.listSettlementEvents must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
+        quoteRepository: {},
+      }),
+    /ReconciliationService quoteRepository.findStatus must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
+        pnlService: "bad pnl dependency",
+      }),
+    /ReconciliationService pnlService must be an object when provided/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
+        pnlService: {
+          summary() {
+            return { totalTrades: 0 };
+          },
+        },
+      }),
+    /ReconciliationService pnlService.recordSettlement must be a function when provided/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
+        hedgeService: "bad hedge dependency",
+      }),
+    /ReconciliationService hedgeService must be an object when provided/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
+        hedgeService: {
+          createHedgeIntent() {
+            throw new Error("unused");
+          },
+        },
+      }),
+    /ReconciliationService hedgeService.getHedgeIntentBySettlementEvent must be a function when provided/,
+  );
+});
+
 test("ReconciliationService reports terminal quote conflicts without stopping later events", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const settlementEventService = new SettlementEventService(new InventoryService());
@@ -401,4 +466,14 @@ async function saveSignedQuote(quoteRepository, quoteId, signedQuote) {
     riskPolicyVersion: "test-risk",
     signature: `0x${"11".repeat(64)}1b`,
   });
+}
+
+function reconciliationServiceDeps() {
+  const inventoryService = new InventoryService();
+  return {
+    hedgeService: new HedgeService(),
+    pnlService: new PnlService(),
+    quoteRepository: new InMemoryQuoteRepository(),
+    settlementEventService: new SettlementEventService(inventoryService),
+  };
 }
