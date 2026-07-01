@@ -81,6 +81,7 @@ export class BasicRiskEngine implements RiskEngine {
   private readonly toxicFlowScores: ReadonlyMap<string, number>;
 
   constructor(policy: BasicRiskPolicy = defaultBasicRiskPolicy) {
+    assertObject(policy, "policy");
     assertNonEmptyString(policy.policyVersion, "policyVersion");
     assertChainIds(policy.enabledChainIds);
     assertAddressList(policy.tokenAllowlist, "tokenAllowlist", true);
@@ -185,6 +186,7 @@ function assertNonEmptyString(value: string, field: string): void {
 }
 
 function assertChainIds(chainIds: readonly number[]): void {
+  assertArray(chainIds, "enabledChainIds");
   if (chainIds.length === 0) {
     throw new Error("Basic risk enabledChainIds must contain at least one chain id");
   }
@@ -206,6 +208,7 @@ function assertAddressList(
   field: "tokenAllowlist" | "restrictedUsers",
   requireNonEmpty: boolean,
 ): void {
+  assertArray(addresses, field);
   if (requireNonEmpty && addresses.length === 0) {
     throw new Error(`Basic risk ${field} must contain at least one address`);
   }
@@ -222,8 +225,10 @@ function assertAddressList(
 }
 
 function assertToxicFlowScores(scores: readonly ToxicFlowScore[]): void {
+  assertArray(scores, "toxicFlowScores");
   const seenUsers = new Set<string>();
   for (const score of scores) {
+    assertObject(score, "toxicFlowScores entry");
     assertAddress(score.user, "toxicFlowScores.user");
     assertBpsUpperBound(score.scoreBps, "toxicFlowScores.scoreBps");
     const normalizedUser = score.user.toLowerCase();
@@ -241,6 +246,9 @@ function assertAddress(value: string, field: string): void {
 }
 
 function assertRiskInput(input: RiskInput): void {
+  assertObject(input, "input");
+  assertObject(input.request, "request");
+  assertObject(input.pricing, "pricing");
   assertPositiveSafeInteger(input.request.chainId, "request.chainId");
   assertAddress(input.request.user, "request.user");
   assertAddress(input.request.tokenIn, "request.tokenIn");
@@ -261,7 +269,8 @@ function assertRiskInput(input: RiskInput): void {
   assertBpsMagnitude(input.pricing.inventorySkewBps, "pricing.inventorySkewBps");
   assertNonEmptyString(input.pricing.pricingVersion, "pricing.pricingVersion");
 
-  if (input.inventoryProjection) {
+  if (input.inventoryProjection !== undefined) {
+    assertObject(input.inventoryProjection, "inventoryProjection");
     assertInventoryPosition(input.inventoryProjection.tokenIn, input.request.chainId, input.request.tokenIn, "tokenIn");
     assertInventoryPosition(input.inventoryProjection.tokenOut, input.request.chainId, input.request.tokenOut, "tokenOut");
   }
@@ -273,6 +282,7 @@ function assertInventoryPosition(
   expectedToken: `0x${string}`,
   field: "tokenIn" | "tokenOut",
 ): void {
+  assertObject(position, `inventoryProjection.${field}`);
   assertPositiveSafeInteger(position.chainId, `inventoryProjection.${field}.chainId`);
   assertAddress(position.token, `inventoryProjection.${field}.token`);
   if (position.chainId !== expectedChainId || position.token.toLowerCase() !== expectedToken.toLowerCase()) {
@@ -280,6 +290,18 @@ function assertInventoryPosition(
   }
   if (typeof position.balance !== "bigint") {
     throw new Error(`Basic risk inventoryProjection.${field}.balance must be a bigint`);
+  }
+}
+
+function assertObject(value: unknown, field: string): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Basic risk ${field} must be an object`);
+  }
+}
+
+function assertArray(value: unknown, field: string): void {
+  if (!Array.isArray(value)) {
+    throw new Error(`Basic risk ${field} must be an array`);
   }
 }
 

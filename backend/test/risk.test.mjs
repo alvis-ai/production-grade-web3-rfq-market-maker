@@ -152,6 +152,16 @@ test("BasicRiskEngine snapshots policy configuration at construction", async () 
 
 test("BasicRiskEngine rejects unsafe policy configuration at construction", () => {
   assert.throws(
+    () => new BasicRiskEngine(null),
+    /Basic risk policy must be an object/,
+  );
+
+  assert.throws(
+    () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, enabledChainIds: undefined }),
+    /Basic risk enabledChainIds must be an array/,
+  );
+
+  assert.throws(
     () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, policyVersion: " " }),
     /Basic risk policyVersion must be a non-empty string/,
   );
@@ -219,6 +229,17 @@ test("BasicRiskEngine rejects unsafe policy configuration at construction", () =
       new BasicRiskEngine({
         ...defaultBasicRiskPolicy,
         toxicFlowScores: [
+          null,
+        ],
+      }),
+    /Basic risk toxicFlowScores entry must be an object/,
+  );
+
+  assert.throws(
+    () =>
+      new BasicRiskEngine({
+        ...defaultBasicRiskPolicy,
+        toxicFlowScores: [
           {
             user: baseRequest.user,
             scoreBps: -1,
@@ -244,6 +265,53 @@ test("BasicRiskEngine rejects unsafe policy configuration at construction", () =
         ],
       }),
     /Basic risk toxicFlowScores must not contain duplicate users/,
+  );
+});
+
+test("BasicRiskEngine rejects malformed runtime payload envelopes before policy evaluation", async () => {
+  const engine = new BasicRiskEngine();
+
+  await assert.rejects(
+    engine.evaluate(undefined),
+    /Basic risk input must be an object/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      pricing: basePricing,
+    }),
+    /Basic risk request must be an object/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: baseRequest,
+    }),
+    /Basic risk pricing must be an object/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: baseRequest,
+      pricing: basePricing,
+      inventoryProjection: null,
+    }),
+    /Basic risk inventoryProjection must be an object/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: baseRequest,
+      pricing: basePricing,
+      inventoryProjection: {
+        tokenOut: {
+          chainId: 1,
+          token: baseRequest.tokenOut,
+          balance: -1n,
+        },
+      },
+    }),
+    /Basic risk inventoryProjection.tokenIn must be an object/,
   );
 });
 

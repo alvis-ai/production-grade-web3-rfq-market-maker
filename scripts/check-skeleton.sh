@@ -1769,8 +1769,16 @@ grep -q 'pricing config fail-fast' book/Volume2-MarketData-And-Pricing/Chapter07
 grep -q 'restricted toxic-flow users' backend/test/risk.test.mjs
 grep -q 'toxic-flow score threshold' backend/test/risk.test.mjs
 grep -q 'quoted spreads above policy limit' backend/test/risk.test.mjs
+grep -q 'assertObject(policy, "policy")' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertArray(chainIds, "enabledChainIds")' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertObject(input.request, "request")' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertObject(input.pricing, "pricing")' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertObject(input.inventoryProjection, "inventoryProjection")' backend/src/modules/risk/risk.engine.ts
 grep -q 'BasicRiskEngine rejects unsafe policy configuration at construction' backend/test/risk.test.mjs
+grep -q 'BasicRiskEngine rejects malformed runtime payload envelopes before policy evaluation' backend/test/risk.test.mjs
 grep -q 'BasicRiskEngine rejects unsafe runtime inputs before policy evaluation' backend/test/risk.test.mjs
+grep -q 'malformed policy object, policy array fields and toxic-flow score entries must be rejected before field access' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'malformed root payloads and missing `request` / `pricing` / `inventoryProjection` position objects fail before field access' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'policy config fail-fast' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'snapshots `BasicRiskPolicy` at construction after validation' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'pricing spread exceeds risk guard before signing' backend/test/api.test.mjs
