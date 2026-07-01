@@ -317,6 +317,14 @@ grep -Fq '["HedgeIntentStatusResponse", "HedgeIntentStatus", "HedgeIntentStatus"
 grep -Fq 'SDK ${sdkName}.${propertyName} enum must match backend ${backendName}.${propertyName}' scripts/check-api-schema-consistency.mjs
 grep -Fq 'OpenAPI ${openapiName}.${propertyName} enum must match backend ${backendName}.${propertyName}' scripts/check-api-schema-consistency.mjs
 grep -q 'OpenAPI HealthResponse.status enum must match SDK' scripts/check-api-schema-consistency.mjs
+grep -q 'sdkRuntimeEnumMappings' scripts/check-api-schema-consistency.mjs
+grep -q 'extractSdkRuntimeEnumGuardValues' scripts/check-api-schema-consistency.mjs
+grep -q 'extractInterfacePropertyEnumValues' scripts/check-api-schema-consistency.mjs
+grep -Fq '["HedgeIntentStatus", "reason", "assertHedgeIntentStatus"]' scripts/check-api-schema-consistency.mjs
+grep -Fq 'SDK runtime ${functionName} ${sdkName}.${propertyName} enum guard must match SDK type' scripts/check-api-schema-consistency.mjs
+grep -Fq 'SDK runtime ${functionName} ${sdkName}.${propertyName} enum guard must match OpenAPI' scripts/check-api-schema-consistency.mjs
+grep -q 'SDK runtime isReadinessComponents component status guard must match SDK ReadinessComponentStatus' scripts/check-api-schema-consistency.mjs
+grep -q 'OpenAPI ReadinessResponse.status enum must match backend' scripts/check-api-schema-consistency.mjs
 grep -q 'extractConstStringArray' scripts/check-api-schema-consistency.mjs
 grep -q 'extractOpenApiNestedObjectSchema' scripts/check-api-schema-consistency.mjs
 grep -q 'QuoteResponse.signature must be a 65-byte canonical low-s EIP-712 signature' scripts/check-api-schema-consistency.mjs

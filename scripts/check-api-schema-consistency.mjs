@@ -31,6 +31,18 @@ const inlineEnumMappings = [
   ["PnlTradeRecord", "PnlTradeRecord", "PnlTradeRecord", "model"],
   ["PnlSummaryResponse", "PnlSummary", "PnlSummary", "status"],
 ];
+const sdkRuntimeEnumMappings = [
+  ["SubmitQuoteResponse", "status", "assertSubmitQuoteResponse"],
+  ["QuoteStatus", "status", "assertQuoteStatus"],
+  ["HedgeIntentStatus", "status", "assertHedgeIntentStatus"],
+  ["HedgeIntentStatus", "side", "assertHedgeIntentStatus"],
+  ["HedgeIntentStatus", "reason", "assertHedgeIntentStatus"],
+  ["SettlementEventStatus", "status", "assertSettlementEventStatus"],
+  ["PnlTradeRecord", "model", "assertPnlTradeRecord"],
+  ["PnlSummary", "status", "assertPnlSummary"],
+  ["HealthResponse", "status", "isHealthResponse"],
+  ["ReadinessResponse", "status", "isReadinessResponse"],
+];
 
 for (const [backendName, sdkName, openapiName] of schemaMappings) {
   const backendFields = extractInterfaceFields(backendTypesSource, backendName);
@@ -69,6 +81,20 @@ for (const [backendName, sdkName, openapiName, propertyName] of inlineEnumMappin
     extractOpenApiEnum(openapiSource, openapiName, propertyName),
     backendValues,
     `OpenAPI ${openapiName}.${propertyName} enum must match backend ${backendName}.${propertyName}`,
+  );
+}
+
+for (const [sdkName, propertyName, functionName] of sdkRuntimeEnumMappings) {
+  const runtimeValues = extractSdkRuntimeEnumGuardValues(sdkClientSource, functionName, propertyName);
+  assert.deepEqual(
+    runtimeValues,
+    extractInterfacePropertyEnumValues(sdkTypesSource, sdkName, propertyName),
+    `SDK runtime ${functionName} ${sdkName}.${propertyName} enum guard must match SDK type`,
+  );
+  assert.deepEqual(
+    runtimeValues,
+    extractOpenApiEnum(openapiSource, sdkName, propertyName),
+    `SDK runtime ${functionName} ${sdkName}.${propertyName} enum guard must match OpenAPI`,
   );
 }
 
@@ -138,6 +164,21 @@ assert.deepEqual(
   extractOpenApiSchemaEnum(openapiSource, "ReadinessComponentStatus"),
   extractStringUnionValues(backendReadinessSource, "ReadinessComponentStatus"),
   "OpenAPI ReadinessComponentStatus enum must match backend",
+);
+assert.deepEqual(
+  extractInterfacePropertyEnumValues(backendReadinessSource, "ReadinessResponse", "status"),
+  extractInterfacePropertyEnumValues(sdkTypesSource, "ReadinessResponse", "status"),
+  "SDK ReadinessResponse.status enum must match backend",
+);
+assert.deepEqual(
+  extractOpenApiEnum(openapiSource, "ReadinessResponse", "status"),
+  extractInterfacePropertyEnumValues(backendReadinessSource, "ReadinessResponse", "status"),
+  "OpenAPI ReadinessResponse.status enum must match backend",
+);
+assert.deepEqual(
+  extractSdkRuntimeLocalStatusGuardValues(sdkClientSource, "isReadinessComponents"),
+  extractStringUnionValues(sdkTypesSource, "ReadinessComponentStatus"),
+  "SDK runtime isReadinessComponents component status guard must match SDK ReadinessComponentStatus",
 );
 
 assert.deepEqual(
@@ -241,6 +282,23 @@ function extractInterfacePropertyStringUnionValues(source, interfaceName, proper
   return values;
 }
 
+function extractInterfacePropertyEnumValues(source, interfaceName, propertyName) {
+  const match = source.match(new RegExp(`export\\s+interface\\s+${interfaceName}\\s+\\{([\\s\\S]*?)\\n\\}`));
+  assert.ok(match, `Unable to find TypeScript interface ${interfaceName}`);
+
+  const propertyMatch = match[1].match(new RegExp(`^\\s+${propertyName}\\??:\\s*([^;]+);`, "m"));
+  assert.ok(propertyMatch, `Unable to find ${interfaceName}.${propertyName}`);
+
+  const literalValues = [...propertyMatch[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+  if (literalValues.length > 0) {
+    return literalValues;
+  }
+
+  const aliasMatch = propertyMatch[1].trim().match(/^([A-Z][A-Za-z0-9]*)$/);
+  assert.ok(aliasMatch, `${interfaceName}.${propertyName} must be a string literal union or type alias`);
+  return extractStringUnionValues(source, aliasMatch[1]);
+}
+
 function extractStringUnionValues(source, typeName) {
   const match = source.match(new RegExp(`export\\s+type\\s+${typeName}\\s*=([\\s\\S]*?);`));
   assert.ok(match, `Unable to find TypeScript string union ${typeName}`);
@@ -255,6 +313,60 @@ function extractConstStringArray(source, constName) {
   const values = [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
   assert.ok(values.length > 0, `${constName} must not be empty`);
   return values;
+}
+
+function extractSdkRuntimeEnumGuardValues(source, functionName, propertyName) {
+  const body = extractFunctionBody(source, functionName);
+  const enumCallMatch = body.match(
+    new RegExp(`assertRequiredEnumField\\(\\s*[a-zA-Z][a-zA-Z0-9]*\\s*,\\s*"${propertyName}"\\s*,\\s*\\[([\\s\\S]*?)\\]`),
+  );
+  if (enumCallMatch) {
+    return extractStringLiterals(enumCallMatch[1], `${functionName}.${propertyName}`);
+  }
+
+  const comparisonPattern = new RegExp(`(?:payload|value)\\.${propertyName}\\s*(?:===|!==)\\s*"([^"]+)"`, "g");
+  const values = uniquePreservingOrder([...body.matchAll(comparisonPattern)].map((item) => item[1]));
+  assert.ok(values.length > 0, `Unable to find SDK runtime enum guard for ${functionName}.${propertyName}`);
+  return values;
+}
+
+function extractSdkRuntimeLocalStatusGuardValues(source, functionName) {
+  const body = extractFunctionBody(source, functionName);
+  const values = uniquePreservingOrder([...body.matchAll(/\bstatus\s*(?:===|!==)\s*"([^"]+)"/g)].map((item) => item[1]));
+  assert.ok(values.length > 0, `Unable to find SDK runtime local status guard for ${functionName}`);
+  return values;
+}
+
+function extractFunctionBody(source, functionName) {
+  const functionIndex = source.indexOf(`function ${functionName}`);
+  assert.ok(functionIndex >= 0, `Unable to find function ${functionName}`);
+  const bodyStart = source.indexOf("{", functionIndex);
+  assert.ok(bodyStart >= 0, `Unable to find function body for ${functionName}`);
+
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === "{") {
+      depth += 1;
+    }
+    if (source[index] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(bodyStart + 1, index);
+      }
+    }
+  }
+
+  assert.fail(`Unable to close function body for ${functionName}`);
+}
+
+function extractStringLiterals(source, label) {
+  const values = [...source.matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+  assert.ok(values.length > 0, `${label} must contain string literals`);
+  return values;
+}
+
+function uniquePreservingOrder(values) {
+  return [...new Set(values)];
 }
 
 function extractOpenApiSchema(source, schemaName) {
