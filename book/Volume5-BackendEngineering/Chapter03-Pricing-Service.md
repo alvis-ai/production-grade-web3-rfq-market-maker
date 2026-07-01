@@ -110,7 +110,7 @@ price(input: PricingInput): Promise<PricingResult>
 - PricingResult 进入 Risk Service。
 - pricingVersion、spreadBps、sizeImpactBps 和 inventorySkewBps 写入 signed quote record，用于报价回放、风险审计和用户争议解释。
 - Routing failure 是 quote dependency failure，不应落入通用 500，也不应继续执行 pricing/risk/signer。
-- Routing input is validated before route-plan creation: request chain id、user/token addresses、distinct token pair、positive `amountIn`、bounded `slippageBps` and snapshot id / mid price / liquidity / volatility must be sane before Pricing Service receives `routePlan`.
+- Routing input is validated before route-plan creation: malformed root payloads and missing `request` / `snapshot` objects fail before field access, then request chain id、user/token addresses、distinct token pair、positive `amountIn`、bounded `slippageBps` and snapshot id / mid price / liquidity / volatility must be sane before Pricing Service receives `routePlan`.
 - Pricing input is validated before formula execution: malformed root payloads and missing `request` / `snapshot` / `routePlan` objects fail before field access, then request addresses and amounts, snapshot identifiers and market fields, route venue/liquidity, route token pair alignment, slippage bps and inventory skew bounds must be sane before any signed quote candidate can be produced.
 - `FormulaPricingEngine` rejects malformed pricing config objects before reading numeric fields, then snapshots `FormulaPricingConfig` at construction after validation. External callers must not be able to mutate base spread, inventory buffer, volatility divisor or adjustment caps after construction and silently change quote economics.
 

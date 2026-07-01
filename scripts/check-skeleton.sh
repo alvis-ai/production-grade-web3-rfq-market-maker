@@ -160,8 +160,12 @@ grep -q 'APIError serializes stable client responses without internal reason cod
 test -s backend/src/modules/routing/routing.engine.ts
 grep -q 'InternalInventoryRoutingEngine creates deterministic internal inventory route plans' backend/test/routing.test.mjs
 grep -q 'assertRouteInput(input)' backend/src/modules/routing/routing.engine.ts
+grep -q 'assertObject(input.request, "request")' backend/src/modules/routing/routing.engine.ts
+grep -q 'assertObject(input.snapshot, "snapshot")' backend/src/modules/routing/routing.engine.ts
 grep -q 'Routing request token pair must contain distinct tokens' backend/src/modules/routing/routing.engine.ts
+grep -q 'InternalInventoryRoutingEngine rejects malformed route payload envelopes before planning' backend/test/routing.test.mjs
 grep -q 'InternalInventoryRoutingEngine rejects unsafe route inputs before planning' backend/test/routing.test.mjs
+grep -q 'malformed root payloads and missing `request` / `snapshot` objects fail before field access' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 test -s backend/src/shared/validation/quote-request.ts
 test -s backend/src/shared/validation/submit-request.ts
 grep -q 'validateSubmitQuoteRequest rejects unsafe submit payloads before execution' backend/test/validation.test.mjs

@@ -36,6 +36,9 @@ export class InternalInventoryRoutingEngine implements RoutingEngine {
 }
 
 function assertRouteInput(input: RouteInput): void {
+  assertObject(input, "input");
+  assertObject(input.request, "request");
+  assertObject(input.snapshot, "snapshot");
   assertPositiveSafeInteger(input.request.chainId, "request.chainId");
   assertAddress(input.request.user, "request.user");
   assertAddress(input.request.tokenIn, "request.tokenIn");
@@ -50,6 +53,12 @@ function assertRouteInput(input: RouteInput): void {
   assertPositiveDecimalString(input.snapshot.midPrice, "snapshot.midPrice");
   assertPositiveUIntString(input.snapshot.liquidityUsd, "snapshot.liquidityUsd");
   assertNonNegativeBps(input.snapshot.volatilityBps, "snapshot.volatilityBps");
+}
+
+function assertObject(value: unknown, field: "input" | "request" | "snapshot"): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Routing ${field} must be an object`);
+  }
 }
 
 function assertPositiveSafeInteger(value: number, field: string): void {

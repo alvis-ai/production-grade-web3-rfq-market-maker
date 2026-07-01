@@ -34,6 +34,30 @@ test("InternalInventoryRoutingEngine creates deterministic internal inventory ro
   });
 });
 
+test("InternalInventoryRoutingEngine rejects malformed route payload envelopes before planning", async () => {
+  const engine = new InternalInventoryRoutingEngine();
+
+  await assert.rejects(
+    engine.selectRoute(undefined),
+    /Routing input must be an object/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      snapshot,
+    }),
+    /Routing request must be an object/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      request,
+      snapshot: null,
+    }),
+    /Routing snapshot must be an object/,
+  );
+});
+
 test("InternalInventoryRoutingEngine rejects unsafe route inputs before planning", async () => {
   const engine = new InternalInventoryRoutingEngine();
 
