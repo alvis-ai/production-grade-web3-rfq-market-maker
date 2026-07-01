@@ -144,14 +144,26 @@ test("InMemoryRateLimiter rejects unsafe request inputs before writing buckets",
   });
 
   assert.throws(
+    () => limiter.check(undefined),
+    /Rate limit input must be an object/,
+  );
+
+  assert.throws(
     () => limiter.check({ endpoint: "quote", clientId: " " }),
     /Rate limit clientId must be a non-empty string/,
+  );
+
+  assert.throws(
+    () => limiter.check({ endpoint: "quote", clientId: "a".repeat(129) }),
+    /Rate limit clientId must be 128 characters or fewer/,
   );
 
   assert.throws(
     () => limiter.check({ endpoint: "metrics", clientId: "client-a" }),
     /Rate limit endpoint must be quote, submit, or status/,
   );
+
+  assert.equal(limiter.buckets.size, 0);
 
   assert.deepEqual(limiter.check({ endpoint: "quote", clientId: "client-a" }, 1000), {
     allowed: true,

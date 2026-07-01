@@ -23,6 +23,8 @@ interface RateLimitBucket {
   resetAt: number;
 }
 
+const maxRateLimitClientIdLength = 128;
+
 export const defaultRateLimitConfig: RateLimitConfig = {
   windowMs: 60_000,
   maxQuoteRequests: 120,
@@ -44,13 +46,12 @@ export class InMemoryRateLimiter {
   }
 
   check(input: RateLimitInput, now = Date.now()): RateLimitDecision {
-    assertRateLimitInput(input);
+    const safeInput = normalizeRateLimitInput(input);
     assertRateLimitTimestamp(now);
     this.sweepExpiredBuckets(now);
 
-    const limit = this.limitFor(input.endpoint);
-    const clientId = normalizeRateLimitClientId(input.clientId);
-    const bucketKey = `${input.endpoint}:${clientId}`;
+    const limit = this.limitFor(safeInput.endpoint);
+    const bucketKey = `${safeInput.endpoint}:${safeInput.clientId}`;
     const bucket = this.buckets.get(bucketKey) ?? { count: 0, resetAt: resetAtFor(now, this.config.windowMs) };
 
     if (bucket.count >= limit) {
@@ -99,17 +100,35 @@ function assertPositiveSafeInteger(value: number, field: keyof RateLimitConfig):
   }
 }
 
-function assertRateLimitInput(input: RateLimitInput): void {
-  if (!["quote", "submit", "status"].includes(input.endpoint)) {
+function normalizeRateLimitInput(input: RateLimitInput): RateLimitInput {
+  if (!isRecord(input)) {
+    throw new Error("Rate limit input must be an object");
+  }
+  if (!isRateLimitedEndpoint(input.endpoint)) {
     throw new Error("Rate limit endpoint must be quote, submit, or status");
   }
   if (typeof input.clientId !== "string" || input.clientId.trim().length === 0) {
     throw new Error("Rate limit clientId must be a non-empty string");
   }
+
+  const clientId = normalizeRateLimitClientId(input.clientId);
+  if (clientId.length > maxRateLimitClientIdLength) {
+    throw new Error("Rate limit clientId must be 128 characters or fewer");
+  }
+
+  return { endpoint: input.endpoint, clientId };
 }
 
 function normalizeRateLimitClientId(clientId: string): string {
   return clientId.trim().toLowerCase();
+}
+
+function isRateLimitedEndpoint(value: unknown): value is RateLimitedEndpoint {
+  return value === "quote" || value === "submit" || value === "status";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function assertRateLimitTimestamp(now: number): void {

@@ -435,13 +435,16 @@ grep -q 'class BasicRiskEngine' backend/src/modules/risk/risk.engine.ts
 grep -q 'class InMemoryRateLimiter' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'cloneRateLimitConfig' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'assertPositiveSafeInteger' backend/src/modules/rate-limit/rate-limit.service.ts
-grep -q 'assertRateLimitInput(input)' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'normalizeRateLimitInput(input)' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'assertRateLimitTimestamp(now)' backend/src/modules/rate-limit/rate-limit.service.ts
-grep -q 'normalizeRateLimitClientId(input.clientId)' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'maxRateLimitClientIdLength' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'sweepExpiredBuckets(now)' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'Rate limit input must be an object' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'Rate limit clientId must be a non-empty string' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'Rate limit clientId must be 128 characters or fewer' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'InMemoryRateLimiter normalizes client identities before bucketing' backend/test/rate-limit.test.mjs
 grep -q 'client identity trim + lowercase' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q '128 character clientId upper bound' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'maxQuoteRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxSubmitRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxStatusRequests' backend/src/modules/rate-limit/rate-limit.service.ts

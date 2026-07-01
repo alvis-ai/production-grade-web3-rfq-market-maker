@@ -31,7 +31,10 @@ assertContains(rateLimiterSource, [
   'assertPositiveSafeInteger(config.maxQuoteRequests, "maxQuoteRequests")',
   'assertPositiveSafeInteger(config.maxSubmitRequests, "maxSubmitRequests")',
   'assertPositiveSafeInteger(config.maxStatusRequests, "maxStatusRequests")',
-  "normalizeRateLimitClientId(input.clientId)",
+  "normalizeRateLimitInput(input)",
+  "maxRateLimitClientIdLength",
+  "Rate limit input must be an object",
+  "Rate limit clientId must be 128 characters or fewer",
   "clientId.trim().toLowerCase()",
   "Rate limit ${field} must be a positive safe integer",
 ], "backend/src/modules/rate-limit/rate-limit.service.ts");
@@ -75,6 +78,8 @@ assertContains(apiTestSource, [
 
 assertContains(rateLimitTestSource, [
   "InMemoryRateLimiter normalizes client identities before bucketing",
+  "Rate limit input must be an object",
+  "Rate limit clientId must be 128 characters or fewer",
 ], "backend/test/rate-limit.test.mjs");
 
 assertContains(sdkClientSource, [
@@ -128,6 +133,7 @@ assertContains(gatewayChapterSource, [
   "默认 `RFQ_TRUST_PROXY=false`",
   "启用 `RFQ_TRUST_PROXY=true`",
   "client identity trim + lowercase",
+  "128 character clientId upper bound",
   "`RATE_LIMITED`、HTTP 429 和 `Retry-After`",
 ], "book/Volume5-BackendEngineering/Chapter01-API-Gateway.md");
 
