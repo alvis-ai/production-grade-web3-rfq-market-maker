@@ -417,7 +417,7 @@ test("SettlementEventService rejects conflicting events for an already settled q
 });
 
 test("SettlementEventService rejects invalid transaction hashes before side effects", () => {
-  for (const txHash of ["0x1234", `0x${"gg".repeat(32)}`]) {
+  for (const txHash of ["0x1234", `0x${"gg".repeat(32)}`, new String(`0x${"55".repeat(32)}`)]) {
     const inventory = new InventoryService();
     const settlements = new SettlementEventService(inventory);
 

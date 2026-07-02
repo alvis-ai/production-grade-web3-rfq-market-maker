@@ -195,7 +195,7 @@ function assertHedgeRiskInput(input: HedgeRiskInput): void {
   if (!Number.isSafeInteger(input.chainId) || input.chainId <= 0) {
     throw new Error("Hedge chainId must be a positive safe integer");
   }
-  if (!/^0x[0-9a-fA-F]{40}$/.test(input.token)) {
+  if (typeof input.token !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(input.token)) {
     throw new Error("Hedge token must be a 20-byte hex address");
   }
 }

@@ -1086,6 +1086,7 @@ grep -q 'assertSettlementEventInput' backend/src/modules/settlement/settlement-e
 grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'Settlement event quote.amountOut must be greater than or equal to quote.minAmountOut' backend/src/modules/settlement/settlement-event.service.ts
 grep -Fq '!/^[1-9][0-9]*$/.test(value)' backend/src/modules/settlement/settlement-event.service.ts
+grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'keeps distinct events with the same tx hash prefix' backend/test/settlement-event.test.mjs
 grep -q 'rejects conflicting events for an already settled quote' backend/test/settlement-event.test.mjs
 grep -q 'lists settlement events in chain order' backend/test/settlement-event.test.mjs
@@ -1094,6 +1095,7 @@ grep -q 'rejects unsafe settlement event lookup identifiers' backend/test/settle
 grep -q 'Settlement event settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects unsafe inventory dependency at construction' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects malformed event payload envelopes before side effects' backend/test/settlement-event.test.mjs
+grep -q 'new String(`0x${"55".repeat(32)}`)' backend/test/settlement-event.test.mjs
 grep -q 'amountIn: "01000"' backend/test/settlement-event.test.mjs
 grep -q 'amountOut: "0990"' backend/test/settlement-event.test.mjs
 grep -q 'minAmountOut: "0980"' backend/test/settlement-event.test.mjs
@@ -1102,6 +1104,7 @@ grep -q 'returns defensive copies from apply, remove, get and list operations' b
 grep -q 'canonical positive uint strings without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SettlementEventService` validates inventory dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Malformed settlement event dependency, apply input, reorg input and quote envelopes are rejected as non-array objects before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q '`txHash` as a runtime string and a 32-byte hex string' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Settlement event ingestion validates `quoteId` as a `SafeIdentifier` and validates the derived `settlementEventId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Settlement status lookups also validate `settlementEventId` before reading the in-memory store' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'removes reorged events and rebuilds inventory from canonical events' backend/test/settlement-event.test.mjs
@@ -1211,6 +1214,7 @@ grep -q 'assertSafeIdentifier(intent.settlementEventId, "settlementEventId")' ba
 grep -q 'assertSafeIdentifier(intent.quoteId, "quoteId")' backend/src/modules/hedge/hedge.service.ts
 grep -q 'assertObject(intent, "intent")' backend/src/modules/hedge/hedge.service.ts
 grep -q 'assertObject(input, "risk input")' backend/src/modules/hedge/hedge.service.ts
+grep -Fq 'typeof input.token !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(input.token)' backend/src/modules/hedge/hedge.service.ts
 grep -Fq '!/^[1-9][0-9]*$/.test(value)' backend/src/modules/hedge/hedge.service.ts
 grep -q 'failurePenaltyBps must be less than or equal to maxFailurePenaltyBps' backend/src/modules/hedge/hedge.service.ts
 grep -q 'HedgeService rejects unsafe failure penalty configuration at construction' backend/test/hedge.test.mjs
@@ -1218,6 +1222,7 @@ grep -q 'HedgeService snapshots failure penalty configuration at construction' b
 grep -q 'HedgeService rejects malformed intent and risk payload envelopes before state writes' backend/test/hedge.test.mjs
 grep -q 'HedgeService rejects unsafe intent inputs before writing hedge state' backend/test/hedge.test.mjs
 grep -q 'amount: "0100"' backend/test/hedge.test.mjs
+grep -q 'token: new String(intent.token)' backend/test/hedge.test.mjs
 grep -q 'Hedge settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/hedge.test.mjs
 grep -q 'Hedge quoteId must be 128 characters or fewer' backend/test/hedge.test.mjs
 grep -q 'HedgeService rejects unsafe hedge status lookup identifiers' backend/test/hedge.test.mjs
@@ -1226,6 +1231,7 @@ grep -q 'HedgeService rejects unsafe risk feedback inputs before recording press
 grep -q 'failure penalty config fail-fast' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'snapshots `HedgeServiceConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'settlementEventId` and `quoteId` must be `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
+grep -q '`token` must be a runtime string and a 20-byte address' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'canonical positive uint string without leading zeros' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'Hedge status lookups validate `hedgeOrderId` and `settlementEventId` as `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'Malformed hedge config, intent and risk feedback root payloads are rejected before field access or state mutation' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
@@ -1964,7 +1970,7 @@ grep -q 'settlement block number' scripts/smoke-api.mjs
 grep -q 'Quote Hash' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Block' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'blockNumber' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'txHash` as a 32-byte hex string' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'txHash` as a runtime string and a 32-byte hex string' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'non-negative safe integers' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'settlement_events.block_number` and `settlement_events.log_index` with a `0..9007199254740991` range check' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'blockNumber' docs/diagrams/submit-sequence.md

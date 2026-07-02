@@ -236,8 +236,8 @@ function assertDependencyMethod(
   }
 }
 
-function normalizeTxHash(value: `0x${string}`): `0x${string}` {
-  if (!/^0x[0-9a-fA-F]{64}$/.test(value)) {
+function normalizeTxHash(value: unknown): `0x${string}` {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
     throw new Error("Settlement event txHash must be a 32-byte hex string");
   }
 

@@ -198,6 +198,10 @@ test("HedgeService rejects unsafe intent inputs before writing hedge state", () 
     /Hedge token must be a 20-byte hex address/,
   );
   assert.throws(
+    () => service.createHedgeIntent({ ...intent, token: new String(intent.token) }),
+    /Hedge token must be a 20-byte hex address/,
+  );
+  assert.throws(
     () => service.createHedgeIntent({ ...intent, amount: "0" }),
     /Hedge amount must be a positive uint string/,
   );
@@ -259,6 +263,10 @@ test("HedgeService rejects unsafe risk feedback inputs before recording pressure
   );
   assert.throws(
     () => service.quoteRiskPenaltyBps({ chainId: 1, token: "0x1234" }),
+    /Hedge token must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () => service.quoteRiskPenaltyBps({ chainId: 1, token: new String(intent.token) }),
     /Hedge token must be a 20-byte hex address/,
   );
   assert.equal(service.quoteRiskPenaltyBps({ chainId: intent.chainId, token: intent.token }), 0);
