@@ -395,7 +395,7 @@ function assertExactFields(
   }
 
   for (const field of expectedFields) {
-    if (!(field in payload)) {
+    if (!Object.prototype.hasOwnProperty.call(payload, field)) {
       throw new RFQClientError(`${label} missing required field ${field}`, 0);
     }
   }

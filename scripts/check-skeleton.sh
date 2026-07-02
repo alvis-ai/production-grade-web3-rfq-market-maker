@@ -1598,6 +1598,7 @@ grep -q 'quoteRequestFields' sdk/src/client.ts
 grep -q 'submitRequestFields' sdk/src/client.ts
 grep -q 'assertSubmitQuoteRequest(request)' sdk/src/client.ts
 grep -q 'assertExactFields(request, submitRequestFields, "RFQ submit request")' sdk/src/client.ts
+grep -q 'hasOwnProperty.call(payload, field)' sdk/src/client.ts
 grep -q 'buildSubmitQuoteArgs(request.quote, request.signature)' sdk/src/client.ts
 grep -q 'async getQuote' sdk/src/client.ts
 grep -q 'async getSettlement' sdk/src/client.ts
@@ -1618,6 +1619,8 @@ grep -q 'RFQ PnL summary response trade returned malformed quoteId' sdk/test/sdk
 grep -q 'RFQClient rejects unsafe dynamic status identifiers before fetch' sdk/test/sdk.test.mjs
 grep -q 'RFQ submit request must not include unknown field relayer' sdk/test/sdk.test.mjs
 grep -q 'RFQ submit request missing required field signature' sdk/test/sdk.test.mjs
+grep -q 'RFQ quote request missing required field chainId' sdk/test/sdk.test.mjs
+grep -q 'RFQ submit request missing required field quote' sdk/test/sdk.test.mjs
 grep -q 'new String("q_test")' sdk/test/sdk.test.mjs
 grep -q 'new String("h_test")' sdk/test/sdk.test.mjs
 grep -q 'new String("se_test")' sdk/test/sdk.test.mjs
@@ -1708,7 +1711,7 @@ grep -q 'preserving safe path prefixes such as `/rfq`' book/Volume6-Frontend-And
 grep -q 'RFQClient.quote()` validates outgoing quote requests locally' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'without leading zeros' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient rejects unsafe submit requests before sending HTTP' sdk/test/sdk.test.mjs
-grep -q 'RFQClient.submit()` validates outgoing submit payloads locally with closed top-level `quote` / `signature` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'RFQClient.submit()` validates outgoing submit payloads locally with closed top-level own `quote` / `signature` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'reject non-string address, signature and uint-like values' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID` 由 RainbowKit 使用' book/Volume6-Frontend-And-SDK/Chapter01-Frontend-Architecture.md
 grep -q 'assertRequiredEnumField' sdk/src/client.ts

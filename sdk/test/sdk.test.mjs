@@ -844,6 +844,10 @@ test("RFQClient rejects unsafe quote requests before sending HTTP", async () => 
       message: "RFQ quote request must not include unknown field extra",
     },
     {
+      request: Object.create(quoteRequest),
+      message: "RFQ quote request missing required field chainId",
+    },
+    {
       request: { ...quoteRequest, chainId: 0 },
       message: "RFQ quote request chainId must be a positive safe integer",
     },
@@ -926,6 +930,16 @@ test("RFQClient rejects unsafe submit requests before sending HTTP", async () =>
         assert.ok(error instanceof RFQClientError);
         assert.equal(error.status, 0);
         assert.equal(error.message, "RFQ submit request missing required field signature");
+        return true;
+      },
+    );
+
+    await assert.rejects(
+      client.submit(Object.create({ quote, signature })),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.message, "RFQ submit request missing required field quote");
         return true;
       },
     );
