@@ -90,7 +90,7 @@ function assertRecord(value: unknown, field: string): void {
 }
 
 function parseAddress(value: Address, field: string): Address {
-  if (!/^0x[a-fA-F0-9]{40}$/.test(value)) {
+  if (typeof value !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(value)) {
     throw new Error(`${field} must be a 20-byte hex address`);
   }
 
@@ -98,7 +98,7 @@ function parseAddress(value: Address, field: string): Address {
 }
 
 function parseSignature(value: `0x${string}`, field: string): `0x${string}` {
-  if (!/^0x[a-fA-F0-9]{130}$/.test(value)) {
+  if (typeof value !== "string" || !/^0x[a-fA-F0-9]{130}$/.test(value)) {
     throw new Error(`${field} must be a 65-byte hex signature`);
   }
 
@@ -133,7 +133,7 @@ function parseUInt(value: UIntString | bigint, field: string): bigint {
     return value;
   }
 
-  if (!/^[0-9]+$/.test(value)) {
+  if (typeof value !== "string" || !/^[0-9]+$/.test(value)) {
     throw new Error(`${field} must be a uint string`);
   }
 

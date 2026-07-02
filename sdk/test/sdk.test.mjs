@@ -105,6 +105,10 @@ test("buildQuoteTypedData rejects invalid EIP-712 domain and quote fields", () =
     () => buildRFQDomain(quote.chainId, "0x1234"),
     /verifyingContract must be a 20-byte hex address/,
   );
+  assert.throws(
+    () => buildRFQDomain(quote.chainId, new String(verifyingContract)),
+    /verifyingContract must be a 20-byte hex address/,
+  );
 
   assert.throws(
     () => buildQuoteTypedData(undefined, verifyingContract),
@@ -122,6 +126,17 @@ test("buildQuoteTypedData rejects invalid EIP-712 domain and quote fields", () =
       ),
     /quote\.tokenIn must be a 20-byte hex address/,
   );
+  assert.throws(
+    () =>
+      buildQuoteTypedData(
+        {
+          ...quote,
+          user: new String(quote.user),
+        },
+        verifyingContract,
+      ),
+    /quote\.user must be a 20-byte hex address/,
+  );
 
   assert.throws(
     () =>
@@ -131,8 +146,19 @@ test("buildQuoteTypedData rejects invalid EIP-712 domain and quote fields", () =
           amountOut: "0",
         },
         verifyingContract,
-      ),
+    ),
     /quote\.amountOut must be a positive uint string/,
+  );
+  assert.throws(
+    () =>
+      buildQuoteTypedData(
+        {
+          ...quote,
+          amountIn: 1000000000,
+        },
+        verifyingContract,
+      ),
+    /quote\.amountIn must be a positive uint string/,
   );
 
   assert.throws(
@@ -252,6 +278,10 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
     () => buildSubmitQuoteArgs(quote, "0x1234"),
     /signature must be a 65-byte hex signature/,
   );
+  assert.throws(
+    () => buildSubmitQuoteArgs(quote, new String(signature)),
+    /signature must be a 65-byte hex signature/,
+  );
 
   assert.throws(
     () => buildSubmitQuoteArgs(quote, `0x${"11".repeat(64)}02`),
@@ -264,6 +294,28 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
         {
           ...quote,
           amountIn: "-1",
+        },
+        signature,
+      ),
+    /quote\.amountIn must be a positive uint string/,
+  );
+  assert.throws(
+    () =>
+      buildSubmitQuoteArgs(
+        {
+          ...quote,
+          user: new String(quote.user),
+        },
+        signature,
+      ),
+    /quote\.user must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () =>
+      buildSubmitQuoteArgs(
+        {
+          ...quote,
+          amountIn: 1000000000,
         },
         signature,
       ),
@@ -339,6 +391,15 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
         amount: -1n,
       }),
     /amount must be a uint/,
+  );
+  assert.throws(
+    () =>
+      buildTreasuryTransferArgs({
+        token: quote.tokenOut,
+        to: quote.user,
+        amount: new String(quote.amountOut),
+      }),
+    /amount must be a uint string/,
   );
 
   assert.throws(

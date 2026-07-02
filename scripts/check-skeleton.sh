@@ -1381,16 +1381,23 @@ grep -q 'parseSignature' sdk/src/settlement.ts
 grep -q 'SECP256K1N_HALF' sdk/src/settlement.ts
 grep -q 's value must be in the lower half order' sdk/src/settlement.ts
 grep -q 'parsePositiveUInt' sdk/src/settlement.ts
+grep -Fq 'typeof value !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(value)' sdk/src/settlement.ts
+grep -Fq 'typeof value !== "string" || !/^0x[a-fA-F0-9]{130}$/.test(value)' sdk/src/settlement.ts
+grep -Fq 'typeof value !== "string" || !/^[0-9]+$/.test(value)' sdk/src/settlement.ts
 grep -q 'nonce: parsePositiveUInt(quote.nonce, "quote.nonce")' sdk/src/settlement.ts
 grep -q 'treasury transfer input must be an object' sdk/test/sdk.test.mjs
 grep -q 'quote must be an object' sdk/test/sdk.test.mjs
 grep -Fq 'quote\.nonce must be a positive uint string' sdk/test/sdk.test.mjs
+grep -q 'new String(signature)' sdk/test/sdk.test.mjs
+grep -q 'amountIn: 1000000000' sdk/test/sdk.test.mjs
 grep -q 'Settlement helpers reject high-s signatures before contract calls' sdk/test/sdk.test.mjs
 grep -q 'buildSubmitQuoteArgs()` rejects non-canonical high-s ECDSA signatures' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'quote.amountOut must be greater than or equal to quote.minAmountOut' sdk/src/settlement.ts
 grep -q 'buildQuoteTypedData' sdk/src/eip712.ts
 grep -q 'assertQuoteShape' sdk/src/eip712.ts
 grep -q 'parsePositiveUInt(quote.nonce, "quote.nonce")' sdk/src/eip712.ts
+grep -Fq 'typeof value !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(value)' sdk/src/eip712.ts
+grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' sdk/src/eip712.ts
 grep -q 'quote.tokenIn and quote.tokenOut must be different' sdk/src/eip712.ts
 grep -q 'ProductionGradeRFQ' sdk/src/eip712.ts
 grep -q 'RFQClientError' sdk/test/sdk.test.mjs
@@ -1508,6 +1515,7 @@ grep -q 'RFQClient.quote()` validates outgoing quote requests locally' book/Volu
 grep -q 'without leading zeros' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient rejects unsafe submit requests before sending HTTP' sdk/test/sdk.test.mjs
 grep -q 'RFQClient.submit()` validates outgoing submit payloads locally' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'reject non-string address, signature and uint-like values' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID` 由 RainbowKit 使用' book/Volume6-Frontend-And-SDK/Chapter01-Frontend-Architecture.md
 grep -q 'assertRequiredEnumField' sdk/src/client.ts
 grep -q 'assertRequiredNonNegativeIntegerField' sdk/src/client.ts
