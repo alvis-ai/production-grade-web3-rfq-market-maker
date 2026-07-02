@@ -386,8 +386,11 @@ function sendError(
   return reply.header("x-trace-id", traceId).code(error.statusCode).send(error.toResponse(traceId));
 }
 
-function assertStatusIdentifier(value: string, field: "quoteId" | "hedgeOrderId" | "settlementEventId"): void {
-  if (typeof value !== "string" || value.trim().length === 0) {
+function assertStatusIdentifier(value: unknown, field: "quoteId" | "hedgeOrderId" | "settlementEventId"): void {
+  if (typeof value !== "string") {
+    throw new APIError("INVALID_REQUEST", `${field} must be a primitive string`, 400);
+  }
+  if (value.trim().length === 0) {
     throw new APIError("INVALID_REQUEST", `${field} must be a non-empty string`, 400);
   }
   if (value.length > maxStatusIdentifierLength) {

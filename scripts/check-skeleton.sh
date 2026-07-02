@@ -349,6 +349,8 @@ grep -q 'server.get("/settlements/:settlementEventId"' backend/src/main.ts
 grep -q 'server.get("/hedges/:hedgeOrderId"' backend/src/main.ts
 grep -q 'server.get("/pnl"' backend/src/main.ts
 grep -q 'assertStatusIdentifier' backend/src/main.ts
+grep -Fq 'function assertStatusIdentifier(value: unknown' backend/src/main.ts
+grep -q '${field} must be a primitive string' backend/src/main.ts
 grep -q 'maxStatusIdentifierLength' backend/src/main.ts
 grep -q 'maxStatusIdentifierRouteParamLength' backend/src/main.ts
 grep -q 'maxParamLength: maxStatusIdentifierRouteParamLength' backend/src/main.ts
@@ -356,6 +358,7 @@ grep -q 'statusIdentifierPattern' backend/src/main.ts
 grep -q 'RFQ API rejects unsafe status path identifiers before store lookup' backend/test/api.test.mjs
 grep -q 'quoteId must be 128 characters or fewer' backend/test/api.test.mjs
 grep -q 'settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/api.test.mjs
+grep -q 'primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Status endpoints reject unsafe dynamic identifiers before store lookup' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'server.get("/ready"' backend/src/main.ts
 grep -q 'readiness.status === "degraded"' backend/src/main.ts
