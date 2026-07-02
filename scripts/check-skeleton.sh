@@ -580,6 +580,8 @@ grep -q 'must match request ${field}' backend/src/modules/risk/risk.engine.ts
 grep -q 'assertChainIds(policy.enabledChainIds)' backend/src/modules/risk/risk.engine.ts
 grep -q 'assertAddressList(policy.tokenAllowlist, "tokenAllowlist", true)' backend/src/modules/risk/risk.engine.ts
 grep -q 'assertBpsUpperBound(policy.maxQuotedSpreadBps, "maxQuotedSpreadBps")' backend/src/modules/risk/risk.engine.ts
+grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)' backend/src/modules/risk/risk.engine.ts
+grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/risk/risk.engine.ts
 grep -q 'cloneBasicRiskPolicy' backend/src/modules/risk/risk.engine.ts
 grep -q 'TOXIC_FLOW_RESTRICTED_USER' backend/src/modules/risk/risk.engine.ts
 grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/src/modules/risk/risk.engine.ts
@@ -590,6 +592,9 @@ grep -q 'Basic risk ${field} must not contain duplicate addresses' backend/src/m
 grep -q 'Basic risk toxicFlowScores must not contain duplicate users' backend/src/modules/risk/risk.engine.ts
 grep -q 'BasicRiskEngine snapshots policy configuration at construction' backend/test/risk.test.mjs
 grep -q 'BasicRiskEngine rejects unsafe policy configuration at construction' backend/test/risk.test.mjs
+grep -q 'new String(baseRequest.tokenIn)' backend/test/risk.test.mjs
+grep -q 'amountIn: "01000000000"' backend/test/risk.test.mjs
+grep -q 'amountOut: "0998400000"' backend/test/risk.test.mjs
 grep -q 'Basic risk tokenAllowlist must not contain duplicate addresses' backend/test/risk.test.mjs
 grep -q 'Basic risk restrictedUsers must not contain duplicate addresses' backend/test/risk.test.mjs
 grep -q 'Basic risk toxicFlowScores must not contain duplicate users' backend/test/risk.test.mjs
@@ -2173,6 +2178,8 @@ grep -q 'BasicRiskEngine rejects malformed runtime payload envelopes before poli
 grep -q 'BasicRiskEngine rejects unsafe runtime inputs before policy evaluation' backend/test/risk.test.mjs
 grep -q 'malformed policy object, policy array fields and toxic-flow score entries must be rejected before field access' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'malformed root payloads and missing `request` / `pricing` / `inventoryProjection` position objects fail before field access' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'canonical decimal form without leading zeros' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'JavaScript regex coercion' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'policy config fail-fast' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'snapshots `BasicRiskPolicy` at construction after validation' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'pricing spread exceeds risk guard before signing' backend/test/api.test.mjs

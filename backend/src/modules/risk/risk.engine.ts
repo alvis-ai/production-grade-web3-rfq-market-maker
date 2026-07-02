@@ -240,7 +240,7 @@ function assertToxicFlowScores(scores: readonly ToxicFlowScore[]): void {
 }
 
 function assertAddress(value: string, field: string): void {
-  if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
     throw new Error(`Basic risk ${field} entries must be 20-byte hex addresses`);
   }
 }
@@ -312,7 +312,7 @@ function assertPositiveSafeInteger(value: number, field: string): void {
 }
 
 function assertPositiveUIntString(value: string, field: string): void {
-  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/.test(value) || BigInt(value) <= 0n) {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
     throw new Error(`Basic risk ${field} must be a positive uint string`);
   }
 }

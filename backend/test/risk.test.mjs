@@ -194,6 +194,15 @@ test("BasicRiskEngine rejects unsafe policy configuration at construction", () =
     () =>
       new BasicRiskEngine({
         ...defaultBasicRiskPolicy,
+        tokenAllowlist: [new String(baseRequest.tokenIn), baseRequest.tokenOut],
+      }),
+    /Basic risk tokenAllowlist entries must be 20-byte hex addresses/,
+  );
+
+  assert.throws(
+    () =>
+      new BasicRiskEngine({
+        ...defaultBasicRiskPolicy,
         tokenAllowlist: [
           "0x0000000000000000000000000000000000000002",
           "0x0000000000000000000000000000000000000002",
@@ -331,10 +340,43 @@ test("BasicRiskEngine rejects unsafe runtime inputs before policy evaluation", a
 
   await assert.rejects(
     engine.evaluate({
+      request: {
+        ...baseRequest,
+        user: new String(baseRequest.user),
+      },
+      pricing: basePricing,
+    }),
+    /Basic risk request.user entries must be 20-byte hex addresses/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: {
+        ...baseRequest,
+        amountIn: "01000000000",
+      },
+      pricing: basePricing,
+    }),
+    /Basic risk request.amountIn must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
       request: baseRequest,
       pricing: {
         ...basePricing,
         amountOut: "0",
+      },
+    }),
+    /Basic risk pricing.amountOut must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: baseRequest,
+      pricing: {
+        ...basePricing,
+        amountOut: "0998400000",
       },
     }),
     /Basic risk pricing.amountOut must be a positive uint string/,
