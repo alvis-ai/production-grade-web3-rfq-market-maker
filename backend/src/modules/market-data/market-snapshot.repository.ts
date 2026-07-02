@@ -115,8 +115,13 @@ function assertNonEmptyString(value: string, field: string): void {
   }
 }
 
-function assertSafeIdentifier(value: string, field: string): void {
-  assertNonEmptyString(value, field);
+function assertSafeIdentifier(value: unknown, field: string): void {
+  if (typeof value !== "string") {
+    throw new Error(`Market snapshot ${field} must be a primitive string`);
+  }
+  if (value.trim().length === 0) {
+    throw new Error(`Market snapshot ${field} must be a non-empty string`);
+  }
   if (value.length > maxSafeIdentifierLength) {
     throw new Error(`Market snapshot ${field} must be 128 characters or fewer`);
   }

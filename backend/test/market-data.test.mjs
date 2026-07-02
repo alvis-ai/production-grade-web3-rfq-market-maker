@@ -253,6 +253,13 @@ test("InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots", 
   await assert.rejects(
     repository.saveSnapshot({
       request,
+      snapshot: { ...snapshot, snapshotId: new String("snapshot_1") },
+    }),
+    /Market snapshot snapshotId must be a primitive string/,
+  );
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
       snapshot: { ...snapshot, snapshotId: "snapshot.bad" },
     }),
     /Market snapshot snapshotId must contain only letters, numbers, underscore, colon, or hyphen/,
@@ -362,6 +369,10 @@ test("InMemoryMarketSnapshotRepository rejects unsafe snapshot lookup identifier
   await assert.rejects(
     repository.findBySnapshotId(" "),
     /Market snapshot snapshotId must be a non-empty string/,
+  );
+  await assert.rejects(
+    repository.findBySnapshotId(new String("snapshot_1")),
+    /Market snapshot snapshotId must be a primitive string/,
   );
   await assert.rejects(
     repository.findBySnapshotId("snapshot/bad"),

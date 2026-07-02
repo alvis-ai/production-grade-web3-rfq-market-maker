@@ -158,6 +158,7 @@ grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/market-data/market-s
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'assertSafeIdentifier(snapshotId, "snapshotId")' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'assertSafeIdentifier(snapshot.snapshotId, "snapshotId")' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'Market snapshot ${field} must be a primitive string' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -Fq 'typeof value === "string" && /^[1-9][0-9]*$/.test(value)' backend/src/modules/market-data/market-data.service.ts
 grep -Fq 'typeof value === "string" && /^[1-9][0-9]*$/.test(value)' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -Fq '/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/market-data/market-data.service.ts
@@ -198,6 +199,7 @@ grep -q 'midPrice: "01.25"' backend/test/market-data.test.mjs
 grep -q 'liquidityUsd: "01000000000000"' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository returns defensive copies' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository rejects unsafe snapshot lookup identifiers' backend/test/market-data.test.mjs
+grep -q 'Market snapshot snapshotId must be a primitive string' backend/test/market-data.test.mjs
 grep -q 'Market snapshot snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/market-data.test.mjs
 grep -q 'Market snapshot snapshotId must be 128 characters or fewer' backend/test/market-data.test.mjs
 grep -q 'QuoteService persists market snapshots before downstream quote side effects' backend/test/quote-service.test.mjs
@@ -207,7 +209,7 @@ grep -q 'QuoteService marks requested quotes as failed when pricing is unavailab
 grep -q '快照 `StaticMarketDataConfig`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'StaticMarketDataService` rejects malformed config and `supportedPairs` entries as non-array objects before reading fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'InMemoryMarketSnapshotRepository` mirrors the PostgreSQL market_snapshots contract' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
-grep -q '`snapshotId` must be a `SafeIdentifier` with 1-128 characters' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q '`snapshotId` must be a primitive-string `SafeIdentifier` with 1-128 characters' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'canonical positive decimal string without leading zeros' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'canonical positive uint string without leading zeros' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q '`observedAt` 必须是 `Date.prototype.toISOString()` 生成的 canonical UTC ISO timestamp' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
