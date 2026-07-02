@@ -65,7 +65,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-前端按 `app/`、`pages/`、`components/`、`hooks/`、`lib/` 组织。SDK 位于独立 package，前端通过 SDK 调用 API，并通过 SDK 导出的 `rfqSettlementAbi` 与 `buildSubmitQuoteArgs` 构造 `RFQSettlement.submitQuote` 的钱包交易。当前实现通过 `VITE_RFQ_API_BASE_URL` 配置 `RFQClient` 的 base URL，默认值为 `http://localhost:3000`，并在交易台 header 展示当前 API endpoint，方便本地、Docker 和部署环境排查。`frontend/src/lib/rfq.ts` 为 `RFQClient` 配置动态 trace provider，每个浏览器 API 请求都会发送一个符合 gateway 规则的 `tr_web_*` `x-trace-id`，让前端错误面板、SDK 异常、后端错误体和网关日志可以按同一 trace 关联。前端启动时会校验 `VITE_RFQ_API_BASE_URL` 必须是绝对 `http(s)` URL，`VITE_RFQ_SETTLEMENT_ADDRESS` 必须是 20-byte hex address；未显式配置时使用本地默认合约地址，但显式错误配置会 fail fast，避免链上提交入口静默降级。
+前端按 `app/`、`pages/`、`components/`、`hooks/`、`lib/` 组织。SDK 位于独立 package，前端通过 SDK 调用 API，并通过 SDK 导出的 `rfqSettlementAbi` 与 `buildSubmitQuoteArgs` 构造 `RFQSettlement.submitQuote` 的钱包交易。当前实现通过 `VITE_RFQ_API_BASE_URL` 配置 `RFQClient` 的 base URL，默认值为 `http://localhost:3000`，并在交易台 header 展示当前 API endpoint，方便本地、Docker 和部署环境排查。`frontend/src/lib/rfq.ts` 为 `RFQClient` 配置动态 trace provider，每个浏览器 API 请求都会发送一个符合 gateway 规则的 `tr_web_*` `x-trace-id`，让前端错误面板、SDK 异常、后端错误体和网关日志可以按同一 trace 关联。前端启动时会校验 `VITE_RFQ_API_BASE_URL` 必须是绝对 `http(s)` URL，可带反向代理 path prefix，但不能包含 credentials、wildcard host、query string 或 fragment；`VITE_RFQ_SETTLEMENT_ADDRESS` 必须是 20-byte hex address。未显式配置时使用本地默认合约地址，但显式错误配置会 fail fast，避免链上提交入口静默降级。
 
 ## Sequence Diagram
 
@@ -112,7 +112,7 @@ stateDiagram-v2
 
 - React/Vite 作为第一版前端。
 - SDK 是 API 和 EIP-712 的唯一客户端抽象。
-- `VITE_RFQ_API_BASE_URL` 是前端 API endpoint 配置入口，`frontend/src/lib/config.ts` 负责规范化 trailing slash。
+- `VITE_RFQ_API_BASE_URL` 是前端 API endpoint 配置入口，`frontend/src/lib/config.ts` 负责规范化 origin 和 trailing slash，同时拒绝 credentials、wildcard host、query string 和 fragment。
 - `frontend/src/lib/rfq.ts` 使用 SDK `traceId` provider 为每个浏览器 API 请求生成 `tr_web_*` trace id，避免前端错误排障只能依赖后端生成值。
 - `VITE_RFQ_SETTLEMENT_ADDRESS` 是浏览器侧合约写入目标；未配置时链上提交按钮保持禁用，但 API relay 路径仍可用于本地 smoke。
 - `VITE_WALLETCONNECT_PROJECT_ID` 由 RainbowKit 使用，本地默认值只用于构建和离线开发。

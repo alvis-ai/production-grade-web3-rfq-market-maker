@@ -796,7 +796,18 @@ function normalizeBaseUrl(baseUrl: string): string {
     throw new RFQClientError("RFQClient baseUrl must use http or https", 0);
   }
 
-  return parsed.toString().replace(/\/+$/, "");
+  if (parsed.username || parsed.password) {
+    throw new RFQClientError("RFQClient baseUrl must not include credentials", 0);
+  }
+  if (parsed.hostname.includes("*")) {
+    throw new RFQClientError("RFQClient baseUrl host must not contain wildcards", 0);
+  }
+  if (parsed.search || parsed.hash || normalized.includes("?") || normalized.includes("#")) {
+    throw new RFQClientError("RFQClient baseUrl must not include query strings or fragments", 0);
+  }
+
+  const pathname = parsed.pathname.replace(/\/+$/, "");
+  return `${parsed.origin}${pathname}`;
 }
 
 function assertNonEmptyIdentifier(value: string, field: "quoteId" | "hedgeOrderId" | "settlementEventId"): string {

@@ -25,7 +25,18 @@ export function normalizeBaseUrl(value: string | undefined): string {
     throw new Error("VITE_RFQ_API_BASE_URL must use http or https");
   }
 
-  return parsed.toString().replace(/\/+$/, "");
+  if (parsed.username || parsed.password) {
+    throw new Error("VITE_RFQ_API_BASE_URL must not include credentials");
+  }
+  if (parsed.hostname.includes("*")) {
+    throw new Error("VITE_RFQ_API_BASE_URL host must not contain wildcards");
+  }
+  if (parsed.search || parsed.hash || candidate.includes("?") || candidate.includes("#")) {
+    throw new Error("VITE_RFQ_API_BASE_URL must not include query strings or fragments");
+  }
+
+  const pathname = parsed.pathname.replace(/\/+$/, "");
+  return `${parsed.origin}${pathname}`;
 }
 
 export function normalizeAddress(value: string | undefined): Address {

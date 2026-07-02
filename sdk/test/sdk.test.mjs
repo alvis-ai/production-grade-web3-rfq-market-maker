@@ -559,6 +559,10 @@ test("RFQClient rejects unsafe base URLs at construction", () => {
     [" ", "RFQClient baseUrl must be a non-empty absolute http(s) URL"],
     ["/relative", "RFQClient baseUrl must be an absolute http(s) URL"],
     ["ftp://127.0.0.1:3000", "RFQClient baseUrl must use http or https"],
+    ["https://user:pass@api.example.com", "RFQClient baseUrl must not include credentials"],
+    ["https://*.example.com", "RFQClient baseUrl host must not contain wildcards"],
+    ["https://api.example.com?token=abc", "RFQClient baseUrl must not include query strings or fragments"],
+    ["https://api.example.com#quote", "RFQClient baseUrl must not include query strings or fragments"],
   ]) {
     assert.throws(
       () => new RFQClient(baseUrl),
@@ -571,6 +575,20 @@ test("RFQClient rejects unsafe base URLs at construction", () => {
       },
     );
   }
+});
+
+test("RFQClient normalizes safe base URL origins and path prefixes", async () => {
+  const calls = [];
+  const response = { status: "ok" };
+  const client = new RFQClient(" http://api.example.com:80/rfq/ ", {
+    fetch: async (url, init = {}) => {
+      calls.push({ url, init });
+      return jsonResponse(200, response);
+    },
+  });
+
+  assert.deepEqual(await client.health(), response);
+  assert.deepEqual(calls, [{ url: "http://api.example.com/rfq/health", init: {} }]);
 });
 
 test("RFQClient rejects unsafe fetch dependencies at construction", () => {

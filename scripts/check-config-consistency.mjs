@@ -122,6 +122,18 @@ assert.ok(
   "frontend must reject non-http API base configuration",
 );
 assert.ok(
+  frontendConfigSource.includes("VITE_RFQ_API_BASE_URL must not include credentials"),
+  "frontend must reject API base URL credentials",
+);
+assert.ok(
+  frontendConfigSource.includes("VITE_RFQ_API_BASE_URL host must not contain wildcards"),
+  "frontend must reject API base URL wildcard hosts",
+);
+assert.ok(
+  frontendConfigSource.includes("VITE_RFQ_API_BASE_URL must not include query strings or fragments"),
+  "frontend must reject API base URL query strings and fragments",
+);
+assert.ok(
   frontendConfigSource.includes("VITE_RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address"),
   "frontend must reject invalid settlement address configuration",
 );
