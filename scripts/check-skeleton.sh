@@ -1077,11 +1077,13 @@ grep -q 'SkeletonExecutionService rejects unsafe dependency configuration at con
 grep -q 'Execution service hedgeService must be an object' backend/test/execution.test.mjs
 grep -q 'Execution service settlementVerifier must be an object' backend/test/execution.test.mjs
 grep -q 'validateSubmitQuoteRequest(request)' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution context quoteId must be a primitive string' backend/src/modules/execution/execution.service.ts
 grep -q 'Execution context quoteId must be a non-empty string' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution context quoteId must be a primitive string' backend/test/execution.test.mjs
 grep -q 'Execution context quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/execution.test.mjs
 grep -q 'Execution context quoteId must be 128 characters or fewer' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService rejects unsafe execution inputs before settlement side effects' backend/test/execution.test.mjs
-grep -q 'rejects execution `quoteId` values that are not 1-128 character `SafeIdentifier` strings' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'rejects execution `quoteId` values that are not primitive-string 1-128 character `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts

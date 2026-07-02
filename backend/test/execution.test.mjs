@@ -57,6 +57,10 @@ test("buildSyntheticTxHash rejects malformed submit payloads before hashing", ()
     /Execution context quoteId must be a non-empty string/,
   );
   assert.throws(
+    () => buildSyntheticTxHash(request, { quoteId: new String("q_hash_validation") }),
+    /Execution context quoteId must be a primitive string/,
+  );
+  assert.throws(
     () => buildSyntheticTxHash(request, { quoteId: "q.bad" }),
     /Execution context quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
   );
@@ -232,6 +236,11 @@ test("SkeletonExecutionService rejects unsafe execution inputs before settlement
   await assert.rejects(
     executionService.submitQuote(request, { quoteId: " " }),
     /Execution context quoteId must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    executionService.submitQuote(request, { quoteId: new String("q_submit") }),
+    /Execution context quoteId must be a primitive string/,
   );
 
   await assert.rejects(

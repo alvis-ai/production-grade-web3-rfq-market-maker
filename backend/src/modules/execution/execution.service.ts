@@ -197,7 +197,10 @@ function assertRecord(value: unknown, field: "deps" | keyof ExecutionServiceDeps
 
 function assertExecutionContext(context: ExecutionContext): void {
   const quoteId = typeof context === "object" && context !== null ? (context as { quoteId?: unknown }).quoteId : undefined;
-  if (typeof quoteId !== "string" || quoteId.trim().length === 0) {
+  if (typeof quoteId !== "string") {
+    throw new APIError("INVALID_REQUEST", "Execution context quoteId must be a primitive string", 400);
+  }
+  if (quoteId.trim().length === 0) {
     throw new APIError("INVALID_REQUEST", "Execution context quoteId must be a non-empty string", 400);
   }
   if (quoteId.length > maxSafeIdentifierLength) {
