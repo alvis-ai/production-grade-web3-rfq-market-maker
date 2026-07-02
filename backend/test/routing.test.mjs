@@ -143,6 +143,17 @@ test("InternalInventoryRoutingEngine rejects unsafe route inputs before planning
       request,
       snapshot: {
         ...snapshot,
+        midPrice: "01.25",
+      },
+    }),
+    /Routing snapshot.midPrice must be a positive decimal string/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      request,
+      snapshot: {
+        ...snapshot,
         liquidityUsd: "0",
       },
     }),

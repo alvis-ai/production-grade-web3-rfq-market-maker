@@ -175,6 +175,7 @@ test("getMarketSnapshotIssue rejects invalid market snapshot shape", () => {
   const invalidSnapshots = [
     [{ ...snapshot, snapshotId: " " }, "snapshot id is missing"],
     [{ ...snapshot, midPrice: "0" }, "mid price is invalid"],
+    [{ ...snapshot, midPrice: "01.25" }, "mid price is invalid"],
     [{ ...snapshot, midPrice: "1." }, "mid price is invalid"],
     [{ ...snapshot, liquidityUsd: "0" }, "liquidity is invalid"],
     [{ ...snapshot, liquidityUsd: "01000000000000" }, "liquidity is invalid"],
@@ -264,6 +265,13 @@ test("InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots", 
     repository.saveSnapshot({
       request,
       snapshot: { ...snapshot, midPrice: "0" },
+    }),
+    /Market snapshot midPrice must be a positive decimal/,
+  );
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: { ...snapshot, midPrice: "01.25" },
     }),
     /Market snapshot midPrice must be a positive decimal/,
   );

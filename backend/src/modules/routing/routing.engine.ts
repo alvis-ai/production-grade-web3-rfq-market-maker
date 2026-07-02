@@ -104,7 +104,7 @@ function assertSafeIdentifier(value: string, field: string): void {
 }
 
 function assertPositiveDecimalString(value: string, field: string): void {
-  if (typeof value !== "string" || !/^[0-9]+(\.[0-9]+)?$/.test(value) || parseDecimalToWad(value) <= 0n) {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value) || parseDecimalToWad(value) <= 0n) {
     throw new Error(`Routing ${field} must be a positive decimal string`);
   }
 }

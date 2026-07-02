@@ -88,7 +88,7 @@ export class FormulaPricingEngine implements PricingEngine {
 }
 
 function parseDecimalToWad(value: string): bigint {
-  if (!/^[0-9]+(\.[0-9]+)?$/.test(value)) {
+  if (!/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)) {
     throw new Error(`Invalid decimal value: ${value}`);
   }
 
@@ -209,7 +209,7 @@ function assertPositiveUIntString(value: string, field: string): void {
 }
 
 function assertPositiveDecimalString(value: string, field: string): void {
-  if (typeof value !== "string" || !/^[0-9]+(\.[0-9]+)?$/.test(value) || parseDecimalToWad(value) <= 0n) {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value) || parseDecimalToWad(value) <= 0n) {
     throw new Error(`Formula pricing ${field} must be a positive decimal string`);
   }
 }

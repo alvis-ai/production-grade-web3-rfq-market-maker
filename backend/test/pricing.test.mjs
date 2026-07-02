@@ -217,6 +217,17 @@ test("FormulaPricingEngine rejects unsafe pricing inputs before quoting", async 
       ...baseInput,
       snapshot: {
         ...baseInput.snapshot,
+        midPrice: "01.25",
+      },
+    }),
+    /Formula pricing snapshot.midPrice must be a positive decimal string/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      snapshot: {
+        ...baseInput.snapshot,
         liquidityUsd: "01000000000000",
       },
     }),

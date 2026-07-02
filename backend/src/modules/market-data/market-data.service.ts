@@ -158,7 +158,7 @@ export function getMarketSnapshotIssue(
 }
 
 function isPositiveDecimal(value: string): boolean {
-  if (!/^[0-9]+(\.[0-9]+)?$/.test(value)) {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)) {
     return false;
   }
 
