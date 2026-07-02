@@ -712,15 +712,24 @@ test("RFQ API returns structured errors for missing settlement events", async ()
   }
 });
 
-test("RFQ API rejects empty status path identifiers before store lookup", async () => {
+test("RFQ API rejects unsafe status path identifiers before store lookup", async () => {
   const server = buildServer({ logger: false });
   await server.ready();
 
   try {
     for (const [url, expectedMessage] of [
       ["/quote/%20", "quoteId must be a non-empty string"],
+      ["/quote/q.bad", "quoteId must contain only letters, numbers, underscore, colon, or hyphen"],
+      [`/quote/${"q".repeat(129)}`, "quoteId must be 128 characters or fewer"],
       ["/hedges/%20", "hedgeOrderId must be a non-empty string"],
+      ["/hedges/h.bad", "hedgeOrderId must contain only letters, numbers, underscore, colon, or hyphen"],
+      [`/hedges/${"h".repeat(129)}`, "hedgeOrderId must be 128 characters or fewer"],
       ["/settlements/%20", "settlementEventId must be a non-empty string"],
+      [
+        "/settlements/se.bad",
+        "settlementEventId must contain only letters, numbers, underscore, colon, or hyphen",
+      ],
+      [`/settlements/${"s".repeat(129)}`, "settlementEventId must be 128 characters or fewer"],
     ]) {
       const response = await injectJson(server, "GET", url);
 

@@ -820,11 +820,11 @@ test("RFQClient rejects unsafe submit requests before sending HTTP", async () =>
   }
 });
 
-test("RFQClient percent-encodes dynamic status path identifiers", async () => {
+test("RFQClient percent-encodes safe dynamic status path identifiers", async () => {
   const calls = [];
-  const quoteId = "q/test id";
-  const hedgeOrderId = "h/test id";
-  const settlementEventId = "se/test id";
+  const quoteId = "q:test-id";
+  const hedgeOrderId = "h:test-id";
+  const settlementEventId = "se:test-id";
   const restoreFetch = installFetch(async (url) => {
     calls.push(url);
     if (url.endsWith(`/quote/${encodeURIComponent(quoteId)}`)) {
@@ -879,16 +879,16 @@ test("RFQClient percent-encodes dynamic status path identifiers", async () => {
     await client.getSettlement(settlementEventId);
 
     assert.deepEqual(calls, [
-      "http://127.0.0.1:3000/quote/q%2Ftest%20id",
-      "http://127.0.0.1:3000/hedges/h%2Ftest%20id",
-      "http://127.0.0.1:3000/settlements/se%2Ftest%20id",
+      "http://127.0.0.1:3000/quote/q%3Atest-id",
+      "http://127.0.0.1:3000/hedges/h%3Atest-id",
+      "http://127.0.0.1:3000/settlements/se%3Atest-id",
     ]);
   } finally {
     restoreFetch();
   }
 });
 
-test("RFQClient rejects empty dynamic status identifiers before fetch", async () => {
+test("RFQClient rejects unsafe dynamic status identifiers before fetch", async () => {
   const calls = [];
   const restoreFetch = installFetch(async (url) => {
     calls.push(url);
@@ -904,8 +904,17 @@ test("RFQClient rejects empty dynamic status identifiers before fetch", async ()
 
     for (const [operation, expectedMessage] of [
       [() => client.getQuote(" "), "quoteId must be a non-empty string"],
+      [() => client.getQuote("q/bad"), "quoteId must contain only letters, numbers, underscore, colon, or hyphen"],
+      [() => client.getQuote("q".repeat(129)), "quoteId must be 128 characters or fewer"],
       [() => client.getHedge(""), "hedgeOrderId must be a non-empty string"],
+      [() => client.getHedge("h/bad"), "hedgeOrderId must contain only letters, numbers, underscore, colon, or hyphen"],
+      [() => client.getHedge("h".repeat(129)), "hedgeOrderId must be 128 characters or fewer"],
       [() => client.getSettlement(" \n "), "settlementEventId must be a non-empty string"],
+      [
+        () => client.getSettlement("se/bad"),
+        "settlementEventId must contain only letters, numbers, underscore, colon, or hyphen",
+      ],
+      [() => client.getSettlement("s".repeat(129)), "settlementEventId must be 128 characters or fewer"],
     ]) {
       await assert.rejects(operation(), (error) => {
         assert.ok(error instanceof RFQClientError);

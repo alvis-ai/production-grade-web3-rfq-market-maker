@@ -198,7 +198,9 @@ paths:
           schema:
             type: string
             minLength: 1
-          description: Non-empty quote identifier returned by POST /quote.
+            maxLength: 128
+            pattern: "^[A-Za-z0-9_:-]+$"
+          description: Quote identifier returned by POST /quote. The gateway accepts only 1 to 128 letters, numbers, underscore, colon, or hyphen characters.
       responses:
         "200":
           description: Quote status
@@ -258,7 +260,9 @@ paths:
           schema:
             type: string
             minLength: 1
-          description: Non-empty hedge order identifier returned by POST /submit.
+            maxLength: 128
+            pattern: "^[A-Za-z0-9_:-]+$"
+          description: Hedge order identifier returned by POST /submit. The gateway accepts only 1 to 128 letters, numbers, underscore, colon, or hyphen characters.
       responses:
         "200":
           description: Hedge intent status
@@ -319,7 +323,9 @@ paths:
           schema:
             type: string
             minLength: 1
-          description: Non-empty settlement event identifier returned by POST /submit.
+            maxLength: 128
+            pattern: "^[A-Za-z0-9_:-]+$"
+          description: Settlement event identifier returned by POST /submit. The gateway accepts only 1 to 128 letters, numbers, underscore, colon, or hyphen characters.
       responses:
         "200":
           description: Settlement event status

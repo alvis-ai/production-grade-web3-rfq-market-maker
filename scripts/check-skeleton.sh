@@ -284,7 +284,14 @@ grep -q 'server.get("/settlements/:settlementEventId"' backend/src/main.ts
 grep -q 'server.get("/hedges/:hedgeOrderId"' backend/src/main.ts
 grep -q 'server.get("/pnl"' backend/src/main.ts
 grep -q 'assertStatusIdentifier' backend/src/main.ts
-grep -q 'RFQ API rejects empty status path identifiers before store lookup' backend/test/api.test.mjs
+grep -q 'maxStatusIdentifierLength' backend/src/main.ts
+grep -q 'maxStatusIdentifierRouteParamLength' backend/src/main.ts
+grep -q 'maxParamLength: maxStatusIdentifierRouteParamLength' backend/src/main.ts
+grep -q 'statusIdentifierPattern' backend/src/main.ts
+grep -q 'RFQ API rejects unsafe status path identifiers before store lookup' backend/test/api.test.mjs
+grep -q 'quoteId must be 128 characters or fewer' backend/test/api.test.mjs
+grep -q 'settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/api.test.mjs
+grep -q 'Status endpoints reject unsafe dynamic identifiers before store lookup' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'server.get("/ready"' backend/src/main.ts
 grep -q 'readiness.status === "degraded"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts
@@ -1296,7 +1303,10 @@ grep -q 'async pnl' sdk/src/client.ts
 grep -q 'async health' sdk/src/client.ts
 grep -q 'async ready' sdk/src/client.ts
 grep -q 'assertNonEmptyIdentifier' sdk/src/client.ts
-grep -q 'RFQClient rejects empty dynamic status identifiers before fetch' sdk/test/sdk.test.mjs
+grep -q 'maxStatusIdentifierLength' sdk/src/client.ts
+grep -q 'statusIdentifierPattern' sdk/src/client.ts
+grep -q 'RFQClient rejects unsafe dynamic status identifiers before fetch' sdk/test/sdk.test.mjs
+grep -q 'identifiers must be non-empty, 128 characters or fewer' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'export interface RFQClientOptions' sdk/src/client.ts
 grep -q 'private readonly fetchImpl' sdk/src/client.ts
 grep -q 'resolveFetch(options)' sdk/src/client.ts
@@ -1379,7 +1389,8 @@ grep -q 'client.getHedge' sdk/test/sdk.test.mjs
 grep -q 'client.pnl' sdk/test/sdk.test.mjs
 grep -q 'client.ready' sdk/test/sdk.test.mjs
 grep -q 'RFQClient.ready()` validates readiness payloads against the fixed backend component set' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'percent-encodes dynamic status path identifiers' sdk/test/sdk.test.mjs
+grep -q 'percent-encodes safe dynamic status path identifiers' sdk/test/sdk.test.mjs
+grep -q 'q%3Atest-id' sdk/test/sdk.test.mjs
 grep -q 'new RFQClient("http://127.0.0.1:3000/", {' sdk/test/sdk.test.mjs
 grep -q 'degraded readiness payloads' sdk/test/sdk.test.mjs
 grep -q 'falls back for unknown API error codes' sdk/test/sdk.test.mjs
@@ -1573,6 +1584,10 @@ grep -Fq '"benchmark/**"' .github/workflows/docs-ci.yml
 grep -Fq '"benchmark/**"' .github/workflows/backend-ci.yml
 grep -Fq '"scripts/check-api-schema-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-api-route-consistency.mjs"' .github/workflows/docs-ci.yml
+grep -q 'path parameter ${parameterName} must cap identifiers at 128 characters' scripts/check-api-route-consistency.mjs
+grep -q 'path parameter ${parameterName} must define the shared safe identifier pattern' scripts/check-api-route-consistency.mjs
+grep -q 'backend must enforce bounded safe status identifiers' scripts/check-api-route-consistency.mjs
+grep -q 'SDK must reject unsafe status identifiers before fetch' scripts/check-api-route-consistency.mjs
 grep -Fq '"scripts/check-database-schema-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-examples-consistency.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"scripts/check-config-consistency.mjs"' .github/workflows/docs-ci.yml
@@ -1716,6 +1731,8 @@ grep -q 'IntString' docs/api/openapi.yaml
 grep -q 'Internal rejection reason for rejected quote records' docs/api/openapi.yaml
 grep -q 'QUOTE_ALREADY_USED' docs/api/openapi.yaml
 grep -q 'QUOTE_FAILED' docs/api/openapi.yaml
+grep -q 'maxLength: 128' docs/api/openapi.yaml
+grep -Fq 'pattern: "^[A-Za-z0-9_:-]+$"' docs/api/openapi.yaml
 grep -q 'pattern: "^tr_.+"' docs/api/openapi.yaml
 grep -q 'allowBuilds' pnpm-workspace.yaml
 grep -q 'onlyBuiltDependencies' pnpm-workspace.yaml

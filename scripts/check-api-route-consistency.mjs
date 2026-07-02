@@ -152,6 +152,35 @@ function assertOpenApiNonEmptyPathParameter(path, parameterName) {
     parameterBlock.includes("minLength: 1"),
     `OpenAPI ${path} path parameter ${parameterName} must reject empty identifiers with minLength: 1`,
   );
+  assert.ok(
+    parameterBlock.includes("maxLength: 128"),
+    `OpenAPI ${path} path parameter ${parameterName} must cap identifiers at 128 characters`,
+  );
+  assert.ok(
+    parameterBlock.includes('pattern: "^[A-Za-z0-9_:-]+$"'),
+    `OpenAPI ${path} path parameter ${parameterName} must define the shared safe identifier pattern`,
+  );
+  assert.ok(
+    parameterBlock.includes("letters, numbers, underscore, colon, or hyphen"),
+    `OpenAPI ${path} path parameter ${parameterName} must document allowed identifier characters`,
+  );
+  assert.ok(
+    backendSource.includes("const maxStatusIdentifierLength = 128") &&
+      backendSource.includes("const maxStatusIdentifierRouteParamLength = maxStatusIdentifierLength + 1") &&
+      backendSource.includes("maxParamLength: maxStatusIdentifierRouteParamLength") &&
+      backendSource.includes("const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/") &&
+      backendSource.includes(`assertStatusIdentifier(${parameterName}, "${parameterName}")`) &&
+      backendSource.includes("${field} must be 128 characters or fewer") &&
+      backendSource.includes("${field} must contain only letters, numbers, underscore, colon, or hyphen"),
+    `backend must enforce bounded safe status identifiers for ${parameterName}`,
+  );
+  assert.ok(
+    sdkClientSource.includes("const maxStatusIdentifierLength = 128") &&
+      sdkClientSource.includes("const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/") &&
+      sdkClientSource.includes("${field} must be 128 characters or fewer") &&
+      sdkClientSource.includes("${field} must contain only letters, numbers, underscore, colon, or hyphen"),
+    `SDK must reject unsafe status identifiers before fetch for ${parameterName}`,
+  );
 }
 
 function assertSdkMethod(methodName, pathFragment) {

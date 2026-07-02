@@ -35,6 +35,9 @@ const defaultListenPort = 3000;
 const defaultTrustProxy = false;
 const maxTraceIdLength = 128;
 const traceIdPattern = /^tr_[A-Za-z0-9._:-]+$/;
+const maxStatusIdentifierLength = 128;
+const maxStatusIdentifierRouteParamLength = maxStatusIdentifierLength + 1;
+const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 
 interface RuntimeProcess {
   argv?: string[];
@@ -73,6 +76,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const server = Fastify({
     logger: options.logger ?? true,
     bodyLimit: options.bodyLimitBytes ?? readBodyLimitBytes(),
+    maxParamLength: maxStatusIdentifierRouteParamLength,
   });
   const corsAllowedOrigins = options.corsAllowedOrigins === false
     ? []
@@ -371,6 +375,12 @@ function sendError(
 function assertStatusIdentifier(value: string, field: "quoteId" | "hedgeOrderId" | "settlementEventId"): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new APIError("INVALID_REQUEST", `${field} must be a non-empty string`, 400);
+  }
+  if (value.length > maxStatusIdentifierLength) {
+    throw new APIError("INVALID_REQUEST", `${field} must be 128 characters or fewer`, 400);
+  }
+  if (!statusIdentifierPattern.test(value)) {
+    throw new APIError("INVALID_REQUEST", `${field} must contain only letters, numbers, underscore, colon, or hyphen`, 400);
   }
 }
 
