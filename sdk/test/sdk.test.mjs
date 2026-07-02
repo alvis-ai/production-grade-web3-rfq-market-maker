@@ -1342,6 +1342,10 @@ test("RFQClient rejects malformed hedge status responses", async () => {
       message: "RFQ hedge status response returned malformed chainId",
     },
     {
+      payload: { ...hedgeResponse, chainId: "1" },
+      message: "RFQ hedge status response returned malformed chainId",
+    },
+    {
       payload: { ...hedgeResponse, token: "0x1234" },
       message: "RFQ hedge status response returned malformed token",
     },
@@ -1444,6 +1448,10 @@ test("RFQClient rejects malformed submit and quote status responses", async () =
     },
     {
       payload: { ...quoteStatusResponse, deadline: 0 },
+      message: "RFQ quote status response returned malformed deadline",
+    },
+    {
+      payload: { ...quoteStatusResponse, deadline: "1893456000" },
       message: "RFQ quote status response returned malformed deadline",
     },
     {
@@ -1575,6 +1583,10 @@ test("RFQClient rejects malformed settlement status responses", async () => {
       message: "RFQ settlement event status response returned malformed chainId",
     },
     {
+      payload: { ...settlementResponse, chainId: "1" },
+      message: "RFQ settlement event status response returned malformed chainId",
+    },
+    {
       payload: { ...settlementResponse, txHash: "0x1234" },
       message: "RFQ settlement event status response returned malformed txHash",
     },
@@ -1584,6 +1596,10 @@ test("RFQClient rejects malformed settlement status responses", async () => {
     },
     {
       payload: { ...settlementResponse, blockNumber: -1 },
+      message: "RFQ settlement event status response returned malformed blockNumber",
+    },
+    {
+      payload: { ...settlementResponse, blockNumber: "123456" },
       message: "RFQ settlement event status response returned malformed blockNumber",
     },
     {
@@ -1666,6 +1682,10 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
       message: "RFQ PnL summary response returned malformed totalTrades",
     },
     {
+      payload: { ...basePnlResponse, totalTrades: "1" },
+      message: "RFQ PnL summary response returned malformed totalTrades",
+    },
+    {
       payload: { ...basePnlResponse, grossPnlTokenOut: "1599999" },
       message: "RFQ PnL summary response returned malformed grossPnlTokenOut",
     },
@@ -1722,6 +1742,13 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
       payload: {
         ...basePnlResponse,
         trades: [{ ...basePnlResponse.trades[0], deadline: 0 }],
+      },
+      message: "RFQ PnL summary response trade returned malformed deadline",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], deadline: "1893456000" }],
       },
       message: "RFQ PnL summary response trade returned malformed deadline",
     },
@@ -1816,6 +1843,10 @@ test("RFQClient rejects malformed successful response fields", async () => {
     },
     {
       payload: { ...quoteResponse, deadline: 0 },
+      message: "RFQ quote response returned malformed deadline",
+    },
+    {
+      payload: { ...quoteResponse, deadline: "1893456000" },
       message: "RFQ quote response returned malformed deadline",
     },
     {

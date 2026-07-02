@@ -435,7 +435,7 @@ function assertRequiredEnumField(
 }
 
 function assertRequiredNonNegativeIntegerField(payload: unknown, field: string, status: number, label: string): void {
-  if (!isRecord(payload) || !Number.isSafeInteger(payload[field]) || Number(payload[field]) < 0) {
+  if (!isRecord(payload) || !isNonNegativeSafeInteger(payload[field])) {
     throw malformedFieldError(status, label, field);
   }
 }
@@ -464,7 +464,7 @@ function assertQuoteResponse(payload: unknown, status: number): asserts payload 
   if (BigInt(amountOut) < BigInt(minAmountOut)) {
     throw malformedFieldError(status, label, "minAmountOut");
   }
-  if (!Number.isSafeInteger(payload.deadline) || Number(payload.deadline) <= 0) {
+  if (!isPositiveSafeInteger(payload.deadline)) {
     throw malformedFieldError(status, label, "deadline");
   }
   assertRequiredSignatureField(payload, "signature", status, label);
@@ -509,7 +509,7 @@ function assertQuoteStatus(payload: unknown, status: number): asserts payload is
   if (payload.errorCode !== undefined && !isNonEmptyString(payload.errorCode)) {
     throw malformedFieldError(status, label, "errorCode");
   }
-  if (payload.deadline !== undefined && (!Number.isSafeInteger(payload.deadline) || Number(payload.deadline) <= 0)) {
+  if (payload.deadline !== undefined && !isPositiveSafeInteger(payload.deadline)) {
     throw malformedFieldError(status, label, "deadline");
   }
   assertOptionalBytes32Field(payload, "txHash", status, label);
@@ -565,7 +565,7 @@ function assertHedgeIntentStatus(payload: unknown, status: number): asserts payl
   if (payload.status !== "queued") {
     throw malformedFieldError(status, label, "status");
   }
-  if (!Number.isSafeInteger(payload.chainId) || Number(payload.chainId) <= 0) {
+  if (!isPositiveSafeInteger(payload.chainId)) {
     throw malformedFieldError(status, label, "chainId");
   }
   if (!isAddressHex(payload.token)) {
@@ -598,7 +598,7 @@ function assertSettlementEventStatus(payload: unknown, status: number): asserts 
     throw malformedFieldError(status, label, "observedAt");
   }
   assertRequiredEnumField(payload, "status", ["applied"], status, label);
-  if (!Number.isSafeInteger(payload.chainId) || Number(payload.chainId) <= 0) {
+  if (!isPositiveSafeInteger(payload.chainId)) {
     throw malformedFieldError(status, label, "chainId");
   }
   assertRequiredBytes32Field(payload, "txHash", status, label);
@@ -634,7 +634,7 @@ function assertPnlSummary(payload: unknown, status: number): asserts payload is 
   if (payload.status !== "ok") {
     throw malformedFieldError(status, label, "status");
   }
-  if (!Number.isSafeInteger(payload.totalTrades) || Number(payload.totalTrades) < 0) {
+  if (!isNonNegativeSafeInteger(payload.totalTrades)) {
     throw malformedFieldError(status, label, "totalTrades");
   }
   if (!isIntString(payload.grossPnlTokenOut)) {
@@ -673,7 +673,7 @@ function assertPnlTradeRecord(payload: unknown, status: number): asserts payload
   if (!isNonEmptyString(realizedAt) || Number.isNaN(Date.parse(realizedAt))) {
     throw malformedFieldError(status, label, "realizedAt");
   }
-  if (!Number.isSafeInteger(payload.chainId) || Number(payload.chainId) <= 0) {
+  if (!isPositiveSafeInteger(payload.chainId)) {
     throw malformedFieldError(status, label, "chainId");
   }
   if (!isAddressHex(payload.user)) {
@@ -705,13 +705,13 @@ function assertPnlTradeRecord(payload: unknown, status: number): asserts payload
   if (BigInt(amountOut) < BigInt(minAmountOut)) {
     throw malformedFieldError(status, label, "amountOut");
   }
-  if (!Number.isSafeInteger(payload.deadline) || Number(payload.deadline) <= 0) {
+  if (!isPositiveSafeInteger(payload.deadline)) {
     throw malformedFieldError(status, label, "deadline");
   }
   if (!isIntString(payload.grossPnlTokenOut)) {
     throw malformedFieldError(status, label, "grossPnlTokenOut");
   }
-  if (!Number.isSafeInteger(payload.grossPnlBps)) {
+  if (!isSafeInteger(payload.grossPnlBps)) {
     throw malformedFieldError(status, label, "grossPnlBps");
   }
   if (payload.model !== "simulated_mid_price_v1") {
@@ -760,6 +760,18 @@ function isPositiveUIntString(value: unknown): value is string {
 
 function isIntString(value: unknown): value is string {
   return typeof value === "string" && /^-?[0-9]+$/.test(value);
+}
+
+function isSafeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value);
+}
+
+function isPositiveSafeInteger(value: unknown): value is number {
+  return isSafeInteger(value) && value > 0;
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return isSafeInteger(value) && value >= 0;
 }
 
 function retryAfterSeconds(response: Response): number | undefined {
