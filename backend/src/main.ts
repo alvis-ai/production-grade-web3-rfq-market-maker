@@ -74,16 +74,26 @@ export interface BuildServerOptions {
 }
 
 export function buildServer(options: BuildServerOptions = {}) {
+  const bodyLimitBytes = options.bodyLimitBytes === undefined
+    ? readBodyLimitBytes()
+    : assertIntegerOption(options.bodyLimitBytes, "bodyLimitBytes", 1024, 1_048_576);
+  const enableHsts = options.enableHsts === undefined
+    ? readEnableHsts()
+    : assertBooleanOption(options.enableHsts, "enableHsts");
+  const trustProxy = options.trustProxy === undefined
+    ? readTrustProxy()
+    : assertBooleanOption(options.trustProxy, "trustProxy");
+  const quoteTtlSeconds = options.quoteTtlSeconds === undefined
+    ? readQuoteTtlSeconds()
+    : assertIntegerOption(options.quoteTtlSeconds, "quoteTtlSeconds", 1, 3600);
   const server = Fastify({
     logger: options.logger ?? true,
-    bodyLimit: options.bodyLimitBytes ?? readBodyLimitBytes(),
+    bodyLimit: bodyLimitBytes,
     maxParamLength: maxStatusIdentifierRouteParamLength,
   });
   const corsAllowedOrigins = options.corsAllowedOrigins === false
     ? []
     : normalizeCorsAllowedOrigins(options.corsAllowedOrigins ?? readCorsAllowedOrigins());
-  const enableHsts = options.enableHsts ?? readEnableHsts();
-  const trustProxy = options.trustProxy ?? readTrustProxy();
   server.addHook("onRequest", async (request, reply) => {
     reply.header("x-trace-id", requestTraceId(request));
     applySecurityHeaders(reply, enableHsts);
@@ -136,7 +146,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     signerService: new ObservedSignerService(signerService, metricsService),
   }, {
     ...defaultQuoteServiceConfig,
-    quoteTtlSeconds: options.quoteTtlSeconds ?? readQuoteTtlSeconds(),
+    quoteTtlSeconds,
   });
   const readinessService = new ReadinessService({
     hedgeService,
@@ -668,6 +678,22 @@ function readDecimalIntegerConfig(
 
 function invalidDecimalIntegerConfigError(options: { max: number; min: number; name: string }): Error {
   return new Error(`${options.name} must be a base-10 integer between ${options.min} and ${options.max}`);
+}
+
+function assertIntegerOption(value: number, name: string, min: number, max: number): number {
+  if (!Number.isSafeInteger(value) || value < min || value > max) {
+    throw new Error(`${name} must be an integer between ${min} and ${max}`);
+  }
+
+  return value;
+}
+
+function assertBooleanOption(value: boolean, name: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new Error(`${name} must be a boolean`);
+  }
+
+  return value;
 }
 
 function readCorsAllowedOrigins(): string[] {

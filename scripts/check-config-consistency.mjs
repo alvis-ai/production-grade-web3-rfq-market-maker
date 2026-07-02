@@ -95,6 +95,16 @@ assert.ok(
   "backend must enforce RFQ_BODY_LIMIT_BYTES base-10 integer bounds",
 );
 assert.ok(
+  backendSource.includes('assertIntegerOption(options.bodyLimitBytes, "bodyLimitBytes", 1024, 1_048_576)') &&
+    backendSource.includes('assertIntegerOption(options.quoteTtlSeconds, "quoteTtlSeconds", 1, 3600)'),
+  "backend direct buildServer numeric options must enforce runtime bounds",
+);
+assert.ok(
+  backendSource.includes('assertBooleanOption(options.enableHsts, "enableHsts")') &&
+    backendSource.includes('assertBooleanOption(options.trustProxy, "trustProxy")'),
+  "backend direct buildServer boolean options must fail fast",
+);
+assert.ok(
   backendSource.includes("RFQ_ENABLE_HSTS must be true or false"),
   "backend must enforce RFQ_ENABLE_HSTS boolean parsing",
 );

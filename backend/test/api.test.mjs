@@ -302,6 +302,29 @@ test("RFQ API rejects unsafe rate limit configuration at startup", () => {
   );
 });
 
+test("RFQ API rejects unsafe direct runtime options at startup", () => {
+  assert.throws(
+    () => buildServer({ logger: false, bodyLimitBytes: 1023 }),
+    /bodyLimitBytes must be an integer between 1024 and 1048576/,
+  );
+  assert.throws(
+    () => buildServer({ logger: false, quoteTtlSeconds: 3601 }),
+    /quoteTtlSeconds must be an integer between 1 and 3600/,
+  );
+  assert.throws(
+    () => buildServer({ logger: false, quoteTtlSeconds: 30.5 }),
+    /quoteTtlSeconds must be an integer between 1 and 3600/,
+  );
+  assert.throws(
+    () => buildServer({ logger: false, enableHsts: "true" }),
+    /enableHsts must be a boolean/,
+  );
+  assert.throws(
+    () => buildServer({ logger: false, trustProxy: "true" }),
+    /trustProxy must be a boolean/,
+  );
+});
+
 test("RFQ API emits baseline security headers on successful responses", async () => {
   const server = buildServer({ logger: false });
   await server.ready();
@@ -2404,13 +2427,13 @@ test("RFQ API maps malformed JSON bodies to structured errors", async () => {
 });
 
 test("RFQ API maps oversized JSON bodies to structured errors", async () => {
-  const server = buildServer({ logger: false, bodyLimitBytes: 128 });
+  const server = buildServer({ logger: false, bodyLimitBytes: 1024 });
   await server.ready();
 
   try {
     const response = await injectRaw(server, "POST", "/quote", JSON.stringify({
       ...baseQuoteRequest,
-      amountIn: "1".repeat(256),
+      amountIn: "1".repeat(2048),
     }));
 
     assert.equal(response.statusCode, 413);
