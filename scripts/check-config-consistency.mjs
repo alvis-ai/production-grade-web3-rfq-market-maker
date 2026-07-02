@@ -137,6 +137,16 @@ assert.ok(
   frontendConfigSource.includes("VITE_RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address"),
   "frontend must reject invalid settlement address configuration",
 );
+assert.ok(
+  frontendConfigSource.includes("VITE_WALLETCONNECT_PROJECT_ID must be 128 characters or fewer"),
+  "frontend must bound WalletConnect project id length",
+);
+assert.ok(
+  frontendConfigSource.includes(
+    "VITE_WALLETCONNECT_PROJECT_ID must contain only letters, numbers, underscore, or hyphen",
+  ),
+  "frontend must reject unsafe WalletConnect project id characters",
+);
 
 console.log("Config consistency check passed");
 

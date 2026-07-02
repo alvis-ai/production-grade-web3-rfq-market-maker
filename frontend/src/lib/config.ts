@@ -6,10 +6,7 @@ const defaultWalletConnectProjectId = "00000000000000000000000000000000";
 
 export const rfqApiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_RFQ_API_BASE_URL);
 export const rfqSettlementAddress = normalizeAddress(import.meta.env.VITE_RFQ_SETTLEMENT_ADDRESS);
-export const walletConnectProjectId = normalizeRequiredValue(
-  import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
-  defaultWalletConnectProjectId,
-);
+export const walletConnectProjectId = normalizeWalletConnectProjectId(import.meta.env.VITE_WALLETCONNECT_PROJECT_ID);
 
 export function normalizeBaseUrl(value: string | undefined): string {
   const normalized = value?.trim();
@@ -49,7 +46,15 @@ export function normalizeAddress(value: string | undefined): Address {
   return candidate as Address;
 }
 
-function normalizeRequiredValue(value: string | undefined, fallback: string): string {
+export function normalizeWalletConnectProjectId(value: string | undefined): string {
   const normalized = value?.trim();
-  return normalized && normalized.length > 0 ? normalized : fallback;
+  const candidate = normalized && normalized.length > 0 ? normalized : defaultWalletConnectProjectId;
+  if (candidate.length > 128) {
+    throw new Error("VITE_WALLETCONNECT_PROJECT_ID must be 128 characters or fewer");
+  }
+  if (!/^[A-Za-z0-9_-]+$/.test(candidate)) {
+    throw new Error("VITE_WALLETCONNECT_PROJECT_ID must contain only letters, numbers, underscore, or hyphen");
+  }
+
+  return candidate;
 }

@@ -1333,6 +1333,9 @@ grep -q 'VITE_RFQ_API_BASE_URL must not include credentials' frontend/src/lib/co
 grep -q 'VITE_RFQ_API_BASE_URL host must not contain wildcards' frontend/src/lib/config.ts
 grep -q 'VITE_RFQ_API_BASE_URL must not include query strings or fragments' frontend/src/lib/config.ts
 grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address' frontend/src/lib/config.ts
+grep -q 'normalizeWalletConnectProjectId' frontend/src/lib/config.ts
+grep -q 'VITE_WALLETCONNECT_PROJECT_ID must be 128 characters or fewer' frontend/src/lib/config.ts
+grep -q 'VITE_WALLETCONNECT_PROJECT_ID must contain only letters, numbers, underscore, or hyphen' frontend/src/lib/config.ts
 grep -q 'WagmiProvider' frontend/src/app/web3.tsx
 grep -q 'RainbowKitProvider' frontend/src/app/web3.tsx
 grep -q 'QueryClientProvider' frontend/src/app/web3.tsx
@@ -1484,6 +1487,7 @@ grep -q 'preserving safe path prefixes such as `/rfq`' book/Volume6-Frontend-And
 grep -q 'RFQClient.quote()` validates outgoing quote requests locally' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient rejects unsafe submit requests before sending HTTP' sdk/test/sdk.test.mjs
 grep -q 'RFQClient.submit()` validates outgoing submit payloads locally' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'VITE_WALLETCONNECT_PROJECT_ID` 由 RainbowKit 使用' book/Volume6-Frontend-And-SDK/Chapter01-Frontend-Architecture.md
 grep -q 'assertRequiredEnumField' sdk/src/client.ts
 grep -q 'assertRequiredNonNegativeIntegerField' sdk/src/client.ts
 grep -q 'assertQuoteResponse' sdk/src/client.ts
@@ -1867,6 +1871,7 @@ grep -q 'RFQ_ENABLE_HSTS=false' .env.example
 grep -q 'VITE_RFQ_API_BASE_URL=http://localhost:3000' .env.example
 grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS=0x0000000000000000000000000000000000000004' .env.example
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID=00000000000000000000000000000000' .env.example
+grep -q 'WalletConnect project id must be a safe string' .env.example
 grep -q 'HOST=127.0.0.1' .env.example
 grep -q 'Production Configuration' README.md
 grep -q 'rfq-backend-secrets' README.md
@@ -1879,6 +1884,7 @@ grep -q 'must be a base-10 integer from 1024 to 1048576' README.md
 grep -q 'rejects non-boolean `logger`, `enableHsts` or `trustProxy` values' README.md
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' README.md
 grep -q 'startup rejects entries with paths, query strings, fragments, credentials, or wildcards' README.md
+grep -q 'VITE_WALLETCONNECT_PROJECT_ID` configures RainbowKit wallet connection and must be a 128-character-or-shorter safe string' README.md
 grep -q 'RFQ_ENABLE_HSTS' README.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' docs/api/openapi.yaml
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' docs/api/openapi.yaml
