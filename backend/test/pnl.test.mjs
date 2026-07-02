@@ -211,6 +211,14 @@ test("PnlService rejects unsafe attribution inputs before recording", () => {
   assert.throws(
     () =>
       pnl.recordSettlement({
+        quoteId: new String("q_base"),
+        quote: baseQuote,
+      }),
+    /Pnl quoteId must be a primitive string/,
+  );
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
         quoteId: "q.bad",
         quote: baseQuote,
       }),
