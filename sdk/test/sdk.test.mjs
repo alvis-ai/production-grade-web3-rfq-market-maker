@@ -1365,6 +1365,10 @@ test("RFQClient rejects malformed hedge status responses", async () => {
       payload: { ...hedgeResponse, createdAt: "not-a-date" },
       message: "RFQ hedge status response returned malformed createdAt",
     },
+    {
+      payload: { ...hedgeResponse, createdAt: "2026-06-27" },
+      message: "RFQ hedge status response returned malformed createdAt",
+    },
   ];
 
   for (const { payload, message } of cases) {
@@ -1622,6 +1626,10 @@ test("RFQClient rejects malformed settlement status responses", async () => {
       payload: { ...settlementResponse, observedAt: "not-a-date" },
       message: "RFQ settlement event status response returned malformed observedAt",
     },
+    {
+      payload: { ...settlementResponse, observedAt: "June 27, 2026" },
+      message: "RFQ settlement event status response returned malformed observedAt",
+    },
   ];
 
   for (const { payload, message } of cases) {
@@ -1770,6 +1778,13 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
       payload: {
         ...basePnlResponse,
         trades: [{ ...basePnlResponse.trades[0], realizedAt: "not-a-date" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed realizedAt",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], realizedAt: "2026-02-31T00:00:00.000Z" }],
       },
       message: "RFQ PnL summary response trade returned malformed realizedAt",
     },

@@ -30,6 +30,7 @@ const maxTraceIdLength = 128;
 const traceIdPattern = /^tr_[A-Za-z0-9._:-]+$/;
 const maxStatusIdentifierLength = 128;
 const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const isoUtcTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const rfqErrorCodeSet: ReadonlySet<string> = new Set(rfqErrorCodes);
 const readinessDependencyComponents = [
@@ -559,7 +560,7 @@ function assertHedgeIntentStatus(payload: unknown, status: number): asserts payl
     }
   }
   const createdAt = payload.createdAt;
-  if (!isNonEmptyString(createdAt) || Number.isNaN(Date.parse(createdAt))) {
+  if (!isIsoUtcTimestampString(createdAt)) {
     throw malformedFieldError(status, label, "createdAt");
   }
   if (payload.status !== "queued") {
@@ -594,7 +595,7 @@ function assertSettlementEventStatus(payload: unknown, status: number): asserts 
     }
   }
   const observedAt = payload.observedAt;
-  if (!isNonEmptyString(observedAt) || Number.isNaN(Date.parse(observedAt))) {
+  if (!isIsoUtcTimestampString(observedAt)) {
     throw malformedFieldError(status, label, "observedAt");
   }
   assertRequiredEnumField(payload, "status", ["applied"], status, label);
@@ -670,7 +671,7 @@ function assertPnlTradeRecord(payload: unknown, status: number): asserts payload
     }
   }
   const realizedAt = payload.realizedAt;
-  if (!isNonEmptyString(realizedAt) || Number.isNaN(Date.parse(realizedAt))) {
+  if (!isIsoUtcTimestampString(realizedAt)) {
     throw malformedFieldError(status, label, "realizedAt");
   }
   if (!isPositiveSafeInteger(payload.chainId)) {
@@ -752,6 +753,15 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isSafeIdentifier(value: unknown): value is string {
   return isNonEmptyString(value) && value.length <= maxStatusIdentifierLength && statusIdentifierPattern.test(value);
+}
+
+function isIsoUtcTimestampString(value: unknown): value is string {
+  if (typeof value !== "string" || !isoUtcTimestampPattern.test(value)) {
+    return false;
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
 }
 
 function isPositiveUIntString(value: unknown): value is string {

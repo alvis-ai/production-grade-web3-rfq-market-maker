@@ -1526,6 +1526,9 @@ grep -q 'assertPnlTradeRecord' sdk/src/client.ts
 grep -q 'function isPositiveSafeInteger' sdk/src/client.ts
 grep -q 'function isNonNegativeSafeInteger' sdk/src/client.ts
 grep -q 'function isSafeInteger' sdk/src/client.ts
+grep -q 'isoUtcTimestampPattern' sdk/src/client.ts
+grep -q 'function isIsoUtcTimestampString' sdk/src/client.ts
+grep -q 'new Date(parsed).toISOString() === value' sdk/src/client.ts
 grep -q 'isHealthResponse' sdk/src/client.ts
 grep -q 'isReadinessResponse' sdk/src/client.ts
 grep -q 'isReadinessComponents' sdk/src/client.ts
@@ -1598,14 +1601,17 @@ grep -q 'malformed successful JSON responses' sdk/test/sdk.test.mjs
 grep -q 'malformed health and readiness status responses' sdk/test/sdk.test.mjs
 grep -q 'externalUrl: "ok"' sdk/test/sdk.test.mjs
 grep -q 'malformed hedge status responses' sdk/test/sdk.test.mjs
+grep -q 'createdAt: "2026-06-27"' sdk/test/sdk.test.mjs
 grep -q 'malformed submit and quote status responses' sdk/test/sdk.test.mjs
 grep -q 'deadline: "1893456000"' sdk/test/sdk.test.mjs
 grep -q 'q_rejected' sdk/test/sdk.test.mjs
 grep -q 'lifecycle payload consistency between status and settlement pointers' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'malformed settlement status responses' sdk/test/sdk.test.mjs
 grep -q 'blockNumber: "123456"' sdk/test/sdk.test.mjs
+grep -q 'observedAt: "June 27, 2026"' sdk/test/sdk.test.mjs
 grep -q 'malformed PnL summary responses' sdk/test/sdk.test.mjs
 grep -q 'totalTrades: "1"' sdk/test/sdk.test.mjs
+grep -q 'realizedAt: "2026-02-31T00:00:00.000Z"' sdk/test/sdk.test.mjs
 grep -q 'isBytes32Hex' sdk/src/client.ts
 grep -q 'isSignatureHex' sdk/src/client.ts
 grep -q 'SECP256K1N_HALF' sdk/src/client.ts
@@ -1613,6 +1619,7 @@ grep -q 'malleateSignature(await validTypedDataSignature())' sdk/test/sdk.test.m
 grep -q 'canonical low-s EIP-712 signature' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'malformed successful response fields' sdk/test/sdk.test.mjs
 grep -q 'Stringified numbers and wrapper objects are rejected instead of being coerced with `Number(...)`' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'canonical UTC ISO timestamps generated with `Date.prototype.toISOString()`' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'client.health' sdk/test/sdk.test.mjs
 grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs
