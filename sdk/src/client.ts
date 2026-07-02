@@ -843,8 +843,11 @@ function normalizeBaseUrl(baseUrl: string): string {
   return `${parsed.origin}${pathname}`;
 }
 
-function assertNonEmptyIdentifier(value: string, field: "quoteId" | "hedgeOrderId" | "settlementEventId"): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
+function assertNonEmptyIdentifier(value: unknown, field: "quoteId" | "hedgeOrderId" | "settlementEventId"): string {
+  if (typeof value !== "string") {
+    throw new RFQClientError(`${field} must be a primitive string`, 0);
+  }
+  if (value.trim().length === 0) {
     throw new RFQClientError(`${field} must be a non-empty string`, 0);
   }
   if (value.length > maxStatusIdentifierLength) {

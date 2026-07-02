@@ -1550,6 +1550,8 @@ grep -q 'async pnl' sdk/src/client.ts
 grep -q 'async health' sdk/src/client.ts
 grep -q 'async ready' sdk/src/client.ts
 grep -q 'assertNonEmptyIdentifier' sdk/src/client.ts
+grep -Fq 'function assertNonEmptyIdentifier(value: unknown' sdk/src/client.ts
+grep -q 'must be a primitive string' sdk/src/client.ts
 grep -q 'maxStatusIdentifierLength' sdk/src/client.ts
 grep -q 'statusIdentifierPattern' sdk/src/client.ts
 grep -q 'function isSafeIdentifier' sdk/src/client.ts
@@ -1558,7 +1560,11 @@ grep -q 'RFQ quote response returned malformed quoteId' sdk/test/sdk.test.mjs
 grep -q 'RFQ submit response returned malformed pnlId' sdk/test/sdk.test.mjs
 grep -q 'RFQ PnL summary response trade returned malformed quoteId' sdk/test/sdk.test.mjs
 grep -q 'RFQClient rejects unsafe dynamic status identifiers before fetch' sdk/test/sdk.test.mjs
+grep -q 'new String("q_test")' sdk/test/sdk.test.mjs
+grep -q 'new String("h_test")' sdk/test/sdk.test.mjs
+grep -q 'new String("se_test")' sdk/test/sdk.test.mjs
 grep -q 'identifiers must be non-empty, 128 characters or fewer' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'boxed `String` identifiers fail before `encodeURIComponent()` or fetch' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'export interface RFQClientOptions' sdk/src/client.ts
 grep -q 'private readonly fetchImpl' sdk/src/client.ts
 grep -q 'resolveFetch(options)' sdk/src/client.ts

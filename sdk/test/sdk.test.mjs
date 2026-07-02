@@ -1010,12 +1010,15 @@ test("RFQClient rejects unsafe dynamic status identifiers before fetch", async (
     const client = new RFQClient("http://127.0.0.1:3000");
 
     for (const [operation, expectedMessage] of [
+      [() => client.getQuote(new String("q_test")), "quoteId must be a primitive string"],
       [() => client.getQuote(" "), "quoteId must be a non-empty string"],
       [() => client.getQuote("q/bad"), "quoteId must contain only letters, numbers, underscore, colon, or hyphen"],
       [() => client.getQuote("q".repeat(129)), "quoteId must be 128 characters or fewer"],
+      [() => client.getHedge(new String("h_test")), "hedgeOrderId must be a primitive string"],
       [() => client.getHedge(""), "hedgeOrderId must be a non-empty string"],
       [() => client.getHedge("h/bad"), "hedgeOrderId must contain only letters, numbers, underscore, colon, or hyphen"],
       [() => client.getHedge("h".repeat(129)), "hedgeOrderId must be 128 characters or fewer"],
+      [() => client.getSettlement(new String("se_test")), "settlementEventId must be a primitive string"],
       [() => client.getSettlement(" \n "), "settlementEventId must be a non-empty string"],
       [
         () => client.getSettlement("se/bad"),
