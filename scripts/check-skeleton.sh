@@ -2078,12 +2078,15 @@ grep -q 'LocalSettlementVerifier rejects settlement amountOut below minimum' bac
 grep -q 'LocalSettlementVerifier rejects non-canonical settlement signatures' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier snapshots policy configuration at construction' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects unsafe policy configuration at construction' backend/test/settlement-verifier.test.mjs
+grep -q 'q_bad_nonce_leading_zero' backend/test/settlement-verifier.test.mjs
+! grep -q 'BigInt(quote.amountIn) <= 0n' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -Fq 'typeof token !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(token)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'new String(quote.tokenIn)' backend/test/settlement-verifier.test.mjs
 grep -q 'signature shape, canonical low-s/v checks' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'settlement verifier policy fail-fast' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'JavaScript regex coercion 进入 `/submit` 结算验证路径' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'amount fields and nonce must be canonical positive uint strings without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'only converts `amountOut` and `minAmountOut` to BigInt for the minimum-output comparison' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'risk rejection when rejected quote persistence fails' backend/test/api.test.mjs
 grep -q 'Rejected quote persistence unavailable' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md

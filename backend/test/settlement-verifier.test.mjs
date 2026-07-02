@@ -184,6 +184,20 @@ test("LocalSettlementVerifier rejects malformed settlement quote fields before p
     }),
     "INVALID_NONCE",
   );
+
+  await assertSettlementRevert(
+    verifier.verify({
+      quoteId: "q_bad_nonce_leading_zero",
+      request: {
+        ...request,
+        quote: {
+          ...quote,
+          nonce: "042",
+        },
+      },
+    }),
+    "INVALID_NONCE",
+  );
 });
 
 test("LocalSettlementVerifier rejects non-whitelisted settlement tokens", async () => {

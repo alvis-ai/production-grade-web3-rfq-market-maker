@@ -74,10 +74,6 @@ export class LocalSettlementVerifier implements SettlementVerifier {
       throw this.reverted("TOKEN_NOT_WHITELISTED", "Settlement token is not whitelisted");
     }
 
-    if (BigInt(quote.amountIn) <= 0n || BigInt(quote.amountOut) <= 0n || BigInt(quote.minAmountOut) <= 0n) {
-      throw this.reverted("INVALID_AMOUNT", "Settlement quote amount is invalid");
-    }
-
     if (BigInt(quote.amountOut) < BigInt(quote.minAmountOut)) {
       throw this.reverted("AMOUNT_OUT_BELOW_MINIMUM", "Settlement amountOut is below minimum");
     }
