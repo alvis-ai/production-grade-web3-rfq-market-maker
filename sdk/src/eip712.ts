@@ -78,12 +78,11 @@ function parseAddress(value: Address, field: string): Address {
 }
 
 function parsePositiveUInt(value: string, field: string): bigint {
-  const parsed = parseUInt(value, field);
-  if (parsed <= 0n) {
+  if (!/^[1-9][0-9]*$/.test(value)) {
     throw new Error(`${field} must be a positive uint string`);
   }
 
-  return parsed;
+  return BigInt(value);
 }
 
 function parseUInt(value: string, field: string): bigint {

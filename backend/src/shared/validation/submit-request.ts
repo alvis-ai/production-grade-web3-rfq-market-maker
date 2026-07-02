@@ -5,6 +5,7 @@ import { assertExactFields } from "./object-fields.js";
 const ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
 const HEX_PATTERN = /^0x[a-fA-F0-9]+$/;
 const UINT_PATTERN = /^[0-9]+$/;
+const POSITIVE_UINT_PATTERN = /^[1-9][0-9]*$/;
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const SUBMIT_REQUEST_FIELDS = ["quote", "signature"];
 const SIGNED_QUOTE_FIELDS = [
@@ -111,7 +112,7 @@ function readUint(input: unknown, field: string): string {
 
 function readPositiveUint(input: unknown, field: string): string {
   const value = readUint(input, field);
-  if (BigInt(value) <= 0n) {
+  if (!POSITIVE_UINT_PATTERN.test(value)) {
     throw new APIError("INVALID_REQUEST", `${field} must be a positive uint string`, 400);
   }
 

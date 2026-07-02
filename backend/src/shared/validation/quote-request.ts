@@ -3,7 +3,7 @@ import type { Address, QuoteRequest } from "../types/rfq.js";
 import { assertExactFields } from "./object-fields.js";
 
 const ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
-const UINT_PATTERN = /^[0-9]+$/;
+const POSITIVE_UINT_PATTERN = /^[1-9][0-9]*$/;
 const QUOTE_REQUEST_FIELDS = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"];
 
 export function validateQuoteRequest(input: unknown): QuoteRequest {
@@ -46,7 +46,7 @@ function readAddress(input: unknown, field: string): string {
 }
 
 function readPositiveUint(input: unknown, field: string): string {
-  if (typeof input !== "string" || !UINT_PATTERN.test(input) || BigInt(input) <= 0n) {
+  if (typeof input !== "string" || !POSITIVE_UINT_PATTERN.test(input)) {
     throw new APIError("INVALID_REQUEST", `${field} must be a positive uint string`, 400);
   }
 

@@ -51,6 +51,12 @@ test("validateQuoteRequest rejects unknown fields and invalid quote shape", () =
     400,
   );
   assertAPIError(
+    () => validateQuoteRequest({ ...quoteRequest, amountIn: "001000000000" }),
+    "INVALID_REQUEST",
+    "amountIn must be a positive uint string",
+    400,
+  );
+  assertAPIError(
     () => validateQuoteRequest({ ...quoteRequest, slippageBps: 10001 }),
     "INVALID_REQUEST",
     "slippageBps must be an integer from 0 to 10000",
@@ -146,6 +152,19 @@ test("validateSubmitQuoteRequest rejects unsafe submit payloads before execution
       }),
     "INVALID_REQUEST",
     "quote.nonce must be a positive uint string",
+    400,
+  );
+  assertAPIError(
+    () =>
+      validateSubmitQuoteRequest({
+        quote: {
+          ...signedQuote,
+          amountOut: "0998400000",
+        },
+        signature: canonicalSignature,
+      }),
+    "INVALID_REQUEST",
+    "quote.amountOut must be a positive uint string",
     400,
   );
   assertAPIError(

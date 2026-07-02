@@ -1,7 +1,7 @@
 import type { Address, QuoteRequest } from "@rfq-market-maker/sdk";
 
 const addressPattern = /^0x[a-fA-F0-9]{40}$/;
-const uintPattern = /^[0-9]+$/;
+const positiveUintPattern = /^[1-9][0-9]*$/;
 
 export function validateQuoteFormRequest(request: QuoteRequest): QuoteRequest {
   if (!Number.isSafeInteger(request.chainId) || request.chainId <= 0) {
@@ -37,7 +37,7 @@ function readAddress(value: string, field: keyof Pick<QuoteRequest, "user" | "to
 }
 
 function readPositiveAmountIn(value: string): string {
-  if (!uintPattern.test(value) || BigInt(value) <= 0n) {
+  if (!positiveUintPattern.test(value)) {
     throw new Error("amountIn must be a positive uint string");
   }
 

@@ -322,11 +322,16 @@ grep -q 'validateQuoteRequest' backend/src/main.ts
 grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
 grep -q 'positive safe integer' backend/src/shared/validation/quote-request.ts
 grep -q 'positive safe integer' backend/src/shared/validation/submit-request.ts
+grep -Fq 'POSITIVE_UINT_PATTERN = /^[1-9][0-9]*$/' backend/src/shared/validation/quote-request.ts
+grep -Fq 'POSITIVE_UINT_PATTERN = /^[1-9][0-9]*$/' backend/src/shared/validation/submit-request.ts
 grep -q 'typeof input !== "number"' backend/src/shared/validation/quote-request.ts
 grep -q 'typeof input !== "string"' backend/src/shared/validation/submit-request.ts
 grep -q 'rejects request JSON primitive types that would require coercion' backend/test/api.test.mjs
 grep -q 'rejects non-schema JSON primitive types before coercion' backend/test/validation.test.mjs
+grep -q '001000000000' backend/test/validation.test.mjs
+grep -q '0998400000' backend/test/validation.test.mjs
 grep -q '不能用 `Number()` 或 `String()`' docs/api/errors.md
+grep -Fq '^[1-9][0-9]*$' docs/api/errors.md
 grep -q 'assertExactFields' backend/src/shared/validation/quote-request.ts
 grep -q 'assertExactFields' backend/src/shared/validation/submit-request.ts
 grep -q 'unknown request fields' backend/test/api.test.mjs
@@ -1304,6 +1309,7 @@ grep -q 'rfqClient.pnl' frontend/src/pages/QuotePage.tsx
 grep -q 'validateQuoteFormRequest(request)' frontend/src/pages/QuotePage.tsx
 grep -q 'tokenIn and tokenOut must be different' frontend/src/lib/quote-request.ts
 grep -q 'amountIn must be a positive uint string' frontend/src/lib/quote-request.ts
+grep -Fq 'positiveUintPattern = /^[1-9][0-9]*$/' frontend/src/lib/quote-request.ts
 grep -q 'loadPostTradeSurfaces(status, response)' frontend/src/pages/QuotePage.tsx
 grep -q 'loadPostTradeSurfaces(status, submitResult)' frontend/src/pages/QuotePage.tsx
 grep -q 'parseIntegerInput' frontend/src/components/QuoteForm.tsx
@@ -1487,6 +1493,11 @@ grep -q 'http://api.example.com/rfq/health' sdk/test/sdk.test.mjs
 grep -q 'RFQClient rejects unsafe trace id options' sdk/test/sdk.test.mjs
 grep -q 'tr_sdk_' sdk/test/sdk.test.mjs
 grep -q 'RFQClient rejects unsafe quote requests before sending HTTP' sdk/test/sdk.test.mjs
+grep -Fq '^[1-9][0-9]*$' sdk/src/client.ts
+grep -Fq '^[1-9][0-9]*$' sdk/src/eip712.ts
+grep -Fq '^[1-9][0-9]*$' sdk/src/settlement.ts
+grep -q '01000000000' sdk/test/sdk.test.mjs
+grep -q '0998400000' sdk/test/sdk.test.mjs
 grep -q 'base URL must be a runtime string before URL parsing' README.md
 grep -q 'no credentials, no wildcard host, and no query string or fragment' README.md
 grep -q 'Integrators can pass `{ traceId:' README.md
@@ -1494,6 +1505,7 @@ grep -q 'static or dynamic `traceId` option' book/Volume6-Frontend-And-SDK/Chapt
 grep -q 'rejects non-string, empty, relative or non-`http(s)` base URLs' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'preserving safe path prefixes such as `/rfq`' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient.quote()` validates outgoing quote requests locally' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'without leading zeros' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient rejects unsafe submit requests before sending HTTP' sdk/test/sdk.test.mjs
 grep -q 'RFQClient.submit()` validates outgoing submit payloads locally' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID` 由 RainbowKit 使用' book/Volume6-Frontend-And-SDK/Chapter01-Frontend-Architecture.md

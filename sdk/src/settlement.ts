@@ -117,12 +117,11 @@ function parseSignature(value: `0x${string}`, field: string): `0x${string}` {
 }
 
 function parsePositiveUInt(value: UIntString, field: string): bigint {
-  const parsed = parseUInt(value, field);
-  if (parsed <= 0n) {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
     throw new Error(`${field} must be a positive uint string`);
   }
 
-  return parsed;
+  return BigInt(value);
 }
 
 function parseUInt(value: UIntString | bigint, field: string): bigint {

@@ -140,6 +140,18 @@ test("buildQuoteTypedData rejects invalid EIP-712 domain and quote fields", () =
       buildQuoteTypedData(
         {
           ...quote,
+          amountOut: "0998400000",
+        },
+        verifyingContract,
+      ),
+    /quote\.amountOut must be a positive uint string/,
+  );
+
+  assert.throws(
+    () =>
+      buildQuoteTypedData(
+        {
+          ...quote,
           nonce: "0",
         },
         verifyingContract,
@@ -255,7 +267,7 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
         },
         signature,
       ),
-    /quote\.amountIn must be a uint string/,
+    /quote\.amountIn must be a positive uint string/,
   );
 
   assert.throws(
@@ -264,6 +276,18 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
         {
           ...quote,
           nonce: "0",
+        },
+        signature,
+      ),
+    /quote\.nonce must be a positive uint string/,
+  );
+
+  assert.throws(
+    () =>
+      buildSubmitQuoteArgs(
+        {
+          ...quote,
+          nonce: "042",
         },
         signature,
       ),
@@ -747,6 +771,10 @@ test("RFQClient rejects unsafe quote requests before sending HTTP", async () => 
     },
     {
       request: { ...quoteRequest, amountIn: "0" },
+      message: "RFQ quote request amountIn must be a positive uint string",
+    },
+    {
+      request: { ...quoteRequest, amountIn: "01000000000" },
       message: "RFQ quote request amountIn must be a positive uint string",
     },
     {
@@ -1711,6 +1739,10 @@ test("RFQClient rejects malformed successful response fields", async () => {
     },
     {
       payload: { ...quoteResponse, amountOut: "0" },
+      message: "RFQ quote response returned malformed amountOut",
+    },
+    {
+      payload: { ...quoteResponse, amountOut: "01000000000" },
       message: "RFQ quote response returned malformed amountOut",
     },
     {

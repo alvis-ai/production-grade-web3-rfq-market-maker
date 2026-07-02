@@ -755,7 +755,7 @@ function isSafeIdentifier(value: unknown): value is string {
 }
 
 function isPositiveUIntString(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9]+$/.test(value) && BigInt(value) > 0n;
+  return typeof value === "string" && /^[1-9][0-9]*$/.test(value);
 }
 
 function isIntString(value: unknown): value is string {
