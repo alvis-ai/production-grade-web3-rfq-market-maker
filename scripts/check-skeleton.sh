@@ -1181,6 +1181,7 @@ grep -q 'assertVerificationInput(input)' backend/src/modules/settlement/settleme
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'Local settlement verifier ${field} must be a primitive string' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertObject(input.request, "request")' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertObject(input.request.quote, "request.quote")' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertChainIds(policy.enabledChainIds)' backend/src/modules/settlement/settlement-verifier.service.ts
@@ -1190,7 +1191,7 @@ grep -q 'Local settlement verifier enabledChainIds must not contain duplicate ch
 grep -q 'Local settlement verifier tokenWhitelist must not contain duplicate addresses' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'enabledChainIds` 和 `tokenWhitelist` 必须非空且不能包含重复项' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'malformed policy object and policy array fields must be rejected before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'LocalSettlementVerifier.verify()` rejects malformed root payloads, `quoteId` values that are not 1-128 character `SafeIdentifier` strings' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'LocalSettlementVerifier.verify()` rejects malformed root payloads, `quoteId` values that are not primitive-string 1-128 character `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'JavaScript regex coercion' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q '`buildSyntheticTxHash()` also reuses submit request validation before hashing' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -2189,6 +2190,7 @@ grep -q 'LocalSettlementVerifier rejects malformed settlement quote fields befor
 grep -q 'q_bad_amount_leading_zero' backend/test/settlement-verifier.test.mjs
 grep -q 'q_invalid_signature_object' backend/test/settlement-verifier.test.mjs
 grep -q 'Local settlement verifier quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/settlement-verifier.test.mjs
+grep -q 'Local settlement verifier quoteId must be a primitive string' backend/test/settlement-verifier.test.mjs
 grep -q 'Local settlement verifier quoteId must be 128 characters or fewer' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects disabled settlement chains' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects expired settlement quotes' backend/test/settlement-verifier.test.mjs

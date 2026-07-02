@@ -51,6 +51,14 @@ test("LocalSettlementVerifier rejects malformed verification payload envelopes b
 
   await assert.rejects(
     verifier.verify({
+      quoteId: new String("q_test"),
+      request,
+    }),
+    /Local settlement verifier quoteId must be a primitive string/,
+  );
+
+  await assert.rejects(
+    verifier.verify({
       quoteId: "q.bad",
       request,
     }),
