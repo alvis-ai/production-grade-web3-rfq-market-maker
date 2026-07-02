@@ -1156,6 +1156,18 @@ test("RFQClient rejects malformed hedge status responses", async () => {
       message: "RFQ hedge status response returned malformed hedgeOrderId",
     },
     {
+      payload: { ...hedgeResponse, hedgeOrderId: "h.bad" },
+      message: "RFQ hedge status response returned malformed hedgeOrderId",
+    },
+    {
+      payload: { ...hedgeResponse, settlementEventId: "se".repeat(65) },
+      message: "RFQ hedge status response returned malformed settlementEventId",
+    },
+    {
+      payload: { ...hedgeResponse, quoteId: "q/bad" },
+      message: "RFQ hedge status response returned malformed quoteId",
+    },
+    {
       payload: { ...hedgeResponse, status: "filled" },
       message: "RFQ hedge status response returned malformed status",
     },
@@ -1249,11 +1261,19 @@ test("RFQClient rejects malformed submit and quote status responses", async () =
       message: "RFQ quote status response returned malformed quoteId",
     },
     {
+      payload: { ...quoteStatusResponse, quoteId: "q.bad" },
+      message: "RFQ quote status response returned malformed quoteId",
+    },
+    {
       payload: { ...quoteStatusResponse, status: "unknown" },
       message: "RFQ quote status response returned malformed status",
     },
     {
       payload: { ...quoteStatusResponse, snapshotId: "" },
+      message: "RFQ quote status response returned malformed snapshotId",
+    },
+    {
+      payload: { ...quoteStatusResponse, snapshotId: "snapshot".repeat(19) },
       message: "RFQ quote status response returned malformed snapshotId",
     },
     {
@@ -1273,6 +1293,10 @@ test("RFQClient rejects malformed submit and quote status responses", async () =
       message: "RFQ quote status response returned malformed settlementEventId",
     },
     {
+      payload: { ...quoteStatusResponse, settlementEventId: "se/bad" },
+      message: "RFQ quote status response returned malformed settlementEventId",
+    },
+    {
       payload: { ...quoteStatusResponse, settlementEventId: undefined },
       message: "RFQ quote status response returned malformed settlementEventId",
     },
@@ -1281,7 +1305,15 @@ test("RFQClient rejects malformed submit and quote status responses", async () =
       message: "RFQ quote status response returned malformed hedgeOrderId",
     },
     {
+      payload: { ...quoteStatusResponse, hedgeOrderId: "h".repeat(129) },
+      message: "RFQ quote status response returned malformed hedgeOrderId",
+    },
+    {
       payload: { ...quoteStatusResponse, pnlId: "" },
+      message: "RFQ quote status response returned malformed pnlId",
+    },
+    {
+      payload: { ...quoteStatusResponse, pnlId: "pnl.bad" },
       message: "RFQ quote status response returned malformed pnlId",
     },
     {
@@ -1357,11 +1389,19 @@ test("RFQClient rejects malformed settlement status responses", async () => {
       message: "RFQ settlement event status response returned malformed settlementEventId",
     },
     {
+      payload: { ...settlementResponse, settlementEventId: "se.bad" },
+      message: "RFQ settlement event status response returned malformed settlementEventId",
+    },
+    {
       payload: { ...settlementResponse, status: "pending" },
       message: "RFQ settlement event status response returned malformed status",
     },
     {
       payload: { ...settlementResponse, quoteId: "" },
+      message: "RFQ settlement event status response returned malformed quoteId",
+    },
+    {
+      payload: { ...settlementResponse, quoteId: "q".repeat(129) },
       message: "RFQ settlement event status response returned malformed quoteId",
     },
     {
@@ -1462,6 +1502,20 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
     {
       payload: { ...basePnlResponse, grossPnlTokenOut: "1599999" },
       message: "RFQ PnL summary response returned malformed grossPnlTokenOut",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], pnlId: "pnl.bad" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed pnlId",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], quoteId: "q".repeat(129) }],
+      },
+      message: "RFQ PnL summary response trade returned malformed quoteId",
     },
     {
       payload: {
@@ -1567,7 +1621,15 @@ test("RFQClient rejects malformed successful response fields", async () => {
       traceId: "trace_malformed_field",
     },
     {
+      payload: { ...quoteResponse, quoteId: "q.bad" },
+      message: "RFQ quote response returned malformed quoteId",
+    },
+    {
       payload: { ...quoteResponse, snapshotId: "" },
+      message: "RFQ quote response returned malformed snapshotId",
+    },
+    {
+      payload: { ...quoteResponse, snapshotId: "s".repeat(129) },
       message: "RFQ quote response returned malformed snapshotId",
     },
     {
@@ -1650,11 +1712,23 @@ test("RFQClient rejects malformed successful response fields", async () => {
       message: "RFQ submit response returned malformed settlementEventId",
     },
     {
+      payload: { ...submitResponse, settlementEventId: "se.bad" },
+      message: "RFQ submit response returned malformed settlementEventId",
+    },
+    {
       payload: { ...submitResponse, hedgeOrderId: "" },
       message: "RFQ submit response returned malformed hedgeOrderId",
     },
     {
+      payload: { ...submitResponse, hedgeOrderId: "h".repeat(129) },
+      message: "RFQ submit response returned malformed hedgeOrderId",
+    },
+    {
       payload: { ...submitResponse, pnlId: "" },
+      message: "RFQ submit response returned malformed pnlId",
+    },
+    {
+      payload: { ...submitResponse, pnlId: "pnl/bad" },
       message: "RFQ submit response returned malformed pnlId",
     },
   ];

@@ -1305,6 +1305,11 @@ grep -q 'async ready' sdk/src/client.ts
 grep -q 'assertNonEmptyIdentifier' sdk/src/client.ts
 grep -q 'maxStatusIdentifierLength' sdk/src/client.ts
 grep -q 'statusIdentifierPattern' sdk/src/client.ts
+grep -q 'function isSafeIdentifier' sdk/src/client.ts
+grep -q 'statusIdentifierPattern.test(value)' sdk/src/client.ts
+grep -q 'RFQ quote response returned malformed quoteId' sdk/test/sdk.test.mjs
+grep -q 'RFQ submit response returned malformed pnlId' sdk/test/sdk.test.mjs
+grep -q 'RFQ PnL summary response trade returned malformed quoteId' sdk/test/sdk.test.mjs
 grep -q 'RFQClient rejects unsafe dynamic status identifiers before fetch' sdk/test/sdk.test.mjs
 grep -q 'identifiers must be non-empty, 128 characters or fewer' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'export interface RFQClientOptions' sdk/src/client.ts
@@ -1728,6 +1733,7 @@ grep -q 'RFQ_ENABLE_HSTS' book/Volume5-BackendEngineering/Chapter01-API-Gateway.
 grep -q 'graceful shutdown signal handling' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'not-found handler' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'IntString' docs/api/openapi.yaml
+grep -q 'SafeIdentifier' docs/api/openapi.yaml
 grep -q 'Internal rejection reason for rejected quote records' docs/api/openapi.yaml
 grep -q 'QUOTE_ALREADY_USED' docs/api/openapi.yaml
 grep -q 'QUOTE_FAILED' docs/api/openapi.yaml

@@ -447,7 +447,7 @@ function assertQuoteResponse(payload: unknown, status: number): asserts payload 
   }
 
   for (const field of ["quoteId", "snapshotId"] as const) {
-    if (!isNonEmptyString(payload[field])) {
+    if (!isSafeIdentifier(payload[field])) {
       throw malformedFieldError(status, label, field);
     }
   }
@@ -479,7 +479,7 @@ function assertSubmitQuoteResponse(payload: unknown, status: number): asserts pa
   assertRequiredEnumField(payload, "status", ["accepted"], status, label);
   assertOptionalBytes32Field(payload, "txHash", status, label);
   for (const field of ["settlementEventId", "hedgeOrderId", "pnlId"] as const) {
-    if (payload[field] !== undefined && !isNonEmptyString(payload[field])) {
+    if (payload[field] !== undefined && !isSafeIdentifier(payload[field])) {
       throw malformedFieldError(status, label, field);
     }
   }
@@ -491,7 +491,7 @@ function assertQuoteStatus(payload: unknown, status: number): asserts payload is
     throw malformedFieldError(status, label, "status");
   }
 
-  if (!isNonEmptyString(payload.quoteId)) {
+  if (!isSafeIdentifier(payload.quoteId)) {
     throw malformedFieldError(status, label, "quoteId");
   }
   assertRequiredEnumField(
@@ -501,10 +501,13 @@ function assertQuoteStatus(payload: unknown, status: number): asserts payload is
     status,
     label,
   );
-  for (const field of ["snapshotId", "settlementEventId", "hedgeOrderId", "pnlId", "errorCode"] as const) {
-    if (payload[field] !== undefined && !isNonEmptyString(payload[field])) {
+  for (const field of ["snapshotId", "settlementEventId", "hedgeOrderId", "pnlId"] as const) {
+    if (payload[field] !== undefined && !isSafeIdentifier(payload[field])) {
       throw malformedFieldError(status, label, field);
     }
+  }
+  if (payload.errorCode !== undefined && !isNonEmptyString(payload.errorCode)) {
+    throw malformedFieldError(status, label, "errorCode");
   }
   if (payload.deadline !== undefined && (!Number.isSafeInteger(payload.deadline) || Number(payload.deadline) <= 0)) {
     throw malformedFieldError(status, label, "deadline");
@@ -524,7 +527,7 @@ function assertQuoteStatusPayloadConsistency(
     if (!isBytes32Hex(payload.txHash)) {
       throw malformedFieldError(status, label, "txHash");
     }
-    if (!isNonEmptyString(payload.settlementEventId)) {
+    if (!isSafeIdentifier(payload.settlementEventId)) {
       throw malformedFieldError(status, label, "settlementEventId");
     }
     return;
@@ -550,8 +553,8 @@ function assertHedgeIntentStatus(payload: unknown, status: number): asserts payl
     throw malformedFieldError(status, label, "status");
   }
 
-  for (const field of ["hedgeOrderId", "settlementEventId", "quoteId", "createdAt"] as const) {
-    if (!isNonEmptyString(payload[field])) {
+  for (const field of ["hedgeOrderId", "settlementEventId", "quoteId"] as const) {
+    if (!isSafeIdentifier(payload[field])) {
       throw malformedFieldError(status, label, field);
     }
   }
@@ -585,8 +588,8 @@ function assertSettlementEventStatus(payload: unknown, status: number): asserts 
     throw malformedFieldError(status, label, "status");
   }
 
-  for (const field of ["settlementEventId", "quoteId", "observedAt"] as const) {
-    if (!isNonEmptyString(payload[field])) {
+  for (const field of ["settlementEventId", "quoteId"] as const) {
+    if (!isSafeIdentifier(payload[field])) {
       throw malformedFieldError(status, label, field);
     }
   }
@@ -661,8 +664,8 @@ function assertPnlTradeRecord(payload: unknown, status: number): asserts payload
     throw malformedFieldError(status, label, "pnlId");
   }
 
-  for (const field of ["pnlId", "quoteId", "realizedAt"] as const) {
-    if (!isNonEmptyString(payload[field])) {
+  for (const field of ["pnlId", "quoteId"] as const) {
+    if (!isSafeIdentifier(payload[field])) {
       throw malformedFieldError(status, label, field);
     }
   }
@@ -745,6 +748,10 @@ function isSignatureHex(value: unknown): value is `0x${string}` {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function isSafeIdentifier(value: unknown): value is string {
+  return isNonEmptyString(value) && value.length <= maxStatusIdentifierLength && statusIdentifierPattern.test(value);
 }
 
 function isPositiveUIntString(value: unknown): value is string {

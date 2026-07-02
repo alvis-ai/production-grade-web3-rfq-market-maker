@@ -487,6 +487,12 @@ components:
     IntString:
       type: string
       pattern: "^-?[0-9]+$"
+    SafeIdentifier:
+      type: string
+      minLength: 1
+      maxLength: 128
+      pattern: "^[A-Za-z0-9_:-]+$"
+      description: Resource identifier containing only letters, numbers, underscore, colon, or hyphen.
     QuoteRequest:
       type: object
       additionalProperties: false
@@ -527,9 +533,9 @@ components:
         - signature
       properties:
         quoteId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
         snapshotId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
         amountOut:
           $ref: "#/components/schemas/PositiveUIntString"
         minAmountOut:
@@ -575,13 +581,13 @@ components:
           pattern: "^0x[a-fA-F0-9]{64}$"
           description: Simulated or relayed transaction hash.
         settlementEventId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
           description: Settlement event id consumed to update inventory.
         hedgeOrderId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
           description: Hedge intent id queued after simulated settlement updates inventory. Omitted when post-trade hedge intent creation fails after settlement has already been accepted; the reference backend then tightens follow-up quotes through output-token quote risk penalty.
         pnlId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
           description: PnL record id created after simulated settlement.
     SignedQuote:
       type: object
@@ -632,7 +638,7 @@ components:
         - status
       properties:
         quoteId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
         status:
           type: string
           enum:
@@ -644,7 +650,7 @@ components:
             - settled
             - failed
         snapshotId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
           description: Market data snapshot used for the quote when available.
         deadline:
           type: integer
@@ -654,13 +660,13 @@ components:
           pattern: "^0x[a-fA-F0-9]{64}$"
           description: Simulated or relayed transaction hash after submit.
         settlementEventId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
           description: Settlement event pointer after submit when available.
         hedgeOrderId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
           description: Hedge order pointer after settlement when a hedge was queued.
         pnlId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
           description: Realized PnL record pointer after settlement attribution when available.
         errorCode:
           type: string
@@ -680,15 +686,15 @@ components:
         - createdAt
       properties:
         hedgeOrderId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
         status:
           type: string
           enum:
             - queued
         settlementEventId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
         quoteId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
         chainId:
           type: integer
         token:
@@ -727,13 +733,13 @@ components:
         - observedAt
       properties:
         settlementEventId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
         status:
           type: string
           enum:
             - applied
         quoteId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
         chainId:
           type: integer
           minimum: 1
@@ -788,9 +794,9 @@ components:
         - realizedAt
       properties:
         pnlId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
         quoteId:
-          type: string
+          $ref: "#/components/schemas/SafeIdentifier"
         chainId:
           type: integer
           minimum: 1

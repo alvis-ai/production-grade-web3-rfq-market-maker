@@ -202,6 +202,53 @@ assert.equal(
   "^[1-9][0-9]*$",
   "PositiveUIntString must reject zero and negative values",
 );
+assert.equal(
+  extractOpenApiSchemaPattern(openapiSource, "SafeIdentifier"),
+  "^[A-Za-z0-9_:-]+$",
+  "SafeIdentifier must use the shared public resource identifier pattern",
+);
+assert.equal(
+  extractOpenApiSchemaNumericBound(openapiSource, "SafeIdentifier", "minLength"),
+  "1",
+  "SafeIdentifier must reject empty resource identifiers",
+);
+assert.equal(
+  extractOpenApiSchemaNumericBound(openapiSource, "SafeIdentifier", "maxLength"),
+  "128",
+  "SafeIdentifier must cap resource identifiers at 128 characters",
+);
+
+for (const [schemaName, propertyName] of [
+  ["QuoteResponse", "quoteId"],
+  ["QuoteResponse", "snapshotId"],
+  ["SubmitQuoteResponse", "settlementEventId"],
+  ["SubmitQuoteResponse", "hedgeOrderId"],
+  ["SubmitQuoteResponse", "pnlId"],
+  ["QuoteStatus", "quoteId"],
+  ["QuoteStatus", "snapshotId"],
+  ["QuoteStatus", "settlementEventId"],
+  ["QuoteStatus", "hedgeOrderId"],
+  ["QuoteStatus", "pnlId"],
+  ["HedgeIntentStatus", "hedgeOrderId"],
+  ["HedgeIntentStatus", "settlementEventId"],
+  ["HedgeIntentStatus", "quoteId"],
+  ["SettlementEventStatus", "settlementEventId"],
+  ["SettlementEventStatus", "quoteId"],
+  ["PnlTradeRecord", "pnlId"],
+  ["PnlTradeRecord", "quoteId"],
+]) {
+  assert.equal(
+    extractOpenApiPropertyRef(openapiSource, schemaName, propertyName),
+    "#/components/schemas/SafeIdentifier",
+    `${schemaName}.${propertyName} must use SafeIdentifier`,
+  );
+}
+assert.ok(
+  sdkClientSource.includes("function isSafeIdentifier") &&
+    sdkClientSource.includes("statusIdentifierPattern.test(value)") &&
+    sdkClientSource.includes("value.length <= maxStatusIdentifierLength"),
+  "SDK successful response validators must reuse the shared safe identifier rule",
+);
 
 for (const [schemaName, propertyName] of [
   ["QuoteRequest", "amountIn"],
@@ -258,7 +305,7 @@ for (const schemaName of ["SubmitQuoteResponse", "QuoteStatus", "SettlementEvent
   );
 }
 
-console.log(`API schema consistency check passed (${schemaMappings.length + 3} schemas)`);
+console.log(`API schema consistency check passed (${schemaMappings.length + 4} schemas)`);
 
 function extractInterfaceFields(source, interfaceName) {
   const match = source.match(new RegExp(`export\\s+interface\\s+${interfaceName}\\s+\\{([\\s\\S]*?)\\n\\}`));
@@ -475,6 +522,14 @@ function extractOpenApiSchemaPattern(source, schemaName) {
   assert.ok(patternLine, `Unable to find pattern for ${schemaName}`);
 
   return patternLine.trim().slice("pattern: ".length).replace(/^"|"$/g, "");
+}
+
+function extractOpenApiSchemaNumericBound(source, schemaName, boundName) {
+  const lines = extractOpenApiSchemaLines(source, schemaName);
+  const boundLine = lines.find((line) => line.trim().startsWith(`${boundName}: `));
+  assert.ok(boundLine, `Unable to find ${boundName} for ${schemaName}`);
+
+  return boundLine.trim().slice(`${boundName}: `.length);
 }
 
 function extractOpenApiPropertyRef(source, schemaName, propertyName) {
