@@ -489,7 +489,7 @@ function assertSafeIdentifier(value: string, field: string): void {
 }
 
 function assertPositiveUIntString(value: string, field: string): void {
-  if (!/^[0-9]+$/.test(value) || BigInt(value) <= 0n) {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
     throw new Error(`Metrics ${field} must be a positive uint string`);
   }
 }

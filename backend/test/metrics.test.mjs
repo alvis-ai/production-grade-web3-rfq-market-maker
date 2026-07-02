@@ -133,6 +133,22 @@ test("MetricsService validates inventory and PnL metric inputs before mutating s
     () =>
       metrics.recordPnlTrade({
         ...pnlTradeRecord,
+        amountIn: "0100000000",
+      }),
+    /Metrics PnL trade amountIn must be a positive uint string/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        nonce: "01",
+      }),
+    /Metrics PnL trade nonce must be a positive uint string/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
         grossPnlTokenOut: "not-an-int",
       }),
     /Metrics PnL trade grossPnlTokenOut must be an int string/,
