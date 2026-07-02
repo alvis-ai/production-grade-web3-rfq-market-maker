@@ -143,6 +143,26 @@ test("InventoryService rejects unsafe settlement replay before mutating balances
     /Inventory tokenOut must be a 20-byte hex address/,
   );
   assert.throws(
+    () =>
+      inventory.rebuildFromSettlements([
+        {
+          chainId: 1,
+          tokenIn,
+          tokenOut,
+          amountIn: "10",
+          amountOut: "9",
+        },
+        {
+          chainId: 1,
+          tokenIn,
+          tokenOut,
+          amountIn: "010",
+          amountOut: "9",
+        },
+      ]),
+    /Inventory amountIn must be a positive uint string/,
+  );
+  assert.throws(
     () => inventory.rebuildFromSettlements("not an array"),
     /Inventory settlement replay input must be an array/,
   );
@@ -273,6 +293,28 @@ test("InventoryService rejects unsafe settlement inputs before mutating balances
       }),
     /Inventory amountIn must be a positive uint string/,
   );
+  assert.throws(
+    () =>
+      inventory.applySettlement({
+        chainId: 1,
+        tokenIn,
+        tokenOut,
+        amountIn: "0100",
+        amountOut: "99",
+      }),
+    /Inventory amountIn must be a positive uint string/,
+  );
+  assert.throws(
+    () =>
+      inventory.applySettlement({
+        chainId: 1,
+        tokenIn,
+        tokenOut,
+        amountIn: "100",
+        amountOut: "099",
+      }),
+    /Inventory amountOut must be a positive uint string/,
+  );
 
   assert.equal(inventory.getPosition(1, tokenIn).balance, 0n);
   assert.equal(inventory.getPosition(1, tokenOut).balance, 0n);
@@ -289,6 +331,17 @@ test("InventoryService rejects unsafe projection and skew inputs", () => {
         tokenOut,
         amountIn: "100",
         amountOut: "-1",
+      }),
+    /Inventory amountOut must be a positive uint string/,
+  );
+  assert.throws(
+    () =>
+      inventory.projectSettlement({
+        chainId: 1,
+        tokenIn,
+        tokenOut,
+        amountIn: "100",
+        amountOut: "099",
       }),
     /Inventory amountOut must be a positive uint string/,
   );

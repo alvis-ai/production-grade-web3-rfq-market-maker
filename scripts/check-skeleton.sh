@@ -116,11 +116,15 @@ grep -q 'assertSettlementDelta(delta)' backend/src/modules/inventory/inventory.s
 grep -q 'assertInventorySkewInput(input)' backend/src/modules/inventory/inventory.service.ts
 grep -q 'assertObject(input, "settlement delta")' backend/src/modules/inventory/inventory.service.ts
 grep -q 'assertObject(input, "skew input")' backend/src/modules/inventory/inventory.service.ts
+grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/inventory/inventory.service.ts
 grep -q 'InventoryService snapshots skew configuration at construction' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects unsafe skew configuration at construction' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects malformed runtime payload envelopes before mutating balances' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects unsafe settlement inputs before mutating balances' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects unsafe projection and skew inputs' backend/test/inventory.test.mjs
+grep -q 'amountIn: "0100"' backend/test/inventory.test.mjs
+grep -q 'amountOut: "099"' backend/test/inventory.test.mjs
+grep -q 'amountIn: "010"' backend/test/inventory.test.mjs
 grep -q 'rebuildFromSettlements' backend/src/modules/inventory/inventory.service.ts
 grep -q 'InventoryService rebuilds inventory from settlement replay' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects unsafe settlement replay before mutating balances' backend/test/inventory.test.mjs
@@ -128,6 +132,7 @@ grep -q 'Inventory settlement replay input must be an array' backend/src/modules
 grep -q 'Inventory replay validates the entire settlement delta batch before clearing balances' book/Volume3-RiskEngine/Chapter01-Inventory.md
 grep -q 'inventory skew config fail-fast' book/Volume3-RiskEngine/Chapter01-Inventory.md
 grep -q 'snapshots `InventoryServiceConfig` at construction after validation' book/Volume3-RiskEngine/Chapter01-Inventory.md
+grep -q 'canonical decimal form without leading zeros' book/Volume3-RiskEngine/Chapter01-Inventory.md
 grep -q 'Malformed inventory config, settlement delta and skew root payloads are rejected before field access, balance mutation or replay clearing' book/Volume3-RiskEngine/Chapter01-Inventory.md
 test -s backend/src/modules/hedge/hedge.service.ts
 grep -q 'checkHealth' backend/src/modules/hedge/hedge.service.ts
