@@ -26,7 +26,7 @@
 | `PRICING_UNAVAILABLE` | 503 | Pricing Engine 无法生成报价 | 稍后重试 |
 | `RISK_REJECTED` | 409 | 风控策略拒绝签名 | 降低数量或稍后重试 |
 | `SIGNER_UNAVAILABLE` | 503 | Signer Service 不可用 | 稍后重试 |
-| `INVALID_SIGNATURE` | 409 | quote signature 无法恢复到 trusted signer，或不是链上可接受的 canonical low-s ECDSA 签名 | 重新询价并提交后端返回的签名 |
+| `INVALID_SIGNATURE` | 409 | quote signature 与后端签发归档不一致、无法恢复到 trusted signer，或不是链上可接受的 canonical low-s ECDSA 签名 | 重新询价并提交后端返回的签名 |
 | `QUOTE_STORE_UNAVAILABLE` | 503 | quote repository 或持久化审计存储不可用 | 稍后重试，若已拿到 signed quote 则先查询 quote 状态 |
 | `QUOTE_NOT_FOUND` | 404 | quoteId 不存在 | 重新询价 |
 | `QUOTE_EXPIRED` | 409 | quote 已过期 | 重新询价 |

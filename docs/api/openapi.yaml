@@ -109,6 +109,9 @@ paths:
         a bounded output-token quote risk penalty so follow-up quotes become more
         conservative after post-trade hedge failures. Production deployments should
         treat RFQSettlement QuoteSettled events as the final settlement source of truth.
+        Submit first validates the canonical request shape, resolves the stored signed
+        quote by chainId/user/nonce, and rejects signatures that differ from the
+        signature returned by /quote before signer recovery or settlement verification.
       tags:
         - Submit
       requestBody:

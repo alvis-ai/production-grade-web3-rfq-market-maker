@@ -382,6 +382,9 @@ export class QuoteService {
       await this.markQuoteExpiredBestEffort(record.quoteId);
       throw new APIError("QUOTE_EXPIRED", "Quote expired", 409);
     }
+    if (record.signature?.toLowerCase() !== validatedSubmitRequest.signature.toLowerCase()) {
+      throw new APIError("INVALID_SIGNATURE", "Quote signature does not match stored signed quote", 409);
+    }
 
     const isValidSignature = await this.deps.signerService.verifyQuoteSignature(
       validatedQuote,

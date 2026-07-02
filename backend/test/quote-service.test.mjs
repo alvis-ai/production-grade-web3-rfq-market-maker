@@ -1709,6 +1709,51 @@ test("QuoteService rejects unsafe submit quotes before quote lookup or signature
   assert.equal(verifyCalls, 0);
 });
 
+test("QuoteService rejects submit signatures that differ from the stored signed quote", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  let verifyCalls = 0;
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteRepository,
+    signerService: {
+      async signQuote() {
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() {
+        verifyCalls += 1;
+        return true;
+      },
+    },
+  });
+
+  const quoteResponse = await service.createQuote(request);
+  const signedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: quoteResponse.amountOut,
+    minAmountOut: quoteResponse.minAmountOut,
+    nonce: quoteResponse.nonce,
+    deadline: quoteResponse.deadline,
+    chainId: request.chainId,
+  };
+
+  await assert.rejects(
+    service.requireSubmittableSignedQuote(signedQuote, alternateSignature()),
+    (error) => {
+      assert.equal(error.code, "INVALID_SIGNATURE");
+      assert.equal(error.statusCode, 409);
+      assert.equal(error.message, "Quote signature does not match stored signed quote");
+      return true;
+    },
+  );
+
+  const status = await quoteRepository.findStatus(quoteResponse.quoteId);
+  assert.equal(status.status, "signed");
+  assert.equal(verifyCalls, 0);
+});
+
 test("QuoteService rejects expired signed quotes before signature verification", async () => {
   const originalDateNow = Date.now;
   let now = originalDateNow();
@@ -2078,6 +2123,10 @@ test("QuoteService includes hedge risk penalty in pricing input", async () => {
 
 function fixedSignature() {
   return `0x${"11".repeat(64)}1b`;
+}
+
+function alternateSignature() {
+  return `0x${"22".repeat(64)}1c`;
 }
 
 function quoteServiceDeps() {
