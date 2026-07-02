@@ -248,11 +248,13 @@ grep -q 'validateSubmitQuoteRequest rejects unsafe submit payloads before execut
 test -s frontend/src/lib/rfq.ts
 test -s frontend/src/lib/config.ts
 test -s frontend/src/lib/errors.ts
+test -s frontend/src/lib/integer-input.ts
 test -s frontend/src/vite-env.d.ts
 test -s frontend/src/app/web3.tsx
 test -s frontend/src/pages/QuotePage.tsx
 test -s frontend/src/components/WalletSubmitControl.tsx
 test -s frontend/test/config.test.mjs
+test -s frontend/test/integer-input.test.mjs
 test -s frontend/test/quote-request.test.mjs
 test -s sdk/src/abi.ts
 test -s sdk/src/eip712.ts
@@ -1421,6 +1423,10 @@ grep -q 'boxed `String` objects or other non-primitive values fail before regex 
 grep -q 'loadPostTradeSurfaces(status, response)' frontend/src/pages/QuotePage.tsx
 grep -q 'loadPostTradeSurfaces(status, submitResult)' frontend/src/pages/QuotePage.tsx
 grep -q 'parseIntegerInput' frontend/src/components/QuoteForm.tsx
+grep -q '../lib/integer-input' frontend/src/components/QuoteForm.tsx
+grep -Fq 'typeof value !== "string" || !integerInputPattern.test(value)' frontend/src/lib/integer-input.ts
+grep -q 'parseIntegerInput rejects boxed strings before regex coercion' frontend/test/integer-input.test.mjs
+grep -q 'boxed `String` objects and out-of-range values do not poison request state' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'Number.MAX_SAFE_INTEGER' frontend/src/components/QuoteForm.tsx
 grep -q 'status.settlementEventId' frontend/src/pages/QuotePage.tsx
 grep -q 'status.hedgeOrderId' frontend/src/pages/QuotePage.tsx

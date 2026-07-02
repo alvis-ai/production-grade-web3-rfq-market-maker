@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import type { QuoteRequest } from "@rfq-market-maker/sdk";
+import { parseIntegerInput } from "../lib/integer-input";
 
 interface QuoteFormProps {
   request: QuoteRequest;
@@ -67,17 +68,4 @@ export function QuoteForm({ request, isLoading, onChange, onSubmit }: QuoteFormP
       </button>
     </form>
   );
-}
-
-export function parseIntegerInput(value: string, min: number, max: number): number | undefined {
-  if (!/^[0-9]+$/.test(value)) {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
-    return undefined;
-  }
-
-  return parsed;
 }
