@@ -99,6 +99,15 @@ test("MetricsService validates inventory and PnL metric inputs before mutating s
   );
   assert.throws(
     () =>
+      metrics.recordInventoryPosition({
+        chainId: 1,
+        token: new String(token),
+        balance: 1n,
+      }),
+    /Metrics inventory token must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () =>
       metrics.recordPnlTrade({
         ...pnlTradeRecord,
         pnlId: "pnl.bad",
@@ -133,6 +142,22 @@ test("MetricsService validates inventory and PnL metric inputs before mutating s
     () =>
       metrics.recordPnlTrade({
         ...pnlTradeRecord,
+        user: new String(pnlTradeRecord.user),
+      }),
+    /Metrics PnL trade user must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        tokenIn: new String(pnlTradeRecord.tokenIn),
+      }),
+    /Metrics PnL trade tokenIn must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
         amountIn: "0100000000",
       }),
     /Metrics PnL trade amountIn must be a positive uint string/,
@@ -150,6 +175,14 @@ test("MetricsService validates inventory and PnL metric inputs before mutating s
       metrics.recordPnlTrade({
         ...pnlTradeRecord,
         grossPnlTokenOut: "not-an-int",
+      }),
+    /Metrics PnL trade grossPnlTokenOut must be an int string/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        grossPnlTokenOut: new String("1600000"),
       }),
     /Metrics PnL trade grossPnlTokenOut must be an int string/,
   );

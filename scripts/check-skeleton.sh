@@ -1305,10 +1305,16 @@ grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/metrics/metrics.serv
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertSafeIdentifier(record.pnlId, "PnL trade pnlId")' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertSafeIdentifier(record.quoteId, "PnL trade quoteId")' backend/src/modules/metrics/metrics.service.ts
+grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)' backend/src/modules/metrics/metrics.service.ts
 grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/metrics/metrics.service.ts
+grep -Fq 'typeof value !== "string" || !/^-?[0-9]+$/.test(value)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'isCanonicalUtcIsoTimestamp(record.realizedAt)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'Metrics PnL trade pnlId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/metrics.test.mjs
 grep -q 'Metrics PnL trade quoteId must be 128 characters or fewer' backend/test/metrics.test.mjs
+grep -q 'token: new String(token)' backend/test/metrics.test.mjs
+grep -q 'user: new String(pnlTradeRecord.user)' backend/test/metrics.test.mjs
+grep -q 'tokenIn: new String(pnlTradeRecord.tokenIn)' backend/test/metrics.test.mjs
+grep -q 'grossPnlTokenOut: new String("1600000")' backend/test/metrics.test.mjs
 grep -q 'amountIn: "0100000000"' backend/test/metrics.test.mjs
 grep -q 'nonce: "01"' backend/test/metrics.test.mjs
 grep -q 'realizedAt: "2026-06-29"' backend/test/metrics.test.mjs
@@ -1319,6 +1325,7 @@ grep -q 'validates fixed-label inputs before mutation' book/Volume5-BackendEngin
 grep -q 'validates dynamic label values before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'Histogram observations must be finite numbers before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'realizedAt` must be a canonical UTC ISO timestamp generated with `Date.prototype.toISOString()`' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q '`String` wrapper objects cannot rely on JavaScript `RegExp.test()` coercion' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'recordReadiness' backend/src/main.ts
 grep -q 'rfq_readiness_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_dependency_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md

@@ -459,8 +459,8 @@ function assertSafeInteger(value: number, field: string): void {
   }
 }
 
-function assertAddress(value: Address, field: string): void {
-  if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
+function assertAddress(value: unknown, field: string): void {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
     throw new Error(`Metrics ${field} must be a 20-byte hex address`);
   }
 }
@@ -495,8 +495,8 @@ function assertPositiveUIntString(value: string, field: string): void {
   }
 }
 
-function assertIntString(value: string, field: string): void {
-  if (!/^-?[0-9]+$/.test(value)) {
+function assertIntString(value: unknown, field: string): void {
+  if (typeof value !== "string" || !/^-?[0-9]+$/.test(value)) {
     throw new Error(`Metrics ${field} must be an int string`);
   }
 }
