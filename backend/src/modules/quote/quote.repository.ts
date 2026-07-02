@@ -370,8 +370,13 @@ function assertNonEmptyString(value: string, field: string, subject = "Signed qu
   }
 }
 
-function assertSafeIdentifier(value: string, field: string, subject = "Signed quote"): void {
-  assertNonEmptyString(value, field, subject);
+function assertSafeIdentifier(value: unknown, field: string, subject = "Signed quote"): void {
+  if (typeof value !== "string") {
+    throw new Error(`${subject} ${field} must be a primitive string`);
+  }
+  if (value.trim().length === 0) {
+    throw new Error(`${subject} ${field} must be a non-empty string`);
+  }
   if (value.length > maxSafeIdentifierLength) {
     throw new Error(`${subject} ${field} must be 128 characters or fewer`);
   }
@@ -737,8 +742,11 @@ function assertNonSettlementMetadataField(
   }
 }
 
-function assertSafeMetadataIdentifier(value: string, field: keyof QuoteStatusMetadata): void {
-  if (typeof value !== "string" || value.trim().length === 0) {
+function assertSafeMetadataIdentifier(value: unknown, field: keyof QuoteStatusMetadata): void {
+  if (typeof value !== "string") {
+    throw new Error(`Quote status ${field} must be a primitive string`);
+  }
+  if (value.trim().length === 0) {
     throw new Error(`Quote status ${field} must be a non-empty string`);
   }
   if (value.length > maxSafeIdentifierLength) {

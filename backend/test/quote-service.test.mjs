@@ -317,6 +317,14 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
   await assert.rejects(
     quoteRepository.saveSigned({
       ...input,
+      snapshotId: new String("snapshot_1"),
+    }),
+    /Signed quote snapshotId must be a primitive string/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
       snapshotId: "snapshot".repeat(19),
     }),
     /Signed quote snapshotId must be 128 characters or fewer/,
@@ -521,6 +529,15 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
       request,
     }),
     /Requested quote quoteId must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRequested({
+      quoteId: new String("q_requested"),
+      snapshotId: "snapshot_1",
+      request,
+    }),
+    /Requested quote quoteId must be a primitive string/,
   );
 
   await assert.rejects(
@@ -1137,6 +1154,12 @@ test("InMemoryQuoteRepository rejects malformed quote status metadata", async ()
       hedgeOrderId: "",
     }),
     /Quote status hedgeOrderId must be a non-empty string/,
+  );
+  await assert.rejects(
+    quoteRepository.markStatus("q_metadata", "submitted", {
+      hedgeOrderId: new String("h_1"),
+    }),
+    /Quote status hedgeOrderId must be a primitive string/,
   );
   await assert.rejects(
     quoteRepository.markStatus("q_metadata", "submitted", {

@@ -742,13 +742,18 @@ grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' backend/src/modules/quo
 grep -q 'assertSafeMetadataIdentifier(metadata.settlementEventId, "settlementEventId")' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertSafeMetadataIdentifier(metadata.hedgeOrderId, "hedgeOrderId")' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertSafeMetadataIdentifier(metadata.pnlId, "pnlId")' backend/src/modules/quote/quote.repository.ts
+grep -q '${subject} ${field} must be a primitive string' backend/src/modules/quote/quote.repository.ts
+grep -q 'Quote status ${field} must be a primitive string' backend/src/modules/quote/quote.repository.ts
+grep -q 'Requested quote quoteId must be a primitive string' backend/test/quote-service.test.mjs
 grep -q 'Requested quote quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/quote-service.test.mjs
+grep -q 'Signed quote snapshotId must be a primitive string' backend/test/quote-service.test.mjs
 grep -q 'Signed quote snapshotId must be 128 characters or fewer' backend/test/quote-service.test.mjs
+grep -q 'Quote status hedgeOrderId must be a primitive string' backend/test/quote-service.test.mjs
 grep -q 'Quote status hedgeOrderId must be 128 characters or fewer' backend/test/quote-service.test.mjs
 grep -q 'Requested and rejected quote persistence rejects malformed root payloads and missing `request` objects before field access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Signed quote persistence rejects malformed root payloads and missing `quote` objects before field access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'quoteId` and `snapshotId` as `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'settlementEventId`、`hedgeOrderId`、`pnlId` must be `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'quoteId` and `snapshotId` as primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'settlementEventId`、`hedgeOrderId`、`pnlId` must be primitive-string `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '65-byte canonical low-s EIP-712 signature before writing the `chainId:user:nonce` index' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'rejects non-string address, signature, `txHash` and uint-like values' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'assertCanSaveSignedQuote(current, input)' backend/src/modules/quote/quote.repository.ts
