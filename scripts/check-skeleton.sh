@@ -252,6 +252,7 @@ test -s frontend/src/vite-env.d.ts
 test -s frontend/src/app/web3.tsx
 test -s frontend/src/pages/QuotePage.tsx
 test -s frontend/src/components/WalletSubmitControl.tsx
+test -s frontend/test/quote-request.test.mjs
 test -s sdk/src/abi.ts
 test -s sdk/src/eip712.ts
 test -s sdk/src/index.ts
@@ -1411,6 +1412,11 @@ grep -q 'validateQuoteFormRequest(request)' frontend/src/pages/QuotePage.tsx
 grep -q 'tokenIn and tokenOut must be different' frontend/src/lib/quote-request.ts
 grep -q 'amountIn must be a positive uint string' frontend/src/lib/quote-request.ts
 grep -Fq 'positiveUintPattern = /^[1-9][0-9]*$/' frontend/src/lib/quote-request.ts
+grep -Fq 'typeof value !== "string" || !addressPattern.test(value)' frontend/src/lib/quote-request.ts
+grep -Fq 'typeof value !== "string" || !positiveUintPattern.test(value)' frontend/src/lib/quote-request.ts
+grep -q 'validateQuoteFormRequest rejects boxed string address fields' frontend/test/quote-request.test.mjs
+grep -q 'validateQuoteFormRequest rejects boxed string amountIn' frontend/test/quote-request.test.mjs
+grep -q 'boxed `String` objects or other non-primitive values fail before regex validation' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'loadPostTradeSurfaces(status, response)' frontend/src/pages/QuotePage.tsx
 grep -q 'loadPostTradeSurfaces(status, submitResult)' frontend/src/pages/QuotePage.tsx
 grep -q 'parseIntegerInput' frontend/src/components/QuoteForm.tsx
@@ -1758,12 +1764,13 @@ grep -q 'make database-schema-check' scripts/verify.sh
 grep -q 'make benchmark-quote' scripts/verify.sh
 grep -q 'make backend-test' scripts/verify.sh
 grep -q 'make sdk-test' scripts/verify.sh
-grep -q 'make frontend-build' scripts/verify.sh
+grep -q 'make frontend-test' scripts/verify.sh
 grep -q 'make smoke-api-local' scripts/verify.sh
 grep -q 'make contract-test' scripts/verify.sh
 grep -q 'forge not found; skipping contract-test' scripts/verify.sh
 grep -q 'backend-build' Makefile
 grep -q 'backend-test' Makefile
+grep -q 'frontend-test' Makefile
 grep -q 'examples-check' Makefile
 grep -q 'examples:check' package.json
 grep -q 'config-check' Makefile

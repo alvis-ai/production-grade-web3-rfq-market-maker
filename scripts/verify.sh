@@ -30,7 +30,7 @@ run_step make reconciliation-check
 run_step make benchmark-quote
 run_step make backend-test
 run_step make sdk-test
-run_step make frontend-build
+run_step make frontend-test
 run_step make smoke-api-local
 
 if command -v forge >/dev/null 2>&1; then

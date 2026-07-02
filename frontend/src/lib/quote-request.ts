@@ -28,16 +28,16 @@ export function validateQuoteFormRequest(request: QuoteRequest): QuoteRequest {
   };
 }
 
-function readAddress(value: string, field: keyof Pick<QuoteRequest, "user" | "tokenIn" | "tokenOut">): Address {
-  if (!addressPattern.test(value)) {
+function readAddress(value: unknown, field: keyof Pick<QuoteRequest, "user" | "tokenIn" | "tokenOut">): Address {
+  if (typeof value !== "string" || !addressPattern.test(value)) {
     throw new Error(`${field} must be an EVM address`);
   }
 
   return value as Address;
 }
 
-function readPositiveAmountIn(value: string): string {
-  if (!positiveUintPattern.test(value)) {
+function readPositiveAmountIn(value: unknown): string {
+  if (typeof value !== "string" || !positiveUintPattern.test(value)) {
     throw new Error("amountIn must be a positive uint string");
   }
 
