@@ -101,6 +101,38 @@ test("MetricsService validates inventory and PnL metric inputs before mutating s
     () =>
       metrics.recordPnlTrade({
         ...pnlTradeRecord,
+        pnlId: "pnl.bad",
+      }),
+    /Metrics PnL trade pnlId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        pnlId: "p".repeat(129),
+      }),
+    /Metrics PnL trade pnlId must be 128 characters or fewer/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        quoteId: "q/bad",
+      }),
+    /Metrics PnL trade quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        quoteId: "q".repeat(129),
+      }),
+    /Metrics PnL trade quoteId must be 128 characters or fewer/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
         grossPnlTokenOut: "not-an-int",
       }),
     /Metrics PnL trade grossPnlTokenOut must be an int string/,

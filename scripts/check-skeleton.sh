@@ -1197,6 +1197,12 @@ grep -q 'assertFiniteHistogramObservation(value)' backend/src/modules/metrics/me
 grep -q 'MetricsService rejects unsupported fixed-label inputs before mutating state' backend/test/metrics.test.mjs
 grep -q 'MetricsService rejects non-string dynamic label values before mutating state' backend/test/metrics.test.mjs
 grep -q 'MetricsService rejects non-finite histogram observations before mutating state' backend/test/metrics.test.mjs
+grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/metrics/metrics.service.ts
+grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/metrics/metrics.service.ts
+grep -q 'assertSafeIdentifier(record.pnlId, "PnL trade pnlId")' backend/src/modules/metrics/metrics.service.ts
+grep -q 'assertSafeIdentifier(record.quoteId, "PnL trade quoteId")' backend/src/modules/metrics/metrics.service.ts
+grep -q 'Metrics PnL trade pnlId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/metrics.test.mjs
+grep -q 'Metrics PnL trade quoteId must be 128 characters or fewer' backend/test/metrics.test.mjs
 grep -q 'validates fixed-label inputs before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'validates dynamic label values before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'Histogram observations must be finite numbers before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
@@ -1259,6 +1265,7 @@ grep -q 'cloneInventoryMetricPosition' backend/src/modules/metrics/metrics.servi
 grep -q 'MetricsService validates inventory and PnL metric inputs before mutating state' backend/test/metrics.test.mjs
 grep -q 'MetricsService snapshots inventory positions before storing gauges' backend/test/metrics.test.mjs
 grep -q 'validates inventory gauge positions and PnL trade records before mutating counters or gauges' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'PnL trade `pnlId` and `quoteId` must be `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 ! grep -q 'rfq_settlement_event_lag_seconds' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 ! grep -q 'rfq_inventory_exposure_usd' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 ! grep -q 'rfq_inventory_exposure_usd' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md

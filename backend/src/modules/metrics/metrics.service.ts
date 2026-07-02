@@ -13,6 +13,8 @@ type ReadinessMetricStatus = ReadinessResponse["status"];
 type DependencyMetricStatus = "ok" | "degraded";
 
 const latencyBucketsSeconds = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
+const maxSafeIdentifierLength = 128;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 
 interface HistogramState {
   sum: number;
@@ -412,8 +414,8 @@ function assertPnlTradeMetricRecord(record: PnlTradeRecord): void {
     throw new Error("Metrics PnL trade record must be an object");
   }
 
-  assertNonEmptyString(record.pnlId, "PnL trade pnlId");
-  assertNonEmptyString(record.quoteId, "PnL trade quoteId");
+  assertSafeIdentifier(record.pnlId, "PnL trade pnlId");
+  assertSafeIdentifier(record.quoteId, "PnL trade quoteId");
   assertPositiveSafeInteger(record.chainId, "PnL trade chainId");
   assertAddress(record.user, "PnL trade user");
   assertAddress(record.tokenIn, "PnL trade tokenIn");
@@ -471,6 +473,18 @@ function assertBigInt(value: bigint, field: string): void {
 function assertNonEmptyString(value: string, field: string): void {
   if (!isNonEmptyString(value)) {
     throw new Error(`Metrics ${field} must be a non-empty string`);
+  }
+}
+
+function assertSafeIdentifier(value: string, field: string): void {
+  if (!isNonEmptyString(value)) {
+    throw new Error(`Metrics ${field} must be a non-empty string`);
+  }
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`Metrics ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(`Metrics ${field} must contain only letters, numbers, underscore, colon, or hyphen`);
   }
 }
 
