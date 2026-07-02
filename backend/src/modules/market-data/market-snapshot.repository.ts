@@ -125,7 +125,7 @@ function assertSafeIdentifier(value: string, field: string): void {
 }
 
 function isPositiveIntegerString(value: string): boolean {
-  return /^[0-9]+$/.test(value) && BigInt(value) > 0n;
+  return typeof value === "string" && /^[1-9][0-9]*$/.test(value);
 }
 
 function isPositiveDecimal(value: string): boolean {

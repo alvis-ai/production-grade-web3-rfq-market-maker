@@ -177,6 +177,7 @@ test("getMarketSnapshotIssue rejects invalid market snapshot shape", () => {
     [{ ...snapshot, midPrice: "0" }, "mid price is invalid"],
     [{ ...snapshot, midPrice: "1." }, "mid price is invalid"],
     [{ ...snapshot, liquidityUsd: "0" }, "liquidity is invalid"],
+    [{ ...snapshot, liquidityUsd: "01000000000000" }, "liquidity is invalid"],
     [{ ...snapshot, volatilityBps: -1 }, "volatility is invalid"],
     [{ ...snapshot, volatilityBps: 10001 }, "volatility is invalid"],
     [{ ...snapshot, observedAt: "not-a-date" }, "snapshot timestamp is invalid"],
@@ -271,6 +272,13 @@ test("InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots", 
     repository.saveSnapshot({
       request,
       snapshot: { ...snapshot, liquidityUsd: "0" },
+    }),
+    /Market snapshot liquidityUsd must be a positive uint string/,
+  );
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: { ...snapshot, liquidityUsd: "01000000000000" },
     }),
     /Market snapshot liquidityUsd must be a positive uint string/,
   );
