@@ -956,9 +956,9 @@ test("RFQClient throws structured RFQClientError for API errors", async () => {
       {
         code: "RISK_REJECTED",
         message: "Risk policy rejected quote",
-        traceId: "trace_test",
+        traceId: "tr_body_test",
       },
-      { "x-trace-id": "trace_header_should_not_win" },
+      { "x-trace-id": "tr_header_should_not_win" },
     ),
   );
 
@@ -979,7 +979,7 @@ test("RFQClient throws structured RFQClientError for API errors", async () => {
         assert.equal(error.status, 409);
         assert.equal(error.code, "RISK_REJECTED");
         assert.equal(error.message, "Risk policy rejected quote");
-        assert.equal(error.traceId, "trace_test");
+        assert.equal(error.traceId, "tr_body_test");
         return true;
       },
     );
@@ -995,7 +995,7 @@ test("RFQClient exposes Retry-After seconds for rate limited responses", async (
       {
         code: "RATE_LIMITED",
         message: "Too many requests",
-        traceId: "trace_rate_limited",
+        traceId: "tr_rate_limited",
       },
       { "retry-after": "60" },
     ),
@@ -1018,7 +1018,7 @@ test("RFQClient exposes Retry-After seconds for rate limited responses", async (
         assert.equal(error.status, 429);
         assert.equal(error.code, "RATE_LIMITED");
         assert.equal(error.message, "Too many requests");
-        assert.equal(error.traceId, "trace_rate_limited");
+        assert.equal(error.traceId, "tr_rate_limited");
         assert.equal(error.retryAfterSeconds, 60);
         return true;
       },
@@ -1035,9 +1035,9 @@ test("RFQClient falls back for unknown API error codes", async () => {
       {
         code: "NEW_SERVER_ERROR",
         message: "Unexpected server error",
-        traceId: "trace_unknown",
+        traceId: "tr_unknown",
       },
-      { "x-trace-id": "trace_header_unknown" },
+      { "x-trace-id": "tr_header_unknown" },
     ),
   );
 
@@ -1051,7 +1051,7 @@ test("RFQClient falls back for unknown API error codes", async () => {
         assert.equal(error.status, 500);
         assert.equal(error.code, "RFQ_CLIENT_ERROR");
         assert.equal(error.message, "RFQ metrics request failed");
-        assert.equal(error.traceId, "trace_header_unknown");
+        assert.equal(error.traceId, "tr_header_unknown");
         return true;
       },
     );
@@ -1060,8 +1060,67 @@ test("RFQClient falls back for unknown API error codes", async () => {
   }
 });
 
+test("RFQClient ignores unsafe response trace ids and falls back to safe trace headers", async () => {
+  const restoreFetch = installFetch(async () =>
+    jsonResponse(
+      409,
+      {
+        code: "RISK_REJECTED",
+        message: "Risk policy rejected quote",
+        traceId: "unsafe trace id",
+      },
+      { "x-trace-id": "tr_safe_header" },
+    ),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.quote({
+        chainId: quote.chainId,
+        user: quote.user,
+        tokenIn: quote.tokenIn,
+        tokenOut: quote.tokenOut,
+        amountIn: quote.amountIn,
+        slippageBps: 50,
+      }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 409);
+        assert.equal(error.code, "RISK_REJECTED");
+        assert.equal(error.message, "Risk policy rejected quote");
+        assert.equal(error.traceId, "tr_safe_header");
+        return true;
+      },
+    );
+  } finally {
+    restoreFetch();
+  }
+
+  const restoreUnsafeHeaderFetch = installFetch(async () => textResponse(200, "not json", { "x-trace-id": "../bad" }));
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.health(),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 200);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ health response returned malformed JSON");
+        assert.equal(error.traceId, undefined);
+        return true;
+      },
+    );
+  } finally {
+    restoreUnsafeHeaderFetch();
+  }
+});
+
 test("RFQClient rejects malformed successful JSON responses", async () => {
-  const restoreFetch = installFetch(async () => textResponse(200, "not json", { "x-trace-id": "trace_malformed_json" }));
+  const restoreFetch = installFetch(async () => textResponse(200, "not json", { "x-trace-id": "tr_malformed_json" }));
 
   try {
     const client = new RFQClient("http://127.0.0.1:3000");
@@ -1080,7 +1139,7 @@ test("RFQClient rejects malformed successful JSON responses", async () => {
         assert.equal(error.status, 200);
         assert.equal(error.code, "RFQ_CLIENT_ERROR");
         assert.equal(error.message, "RFQ quote response returned malformed JSON");
-        assert.equal(error.traceId, "trace_malformed_json");
+        assert.equal(error.traceId, "tr_malformed_json");
         return true;
       },
     );
@@ -1636,7 +1695,7 @@ test("RFQClient rejects malformed successful response fields", async () => {
     {
       payload: { ...quoteResponse, quoteId: "" },
       message: "RFQ quote response returned malformed quoteId",
-      traceId: "trace_malformed_field",
+      traceId: "tr_malformed_field",
     },
     {
       payload: { ...quoteResponse, quoteId: "q.bad" },

@@ -331,7 +331,7 @@ function clientErrorFromResponse(response: Response, payload: unknown, fallbackM
     error?.message ?? fallbackMessage,
     response.status,
     error?.code,
-    error?.traceId ?? traceIdFromResponse(response),
+    normalizeTraceId(error?.traceId) ?? traceIdFromResponse(response),
     retryAfterSeconds(response),
   );
 }
@@ -772,7 +772,18 @@ function retryAfterSeconds(response: Response): number | undefined {
 
 function traceIdFromResponse(response: Response): string | undefined {
   const value = response.headers.get("x-trace-id");
-  return value && value.trim().length > 0 ? value : undefined;
+  return normalizeTraceId(value);
+}
+
+function normalizeTraceId(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+
+  const normalized = value.trim();
+  if (normalized.length === 0 || normalized.length > maxTraceIdLength || !traceIdPattern.test(normalized)) {
+    return undefined;
+  }
+
+  return normalized;
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
