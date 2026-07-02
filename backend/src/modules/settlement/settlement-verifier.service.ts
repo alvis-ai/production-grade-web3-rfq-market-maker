@@ -2,6 +2,8 @@ import { APIError } from "../../shared/errors/api-error.js";
 import type { SubmitQuoteRequest } from "../../shared/types/rfq.js";
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
+const maxSafeIdentifierLength = 128;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 
 export interface SettlementVerifier {
   verify(input: SettlementVerificationInput): Promise<SettlementVerificationResult>;
@@ -128,9 +130,23 @@ function assertNonEmptyString(value: string, field: string): void {
 
 function assertVerificationInput(input: SettlementVerificationInput): void {
   assertObject(input, "input");
-  assertNonEmptyString(input.quoteId, "quoteId");
+  assertSafeIdentifier(input.quoteId, "quoteId");
   assertObject(input.request, "request");
   assertObject(input.request.quote, "request.quote");
+}
+
+function assertSafeIdentifier(value: string, field: string): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Local settlement verifier ${field} must be a non-empty string`);
+  }
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`Local settlement verifier ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(
+      `Local settlement verifier ${field} must contain only letters, numbers, underscore, colon, or hyphen`,
+    );
+  }
 }
 
 function assertChainIds(chainIds: readonly number[]): void {

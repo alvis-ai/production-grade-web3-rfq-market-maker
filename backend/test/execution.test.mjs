@@ -56,6 +56,14 @@ test("buildSyntheticTxHash rejects malformed submit payloads before hashing", ()
     () => buildSyntheticTxHash(request, { quoteId: " " }),
     /Execution context quoteId must be a non-empty string/,
   );
+  assert.throws(
+    () => buildSyntheticTxHash(request, { quoteId: "q.bad" }),
+    /Execution context quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+  assert.throws(
+    () => buildSyntheticTxHash(request, { quoteId: "q".repeat(129) }),
+    /Execution context quoteId must be 128 characters or fewer/,
+  );
 });
 
 test("SkeletonExecutionService suppresses duplicate settlement side effects", async () => {
@@ -224,6 +232,16 @@ test("SkeletonExecutionService rejects unsafe execution inputs before settlement
   await assert.rejects(
     executionService.submitQuote(request, { quoteId: " " }),
     /Execution context quoteId must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    executionService.submitQuote(request, { quoteId: "q.bad" }),
+    /Execution context quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+
+  await assert.rejects(
+    executionService.submitQuote(request, { quoteId: "q".repeat(129) }),
+    /Execution context quoteId must be 128 characters or fewer/,
   );
 
   await assert.rejects(

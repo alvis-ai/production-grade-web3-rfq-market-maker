@@ -8,6 +8,9 @@ import type { InventoryPosition, InventoryService } from "../inventory/inventory
 import type { ApplySettlementEventResult, SettlementEventStore } from "../settlement/settlement-event.service.js";
 import type { SettlementVerificationResult, SettlementVerifier } from "../settlement/settlement-verifier.service.js";
 
+const maxSafeIdentifierLength = 128;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+
 export interface ExecutionService {
   submitQuote(request: SubmitQuoteRequest, context: ExecutionContext): Promise<ExecutionResult>;
 }
@@ -196,6 +199,16 @@ function assertExecutionContext(context: ExecutionContext): void {
   const quoteId = typeof context === "object" && context !== null ? (context as { quoteId?: unknown }).quoteId : undefined;
   if (typeof quoteId !== "string" || quoteId.trim().length === 0) {
     throw new APIError("INVALID_REQUEST", "Execution context quoteId must be a non-empty string", 400);
+  }
+  if (quoteId.length > maxSafeIdentifierLength) {
+    throw new APIError("INVALID_REQUEST", "Execution context quoteId must be 128 characters or fewer", 400);
+  }
+  if (!safeIdentifierPattern.test(quoteId)) {
+    throw new APIError(
+      "INVALID_REQUEST",
+      "Execution context quoteId must contain only letters, numbers, underscore, colon, or hyphen",
+      400,
+    );
   }
 }
 

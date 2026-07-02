@@ -51,6 +51,22 @@ test("LocalSettlementVerifier rejects malformed verification payload envelopes b
 
   await assert.rejects(
     verifier.verify({
+      quoteId: "q.bad",
+      request,
+    }),
+    /Local settlement verifier quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+
+  await assert.rejects(
+    verifier.verify({
+      quoteId: "q".repeat(129),
+      request,
+    }),
+    /Local settlement verifier quoteId must be 128 characters or fewer/,
+  );
+
+  await assert.rejects(
+    verifier.verify({
       quoteId: "q_missing_request",
     }),
     /Local settlement verifier request must be an object/,

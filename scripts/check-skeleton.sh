@@ -957,6 +957,8 @@ grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/execution
 grep -q 'assertDependencyMethod(deps.settlementVerifier, "settlementVerifier", "verify")' backend/src/modules/execution/execution.service.ts
 grep -q 'cloneExecutionServiceDeps' backend/src/modules/execution/execution.service.ts
 grep -q 'keccak256(toBytes(payload))' backend/src/modules/execution/execution.service.ts
+grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/execution/execution.service.ts
+grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/execution/execution.service.ts
 grep -q 'buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes' backend/test/execution.test.mjs
 grep -q 'buildSyntheticTxHash rejects malformed submit payloads before hashing' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService suppresses duplicate settlement side effects' backend/test/execution.test.mjs
@@ -966,7 +968,10 @@ grep -q 'Execution service hedgeService must be an object' backend/test/executio
 grep -q 'Execution service settlementVerifier must be an object' backend/test/execution.test.mjs
 grep -q 'validateSubmitQuoteRequest(request)' backend/src/modules/execution/execution.service.ts
 grep -q 'Execution context quoteId must be a non-empty string' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution context quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/execution.test.mjs
+grep -q 'Execution context quoteId must be 128 characters or fewer' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService rejects unsafe execution inputs before settlement side effects' backend/test/execution.test.mjs
+grep -q 'rejects execution `quoteId` values that are not 1-128 character `SafeIdentifier` strings' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
@@ -1046,6 +1051,9 @@ grep -q 'SETTLEMENT_REVERTED' backend/src/modules/settlement/settlement-verifier
 grep -q 'assertObject(policy, "policy")' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertArray(chainIds, "enabledChainIds")' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertVerificationInput(input)' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertObject(input.request, "request")' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertObject(input.request.quote, "request.quote")' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertChainIds(policy.enabledChainIds)' backend/src/modules/settlement/settlement-verifier.service.ts
@@ -1055,7 +1063,7 @@ grep -q 'Local settlement verifier enabledChainIds must not contain duplicate ch
 grep -q 'Local settlement verifier tokenWhitelist must not contain duplicate addresses' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'enabledChainIds` 和 `tokenWhitelist` 必须非空且不能包含重复项' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'malformed policy object and policy array fields must be rejected before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'LocalSettlementVerifier.verify()` rejects malformed root payloads, blank `quoteId`, missing `request`, and missing `request.quote` before signature shape' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'LocalSettlementVerifier.verify()` rejects malformed root payloads, `quoteId` values that are not 1-128 character `SafeIdentifier` strings' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q '`buildSyntheticTxHash()` also reuses submit request validation before hashing' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'snapshots `LocalSettlementVerifierPolicy` at construction after validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SkeletonExecutionService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -1908,6 +1916,8 @@ grep -q 'errorCode, "TOKEN_NOT_WHITELISTED"' backend/test/api.test.mjs
 grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects malformed verification payload envelopes before settlement checks' backend/test/settlement-verifier.test.mjs
+grep -q 'Local settlement verifier quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/settlement-verifier.test.mjs
+grep -q 'Local settlement verifier quoteId must be 128 characters or fewer' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects disabled settlement chains' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects expired settlement quotes' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects invalid settlement token pairs' backend/test/settlement-verifier.test.mjs
