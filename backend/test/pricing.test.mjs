@@ -173,6 +173,28 @@ test("FormulaPricingEngine rejects unsafe pricing inputs before quoting", async 
       ...baseInput,
       snapshot: {
         ...baseInput.snapshot,
+        snapshotId: "snapshot.bad",
+      },
+    }),
+    /Formula pricing snapshot.snapshotId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      snapshot: {
+        ...baseInput.snapshot,
+        snapshotId: "s".repeat(129),
+      },
+    }),
+    /Formula pricing snapshot.snapshotId must be 128 characters or fewer/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      snapshot: {
+        ...baseInput.snapshot,
         midPrice: "0",
       },
     }),
@@ -188,6 +210,28 @@ test("FormulaPricingEngine rejects unsafe pricing inputs before quoting", async 
       },
     }),
     /Formula pricing routePlan token pair must match request token pair/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      routePlan: {
+        ...baseInput.routePlan,
+        routeId: "route/bad",
+      },
+    }),
+    /Formula pricing routePlan.routeId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      routePlan: {
+        ...baseInput.routePlan,
+        routeId: "r".repeat(129),
+      },
+    }),
+    /Formula pricing routePlan.routeId must be 128 characters or fewer/,
   );
 
   await assert.rejects(

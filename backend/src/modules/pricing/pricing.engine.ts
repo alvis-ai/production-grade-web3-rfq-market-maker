@@ -39,6 +39,8 @@ export const defaultFormulaPricingConfig: FormulaPricingConfig = {
 
 const WAD = 1_000_000_000_000_000_000n;
 const BPS = 10_000n;
+const maxSafeIdentifierLength = 128;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 
 export class FormulaPricingEngine implements PricingEngine {
   private readonly config: FormulaPricingConfig;
@@ -155,12 +157,12 @@ function assertPricingInput(input: PricingInput): void {
   assertPositiveUIntString(input.request.amountIn, "request.amountIn");
   assertBpsUpperBound(input.request.slippageBps, "request.slippageBps");
 
-  assertNonEmptyString(input.snapshot.snapshotId, "snapshot.snapshotId");
+  assertSafeIdentifier(input.snapshot.snapshotId, "snapshot.snapshotId");
   assertPositiveDecimalString(input.snapshot.midPrice, "snapshot.midPrice");
   assertPositiveUIntString(input.snapshot.liquidityUsd, "snapshot.liquidityUsd");
   assertBpsUpperBound(input.snapshot.volatilityBps, "snapshot.volatilityBps");
 
-  assertNonEmptyString(input.routePlan.routeId, "routePlan.routeId");
+  assertSafeIdentifier(input.routePlan.routeId, "routePlan.routeId");
   if (input.routePlan.venue !== "internal_inventory") {
     throw new Error("Formula pricing routePlan.venue must be internal_inventory");
   }
@@ -182,9 +184,15 @@ function assertObject(value: unknown, field: "config" | "input" | "request" | "s
   }
 }
 
-function assertNonEmptyString(value: string, field: string): void {
+function assertSafeIdentifier(value: string, field: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`Formula pricing ${field} must be a non-empty string`);
+  }
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`Formula pricing ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(`Formula pricing ${field} must contain only letters, numbers, underscore, colon, or hyphen`);
   }
 }
 

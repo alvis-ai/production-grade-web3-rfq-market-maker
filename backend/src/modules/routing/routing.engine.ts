@@ -1,5 +1,8 @@
 import type { MarketSnapshot, QuoteRequest } from "../../shared/types/rfq.js";
 
+const maxSafeIdentifierLength = 128;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+
 export interface RouteInput {
   request: QuoteRequest;
   snapshot: MarketSnapshot;
@@ -49,7 +52,7 @@ function assertRouteInput(input: RouteInput): void {
   assertPositiveUIntString(input.request.amountIn, "request.amountIn");
   assertNonNegativeBps(input.request.slippageBps, "request.slippageBps");
 
-  assertNonEmptyString(input.snapshot.snapshotId, "snapshot.snapshotId");
+  assertSafeIdentifier(input.snapshot.snapshotId, "snapshot.snapshotId");
   assertPositiveDecimalString(input.snapshot.midPrice, "snapshot.midPrice");
   assertPositiveUIntString(input.snapshot.liquidityUsd, "snapshot.liquidityUsd");
   assertNonNegativeBps(input.snapshot.volatilityBps, "snapshot.volatilityBps");
@@ -88,9 +91,15 @@ function assertNonNegativeBps(value: number, field: string): void {
   }
 }
 
-function assertNonEmptyString(value: string, field: string): void {
+function assertSafeIdentifier(value: string, field: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`Routing ${field} must be a non-empty string`);
+  }
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`Routing ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(`Routing ${field} must contain only letters, numbers, underscore, colon, or hyphen`);
   }
 }
 

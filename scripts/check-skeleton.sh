@@ -196,10 +196,16 @@ grep -q 'InternalInventoryRoutingEngine creates deterministic internal inventory
 grep -q 'assertRouteInput(input)' backend/src/modules/routing/routing.engine.ts
 grep -q 'assertObject(input.request, "request")' backend/src/modules/routing/routing.engine.ts
 grep -q 'assertObject(input.snapshot, "snapshot")' backend/src/modules/routing/routing.engine.ts
+grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/routing/routing.engine.ts
+grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/routing/routing.engine.ts
+grep -q 'assertSafeIdentifier(input.snapshot.snapshotId, "snapshot.snapshotId")' backend/src/modules/routing/routing.engine.ts
 grep -q 'Routing request token pair must contain distinct tokens' backend/src/modules/routing/routing.engine.ts
 grep -q 'InternalInventoryRoutingEngine rejects malformed route payload envelopes before planning' backend/test/routing.test.mjs
 grep -q 'InternalInventoryRoutingEngine rejects unsafe route inputs before planning' backend/test/routing.test.mjs
+grep -q 'Routing snapshot.snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/routing.test.mjs
+grep -q 'Routing snapshot.snapshotId must be 128 characters or fewer' backend/test/routing.test.mjs
 grep -q 'malformed root payloads and missing `request` / `snapshot` objects fail before field access' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
+grep -q '`snapshot.snapshotId` as a `SafeIdentifier` with 1-128 characters' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 test -s backend/src/shared/validation/quote-request.ts
 test -s backend/src/shared/validation/submit-request.ts
 grep -q 'validateSubmitQuoteRequest rejects unsafe submit payloads before execution' backend/test/validation.test.mjs
@@ -2007,16 +2013,24 @@ grep -q 'assertObject(config, "config")' backend/src/modules/pricing/pricing.eng
 grep -q 'assertObject(input.request, "request")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertObject(input.snapshot, "snapshot")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertObject(input.routePlan, "routePlan")' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/pricing/pricing.engine.ts
+grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'assertSafeIdentifier(input.snapshot.snapshotId, "snapshot.snapshotId")' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'assertSafeIdentifier(input.routePlan.routeId, "routePlan.routeId")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'routePlan token pair must match request token pair' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'maxSizeImpactBps must be less than or equal to maxTotalAdjustmentBps' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'FormulaPricingEngine snapshots pricing configuration at construction' backend/test/pricing.test.mjs
 grep -q 'FormulaPricingEngine rejects unsafe pricing configuration at construction' backend/test/pricing.test.mjs
 grep -q 'FormulaPricingEngine rejects malformed pricing payload envelopes before quoting' backend/test/pricing.test.mjs
 grep -q 'FormulaPricingEngine rejects unsafe pricing inputs before quoting' backend/test/pricing.test.mjs
+grep -q 'Formula pricing snapshot.snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/pricing.test.mjs
+grep -q 'Formula pricing routePlan.routeId must be 128 characters or fewer' backend/test/pricing.test.mjs
 grep -q 'malformed root payloads and missing `request` / `snapshot` / `routePlan` objects fail before field access' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
+grep -q '`snapshot.snapshotId` and `routePlan.routeId` as `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'rejects malformed pricing config objects before reading numeric fields' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'snapshots `FormulaPricingConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q '先拒绝 malformed pricing config object' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
+grep -q '`snapshot.snapshotId` 和 `routePlan.routeId`，都必须是 1-128 字符的 `SafeIdentifier`' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q 'pricing config fail-fast' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q 'restricted toxic-flow users' backend/test/risk.test.mjs
 grep -q 'toxic-flow score threshold' backend/test/risk.test.mjs

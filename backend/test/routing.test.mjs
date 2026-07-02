@@ -110,6 +110,28 @@ test("InternalInventoryRoutingEngine rejects unsafe route inputs before planning
       request,
       snapshot: {
         ...snapshot,
+        snapshotId: "snapshot.bad",
+      },
+    }),
+    /Routing snapshot.snapshotId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      request,
+      snapshot: {
+        ...snapshot,
+        snapshotId: "s".repeat(129),
+      },
+    }),
+    /Routing snapshot.snapshotId must be 128 characters or fewer/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      request,
+      snapshot: {
+        ...snapshot,
         liquidityUsd: "0",
       },
     }),
