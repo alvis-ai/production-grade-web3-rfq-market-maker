@@ -2,6 +2,9 @@ import type { Address, HedgeIntentStatusResponse, UIntString } from "../../share
 
 export type HedgeFailureReasonCode = "HEDGE_INTENT_FAILED";
 
+const maxSafeIdentifierLength = 128;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+
 export interface HedgeIntent {
   settlementEventId: string;
   quoteId: string;
@@ -114,12 +117,13 @@ export class HedgeService implements HedgeIntentService {
   }
 
   getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined {
+    assertSafeIdentifier(hedgeOrderId, "hedgeOrderId");
     const intent = this.intents.get(hedgeOrderId);
     return intent ? cloneHedgeIntentStatus(intent) : undefined;
   }
 
   getHedgeIntentBySettlementEvent(settlementEventId: string): HedgeIntentStatusResponse | undefined {
-    assertNonEmptyString(settlementEventId, "settlementEventId");
+    assertSafeIdentifier(settlementEventId, "settlementEventId");
     const hedgeOrderId = this.hedgeOrderIdsBySettlementEvent.get(settlementEventId);
     const intent = hedgeOrderId ? this.intents.get(hedgeOrderId) : undefined;
     return intent ? cloneHedgeIntentStatus(intent) : undefined;
@@ -174,8 +178,8 @@ function assertPositiveBps(value: number, field: keyof HedgeServiceConfig): void
 
 function assertHedgeIntent(intent: HedgeIntent): void {
   assertObject(intent, "intent");
-  assertNonEmptyString(intent.settlementEventId, "settlementEventId");
-  assertNonEmptyString(intent.quoteId, "quoteId");
+  assertSafeIdentifier(intent.settlementEventId, "settlementEventId");
+  assertSafeIdentifier(intent.quoteId, "quoteId");
   assertHedgeRiskInput(intent);
   if (intent.side !== "buy" && intent.side !== "sell") {
     throw new Error("Hedge side must be buy or sell");
@@ -202,9 +206,18 @@ function assertObject(value: unknown, field: "config" | "intent" | "risk input")
   }
 }
 
-function assertNonEmptyString(value: string, field: keyof Pick<HedgeIntent, "settlementEventId" | "quoteId">): void {
+function assertSafeIdentifier(
+  value: string,
+  field: keyof Pick<HedgeIntent, "settlementEventId" | "quoteId"> | "hedgeOrderId",
+): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`Hedge ${field} must be a non-empty string`);
+  }
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`Hedge ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(`Hedge ${field} must contain only letters, numbers, underscore, colon, or hyphen`);
   }
 }
 
