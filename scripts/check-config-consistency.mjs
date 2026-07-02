@@ -114,6 +114,11 @@ assert.ok(
   "backend must enforce RFQ_TRUST_PROXY boolean parsing",
 );
 assert.ok(
+  frontendConfigSource.includes("readOptionalConfigString") &&
+    frontendConfigSource.includes("must be a primitive string"),
+  "frontend must reject non-primitive env configuration values before trimming",
+);
+assert.ok(
   frontendConfigSource.includes("VITE_RFQ_API_BASE_URL must be an absolute http(s) URL"),
   "frontend must reject non-URL API base configuration",
 );

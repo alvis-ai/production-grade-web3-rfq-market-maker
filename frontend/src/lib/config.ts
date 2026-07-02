@@ -3,14 +3,14 @@ import type { Address } from "@rfq-market-maker/sdk";
 const defaultRFQApiBaseUrl = "http://localhost:3000";
 const defaultRFQSettlementAddress = "0x0000000000000000000000000000000000000004";
 const defaultWalletConnectProjectId = "00000000000000000000000000000000";
+const viteEnv = (import.meta.env ?? {}) as Record<string, unknown>;
 
-export const rfqApiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_RFQ_API_BASE_URL);
-export const rfqSettlementAddress = normalizeAddress(import.meta.env.VITE_RFQ_SETTLEMENT_ADDRESS);
-export const walletConnectProjectId = normalizeWalletConnectProjectId(import.meta.env.VITE_WALLETCONNECT_PROJECT_ID);
+export const rfqApiBaseUrl = normalizeBaseUrl(viteEnv.VITE_RFQ_API_BASE_URL);
+export const rfqSettlementAddress = normalizeAddress(viteEnv.VITE_RFQ_SETTLEMENT_ADDRESS);
+export const walletConnectProjectId = normalizeWalletConnectProjectId(viteEnv.VITE_WALLETCONNECT_PROJECT_ID);
 
-export function normalizeBaseUrl(value: string | undefined): string {
-  const normalized = value?.trim();
-  const candidate = normalized && normalized.length > 0 ? normalized : defaultRFQApiBaseUrl;
+export function normalizeBaseUrl(value: unknown): string {
+  const candidate = readOptionalConfigString(value, "VITE_RFQ_API_BASE_URL") ?? defaultRFQApiBaseUrl;
   let parsed: URL;
   try {
     parsed = new URL(candidate);
@@ -36,9 +36,8 @@ export function normalizeBaseUrl(value: string | undefined): string {
   return `${parsed.origin}${pathname}`;
 }
 
-export function normalizeAddress(value: string | undefined): Address {
-  const normalized = value?.trim();
-  const candidate = normalized && normalized.length > 0 ? normalized : defaultRFQSettlementAddress;
+export function normalizeAddress(value: unknown): Address {
+  const candidate = readOptionalConfigString(value, "VITE_RFQ_SETTLEMENT_ADDRESS") ?? defaultRFQSettlementAddress;
   if (!/^0x[a-fA-F0-9]{40}$/.test(candidate)) {
     throw new Error("VITE_RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address");
   }
@@ -46,9 +45,8 @@ export function normalizeAddress(value: string | undefined): Address {
   return candidate as Address;
 }
 
-export function normalizeWalletConnectProjectId(value: string | undefined): string {
-  const normalized = value?.trim();
-  const candidate = normalized && normalized.length > 0 ? normalized : defaultWalletConnectProjectId;
+export function normalizeWalletConnectProjectId(value: unknown): string {
+  const candidate = readOptionalConfigString(value, "VITE_WALLETCONNECT_PROJECT_ID") ?? defaultWalletConnectProjectId;
   if (candidate.length > 128) {
     throw new Error("VITE_WALLETCONNECT_PROJECT_ID must be 128 characters or fewer");
   }
@@ -57,4 +55,14 @@ export function normalizeWalletConnectProjectId(value: string | undefined): stri
   }
 
   return candidate;
+}
+
+function readOptionalConfigString(value: unknown, name: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") {
+    throw new Error(`${name} must be a primitive string`);
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
 }
