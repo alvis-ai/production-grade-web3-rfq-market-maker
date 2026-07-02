@@ -186,8 +186,16 @@ test("HedgeService rejects unsafe intent inputs before writing hedge state", () 
     /Hedge settlementEventId must be a non-empty string/,
   );
   assert.throws(
+    () => service.createHedgeIntent({ ...intent, settlementEventId: new String(intent.settlementEventId) }),
+    /Hedge settlementEventId must be a primitive string/,
+  );
+  assert.throws(
     () => service.createHedgeIntent({ ...intent, settlementEventId: "se.bad" }),
     /Hedge settlementEventId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+  assert.throws(
+    () => service.createHedgeIntent({ ...intent, quoteId: new String(intent.quoteId) }),
+    /Hedge quoteId must be a primitive string/,
   );
   assert.throws(
     () => service.createHedgeIntent({ ...intent, quoteId: "q".repeat(129) }),
@@ -230,6 +238,10 @@ test("HedgeService rejects unsafe hedge status lookup identifiers", () => {
     /Hedge hedgeOrderId must be a non-empty string/,
   );
   assert.throws(
+    () => service.getHedgeIntent(new String("h_1_00000000_000001")),
+    /Hedge hedgeOrderId must be a primitive string/,
+  );
+  assert.throws(
     () => service.getHedgeIntent("h/bad"),
     /Hedge hedgeOrderId must contain only letters, numbers, underscore, colon, or hyphen/,
   );
@@ -240,6 +252,10 @@ test("HedgeService rejects unsafe hedge status lookup identifiers", () => {
   assert.throws(
     () => service.getHedgeIntentBySettlementEvent("se/bad"),
     /Hedge settlementEventId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+  assert.throws(
+    () => service.getHedgeIntentBySettlementEvent(new String(intent.settlementEventId)),
+    /Hedge settlementEventId must be a primitive string/,
   );
 
   const valid = service.createHedgeIntent(intent);

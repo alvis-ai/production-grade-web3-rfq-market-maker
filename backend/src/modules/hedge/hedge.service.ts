@@ -207,10 +207,13 @@ function assertObject(value: unknown, field: "config" | "intent" | "risk input")
 }
 
 function assertSafeIdentifier(
-  value: string,
+  value: unknown,
   field: keyof Pick<HedgeIntent, "settlementEventId" | "quoteId"> | "hedgeOrderId",
 ): void {
-  if (typeof value !== "string" || value.trim().length === 0) {
+  if (typeof value !== "string") {
+    throw new Error(`Hedge ${field} must be a primitive string`);
+  }
+  if (value.trim().length === 0) {
     throw new Error(`Hedge ${field} must be a non-empty string`);
   }
   if (value.length > maxSafeIdentifierLength) {
