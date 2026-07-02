@@ -696,13 +696,15 @@ grep -q 'indexes signed quotes by chain, user, and nonce' backend/test/quote-ser
 grep -q 'uq_quotes_chain_user_nonce' docs/database/schema.sql
 grep -q 'quotes must keep the chain_id, user_address, nonce signed-quote lookup key' scripts/check-database-schema-consistency.mjs
 grep -q 'partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`' docs/database/er-diagram.md
-grep -q 'chk_quotes_id_non_empty' docs/database/schema.sql
-grep -q 'chk_market_snapshots_id_non_empty' docs/database/schema.sql
-grep -q 'chk_risk_decisions_id_non_empty' docs/database/schema.sql
-grep -q 'chk_settlement_events_id_non_empty' docs/database/schema.sql
-grep -q 'chk_inventory_positions_id_non_empty' docs/database/schema.sql
-grep -q 'chk_hedge_orders_id_non_empty' docs/database/schema.sql
-grep -q 'chk_pnl_records_id_non_empty' docs/database/schema.sql
+grep -q 'chk_quotes_id_safe' docs/database/schema.sql
+grep -q 'chk_market_snapshots_id_safe' docs/database/schema.sql
+grep -q 'chk_risk_decisions_id_safe' docs/database/schema.sql
+grep -q 'chk_settlement_events_id_safe' docs/database/schema.sql
+grep -q 'chk_inventory_positions_id_safe' docs/database/schema.sql
+grep -q 'chk_hedge_orders_id_safe' docs/database/schema.sql
+grep -q 'chk_pnl_records_id_safe' docs/database/schema.sql
+grep -Fq "id ~ '^[A-Za-z0-9_:-]+$'" docs/database/schema.sql
+grep -q 'char_length(id) <= 128' docs/database/schema.sql
 grep -q 'chk_quotes_status' docs/database/schema.sql
 grep -q 'chk_quotes_chain_id_safe' docs/database/schema.sql
 grep -q 'chk_market_snapshots_source_non_empty' docs/database/schema.sql
@@ -811,8 +813,8 @@ grep -q 'hedge_orders must persist HedgeIntentStatusResponse' scripts/check-data
 grep -q 'hedge_orders must reject empty venue values' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must reject empty external_order_id values when present' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
-grep -q '操作表 primary id 非空' docs/database/er-diagram.md
-grep -q 'primary id 都必须是非空字符串' docs/database/er-diagram.md
+grep -q '操作表 primary id 使用 SafeIdentifier 约束' docs/database/er-diagram.md
+grep -q 'primary id 都必须符合 SafeIdentifier' docs/database/er-diagram.md
 grep -q 'distinct token pair' docs/database/er-diagram.md
 grep -q 'bid_price <= mid_price <= ask_price' docs/database/er-diagram.md
 grep -q 'market snapshot `volatility_bps` 在 0..10000 bps' docs/database/er-diagram.md
