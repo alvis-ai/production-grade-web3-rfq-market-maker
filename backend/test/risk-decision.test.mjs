@@ -78,6 +78,17 @@ test("InMemoryRiskDecisionRepository rejects conflicts and unsafe decisions", as
 
   await assert.rejects(
     repository.saveDecision({
+      quoteId: new String("q_approved"),
+      decision: {
+        status: "approved",
+        policyVersion: "test-risk-v1",
+      },
+    }),
+    /Risk decision quoteId must be a primitive string/,
+  );
+
+  await assert.rejects(
+    repository.saveDecision({
       quoteId: "q.bad",
       decision: {
         status: "approved",
@@ -112,6 +123,11 @@ test("InMemoryRiskDecisionRepository rejects conflicts and unsafe decisions", as
   await assert.rejects(
     repository.findByQuoteId("q/bad"),
     /Risk decision quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+
+  await assert.rejects(
+    repository.findByQuoteId(new String("q_approved")),
+    /Risk decision quoteId must be a primitive string/,
   );
 
   await assert.rejects(

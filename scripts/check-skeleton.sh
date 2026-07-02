@@ -88,12 +88,14 @@ grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/risk/
 grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' backend/src/modules/risk/risk-decision.repository.ts
 grep -q 'assertSafeIdentifier(buildRiskDecisionId(input.quoteId), "riskDecisionId")' backend/src/modules/risk/risk-decision.repository.ts
 grep -q 'assertSafeIdentifier(quoteId, "quoteId")' backend/src/modules/risk/risk-decision.repository.ts
+grep -q 'Risk decision ${field} must be a primitive string' backend/src/modules/risk/risk-decision.repository.ts
 grep -q 'riskDecisionStore: RiskDecisionStore' backend/src/modules/quote/quote.service.ts
 grep -q 'await this.saveRiskDecision' backend/src/modules/quote/quote.service.ts
 grep -q 'riskDecisionStoreStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'riskDecisionStore' backend/src/modules/metrics/metrics.service.ts
 grep -q 'InMemoryRiskDecisionRepository stores idempotent approved and rejected decisions' backend/test/risk-decision.test.mjs
 grep -q 'InMemoryRiskDecisionRepository rejects malformed decision payload envelopes before storing' backend/test/risk-decision.test.mjs
+grep -q 'Risk decision quoteId must be a primitive string' backend/test/risk-decision.test.mjs
 grep -q 'Risk decision quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/risk-decision.test.mjs
 grep -q 'Risk decision riskDecisionId must be 128 characters or fewer' backend/test/risk-decision.test.mjs
 grep -q 'QuoteService persists approved and rejected risk decisions before signer boundary' backend/test/quote-service.test.mjs
@@ -103,7 +105,7 @@ grep -q 'persists RiskDecisionStore audit records before signer' book/Volume5-Ba
 grep -q 'best-effort 将 requested quote 标记为 `failed`，并阻断 Signer' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'RiskDecisionStore mirrors the PostgreSQL risk_decisions contract' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'Risk decision audit persistence rejects malformed root payloads and missing `decision` objects before field access or state mutation' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
-grep -q 'validates `quoteId` as a `SafeIdentifier` and validates the derived `riskDecisionId`' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'validates `quoteId` as a primitive-string `SafeIdentifier` and validates the derived `riskDecisionId`' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 test -s backend/src/modules/execution/execution.service.ts
 test -s backend/src/modules/inventory/inventory.service.ts
 grep -q 'checkHealth' backend/src/modules/inventory/inventory.service.ts

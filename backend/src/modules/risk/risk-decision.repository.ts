@@ -115,8 +115,11 @@ function assertNonEmptyString(value: string, field: string): void {
   }
 }
 
-function assertSafeIdentifier(value: string, field: string): void {
-  if (typeof value !== "string" || value.trim().length === 0) {
+function assertSafeIdentifier(value: unknown, field: string): void {
+  if (typeof value !== "string") {
+    throw new Error(`Risk decision ${field} must be a primitive string`);
+  }
+  if (value.trim().length === 0) {
     throw new Error(`Risk decision ${field} must be a non-empty string`);
   }
   if (value.length > maxSafeIdentifierLength) {
