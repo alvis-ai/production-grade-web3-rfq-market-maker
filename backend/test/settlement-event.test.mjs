@@ -474,9 +474,13 @@ test("SettlementEventService rejects unsafe settlement quote inputs before side 
     [{ quote: { ...quote, user: "0x1234" } }, /Settlement event quote.user must be a 20-byte hex address/],
     [{ quote: { ...quote, tokenOut: quote.tokenIn } }, /Settlement event quote token pair must contain distinct tokens/],
     [{ quote: { ...quote, amountIn: "0" } }, /Settlement event quote.amountIn must be a positive uint string/],
+    [{ quote: { ...quote, amountIn: "01000" } }, /Settlement event quote.amountIn must be a positive uint string/],
+    [{ quote: { ...quote, amountOut: "0990" } }, /Settlement event quote.amountOut must be a positive uint string/],
+    [{ quote: { ...quote, minAmountOut: "0980" } }, /Settlement event quote.minAmountOut must be a positive uint string/],
     [{ quote: { ...quote, amountOut: "979" } }, /Settlement event quote.amountOut must be greater than or equal to quote.minAmountOut/],
     [{ quote: { ...quote, nonce: "not-a-uint" } }, /Settlement event quote.nonce must be a uint string/],
     [{ quote: { ...quote, nonce: "0" } }, /Settlement event quote.nonce must be a positive uint string/],
+    [{ quote: { ...quote, nonce: "01" } }, /Settlement event quote.nonce must be a positive uint string/],
     [{ quote: { ...quote, deadline: Number.MAX_SAFE_INTEGER + 1 } }, /Settlement event quote.deadline must be a positive safe integer/],
   ];
 

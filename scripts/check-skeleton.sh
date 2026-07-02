@@ -1058,6 +1058,7 @@ grep -q 'assertSafeIdentifier(settlementEventId, "settlementEventId")' backend/s
 grep -q 'assertSettlementEventInput' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'Settlement event quote.amountOut must be greater than or equal to quote.minAmountOut' backend/src/modules/settlement/settlement-event.service.ts
+grep -Fq '!/^[1-9][0-9]*$/.test(value)' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'keeps distinct events with the same tx hash prefix' backend/test/settlement-event.test.mjs
 grep -q 'rejects conflicting events for an already settled quote' backend/test/settlement-event.test.mjs
 grep -q 'lists settlement events in chain order' backend/test/settlement-event.test.mjs
@@ -1066,7 +1067,12 @@ grep -q 'rejects unsafe settlement event lookup identifiers' backend/test/settle
 grep -q 'Settlement event settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects unsafe inventory dependency at construction' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects malformed event payload envelopes before side effects' backend/test/settlement-event.test.mjs
+grep -q 'amountIn: "01000"' backend/test/settlement-event.test.mjs
+grep -q 'amountOut: "0990"' backend/test/settlement-event.test.mjs
+grep -q 'minAmountOut: "0980"' backend/test/settlement-event.test.mjs
+grep -q 'nonce: "01"' backend/test/settlement-event.test.mjs
 grep -q 'returns defensive copies from apply, remove, get and list operations' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'canonical positive uint strings without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SettlementEventService` validates inventory dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Malformed settlement event dependency, apply input, reorg input and quote envelopes are rejected as non-array objects before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Settlement event ingestion validates `quoteId` as a `SafeIdentifier` and validates the derived `settlementEventId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -2066,7 +2072,7 @@ grep -q 'new String(quote.tokenIn)' backend/test/settlement-verifier.test.mjs
 grep -q 'signature shape, canonical low-s/v checks' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'settlement verifier policy fail-fast' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'JavaScript regex coercion 进入 `/submit` 结算验证路径' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'amount fields and nonce must be positive uint strings' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'amount fields and nonce must be canonical positive uint strings without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'risk rejection when rejected quote persistence fails' backend/test/api.test.mjs
 grep -q 'Rejected quote persistence unavailable' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md

@@ -344,7 +344,7 @@ function assertAddress(value: string, field: string): void {
 
 function assertPositiveUIntString(value: string, field: string): void {
   assertUintString(value, field);
-  if (BigInt(value) <= 0n) {
+  if (!/^[1-9][0-9]*$/.test(value)) {
     throw new Error(`Settlement event ${field} must be a positive uint string`);
   }
 }
