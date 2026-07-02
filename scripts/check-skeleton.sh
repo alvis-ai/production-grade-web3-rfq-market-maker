@@ -1105,6 +1105,7 @@ grep -q 'buildSettlementEventId(input.quote.chainId, txHash, logIndex)' backend/
 grep -q 'assertSafeIdentifier(settlementEventId, "settlementEventId")' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'assertSettlementEventInput' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'Settlement event ${field} must be a primitive string' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'Settlement event quote.amountOut must be greater than or equal to quote.minAmountOut' backend/src/modules/settlement/settlement-event.service.ts
 grep -Fq '!/^[1-9][0-9]*$/.test(value)' backend/src/modules/settlement/settlement-event.service.ts
 grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)' backend/src/modules/settlement/settlement-event.service.ts
@@ -1113,6 +1114,8 @@ grep -q 'rejects conflicting events for an already settled quote' backend/test/s
 grep -q 'lists settlement events in chain order' backend/test/settlement-event.test.mjs
 grep -q 'returns defensive copies of settlement events' backend/test/settlement-event.test.mjs
 grep -q 'rejects unsafe settlement event lookup identifiers' backend/test/settlement-event.test.mjs
+grep -q 'Settlement event settlementEventId must be a primitive string' backend/test/settlement-event.test.mjs
+grep -q 'Settlement event quoteId must be a primitive string' backend/test/settlement-event.test.mjs
 grep -q 'Settlement event settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects unsafe inventory dependency at construction' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects malformed event payload envelopes before side effects' backend/test/settlement-event.test.mjs
@@ -1126,7 +1129,7 @@ grep -q 'canonical positive uint strings without leading zeros' book/Volume5-Bac
 grep -q 'SettlementEventService` validates inventory dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Malformed settlement event dependency, apply input, reorg input and quote envelopes are rejected as non-array objects before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q '`txHash` as a runtime string and a 32-byte hex string' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'Settlement event ingestion validates `quoteId` as a `SafeIdentifier` and validates the derived `settlementEventId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'Settlement event ingestion validates `quoteId` as a primitive-string `SafeIdentifier` and validates the derived `settlementEventId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Settlement status lookups also validate `settlementEventId` before reading the in-memory store' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'removes reorged events and rebuilds inventory from canonical events' backend/test/settlement-event.test.mjs
 grep -q 'treats duplicate reorg removals as idempotent' backend/test/settlement-event.test.mjs

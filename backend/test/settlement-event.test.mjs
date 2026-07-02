@@ -152,6 +152,10 @@ test("SettlementEventService rejects unsafe settlement event lookup identifiers"
     /Settlement event settlementEventId must be a non-empty string/,
   );
   assert.throws(
+    () => settlements.getSettlementEvent(new String("se_lookup")),
+    /Settlement event settlementEventId must be a primitive string/,
+  );
+  assert.throws(
     () => settlements.getSettlementEvent("se/bad"),
     /Settlement event settlementEventId must contain only letters, numbers, underscore, colon, or hyphen/,
   );
@@ -464,6 +468,7 @@ test("SettlementEventService rejects unsafe settlement quote inputs before side 
   const invalidInputs = [
     [undefined, /Settlement event input must be an object/],
     [{ quoteId: " " }, /Settlement event quoteId must be a non-empty string/],
+    [{ quoteId: new String("q_test") }, /Settlement event quoteId must be a primitive string/],
     [
       { quoteId: "q.bad" },
       /Settlement event quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
