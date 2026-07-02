@@ -654,6 +654,8 @@ components:
           description: Market data snapshot used for the quote when available.
         deadline:
           type: integer
+          minimum: 1
+          maximum: 9007199254740991
           description: Unix timestamp after which a signed quote is no longer submittable.
         txHash:
           type: string
@@ -697,6 +699,9 @@ components:
           $ref: "#/components/schemas/SafeIdentifier"
         chainId:
           type: integer
+          minimum: 1
+          maximum: 9007199254740991
+          description: Positive JavaScript safe integer chain id.
         token:
           $ref: "#/components/schemas/Address"
         side:

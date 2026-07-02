@@ -278,6 +278,8 @@ for (const [schemaName, propertyName] of [
   ["QuoteRequest", "chainId"],
   ["SignedQuote", "chainId"],
   ["SignedQuote", "deadline"],
+  ["QuoteStatus", "deadline"],
+  ["HedgeIntentStatus", "chainId"],
   ["SettlementEventStatus", "chainId"],
   ["SettlementEventStatus", "blockNumber"],
   ["SettlementEventStatus", "logIndex"],
@@ -289,6 +291,32 @@ for (const [schemaName, propertyName] of [
     extractOpenApiPropertyNumericBound(openapiSource, schemaName, propertyName, "maximum"),
     "9007199254740991",
     `${schemaName}.${propertyName} must document the JavaScript safe integer maximum`,
+  );
+}
+for (const [schemaName, propertyName] of [
+  ["QuoteRequest", "chainId"],
+  ["SignedQuote", "chainId"],
+  ["SignedQuote", "deadline"],
+  ["QuoteStatus", "deadline"],
+  ["HedgeIntentStatus", "chainId"],
+  ["SettlementEventStatus", "chainId"],
+  ["PnlTradeRecord", "chainId"],
+  ["PnlTradeRecord", "deadline"],
+]) {
+  assert.equal(
+    extractOpenApiPropertyNumericBound(openapiSource, schemaName, propertyName, "minimum"),
+    "1",
+    `${schemaName}.${propertyName} must document the positive safe integer minimum`,
+  );
+}
+for (const [schemaName, propertyName] of [
+  ["SettlementEventStatus", "blockNumber"],
+  ["SettlementEventStatus", "logIndex"],
+]) {
+  assert.equal(
+    extractOpenApiPropertyNumericBound(openapiSource, schemaName, propertyName, "minimum"),
+    "0",
+    `${schemaName}.${propertyName} must document the non-negative safe integer minimum`,
   );
 }
 assert.equal(

@@ -336,6 +336,10 @@ grep -q 'PositiveUIntString' docs/api/openapi.yaml
 grep -Fq 'pattern: "^[1-9][0-9]*$"' docs/api/openapi.yaml
 grep -q 'maximum: 9007199254740991' docs/api/openapi.yaml
 grep -q 'JavaScript safe integer maximum' scripts/check-api-schema-consistency.mjs
+grep -q 'QuoteStatus", "deadline"' scripts/check-api-schema-consistency.mjs
+grep -q 'HedgeIntentStatus", "chainId"' scripts/check-api-schema-consistency.mjs
+grep -q 'positive safe integer minimum' scripts/check-api-schema-consistency.mjs
+grep -q 'non-negative safe integer minimum' scripts/check-api-schema-consistency.mjs
 grep -q 'PositiveUIntString must reject zero and negative values' scripts/check-api-schema-consistency.mjs
 grep -q 'SignedQuote", "nonce"' scripts/check-api-schema-consistency.mjs
 grep -q 'must reject unknown request fields' scripts/check-api-schema-consistency.mjs
