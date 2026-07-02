@@ -56,6 +56,7 @@ export class LocalSettlementVerifier implements SettlementVerifier {
     const { quote, signature } = input.request;
 
     this.assertCanonicalSignature(signature);
+    this.assertSettlementQuoteShape(quote);
 
     if (!this.enabledChainIds.has(quote.chainId)) {
       throw this.reverted("INVALID_CHAIN_ID", "Quote chain id is not enabled for settlement");
@@ -97,7 +98,7 @@ export class LocalSettlementVerifier implements SettlementVerifier {
   }
 
   private assertCanonicalSignature(signature: string): void {
-    if (!/^0x[0-9a-fA-F]{130}$/.test(signature)) {
+    if (typeof signature !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(signature)) {
       throw this.reverted("INVALID_SIGNATURE", "Settlement signature must be 65 bytes");
     }
 
@@ -110,6 +111,34 @@ export class LocalSettlementVerifier implements SettlementVerifier {
     const normalizedV = v < 27 ? v + 27 : v;
     if (normalizedV !== 27 && normalizedV !== 28) {
       throw this.reverted("INVALID_SIGNATURE", "Settlement signature v value must be 27 or 28");
+    }
+  }
+
+  private assertSettlementQuoteShape(quote: SubmitQuoteRequest["quote"]): void {
+    if (!Number.isSafeInteger(quote.chainId) || quote.chainId <= 0) {
+      throw this.reverted("INVALID_CHAIN_ID", "Settlement quote chain id is invalid");
+    }
+    if (!Number.isSafeInteger(quote.deadline) || quote.deadline <= 0) {
+      throw this.reverted("INVALID_DEADLINE", "Settlement quote deadline is invalid");
+    }
+    this.assertAddress(quote.user, "INVALID_QUOTE_USER", "Settlement quote user must be a 20-byte address");
+    this.assertAddress(quote.tokenIn, "INVALID_TOKEN", "Settlement quote tokenIn must be a 20-byte address");
+    this.assertAddress(quote.tokenOut, "INVALID_TOKEN", "Settlement quote tokenOut must be a 20-byte address");
+    this.assertPositiveUIntString(quote.amountIn, "INVALID_AMOUNT", "Settlement quote amountIn is invalid");
+    this.assertPositiveUIntString(quote.amountOut, "INVALID_AMOUNT", "Settlement quote amountOut is invalid");
+    this.assertPositiveUIntString(quote.minAmountOut, "INVALID_AMOUNT", "Settlement quote minAmountOut is invalid");
+    this.assertPositiveUIntString(quote.nonce, "INVALID_NONCE", "Settlement quote nonce is invalid");
+  }
+
+  private assertAddress(value: string, reasonCode: string, message: string): void {
+    if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
+      throw this.reverted(reasonCode, message);
+    }
+  }
+
+  private assertPositiveUIntString(value: string, reasonCode: string, message: string): void {
+    if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
+      throw this.reverted(reasonCode, message);
     }
   }
 }

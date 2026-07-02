@@ -84,6 +84,108 @@ test("LocalSettlementVerifier rejects malformed verification payload envelopes b
   );
 });
 
+test("LocalSettlementVerifier rejects malformed settlement quote fields before policy checks", async () => {
+  const verifier = new LocalSettlementVerifier();
+
+  await assertSettlementRevert(
+    verifier.verify({
+      quoteId: "q_bad_chain",
+      request: {
+        ...request,
+        quote: {
+          ...quote,
+          chainId: "1",
+        },
+      },
+    }),
+    "INVALID_CHAIN_ID",
+  );
+
+  await assertSettlementRevert(
+    verifier.verify({
+      quoteId: "q_bad_deadline",
+      request: {
+        ...request,
+        quote: {
+          ...quote,
+          deadline: "1893456000",
+        },
+      },
+    }),
+    "INVALID_DEADLINE",
+  );
+
+  await assertSettlementRevert(
+    verifier.verify({
+      quoteId: "q_bad_user",
+      request: {
+        ...request,
+        quote: {
+          ...quote,
+          user: new String(quote.user),
+        },
+      },
+    }),
+    "INVALID_QUOTE_USER",
+  );
+
+  await assertSettlementRevert(
+    verifier.verify({
+      quoteId: "q_bad_token",
+      request: {
+        ...request,
+        quote: {
+          ...quote,
+          tokenOut: "0x00000000000000000000000000000000000000zz",
+        },
+      },
+    }),
+    "INVALID_TOKEN",
+  );
+
+  await assertSettlementRevert(
+    verifier.verify({
+      quoteId: "q_bad_amount_type",
+      request: {
+        ...request,
+        quote: {
+          ...quote,
+          amountIn: 1000000000,
+        },
+      },
+    }),
+    "INVALID_AMOUNT",
+  );
+
+  await assertSettlementRevert(
+    verifier.verify({
+      quoteId: "q_bad_amount_leading_zero",
+      request: {
+        ...request,
+        quote: {
+          ...quote,
+          amountOut: "0998400000",
+        },
+      },
+    }),
+    "INVALID_AMOUNT",
+  );
+
+  await assertSettlementRevert(
+    verifier.verify({
+      quoteId: "q_bad_nonce",
+      request: {
+        ...request,
+        quote: {
+          ...quote,
+          nonce: "0",
+        },
+      },
+    }),
+    "INVALID_NONCE",
+  );
+});
+
 test("LocalSettlementVerifier rejects non-whitelisted settlement tokens", async () => {
   await assertSettlementRevert(
     new LocalSettlementVerifier({
@@ -181,6 +283,17 @@ test("LocalSettlementVerifier rejects non-canonical settlement signatures", asyn
       request: {
         ...request,
         signature: "0x1234",
+      },
+    }),
+    "INVALID_SIGNATURE",
+  );
+
+  await assertSettlementRevert(
+    new LocalSettlementVerifier().verify({
+      quoteId: "q_invalid_signature_object",
+      request: {
+        ...request,
+        signature: new String(request.signature),
       },
     }),
     "INVALID_SIGNATURE",
