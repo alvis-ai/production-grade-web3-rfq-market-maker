@@ -81,7 +81,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   const corsAllowedOrigins = options.corsAllowedOrigins === false
     ? []
-    : options.corsAllowedOrigins ?? readCorsAllowedOrigins();
+    : normalizeCorsAllowedOrigins(options.corsAllowedOrigins ?? readCorsAllowedOrigins());
   const enableHsts = options.enableHsts ?? readEnableHsts();
   const trustProxy = options.trustProxy ?? readTrustProxy();
   server.addHook("onRequest", async (request, reply) => {
@@ -666,11 +666,64 @@ function readCorsAllowedOrigins(): string[] {
     .split(",")
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
-  if (origins.length === 0 || origins.some((origin) => !/^https?:\/\/[^/\s]+$/.test(origin))) {
-    throw new Error("RFQ_CORS_ALLOWED_ORIGINS must be a comma-separated list of HTTP(S) origins");
+  if (origins.length === 0) {
+    throw invalidCorsAllowedOriginsError();
   }
 
-  return origins;
+  return normalizeCorsAllowedOrigins(origins);
+}
+
+function normalizeCorsAllowedOrigins(origins: readonly string[]): string[] {
+  if (!Array.isArray(origins)) {
+    throw invalidCorsAllowedOriginsError();
+  }
+
+  return Array.from(new Set(origins.map(normalizeCorsOrigin)));
+}
+
+function normalizeCorsOrigin(origin: string): string {
+  if (typeof origin !== "string" || origin.trim().length === 0) {
+    throw invalidCorsAllowedOriginsError();
+  }
+
+  const trimmed = origin.trim();
+  if (trimmed.includes("*")) {
+    throw invalidCorsAllowedOriginsError();
+  }
+  const schemeSeparatorIndex = trimmed.indexOf("://");
+  if (schemeSeparatorIndex <= 0) {
+    throw invalidCorsAllowedOriginsError();
+  }
+  const afterScheme = trimmed.slice(schemeSeparatorIndex + 3);
+  if (/[/?#]/.test(afterScheme)) {
+    throw invalidCorsAllowedOriginsError();
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw invalidCorsAllowedOriginsError();
+  }
+
+  if (
+    !["http:", "https:"].includes(parsed.protocol) ||
+    parsed.username.length > 0 ||
+    parsed.password.length > 0 ||
+    parsed.pathname !== "/" ||
+    parsed.search.length > 0 ||
+    parsed.hash.length > 0
+  ) {
+    throw invalidCorsAllowedOriginsError();
+  }
+
+  return parsed.origin;
+}
+
+function invalidCorsAllowedOriginsError(): Error {
+  return new Error(
+    "RFQ_CORS_ALLOWED_ORIGINS must be a comma-separated list of HTTP(S) URL origins without path, query, fragment, credentials, or wildcards",
+  );
 }
 
 function readEnableHsts(): boolean {

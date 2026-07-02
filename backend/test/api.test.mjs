@@ -165,12 +165,50 @@ test("RFQ API rejects invalid RFQ_CORS_ALLOWED_ORIGINS at startup", () => {
   const originalOrigins = process.env.RFQ_CORS_ALLOWED_ORIGINS;
 
   try {
-    process.env.RFQ_CORS_ALLOWED_ORIGINS = "not-an-origin";
+    for (const origins of [
+      "not-an-origin",
+      "https:app.example.com",
+      "https://app.example.com/",
+      "https://app.example.com/path",
+      "https://app.example.com?debug=true",
+      "https://app.example.com#prod",
+      "https://*.example.com",
+      "https://user:pass@app.example.com",
+      "ftp://app.example.com",
+    ]) {
+      process.env.RFQ_CORS_ALLOWED_ORIGINS = origins;
 
-    assert.throws(
-      () => buildServer({ logger: false }),
-      /RFQ_CORS_ALLOWED_ORIGINS must be a comma-separated list of HTTP\(S\) origins/,
-    );
+      assert.throws(
+        () => buildServer({ logger: false }),
+        /RFQ_CORS_ALLOWED_ORIGINS must be a comma-separated list of HTTP\(S\) URL origins without path, query, fragment, credentials, or wildcards/,
+      );
+    }
+  } finally {
+    restoreEnv("RFQ_CORS_ALLOWED_ORIGINS", originalOrigins);
+  }
+});
+
+test("RFQ API normalizes RFQ_CORS_ALLOWED_ORIGINS at startup", async () => {
+  const originalOrigins = process.env.RFQ_CORS_ALLOWED_ORIGINS;
+
+  try {
+    process.env.RFQ_CORS_ALLOWED_ORIGINS =
+      " https://APP.EXAMPLE.COM:443 , http://localhost:5173, https://app.example.com ";
+    const server = buildServer({ logger: false });
+    await server.ready();
+
+    try {
+      const response = await server.inject({
+        method: "GET",
+        url: "/health",
+        headers: { origin: "https://app.example.com" },
+      });
+
+      assert.equal(response.statusCode, 200);
+      assert.equal(response.headers["access-control-allow-origin"], "https://app.example.com");
+    } finally {
+      await server.close();
+    }
   } finally {
     restoreEnv("RFQ_CORS_ALLOWED_ORIGINS", originalOrigins);
   }

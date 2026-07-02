@@ -1822,6 +1822,7 @@ grep -q 'Fastify parser' book/Volume5-BackendEngineering/Chapter01-API-Gateway.m
 grep -q 'RFQ_BODY_LIMIT_BYTES' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'CORS preflight' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q '拒绝 path、query、fragment、credentials 和 wildcard' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'baseline security headers' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'RFQ_ENABLE_HSTS' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'graceful shutdown signal handling' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
@@ -1852,15 +1853,18 @@ grep -q '20-byte hex address' README.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' README.md
 grep -q 'RFQ_BODY_LIMIT_BYTES' README.md
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' README.md
+grep -q 'startup rejects entries with paths, query strings, fragments, credentials, or wildcards' README.md
 grep -q 'RFQ_ENABLE_HSTS' README.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' docs/api/openapi.yaml
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' docs/api/openapi.yaml
+grep -q 'without path, query, fragment, credentials, or wildcards' docs/api/openapi.yaml
 grep -q 'baseline browser security headers' docs/api/openapi.yaml
 grep -q 'Unknown routes and unsupported methods' docs/api/openapi.yaml
 grep -q '"413":' docs/api/openapi.yaml
 grep -q 'body too large' docs/api/errors.md
 grep -q 'malformed JSON' docs/api/errors.md
 grep -q 'CORS preflight origin' docs/api/errors.md
+grep -q 'path、query、fragment、credentials 和 wildcard' docs/api/errors.md
 grep -q '未匹配路由' docs/api/errors.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/test/api.test.mjs
@@ -1992,6 +1996,9 @@ grep -q 'CORS headers for allowed browser origins' backend/test/api.test.mjs
 grep -q 'CORS preflight for allowed origins' backend/test/api.test.mjs
 grep -q 'CORS preflight for disallowed origins' backend/test/api.test.mjs
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' backend/test/api.test.mjs
+grep -q 'normalizes RFQ_CORS_ALLOWED_ORIGINS at startup' backend/test/api.test.mjs
+grep -q 'https://app.example.com?debug=true' backend/test/api.test.mjs
+grep -q 'URL origins without path, query, fragment, credentials, or wildcards' backend/src/main.ts
 grep -q 'security headers on successful responses' backend/test/api.test.mjs
 grep -q 'emits HSTS when enabled' backend/test/api.test.mjs
 grep -q 'RFQ_ENABLE_HSTS' backend/test/api.test.mjs
