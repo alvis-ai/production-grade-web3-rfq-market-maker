@@ -34,7 +34,8 @@ test("StaticMarketDataService returns unique pair snapshots", async () => {
   assert.equal(result.midPrice, "1");
   assert.equal(result.liquidityUsd, "10000000000000");
   assert.equal(result.volatilityBps, 25);
-  assert.doesNotThrow(() => new Date(result.observedAt).toISOString());
+  assert.match(result.observedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  assert.equal(new Date(result.observedAt).toISOString(), result.observedAt);
 });
 
 test("StaticMarketDataService rejects unconfigured token pairs", async () => {
@@ -182,6 +183,9 @@ test("getMarketSnapshotIssue rejects invalid market snapshot shape", () => {
     [{ ...snapshot, volatilityBps: -1 }, "volatility is invalid"],
     [{ ...snapshot, volatilityBps: 10001 }, "volatility is invalid"],
     [{ ...snapshot, observedAt: "not-a-date" }, "snapshot timestamp is invalid"],
+    [{ ...snapshot, observedAt: "2026-06-29" }, "snapshot timestamp is invalid"],
+    [{ ...snapshot, observedAt: "June 29, 2026" }, "snapshot timestamp is invalid"],
+    [{ ...snapshot, observedAt: "2026-02-31T00:00:00.000Z" }, "snapshot timestamp is invalid"],
   ];
 
   withFixedNow("2026-06-29T00:00:02.000Z", () => {
@@ -304,7 +308,21 @@ test("InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots", 
       request,
       snapshot: { ...snapshot, observedAt: "not-a-date" },
     }),
-    /Market snapshot observedAt must be an ISO timestamp/,
+    /Market snapshot observedAt must be a canonical UTC ISO timestamp/,
+  );
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: { ...snapshot, observedAt: "2026-06-29" },
+    }),
+    /Market snapshot observedAt must be a canonical UTC ISO timestamp/,
+  );
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: { ...snapshot, observedAt: "2026-02-31T00:00:00.000Z" },
+    }),
+    /Market snapshot observedAt must be a canonical UTC ISO timestamp/,
   );
 
   await assert.rejects(

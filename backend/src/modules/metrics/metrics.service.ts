@@ -1,5 +1,6 @@
 import type { ReadinessComponentName, ReadinessResponse } from "../health/readiness.service.js";
 import type { Address, PnlTradeRecord } from "../../shared/types/rfq.js";
+import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 import type { RateLimitedEndpoint } from "../rate-limit/rate-limit.service.js";
 
 export interface InventoryMetricPosition {
@@ -441,8 +442,8 @@ function assertPnlTradeMetricRecord(record: PnlTradeRecord): void {
   if (record.model !== "simulated_mid_price_v1") {
     throw new Error("Metrics PnL trade model must be simulated_mid_price_v1");
   }
-  if (!isNonEmptyString(record.realizedAt) || Number.isNaN(Date.parse(record.realizedAt))) {
-    throw new Error("Metrics PnL trade realizedAt must be a parseable timestamp");
+  if (!isCanonicalUtcIsoTimestamp(record.realizedAt)) {
+    throw new Error("Metrics PnL trade realizedAt must be a canonical UTC ISO timestamp");
   }
 }
 

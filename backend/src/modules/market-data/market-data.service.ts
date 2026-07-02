@@ -1,4 +1,5 @@
 import type { MarketSnapshot, QuoteRequest } from "../../shared/types/rfq.js";
+import { parseCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 
 export interface MarketDataService {
   getSnapshot(request: QuoteRequest): Promise<MarketSnapshot>;
@@ -140,8 +141,8 @@ export function getMarketSnapshotIssue(
     return "volatility is invalid";
   }
 
-  const observedAtMs = Date.parse(snapshot.observedAt);
-  if (!Number.isFinite(observedAtMs)) {
+  const observedAtMs = parseCanonicalUtcIsoTimestamp(snapshot.observedAt);
+  if (observedAtMs === undefined) {
     return "snapshot timestamp is invalid";
   }
 

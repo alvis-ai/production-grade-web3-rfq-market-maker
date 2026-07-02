@@ -722,6 +722,7 @@ components:
         createdAt:
           type: string
           format: date-time
+          description: Canonical UTC ISO timestamp generated with Date.prototype.toISOString().
     SettlementEventStatus:
       type: object
       required:
@@ -782,6 +783,7 @@ components:
         observedAt:
           type: string
           format: date-time
+          description: Canonical UTC ISO timestamp generated with Date.prototype.toISOString().
     PnlTradeRecord:
       type: object
       required:
@@ -843,6 +845,7 @@ components:
         realizedAt:
           type: string
           format: date-time
+          description: Canonical UTC ISO timestamp generated with Date.prototype.toISOString().
     PnlSummary:
       type: object
       required:

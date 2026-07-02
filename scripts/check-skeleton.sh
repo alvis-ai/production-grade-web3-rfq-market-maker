@@ -162,6 +162,12 @@ grep -Fq 'typeof value === "string" && /^[1-9][0-9]*$/.test(value)' backend/src/
 grep -Fq 'typeof value === "string" && /^[1-9][0-9]*$/.test(value)' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -Fq '/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/market-data/market-data.service.ts
 grep -Fq '/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'parseCanonicalUtcIsoTimestamp(snapshot.observedAt)' backend/src/modules/market-data/market-data.service.ts
+grep -q 'isCanonicalUtcIsoTimestamp(snapshot.observedAt)' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'Market snapshot observedAt must be a canonical UTC ISO timestamp' backend/test/market-data.test.mjs
+grep -q 'observedAt: "2026-06-29"' backend/test/market-data.test.mjs
+grep -q 'observedAt: "June 29, 2026"' backend/test/market-data.test.mjs
+grep -q 'observedAt: "2026-02-31T00:00:00.000Z"' backend/test/market-data.test.mjs
 grep -q 'marketSnapshotStore: MarketSnapshotStore' backend/src/modules/quote/quote.service.ts
 grep -q 'await this.saveMarketSnapshot' backend/src/modules/quote/quote.service.ts
 grep -q 'marketSnapshotStoreStatus' backend/src/modules/health/readiness.service.ts
@@ -204,10 +210,12 @@ grep -q 'InMemoryMarketSnapshotRepository` mirrors the PostgreSQL market_snapsho
 grep -q '`snapshotId` must be a `SafeIdentifier` with 1-128 characters' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'canonical positive decimal string without leading zeros' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'canonical positive uint string without leading zeros' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q '`observedAt` 必须是 `Date.prototype.toISOString()` 生成的 canonical UTC ISO timestamp' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'snapshot lookup validates `snapshotId` before reading the store' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'Snapshot persistence rejects malformed root payloads and missing `request` / `snapshot` objects before field access or state mutation' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'persists MarketSnapshotStore audit records before routing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Requested quote persistence happens immediately after market snapshot persistence and before routing or pricing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q '`observedAt`，该字段必须是 `Date.prototype.toISOString()` 生成的 canonical UTC ISO timestamp' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'runtime `MarketSnapshotStore` 必须镜像 `market_snapshots` 表的核心契约' docs/database/er-diagram.md
 test -s backend/src/modules/rate-limit/rate-limit.service.ts
 test -s backend/src/shared/errors/api-error.ts
@@ -235,6 +243,7 @@ grep -q 'canonical positive `amountIn` without leading zeros' book/Volume5-Backe
 grep -q '`snapshot.snapshotId` as a `SafeIdentifier` with 1-128 characters' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 test -s backend/src/shared/validation/quote-request.ts
 test -s backend/src/shared/validation/submit-request.ts
+test -s backend/src/shared/validation/timestamp.ts
 grep -q 'validateSubmitQuoteRequest rejects unsafe submit payloads before execution' backend/test/validation.test.mjs
 test -s frontend/src/lib/rfq.ts
 test -s frontend/src/lib/config.ts
@@ -357,11 +366,15 @@ grep -q '不能用 `Number()` 或 `String()`' docs/api/errors.md
 grep -Fq '^[1-9][0-9]*$' docs/api/errors.md
 grep -q 'assertExactFields' backend/src/shared/validation/quote-request.ts
 grep -q 'assertExactFields' backend/src/shared/validation/submit-request.ts
+grep -q 'canonicalUtcIsoTimestampPattern' backend/src/shared/validation/timestamp.ts
+grep -q 'parseCanonicalUtcIsoTimestamp' backend/src/shared/validation/timestamp.ts
+grep -q 'new Date(parsed).toISOString() === value' backend/src/shared/validation/timestamp.ts
 grep -q 'unknown request fields' backend/test/api.test.mjs
 grep -q 'Number.MAX_SAFE_INTEGER + 1' backend/test/api.test.mjs
 grep -q 'additionalProperties: false' docs/api/openapi.yaml
 grep -q 'PositiveUIntString' docs/api/openapi.yaml
 grep -Fq 'pattern: "^[1-9][0-9]*$"' docs/api/openapi.yaml
+grep -q 'Canonical UTC ISO timestamp generated with Date.prototype.toISOString().' docs/api/openapi.yaml
 grep -q 'maximum: 9007199254740991' docs/api/openapi.yaml
 grep -q 'JavaScript safe integer maximum' scripts/check-api-schema-consistency.mjs
 grep -q 'QuoteStatus", "deadline"' scripts/check-api-schema-consistency.mjs
@@ -1293,13 +1306,19 @@ grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/metri
 grep -q 'assertSafeIdentifier(record.pnlId, "PnL trade pnlId")' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertSafeIdentifier(record.quoteId, "PnL trade quoteId")' backend/src/modules/metrics/metrics.service.ts
 grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/metrics/metrics.service.ts
+grep -q 'isCanonicalUtcIsoTimestamp(record.realizedAt)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'Metrics PnL trade pnlId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/metrics.test.mjs
 grep -q 'Metrics PnL trade quoteId must be 128 characters or fewer' backend/test/metrics.test.mjs
 grep -q 'amountIn: "0100000000"' backend/test/metrics.test.mjs
 grep -q 'nonce: "01"' backend/test/metrics.test.mjs
+grep -q 'realizedAt: "2026-06-29"' backend/test/metrics.test.mjs
+grep -q 'realizedAt: "June 29, 2026"' backend/test/metrics.test.mjs
+grep -q 'realizedAt: "2026-02-31T00:00:00.000Z"' backend/test/metrics.test.mjs
+grep -q 'Metrics PnL trade realizedAt must be a canonical UTC ISO timestamp' backend/test/metrics.test.mjs
 grep -q 'validates fixed-label inputs before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'validates dynamic label values before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'Histogram observations must be finite numbers before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'realizedAt` must be a canonical UTC ISO timestamp generated with `Date.prototype.toISOString()`' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'recordReadiness' backend/src/main.ts
 grep -q 'rfq_readiness_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_dependency_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md

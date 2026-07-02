@@ -161,6 +161,30 @@ test("MetricsService validates inventory and PnL metric inputs before mutating s
       }),
     /Metrics PnL trade amountOut must be greater than or equal to minAmountOut/,
   );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        realizedAt: "2026-06-29",
+      }),
+    /Metrics PnL trade realizedAt must be a canonical UTC ISO timestamp/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        realizedAt: "June 29, 2026",
+      }),
+    /Metrics PnL trade realizedAt must be a canonical UTC ISO timestamp/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        realizedAt: "2026-02-31T00:00:00.000Z",
+      }),
+    /Metrics PnL trade realizedAt must be a canonical UTC ISO timestamp/,
+  );
 
   const output = metrics.renderPrometheus();
 

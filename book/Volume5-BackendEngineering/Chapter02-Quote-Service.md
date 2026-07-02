@@ -67,7 +67,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-Quote Service 依赖 Market Data、MarketSnapshotStore、Pricing、Risk、Signer、Quote Repository、RiskDecisionStore 和 Metrics。当前代码使用 `InMemoryMarketSnapshotRepository`、`InMemoryQuoteRepository` 与 `InMemoryRiskDecisionRepository` 跑通本地 skeleton；生产版应以同一接口替换为 PostgreSQL repository，并可用 Redis 做短 TTL quote cache。当前实现会在 pricing 和 signing 之前校验 market snapshot 的 `observedAt`，超过 freshness window 的 stale market data 或明显来自未来的 snapshot 会返回 `MARKET_DATA_UNAVAILABLE`，避免签出过期价格或接受错误时钟的数据源。
+Quote Service 依赖 Market Data、MarketSnapshotStore、Pricing、Risk、Signer、Quote Repository、RiskDecisionStore 和 Metrics。当前代码使用 `InMemoryMarketSnapshotRepository`、`InMemoryQuoteRepository` 与 `InMemoryRiskDecisionRepository` 跑通本地 skeleton；生产版应以同一接口替换为 PostgreSQL repository，并可用 Redis 做短 TTL quote cache。当前实现会在 pricing 和 signing 之前校验 market snapshot 的 `observedAt`，该字段必须是 `Date.prototype.toISOString()` 生成的 canonical UTC ISO timestamp；超过 freshness window 的 stale market data、明显来自未来的 snapshot、date-only/natural-language timestamp 或会被 JavaScript 自动归一化的非法日期都会返回 `MARKET_DATA_UNAVAILABLE`，避免签出过期价格或接受错误时钟的数据源。
 
 ## Sequence Diagram
 

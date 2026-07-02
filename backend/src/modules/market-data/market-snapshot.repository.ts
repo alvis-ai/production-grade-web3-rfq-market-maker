@@ -1,5 +1,6 @@
 import type { Address, MarketSnapshot, QuoteRequest } from "../../shared/types/rfq.js";
 import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
+import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 
 export const defaultMarketSnapshotSource = "static-market-data-v1";
 const maxSafeIdentifierLength = 128;
@@ -97,8 +98,8 @@ function assertMarketSnapshot(snapshot: MarketSnapshot): void {
   if (!Number.isSafeInteger(snapshot.volatilityBps) || snapshot.volatilityBps < 0 || snapshot.volatilityBps > 10_000) {
     throw new Error("Market snapshot volatilityBps must be an integer from 0 to 10000");
   }
-  if (!Number.isFinite(Date.parse(snapshot.observedAt))) {
-    throw new Error("Market snapshot observedAt must be an ISO timestamp");
+  if (!isCanonicalUtcIsoTimestamp(snapshot.observedAt)) {
+    throw new Error("Market snapshot observedAt must be a canonical UTC ISO timestamp");
   }
 }
 
