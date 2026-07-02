@@ -182,6 +182,15 @@ test("LocalEIP712SignerService rejects unsafe quote inputs before signing", asyn
   await assert.rejects(
     signer.signQuote({
       quote,
+      quoteId: new String("q_test"),
+      snapshotId: "snapshot_test",
+    }),
+    /Signer quoteId must be a primitive string/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
+      quote,
       quoteId: "q.bad",
       snapshotId: "snapshot_test",
     }),
@@ -195,6 +204,15 @@ test("LocalEIP712SignerService rejects unsafe quote inputs before signing", asyn
       snapshotId: "snapshot_test",
     }),
     /Signer quoteId must be 128 characters or fewer/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
+      quote,
+      quoteId: "q_test",
+      snapshotId: new String("snapshot_test"),
+    }),
+    /Signer snapshotId must be a primitive string/,
   );
 
   await assert.rejects(

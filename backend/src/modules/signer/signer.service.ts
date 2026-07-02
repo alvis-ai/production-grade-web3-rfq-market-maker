@@ -218,8 +218,11 @@ function assertSignature(value: string): void {
   }
 }
 
-function assertSafeIdentifier(value: string, field: "quoteId" | "snapshotId"): void {
-  if (typeof value !== "string" || value.trim().length === 0) {
+function assertSafeIdentifier(value: unknown, field: "quoteId" | "snapshotId"): void {
+  if (typeof value !== "string") {
+    throw new Error(`Signer ${field} must be a primitive string`);
+  }
+  if (value.trim().length === 0) {
     throw new Error(`Signer ${field} must be a non-empty string`);
   }
   if (value.length > maxSafeIdentifierLength) {
