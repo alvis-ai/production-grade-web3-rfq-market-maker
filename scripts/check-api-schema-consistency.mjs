@@ -200,7 +200,7 @@ assert.equal(
 assert.equal(
   extractOpenApiSchemaPattern(openapiSource, "PositiveUIntString"),
   "^[1-9][0-9]*$",
-  "PositiveUIntString must reject zero and negative values",
+  "PositiveUIntString must reject zero, negative values, and leading zeros",
 );
 assert.equal(
   extractOpenApiSchemaPattern(openapiSource, "SafeIdentifier"),

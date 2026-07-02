@@ -44,7 +44,7 @@ assertAddress(submitRequest.quote.tokenOut, "submitRequest.quote.tokenOut");
 assertPositiveUint(submitRequest.quote.amountIn, "submitRequest.quote.amountIn");
 assertPositiveUint(submitRequest.quote.amountOut, "submitRequest.quote.amountOut");
 assertPositiveUint(submitRequest.quote.minAmountOut, "submitRequest.quote.minAmountOut");
-assertUint(submitRequest.quote.nonce, "submitRequest.quote.nonce");
+assertPositiveUint(submitRequest.quote.nonce, "submitRequest.quote.nonce");
 assertPositiveInteger(submitRequest.quote.deadline, "submitRequest.quote.deadline");
 assertPositiveInteger(submitRequest.quote.chainId, "submitRequest.quote.chainId");
 assertSignature(submitRequest.signature, "submitRequest.signature");
@@ -133,13 +133,11 @@ function assertAddress(value, label) {
   assert.ok(typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value), `${label} must be an EVM address`);
 }
 
-function assertUint(value, label) {
-  assert.ok(typeof value === "string" && /^[0-9]+$/.test(value), `${label} must be a uint string`);
-}
-
 function assertPositiveUint(value, label) {
-  assertUint(value, label);
-  assert.ok(BigInt(value) > 0n, `${label} must be positive`);
+  assert.ok(
+    typeof value === "string" && /^[1-9][0-9]*$/.test(value),
+    `${label} must be a positive uint string without leading zeros`,
+  );
 }
 
 function assertPositiveInteger(value, label) {

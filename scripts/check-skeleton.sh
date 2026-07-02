@@ -249,6 +249,10 @@ test -s contracts/test/Deploy.t.sol
 test -s examples/quote-request.json
 test -s examples/submit-request.json
 test -s scripts/check-examples-consistency.mjs
+grep -q 'assertPositiveUint(submitRequest.quote.nonce, "submitRequest.quote.nonce")' scripts/check-examples-consistency.mjs
+grep -Fq '/^[1-9][0-9]*$/.test(value)' scripts/check-examples-consistency.mjs
+grep -q 'positive uint string without leading zeros' scripts/check-examples-consistency.mjs
+! grep -q 'BigInt(value) > 0n' scripts/check-examples-consistency.mjs
 test -s scripts/check-config-consistency.mjs
 test -s scripts/check-book-template-consistency.mjs
 test -s scripts/check-adr-consistency.mjs
@@ -358,7 +362,7 @@ grep -q 'QuoteStatus", "deadline"' scripts/check-api-schema-consistency.mjs
 grep -q 'HedgeIntentStatus", "chainId"' scripts/check-api-schema-consistency.mjs
 grep -q 'positive safe integer minimum' scripts/check-api-schema-consistency.mjs
 grep -q 'non-negative safe integer minimum' scripts/check-api-schema-consistency.mjs
-grep -q 'PositiveUIntString must reject zero and negative values' scripts/check-api-schema-consistency.mjs
+grep -q 'PositiveUIntString must reject zero, negative values, and leading zeros' scripts/check-api-schema-consistency.mjs
 grep -q 'SignedQuote", "nonce"' scripts/check-api-schema-consistency.mjs
 grep -q 'must reject unknown request fields' scripts/check-api-schema-consistency.mjs
 grep -q 'backend/src/modules/health/readiness.service.ts' scripts/check-api-schema-consistency.mjs
