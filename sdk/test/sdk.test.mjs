@@ -735,7 +735,17 @@ test("RFQClient rejects unsafe trace id options", async () => {
     (error) => {
       assert.ok(error instanceof RFQClientError);
       assert.equal(error.status, 0);
-      assert.equal(error.message, "RFQClient traceId option must be a string or function");
+      assert.equal(error.message, "RFQClient traceId option must be a primitive string or function");
+      return true;
+    },
+  );
+
+  assert.throws(
+    () => new RFQClient("http://127.0.0.1:3000", { traceId: new String("tr_sdk_wrapper") }),
+    (error) => {
+      assert.ok(error instanceof RFQClientError);
+      assert.equal(error.status, 0);
+      assert.equal(error.message, "RFQClient traceId option must be a primitive string or function");
       return true;
     },
   );
@@ -760,6 +770,21 @@ test("RFQClient rejects unsafe trace id options", async () => {
           error.message,
           "RFQClient traceId provider result must match tr_[A-Za-z0-9._:-]+ and be 128 characters or fewer",
         );
+        return true;
+      },
+    );
+    assert.equal(calls.length, 0);
+
+    const wrapperClient = new RFQClient("http://127.0.0.1:3000", {
+      traceId: () => new String("tr_sdk_wrapper"),
+    });
+
+    await assert.rejects(
+      wrapperClient.health(),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.message, "RFQClient traceId provider result must be a primitive string");
         return true;
       },
     );

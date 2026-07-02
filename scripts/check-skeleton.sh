@@ -1633,6 +1633,9 @@ grep -q 'RFQClient baseUrl must be a string' sdk/test/sdk.test.mjs
 grep -q 'RFQClient normalizes safe base URL origins and path prefixes' sdk/test/sdk.test.mjs
 grep -q 'http://api.example.com/rfq/health' sdk/test/sdk.test.mjs
 grep -q 'RFQClient rejects unsafe trace id options' sdk/test/sdk.test.mjs
+grep -q 'RFQClient traceId option must be a primitive string or function' sdk/test/sdk.test.mjs
+grep -q 'RFQClient traceId provider result must be a primitive string' sdk/test/sdk.test.mjs
+grep -q 'new String("tr_sdk_wrapper")' sdk/test/sdk.test.mjs
 grep -q 'tr_sdk_' sdk/test/sdk.test.mjs
 grep -q 'RFQClient rejects unsafe quote requests before sending HTTP' sdk/test/sdk.test.mjs
 grep -Fq '^[1-9][0-9]*$' sdk/src/client.ts
@@ -1640,10 +1643,11 @@ grep -Fq '^[1-9][0-9]*$' sdk/src/eip712.ts
 grep -Fq '^[1-9][0-9]*$' sdk/src/settlement.ts
 grep -q '01000000000' sdk/test/sdk.test.mjs
 grep -q '0998400000' sdk/test/sdk.test.mjs
-grep -q 'base URL must be a runtime string before URL parsing' README.md
+grep -q 'base URL and outgoing trace ids must be runtime primitive strings' README.md
 grep -q 'no credentials, no wildcard host, and no query string or fragment' README.md
 grep -q 'Integrators can pass `{ traceId:' README.md
 grep -q 'static or dynamic `traceId` option' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'Boxed `String` trace ids fail before header construction' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'rejects non-string, empty, relative or non-`http(s)` base URLs' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'preserving safe path prefixes such as `/rfq`' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient.quote()` validates outgoing quote requests locally' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md

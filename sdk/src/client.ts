@@ -258,12 +258,12 @@ function resolveTraceIdProvider(options: RFQClientOptions): RFQClientTraceIdProv
     };
   }
 
-  throw new RFQClientError("RFQClient traceId option must be a string or function", 0);
+  throw new RFQClientError("RFQClient traceId option must be a primitive string or function", 0);
 }
 
 function assertClientTraceId(value: unknown, label: string): string {
   if (typeof value !== "string") {
-    throw new RFQClientError(`${label} must be a string`, 0);
+    throw new RFQClientError(`${label} must be a primitive string`, 0);
   }
 
   const normalized = value.trim();
