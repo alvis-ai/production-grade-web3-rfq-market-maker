@@ -309,6 +309,22 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
   await assert.rejects(
     quoteRepository.saveSigned({
       ...input,
+      quoteId: "q.bad",
+    }),
+    /Signed quote quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      snapshotId: "snapshot".repeat(19),
+    }),
+    /Signed quote snapshotId must be 128 characters or fewer/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
       pricingVersion: " ",
     }),
     /Signed quote pricingVersion must be a non-empty string/,
@@ -468,6 +484,24 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
 
   await assert.rejects(
     quoteRepository.saveRequested({
+      quoteId: "q.bad",
+      snapshotId: "snapshot_1",
+      request,
+    }),
+    /Requested quote quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRequested({
+      quoteId: "q_bad_snapshot",
+      snapshotId: "s".repeat(129),
+      request,
+    }),
+    /Requested quote snapshotId must be 128 characters or fewer/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRequested({
       quoteId: "q_bad_request",
       snapshotId: "snapshot_1",
       request: {
@@ -509,6 +543,16 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
       riskPolicyVersion: "",
     }),
     /Rejected quote riskPolicyVersion must be a non-empty string/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRejected({
+      quoteId: "q_bad_reject_pointer",
+      snapshotId: "snapshot.bad",
+      request,
+      rejectCode: "RISK_REJECTED",
+    }),
+    /Rejected quote snapshotId must contain only letters, numbers, underscore, colon, or hyphen/,
   );
 
   assert.equal(await quoteRepository.findStatus("q_bad_request"), undefined);
@@ -998,15 +1042,33 @@ test("InMemoryQuoteRepository rejects malformed quote status metadata", async ()
   );
   await assert.rejects(
     quoteRepository.markStatus("q_metadata", "submitted", {
+      settlementEventId: "se.bad",
+    }),
+    /Quote status settlementEventId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+  await assert.rejects(
+    quoteRepository.markStatus("q_metadata", "submitted", {
       hedgeOrderId: "",
     }),
     /Quote status hedgeOrderId must be a non-empty string/,
   );
   await assert.rejects(
     quoteRepository.markStatus("q_metadata", "submitted", {
+      hedgeOrderId: "h".repeat(129),
+    }),
+    /Quote status hedgeOrderId must be 128 characters or fewer/,
+  );
+  await assert.rejects(
+    quoteRepository.markStatus("q_metadata", "submitted", {
       pnlId: " ",
     }),
     /Quote status pnlId must be a non-empty string/,
+  );
+  await assert.rejects(
+    quoteRepository.markStatus("q_metadata", "submitted", {
+      pnlId: "pnl/bad",
+    }),
+    /Quote status pnlId must contain only letters, numbers, underscore, colon, or hyphen/,
   );
 
   const status = await quoteRepository.findStatus("q_metadata");

@@ -8,6 +8,8 @@ import type {
 } from "../../shared/types/rfq.js";
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
+const maxSafeIdentifierLength = 128;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 
 export interface QuoteRecord {
   quoteId: string;
@@ -293,15 +295,15 @@ function cloneQuoteRecord(record: QuoteRecord): QuoteRecord {
 
 function assertRequestedQuoteInput(input: SaveRequestedQuoteInput): void {
   assertObject(input, "input", "Requested quote");
-  assertNonEmptyString(input.quoteId, "quoteId", "Requested quote");
-  assertNonEmptyString(input.snapshotId, "snapshotId", "Requested quote");
+  assertSafeIdentifier(input.quoteId, "quoteId", "Requested quote");
+  assertSafeIdentifier(input.snapshotId, "snapshotId", "Requested quote");
   assertQuoteRequest(input.request, "Requested quote");
 }
 
 function assertRejectedQuoteInput(input: SaveRejectedQuoteInput): void {
   assertObject(input, "input", "Rejected quote");
-  assertNonEmptyString(input.quoteId, "quoteId", "Rejected quote");
-  assertNonEmptyString(input.snapshotId, "snapshotId", "Rejected quote");
+  assertSafeIdentifier(input.quoteId, "quoteId", "Rejected quote");
+  assertSafeIdentifier(input.snapshotId, "snapshotId", "Rejected quote");
   assertNonEmptyString(input.rejectCode, "rejectCode", "Rejected quote");
   if (input.riskPolicyVersion !== undefined) {
     assertNonEmptyString(input.riskPolicyVersion, "riskPolicyVersion", "Rejected quote");
@@ -326,8 +328,8 @@ function assertQuoteRequest(request: QuoteRequest, subject: "Requested quote" | 
 
 function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertObject(input, "input", "Signed quote");
-  assertNonEmptyString(input.quoteId, "quoteId");
-  assertNonEmptyString(input.snapshotId, "snapshotId");
+  assertSafeIdentifier(input.quoteId, "quoteId");
+  assertSafeIdentifier(input.snapshotId, "snapshotId");
   assertNonEmptyString(input.pricingVersion, "pricingVersion");
   assertNonEmptyString(input.riskPolicyVersion, "riskPolicyVersion");
   assertNonNegativeBps(input.slippageBps, "slippageBps", "Signed quote");
@@ -365,6 +367,16 @@ function assertObject(value: unknown, field: "input" | "request" | "quote", subj
 function assertNonEmptyString(value: string, field: string, subject = "Signed quote"): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`${subject} ${field} must be a non-empty string`);
+  }
+}
+
+function assertSafeIdentifier(value: string, field: string, subject = "Signed quote"): void {
+  assertNonEmptyString(value, field, subject);
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`${subject} ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(`${subject} ${field} must contain only letters, numbers, underscore, colon, or hyphen`);
   }
 }
 
@@ -604,15 +616,15 @@ function assertQuoteStatusMetadata(metadata: QuoteStatusMetadata | undefined): v
   }
 
   if (metadata.settlementEventId !== undefined) {
-    assertNonEmptyMetadataString(metadata.settlementEventId, "settlementEventId");
+    assertSafeMetadataIdentifier(metadata.settlementEventId, "settlementEventId");
   }
 
   if (metadata.hedgeOrderId !== undefined) {
-    assertNonEmptyMetadataString(metadata.hedgeOrderId, "hedgeOrderId");
+    assertSafeMetadataIdentifier(metadata.hedgeOrderId, "hedgeOrderId");
   }
 
   if (metadata.pnlId !== undefined) {
-    assertNonEmptyMetadataString(metadata.pnlId, "pnlId");
+    assertSafeMetadataIdentifier(metadata.pnlId, "pnlId");
   }
 }
 
@@ -722,8 +734,14 @@ function assertNonSettlementMetadataField(
   }
 }
 
-function assertNonEmptyMetadataString(value: string, field: keyof QuoteStatusMetadata): void {
+function assertSafeMetadataIdentifier(value: string, field: keyof QuoteStatusMetadata): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`Quote status ${field} must be a non-empty string`);
+  }
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`Quote status ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(`Quote status ${field} must contain only letters, numbers, underscore, colon, or hyphen`);
   }
 }
