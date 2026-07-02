@@ -244,6 +244,20 @@ test("InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots", 
     }),
     /Market snapshot snapshotId must be a non-empty string/,
   );
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: { ...snapshot, snapshotId: "snapshot.bad" },
+    }),
+    /Market snapshot snapshotId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: { ...snapshot, snapshotId: "s".repeat(129) },
+    }),
+    /Market snapshot snapshotId must be 128 characters or fewer/,
+  );
 
   await assert.rejects(
     repository.saveSnapshot({
@@ -306,6 +320,26 @@ test("InMemoryMarketSnapshotRepository returns defensive copies", async () => {
 
   assert.notEqual(reloaded, stored);
   assert.equal(reloaded.midPrice, snapshot.midPrice);
+});
+
+test("InMemoryMarketSnapshotRepository rejects unsafe snapshot lookup identifiers", async () => {
+  const repository = new InMemoryMarketSnapshotRepository();
+
+  await assert.rejects(
+    repository.findBySnapshotId(" "),
+    /Market snapshot snapshotId must be a non-empty string/,
+  );
+  await assert.rejects(
+    repository.findBySnapshotId("snapshot/bad"),
+    /Market snapshot snapshotId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+  await assert.rejects(
+    repository.findBySnapshotId("s".repeat(129)),
+    /Market snapshot snapshotId must be 128 characters or fewer/,
+  );
+
+  const stored = await repository.saveSnapshot({ request, snapshot });
+  assert.deepEqual(await repository.findBySnapshotId(snapshot.snapshotId), stored);
 });
 
 function withFixedNow(isoTimestamp, callback) {

@@ -2,6 +2,8 @@ import type { Address, MarketSnapshot, QuoteRequest } from "../../shared/types/r
 import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
 
 export const defaultMarketSnapshotSource = "static-market-data-v1";
+const maxSafeIdentifierLength = 128;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 
 export interface MarketSnapshotRecord {
   snapshotId: string;
@@ -51,7 +53,7 @@ export class InMemoryMarketSnapshotRepository implements MarketSnapshotStore {
   }
 
   async findBySnapshotId(snapshotId: string): Promise<MarketSnapshotRecord | undefined> {
-    assertNonEmptyString(snapshotId, "snapshotId");
+    assertSafeIdentifier(snapshotId, "snapshotId");
     const record = this.recordsBySnapshotId.get(snapshotId);
     return record ? cloneMarketSnapshotRecord(record) : undefined;
   }
@@ -85,7 +87,7 @@ function assertSaveMarketSnapshotInput(input: SaveMarketSnapshotInput): void {
 }
 
 function assertMarketSnapshot(snapshot: MarketSnapshot): void {
-  assertNonEmptyString(snapshot.snapshotId, "snapshotId");
+  assertSafeIdentifier(snapshot.snapshotId, "snapshotId");
   if (!isPositiveDecimal(snapshot.midPrice)) {
     throw new Error("Market snapshot midPrice must be a positive decimal");
   }
@@ -109,6 +111,16 @@ function assertObject(value: unknown, field: "input" | "request" | "snapshot"): 
 function assertNonEmptyString(value: string, field: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`Market snapshot ${field} must be a non-empty string`);
+  }
+}
+
+function assertSafeIdentifier(value: string, field: string): void {
+  assertNonEmptyString(value, field);
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`Market snapshot ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(`Market snapshot ${field} must contain only letters, numbers, underscore, colon, or hyphen`);
   }
 }
 
