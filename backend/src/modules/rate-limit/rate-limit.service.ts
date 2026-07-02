@@ -24,6 +24,7 @@ interface RateLimitBucket {
 }
 
 export const maxRateLimitClientIdLength = 128;
+export const rateLimitClientIdPattern = /^[A-Za-z0-9_.:-]+$/;
 
 export const defaultRateLimitConfig: RateLimitConfig = {
   windowMs: 60_000,
@@ -121,6 +122,9 @@ function normalizeRateLimitInput(input: RateLimitInput): RateLimitInput {
   const clientId = normalizeRateLimitClientId(input.clientId);
   if (clientId.length > maxRateLimitClientIdLength) {
     throw new Error("Rate limit clientId must be 128 characters or fewer");
+  }
+  if (!rateLimitClientIdPattern.test(clientId)) {
+    throw new Error("Rate limit clientId must contain only letters, numbers, dot, underscore, colon, or hyphen");
   }
 
   return { endpoint: input.endpoint, clientId };

@@ -33,8 +33,10 @@ assertContains(rateLimiterSource, [
   'assertPositiveSafeInteger(config.maxStatusRequests, "maxStatusRequests")',
   "normalizeRateLimitInput(input)",
   "maxRateLimitClientIdLength",
+  "rateLimitClientIdPattern",
   "Rate limit input must be an object",
   "Rate limit clientId must be 128 characters or fewer",
+  "Rate limit clientId must contain only letters, numbers, dot, underscore, colon, or hyphen",
   "clientId.trim().toLowerCase()",
   "Rate limit ${field} must be a positive safe integer",
 ], "backend/src/modules/rate-limit/rate-limit.service.ts");
@@ -54,7 +56,10 @@ assertContains(mainSource, [
   "clientIdForRateLimit(request, trustProxy)",
   "assertGatewayRateLimitClientId",
   "maxRateLimitClientIdLength",
+  "rateLimitClientIdPattern",
   'new APIError("INVALID_REQUEST", "Rate limit clientId must be 128 characters or fewer", 400)',
+  'new APIError("INVALID_REQUEST",',
+  "Rate limit clientId must contain only letters, numbers, dot, underscore, colon, or hyphen",
   "const defaultTrustProxy = false;",
   "trustProxy?: boolean",
   "readTrustProxy()",
@@ -70,6 +75,7 @@ assertContains(apiTestSource, [
   "does not trust x-forwarded-for for rate limit identity by default",
   "trusts x-forwarded-for for rate limit identity only when proxy trust is enabled",
   "rejects oversized trusted forwarded rate limit identity",
+  "rejects unsafe trusted forwarded rate limit identity",
   "rate limits submit requests before validation and settlement",
   "rate limits quote status requests by client",
   "assert.equal(secondQuote.statusCode, 429)",
@@ -84,6 +90,7 @@ assertContains(rateLimitTestSource, [
   "InMemoryRateLimiter normalizes client identities before bucketing",
   "Rate limit input must be an object",
   "Rate limit clientId must be 128 characters or fewer",
+  "Rate limit clientId must contain only letters, numbers, dot, underscore, colon, or hyphen",
 ], "backend/test/rate-limit.test.mjs");
 
 assertContains(sdkClientSource, [
@@ -126,7 +133,7 @@ assertContains(errorDocsSource, [
   "| `submit` | `POST /submit` | 60 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
   "| `status` | `GET /quote/:quoteId`, `GET /settlements/:settlementEventId`, `GET /hedges/:hedgeOrderId`, `GET /pnl` | 300 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
   "`x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`",
-  "forwarded client identities longer than 128 characters are rejected as `INVALID_REQUEST`/400",
+  "forwarded client identities longer than 128 characters or outside `[A-Za-z0-9_.:-]` are rejected as `INVALID_REQUEST`/400",
 ], "docs/api/errors.md");
 
 assertContains(gatewayChapterSource, [
@@ -139,7 +146,8 @@ assertContains(gatewayChapterSource, [
   "启用 `RFQ_TRUST_PROXY=true`",
   "client identity trim + lowercase",
   "128 character clientId upper bound",
-  "trusted forwarded identity exceeding 128 characters returns `INVALID_REQUEST`/400",
+  "clientId character set `[A-Za-z0-9_.:-]`",
+  "trusted forwarded identity exceeding 128 characters or outside `[A-Za-z0-9_.:-]` returns `INVALID_REQUEST`/400",
   "`RATE_LIMITED`、HTTP 429 和 `Retry-After`",
 ], "book/Volume5-BackendEngineering/Chapter01-API-Gateway.md");
 
@@ -148,6 +156,8 @@ assertContains(readmeSource, [
   "HTTP 429 `RATE_LIMITED`",
   "`retryAfterSeconds`",
   "`Retry-After` header",
+  "`RFQ_TRUST_PROXY=false`",
+  "128 character limit and `[A-Za-z0-9_.:-]` character set",
 ], "README.md");
 
 console.log("Rate limit consistency check passed");

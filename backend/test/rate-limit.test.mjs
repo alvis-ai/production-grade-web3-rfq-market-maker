@@ -168,6 +168,11 @@ test("InMemoryRateLimiter rejects unsafe request inputs before writing buckets",
   );
 
   assert.throws(
+    () => limiter.check({ endpoint: "quote", clientId: "client/a" }),
+    /Rate limit clientId must contain only letters, numbers, dot, underscore, colon, or hyphen/,
+  );
+
+  assert.throws(
     () => limiter.check({ endpoint: "metrics", clientId: "client-a" }),
     /Rate limit endpoint must be quote, submit, or status/,
   );

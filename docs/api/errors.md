@@ -55,7 +55,7 @@
 
 ## Rate Limit Policy
 
-The current gateway uses a 60 second rate limit window keyed by the direct client IP by default. `x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`; only enable that setting behind a trusted proxy or ingress that strips spoofed forwarding headers and writes the canonical client address. When proxy trust is enabled, forwarded client identities longer than 128 characters are rejected as `INVALID_REQUEST`/400 before rate-limit buckets are written. Production deployments should replace the in-memory store with Redis or another shared limiter, but the public HTTP contract must stay stable.
+The current gateway uses a 60 second rate limit window keyed by the direct client IP by default. `x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`; only enable that setting behind a trusted proxy or ingress that strips spoofed forwarding headers and writes the canonical client address. When proxy trust is enabled, forwarded client identities longer than 128 characters or outside `[A-Za-z0-9_.:-]` are rejected as `INVALID_REQUEST`/400 before rate-limit buckets are written. Production deployments should replace the in-memory store with Redis or another shared limiter, but the public HTTP contract must stay stable.
 
 | Endpoint Class | Routes | Default Limit | Error Contract |
 | --- | --- | ---: | --- |

@@ -450,11 +450,13 @@ grep -q 'RFQ API rejects invalid RFQ_TRUST_PROXY at startup' backend/test/api.te
 grep -q 'does not trust x-forwarded-for for rate limit identity by default' backend/test/api.test.mjs
 grep -q 'trusts x-forwarded-for for rate limit identity only when proxy trust is enabled' backend/test/api.test.mjs
 grep -q 'rejects oversized trusted forwarded rate limit identity' backend/test/api.test.mjs
+grep -q 'rejects unsafe trusted forwarded rate limit identity' backend/test/api.test.mjs
 grep -q 'only enable it when a trusted reverse proxy or ingress strips untrusted' README.md
+grep -Fq '128 character limit and `[A-Za-z0-9_.:-]` character set' README.md
 grep -q 'x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`' docs/api/errors.md
-grep -q 'forwarded client identities longer than 128 characters are rejected as `INVALID_REQUEST`/400' docs/api/errors.md
+grep -Fq 'forwarded client identities longer than 128 characters or outside `[A-Za-z0-9_.:-]` are rejected as `INVALID_REQUEST`/400' docs/api/errors.md
 grep -q '默认 `RFQ_TRUST_PROXY=false`' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'trusted forwarded identity exceeding 128 characters returns `INVALID_REQUEST`/400' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -Fq 'trusted forwarded identity exceeding 128 characters or outside `[A-Za-z0-9_.:-]` returns `INVALID_REQUEST`/400' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'traceId: string' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'HEDGE_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
@@ -533,13 +535,16 @@ grep -q 'assertPositiveSafeInteger' backend/src/modules/rate-limit/rate-limit.se
 grep -q 'normalizeRateLimitInput(input)' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'assertRateLimitTimestamp(now)' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxRateLimitClientIdLength' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'rateLimitClientIdPattern' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'sweepExpiredBuckets(now)' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'Rate limit input must be an object' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'Rate limit clientId must be a non-empty string' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'Rate limit clientId must be 128 characters or fewer' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'Rate limit clientId must contain only letters, numbers, dot, underscore, colon, or hyphen' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'InMemoryRateLimiter normalizes client identities before bucketing' backend/test/rate-limit.test.mjs
 grep -q 'client identity trim + lowercase' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q '128 character clientId upper bound' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -Fq 'clientId character set `[A-Za-z0-9_.:-]`' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'maxQuoteRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxSubmitRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxStatusRequests' backend/src/modules/rate-limit/rate-limit.service.ts

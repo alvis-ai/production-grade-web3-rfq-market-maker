@@ -13,6 +13,7 @@ import { defaultQuoteServiceConfig, QuoteService } from "./modules/quote/quote.s
 import {
   InMemoryRateLimiter,
   maxRateLimitClientIdLength,
+  rateLimitClientIdPattern,
   type RateLimitConfig,
   type RateLimitedEndpoint,
 } from "./modules/rate-limit/rate-limit.service.js";
@@ -570,6 +571,13 @@ function assertGatewayRateLimitClientId(clientId: string): string {
   }
   if (normalized.length > maxRateLimitClientIdLength) {
     throw new APIError("INVALID_REQUEST", "Rate limit clientId must be 128 characters or fewer", 400);
+  }
+  if (!rateLimitClientIdPattern.test(normalized)) {
+    throw new APIError(
+      "INVALID_REQUEST",
+      "Rate limit clientId must contain only letters, numbers, dot, underscore, colon, or hyphen",
+      400,
+    );
   }
 
   return normalized;
