@@ -64,6 +64,18 @@ test("validateQuoteRequest rejects unknown fields and invalid quote shape", () =
   );
 });
 
+test("validateQuoteRequest rejects missing required fields before field validation", () => {
+  const request = { ...quoteRequest };
+  delete request.amountIn;
+
+  assertAPIError(
+    () => validateQuoteRequest(request),
+    "INVALID_REQUEST",
+    "Quote request must include field amountIn",
+    400,
+  );
+});
+
 test("validateQuoteRequest rejects non-schema JSON primitive types before coercion", () => {
   assertAPIError(
     () => validateQuoteRequest({ ...quoteRequest, chainId: "1" }),
@@ -211,6 +223,24 @@ test("validateSubmitQuoteRequest rejects unsafe submit payloads before execution
     () => validateSubmitQuoteRequest({ quote: signedQuote, signature: highSSignature }),
     "INVALID_REQUEST",
     "signature s value must be in the lower half order",
+    400,
+  );
+});
+
+test("validateSubmitQuoteRequest rejects missing required fields before field validation", () => {
+  const quote = { ...signedQuote };
+  delete quote.nonce;
+
+  assertAPIError(
+    () => validateSubmitQuoteRequest({ quote: signedQuote }),
+    "INVALID_REQUEST",
+    "Submit request must include field signature",
+    400,
+  );
+  assertAPIError(
+    () => validateSubmitQuoteRequest({ quote, signature: canonicalSignature }),
+    "INVALID_REQUEST",
+    "Submit quote must include field nonce",
     400,
   );
 });

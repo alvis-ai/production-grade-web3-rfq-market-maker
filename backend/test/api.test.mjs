@@ -2387,6 +2387,49 @@ test("RFQ API rejects unknown request fields", async () => {
   }
 });
 
+test("RFQ API rejects missing required request fields", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const quoteMissingAmountIn = { ...baseQuoteRequest };
+    delete quoteMissingAmountIn.amountIn;
+    const quoteWithMissingField = await injectJson(server, "POST", "/quote", quoteMissingAmountIn);
+    assert.equal(quoteWithMissingField.statusCode, 400);
+    assert.equal(quoteWithMissingField.body.code, "INVALID_REQUEST");
+    assert.equal(quoteWithMissingField.body.message, "Quote request must include field amountIn");
+
+    const quote = {
+      user: baseQuoteRequest.user,
+      tokenIn: baseQuoteRequest.tokenIn,
+      tokenOut: baseQuoteRequest.tokenOut,
+      amountIn: baseQuoteRequest.amountIn,
+      amountOut: "1000000000",
+      minAmountOut: "995000000",
+      nonce: "1",
+      deadline: Math.floor(Date.now() / 1000) + 30,
+      chainId: baseQuoteRequest.chainId,
+    };
+
+    const submitWithMissingSignature = await injectJson(server, "POST", "/submit", { quote });
+    assert.equal(submitWithMissingSignature.statusCode, 400);
+    assert.equal(submitWithMissingSignature.body.code, "INVALID_REQUEST");
+    assert.equal(submitWithMissingSignature.body.message, "Submit request must include field signature");
+
+    const quoteMissingNonce = { ...quote };
+    delete quoteMissingNonce.nonce;
+    const submitWithMissingQuoteField = await injectJson(server, "POST", "/submit", {
+      quote: quoteMissingNonce,
+      signature: fixedSignature(),
+    });
+    assert.equal(submitWithMissingQuoteField.statusCode, 400);
+    assert.equal(submitWithMissingQuoteField.body.code, "INVALID_REQUEST");
+    assert.equal(submitWithMissingQuoteField.body.message, "Submit quote must include field nonce");
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rejects request JSON primitive types that would require coercion", async () => {
   const server = buildServer({ logger: false });
   await server.ready();
