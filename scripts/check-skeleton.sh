@@ -228,6 +228,7 @@ grep -q 'assertObject(input.snapshot, "snapshot")' backend/src/modules/routing/r
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/routing/routing.engine.ts
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/routing/routing.engine.ts
 grep -q 'assertSafeIdentifier(input.snapshot.snapshotId, "snapshot.snapshotId")' backend/src/modules/routing/routing.engine.ts
+grep -q 'Routing ${field} must be a primitive string' backend/src/modules/routing/routing.engine.ts
 grep -q 'Routing request token pair must contain distinct tokens' backend/src/modules/routing/routing.engine.ts
 grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/routing/routing.engine.ts
 grep -Fq '/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/routing/routing.engine.ts
@@ -236,11 +237,12 @@ grep -q 'InternalInventoryRoutingEngine rejects unsafe route inputs before plann
 grep -q 'amountIn: "01000000000"' backend/test/routing.test.mjs
 grep -q 'midPrice: "01.25"' backend/test/routing.test.mjs
 grep -q 'liquidityUsd: "0250000000000"' backend/test/routing.test.mjs
+grep -q 'Routing snapshot.snapshotId must be a primitive string' backend/test/routing.test.mjs
 grep -q 'Routing snapshot.snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/routing.test.mjs
 grep -q 'Routing snapshot.snapshotId must be 128 characters or fewer' backend/test/routing.test.mjs
 grep -q 'malformed root payloads and missing `request` / `snapshot` objects fail before field access' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'canonical positive `amountIn` without leading zeros' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
-grep -q '`snapshot.snapshotId` as a `SafeIdentifier` with 1-128 characters' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
+grep -q '`snapshot.snapshotId` as a primitive-string `SafeIdentifier` with 1-128 characters' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 test -s backend/src/shared/validation/quote-request.ts
 test -s backend/src/shared/validation/submit-request.ts
 test -s backend/src/shared/validation/timestamp.ts

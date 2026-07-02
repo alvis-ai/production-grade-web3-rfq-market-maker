@@ -121,6 +121,17 @@ test("InternalInventoryRoutingEngine rejects unsafe route inputs before planning
       request,
       snapshot: {
         ...snapshot,
+        snapshotId: new String("snapshot_base_usdc_weth"),
+      },
+    }),
+    /Routing snapshot.snapshotId must be a primitive string/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      request,
+      snapshot: {
+        ...snapshot,
         snapshotId: "snapshot.bad",
       },
     }),
