@@ -260,6 +260,18 @@ test("PnlService rejects unsafe attribution inputs before recording", () => {
   assert.throws(
     () =>
       pnl.recordSettlement({
+        quoteId: "q_bad_user_object",
+        quote: {
+          ...baseQuote,
+          user: new String(baseQuote.user),
+        },
+      }),
+    /Pnl quote.user must be a 20-byte hex address/,
+  );
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
         quoteId: "q_zero_amount",
         quote: {
           ...baseQuote,
@@ -267,6 +279,30 @@ test("PnlService rejects unsafe attribution inputs before recording", () => {
         },
       }),
     /Pnl quote.amountIn must be a positive uint string/,
+  );
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q_amount_number",
+        quote: {
+          ...baseQuote,
+          amountIn: 1000,
+        },
+      }),
+    /Pnl quote.amountIn must be a positive uint string/,
+  );
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q_nonce_leading_zero",
+        quote: {
+          ...baseQuote,
+          nonce: "01",
+        },
+      }),
+    /Pnl quote.nonce must be a positive uint string/,
   );
 
   assert.throws(

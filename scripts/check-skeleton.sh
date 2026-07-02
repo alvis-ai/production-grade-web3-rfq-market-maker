@@ -1187,6 +1187,8 @@ grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' backend/src/modules/pnl
 grep -q 'assertSafeIdentifier(pnlId, "pnlId")' backend/src/modules/pnl/pnl.service.ts
 grep -q 'Pnl input must be an object' backend/src/modules/pnl/pnl.service.ts
 grep -q 'Pnl quote must be an object' backend/src/modules/pnl/pnl.service.ts
+grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)' backend/src/modules/pnl/pnl.service.ts
+grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/pnl/pnl.service.ts
 grep -q 'matchesPnlInput' backend/src/modules/pnl/pnl.service.ts
 grep -q 'PnL record conflict' backend/src/modules/pnl/pnl.service.ts
 grep -q 'user: input.quote.user' backend/src/modules/pnl/pnl.service.ts
@@ -1204,10 +1206,15 @@ grep -q 'PnlService rejects malformed attribution payload envelopes before recor
 grep -q 'PnlService rejects unsafe attribution inputs before recording' backend/test/pnl.test.mjs
 grep -q 'Pnl quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/pnl.test.mjs
 grep -q 'Pnl pnlId must be 128 characters or fewer' backend/test/pnl.test.mjs
+grep -q 'q_bad_user_object' backend/test/pnl.test.mjs
+grep -q 'q_amount_number' backend/test/pnl.test.mjs
+grep -q 'q_nonce_leading_zero' backend/test/pnl.test.mjs
 grep -q 'stored signed attribution payload' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnlService` returns defensive copies from `recordSettlement()` and `summary()`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rejects malformed root payloads and missing `quote` objects before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates `quoteId` as a `SafeIdentifier` and validates the derived `pnlId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'canonical positive uint amount fields and nonce without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'JavaScript regex coercion to record malformed attribution' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'positive safe-integer deadline' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rejects values outside the JavaScript safe integer range' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'minAmountOut' docs/api/openapi.yaml

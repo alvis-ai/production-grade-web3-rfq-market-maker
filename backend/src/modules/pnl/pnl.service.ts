@@ -169,13 +169,13 @@ function assertSafeIdentifier(value: string, field: string): void {
 }
 
 function assertAddress(value: string, field: string): void {
-  if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
     throw new Error(`Pnl ${field} must be a 20-byte hex address`);
   }
 }
 
 function assertPositiveUIntString(value: string, field: string): void {
-  if (!/^[0-9]+$/.test(value) || BigInt(value) <= 0n) {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
     throw new Error(`Pnl ${field} must be a positive uint string`);
   }
 }
