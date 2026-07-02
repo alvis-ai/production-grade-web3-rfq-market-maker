@@ -184,6 +184,17 @@ test("FormulaPricingEngine rejects unsafe pricing inputs before quoting", async 
       ...baseInput,
       snapshot: {
         ...baseInput.snapshot,
+        snapshotId: new String("snapshot_1"),
+      },
+    }),
+    /Formula pricing snapshot.snapshotId must be a primitive string/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      snapshot: {
+        ...baseInput.snapshot,
         snapshotId: "snapshot.bad",
       },
     }),
@@ -243,6 +254,17 @@ test("FormulaPricingEngine rejects unsafe pricing inputs before quoting", async 
       },
     }),
     /Formula pricing routePlan token pair must match request token pair/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      routePlan: {
+        ...baseInput.routePlan,
+        routeId: new String("route_1"),
+      },
+    }),
+    /Formula pricing routePlan.routeId must be a primitive string/,
   );
 
   await assert.rejects(

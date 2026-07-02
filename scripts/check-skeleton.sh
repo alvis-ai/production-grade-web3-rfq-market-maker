@@ -2291,6 +2291,7 @@ grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/pricing/pricing.engi
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertSafeIdentifier(input.snapshot.snapshotId, "snapshot.snapshotId")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertSafeIdentifier(input.routePlan.routeId, "routePlan.routeId")' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'Formula pricing ${field} must be a primitive string' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'routePlan token pair must match request token pair' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'maxSizeImpactBps must be less than or equal to maxTotalAdjustmentBps' backend/src/modules/pricing/pricing.engine.ts
 grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/pricing/pricing.engine.ts
@@ -2303,16 +2304,18 @@ grep -q 'amountIn: "01000000000"' backend/test/pricing.test.mjs
 grep -q 'midPrice: "01.25"' backend/test/pricing.test.mjs
 grep -q 'liquidityUsd: "01000000000000"' backend/test/pricing.test.mjs
 grep -q 'expectedLiquidityUsd: "01000000000000"' backend/test/pricing.test.mjs
+grep -q 'Formula pricing snapshot.snapshotId must be a primitive string' backend/test/pricing.test.mjs
 grep -q 'Formula pricing snapshot.snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/pricing.test.mjs
+grep -q 'Formula pricing routePlan.routeId must be a primitive string' backend/test/pricing.test.mjs
 grep -q 'Formula pricing routePlan.routeId must be 128 characters or fewer' backend/test/pricing.test.mjs
 grep -q 'malformed root payloads and missing `request` / `snapshot` / `routePlan` objects fail before field access' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
-grep -q '`snapshot.snapshotId` and `routePlan.routeId` as `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
+grep -q '`snapshot.snapshotId` and `routePlan.routeId` as primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'canonical decimal form without leading zeros' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'Snapshot mid price must be a canonical positive decimal string without leading zeros' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'rejects malformed pricing config objects before reading numeric fields' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'snapshots `FormulaPricingConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q '先拒绝 malformed pricing config object' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
-grep -q '`snapshot.snapshotId` 和 `routePlan.routeId`，都必须是 1-128 字符的 `SafeIdentifier`' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
+grep -q '`snapshot.snapshotId` 和 `routePlan.routeId`，都必须是 primitive string 形态的 1-128 字符 `SafeIdentifier`' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q '`midPrice`、`amountIn`、market liquidity 和 route liquidity 必须使用 canonical decimal form without leading zeros' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q 'pricing config fail-fast' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q 'restricted toxic-flow users' backend/test/risk.test.mjs
