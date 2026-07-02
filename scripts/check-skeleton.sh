@@ -1115,6 +1115,13 @@ grep -q 'assertRecord(inventoryService, "inventoryService")' backend/src/modules
 grep -q 'assertRecord(input, "input")' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'assertRecord(input, "reorg input")' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'assertRecord(quote, "quote")' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'assertOwnFields(input, settlementEventInputFields, "input")' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'assertOwnFields(input, removeSettlementEventInputFields, "reorg input")' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'assertOwnOptionalFields(input, settlementEventOrdinalFields, "input")' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'assertOwnOptionalFields(input, settlementEventOrdinalFields, "reorg input")' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'assertOwnFields(quote, settlementQuoteFields, "quote")' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'Settlement event ${path}.${field} must be an own field' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'Settlement event ${path}.${field} must be an own field when provided' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventIdsByQuoteId' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'txHash.slice(2)}_${logIndex}' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
@@ -1140,6 +1147,11 @@ grep -q 'Settlement event quoteId must be a primitive string' backend/test/settl
 grep -q 'Settlement event settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects unsafe inventory dependency at construction' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects malformed event payload envelopes before side effects' backend/test/settlement-event.test.mjs
+grep -q 'Object.create({' backend/test/settlement-event.test.mjs
+grep -q 'Settlement event input.quoteId must be an own field' backend/test/settlement-event.test.mjs
+grep -q 'Settlement event quote.user must be an own field' backend/test/settlement-event.test.mjs
+grep -q 'Settlement event input.logIndex must be an own field when provided' backend/test/settlement-event.test.mjs
+grep -q 'Settlement event reorg input.txHash must be an own field' backend/test/settlement-event.test.mjs
 grep -q 'new String(`0x${"55".repeat(32)}`)' backend/test/settlement-event.test.mjs
 grep -q 'amountIn: "01000"' backend/test/settlement-event.test.mjs
 grep -q 'amountOut: "0990"' backend/test/settlement-event.test.mjs
@@ -1150,7 +1162,8 @@ grep -q 'canonical positive uint strings without leading zeros' book/Volume5-Bac
 grep -q 'SettlementEventService` validates inventory dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Malformed settlement event dependency, apply input, reorg input and quote envelopes are rejected as non-array objects before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q '`txHash` as a runtime string and a 32-byte hex string' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'Settlement event ingestion validates `quoteId` as a primitive-string `SafeIdentifier` and validates the derived `settlementEventId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'Settlement event ingestion validates `quoteId` as an own primitive-string `SafeIdentifier`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'rejects inherited optional `blockNumber` / `logIndex`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Settlement status lookups also validate `settlementEventId` before reading the in-memory store' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'removes reorged events and rebuilds inventory from canonical events' backend/test/settlement-event.test.mjs
 grep -q 'treats duplicate reorg removals as idempotent' backend/test/settlement-event.test.mjs
@@ -1199,6 +1212,10 @@ grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src
 grep -q 'assertObject(policy, "policy")' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertArray(chainIds, "enabledChainIds")' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertVerificationInput(input)' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'verificationRequestFields = \["quote", "signature"\]' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertOwnFields(input.request, verificationRequestFields, "request")' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertOwnFields(quote, settlementQuoteFields, "request.quote")' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'Local settlement verifier ${path}.${field} must be an own field' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' backend/src/modules/settlement/settlement-verifier.service.ts
@@ -1213,6 +1230,7 @@ grep -q 'Local settlement verifier tokenWhitelist must not contain duplicate add
 grep -q 'enabledChainIds` 和 `tokenWhitelist` 必须非空且不能包含重复项' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'malformed policy object and policy array fields must be rejected before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'LocalSettlementVerifier.verify()` rejects malformed root payloads, `quoteId` values that are not primitive-string 1-128 character `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'inherited `request` / `request.quote` required fields' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'JavaScript regex coercion' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q '`buildSyntheticTxHash()` also reuses submit request validation before hashing' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -2244,7 +2262,7 @@ grep -q 'new String(quote.tokenIn)' backend/test/settlement-verifier.test.mjs
 grep -q 'signature shape, canonical low-s/v checks' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'settlement verifier policy fail-fast' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'JavaScript regex coercion 进入 `/submit` 结算验证路径' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'amount fields and nonce must be canonical positive uint strings without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'amount fields and nonce must be own canonical positive uint strings without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'only converts `amountOut` and `minAmountOut` to BigInt for the minimum-output comparison' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'risk rejection when rejected quote persistence fails' backend/test/api.test.mjs

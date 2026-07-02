@@ -92,6 +92,29 @@ test("LocalSettlementVerifier rejects malformed verification payload envelopes b
   );
 });
 
+test("LocalSettlementVerifier rejects inherited verification fields before settlement checks", async () => {
+  const verifier = new LocalSettlementVerifier();
+
+  await assert.rejects(
+    verifier.verify({
+      quoteId: "q_inherited_request",
+      request: Object.create(request),
+    }),
+    /Local settlement verifier request.quote must be an own field/,
+  );
+
+  await assert.rejects(
+    verifier.verify({
+      quoteId: "q_inherited_quote",
+      request: {
+        quote: Object.create(quote),
+        signature: request.signature,
+      },
+    }),
+    /Local settlement verifier request.quote.user must be an own field/,
+  );
+});
+
 test("LocalSettlementVerifier rejects malformed settlement quote fields before policy checks", async () => {
   const verifier = new LocalSettlementVerifier();
 

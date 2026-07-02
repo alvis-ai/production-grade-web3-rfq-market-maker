@@ -9,6 +9,20 @@ const quoteTypeHash = keccak256(
 );
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const settlementEventInputFields = ["quoteId", "quote", "txHash"] as const;
+const removeSettlementEventInputFields = ["chainId", "txHash"] as const;
+const settlementEventOrdinalFields = ["blockNumber", "logIndex"] as const;
+const settlementQuoteFields = [
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "minAmountOut",
+  "nonce",
+  "deadline",
+  "chainId",
+] as const;
 
 export interface ApplySettlementEventInput {
   quoteId: string;
@@ -287,17 +301,22 @@ export function hashSettlementQuote(quote: SignedQuote): `0x${string}` {
 
 function assertSettlementEventInput(input: ApplySettlementEventInput): void {
   assertRecord(input, "input");
+  assertOwnFields(input, settlementEventInputFields, "input");
+  assertOwnOptionalFields(input, settlementEventOrdinalFields, "input");
   assertSafeIdentifier(input.quoteId, "quoteId");
   assertSettlementQuote(input.quote);
 }
 
 function assertRemoveSettlementEventInput(input: RemoveSettlementEventInput): void {
   assertRecord(input, "reorg input");
+  assertOwnFields(input, removeSettlementEventInputFields, "reorg input");
+  assertOwnOptionalFields(input, settlementEventOrdinalFields, "reorg input");
   assertPositiveSafeInteger(input.chainId, "reorg.chainId");
 }
 
 function assertSettlementQuote(quote: SignedQuote): void {
   assertRecord(quote, "quote");
+  assertOwnFields(quote, settlementQuoteFields, "quote");
   assertPositiveSafeInteger(quote.chainId, "quote.chainId");
   assertAddress(quote.user, "quote.user");
   assertAddress(quote.tokenIn, "quote.tokenIn");
@@ -321,6 +340,22 @@ function assertSettlementQuote(quote: SignedQuote): void {
 function assertRecord(value: unknown, field: "inventoryService" | "input" | "reorg input" | "quote"): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Settlement event ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Settlement event ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertOwnOptionalFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Settlement event ${path}.${field} must be an own field when provided`);
+    }
   }
 }
 

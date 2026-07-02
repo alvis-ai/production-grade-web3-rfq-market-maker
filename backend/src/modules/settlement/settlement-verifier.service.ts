@@ -4,6 +4,18 @@ import type { SubmitQuoteRequest } from "../../shared/types/rfq.js";
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const verificationRequestFields = ["quote", "signature"] as const;
+const settlementQuoteFields = [
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "minAmountOut",
+  "nonce",
+  "deadline",
+  "chainId",
+] as const;
 
 export interface SettlementVerifier {
   verify(input: SettlementVerificationInput): Promise<SettlementVerificationResult>;
@@ -111,6 +123,7 @@ export class LocalSettlementVerifier implements SettlementVerifier {
   }
 
   private assertSettlementQuoteShape(quote: SubmitQuoteRequest["quote"]): void {
+    assertOwnFields(quote, settlementQuoteFields, "request.quote");
     if (!Number.isSafeInteger(quote.chainId) || quote.chainId <= 0) {
       throw this.reverted("INVALID_CHAIN_ID", "Settlement quote chain id is invalid");
     }
@@ -157,6 +170,7 @@ function assertVerificationInput(input: SettlementVerificationInput): void {
   assertObject(input, "input");
   assertSafeIdentifier(input.quoteId, "quoteId");
   assertObject(input.request, "request");
+  assertOwnFields(input.request, verificationRequestFields, "request");
   assertObject(input.request.quote, "request.quote");
 }
 
@@ -217,6 +231,14 @@ function assertTokenWhitelist(tokens: readonly `0x${string}`[]): void {
 function assertObject(value: unknown, field: string): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Local settlement verifier ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Local settlement verifier ${path}.${field} must be an own field`);
+    }
   }
 }
 

@@ -214,6 +214,40 @@ test("SettlementEventService rejects malformed event payload envelopes before si
       }),
     /Settlement event quote must be an object/,
   );
+
+  assert.throws(
+    () =>
+      settlements.applySettlementEvent(
+        Object.create({
+          quoteId: "q_inherited_root",
+          quote,
+          txHash: `0x${"18".repeat(32)}`,
+        }),
+      ),
+    /Settlement event input.quoteId must be an own field/,
+  );
+
+  assert.throws(
+    () =>
+      settlements.applySettlementEvent({
+        quoteId: "q_inherited_quote",
+        quote: Object.create(quote),
+        txHash: `0x${"18".repeat(32)}`,
+      }),
+    /Settlement event quote.user must be an own field/,
+  );
+
+  const inheritedLogIndexInput = Object.create({ logIndex: 1 });
+  Object.assign(inheritedLogIndexInput, {
+    quoteId: "q_inherited_log_index",
+    quote,
+    txHash: `0x${"18".repeat(32)}`,
+  });
+  assert.throws(
+    () => settlements.applySettlementEvent(inheritedLogIndexInput),
+    /Settlement event input.logIndex must be an own field when provided/,
+  );
+
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 0n);
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, 0n);
 
@@ -229,6 +263,18 @@ test("SettlementEventService rejects malformed event payload envelopes before si
     () => settlements.removeSettlementEvent([]),
     /Settlement event reorg input must be an object/,
   );
+
+  const inheritedReorgInput = Object.create({ txHash: applied.event.txHash });
+  Object.assign(inheritedReorgInput, {
+    chainId: quote.chainId,
+    blockNumber: applied.event.blockNumber,
+    logIndex: applied.event.logIndex,
+  });
+  assert.throws(
+    () => settlements.removeSettlementEvent(inheritedReorgInput),
+    /Settlement event reorg input.txHash must be an own field/,
+  );
+
   assert.deepEqual(settlements.getSettlementEvent(applied.event.settlementEventId), applied.event);
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 1000n);
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -990n);
@@ -531,6 +577,10 @@ test("hashSettlementQuote rejects malformed quote fields before ABI encoding", (
         tokenOut: "0x1234",
       }),
     /Settlement event quote.tokenOut must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () => hashSettlementQuote(Object.create(quote)),
+    /Settlement event quote.user must be an own field/,
   );
 });
 
