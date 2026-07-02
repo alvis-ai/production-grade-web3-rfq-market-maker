@@ -367,15 +367,22 @@ grep -q 'validateQuoteRequest' backend/src/main.ts
 grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
 grep -q 'positive safe integer' backend/src/shared/validation/quote-request.ts
 grep -q 'positive safe integer' backend/src/shared/validation/submit-request.ts
+grep -q 'isBoxedString' backend/src/shared/validation/quote-request.ts
+grep -q 'isBoxedString' backend/src/shared/validation/submit-request.ts
 grep -Fq 'POSITIVE_UINT_PATTERN = /^[1-9][0-9]*$/' backend/src/shared/validation/quote-request.ts
 grep -Fq 'POSITIVE_UINT_PATTERN = /^[1-9][0-9]*$/' backend/src/shared/validation/submit-request.ts
 grep -q 'typeof input !== "number"' backend/src/shared/validation/quote-request.ts
 grep -q 'typeof input !== "string"' backend/src/shared/validation/submit-request.ts
 grep -q 'rejects request JSON primitive types that would require coercion' backend/test/api.test.mjs
 grep -q 'rejects non-schema JSON primitive types before coercion' backend/test/validation.test.mjs
+grep -q 'validateQuoteRequest rejects boxed string fields before regex coercion' backend/test/validation.test.mjs
+grep -q 'validateSubmitQuoteRequest rejects boxed string fields before regex coercion' backend/test/validation.test.mjs
+grep -q 'signature must be a primitive string' backend/test/validation.test.mjs
 grep -q '001000000000' backend/test/validation.test.mjs
 grep -q '0998400000' backend/test/validation.test.mjs
 grep -q '不能用 `Number()` 或 `String()`' docs/api/errors.md
+grep -q 'boxed `String` 直接调用输入' docs/api/errors.md
+grep -q 'boxed `String` 字段隐式解包' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -Fq '^[1-9][0-9]*$' docs/api/errors.md
 grep -q 'assertExactFields' backend/src/shared/validation/quote-request.ts
 grep -q 'assertExactFields' backend/src/shared/validation/submit-request.ts

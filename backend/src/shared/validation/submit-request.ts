@@ -95,6 +95,9 @@ function assertCanonicalSignature(signature: string): void {
 }
 
 function readAddress(input: unknown, field: string): Address {
+  if (isBoxedString(input)) {
+    throw new APIError("INVALID_REQUEST", `${field} must be a primitive string`, 400);
+  }
   if (typeof input !== "string" || !ADDRESS_PATTERN.test(input)) {
     throw new APIError("INVALID_REQUEST", `${field} must be an EVM address`, 400);
   }
@@ -103,6 +106,9 @@ function readAddress(input: unknown, field: string): Address {
 }
 
 function readUint(input: unknown, field: string): string {
+  if (isBoxedString(input)) {
+    throw new APIError("INVALID_REQUEST", `${field} must be a primitive string`, 400);
+  }
   if (typeof input !== "string" || !UINT_PATTERN.test(input)) {
     throw new APIError("INVALID_REQUEST", `${field} must be a uint string`, 400);
   }
@@ -128,6 +134,9 @@ function readPositiveInteger(input: unknown, field: string): number {
 }
 
 function readSignature(input: unknown): `0x${string}` {
+  if (isBoxedString(input)) {
+    throw new APIError("INVALID_REQUEST", "signature must be a primitive string", 400);
+  }
   if (typeof input !== "string") {
     throw new APIError("INVALID_REQUEST", "signature must be hex encoded", 400);
   }
@@ -137,4 +146,8 @@ function readSignature(input: unknown): `0x${string}` {
 
 function isRecord(input: unknown): input is Record<string, unknown> {
   return typeof input === "object" && input !== null && !Array.isArray(input);
+}
+
+function isBoxedString(input: unknown): input is String {
+  return typeof input === "object" && input !== null && Object.prototype.toString.call(input) === "[object String]";
 }

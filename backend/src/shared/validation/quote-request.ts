@@ -38,6 +38,9 @@ function isRecord(input: unknown): input is Record<string, unknown> {
 }
 
 function readAddress(input: unknown, field: string): string {
+  if (isBoxedString(input)) {
+    throw new APIError("INVALID_REQUEST", `${field} must be a primitive string`, 400);
+  }
   if (typeof input !== "string" || !ADDRESS_PATTERN.test(input)) {
     throw new APIError("INVALID_REQUEST", `${field} must be an EVM address`, 400);
   }
@@ -46,6 +49,9 @@ function readAddress(input: unknown, field: string): string {
 }
 
 function readPositiveUint(input: unknown, field: string): string {
+  if (isBoxedString(input)) {
+    throw new APIError("INVALID_REQUEST", `${field} must be a primitive string`, 400);
+  }
   if (typeof input !== "string" || !POSITIVE_UINT_PATTERN.test(input)) {
     throw new APIError("INVALID_REQUEST", `${field} must be a positive uint string`, 400);
   }
@@ -67,4 +73,8 @@ function readBasisPoints(input: unknown, field: string): number {
   }
 
   return input;
+}
+
+function isBoxedString(input: unknown): input is String {
+  return typeof input === "object" && input !== null && Object.prototype.toString.call(input) === "[object String]";
 }

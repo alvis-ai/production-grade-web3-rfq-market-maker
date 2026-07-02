@@ -103,6 +103,21 @@ test("validateQuoteRequest rejects non-schema JSON primitive types before coerci
   );
 });
 
+test("validateQuoteRequest rejects boxed string fields before regex coercion", () => {
+  assertAPIError(
+    () => validateQuoteRequest({ ...quoteRequest, user: new String(quoteRequest.user) }),
+    "INVALID_REQUEST",
+    "user must be a primitive string",
+    400,
+  );
+  assertAPIError(
+    () => validateQuoteRequest({ ...quoteRequest, amountIn: new String(quoteRequest.amountIn) }),
+    "INVALID_REQUEST",
+    "amountIn must be a primitive string",
+    400,
+  );
+});
+
 test("validateSubmitQuoteRequest parses valid signed quote submits", () => {
   const parsed = validateSubmitQuoteRequest({
     quote: signedQuote,
@@ -245,6 +260,35 @@ test("validateSubmitQuoteRequest rejects non-schema JSON primitive types before 
     () => validateSubmitQuoteRequest({ quote: signedQuote, signature: 1 }),
     "INVALID_REQUEST",
     "signature must be hex encoded",
+    400,
+  );
+});
+
+test("validateSubmitQuoteRequest rejects boxed string fields before regex coercion", () => {
+  assertAPIError(
+    () =>
+      validateSubmitQuoteRequest({
+        quote: { ...signedQuote, user: new String(signedQuote.user) },
+        signature: canonicalSignature,
+      }),
+    "INVALID_REQUEST",
+    "quote.user must be a primitive string",
+    400,
+  );
+  assertAPIError(
+    () =>
+      validateSubmitQuoteRequest({
+        quote: { ...signedQuote, amountIn: new String(signedQuote.amountIn) },
+        signature: canonicalSignature,
+      }),
+    "INVALID_REQUEST",
+    "quote.amountIn must be a primitive string",
+    400,
+  );
+  assertAPIError(
+    () => validateSubmitQuoteRequest({ quote: signedQuote, signature: new String(canonicalSignature) }),
+    "INVALID_REQUEST",
+    "signature must be a primitive string",
     400,
   );
 });
