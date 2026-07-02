@@ -8,6 +8,8 @@ import type { MetricsService, SignerMetricOperation } from "../metrics/metrics.s
 const RFQ_EIP712_DOMAIN_NAME = "ProductionGradeRFQ";
 const RFQ_EIP712_DOMAIN_VERSION = "1";
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
+const maxSafeIdentifierLength = 128;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 
 const quoteTypes = {
   Quote: [
@@ -163,8 +165,8 @@ function buildQuoteTypedData(quote: SignedQuote, settlementAddress: `0x${string}
 
 function assertSignQuoteInput(input: SignQuoteInput): void {
   assertObject(input, "input");
-  assertNonEmptyString(input.quoteId, "quoteId");
-  assertNonEmptyString(input.snapshotId, "snapshotId");
+  assertSafeIdentifier(input.quoteId, "quoteId");
+  assertSafeIdentifier(input.snapshotId, "snapshotId");
   assertSignedQuote(input.quote);
 }
 
@@ -216,9 +218,15 @@ function assertSignature(value: string): void {
   }
 }
 
-function assertNonEmptyString(value: string, field: "quoteId" | "snapshotId"): void {
+function assertSafeIdentifier(value: string, field: "quoteId" | "snapshotId"): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`Signer ${field} must be a non-empty string`);
+  }
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`Signer ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(`Signer ${field} must contain only letters, numbers, underscore, colon, or hyphen`);
   }
 }
 

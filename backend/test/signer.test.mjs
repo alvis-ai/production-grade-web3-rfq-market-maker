@@ -181,6 +181,42 @@ test("LocalEIP712SignerService rejects unsafe quote inputs before signing", asyn
 
   await assert.rejects(
     signer.signQuote({
+      quote,
+      quoteId: "q.bad",
+      snapshotId: "snapshot_test",
+    }),
+    /Signer quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
+      quote,
+      quoteId: "q".repeat(129),
+      snapshotId: "snapshot_test",
+    }),
+    /Signer quoteId must be 128 characters or fewer/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
+      quote,
+      quoteId: "q_test",
+      snapshotId: "snapshot/bad",
+    }),
+    /Signer snapshotId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
+      quote,
+      quoteId: "q_test",
+      snapshotId: "s".repeat(129),
+    }),
+    /Signer snapshotId must be 128 characters or fewer/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
       quote: {
         ...quote,
         amountOut: "900",
