@@ -202,6 +202,10 @@ test("HedgeService rejects unsafe intent inputs before writing hedge state", () 
     /Hedge amount must be a positive uint string/,
   );
   assert.throws(
+    () => service.createHedgeIntent({ ...intent, amount: "0100" }),
+    /Hedge amount must be a positive uint string/,
+  );
+  assert.throws(
     () => service.createHedgeIntent({ ...intent, side: "hold" }),
     /Hedge side must be buy or sell/,
   );
@@ -248,6 +252,10 @@ test("HedgeService rejects unsafe risk feedback inputs before recording pressure
   assert.throws(
     () => service.recordHedgeFailure({ ...intent, chainId: 0 }, "HEDGE_INTENT_FAILED"),
     /Hedge chainId must be a positive safe integer/,
+  );
+  assert.throws(
+    () => service.recordHedgeFailure({ ...intent, amount: "0100" }, "HEDGE_INTENT_FAILED"),
+    /Hedge amount must be a positive uint string/,
   );
   assert.throws(
     () => service.quoteRiskPenaltyBps({ chainId: 1, token: "0x1234" }),

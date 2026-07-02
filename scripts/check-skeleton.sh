@@ -1184,11 +1184,13 @@ grep -q 'assertSafeIdentifier(intent.settlementEventId, "settlementEventId")' ba
 grep -q 'assertSafeIdentifier(intent.quoteId, "quoteId")' backend/src/modules/hedge/hedge.service.ts
 grep -q 'assertObject(intent, "intent")' backend/src/modules/hedge/hedge.service.ts
 grep -q 'assertObject(input, "risk input")' backend/src/modules/hedge/hedge.service.ts
+grep -Fq '!/^[1-9][0-9]*$/.test(value)' backend/src/modules/hedge/hedge.service.ts
 grep -q 'failurePenaltyBps must be less than or equal to maxFailurePenaltyBps' backend/src/modules/hedge/hedge.service.ts
 grep -q 'HedgeService rejects unsafe failure penalty configuration at construction' backend/test/hedge.test.mjs
 grep -q 'HedgeService snapshots failure penalty configuration at construction' backend/test/hedge.test.mjs
 grep -q 'HedgeService rejects malformed intent and risk payload envelopes before state writes' backend/test/hedge.test.mjs
 grep -q 'HedgeService rejects unsafe intent inputs before writing hedge state' backend/test/hedge.test.mjs
+grep -q 'amount: "0100"' backend/test/hedge.test.mjs
 grep -q 'Hedge settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/hedge.test.mjs
 grep -q 'Hedge quoteId must be 128 characters or fewer' backend/test/hedge.test.mjs
 grep -q 'HedgeService rejects unsafe hedge status lookup identifiers' backend/test/hedge.test.mjs
@@ -1197,6 +1199,7 @@ grep -q 'HedgeService rejects unsafe risk feedback inputs before recording press
 grep -q 'failure penalty config fail-fast' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'snapshots `HedgeServiceConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'settlementEventId` and `quoteId` must be `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
+grep -q 'canonical positive uint string without leading zeros' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'Hedge status lookups validate `hedgeOrderId` and `settlementEventId` as `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'Malformed hedge config, intent and risk feedback root payloads are rejected before field access or state mutation' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'hedgeRiskPenaltyBps' backend/src/modules/quote/quote.service.ts
