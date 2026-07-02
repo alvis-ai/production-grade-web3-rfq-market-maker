@@ -143,6 +143,31 @@ test("SettlementEventService returns defensive copies of settlement events", () 
   assert.equal(reloaded.txHash, `0x${"15".repeat(32)}`);
 });
 
+test("SettlementEventService rejects unsafe settlement event lookup identifiers", () => {
+  const inventory = new InventoryService();
+  const settlements = new SettlementEventService(inventory);
+
+  assert.throws(
+    () => settlements.getSettlementEvent(" "),
+    /Settlement event settlementEventId must be a non-empty string/,
+  );
+  assert.throws(
+    () => settlements.getSettlementEvent("se/bad"),
+    /Settlement event settlementEventId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+  assert.throws(
+    () => settlements.getSettlementEvent("s".repeat(129)),
+    /Settlement event settlementEventId must be 128 characters or fewer/,
+  );
+
+  const applied = settlements.applySettlementEvent({
+    quoteId: "q_lookup",
+    quote,
+    txHash: `0x${"21".repeat(32)}`,
+  });
+  assert.deepEqual(settlements.getSettlementEvent(applied.event.settlementEventId), applied.event);
+});
+
 test("SettlementEventService rejects unsafe inventory dependency at construction", () => {
   assert.throws(
     () => new SettlementEventService(undefined),
@@ -439,6 +464,11 @@ test("SettlementEventService rejects unsafe settlement quote inputs before side 
   const invalidInputs = [
     [undefined, /Settlement event input must be an object/],
     [{ quoteId: " " }, /Settlement event quoteId must be a non-empty string/],
+    [
+      { quoteId: "q.bad" },
+      /Settlement event quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
+    ],
+    [{ quoteId: "q".repeat(129) }, /Settlement event quoteId must be 128 characters or fewer/],
     [{ quote: undefined }, /Settlement event quote must be an object/],
     [{ quote: { ...quote, chainId: 0 } }, /Settlement event quote.chainId must be a positive safe integer/],
     [{ quote: { ...quote, user: "0x1234" } }, /Settlement event quote.user must be a 20-byte hex address/],

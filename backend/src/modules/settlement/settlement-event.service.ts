@@ -7,6 +7,8 @@ const quoteTypeHash = keccak256(
     "Quote(address user,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut,uint256 minAmountOut,uint256 nonce,uint256 deadline,uint256 chainId)",
   ),
 );
+const maxSafeIdentifierLength = 128;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 
 export interface ApplySettlementEventInput {
   quoteId: string;
@@ -91,8 +93,9 @@ export class SettlementEventService implements SettlementEventStore {
       };
     }
 
+    const settlementEventId = buildSettlementEventId(input.quote.chainId, txHash, logIndex);
     const event: SettlementEventStatusResponse = {
-      settlementEventId: `se_${input.quote.chainId}_${txHash.slice(2)}_${logIndex}`,
+      settlementEventId,
       status: "applied",
       quoteId: input.quoteId,
       chainId: input.quote.chainId,
@@ -154,6 +157,7 @@ export class SettlementEventService implements SettlementEventStore {
   }
 
   getSettlementEvent(settlementEventId: string): SettlementEventStatusResponse | undefined {
+    assertSafeIdentifier(settlementEventId, "settlementEventId");
     const event = this.events.get(settlementEventId);
     return event ? cloneSettlementEvent(event) : undefined;
   }
@@ -205,6 +209,12 @@ export class SettlementEventService implements SettlementEventStore {
 
 function cloneSettlementEvent(event: SettlementEventStatusResponse): SettlementEventStatusResponse {
   return { ...event };
+}
+
+function buildSettlementEventId(chainId: number, txHash: `0x${string}`, logIndex: number): string {
+  const settlementEventId = `se_${chainId}_${txHash.slice(2)}_${logIndex}`;
+  assertSafeIdentifier(settlementEventId, "settlementEventId");
+  return settlementEventId;
 }
 
 function assertSettlementEventServiceDeps(inventoryService: InventoryService): void {
@@ -277,7 +287,7 @@ export function hashSettlementQuote(quote: SignedQuote): `0x${string}` {
 
 function assertSettlementEventInput(input: ApplySettlementEventInput): void {
   assertRecord(input, "input");
-  assertNonEmptyString(input.quoteId, "quoteId");
+  assertSafeIdentifier(input.quoteId, "quoteId");
   assertSettlementQuote(input.quote);
 }
 
@@ -314,9 +324,15 @@ function assertRecord(value: unknown, field: "inventoryService" | "input" | "reo
   }
 }
 
-function assertNonEmptyString(value: string, field: string): void {
+function assertSafeIdentifier(value: string, field: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`Settlement event ${field} must be a non-empty string`);
+  }
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`Settlement event ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(`Settlement event ${field} must contain only letters, numbers, underscore, colon, or hyphen`);
   }
 }
 
