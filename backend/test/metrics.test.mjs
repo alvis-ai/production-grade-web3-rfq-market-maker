@@ -110,6 +110,14 @@ test("MetricsService validates inventory and PnL metric inputs before mutating s
     () =>
       metrics.recordPnlTrade({
         ...pnlTradeRecord,
+        pnlId: new String(pnlTradeRecord.pnlId),
+      }),
+    /Metrics PnL trade pnlId must be a primitive string/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
         pnlId: "pnl.bad",
       }),
     /Metrics PnL trade pnlId must contain only letters, numbers, underscore, colon, or hyphen/,
@@ -121,6 +129,14 @@ test("MetricsService validates inventory and PnL metric inputs before mutating s
         pnlId: "p".repeat(129),
       }),
     /Metrics PnL trade pnlId must be 128 characters or fewer/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        quoteId: new String(pnlTradeRecord.quoteId),
+      }),
+    /Metrics PnL trade quoteId must be a primitive string/,
   );
   assert.throws(
     () =>

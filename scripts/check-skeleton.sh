@@ -1344,11 +1344,14 @@ grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/metrics/metrics.serv
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertSafeIdentifier(record.pnlId, "PnL trade pnlId")' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertSafeIdentifier(record.quoteId, "PnL trade quoteId")' backend/src/modules/metrics/metrics.service.ts
+grep -q 'Metrics ${field} must be a primitive string' backend/src/modules/metrics/metrics.service.ts
 grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)' backend/src/modules/metrics/metrics.service.ts
 grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/metrics/metrics.service.ts
 grep -Fq 'typeof value !== "string" || !/^(0|-?[1-9][0-9]*)$/.test(value)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'isCanonicalUtcIsoTimestamp(record.realizedAt)' backend/src/modules/metrics/metrics.service.ts
+grep -q 'Metrics PnL trade pnlId must be a primitive string' backend/test/metrics.test.mjs
 grep -q 'Metrics PnL trade pnlId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/metrics.test.mjs
+grep -q 'Metrics PnL trade quoteId must be a primitive string' backend/test/metrics.test.mjs
 grep -q 'Metrics PnL trade quoteId must be 128 characters or fewer' backend/test/metrics.test.mjs
 grep -q 'token: new String(token)' backend/test/metrics.test.mjs
 grep -q 'user: new String(pnlTradeRecord.user)' backend/test/metrics.test.mjs
@@ -1427,7 +1430,7 @@ grep -q 'cloneInventoryMetricPosition' backend/src/modules/metrics/metrics.servi
 grep -q 'MetricsService validates inventory and PnL metric inputs before mutating state' backend/test/metrics.test.mjs
 grep -q 'MetricsService snapshots inventory positions before storing gauges' backend/test/metrics.test.mjs
 grep -q 'validates inventory gauge positions and PnL trade records before mutating counters or gauges' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
-grep -q 'PnL trade `pnlId` and `quoteId` must be `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'PnL trade `pnlId` and `quoteId` must be primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'amount fields and nonce must be canonical positive uint strings without leading zeros' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 ! grep -q 'rfq_settlement_event_lag_seconds' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 ! grep -q 'rfq_inventory_exposure_usd' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
