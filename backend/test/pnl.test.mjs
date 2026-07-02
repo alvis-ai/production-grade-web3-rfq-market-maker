@@ -208,6 +208,30 @@ test("PnlService rejects unsafe attribution inputs before recording", () => {
       }),
     /Pnl quoteId must be a non-empty string/,
   );
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q.bad",
+        quote: baseQuote,
+      }),
+    /Pnl quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q".repeat(129),
+        quote: baseQuote,
+      }),
+    /Pnl quoteId must be 128 characters or fewer/,
+  );
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q".repeat(125),
+        quote: baseQuote,
+      }),
+    /Pnl pnlId must be 128 characters or fewer/,
+  );
 
   assert.throws(
     () =>

@@ -1092,6 +1092,11 @@ grep -q 'recordSettlement' backend/src/modules/pnl/pnl.service.ts
 grep -q 'simulated_mid_price_v1' backend/src/modules/pnl/pnl.service.ts
 grep -q 'pnlIdsByQuoteModel' backend/src/modules/pnl/pnl.service.ts
 grep -q 'assertPnlInput(input)' backend/src/modules/pnl/pnl.service.ts
+grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/pnl/pnl.service.ts
+grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/pnl/pnl.service.ts
+grep -q 'buildPnlId(input.quoteId)' backend/src/modules/pnl/pnl.service.ts
+grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' backend/src/modules/pnl/pnl.service.ts
+grep -q 'assertSafeIdentifier(pnlId, "pnlId")' backend/src/modules/pnl/pnl.service.ts
 grep -q 'Pnl input must be an object' backend/src/modules/pnl/pnl.service.ts
 grep -q 'Pnl quote must be an object' backend/src/modules/pnl/pnl.service.ts
 grep -q 'matchesPnlInput' backend/src/modules/pnl/pnl.service.ts
@@ -1109,9 +1114,12 @@ grep -q 'rejects signed quote metadata conflicts for the same quote and model' b
 grep -q 'rejects unsafe gross PnL bps before storing attribution' backend/test/pnl.test.mjs
 grep -q 'PnlService rejects malformed attribution payload envelopes before recording' backend/test/pnl.test.mjs
 grep -q 'PnlService rejects unsafe attribution inputs before recording' backend/test/pnl.test.mjs
+grep -q 'Pnl quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/pnl.test.mjs
+grep -q 'Pnl pnlId must be 128 characters or fewer' backend/test/pnl.test.mjs
 grep -q 'stored signed attribution payload' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnlService` returns defensive copies from `recordSettlement()` and `summary()`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rejects malformed root payloads and missing `quote` objects before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'validates `quoteId` as a `SafeIdentifier` and validates the derived `pnlId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'positive safe-integer deadline' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rejects values outside the JavaScript safe integer range' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'minAmountOut' docs/api/openapi.yaml

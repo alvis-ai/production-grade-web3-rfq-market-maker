@@ -2,6 +2,8 @@ import type { IntString, PnlSummaryResponse, PnlTradeRecord, SignedQuote } from 
 
 const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 const MIN_SAFE_INTEGER_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
+const maxSafeIdentifierLength = 128;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 
 export interface RecordPnlInput {
   quoteId: string;
@@ -26,6 +28,7 @@ export class PnlService implements PnlStore {
     assertPnlInput(input);
 
     const model = "simulated_mid_price_v1";
+    const pnlId = buildPnlId(input.quoteId);
     const existingPnlId = this.pnlIdsByQuoteModel.get(this.quoteModelKey(input.quoteId, model));
     if (existingPnlId) {
       const existingRecord = this.trades.get(existingPnlId);
@@ -41,7 +44,7 @@ export class PnlService implements PnlStore {
 
     const grossPnl = calculateGrossPnl(input.quote.amountIn, input.quote.amountOut);
     const record: PnlTradeRecord = {
-      pnlId: `pnl_${input.quoteId}`,
+      pnlId,
       quoteId: input.quoteId,
       chainId: input.quote.chainId,
       user: input.quote.user,
@@ -88,6 +91,12 @@ function clonePnlTradeRecord(record: PnlTradeRecord): PnlTradeRecord {
   return { ...record };
 }
 
+function buildPnlId(quoteId: string): string {
+  const pnlId = `pnl_${quoteId}`;
+  assertSafeIdentifier(pnlId, "pnlId");
+  return pnlId;
+}
+
 function matchesPnlInput(record: PnlTradeRecord, input: RecordPnlInput): boolean {
   return (
     record.quoteId === input.quoteId &&
@@ -120,7 +129,7 @@ function calculateGrossPnlBps(amountIn: string, grossPnl: bigint): number {
 function assertPnlInput(input: RecordPnlInput): void {
   assertObject(input, "input");
   assertObject(input.quote, "quote");
-  assertNonEmptyString(input.quoteId, "quoteId");
+  assertSafeIdentifier(input.quoteId, "quoteId");
   assertPositiveSafeInteger(input.quote.chainId, "quote.chainId");
   assertAddress(input.quote.user, "quote.user");
   assertAddress(input.quote.tokenIn, "quote.tokenIn");
@@ -147,9 +156,15 @@ function assertObject(value: unknown, field: "input" | "quote"): void {
   }
 }
 
-function assertNonEmptyString(value: string, field: string): void {
+function assertSafeIdentifier(value: string, field: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`Pnl ${field} must be a non-empty string`);
+  }
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`Pnl ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(`Pnl ${field} must contain only letters, numbers, underscore, colon, or hyphen`);
   }
 }
 
