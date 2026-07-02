@@ -219,6 +219,54 @@ test("LocalEIP712SignerService rejects unsafe quote inputs before signing", asyn
     signer.signQuote({
       quote: {
         ...quote,
+        amountIn: "01000000000",
+      },
+      quoteId: "q_test",
+      snapshotId: "snapshot_test",
+    }),
+    /Signer quote.amountIn must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
+      quote: {
+        ...quote,
+        amountOut: "0998400000",
+      },
+      quoteId: "q_test",
+      snapshotId: "snapshot_test",
+    }),
+    /Signer quote.amountOut must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
+      quote: {
+        ...quote,
+        minAmountOut: "0993408000",
+      },
+      quoteId: "q_test",
+      snapshotId: "snapshot_test",
+    }),
+    /Signer quote.minAmountOut must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
+      quote: {
+        ...quote,
+        nonce: "042",
+      },
+      quoteId: "q_test",
+      snapshotId: "snapshot_test",
+    }),
+    /Signer quote.nonce must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
+      quote: {
+        ...quote,
         amountOut: "900",
         minAmountOut: "901",
       },
@@ -236,6 +284,16 @@ test("LocalEIP712SignerService returns false for malformed verification inputs",
   });
 
   assert.equal(await signer.verifyQuoteSignature(quote, "0x1234"), false);
+  assert.equal(
+    await signer.verifyQuoteSignature(
+      {
+        ...quote,
+        nonce: "042",
+      },
+      fixedSignature(),
+    ),
+    false,
+  );
   assert.equal(
     await signer.verifyQuoteSignature(
       {

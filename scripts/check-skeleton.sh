@@ -626,12 +626,17 @@ grep -q 'assertSafeIdentifier(input.snapshotId, "snapshotId")' backend/src/modul
 grep -q 'SECP256K1N_HALF' backend/src/modules/signer/signer.service.ts
 grep -q 'Signer signature s value must be in the lower half order' backend/src/modules/signer/signer.service.ts
 grep -q 'ProductionGradeRFQ' backend/src/modules/signer/signer.service.ts
+grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/signer/signer.service.ts
 grep -q 'LocalEIP712SignerService binds signatures to the settlement contract address' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService snapshots signer configuration at construction' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects high-s malleated quote signatures' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects unsafe signer configuration at construction' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects malformed signer payload envelopes before signing' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects unsafe quote inputs before signing' backend/test/signer.test.mjs
+grep -q 'amountIn: "01000000000"' backend/test/signer.test.mjs
+grep -q 'amountOut: "0998400000"' backend/test/signer.test.mjs
+grep -q 'minAmountOut: "0993408000"' backend/test/signer.test.mjs
+grep -q 'nonce: "042"' backend/test/signer.test.mjs
 grep -q 'Signer quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/signer.test.mjs
 grep -q 'Signer snapshotId must be 128 characters or fewer' backend/test/signer.test.mjs
 grep -q 'ObservedSignerService rejects unsafe wrapper dependencies at construction' backend/test/signer.test.mjs
@@ -642,6 +647,7 @@ grep -q 'ObservedSignerService` validates inner signer and metrics dependency me
 grep -q 'ObservedSignerService` rejects malformed dependency envelopes as non-array objects before reading signer or metrics methods' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'validates malformed config, signing request and quote objects before field access' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q '`quoteId` and `snapshotId` as `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
+grep -q 'canonical decimal form without leading zeros' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q '代码库不保留 placeholder signer' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'RFQ API rejects issued quotes with high-s malleated signatures' backend/test/api.test.mjs
 grep -q 'canonical low-s ECDSA' docs/api/errors.md
