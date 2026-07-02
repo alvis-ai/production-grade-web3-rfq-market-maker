@@ -171,6 +171,17 @@ test("FormulaPricingEngine rejects unsafe pricing inputs before quoting", async 
   await assert.rejects(
     engine.price({
       ...baseInput,
+      request: {
+        ...baseInput.request,
+        amountIn: "01000000000",
+      },
+    }),
+    /Formula pricing request.amountIn must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
       snapshot: {
         ...baseInput.snapshot,
         snapshotId: "snapshot.bad",
@@ -204,6 +215,17 @@ test("FormulaPricingEngine rejects unsafe pricing inputs before quoting", async 
   await assert.rejects(
     engine.price({
       ...baseInput,
+      snapshot: {
+        ...baseInput.snapshot,
+        liquidityUsd: "01000000000000",
+      },
+    }),
+    /Formula pricing snapshot.liquidityUsd must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
       routePlan: {
         ...baseInput.routePlan,
         tokenOut: "0xC000000000000000000000000000000000000004",
@@ -232,6 +254,17 @@ test("FormulaPricingEngine rejects unsafe pricing inputs before quoting", async 
       },
     }),
     /Formula pricing routePlan.routeId must be 128 characters or fewer/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      routePlan: {
+        ...baseInput.routePlan,
+        expectedLiquidityUsd: "01000000000000",
+      },
+    }),
+    /Formula pricing routePlan.expectedLiquidityUsd must be a positive uint string/,
   );
 
   await assert.rejects(
