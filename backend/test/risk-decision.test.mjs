@@ -78,6 +78,44 @@ test("InMemoryRiskDecisionRepository rejects conflicts and unsafe decisions", as
 
   await assert.rejects(
     repository.saveDecision({
+      quoteId: "q.bad",
+      decision: {
+        status: "approved",
+        policyVersion: "test-risk-v1",
+      },
+    }),
+    /Risk decision quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+
+  await assert.rejects(
+    repository.saveDecision({
+      quoteId: "q".repeat(129),
+      decision: {
+        status: "approved",
+        policyVersion: "test-risk-v1",
+      },
+    }),
+    /Risk decision quoteId must be 128 characters or fewer/,
+  );
+
+  await assert.rejects(
+    repository.saveDecision({
+      quoteId: "q".repeat(126),
+      decision: {
+        status: "approved",
+        policyVersion: "test-risk-v1",
+      },
+    }),
+    /Risk decision riskDecisionId must be 128 characters or fewer/,
+  );
+
+  await assert.rejects(
+    repository.findByQuoteId("q/bad"),
+    /Risk decision quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+
+  await assert.rejects(
+    repository.saveDecision({
       quoteId: "q_bad_policy",
       decision: {
         status: "approved",

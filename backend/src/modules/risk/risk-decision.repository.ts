@@ -1,5 +1,8 @@
 import type { RiskDecision, RiskDecisionStatus, RiskRejectReasonCode } from "./risk.engine.js";
 
+const maxSafeIdentifierLength = 128;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+
 const riskRejectReasonCodes = new Set<string>([
   "CHAIN_NOT_ENABLED",
   "TOKEN_NOT_ALLOWED",
@@ -58,7 +61,7 @@ export class InMemoryRiskDecisionRepository implements RiskDecisionStore {
   }
 
   async findByQuoteId(quoteId: string): Promise<RiskDecisionRecord | undefined> {
-    assertNonEmptyString(quoteId, "quoteId");
+    assertSafeIdentifier(quoteId, "quoteId");
     const record = this.recordsByQuoteId.get(quoteId);
     return record ? cloneRiskDecisionRecord(record) : undefined;
   }
@@ -66,7 +69,7 @@ export class InMemoryRiskDecisionRepository implements RiskDecisionStore {
 
 function toRiskDecisionRecord(input: SaveRiskDecisionInput): RiskDecisionRecord {
   return {
-    riskDecisionId: `rd_${input.quoteId}`,
+    riskDecisionId: buildRiskDecisionId(input.quoteId),
     quoteId: input.quoteId,
     decision: input.decision.status,
     reasonCode: input.decision.status === "rejected" ? input.decision.reasonCode : undefined,
@@ -75,10 +78,15 @@ function toRiskDecisionRecord(input: SaveRiskDecisionInput): RiskDecisionRecord 
   };
 }
 
+function buildRiskDecisionId(quoteId: string): string {
+  return `rd_${quoteId}`;
+}
+
 function assertRiskDecisionInput(input: SaveRiskDecisionInput): void {
   assertObject(input, "input");
   assertObject(input.decision, "decision");
-  assertNonEmptyString(input.quoteId, "quoteId");
+  assertSafeIdentifier(input.quoteId, "quoteId");
+  assertSafeIdentifier(buildRiskDecisionId(input.quoteId), "riskDecisionId");
   assertNonEmptyString(input.decision.policyVersion, "policyVersion");
 
   if (input.decision.status !== "approved" && input.decision.status !== "rejected") {
@@ -104,6 +112,18 @@ function assertObject(value: unknown, field: "input" | "decision"): void {
 function assertNonEmptyString(value: string, field: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`Risk decision ${field} must be a non-empty string`);
+  }
+}
+
+function assertSafeIdentifier(value: string, field: string): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Risk decision ${field} must be a non-empty string`);
+  }
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`Risk decision ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(`Risk decision ${field} must contain only letters, numbers, underscore, colon, or hyphen`);
   }
 }
 
