@@ -58,6 +58,45 @@ test("validateQuoteRequest rejects unknown fields and invalid quote shape", () =
   );
 });
 
+test("validateQuoteRequest rejects non-schema JSON primitive types before coercion", () => {
+  assertAPIError(
+    () => validateQuoteRequest({ ...quoteRequest, chainId: "1" }),
+    "INVALID_REQUEST",
+    "chainId must be a positive safe integer",
+    400,
+  );
+  assertAPIError(
+    () => validateQuoteRequest({ ...quoteRequest, chainId: true }),
+    "INVALID_REQUEST",
+    "chainId must be a positive safe integer",
+    400,
+  );
+  assertAPIError(
+    () => validateQuoteRequest({ ...quoteRequest, user: 1 }),
+    "INVALID_REQUEST",
+    "user must be an EVM address",
+    400,
+  );
+  assertAPIError(
+    () => validateQuoteRequest({ ...quoteRequest, amountIn: 1000000000 }),
+    "INVALID_REQUEST",
+    "amountIn must be a positive uint string",
+    400,
+  );
+  assertAPIError(
+    () => validateQuoteRequest({ ...quoteRequest, slippageBps: "50" }),
+    "INVALID_REQUEST",
+    "slippageBps must be an integer from 0 to 10000",
+    400,
+  );
+  assertAPIError(
+    () => validateQuoteRequest({ ...quoteRequest, slippageBps: false }),
+    "INVALID_REQUEST",
+    "slippageBps must be an integer from 0 to 10000",
+    400,
+  );
+});
+
 test("validateSubmitQuoteRequest parses valid signed quote submits", () => {
   const parsed = validateSubmitQuoteRequest({
     quote: signedQuote,
@@ -138,6 +177,55 @@ test("validateSubmitQuoteRequest rejects unsafe submit payloads before execution
     () => validateSubmitQuoteRequest({ quote: signedQuote, signature: highSSignature }),
     "INVALID_REQUEST",
     "signature s value must be in the lower half order",
+    400,
+  );
+});
+
+test("validateSubmitQuoteRequest rejects non-schema JSON primitive types before coercion", () => {
+  assertAPIError(
+    () =>
+      validateSubmitQuoteRequest({
+        quote: { ...signedQuote, amountIn: 1000000000 },
+        signature: canonicalSignature,
+      }),
+    "INVALID_REQUEST",
+    "quote.amountIn must be a uint string",
+    400,
+  );
+  assertAPIError(
+    () =>
+      validateSubmitQuoteRequest({
+        quote: { ...signedQuote, nonce: 42 },
+        signature: canonicalSignature,
+      }),
+    "INVALID_REQUEST",
+    "quote.nonce must be a uint string",
+    400,
+  );
+  assertAPIError(
+    () =>
+      validateSubmitQuoteRequest({
+        quote: { ...signedQuote, deadline: `${signedQuote.deadline}` },
+        signature: canonicalSignature,
+      }),
+    "INVALID_REQUEST",
+    "quote.deadline must be a positive safe integer",
+    400,
+  );
+  assertAPIError(
+    () =>
+      validateSubmitQuoteRequest({
+        quote: { ...signedQuote, chainId: "1" },
+        signature: canonicalSignature,
+      }),
+    "INVALID_REQUEST",
+    "quote.chainId must be a positive safe integer",
+    400,
+  );
+  assertAPIError(
+    () => validateSubmitQuoteRequest({ quote: signedQuote, signature: 1 }),
+    "INVALID_REQUEST",
+    "signature must be hex encoded",
     400,
   );
 });

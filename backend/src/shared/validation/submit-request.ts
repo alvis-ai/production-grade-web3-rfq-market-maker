@@ -36,7 +36,7 @@ export function validateSubmitQuoteRequest(
   const quote = input.quote;
   assertExactFields(quote, SIGNED_QUOTE_FIELDS, "Submit quote");
 
-  const signature = String(input.signature ?? "");
+  const signature = readSignature(input.signature);
 
   if (!HEX_PATTERN.test(signature)) {
     throw new APIError("INVALID_REQUEST", "signature must be hex encoded", 400);
@@ -94,21 +94,19 @@ function assertCanonicalSignature(signature: string): void {
 }
 
 function readAddress(input: unknown, field: string): Address {
-  const value = String(input ?? "");
-  if (!ADDRESS_PATTERN.test(value)) {
+  if (typeof input !== "string" || !ADDRESS_PATTERN.test(input)) {
     throw new APIError("INVALID_REQUEST", `${field} must be an EVM address`, 400);
   }
 
-  return value as Address;
+  return input as Address;
 }
 
 function readUint(input: unknown, field: string): string {
-  const value = String(input ?? "");
-  if (!UINT_PATTERN.test(value)) {
+  if (typeof input !== "string" || !UINT_PATTERN.test(input)) {
     throw new APIError("INVALID_REQUEST", `${field} must be a uint string`, 400);
   }
 
-  return value;
+  return input;
 }
 
 function readPositiveUint(input: unknown, field: string): string {
@@ -121,12 +119,19 @@ function readPositiveUint(input: unknown, field: string): string {
 }
 
 function readPositiveInteger(input: unknown, field: string): number {
-  const value = Number(input);
-  if (!Number.isSafeInteger(value) || value <= 0) {
+  if (typeof input !== "number" || !Number.isSafeInteger(input) || input <= 0) {
     throw new APIError("INVALID_REQUEST", `${field} must be a positive safe integer`, 400);
   }
 
-  return value;
+  return input;
+}
+
+function readSignature(input: unknown): `0x${string}` {
+  if (typeof input !== "string") {
+    throw new APIError("INVALID_REQUEST", "signature must be hex encoded", 400);
+  }
+
+  return input as `0x${string}`;
 }
 
 function isRecord(input: unknown): input is Record<string, unknown> {

@@ -50,6 +50,7 @@
 - `RATE_LIMITED` 响应必须返回 HTTP 429，并带 `Retry-After` header。
 - 依赖不可用使用 503，业务状态冲突使用 409。
 - 框架级解析错误也必须映射为结构化 `ErrorResponse`，包括 malformed JSON、body too large 和 unsupported content type。
+- 请求 validator 必须按 OpenAPI schema 校验 JSON primitive 类型，不能用 `Number()` 或 `String()` 把字符串数字、布尔值或数字形式的 uint 字段隐式转换后继续处理。
 - CORS preflight origin 不在 `RFQ_CORS_ALLOWED_ORIGINS` 时返回结构化 `INVALID_REQUEST` 和 HTTP 403，且不返回 `access-control-allow-origin`。`RFQ_CORS_ALLOWED_ORIGINS` 只接受 HTTP(S) URL origin；path、query、fragment、credentials 和 wildcard 会在启动期被拒绝。
 - 未匹配路由或不支持的方法必须返回结构化 `INVALID_REQUEST` 和 HTTP 404，不能返回 Fastify 默认错误对象。
 

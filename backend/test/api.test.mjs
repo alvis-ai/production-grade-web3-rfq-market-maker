@@ -2387,6 +2387,65 @@ test("RFQ API rejects unknown request fields", async () => {
   }
 });
 
+test("RFQ API rejects request JSON primitive types that would require coercion", async () => {
+  const server = buildServer({ logger: false });
+  await server.ready();
+
+  try {
+    const quoteWithStringChain = await injectJson(server, "POST", "/quote", {
+      ...baseQuoteRequest,
+      chainId: "1",
+    });
+    assert.equal(quoteWithStringChain.statusCode, 400);
+    assert.equal(quoteWithStringChain.body.code, "INVALID_REQUEST");
+    assert.equal(quoteWithStringChain.body.message, "chainId must be a positive safe integer");
+
+    const quoteWithBooleanSlippage = await injectJson(server, "POST", "/quote", {
+      ...baseQuoteRequest,
+      slippageBps: false,
+    });
+    assert.equal(quoteWithBooleanSlippage.statusCode, 400);
+    assert.equal(quoteWithBooleanSlippage.body.code, "INVALID_REQUEST");
+    assert.equal(quoteWithBooleanSlippage.body.message, "slippageBps must be an integer from 0 to 10000");
+
+    const quote = {
+      user: baseQuoteRequest.user,
+      tokenIn: baseQuoteRequest.tokenIn,
+      tokenOut: baseQuoteRequest.tokenOut,
+      amountIn: baseQuoteRequest.amountIn,
+      amountOut: "1000000000",
+      minAmountOut: "995000000",
+      nonce: "1",
+      deadline: Math.floor(Date.now() / 1000) + 30,
+      chainId: baseQuoteRequest.chainId,
+    };
+
+    const submitWithNumericAmount = await injectJson(server, "POST", "/submit", {
+      quote: {
+        ...quote,
+        amountIn: 1000000000,
+      },
+      signature: fixedSignature(),
+    });
+    assert.equal(submitWithNumericAmount.statusCode, 400);
+    assert.equal(submitWithNumericAmount.body.code, "INVALID_REQUEST");
+    assert.equal(submitWithNumericAmount.body.message, "quote.amountIn must be a uint string");
+
+    const submitWithStringDeadline = await injectJson(server, "POST", "/submit", {
+      quote: {
+        ...quote,
+        deadline: `${quote.deadline}`,
+      },
+      signature: fixedSignature(),
+    });
+    assert.equal(submitWithStringDeadline.statusCode, 400);
+    assert.equal(submitWithStringDeadline.body.code, "INVALID_REQUEST");
+    assert.equal(submitWithStringDeadline.body.message, "quote.deadline must be a positive safe integer");
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API maps unmatched routes to structured errors", async () => {
   const server = buildServer({ logger: false });
   await server.ready();

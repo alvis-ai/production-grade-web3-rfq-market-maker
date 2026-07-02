@@ -320,8 +320,13 @@ grep -q 'readiness.status === "degraded"' backend/src/main.ts
 grep -q 'server.get("/metrics"' backend/src/main.ts
 grep -q 'validateQuoteRequest' backend/src/main.ts
 grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
-grep -q 'chainId must be a positive safe integer' backend/src/shared/validation/quote-request.ts
+grep -q 'positive safe integer' backend/src/shared/validation/quote-request.ts
 grep -q 'positive safe integer' backend/src/shared/validation/submit-request.ts
+grep -q 'typeof input !== "number"' backend/src/shared/validation/quote-request.ts
+grep -q 'typeof input !== "string"' backend/src/shared/validation/submit-request.ts
+grep -q 'rejects request JSON primitive types that would require coercion' backend/test/api.test.mjs
+grep -q 'rejects non-schema JSON primitive types before coercion' backend/test/validation.test.mjs
+grep -q '不能用 `Number()` 或 `String()`' docs/api/errors.md
 grep -q 'assertExactFields' backend/src/shared/validation/quote-request.ts
 grep -q 'assertExactFields' backend/src/shared/validation/submit-request.ts
 grep -q 'unknown request fields' backend/test/api.test.mjs

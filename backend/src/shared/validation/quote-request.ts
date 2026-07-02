@@ -13,35 +13,16 @@ export function validateQuoteRequest(input: unknown): QuoteRequest {
 
   assertExactFields(input, QUOTE_REQUEST_FIELDS, "Quote request");
 
-  const chainId = Number(input.chainId);
-  const user = String(input.user ?? "");
-  const tokenIn = String(input.tokenIn ?? "");
-  const tokenOut = String(input.tokenOut ?? "");
-  const amountIn = String(input.amountIn ?? "");
-  const slippageBps = Number(input.slippageBps);
+  const chainId = readPositiveSafeInteger(input.chainId, "chainId");
+  const user = readAddress(input.user, "user");
+  const tokenIn = readAddress(input.tokenIn, "tokenIn");
+  const tokenOut = readAddress(input.tokenOut, "tokenOut");
+  const amountIn = readPositiveUint(input.amountIn, "amountIn");
+  const slippageBps = readBasisPoints(input.slippageBps, "slippageBps");
 
-  if (!Number.isSafeInteger(chainId) || chainId <= 0) {
-    throw new APIError("INVALID_REQUEST", "chainId must be a positive safe integer", 400);
-  }
-  if (!isAddress(user)) {
-    throw new APIError("INVALID_REQUEST", "user must be an EVM address", 400);
-  }
-  if (!isAddress(tokenIn)) {
-    throw new APIError("INVALID_REQUEST", "tokenIn must be an EVM address", 400);
-  }
-  if (!isAddress(tokenOut)) {
-    throw new APIError("INVALID_REQUEST", "tokenOut must be an EVM address", 400);
-  }
   if (tokenIn.toLowerCase() === tokenOut.toLowerCase()) {
     throw new APIError("INVALID_REQUEST", "tokenIn and tokenOut must be different", 400);
   }
-  if (!UINT_PATTERN.test(amountIn) || BigInt(amountIn) <= 0n) {
-    throw new APIError("INVALID_REQUEST", "amountIn must be a positive uint string", 400);
-  }
-  if (!Number.isInteger(slippageBps) || slippageBps < 0 || slippageBps > 10000) {
-    throw new APIError("INVALID_REQUEST", "slippageBps must be an integer from 0 to 10000", 400);
-  }
-
   return {
     chainId,
     user: user as Address,
@@ -56,6 +37,34 @@ function isRecord(input: unknown): input is Record<string, unknown> {
   return typeof input === "object" && input !== null && !Array.isArray(input);
 }
 
-function isAddress(input: string): boolean {
-  return ADDRESS_PATTERN.test(input);
+function readAddress(input: unknown, field: string): string {
+  if (typeof input !== "string" || !ADDRESS_PATTERN.test(input)) {
+    throw new APIError("INVALID_REQUEST", `${field} must be an EVM address`, 400);
+  }
+
+  return input;
+}
+
+function readPositiveUint(input: unknown, field: string): string {
+  if (typeof input !== "string" || !UINT_PATTERN.test(input) || BigInt(input) <= 0n) {
+    throw new APIError("INVALID_REQUEST", `${field} must be a positive uint string`, 400);
+  }
+
+  return input;
+}
+
+function readPositiveSafeInteger(input: unknown, field: string): number {
+  if (typeof input !== "number" || !Number.isSafeInteger(input) || input <= 0) {
+    throw new APIError("INVALID_REQUEST", `${field} must be a positive safe integer`, 400);
+  }
+
+  return input;
+}
+
+function readBasisPoints(input: unknown, field: string): number {
+  if (typeof input !== "number" || !Number.isInteger(input) || input < 0 || input > 10000) {
+    throw new APIError("INVALID_REQUEST", `${field} must be an integer from 0 to 10000`, 400);
+  }
+
+  return input;
 }
