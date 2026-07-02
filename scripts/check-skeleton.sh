@@ -407,6 +407,7 @@ grep -q 'readDecimalIntegerConfig' backend/src/main.ts
 grep -q 'must be a base-10 integer between' backend/src/main.ts
 grep -q 'assertIntegerOption(options.bodyLimitBytes, "bodyLimitBytes", 1024, 1_048_576)' backend/src/main.ts
 grep -q 'assertIntegerOption(options.quoteTtlSeconds, "quoteTtlSeconds", 1, 3600)' backend/src/main.ts
+grep -q 'assertBooleanOption(options.logger, "logger")' backend/src/main.ts
 grep -q 'assertBooleanOption(options.enableHsts, "enableHsts")' backend/src/main.ts
 grep -q 'assertBooleanOption(options.trustProxy, "trustProxy")' backend/src/main.ts
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' backend/src/main.ts
@@ -1860,7 +1861,7 @@ grep -q 'RFQ_QUOTE_TTL_SECONDS' README.md
 grep -q 'RFQ_BODY_LIMIT_BYTES' README.md
 grep -q 'must be a base-10 integer from 1 to 3600' README.md
 grep -q 'must be a base-10 integer from 1024 to 1048576' README.md
-grep -q 'Direct `buildServer(options)` embedding follows the same runtime bounds' README.md
+grep -q 'rejects non-boolean `logger`, `enableHsts` or `trustProxy` values' README.md
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' README.md
 grep -q 'startup rejects entries with paths, query strings, fragments, credentials, or wildcards' README.md
 grep -q 'RFQ_ENABLE_HSTS' README.md
@@ -1877,7 +1878,7 @@ grep -q 'path、query、fragment、credentials 和 wildcard' docs/api/errors.md
 grep -q '未匹配路由' docs/api/errors.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '`1e2`、`30.0`、`0x1e`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'Direct `buildServer(options)` embedding uses the same fail-fast runtime bounds' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'rejects non-boolean `logger`, `enableHsts` or `trustProxy` values' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/test/api.test.mjs
 grep -q 'RFQ_QUOTE_TTL_SECONDS must be a base-10 integer between 1 and 3600' backend/test/api.test.mjs
 grep -q 'RFQ_BODY_LIMIT_BYTES must be a base-10 integer between 1024 and 1048576' backend/test/api.test.mjs

@@ -304,6 +304,10 @@ test("RFQ API rejects unsafe rate limit configuration at startup", () => {
 
 test("RFQ API rejects unsafe direct runtime options at startup", () => {
   assert.throws(
+    () => buildServer({ logger: "false" }),
+    /logger must be a boolean/,
+  );
+  assert.throws(
     () => buildServer({ logger: false, bodyLimitBytes: 1023 }),
     /bodyLimitBytes must be an integer between 1024 and 1048576/,
   );

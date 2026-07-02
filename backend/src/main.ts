@@ -74,6 +74,9 @@ export interface BuildServerOptions {
 }
 
 export function buildServer(options: BuildServerOptions = {}) {
+  const logger = options.logger === undefined
+    ? true
+    : assertBooleanOption(options.logger, "logger");
   const bodyLimitBytes = options.bodyLimitBytes === undefined
     ? readBodyLimitBytes()
     : assertIntegerOption(options.bodyLimitBytes, "bodyLimitBytes", 1024, 1_048_576);
@@ -87,7 +90,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     ? readQuoteTtlSeconds()
     : assertIntegerOption(options.quoteTtlSeconds, "quoteTtlSeconds", 1, 3600);
   const server = Fastify({
-    logger: options.logger ?? true,
+    logger,
     bodyLimit: bodyLimitBytes,
     maxParamLength: maxStatusIdentifierRouteParamLength,
   });

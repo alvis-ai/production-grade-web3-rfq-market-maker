@@ -100,7 +100,8 @@ assert.ok(
   "backend direct buildServer numeric options must enforce runtime bounds",
 );
 assert.ok(
-  backendSource.includes('assertBooleanOption(options.enableHsts, "enableHsts")') &&
+  backendSource.includes('assertBooleanOption(options.logger, "logger")') &&
+    backendSource.includes('assertBooleanOption(options.enableHsts, "enableHsts")') &&
     backendSource.includes('assertBooleanOption(options.trustProxy, "trustProxy")'),
   "backend direct buildServer boolean options must fail fast",
 );
