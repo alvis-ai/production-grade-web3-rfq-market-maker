@@ -163,6 +163,11 @@ test("InMemoryRateLimiter rejects unsafe request inputs before writing buckets",
   );
 
   assert.throws(
+    () => limiter.check({ endpoint: "quote", clientId: new String("client-a") }),
+    /Rate limit clientId must be a primitive string/,
+  );
+
+  assert.throws(
     () => limiter.check({ endpoint: "quote", clientId: "a".repeat(129) }),
     /Rate limit clientId must be 128 characters or fewer/,
   );

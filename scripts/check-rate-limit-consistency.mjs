@@ -89,6 +89,8 @@ assertContains(apiTestSource, [
 assertContains(rateLimitTestSource, [
   "InMemoryRateLimiter normalizes client identities before bucketing",
   "Rate limit input must be an object",
+  "Rate limit clientId must be a primitive string",
+  'new String("client-a")',
   "Rate limit clientId must be 128 characters or fewer",
   "Rate limit clientId must contain only letters, numbers, dot, underscore, colon, or hyphen",
 ], "backend/test/rate-limit.test.mjs");

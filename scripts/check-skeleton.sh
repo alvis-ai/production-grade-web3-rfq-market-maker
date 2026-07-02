@@ -599,11 +599,14 @@ grep -q 'maxRateLimitClientIdLength' backend/src/modules/rate-limit/rate-limit.s
 grep -q 'rateLimitClientIdPattern' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'sweepExpiredBuckets(now)' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'Rate limit input must be an object' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'Rate limit clientId must be a primitive string' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'Rate limit clientId must be a non-empty string' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'Rate limit clientId must be 128 characters or fewer' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'Rate limit clientId must contain only letters, numbers, dot, underscore, colon, or hyphen' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'InMemoryRateLimiter normalizes client identities before bucketing' backend/test/rate-limit.test.mjs
+grep -q 'new String("client-a")' backend/test/rate-limit.test.mjs
 grep -q 'client identity trim + lowercase' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'primitive string clientId' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q '128 character clientId upper bound' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -Fq 'clientId character set `[A-Za-z0-9_.:-]`' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'maxQuoteRequests' backend/src/modules/rate-limit/rate-limit.service.ts

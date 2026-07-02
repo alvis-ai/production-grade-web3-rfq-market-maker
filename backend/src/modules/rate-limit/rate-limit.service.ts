@@ -115,7 +115,10 @@ function normalizeRateLimitInput(input: RateLimitInput): RateLimitInput {
   if (!isRateLimitedEndpoint(input.endpoint)) {
     throw new Error("Rate limit endpoint must be quote, submit, or status");
   }
-  if (typeof input.clientId !== "string" || input.clientId.trim().length === 0) {
+  if (typeof input.clientId !== "string") {
+    throw new Error("Rate limit clientId must be a primitive string");
+  }
+  if (input.clientId.trim().length === 0) {
     throw new Error("Rate limit clientId must be a non-empty string");
   }
 
