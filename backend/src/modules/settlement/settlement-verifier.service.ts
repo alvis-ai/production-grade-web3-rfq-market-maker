@@ -204,7 +204,7 @@ function assertTokenWhitelist(tokens: readonly `0x${string}`[]): void {
 
   const seenTokens = new Set<string>();
   for (const token of tokens) {
-    if (!/^0x[0-9a-fA-F]{40}$/.test(token)) {
+    if (typeof token !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(token)) {
       throw new Error("Local settlement verifier tokenWhitelist entries must be 20-byte hex addresses");
     }
     const normalized = token.toLowerCase();

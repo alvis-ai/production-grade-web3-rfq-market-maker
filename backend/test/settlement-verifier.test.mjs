@@ -418,6 +418,15 @@ test("LocalSettlementVerifier rejects unsafe policy configuration at constructio
     () =>
       new LocalSettlementVerifier({
         ...defaultLocalSettlementVerifierPolicy,
+        tokenWhitelist: [new String(quote.tokenIn), quote.tokenOut],
+      }),
+    /Local settlement verifier tokenWhitelist entries must be 20-byte hex addresses/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
         tokenWhitelist: [
           "0x00000000000000000000000000000000000000cc",
           "0x00000000000000000000000000000000000000CC",

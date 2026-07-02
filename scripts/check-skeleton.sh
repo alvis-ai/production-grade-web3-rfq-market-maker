@@ -2046,8 +2046,11 @@ grep -q 'LocalSettlementVerifier rejects settlement amountOut below minimum' bac
 grep -q 'LocalSettlementVerifier rejects non-canonical settlement signatures' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier snapshots policy configuration at construction' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects unsafe policy configuration at construction' backend/test/settlement-verifier.test.mjs
+grep -Fq 'typeof token !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(token)' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'new String(quote.tokenIn)' backend/test/settlement-verifier.test.mjs
 grep -q 'signature shape, canonical low-s/v checks' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'settlement verifier policy fail-fast' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'JavaScript regex coercion 进入 `/submit` 结算验证路径' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'amount fields and nonce must be positive uint strings' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'risk rejection when rejected quote persistence fails' backend/test/api.test.mjs
