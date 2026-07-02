@@ -381,13 +381,13 @@ function assertSafeIdentifier(value: string, field: string, subject = "Signed qu
 }
 
 function assertAddress(value: string, field: string, subject = "Signed quote"): void {
-  if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
     throw new Error(`${subject} ${field} must be a 20-byte hex address`);
   }
 }
 
 function assertPositiveUIntString(value: string, field: string, subject = "Signed quote"): void {
-  if (!/^[0-9]+$/.test(value) || BigInt(value) <= 0n) {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
     throw new Error(`${subject} ${field} must be a positive uint string`);
   }
 }
@@ -419,7 +419,7 @@ function assertBpsMagnitude(value: number, field: string, subject: string): void
 }
 
 function assertSignature(value: `0x${string}`): void {
-  if (!/^0x[0-9a-fA-F]{130}$/.test(value)) {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(value)) {
     throw new Error("Signed quote signature must be a 65-byte hex string");
   }
 
@@ -611,7 +611,10 @@ function assertQuoteStatusMetadata(metadata: QuoteStatusMetadata | undefined): v
     return;
   }
 
-  if (metadata.txHash !== undefined && !/^0x[0-9a-fA-F]{64}$/.test(metadata.txHash)) {
+  if (
+    metadata.txHash !== undefined &&
+    (typeof metadata.txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(metadata.txHash))
+  ) {
     throw new Error("Quote status txHash must be a 32-byte hex string");
   }
 

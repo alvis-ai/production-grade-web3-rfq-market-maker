@@ -368,10 +368,43 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
       ...input,
       quote: {
         ...signedQuote,
+        user: new String(request.user),
+      },
+    }),
+    /Signed quote quote.user must be a 20-byte hex address/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      quote: {
+        ...signedQuote,
         amountIn: "0",
       },
     }),
     /Signed quote quote.amountIn must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      quote: {
+        ...signedQuote,
+        amountIn: 1000000000,
+      },
+    }),
+    /Signed quote quote.amountIn must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      quote: {
+        ...signedQuote,
+        nonce: "042",
+      },
+    }),
+    /Signed quote quote.nonce must be a positive uint string/,
   );
 
   await assert.rejects(
@@ -389,6 +422,14 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
     quoteRepository.saveSigned({
       ...input,
       signature: "0x11",
+    }),
+    /Signed quote signature must be a 65-byte hex string/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      signature: new String(fixedSignature()),
     }),
     /Signed quote signature must be a 65-byte hex string/,
   );
@@ -510,6 +551,42 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
       },
     }),
     /Requested quote request.tokenOut must be a 20-byte hex address/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRequested({
+      quoteId: "q_bad_user_object",
+      snapshotId: "snapshot_1",
+      request: {
+        ...request,
+        user: new String(request.user),
+      },
+    }),
+    /Requested quote request.user must be a 20-byte hex address/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRequested({
+      quoteId: "q_bad_amount_number",
+      snapshotId: "snapshot_1",
+      request: {
+        ...request,
+        amountIn: 1000000000,
+      },
+    }),
+    /Requested quote request.amountIn must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRequested({
+      quoteId: "q_bad_amount_leading_zero",
+      snapshotId: "snapshot_1",
+      request: {
+        ...request,
+        amountIn: "01000000000",
+      },
+    }),
+    /Requested quote request.amountIn must be a positive uint string/,
   );
 
   await assert.rejects(
@@ -764,6 +841,15 @@ test("InMemoryQuoteRepository rejects conflicting quote status metadata rewrites
     riskPolicyVersion: "test-risk",
     signature: fixedSignature(),
   });
+
+  await assert.rejects(
+    quoteRepository.markStatus("q_status_conflict", "submitted", {
+      txHash: new String(`0x${"aa".repeat(32)}`),
+      settlementEventId: "se_bad_txhash",
+    }),
+    /Quote status txHash must be a 32-byte hex string/,
+  );
+
   await quoteRepository.markStatus("q_status_conflict", "submitted", {
     txHash: `0x${"AA".repeat(32)}`,
     settlementEventId: "se_1",

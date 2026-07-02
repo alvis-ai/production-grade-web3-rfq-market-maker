@@ -661,10 +661,17 @@ grep -q 'Signed quote request cannot differ from requested quote' backend/src/mo
 grep -q 'Signed quote nonce key already exists' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertSignedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote signature must be a 65-byte hex string' backend/src/modules/quote/quote.repository.ts
+grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)' backend/src/modules/quote/quote.repository.ts
+grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/quote/quote.repository.ts
+grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(value)' backend/src/modules/quote/quote.repository.ts
+grep -Fq 'typeof metadata.txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(metadata.txHash)' backend/src/modules/quote/quote.repository.ts
 grep -q 'SECP256K1N_HALF' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote signature s value must be in the lower half order' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote signature v value must be 27 or 28' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote signature s value must be in the lower half order' backend/test/quote-service.test.mjs
+grep -q 'new String(fixedSignature())' backend/test/quote-service.test.mjs
+grep -q 'q_bad_amount_leading_zero' backend/test/quote-service.test.mjs
+grep -q 'new String(`0x${"aa".repeat(32)}`)' backend/test/quote-service.test.mjs
 grep -q 'InMemoryQuoteRepository rejects malformed quote persistence envelopes before storing' backend/test/quote-service.test.mjs
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/quote/quote.repository.ts
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/quote/quote.repository.ts
@@ -682,6 +689,7 @@ grep -q 'Signed quote persistence rejects malformed root payloads and missing `q
 grep -q 'quoteId` and `snapshotId` as `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'settlementEventId`、`hedgeOrderId`、`pnlId` must be `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '65-byte canonical low-s EIP-712 signature before writing the `chainId:user:nonce` index' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'rejects non-string address, signature, `txHash` and uint-like values' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'assertCanSaveSignedQuote(current, input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'isSameSignedQuotePayload' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote payload cannot be changed' backend/src/modules/quote/quote.repository.ts
