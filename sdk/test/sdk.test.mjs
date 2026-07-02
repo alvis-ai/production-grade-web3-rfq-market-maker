@@ -911,6 +911,26 @@ test("RFQClient rejects unsafe submit requests before sending HTTP", async () =>
     );
 
     await assert.rejects(
+      client.submit({ quote, signature, relayer: quote.user }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.message, "RFQ submit request must not include unknown field relayer");
+        return true;
+      },
+    );
+
+    await assert.rejects(
+      client.submit({ quote }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.message, "RFQ submit request missing required field signature");
+        return true;
+      },
+    );
+
+    await assert.rejects(
       client.submit({ quote, signature: `0x${"11".repeat(64)}02` }),
       (error) => {
         assert.ok(error instanceof RFQClientError);

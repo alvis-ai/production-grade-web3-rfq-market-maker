@@ -33,6 +33,7 @@ const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const retryAfterSecondsPattern = /^[1-9][0-9]*$/;
 const isoUtcTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
+const submitRequestFields = ["quote", "signature"] as const;
 const rfqErrorCodeSet: ReadonlySet<string> = new Set(rfqErrorCodes);
 const readinessDependencyComponents = [
   "marketData",
@@ -371,6 +372,7 @@ function assertSubmitQuoteRequest(request: SubmitQuoteRequest): void {
   if (!isRecord(request)) {
     throw new RFQClientError("RFQ submit request must be an object", 0);
   }
+  assertExactFields(request, submitRequestFields, "RFQ submit request");
 
   try {
     buildSubmitQuoteArgs(request.quote, request.signature);
