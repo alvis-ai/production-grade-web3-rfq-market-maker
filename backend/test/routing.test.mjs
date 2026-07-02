@@ -96,6 +96,17 @@ test("InternalInventoryRoutingEngine rejects unsafe route inputs before planning
 
   await assert.rejects(
     engine.selectRoute({
+      request: {
+        ...request,
+        amountIn: "01000000000",
+      },
+      snapshot,
+    }),
+    /Routing request.amountIn must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
       request,
       snapshot: {
         ...snapshot,
@@ -133,6 +144,17 @@ test("InternalInventoryRoutingEngine rejects unsafe route inputs before planning
       snapshot: {
         ...snapshot,
         liquidityUsd: "0",
+      },
+    }),
+    /Routing snapshot.liquidityUsd must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      request,
+      snapshot: {
+        ...snapshot,
+        liquidityUsd: "0250000000000",
       },
     }),
     /Routing snapshot.liquidityUsd must be a positive uint string/,
