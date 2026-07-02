@@ -489,7 +489,8 @@ components:
       pattern: "^[1-9][0-9]*$"
     IntString:
       type: string
-      pattern: "^-?[0-9]+$"
+      pattern: "^(0|-?[1-9][0-9]*)$"
+      description: Canonical signed integer string without leading zeros; zero is encoded as "0".
     SafeIdentifier:
       type: string
       minLength: 1

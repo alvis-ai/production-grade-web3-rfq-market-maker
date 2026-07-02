@@ -182,6 +182,22 @@ test("MetricsService validates inventory and PnL metric inputs before mutating s
     () =>
       metrics.recordPnlTrade({
         ...pnlTradeRecord,
+        grossPnlTokenOut: "01600000",
+      }),
+    /Metrics PnL trade grossPnlTokenOut must be an int string/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        grossPnlTokenOut: "-0",
+      }),
+    /Metrics PnL trade grossPnlTokenOut must be an int string/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
         grossPnlTokenOut: new String("1600000"),
       }),
     /Metrics PnL trade grossPnlTokenOut must be an int string/,

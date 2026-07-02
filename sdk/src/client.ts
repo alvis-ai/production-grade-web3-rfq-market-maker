@@ -770,7 +770,7 @@ function isPositiveUIntString(value: unknown): value is string {
 }
 
 function isIntString(value: unknown): value is string {
-  return typeof value === "string" && /^-?[0-9]+$/.test(value);
+  return typeof value === "string" && /^(0|-?[1-9][0-9]*)$/.test(value);
 }
 
 function isSafeInteger(value: unknown): value is number {

@@ -203,6 +203,11 @@ assert.equal(
   "PositiveUIntString must reject zero, negative values, and leading zeros",
 );
 assert.equal(
+  extractOpenApiSchemaPattern(openapiSource, "IntString"),
+  "^(0|-?[1-9][0-9]*)$",
+  "IntString must be canonical and reject leading zeros and negative zero",
+);
+assert.equal(
   extractOpenApiSchemaPattern(openapiSource, "SafeIdentifier"),
   "^[A-Za-z0-9_:-]+$",
   "SafeIdentifier must use the shared public resource identifier pattern",
@@ -291,6 +296,17 @@ for (const [schemaName, propertyName] of [
     extractOpenApiPropertyNumericBound(openapiSource, schemaName, propertyName, "maximum"),
     "9007199254740991",
     `${schemaName}.${propertyName} must document the JavaScript safe integer maximum`,
+  );
+}
+
+for (const [schemaName, propertyName] of [
+  ["PnlTradeRecord", "grossPnlTokenOut"],
+  ["PnlSummary", "grossPnlTokenOut"],
+]) {
+  assert.equal(
+    extractOpenApiPropertyRef(openapiSource, schemaName, propertyName),
+    "#/components/schemas/IntString",
+    `${schemaName}.${propertyName} must use IntString`,
   );
 }
 for (const [schemaName, propertyName] of [

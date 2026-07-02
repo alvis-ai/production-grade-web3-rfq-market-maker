@@ -1740,6 +1740,14 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
       message: "RFQ PnL summary response returned malformed grossPnlTokenOut",
     },
     {
+      payload: { ...basePnlResponse, grossPnlTokenOut: "01600000" },
+      message: "RFQ PnL summary response returned malformed grossPnlTokenOut",
+    },
+    {
+      payload: { ...basePnlResponse, grossPnlTokenOut: "-0" },
+      message: "RFQ PnL summary response returned malformed grossPnlTokenOut",
+    },
+    {
       payload: {
         ...basePnlResponse,
         trades: [{ ...basePnlResponse.trades[0], pnlId: "pnl.bad" }],
@@ -1801,6 +1809,20 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
         trades: [{ ...basePnlResponse.trades[0], deadline: "1893456000" }],
       },
       message: "RFQ PnL summary response trade returned malformed deadline",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], grossPnlTokenOut: "01600000" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed grossPnlTokenOut",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], grossPnlTokenOut: "-0" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed grossPnlTokenOut",
     },
     {
       payload: {

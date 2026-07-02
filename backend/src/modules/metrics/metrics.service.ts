@@ -496,7 +496,7 @@ function assertPositiveUIntString(value: string, field: string): void {
 }
 
 function assertIntString(value: unknown, field: string): void {
-  if (typeof value !== "string" || !/^-?[0-9]+$/.test(value)) {
+  if (typeof value !== "string" || !/^(0|-?[1-9][0-9]*)$/.test(value)) {
     throw new Error(`Metrics ${field} must be an int string`);
   }
 }
