@@ -97,14 +97,19 @@ assertContains(sdkClientSource, [
   "readonly retryAfterSeconds?: number",
   "retryAfterSeconds(response)",
   'response.headers.get("retry-after")',
-  "Number.isInteger(seconds) && seconds > 0",
+  "retryAfterSecondsPattern = /^[1-9][0-9]*$/",
+  "Number.isSafeInteger(seconds)",
 ], "sdk/src/client.ts");
 
 assertContains(sdkTestSource, [
   "exposes Retry-After seconds for rate limited responses",
+  "ignores non-canonical Retry-After headers",
   'code: "RATE_LIMITED"',
   '"retry-after": "60"',
+  '"60.0"',
+  '"6e1"',
   "assert.equal(error.retryAfterSeconds, 60)",
+  "assert.equal(error.retryAfterSeconds, undefined)",
 ], "sdk/test/sdk.test.mjs");
 
 assertContains(frontendErrorSource, [

@@ -1120,6 +1120,45 @@ test("RFQClient exposes Retry-After seconds for rate limited responses", async (
   }
 });
 
+test("RFQClient ignores non-canonical Retry-After headers", async () => {
+  for (const value of ["0", "060", "60.0", "6e1", "9007199254740992", "Fri, 31 Dec 2027 23:59:59 GMT"]) {
+    const restoreFetch = installFetch(async () =>
+      jsonResponse(
+        429,
+        {
+          code: "RATE_LIMITED",
+          message: "Too many requests",
+          traceId: "tr_rate_limited",
+        },
+        { "retry-after": value },
+      ),
+    );
+
+    try {
+      const client = new RFQClient("http://127.0.0.1:3000");
+
+      await assert.rejects(
+        client.quote({
+          chainId: quote.chainId,
+          user: quote.user,
+          tokenIn: quote.tokenIn,
+          tokenOut: quote.tokenOut,
+          amountIn: quote.amountIn,
+          slippageBps: 50,
+        }),
+        (error) => {
+          assert.ok(error instanceof RFQClientError);
+          assert.equal(error.status, 429);
+          assert.equal(error.retryAfterSeconds, undefined);
+          return true;
+        },
+      );
+    } finally {
+      restoreFetch();
+    }
+  }
+});
+
 test("RFQClient falls back for unknown API error codes", async () => {
   const restoreFetch = installFetch(async () =>
     jsonResponse(

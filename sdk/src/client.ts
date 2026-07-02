@@ -30,6 +30,7 @@ const maxTraceIdLength = 128;
 const traceIdPattern = /^tr_[A-Za-z0-9._:-]+$/;
 const maxStatusIdentifierLength = 128;
 const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const retryAfterSecondsPattern = /^[1-9][0-9]*$/;
 const isoUtcTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const rfqErrorCodeSet: ReadonlySet<string> = new Set(rfqErrorCodes);
@@ -786,10 +787,10 @@ function isNonNegativeSafeInteger(value: unknown): value is number {
 
 function retryAfterSeconds(response: Response): number | undefined {
   const value = response.headers.get("retry-after");
-  if (!value) return undefined;
+  if (!value || !retryAfterSecondsPattern.test(value)) return undefined;
 
   const seconds = Number(value);
-  return Number.isInteger(seconds) && seconds > 0 ? seconds : undefined;
+  return Number.isSafeInteger(seconds) ? seconds : undefined;
 }
 
 function traceIdFromResponse(response: Response): string | undefined {

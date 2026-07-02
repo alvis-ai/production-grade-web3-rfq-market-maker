@@ -1603,7 +1603,9 @@ grep -q 'RFQClientTraceIdProvider' sdk/src/client.ts
 grep -q 'resolveTraceIdProvider' sdk/src/client.ts
 grep -q 'requestHeaders' sdk/src/client.ts
 grep -q 'retryAfterSeconds' sdk/src/client.ts
+grep -Fq 'retryAfterSecondsPattern = /^[1-9][0-9]*$/' sdk/src/client.ts
 grep -q 'response.headers.get("retry-after")' sdk/src/client.ts
+grep -q 'Number.isSafeInteger(seconds)' sdk/src/client.ts
 grep -q 'traceIdFromResponse' sdk/src/client.ts
 grep -q 'normalizeTraceId' sdk/src/client.ts
 grep -q 'assertResponsePayload' sdk/src/client.ts
@@ -1687,7 +1689,12 @@ grep -q 'new RFQClient("http://127.0.0.1:3000/", {' sdk/test/sdk.test.mjs
 grep -q 'degraded readiness payloads' sdk/test/sdk.test.mjs
 grep -q 'falls back for unknown API error codes' sdk/test/sdk.test.mjs
 grep -q 'exposes Retry-After seconds for rate limited responses' sdk/test/sdk.test.mjs
+grep -q 'ignores non-canonical Retry-After headers' sdk/test/sdk.test.mjs
+grep -q '"60.0"' sdk/test/sdk.test.mjs
+grep -q '"6e1"' sdk/test/sdk.test.mjs
 grep -q 'retryAfterSeconds' README.md
+grep -q 'canonical positive decimal delay-seconds value' README.md
+grep -q 'zero, leading-zero, decimal, exponent, HTTP-date and oversized values are ignored' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'client.metrics' sdk/test/sdk.test.mjs
 grep -q 'function submitQuote' contracts/src/RFQSettlement.sol
 grep -q 'InvalidNonce' contracts/src/RFQSettlement.sol
