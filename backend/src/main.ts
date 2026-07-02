@@ -627,32 +627,47 @@ function requireConfiguredAddress(value: string | undefined, name: string, nodeE
 
 function readQuoteTtlSeconds(): number {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const configured = env?.RFQ_QUOTE_TTL_SECONDS;
+  return readDecimalIntegerConfig(env?.RFQ_QUOTE_TTL_SECONDS, {
+    defaultValue: defaultQuoteServiceConfig.quoteTtlSeconds,
+    max: 3600,
+    min: 1,
+    name: "RFQ_QUOTE_TTL_SECONDS",
+  });
+}
+
+function readBodyLimitBytes(): number {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  return readDecimalIntegerConfig(env?.RFQ_BODY_LIMIT_BYTES, {
+    defaultValue: defaultBodyLimitBytes,
+    max: 1_048_576,
+    min: 1024,
+    name: "RFQ_BODY_LIMIT_BYTES",
+  });
+}
+
+function readDecimalIntegerConfig(
+  configured: string | undefined,
+  options: { defaultValue: number; max: number; min: number; name: string },
+): number {
   if (!configured || configured.trim().length === 0) {
-    return defaultQuoteServiceConfig.quoteTtlSeconds;
+    return options.defaultValue;
   }
 
-  const value = Number(configured);
-  if (!Number.isInteger(value) || value <= 0 || value > 3600) {
-    throw new Error("RFQ_QUOTE_TTL_SECONDS must be an integer between 1 and 3600");
+  const normalized = configured.trim();
+  if (!/^[0-9]+$/.test(normalized)) {
+    throw invalidDecimalIntegerConfigError(options);
+  }
+
+  const value = Number(normalized);
+  if (!Number.isSafeInteger(value) || value < options.min || value > options.max) {
+    throw invalidDecimalIntegerConfigError(options);
   }
 
   return value;
 }
 
-function readBodyLimitBytes(): number {
-  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const configured = env?.RFQ_BODY_LIMIT_BYTES;
-  if (!configured || configured.trim().length === 0) {
-    return defaultBodyLimitBytes;
-  }
-
-  const value = Number(configured);
-  if (!Number.isInteger(value) || value < 1024 || value > 1_048_576) {
-    throw new Error("RFQ_BODY_LIMIT_BYTES must be an integer between 1024 and 1048576");
-  }
-
-  return value;
+function invalidDecimalIntegerConfigError(options: { max: number; min: number; name: string }): Error {
+  return new Error(`${options.name} must be a base-10 integer between ${options.min} and ${options.max}`);
 }
 
 function readCorsAllowedOrigins(): string[] {
@@ -814,16 +829,12 @@ function readListenHost(configured: string | undefined): string {
 }
 
 function readListenPort(configured: string | undefined): number {
-  if (!configured || configured.trim().length === 0) {
-    return defaultListenPort;
-  }
-
-  const port = Number(configured);
-  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-    throw new Error("PORT must be an integer between 1 and 65535");
-  }
-
-  return port;
+  return readDecimalIntegerConfig(configured, {
+    defaultValue: defaultListenPort,
+    max: 65_535,
+    min: 1,
+    name: "PORT",
+  });
 }
 
 export async function startServer() {

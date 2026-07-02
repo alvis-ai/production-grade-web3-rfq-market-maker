@@ -135,12 +135,14 @@ test("RFQ API rejects invalid RFQ_QUOTE_TTL_SECONDS at startup", () => {
   const originalTtl = process.env.RFQ_QUOTE_TTL_SECONDS;
 
   try {
-    process.env.RFQ_QUOTE_TTL_SECONDS = "0";
+    for (const ttl of ["0", "3601", "1e2", "30.0", "+30", "0x1e"]) {
+      process.env.RFQ_QUOTE_TTL_SECONDS = ttl;
 
-    assert.throws(
-      () => buildServer({ logger: false }),
-      /RFQ_QUOTE_TTL_SECONDS must be an integer between 1 and 3600/,
-    );
+      assert.throws(
+        () => buildServer({ logger: false }),
+        /RFQ_QUOTE_TTL_SECONDS must be a base-10 integer between 1 and 3600/,
+      );
+    }
   } finally {
     restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalTtl);
   }
@@ -150,12 +152,14 @@ test("RFQ API rejects invalid RFQ_BODY_LIMIT_BYTES at startup", () => {
   const originalBodyLimit = process.env.RFQ_BODY_LIMIT_BYTES;
 
   try {
-    process.env.RFQ_BODY_LIMIT_BYTES = "1023";
+    for (const bodyLimit of ["1023", "1048577", "3.2768e4", "32768.0", "+32768", "0x8000"]) {
+      process.env.RFQ_BODY_LIMIT_BYTES = bodyLimit;
 
-    assert.throws(
-      () => buildServer({ logger: false }),
-      /RFQ_BODY_LIMIT_BYTES must be an integer between 1024 and 1048576/,
-    );
+      assert.throws(
+        () => buildServer({ logger: false }),
+        /RFQ_BODY_LIMIT_BYTES must be a base-10 integer between 1024 and 1048576/,
+      );
+    }
   } finally {
     restoreEnv("RFQ_BODY_LIMIT_BYTES", originalBodyLimit);
   }
@@ -256,11 +260,19 @@ test("RFQ API validates standalone listen configuration", () => {
 
   assert.throws(
     () => readServerListenConfig({ env: { PORT: "65536" } }),
-    /PORT must be an integer between 1 and 65535/,
+    /PORT must be a base-10 integer between 1 and 65535/,
   );
   assert.throws(
     () => readServerListenConfig({ env: { PORT: "3000.5" } }),
-    /PORT must be an integer between 1 and 65535/,
+    /PORT must be a base-10 integer between 1 and 65535/,
+  );
+  assert.throws(
+    () => readServerListenConfig({ env: { PORT: "3e3" } }),
+    /PORT must be a base-10 integer between 1 and 65535/,
+  );
+  assert.throws(
+    () => readServerListenConfig({ env: { PORT: "0x0bb8" } }),
+    /PORT must be a base-10 integer between 1 and 65535/,
   );
   assert.throws(
     () => readServerListenConfig({ env: { HOST: "127.0.0.1 local" } }),

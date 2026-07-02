@@ -403,6 +403,8 @@ grep -q 'readQuoteTtlSeconds' backend/src/main.ts
 grep -q 'RFQ_BODY_LIMIT_BYTES' backend/src/main.ts
 grep -q 'readBodyLimitBytes' backend/src/main.ts
 grep -q 'defaultBodyLimitBytes' backend/src/main.ts
+grep -q 'readDecimalIntegerConfig' backend/src/main.ts
+grep -q 'must be a base-10 integer between' backend/src/main.ts
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' backend/src/main.ts
 grep -q 'readCorsAllowedOrigins' backend/src/main.ts
 grep -q 'defaultCorsAllowedOrigins' backend/src/main.ts
@@ -1852,6 +1854,8 @@ grep -q '32-byte hex string' README.md
 grep -q '20-byte hex address' README.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' README.md
 grep -q 'RFQ_BODY_LIMIT_BYTES' README.md
+grep -q 'must be a base-10 integer from 1 to 3600' README.md
+grep -q 'must be a base-10 integer from 1024 to 1048576' README.md
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' README.md
 grep -q 'startup rejects entries with paths, query strings, fragments, credentials, or wildcards' README.md
 grep -q 'RFQ_ENABLE_HSTS' README.md
@@ -1867,7 +1871,11 @@ grep -q 'CORS preflight origin' docs/api/errors.md
 grep -q 'path、query、fragment、credentials 和 wildcard' docs/api/errors.md
 grep -q '未匹配路由' docs/api/errors.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q '`1e2`、`30.0`、`0x1e`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/test/api.test.mjs
+grep -q 'RFQ_QUOTE_TTL_SECONDS must be a base-10 integer between 1 and 3600' backend/test/api.test.mjs
+grep -q 'RFQ_BODY_LIMIT_BYTES must be a base-10 integer between 1024 and 1048576' backend/test/api.test.mjs
+grep -q 'PORT must be a base-10 integer between 1 and 65535' backend/test/api.test.mjs
 grep -q 'configured quote TTL' backend/test/quote-service.test.mjs
 grep -q 'QuoteService snapshots runtime configuration at construction' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe runtime configuration at construction' backend/test/quote-service.test.mjs

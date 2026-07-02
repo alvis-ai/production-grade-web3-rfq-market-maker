@@ -73,16 +73,26 @@ assert.ok(backendSource.includes("const defaultTrustProxy = false;"), "backend d
 assert.ok(backendSource.includes('const defaultListenHost = "127.0.0.1";'), "backend default listen host must be 127.0.0.1");
 assert.ok(backendSource.includes("const defaultListenPort = 3000;"), "backend default listen port must be 3000");
 assert.ok(
-  backendSource.includes("PORT must be an integer between 1 and 65535"),
-  "backend must enforce PORT bounds",
+  backendSource.includes("readDecimalIntegerConfig") &&
+    backendSource.includes("must be a base-10 integer between") &&
+    backendSource.includes('name: "PORT"') &&
+    backendSource.includes("max: 65_535") &&
+    backendSource.includes("min: 1"),
+  "backend must enforce PORT base-10 integer bounds",
 );
 assert.ok(
-  backendSource.includes("RFQ_QUOTE_TTL_SECONDS must be an integer between 1 and 3600"),
-  "backend must enforce RFQ_QUOTE_TTL_SECONDS bounds",
+  backendSource.includes("readDecimalIntegerConfig") &&
+    backendSource.includes('name: "RFQ_QUOTE_TTL_SECONDS"') &&
+    backendSource.includes("max: 3600") &&
+    backendSource.includes("min: 1"),
+  "backend must enforce RFQ_QUOTE_TTL_SECONDS base-10 integer bounds",
 );
 assert.ok(
-  backendSource.includes("RFQ_BODY_LIMIT_BYTES must be an integer between 1024 and 1048576"),
-  "backend must enforce RFQ_BODY_LIMIT_BYTES bounds",
+  backendSource.includes("readDecimalIntegerConfig") &&
+    backendSource.includes('name: "RFQ_BODY_LIMIT_BYTES"') &&
+    backendSource.includes("max: 1_048_576") &&
+    backendSource.includes("min: 1024"),
+  "backend must enforce RFQ_BODY_LIMIT_BYTES base-10 integer bounds",
 );
 assert.ok(
   backendSource.includes("RFQ_ENABLE_HSTS must be true or false"),
