@@ -411,14 +411,78 @@ test("ObservedSignerService rejects unsafe wrapper dependencies at construction"
   );
 });
 
+test("ObservedSignerService rejects malformed inner signer results", async () => {
+  for (const scenario of [
+    {
+      name: "short_signature",
+      inner: {
+        async signQuote() {
+          return "0x1234";
+        },
+        async verifyQuoteSignature() {
+          return true;
+        },
+      },
+      operation: "sign",
+      action: (signer) => signer.signQuote({ quote, quoteId: "q_bad_signature", snapshotId: "snapshot_bad" }),
+      message: "Signer service unavailable",
+    },
+    {
+      name: "high_s_signature",
+      inner: {
+        async signQuote() {
+          return malleateSignature(fixedSignature());
+        },
+        async verifyQuoteSignature() {
+          return true;
+        },
+      },
+      operation: "sign",
+      action: (signer) => signer.signQuote({ quote, quoteId: "q_high_s", snapshotId: "snapshot_bad" }),
+      message: "Signer service unavailable",
+    },
+    {
+      name: "non_boolean_verify",
+      inner: {
+        async signQuote() {
+          return fixedSignature();
+        },
+        async verifyQuoteSignature() {
+          return "false";
+        },
+      },
+      operation: "verify",
+      action: (signer) => signer.verifyQuoteSignature(quote, fixedSignature()),
+      message: "Signer service unavailable",
+    },
+  ]) {
+    const metrics = signerMetrics();
+    const signer = new ObservedSignerService(scenario.inner, metrics);
+
+    await assert.rejects(
+      scenario.action(signer),
+      (error) => {
+        assert.equal(error.code, "SIGNER_UNAVAILABLE");
+        assert.equal(error.statusCode, 503);
+        assert.equal(error.message, scenario.message);
+        return true;
+      },
+    );
+    assert.deepEqual(metrics.errors, [scenario.operation]);
+  }
+});
+
 function fixedSignature() {
   return `0x${"11".repeat(64)}1b`;
 }
 
 function signerMetrics() {
   return {
+    errors: [],
     recordSignerRequest() {},
-    recordSignerError() {},
+    recordSignerError(operation) {
+      this.errors.push(operation);
+    },
     recordSignerLatency() {},
   };
 }

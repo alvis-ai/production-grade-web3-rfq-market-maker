@@ -102,11 +102,22 @@ export class ObservedSignerService implements SignerService {
   }
 
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
-    return this.observe("sign", () => this.inner.signQuote(input));
+    return this.observe("sign", async () => {
+      const signature = await this.inner.signQuote(input);
+      assertSignature(signature);
+      return signature;
+    });
   }
 
   async verifyQuoteSignature(quote: SignedQuote, signature: `0x${string}`): Promise<boolean> {
-    return this.observe("verify", () => this.inner.verifyQuoteSignature(quote, signature));
+    return this.observe("verify", async () => {
+      const result = await this.inner.verifyQuoteSignature(quote, signature);
+      if (typeof result !== "boolean") {
+        throw new Error("Signer verifyQuoteSignature result must be a boolean");
+      }
+
+      return result;
+    });
   }
 
   private async observe<T>(operation: SignerMetricOperation, callback: () => Promise<T>): Promise<T> {

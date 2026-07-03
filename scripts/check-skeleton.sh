@@ -831,6 +831,9 @@ grep -q 'privateKeyToAccount' backend/src/modules/signer/signer.service.ts
 grep -q 'assertObservedSignerDeps(inner, metricsService)' backend/src/modules/signer/signer.service.ts
 grep -q 'assertDependencyObject(dependency, dependencyName)' backend/src/modules/signer/signer.service.ts
 grep -q 'assertDependencyMethod(metricsService, "metricsService", "recordSignerLatency")' backend/src/modules/signer/signer.service.ts
+grep -q 'const signature = await this.inner.signQuote(input)' backend/src/modules/signer/signer.service.ts
+grep -q 'assertSignature(signature)' backend/src/modules/signer/signer.service.ts
+grep -q 'Signer verifyQuoteSignature result must be a boolean' backend/src/modules/signer/signer.service.ts
 ! grep -q 'class PlaceholderSignerService' backend/src/modules/signer/signer.service.ts
 ! grep -q 'toFixedHex(seed' backend/src/modules/signer/signer.service.ts
 grep -q 'assertObject(config, "config")' backend/src/modules/signer/signer.service.ts
@@ -875,11 +878,16 @@ grep -q 'Signer quoteId must contain only letters, numbers, underscore, colon, o
 grep -q 'Signer snapshotId must be a primitive string' backend/test/signer.test.mjs
 grep -q 'Signer snapshotId must be 128 characters or fewer' backend/test/signer.test.mjs
 grep -q 'ObservedSignerService rejects unsafe wrapper dependencies at construction' backend/test/signer.test.mjs
+grep -q 'ObservedSignerService rejects malformed inner signer results' backend/test/signer.test.mjs
+grep -q 'non_boolean_verify' backend/test/signer.test.mjs
+grep -q 'SIGNER_UNAVAILABLE' backend/test/signer.test.mjs
 grep -q 'Signer inner must be an object' backend/test/signer.test.mjs
 grep -q 'Signer metricsService must be an object' backend/test/signer.test.mjs
 grep -q 'snapshots `LocalEIP712SignerConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'ObservedSignerService` validates inner signer and metrics dependency methods at construction' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'ObservedSignerService` rejects malformed dependency envelopes as non-array objects before reading signer or metrics methods' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
+grep -q 'validates inner signer results before returning them to Quote Service' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
+grep -q 'verifyQuoteSignature()` must return a runtime boolean' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'validates malformed config, signing request and quote objects before field access' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'requires local signer config fields, signing request fields and signed quote fields to be own fields' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'Direct signer callers cannot pass inherited object properties' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
