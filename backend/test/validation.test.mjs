@@ -142,6 +142,77 @@ test("validateSubmitQuoteRequest parses valid signed quote submits", () => {
   });
 });
 
+test("validateSubmitQuoteRequest validates internal submit validation options", () => {
+  const expiredSignedQuote = {
+    ...signedQuote,
+    deadline: Math.floor(Date.now() / 1000) - 1,
+  };
+
+  assert.equal(
+    validateSubmitQuoteRequest(
+      {
+        quote: expiredSignedQuote,
+        signature: canonicalSignature,
+      },
+      { allowExpired: true },
+    ).quote.deadline,
+    expiredSignedQuote.deadline,
+  );
+
+  assertAPIError(
+    () =>
+      validateSubmitQuoteRequest(
+        {
+          quote: expiredSignedQuote,
+          signature: canonicalSignature,
+        },
+        Object.create({ allowExpired: true }),
+      ),
+    "INVALID_REQUEST",
+    "Submit validation options.allowExpired must be an own field when provided",
+    400,
+  );
+  assertAPIError(
+    () =>
+      validateSubmitQuoteRequest(
+        {
+          quote: signedQuote,
+          signature: canonicalSignature,
+        },
+        { allowExpired: "true" },
+      ),
+    "INVALID_REQUEST",
+    "Submit validation options allowExpired must be a boolean",
+    400,
+  );
+  assertAPIError(
+    () =>
+      validateSubmitQuoteRequest(
+        {
+          quote: signedQuote,
+          signature: canonicalSignature,
+        },
+        { allowExpired: true, retry: true },
+      ),
+    "INVALID_REQUEST",
+    "Submit validation options contains unknown field retry",
+    400,
+  );
+  assertAPIError(
+    () =>
+      validateSubmitQuoteRequest(
+        {
+          quote: signedQuote,
+          signature: canonicalSignature,
+        },
+        null,
+      ),
+    "INVALID_REQUEST",
+    "Submit validation options must be an object",
+    400,
+  );
+});
+
 test("validateSubmitQuoteRequest rejects unsafe submit payloads before execution", () => {
   assertAPIError(
     () => validateSubmitQuoteRequest({ quote: signedQuote, signature: canonicalSignature, relayer: "0x1234" }),

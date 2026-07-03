@@ -669,6 +669,11 @@ grep -q 'quoteTtlSeconds' backend/src/modules/quote/quote.service.ts
 grep -q 'defaultQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
 grep -q 'validateSubmitQuoteRequest({ quote, signature }, { allowExpired: true })' backend/src/modules/quote/quote.service.ts
 grep -q 'allowExpired' backend/src/shared/validation/submit-request.ts
+grep -q 'SUBMIT_VALIDATION_OPTION_FIELDS = \["allowExpired"\]' backend/src/shared/validation/submit-request.ts
+grep -q 'normalizeValidationOptions(options)' backend/src/shared/validation/submit-request.ts
+grep -q 'assertOwnOptionalFields(options, SUBMIT_VALIDATION_OPTION_FIELDS, "Submit validation options")' backend/src/shared/validation/submit-request.ts
+grep -q '${label}.${inherited} must be an own field when provided' backend/src/shared/validation/submit-request.ts
+grep -q 'Submit validation options allowExpired must be a boolean' backend/src/shared/validation/submit-request.ts
 grep -q 'QuoteService snapshots dependency object at construction' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe dependency configuration at construction' backend/test/quote-service.test.mjs
 grep -q 'assertRecord(config, "config")' backend/src/modules/quote/quote.service.ts
@@ -683,9 +688,14 @@ grep -q 'Quote service deps.hedgeService must be an own field when provided' bac
 grep -q 'Quote service hedgeService must be an object when provided' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe quote requests before dependency side effects' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe submit quotes before quote lookup or signature verification' backend/test/quote-service.test.mjs
+grep -q 'validateSubmitQuoteRequest validates internal submit validation options' backend/test/validation.test.mjs
+grep -q 'Submit validation options.allowExpired must be an own field when provided' backend/test/validation.test.mjs
+grep -q 'Submit validation options allowExpired must be a boolean' backend/test/validation.test.mjs
 grep -q 'QuoteService` rejects malformed config, inherited config fields, malformed dependency map, inherited required dependency entries, inherited optional `hedgeService`, and malformed dependency entries before reading runtime fields or service methods' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'createQuote()` revalidates and snapshots the quote request at the service boundary' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requireSubmittableSignedQuote()` revalidates the submit quote and canonical signature' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'The internal `allowExpired` validation option must be an own boolean field' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'internal validation options also reject inherited `allowExpired` fields' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'QuoteService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Required dependency entries must be own fields before method validation, and optional `hedgeService` must be an own field when provided' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'QuoteService` validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md

@@ -8,6 +8,7 @@ const UINT_PATTERN = /^[0-9]+$/;
 const POSITIVE_UINT_PATTERN = /^[1-9][0-9]*$/;
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const SUBMIT_REQUEST_FIELDS = ["quote", "signature"];
+const SUBMIT_VALIDATION_OPTION_FIELDS = ["allowExpired"];
 const SIGNED_QUOTE_FIELDS = [
   "user",
   "tokenIn",
@@ -28,6 +29,8 @@ export function validateSubmitQuoteRequest(
   input: unknown,
   options: SubmitQuoteRequestValidationOptions = {},
 ): SubmitQuoteRequest {
+  const validationOptions = normalizeValidationOptions(options);
+
   if (!isRecord(input) || !isRecord(input.quote)) {
     throw new APIError("INVALID_REQUEST", "Submit request must include a quote object", 400);
   }
@@ -61,7 +64,7 @@ export function validateSubmitQuoteRequest(
     throw new APIError("INVALID_REQUEST", "quote.amountOut must be greater than or equal to quote.minAmountOut", 400);
   }
   const deadline = readPositiveInteger(quote.deadline, "quote.deadline");
-  if (!options.allowExpired && deadline < Math.floor(Date.now() / 1000)) {
+  if (!validationOptions.allowExpired && deadline < Math.floor(Date.now() / 1000)) {
     throw new APIError("QUOTE_EXPIRED", "Quote expired", 409);
   }
 
@@ -79,6 +82,37 @@ export function validateSubmitQuoteRequest(
     },
     signature: signature as `0x${string}`,
   };
+}
+
+function normalizeValidationOptions(options: unknown): Required<SubmitQuoteRequestValidationOptions> {
+  if (!isRecord(options)) {
+    throw new APIError("INVALID_REQUEST", "Submit validation options must be an object", 400);
+  }
+
+  assertOwnOptionalFields(options, SUBMIT_VALIDATION_OPTION_FIELDS, "Submit validation options");
+
+  if (options.allowExpired !== undefined && typeof options.allowExpired !== "boolean") {
+    throw new APIError("INVALID_REQUEST", "Submit validation options allowExpired must be a boolean", 400);
+  }
+
+  return {
+    allowExpired: options.allowExpired ?? false,
+  };
+}
+
+function assertOwnOptionalFields(input: Record<string, unknown>, allowedFields: readonly string[], label: string): void {
+  const allowed = new Set(allowedFields);
+  const unknown = Object.keys(input).find((field) => !allowed.has(field));
+  if (unknown) {
+    throw new APIError("INVALID_REQUEST", `${label} contains unknown field ${unknown}`, 400);
+  }
+
+  const inherited = allowedFields.find(
+    (field) => field in input && !Object.prototype.hasOwnProperty.call(input, field),
+  );
+  if (inherited) {
+    throw new APIError("INVALID_REQUEST", `${label}.${inherited} must be an own field when provided`, 400);
+  }
 }
 
 function assertCanonicalSignature(signature: string): void {
