@@ -2,6 +2,9 @@ import type { RiskDecision, RiskDecisionStatus, RiskRejectReasonCode } from "./r
 
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const riskDecisionInputFields = ["quoteId", "decision"] as const;
+const riskDecisionFields = ["status", "policyVersion"] as const;
+const rejectedRiskDecisionFields = ["reasonCode"] as const;
 
 const riskRejectReasonCodes = new Set<string>([
   "CHAIN_NOT_ENABLED",
@@ -85,6 +88,9 @@ function buildRiskDecisionId(quoteId: string): string {
 function assertRiskDecisionInput(input: SaveRiskDecisionInput): void {
   assertObject(input, "input");
   assertObject(input.decision, "decision");
+  assertOwnFields(input, riskDecisionInputFields, "input");
+  assertOwnFields(input.decision, riskDecisionFields, "decision");
+  assertOwnOptionalFields(input.decision, rejectedRiskDecisionFields, "decision");
   assertSafeIdentifier(input.quoteId, "quoteId");
   assertSafeIdentifier(buildRiskDecisionId(input.quoteId), "riskDecisionId");
   assertNonEmptyString(input.decision.policyVersion, "policyVersion");
@@ -97,6 +103,7 @@ function assertRiskDecisionInput(input: SaveRiskDecisionInput): void {
     return;
   }
 
+  assertOwnFields(input.decision, rejectedRiskDecisionFields, "decision");
   assertNonEmptyString(input.decision.reasonCode, "reasonCode");
   if (!riskRejectReasonCodes.has(input.decision.reasonCode)) {
     throw new Error("Risk decision reasonCode must be a stable risk reject reason");
@@ -106,6 +113,22 @@ function assertRiskDecisionInput(input: SaveRiskDecisionInput): void {
 function assertObject(value: unknown, field: "input" | "decision"): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Risk decision ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Risk decision ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertOwnOptionalFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Risk decision ${path}.${field} must be an own field when provided`);
+    }
   }
 }
 

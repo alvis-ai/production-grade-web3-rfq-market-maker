@@ -62,6 +62,51 @@ test("InMemoryRiskDecisionRepository rejects malformed decision payload envelope
   assert.equal(await repository.findByQuoteId("q_null_decision"), undefined);
 });
 
+test("InMemoryRiskDecisionRepository rejects inherited decision payload fields before storing", async () => {
+  const repository = new InMemoryRiskDecisionRepository();
+
+  await assert.rejects(
+    repository.saveDecision(
+      Object.create({
+        quoteId: "q_inherited_root",
+        decision: {
+          status: "approved",
+          policyVersion: "test-risk-v1",
+        },
+      }),
+    ),
+    /Risk decision input.quoteId must be an own field/,
+  );
+
+  await assert.rejects(
+    repository.saveDecision({
+      quoteId: "q_inherited_decision",
+      decision: Object.create({
+        status: "approved",
+        policyVersion: "test-risk-v1",
+      }),
+    }),
+    /Risk decision decision.status must be an own field/,
+  );
+
+  const inheritedReasonDecision = Object.create({ reasonCode: "SLIPPAGE_TOO_WIDE" });
+  Object.assign(inheritedReasonDecision, {
+    status: "rejected",
+    policyVersion: "test-risk-v1",
+  });
+  await assert.rejects(
+    repository.saveDecision({
+      quoteId: "q_inherited_reason",
+      decision: inheritedReasonDecision,
+    }),
+    /Risk decision decision.reasonCode must be an own field when provided/,
+  );
+
+  assert.equal(await repository.findByQuoteId("q_inherited_root"), undefined);
+  assert.equal(await repository.findByQuoteId("q_inherited_decision"), undefined);
+  assert.equal(await repository.findByQuoteId("q_inherited_reason"), undefined);
+});
+
 test("InMemoryRiskDecisionRepository rejects conflicts and unsafe decisions", async () => {
   const repository = new InMemoryRiskDecisionRepository();
 
