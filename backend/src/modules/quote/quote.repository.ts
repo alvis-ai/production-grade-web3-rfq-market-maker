@@ -10,6 +10,33 @@ import type {
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const requestedQuoteInputFields = ["quoteId", "request", "snapshotId"] as const;
+const rejectedQuoteInputFields = ["quoteId", "request", "snapshotId", "rejectCode"] as const;
+const rejectedQuoteOptionalFields = ["riskPolicyVersion"] as const;
+const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
+const signedQuoteInputFields = [
+  "quoteId",
+  "snapshotId",
+  "slippageBps",
+  "quote",
+  "pricingVersion",
+  "spreadBps",
+  "sizeImpactBps",
+  "inventorySkewBps",
+  "riskPolicyVersion",
+  "signature",
+] as const;
+const signedQuoteFields = [
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "minAmountOut",
+  "nonce",
+  "deadline",
+  "chainId",
+] as const;
 
 export interface QuoteRecord {
   quoteId: string;
@@ -295,6 +322,8 @@ function cloneQuoteRecord(record: QuoteRecord): QuoteRecord {
 
 function assertRequestedQuoteInput(input: SaveRequestedQuoteInput): void {
   assertObject(input, "input", "Requested quote");
+  assertOwnFields(input, requestedQuoteInputFields, "input", "Requested quote");
+  assertObject(input.request, "request", "Requested quote");
   assertSafeIdentifier(input.quoteId, "quoteId", "Requested quote");
   assertSafeIdentifier(input.snapshotId, "snapshotId", "Requested quote");
   assertQuoteRequest(input.request, "Requested quote");
@@ -302,6 +331,9 @@ function assertRequestedQuoteInput(input: SaveRequestedQuoteInput): void {
 
 function assertRejectedQuoteInput(input: SaveRejectedQuoteInput): void {
   assertObject(input, "input", "Rejected quote");
+  assertOwnFields(input, rejectedQuoteInputFields, "input", "Rejected quote");
+  assertOwnOptionalFields(input, rejectedQuoteOptionalFields, "input", "Rejected quote");
+  assertObject(input.request, "request", "Rejected quote");
   assertSafeIdentifier(input.quoteId, "quoteId", "Rejected quote");
   assertSafeIdentifier(input.snapshotId, "snapshotId", "Rejected quote");
   assertNonEmptyString(input.rejectCode, "rejectCode", "Rejected quote");
@@ -313,6 +345,7 @@ function assertRejectedQuoteInput(input: SaveRejectedQuoteInput): void {
 
 function assertQuoteRequest(request: QuoteRequest, subject: "Requested quote" | "Rejected quote"): void {
   assertObject(request, "request", subject);
+  assertOwnFields(request, quoteRequestFields, "request", subject);
   assertPositiveSafeInteger(request.chainId, "request.chainId", subject);
   assertAddress(request.user, "request.user", subject);
   assertAddress(request.tokenIn, "request.tokenIn", subject);
@@ -328,6 +361,8 @@ function assertQuoteRequest(request: QuoteRequest, subject: "Requested quote" | 
 
 function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertObject(input, "input", "Signed quote");
+  assertOwnFields(input, signedQuoteInputFields, "input", "Signed quote");
+  assertObject(input.quote, "quote", "Signed quote");
   assertSafeIdentifier(input.quoteId, "quoteId");
   assertSafeIdentifier(input.snapshotId, "snapshotId");
   assertNonEmptyString(input.pricingVersion, "pricingVersion");
@@ -337,7 +372,7 @@ function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertNonNegativeBps(input.sizeImpactBps, "sizeImpactBps", "Signed quote");
   assertBpsMagnitude(input.inventorySkewBps, "inventorySkewBps", "Signed quote");
   assertSignature(input.signature);
-  assertObject(input.quote, "quote", "Signed quote");
+  assertOwnFields(input.quote, signedQuoteFields, "quote", "Signed quote");
   assertPositiveSafeInteger(input.quote.chainId, "quote.chainId");
   assertAddress(input.quote.user, "quote.user");
   assertAddress(input.quote.tokenIn, "quote.tokenIn");
@@ -361,6 +396,22 @@ function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
 function assertObject(value: unknown, field: "input" | "request" | "quote", subject: string): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${subject} ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string, subject: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`${subject} ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertOwnOptionalFields(value: object, fields: readonly string[], path: string, subject: string): void {
+  for (const field of fields) {
+    if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`${subject} ${path}.${field} must be an own field when provided`);
+    }
   }
 }
 

@@ -772,6 +772,18 @@ grep -q 'assertRejectedQuoteInput(input)' backend/src/modules/quote/quote.reposi
 grep -q 'assertObject(input, "input", "Requested quote")' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertObject(request, "request", subject)' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertObject(input.quote, "quote", "Signed quote")' backend/src/modules/quote/quote.repository.ts
+grep -q 'requestedQuoteInputFields = \["quoteId", "request", "snapshotId"\]' backend/src/modules/quote/quote.repository.ts
+grep -q 'rejectedQuoteInputFields = \["quoteId", "request", "snapshotId", "rejectCode"\]' backend/src/modules/quote/quote.repository.ts
+grep -q 'rejectedQuoteOptionalFields = \["riskPolicyVersion"\]' backend/src/modules/quote/quote.repository.ts
+grep -q 'quoteRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertOwnFields(input, requestedQuoteInputFields, "input", "Requested quote")' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertOwnFields(input, rejectedQuoteInputFields, "input", "Rejected quote")' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertOwnOptionalFields(input, rejectedQuoteOptionalFields, "input", "Rejected quote")' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertOwnFields(request, quoteRequestFields, "request", subject)' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertOwnFields(input, signedQuoteInputFields, "input", "Signed quote")' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertOwnFields(input.quote, signedQuoteFields, "quote", "Signed quote")' backend/src/modules/quote/quote.repository.ts
+grep -q '${subject} ${path}.${field} must be an own field' backend/src/modules/quote/quote.repository.ts
+grep -q '${subject} ${path}.${field} must be an own field when provided' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertCanSaveRequestedQuote(current, input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertCanSaveRejectedQuote(current, input)' backend/src/modules/quote/quote.repository.ts
 grep -q 'isSameRequestedQuotePayload' backend/src/modules/quote/quote.repository.ts
@@ -794,6 +806,13 @@ grep -q 'new String(fixedSignature())' backend/test/quote-service.test.mjs
 grep -q 'q_bad_amount_leading_zero' backend/test/quote-service.test.mjs
 grep -q 'new String(`0x${"aa".repeat(32)}`)' backend/test/quote-service.test.mjs
 grep -q 'InMemoryQuoteRepository rejects malformed quote persistence envelopes before storing' backend/test/quote-service.test.mjs
+grep -q 'Requested quote input.request must be an own field' backend/test/quote-service.test.mjs
+grep -q 'InMemoryQuoteRepository rejects inherited quote persistence fields before storing' backend/test/quote-service.test.mjs
+grep -q 'Requested quote input.quoteId must be an own field' backend/test/quote-service.test.mjs
+grep -q 'Requested quote request.chainId must be an own field' backend/test/quote-service.test.mjs
+grep -q 'Rejected quote input.riskPolicyVersion must be an own field when provided' backend/test/quote-service.test.mjs
+grep -q 'Signed quote quote.user must be an own field' backend/test/quote-service.test.mjs
+grep -q 'Signed quote input.quoteId must be an own field' backend/test/quote-service.test.mjs
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/quote/quote.repository.ts
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertSafeIdentifier(input.quoteId, "quoteId", "Requested quote")' backend/src/modules/quote/quote.repository.ts
@@ -811,7 +830,9 @@ grep -q 'Signed quote snapshotId must be 128 characters or fewer' backend/test/q
 grep -q 'Quote status hedgeOrderId must be a primitive string' backend/test/quote-service.test.mjs
 grep -q 'Quote status hedgeOrderId must be 128 characters or fewer' backend/test/quote-service.test.mjs
 grep -q 'Requested and rejected quote persistence rejects malformed root payloads and missing `request` objects before field access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'Signed quote persistence rejects malformed root payloads and missing `quote` objects before field access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Requested and rejected persistence require own top-level fields and own request fields before writing quote state' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'inherited optional `riskPolicyVersion` is rejected before it can affect the stored audit payload' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Signed quote persistence rejects malformed root payloads, missing `quote` objects, inherited top-level fields and inherited signed quote fields before field access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'quoteId` and `snapshotId` as primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'settlementEventId`、`hedgeOrderId`、`pnlId` must be primitive-string `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '65-byte canonical low-s EIP-712 signature before writing the `chainId:user:nonce` index' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
