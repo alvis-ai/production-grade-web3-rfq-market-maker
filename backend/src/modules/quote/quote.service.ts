@@ -28,7 +28,7 @@ import type {
   SaveRequestedQuoteInput,
   SaveSignedQuoteInput,
 } from "./quote.repository.js";
-import type { RiskDecision, RiskEngine, RiskInput } from "../risk/risk.engine.js";
+import type { RiskDecision, RiskEngine, RiskInput, RiskRejectReasonCode } from "../risk/risk.engine.js";
 import type { RiskDecisionStore, SaveRiskDecisionInput } from "../risk/risk-decision.repository.js";
 import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
@@ -79,6 +79,22 @@ const pricingResultFields = [
   "inventorySkewBps",
   "pricingVersion",
 ] as const;
+const riskDecisionBaseFields = ["status", "policyVersion"] as const;
+const rejectedRiskDecisionFields = ["reasonCode"] as const;
+const rejectedRiskDecisionFullFields = ["status", "policyVersion", "reasonCode"] as const;
+const riskRejectReasonCodes = new Set<string>([
+  "CHAIN_NOT_ENABLED",
+  "TOKEN_NOT_ALLOWED",
+  "AMOUNT_IN_LIMIT_EXCEEDED",
+  "AMOUNT_OUT_TOO_SMALL",
+  "SLIPPAGE_TOO_WIDE",
+  "QUOTED_SPREAD_TOO_WIDE",
+  "TOXIC_FLOW_RESTRICTED_USER",
+  "TOXIC_FLOW_SCORE_EXCEEDED",
+  "TOKEN_IN_INVENTORY_LIMIT_EXCEEDED",
+  "TOKEN_OUT_INVENTORY_LIMIT_EXCEEDED",
+  "RISK_ENGINE_UNAVAILABLE",
+]);
 const positiveUIntStringPattern = /^[1-9][0-9]*$/;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const maxSafeIdentifierLength = 128;
@@ -368,7 +384,9 @@ export class QuoteService {
 
   private async evaluateRisk(input: RiskInput): Promise<RiskDecision> {
     try {
-      return await this.deps.riskEngine.evaluate(input);
+      const riskDecision = await this.deps.riskEngine.evaluate(input);
+      assertRiskDecision(riskDecision);
+      return riskDecision;
     } catch {
       return {
         status: "rejected",
@@ -627,6 +645,41 @@ function assertPricingSafeIdentifier(value: unknown): void {
     !safeIdentifierPattern.test(value)
   ) {
     throw new Error("Quote service pricing result.pricingVersion must be a safe identifier");
+  }
+}
+
+function assertRiskDecision(value: unknown): asserts value is RiskDecision {
+  if (!isRecord(value)) {
+    throw new Error("Quote service risk decision must be an object");
+  }
+
+  assertOwnFields(value, riskDecisionBaseFields, "risk decision");
+  assertOptionalOwnField(value, "reasonCode", "risk decision");
+  const status = value.status;
+  if (status !== "approved" && status !== "rejected") {
+    throw new Error("Quote service risk decision.status must be approved or rejected");
+  }
+  assertRiskPolicyVersion(value.policyVersion);
+
+  if (status === "approved") {
+    assertNoUnknownFields(value, riskDecisionBaseFields, "risk decision");
+    return;
+  }
+
+  assertOwnFields(value, rejectedRiskDecisionFields, "risk decision");
+  assertNoUnknownFields(value, rejectedRiskDecisionFullFields, "risk decision");
+  assertRiskRejectReasonCode(value.reasonCode);
+}
+
+function assertRiskPolicyVersion(value: unknown): asserts value is string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error("Quote service risk decision.policyVersion must be a non-empty string");
+  }
+}
+
+function assertRiskRejectReasonCode(value: unknown): asserts value is RiskRejectReasonCode {
+  if (typeof value !== "string" || !riskRejectReasonCodes.has(value)) {
+    throw new Error("Quote service risk decision.reasonCode must be a stable risk reject reason");
   }
 }
 

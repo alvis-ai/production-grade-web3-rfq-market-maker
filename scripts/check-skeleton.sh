@@ -134,6 +134,7 @@ grep -q 'best-effort 将 requested quote 标记为 `failed`，并阻断 Signer' 
 grep -q 'RiskDecisionStore mirrors the PostgreSQL risk_decisions contract' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'Risk decision audit persistence rejects malformed root payloads, missing `decision` objects, inherited `quoteId` / `decision` fields' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'validates `quoteId` as an own primitive-string `SafeIdentifier` and validates the derived `riskDecisionId`' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'Risk Engine dependency failure or malformed `RiskDecision` output' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 test -s backend/src/modules/execution/execution.service.ts
 test -s backend/src/modules/inventory/inventory.service.ts
 grep -q 'checkHealth' backend/src/modules/inventory/inventory.service.ts
@@ -704,6 +705,9 @@ grep -q 'assertPricingResult(pricingResult)' backend/src/modules/quote/quote.ser
 grep -q 'Quote service pricing result.amountOut must be greater than or equal to pricing result.minAmountOut' backend/src/modules/quote/quote.service.ts
 grep -q 'evaluateRisk' backend/src/modules/quote/quote.service.ts
 grep -q 'RISK_ENGINE_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
+grep -q 'assertRiskDecision(riskDecision)' backend/src/modules/quote/quote.service.ts
+grep -q 'Quote service risk decision.status must be approved or rejected' backend/src/modules/quote/quote.service.ts
+grep -q 'Quote service risk decision.reasonCode must be a stable risk reject reason' backend/src/modules/quote/quote.service.ts
 grep -q 'saveRejectedQuoteBestEffort' backend/src/modules/quote/quote.service.ts
 grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
 grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
@@ -727,6 +731,9 @@ grep -q 'QuoteService rejects unsafe dependency configuration at construction' b
 grep -q 'QuoteService rejects malformed pricing engine results before signing' backend/test/quote-service.test.mjs
 grep -q 'internalSpread: 8' backend/test/quote-service.test.mjs
 grep -q 'assert.equal(signAttempts, 0)' backend/test/quote-service.test.mjs
+grep -q 'QuoteService fails closed on malformed risk engine decisions before signing' backend/test/quote-service.test.mjs
+grep -q 'TEMPORARY_RISK_REASON' backend/test/quote-service.test.mjs
+grep -q 'approvedWithInheritedReason' backend/test/quote-service.test.mjs
 grep -q 'assertRecord(config, "config")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertRecord(deps, "deps")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/quote/quote.service.ts
@@ -746,6 +753,8 @@ grep -q 'QuoteService` rejects malformed config, inherited config fields, malfor
 grep -q 'createQuote()` revalidates and snapshots the quote request at the service boundary' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'validates `PricingResult` returned by the pricing adapter before inventory projection, risk evaluation or signing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Malformed pricing output is treated as `PRICING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'validates `RiskDecision` returned by the risk adapter before audit persistence or signer access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Malformed risk output is treated the same as risk engine dependency failure' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requireSubmittableSignedQuote()` revalidates the submit quote and canonical signature' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'The internal `allowExpired` validation option must be an own boolean field' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'internal validation options also reject inherited `allowExpired` fields' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md

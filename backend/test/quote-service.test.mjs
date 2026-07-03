@@ -1835,6 +1835,76 @@ test("QuoteService persists approved and rejected risk decisions before signer b
   assert.equal(rejectedDecision.policyVersion, "basic-risk-v1");
 });
 
+test("QuoteService fails closed on malformed risk engine decisions before signing", async () => {
+  const approvedWithInheritedReason = Object.assign(Object.create({ reasonCode: "SLIPPAGE_TOO_WIDE" }), {
+    status: "approved",
+    policyVersion: "test-risk",
+  });
+  const malformedRiskDecisions = [
+    undefined,
+    Object.create({ status: "approved", policyVersion: "test-risk" }),
+    { status: "approved", policyVersion: "" },
+    { status: "approved", policyVersion: new String("test-risk") },
+    { status: "approved", policyVersion: "test-risk", reasonCode: "SLIPPAGE_TOO_WIDE" },
+    approvedWithInheritedReason,
+    { status: "rejected", policyVersion: "test-risk" },
+    { status: "rejected", policyVersion: "test-risk", reasonCode: "TEMPORARY_RISK_REASON" },
+    { status: "rejected", policyVersion: "test-risk", reasonCode: "SLIPPAGE_TOO_WIDE", checks: [] },
+    { status: "skipped", policyVersion: "test-risk" },
+  ];
+
+  for (const malformedRiskDecision of malformedRiskDecisions) {
+    const quoteRepository = new InMemoryQuoteRepository();
+    const riskDecisionStore = new InMemoryRiskDecisionRepository();
+    const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+    let requestedQuoteId;
+    let signAttempts = 0;
+    quoteRepository.saveRequested = async (input) => {
+      requestedQuoteId = input.quoteId;
+      await saveRequested(input);
+    };
+
+    const service = new QuoteService({
+      ...quoteServiceDeps(),
+      quoteRepository,
+      riskDecisionStore,
+      riskEngine: {
+        async evaluate() {
+          return malformedRiskDecision;
+        },
+      },
+      signerService: {
+        async signQuote() {
+          signAttempts += 1;
+          return fixedSignature();
+        },
+        async verifyQuoteSignature() {
+          return true;
+        },
+      },
+    });
+
+    await assert.rejects(
+      service.createQuote(request),
+      (error) => {
+        assert.equal(error.code, "RISK_REJECTED");
+        assert.equal(error.statusCode, 409);
+        return true;
+      },
+    );
+
+    assert.equal(signAttempts, 0);
+    assert.match(requestedQuoteId, /^q_/);
+    const persistedDecision = await riskDecisionStore.findByQuoteId(requestedQuoteId);
+    assert.equal(persistedDecision.decision, "rejected");
+    assert.equal(persistedDecision.reasonCode, "RISK_ENGINE_UNAVAILABLE");
+    assert.equal(persistedDecision.policyVersion, "risk-engine-unavailable");
+    const status = await quoteRepository.findStatus(requestedQuoteId);
+    assert.equal(status.status, "rejected");
+    assert.equal(status.errorCode, "RISK_ENGINE_UNAVAILABLE");
+  }
+});
+
 test("QuoteService blocks signer when risk decision persistence fails", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
