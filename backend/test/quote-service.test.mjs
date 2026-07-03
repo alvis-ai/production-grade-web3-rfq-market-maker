@@ -2023,6 +2023,22 @@ test("QuoteService rejects unsafe runtime configuration at construction", () => 
     () => new QuoteService(quoteServiceDeps(), []),
     /Quote service config must be an object/,
   );
+  assert.throws(
+    () => new QuoteService(quoteServiceDeps(), Object.create(defaultQuoteServiceConfig)),
+    /Quote service config.maxSnapshotAgeMs must be an own field/,
+  );
+
+  const configWithInheritedTtl = {
+    maxSnapshotAgeMs: defaultQuoteServiceConfig.maxSnapshotAgeMs,
+    maxSnapshotFutureSkewMs: defaultQuoteServiceConfig.maxSnapshotFutureSkewMs,
+  };
+  Object.setPrototypeOf(configWithInheritedTtl, {
+    quoteTtlSeconds: defaultQuoteServiceConfig.quoteTtlSeconds,
+  });
+  assert.throws(
+    () => new QuoteService(quoteServiceDeps(), configWithInheritedTtl),
+    /Quote service config.quoteTtlSeconds must be an own field/,
+  );
 
   assert.throws(
     () =>
@@ -2062,6 +2078,23 @@ test("QuoteService rejects unsafe dependency configuration at construction", () 
   assert.throws(
     () => new QuoteService([]),
     /Quote service deps must be an object/,
+  );
+  assert.throws(
+    () => new QuoteService(Object.create(deps)),
+    /Quote service deps.inventoryService must be an own field/,
+  );
+
+  const depsWithInheritedHedgeService = { ...deps };
+  Object.setPrototypeOf(depsWithInheritedHedgeService, {
+    hedgeService: {
+      quoteRiskPenaltyBps() {
+        return 0;
+      },
+    },
+  });
+  assert.throws(
+    () => new QuoteService(depsWithInheritedHedgeService),
+    /Quote service deps.hedgeService must be an own field when provided/,
   );
   assert.throws(
     () =>

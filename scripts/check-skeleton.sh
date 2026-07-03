@@ -634,6 +634,11 @@ grep -q 'maxSnapshotAgeMs' backend/src/modules/quote/quote.service.ts
 grep -q 'maxSnapshotFutureSkewMs' backend/src/modules/quote/quote.service.ts
 grep -q 'assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds")' backend/src/modules/quote/quote.service.ts
+grep -q 'assertOwnFields(config, quoteServiceConfigFields, "config")' backend/src/modules/quote/quote.service.ts
+grep -q 'assertOwnFields(deps, quoteServiceDepsFields, "deps")' backend/src/modules/quote/quote.service.ts
+grep -q 'assertOptionalOwnField(deps, "hedgeService", "deps")' backend/src/modules/quote/quote.service.ts
+grep -q 'Quote service ${path}.${field} must be an own field' backend/src/modules/quote/quote.service.ts
+grep -q 'Quote service ${path}.${field} must be an own field when provided' backend/src/modules/quote/quote.service.ts
 grep -q 'assertQuoteServiceDeps(deps)' backend/src/modules/quote/quote.service.ts
 grep -q 'assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByChainUserNonce")' backend/src/modules/quote/quote.service.ts
 grep -q 'cloneQuoteServiceDeps' backend/src/modules/quote/quote.service.ts
@@ -664,14 +669,19 @@ grep -q 'assertRecord(config, "config")' backend/src/modules/quote/quote.service
 grep -q 'assertRecord(deps, "deps")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/quote/quote.service.ts
 grep -q 'Quote service config must be an object' backend/test/quote-service.test.mjs
+grep -q 'Quote service config.maxSnapshotAgeMs must be an own field' backend/test/quote-service.test.mjs
+grep -q 'Quote service config.quoteTtlSeconds must be an own field' backend/test/quote-service.test.mjs
 grep -q 'Quote service marketDataService must be an object' backend/test/quote-service.test.mjs
+grep -q 'Quote service deps.inventoryService must be an own field' backend/test/quote-service.test.mjs
+grep -q 'Quote service deps.hedgeService must be an own field when provided' backend/test/quote-service.test.mjs
 grep -q 'Quote service hedgeService must be an object when provided' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe quote requests before dependency side effects' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe submit quotes before quote lookup or signature verification' backend/test/quote-service.test.mjs
-grep -q 'QuoteService` rejects malformed config, dependency map and dependency entries as non-array objects before reading runtime fields or service methods' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'QuoteService` rejects malformed config, inherited config fields, malformed dependency map, inherited required dependency entries, inherited optional `hedgeService`, and malformed dependency entries before reading runtime fields or service methods' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'createQuote()` revalidates and snapshots the quote request at the service boundary' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requireSubmittableSignedQuote()` revalidates the submit quote and canonical signature' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'QuoteService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Required dependency entries must be own fields before method validation, and optional `hedgeService` must be an own field when provided' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'QuoteService` validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'class QuoteIdentityGenerator' backend/src/modules/quote/quote-identity.ts
 grep -q 'randomUint64' backend/src/modules/quote/quote-identity.ts

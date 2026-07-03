@@ -59,6 +59,19 @@ export const defaultQuoteServiceConfig: QuoteServiceConfig = {
   quoteTtlSeconds: 30,
 };
 
+const quoteServiceConfigFields = ["maxSnapshotAgeMs", "maxSnapshotFutureSkewMs", "quoteTtlSeconds"] as const;
+const quoteServiceDepsFields = [
+  "inventoryService",
+  "marketDataService",
+  "marketSnapshotStore",
+  "pricingEngine",
+  "quoteRepository",
+  "riskDecisionStore",
+  "riskEngine",
+  "routingEngine",
+  "signerService",
+] as const;
+
 export class QuoteService {
   private readonly identityGenerator = new QuoteIdentityGenerator();
   private readonly deps: QuoteServiceDeps;
@@ -69,6 +82,7 @@ export class QuoteService {
     config: QuoteServiceConfig = defaultQuoteServiceConfig,
   ) {
     assertRecord(config, "config");
+    assertOwnFields(config, quoteServiceConfigFields, "config");
     assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
     assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
     assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds");
@@ -459,6 +473,8 @@ function cloneQuoteServiceDeps(deps: QuoteServiceDeps): QuoteServiceDeps {
 
 function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   assertRecord(deps, "deps");
+  assertOwnFields(deps, quoteServiceDepsFields, "deps");
+  assertOptionalOwnField(deps, "hedgeService", "deps");
   assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
   assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "saveSnapshot");
   assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
@@ -517,6 +533,20 @@ function assertRecord(value: unknown, field: "config" | "deps" | keyof QuoteServ
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Quote service ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertOptionalOwnField(value: object, field: string, path: string): void {
+  if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
+    throw new Error(`Quote service ${path}.${field} must be an own field when provided`);
+  }
 }
 
 function assertPositiveSafeInteger(value: number, field: keyof QuoteServiceConfig): void {
