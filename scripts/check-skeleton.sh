@@ -1852,11 +1852,20 @@ grep -q 'new String("se_test")' sdk/test/sdk.test.mjs
 grep -q 'identifiers must be non-empty, 128 characters or fewer' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'boxed `String` identifiers fail before `encodeURIComponent()` or fetch' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'export interface RFQClientOptions' sdk/src/client.ts
+grep -q 'clientOptionFields = \["fetch", "traceId"\]' sdk/src/client.ts
+grep -Fq 'assertClientOptions(options)' sdk/src/client.ts
+grep -Fq 'RFQClient options.${field} must be an own field when provided' sdk/src/client.ts
+grep -q 'RFQClient options must not include unknown field' sdk/src/client.ts
 grep -q 'private readonly fetchImpl' sdk/src/client.ts
-grep -q 'resolveFetch(options)' sdk/src/client.ts
+grep -Fq 'resolveFetch(clientOptions)' sdk/src/client.ts
 grep -q 'RFQClient rejects unsafe fetch dependencies at construction' sdk/test/sdk.test.mjs
+grep -q 'RFQClient options.fetch must be an own field when provided' sdk/test/sdk.test.mjs
+grep -q 'RFQClient options.traceId must be an own field when provided' sdk/test/sdk.test.mjs
+grep -q 'RFQClient options must not include unknown field retry' sdk/test/sdk.test.mjs
 grep -q 'RFQClient accepts injected fetch implementations' sdk/test/sdk.test.mjs
 grep -q 'can receive an injected `fetch` implementation' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'Client options are closed to own optional `fetch` / `traceId` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'Inherited `traceId` options' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'new RFQClient("http://localhost:3000", { fetch: customFetch })' README.md
 grep -q 'assertQuoteStatus' sdk/src/client.ts
 grep -q 'assertQuoteStatusPayloadConsistency' sdk/src/client.ts

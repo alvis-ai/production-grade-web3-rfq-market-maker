@@ -714,12 +714,48 @@ test("RFQClient rejects unsafe fetch dependencies at construction", () => {
         return true;
       },
     );
+
+    assert.throws(
+      () => new RFQClient("http://127.0.0.1:3000", Object.create({ fetch: async () => jsonResponse(200, {}) })),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQClient options.fetch must be an own field when provided");
+        return true;
+      },
+    );
+
+    assert.throws(
+      () =>
+        new RFQClient("http://127.0.0.1:3000", {
+          fetch: async () => jsonResponse(200, {}),
+          retry: true,
+        }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQClient options must not include unknown field retry");
+        return true;
+      },
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
 test("RFQClient rejects unsafe trace id options", async () => {
+  assert.throws(
+    () => new RFQClient("http://127.0.0.1:3000", Object.create({ traceId: "tr_sdk_inherited" })),
+    (error) => {
+      assert.ok(error instanceof RFQClientError);
+      assert.equal(error.status, 0);
+      assert.equal(error.message, "RFQClient options.traceId must be an own field when provided");
+      return true;
+    },
+  );
+
   assert.throws(
     () => new RFQClient("http://127.0.0.1:3000", { traceId: "client_trace" }),
     (error) => {

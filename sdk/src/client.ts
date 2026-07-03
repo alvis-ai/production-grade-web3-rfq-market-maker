@@ -32,6 +32,7 @@ const maxStatusIdentifierLength = 128;
 const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const retryAfterSecondsPattern = /^[1-9][0-9]*$/;
 const isoUtcTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const clientOptionFields = ["fetch", "traceId"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const submitRequestFields = ["quote", "signature"] as const;
 const rfqErrorCodeSet: ReadonlySet<string> = new Set(rfqErrorCodes);
@@ -70,9 +71,11 @@ export class RFQClient {
   private readonly traceIdProvider?: RFQClientTraceIdProvider;
 
   constructor(baseUrl: string, options: RFQClientOptions = {}) {
+    const clientOptions = assertClientOptions(options);
+
     this.baseUrl = normalizeBaseUrl(baseUrl);
-    this.fetchImpl = resolveFetch(options);
-    this.traceIdProvider = resolveTraceIdProvider(options);
+    this.fetchImpl = resolveFetch(clientOptions);
+    this.traceIdProvider = resolveTraceIdProvider(clientOptions);
   }
 
   async quote(request: QuoteRequest): Promise<QuoteResponse> {
@@ -217,11 +220,28 @@ export class RFQClient {
   }
 }
 
-function resolveFetch(options: RFQClientOptions): RFQClientFetch {
+function assertClientOptions(options: unknown): RFQClientOptions {
   if (!isRecord(options)) {
     throw new RFQClientError("RFQClient options must be an object", 0);
   }
 
+  const allowed = new Set<string>(clientOptionFields);
+  for (const key of Object.keys(options)) {
+    if (!allowed.has(key)) {
+      throw new RFQClientError(`RFQClient options must not include unknown field ${key}`, 0);
+    }
+  }
+
+  for (const field of clientOptionFields) {
+    if (field in options && !Object.prototype.hasOwnProperty.call(options, field)) {
+      throw new RFQClientError(`RFQClient options.${field} must be an own field when provided`, 0);
+    }
+  }
+
+  return options as RFQClientOptions;
+}
+
+function resolveFetch(options: RFQClientOptions): RFQClientFetch {
   if (options.fetch !== undefined) {
     if (typeof options.fetch !== "function") {
       throw new RFQClientError("RFQClient fetch option must be a function", 0);
