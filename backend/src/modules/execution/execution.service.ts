@@ -10,6 +10,12 @@ import type { SettlementVerificationResult, SettlementVerifier } from "../settle
 
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const executionServiceDepsFields = [
+  "hedgeService",
+  "inventoryService",
+  "settlementEventService",
+  "settlementVerifier",
+] as const;
 
 export interface ExecutionService {
   submitQuote(request: SubmitQuoteRequest, context: ExecutionContext): Promise<ExecutionResult>;
@@ -171,6 +177,7 @@ function cloneExecutionServiceDeps(deps: ExecutionServiceDeps): ExecutionService
 
 function assertExecutionServiceDeps(deps: ExecutionServiceDeps): void {
   assertRecord(deps, "deps");
+  assertOwnFields(deps, executionServiceDepsFields, "deps");
   assertDependencyMethod(deps.hedgeService, "hedgeService", "createHedgeIntent");
   assertDependencyMethod(deps.inventoryService, "inventoryService", "getPosition");
   assertDependencyMethod(deps.settlementEventService, "settlementEventService", "applySettlementEvent");
@@ -195,8 +202,23 @@ function assertRecord(value: unknown, field: "deps" | keyof ExecutionServiceDeps
   }
 }
 
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Execution service ${path}.${field} must be an own field`);
+    }
+  }
+}
+
 function assertExecutionContext(context: ExecutionContext): void {
-  const quoteId = typeof context === "object" && context !== null ? (context as { quoteId?: unknown }).quoteId : undefined;
+  if (typeof context !== "object" || context === null || Array.isArray(context)) {
+    throw new APIError("INVALID_REQUEST", "Execution context must be an object", 400);
+  }
+  if (!Object.prototype.hasOwnProperty.call(context, "quoteId")) {
+    throw new APIError("INVALID_REQUEST", "Execution context quoteId must be an own field", 400);
+  }
+
+  const quoteId = context.quoteId;
   if (typeof quoteId !== "string") {
     throw new APIError("INVALID_REQUEST", "Execution context quoteId must be a primitive string", 400);
   }

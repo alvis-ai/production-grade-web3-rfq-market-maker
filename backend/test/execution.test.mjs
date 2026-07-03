@@ -53,6 +53,10 @@ test("buildSyntheticTxHash rejects malformed submit payloads before hashing", ()
     /signature must be 65 bytes/,
   );
   assert.throws(
+    () => buildSyntheticTxHash(request, Object.create({ quoteId: "q_hash_validation" })),
+    /Execution context quoteId must be an own field/,
+  );
+  assert.throws(
     () => buildSyntheticTxHash(request, { quoteId: " " }),
     /Execution context quoteId must be a non-empty string/,
   );
@@ -157,6 +161,10 @@ test("SkeletonExecutionService rejects unsafe dependency configuration at constr
     /Execution service deps must be an object/,
   );
   assert.throws(
+    () => new SkeletonExecutionService(Object.create(deps)),
+    /Execution service deps.hedgeService must be an own field/,
+  );
+  assert.throws(
     () =>
       new SkeletonExecutionService({
         ...deps,
@@ -232,6 +240,11 @@ test("SkeletonExecutionService rejects unsafe execution inputs before settlement
     settlementEventService,
     settlementVerifier: new LocalSettlementVerifier(),
   });
+
+  await assert.rejects(
+    executionService.submitQuote(request, Object.create({ quoteId: "q_inherited_context" })),
+    /Execution context quoteId must be an own field/,
+  );
 
   await assert.rejects(
     executionService.submitQuote(request, { quoteId: " " }),
