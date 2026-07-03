@@ -337,6 +337,7 @@ test -s frontend/src/components/WalletSubmitControl.tsx
 test -s frontend/test/config.test.mjs
 test -s frontend/test/integer-input.test.mjs
 test -s frontend/test/quote-request.test.mjs
+test -s frontend/test/rfq.test.mjs
 test -s sdk/src/abi.ts
 test -s sdk/src/eip712.ts
 test -s sdk/src/index.ts
@@ -1734,6 +1735,14 @@ grep -q 'writeContractAsync' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'walletMatchesQuote' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'Connected wallet must match quote user' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'Connected wallet network must match quote chainId' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'quoteResponseFields = \["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"\]' frontend/src/lib/rfq.ts
+grep -q 'assertExactFields(request, quoteRequestFields, "quote request")' frontend/src/lib/rfq.ts
+grep -q 'assertExactFields(response, quoteResponseFields, "quote response")' frontend/src/lib/rfq.ts
+grep -Fq '${label}.${field} must be an own field' frontend/src/lib/rfq.ts
+grep -q 'buildQuoteFromResponse rejects unsafe request and response envelopes' frontend/test/rfq.test.mjs
+grep -Fq 'quote response\.quoteId must be an own field' frontend/test/rfq.test.mjs
+grep -q 'quote response must not include unknown field routeHint' frontend/test/rfq.test.mjs
+grep -q 'buildQuoteFromResponse()` builds the wallet submission quote only from closed own request and quote response fields' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'VITE_RFQ_API_BASE_URL' frontend/src/lib/config.ts
 grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS' frontend/src/lib/config.ts
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID' frontend/src/lib/config.ts
