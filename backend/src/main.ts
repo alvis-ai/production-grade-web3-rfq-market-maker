@@ -620,9 +620,9 @@ function assertGatewayRateLimitClientId(clientId: string): string {
 
 function readSignerConfig() {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const nodeEnv = env?.NODE_ENV;
-  const privateKey = env?.RFQ_SIGNER_PRIVATE_KEY;
-  const settlementAddress = env?.RFQ_SETTLEMENT_ADDRESS;
+  const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
+  const privateKey = readOwnEnvValue(env, "RFQ_SIGNER_PRIVATE_KEY");
+  const settlementAddress = readOwnEnvValue(env, "RFQ_SETTLEMENT_ADDRESS");
   if (requiresExplicitSignerConfig(nodeEnv)) {
     requireConfiguredPrivateKey(privateKey, nodeEnv);
     requireConfiguredAddress(settlementAddress, "RFQ_SETTLEMENT_ADDRESS", nodeEnv);
@@ -662,7 +662,7 @@ function requireConfiguredAddress(value: string | undefined, name: string, nodeE
 
 function readQuoteTtlSeconds(): number {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  return readDecimalIntegerConfig(env?.RFQ_QUOTE_TTL_SECONDS, {
+  return readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_QUOTE_TTL_SECONDS"), {
     defaultValue: defaultQuoteServiceConfig.quoteTtlSeconds,
     max: 3600,
     min: 1,
@@ -672,7 +672,7 @@ function readQuoteTtlSeconds(): number {
 
 function readBodyLimitBytes(): number {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  return readDecimalIntegerConfig(env?.RFQ_BODY_LIMIT_BYTES, {
+  return readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_BODY_LIMIT_BYTES"), {
     defaultValue: defaultBodyLimitBytes,
     max: 1_048_576,
     min: 1024,
@@ -770,7 +770,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readCorsAllowedOrigins(): string[] {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const configured = env?.RFQ_CORS_ALLOWED_ORIGINS;
+  const configured = readOwnEnvValue(env, "RFQ_CORS_ALLOWED_ORIGINS");
   if (!configured || configured.trim().length === 0) {
     return defaultCorsAllowedOrigins;
   }
@@ -841,7 +841,7 @@ function invalidCorsAllowedOriginsError(): Error {
 
 function readEnableHsts(): boolean {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const configured = env?.RFQ_ENABLE_HSTS;
+  const configured = readOwnEnvValue(env, "RFQ_ENABLE_HSTS");
   if (!configured || configured.trim().length === 0) {
     return defaultEnableHsts;
   }
@@ -859,7 +859,7 @@ function readEnableHsts(): boolean {
 
 function readTrustProxy(): boolean {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const configured = env?.RFQ_TRUST_PROXY;
+  const configured = readOwnEnvValue(env, "RFQ_TRUST_PROXY");
   if (!configured || configured.trim().length === 0) {
     return defaultTrustProxy;
   }
@@ -908,9 +908,17 @@ export function installGracefulShutdown(
 export function readServerListenConfig(processLike: RuntimeProcess | undefined = runtimeProcess()) {
   const env = processLike?.env;
   return {
-    host: readListenHost(env?.HOST),
-    port: readListenPort(env?.PORT),
+    host: readListenHost(readOwnEnvValue(env, "HOST")),
+    port: readListenPort(readOwnEnvValue(env, "PORT")),
   };
+}
+
+function readOwnEnvValue(env: Record<string, string | undefined> | undefined, name: string): string | undefined {
+  if (!env || !Object.prototype.hasOwnProperty.call(env, name)) {
+    return undefined;
+  }
+
+  return env[name];
 }
 
 function readListenHost(configured: string | undefined): string {

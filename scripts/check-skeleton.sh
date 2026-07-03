@@ -2365,6 +2365,12 @@ grep -q 'Every HTTP response includes an `x-trace-id` header' README.md
 grep -q 'assertTraceHeader' backend/test/api.test.mjs
 grep -q 'onRequest` hook' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Fastify parser' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'readOwnEnvValue(env, "RFQ_QUOTE_TTL_SECONDS")' backend/src/main.ts
+grep -q 'readOwnEnvValue(env, "HOST")' backend/src/main.ts
+grep -q 'RFQ API reads startup environment only from own fields' backend/test/api.test.mjs
+grep -q 'Object.create({ HOST: "0.0.0.0", PORT: "8080" })' backend/test/api.test.mjs
+grep -q 'Gateway startup reads environment configuration only from own fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'Backend startup reads only own environment fields' README.md
 grep -q 'RFQ_BODY_LIMIT_BYTES' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'CORS preflight' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md

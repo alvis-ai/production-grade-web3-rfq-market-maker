@@ -280,6 +280,71 @@ test("RFQ API validates standalone listen configuration", () => {
   );
 });
 
+test("RFQ API reads startup environment only from own fields", async () => {
+  assert.deepEqual(readServerListenConfig({ env: Object.create({ HOST: "0.0.0.0", PORT: "8080" }) }), {
+    host: "127.0.0.1",
+    port: 3000,
+  });
+
+  const originalEnv = {
+    NODE_ENV: process.env.NODE_ENV,
+    RFQ_SIGNER_PRIVATE_KEY: process.env.RFQ_SIGNER_PRIVATE_KEY,
+    RFQ_SETTLEMENT_ADDRESS: process.env.RFQ_SETTLEMENT_ADDRESS,
+    RFQ_QUOTE_TTL_SECONDS: process.env.RFQ_QUOTE_TTL_SECONDS,
+    RFQ_CORS_ALLOWED_ORIGINS: process.env.RFQ_CORS_ALLOWED_ORIGINS,
+    RFQ_ENABLE_HSTS: process.env.RFQ_ENABLE_HSTS,
+  };
+  const originalEnvPrototype = Object.getPrototypeOf(process.env);
+  const fixedNow = Date.now();
+  const originalDateNow = Date.now;
+
+  try {
+    delete process.env.NODE_ENV;
+    delete process.env.RFQ_SIGNER_PRIVATE_KEY;
+    delete process.env.RFQ_SETTLEMENT_ADDRESS;
+    delete process.env.RFQ_QUOTE_TTL_SECONDS;
+    delete process.env.RFQ_CORS_ALLOWED_ORIGINS;
+    delete process.env.RFQ_ENABLE_HSTS;
+    Object.setPrototypeOf(process.env, {
+      NODE_ENV: "production",
+      RFQ_SIGNER_PRIVATE_KEY: "replace-with-production-signer-private-key",
+      RFQ_SETTLEMENT_ADDRESS: "replace-with-rfq-settlement-address",
+      RFQ_QUOTE_TTL_SECONDS: "120",
+      RFQ_CORS_ALLOWED_ORIGINS: "https://evil.example.com",
+      RFQ_ENABLE_HSTS: "true",
+    });
+    Date.now = () => fixedNow;
+
+    const server = buildServer({ logger: false });
+    await server.ready();
+
+    try {
+      const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+      assert.equal(quote.statusCode, 200);
+      assert.equal(quote.body.deadline, Math.floor(fixedNow / 1000) + 30);
+
+      const health = await server.inject({
+        method: "GET",
+        url: "/health",
+        headers: { origin: "https://evil.example.com" },
+      });
+      assert.equal(health.headers["access-control-allow-origin"], undefined);
+      assert.equal(health.headers["strict-transport-security"], undefined);
+    } finally {
+      await server.close();
+    }
+  } finally {
+    Object.setPrototypeOf(process.env, originalEnvPrototype);
+    Date.now = originalDateNow;
+    restoreEnv("NODE_ENV", originalEnv.NODE_ENV);
+    restoreEnv("RFQ_SIGNER_PRIVATE_KEY", originalEnv.RFQ_SIGNER_PRIVATE_KEY);
+    restoreEnv("RFQ_SETTLEMENT_ADDRESS", originalEnv.RFQ_SETTLEMENT_ADDRESS);
+    restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalEnv.RFQ_QUOTE_TTL_SECONDS);
+    restoreEnv("RFQ_CORS_ALLOWED_ORIGINS", originalEnv.RFQ_CORS_ALLOWED_ORIGINS);
+    restoreEnv("RFQ_ENABLE_HSTS", originalEnv.RFQ_ENABLE_HSTS);
+  }
+});
+
 test("RFQ API rejects unsafe rate limit configuration at startup", () => {
   assert.throws(
     () => buildServer({
