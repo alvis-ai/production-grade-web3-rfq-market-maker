@@ -1310,6 +1310,11 @@ grep -q 'hashSettlementQuote rejects malformed quote fields before ABI encoding'
 grep -q 'class ReconciliationService' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'assertReconciliationServiceDeps(deps)' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'assertRecord(deps, "deps")' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'assertOwnFields(deps, reconciliationServiceDepsFields, "deps")' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'assertOptionalOwnField(deps, "pnlService", "deps")' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'assertOptionalOwnField(deps, "hedgeService", "deps")' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'ReconciliationService ${path}.${field} must be an own field' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'ReconciliationService ${path}.${field} must be an own field when provided' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByQuoteId")' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'cloneReconciliationServiceDeps' backend/src/modules/reconciliation/reconciliation.service.ts
@@ -1325,6 +1330,9 @@ grep -q 'reports terminal quote conflicts without stopping later events' backend
 grep -q 'reports settlement events whose quotes are missing' backend/test/reconciliation.test.mjs
 grep -q 'ReconciliationService snapshots dependency object at construction' backend/test/reconciliation.test.mjs
 grep -q 'ReconciliationService rejects unsafe dependency configuration at construction' backend/test/reconciliation.test.mjs
+grep -q 'ReconciliationService deps.quoteRepository must be an own field' backend/test/reconciliation.test.mjs
+grep -q 'ReconciliationService deps.pnlService must be an own field when provided' backend/test/reconciliation.test.mjs
+grep -q 'ReconciliationService deps.hedgeService must be an own field when provided' backend/test/reconciliation.test.mjs
 grep -q 'ReconciliationService settlementEventService must be an object' backend/test/reconciliation.test.mjs
 grep -q 'ReconciliationService pnlService must be an object when provided' backend/test/reconciliation.test.mjs
 grep -q 'repairs hedge intents from settlement events' backend/test/reconciliation.test.mjs
@@ -1376,8 +1384,9 @@ grep -q 'Required dependency entries must be own fields before method validation
 grep -q 'validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SkeletonExecutionService` rejects malformed dependency envelopes and inherited dependency entries before reading required dependency methods' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'optional `pnlService` / `hedgeService` entries must be own fields when provided' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService` validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'ReconciliationService` rejects malformed dependency envelopes as non-array objects before reading required or optional recovery methods' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'ReconciliationService` rejects malformed dependency envelopes, inherited required dependency entries and inherited optional recovery dependencies before reading required or optional recovery methods' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'reports PnL attribution conflicts per settlement event' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates existing hedge intents against settlement events' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'createHedgeIntent' backend/src/modules/execution/execution.service.ts

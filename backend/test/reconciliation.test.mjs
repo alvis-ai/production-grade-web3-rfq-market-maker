@@ -104,6 +104,34 @@ test("ReconciliationService rejects unsafe dependency configuration at construct
     /ReconciliationService deps must be an object/,
   );
   assert.throws(
+    () => new ReconciliationService(Object.create(deps)),
+    /ReconciliationService deps.quoteRepository must be an own field/,
+  );
+
+  const depsWithInheritedPnlService = {
+    quoteRepository: deps.quoteRepository,
+    settlementEventService: deps.settlementEventService,
+  };
+  Object.setPrototypeOf(depsWithInheritedPnlService, {
+    pnlService: new PnlService(),
+  });
+  assert.throws(
+    () => new ReconciliationService(depsWithInheritedPnlService),
+    /ReconciliationService deps.pnlService must be an own field when provided/,
+  );
+
+  const depsWithInheritedHedgeService = {
+    quoteRepository: deps.quoteRepository,
+    settlementEventService: deps.settlementEventService,
+  };
+  Object.setPrototypeOf(depsWithInheritedHedgeService, {
+    hedgeService: new HedgeService(),
+  });
+  assert.throws(
+    () => new ReconciliationService(depsWithInheritedHedgeService),
+    /ReconciliationService deps.hedgeService must be an own field when provided/,
+  );
+  assert.throws(
     () =>
       new ReconciliationService({
         ...deps,

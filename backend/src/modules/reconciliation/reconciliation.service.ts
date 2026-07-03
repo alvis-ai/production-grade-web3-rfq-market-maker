@@ -4,6 +4,8 @@ import type { QuoteRecord, QuoteRepository } from "../quote/quote.repository.js"
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
 import type { SignedQuote } from "../../shared/types/rfq.js";
 
+const reconciliationServiceDepsFields = ["quoteRepository", "settlementEventService"] as const;
+
 export interface SettlementToQuoteReconciliationReport {
   scannedSettlementEvents: number;
   repairedQuoteStatuses: number;
@@ -205,6 +207,9 @@ function cloneReconciliationServiceDeps(deps: ReconciliationServiceDeps): Reconc
 
 function assertReconciliationServiceDeps(deps: ReconciliationServiceDeps): void {
   assertRecord(deps, "deps");
+  assertOwnFields(deps, reconciliationServiceDepsFields, "deps");
+  assertOptionalOwnField(deps, "pnlService", "deps");
+  assertOptionalOwnField(deps, "hedgeService", "deps");
   assertDependencyMethod(deps.settlementEventService, "settlementEventService", "listSettlementEvents");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findStatus");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markStatus");
@@ -253,6 +258,20 @@ function assertRecord(value: unknown, field: "deps" | keyof ReconciliationServic
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`ReconciliationService ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertOptionalOwnField(value: object, field: string, path: string): void {
+  if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
+    throw new Error(`ReconciliationService ${path}.${field} must be an own field when provided`);
+  }
 }
 
 function hedgeIntentFromSettlementEvent(
