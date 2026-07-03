@@ -114,6 +114,19 @@ test("InMemoryRateLimiter rejects unsafe configuration at construction", () => {
   );
 
   assert.throws(
+    () =>
+      new InMemoryRateLimiter(
+        Object.create({
+          windowMs: 1000,
+          maxQuoteRequests: 2,
+          maxSubmitRequests: 1,
+          maxStatusRequests: 1,
+        }),
+      ),
+    /Rate limit config.windowMs must be an own field/,
+  );
+
+  assert.throws(
     () => new InMemoryRateLimiter({
       windowMs: 0,
       maxQuoteRequests: 2,
@@ -155,6 +168,11 @@ test("InMemoryRateLimiter rejects unsafe request inputs before writing buckets",
   assert.throws(
     () => limiter.check(undefined),
     /Rate limit input must be an object/,
+  );
+
+  assert.throws(
+    () => limiter.check(Object.create({ endpoint: "quote", clientId: "client-a" })),
+    /Rate limit input.endpoint must be an own field/,
   );
 
   assert.throws(

@@ -32,6 +32,8 @@ export const defaultRateLimitConfig: RateLimitConfig = {
   maxSubmitRequests: 60,
   maxStatusRequests: 300,
 };
+const rateLimitConfigFields = ["windowMs", "maxQuoteRequests", "maxSubmitRequests", "maxStatusRequests"] as const;
+const rateLimitInputFields = ["endpoint", "clientId"] as const;
 
 export class InMemoryRateLimiter {
   private readonly config: RateLimitConfig;
@@ -100,6 +102,7 @@ function assertRateLimitConfig(config: RateLimitConfig): void {
   if (!isRecord(config)) {
     throw new Error("Rate limit config must be an object");
   }
+  assertOwnFields(config, rateLimitConfigFields, "config");
 }
 
 function assertPositiveSafeInteger(value: number, field: keyof RateLimitConfig): void {
@@ -112,6 +115,7 @@ function normalizeRateLimitInput(input: RateLimitInput): RateLimitInput {
   if (!isRecord(input)) {
     throw new Error("Rate limit input must be an object");
   }
+  assertOwnFields(input, rateLimitInputFields, "input");
   if (!isRateLimitedEndpoint(input.endpoint)) {
     throw new Error("Rate limit endpoint must be quote, submit, or status");
   }
@@ -143,6 +147,14 @@ function isRateLimitedEndpoint(value: unknown): value is RateLimitedEndpoint {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Rate limit ${path}.${field} must be an own field`);
+    }
+  }
 }
 
 function assertRateLimitTimestamp(now: number): void {

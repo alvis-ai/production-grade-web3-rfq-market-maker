@@ -670,6 +670,11 @@ grep -q 'class InMemoryRateLimiter' backend/src/modules/rate-limit/rate-limit.se
 grep -q 'cloneRateLimitConfig' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'assertPositiveSafeInteger' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'normalizeRateLimitInput(input)' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'rateLimitConfigFields = \["windowMs", "maxQuoteRequests", "maxSubmitRequests", "maxStatusRequests"\]' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'rateLimitInputFields = \["endpoint", "clientId"\]' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'assertOwnFields(config, rateLimitConfigFields, "config")' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'assertOwnFields(input, rateLimitInputFields, "input")' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'Rate limit ${path}.${field} must be an own field' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'assertRateLimitTimestamp(now)' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxRateLimitClientIdLength' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'rateLimitClientIdPattern' backend/src/modules/rate-limit/rate-limit.service.ts
@@ -681,7 +686,12 @@ grep -q 'Rate limit clientId must be 128 characters or fewer' backend/src/module
 grep -q 'Rate limit clientId must contain only letters, numbers, dot, underscore, colon, or hyphen' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'InMemoryRateLimiter normalizes client identities before bucketing' backend/test/rate-limit.test.mjs
 grep -q 'new String("client-a")' backend/test/rate-limit.test.mjs
+grep -q 'Rate limit config.windowMs must be an own field' backend/test/rate-limit.test.mjs
+grep -q 'Rate limit input.endpoint must be an own field' backend/test/rate-limit.test.mjs
 grep -q 'client identity trim + lowercase' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'Malformed rate limit config objects and inherited config fields are rejected before numeric field access' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'required own `endpoint` / `clientId` fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'inherited object properties' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'primitive string clientId' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q '128 character clientId upper bound' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -Fq 'clientId character set `[A-Za-z0-9_.:-]`' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
@@ -2455,11 +2465,14 @@ grep -q 'InMemoryRateLimiter snapshots configuration at construction' backend/te
 grep -q 'InMemoryRateLimiter rejects unsafe configuration at construction' backend/test/rate-limit.test.mjs
 grep -q 'assertRateLimitConfig(config)' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'Rate limit config must be an object' backend/src/modules/rate-limit/rate-limit.service.ts
+grep -q 'Rate limit config.windowMs must be an own field' backend/test/rate-limit.test.mjs
+grep -q 'Rate limit input.endpoint must be an own field' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter rejects unsafe request inputs before writing buckets' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter rejects unsafe timestamps before writing buckets' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter evicts expired client buckets before checking' backend/test/rate-limit.test.mjs
 grep -q 'snapshots `RateLimitConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'Malformed rate limit config objects are rejected before numeric field access' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'Malformed rate limit config objects and inherited config fields are rejected before numeric field access' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'required own `endpoint` / `clientId` fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'evicts expired client buckets before checking' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'unsafe rate limit configuration at startup' backend/test/api.test.mjs
 grep -q 'assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor")' backend/src/modules/pricing/pricing.engine.ts
