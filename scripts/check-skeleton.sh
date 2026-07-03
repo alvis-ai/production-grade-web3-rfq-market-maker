@@ -490,6 +490,15 @@ grep -q 'canonicalUtcIsoTimestampPattern' backend/src/shared/validation/timestam
 grep -q 'parseCanonicalUtcIsoTimestamp' backend/src/shared/validation/timestamp.ts
 grep -q 'new Date(parsed).toISOString() === value' backend/src/shared/validation/timestamp.ts
 grep -q 'unknown request fields' backend/test/api.test.mjs
+grep -q 'function assertResponseFields' backend/test/api.test.mjs
+grep -Fq 'assertResponseFields(quote.body, ["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"])' backend/test/api.test.mjs
+grep -Fq 'assertResponseFields(submit.body, ["status", "txHash", "settlementEventId", "hedgeOrderId", "pnlId"])' backend/test/api.test.mjs
+grep -q 'assertResponseFields(status.body' backend/test/api.test.mjs
+grep -q 'assertResponseFields(settlement.body' backend/test/api.test.mjs
+grep -q 'assertResponseFields(hedge.body' backend/test/api.test.mjs
+grep -Fq 'assertResponseFields(pnl.body, ["status", "totalTrades", "grossPnlTokenOut", "trades"])' backend/test/api.test.mjs
+grep -q 'assertResponseFields(pnl.body.trades\[0\]' backend/test/api.test.mjs
+grep -q 'successful response bodies must be closed field sets matching OpenAPI' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Number.MAX_SAFE_INTEGER + 1' backend/test/api.test.mjs
 grep -q 'additionalProperties: false' docs/api/openapi.yaml
 grep -q 'PositiveUIntString' docs/api/openapi.yaml

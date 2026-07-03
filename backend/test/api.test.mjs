@@ -620,11 +620,28 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     const health = await injectJson(server, "GET", "/health");
     assert.equal(health.statusCode, 200);
     assertTraceHeader(health);
+    assertResponseFields(health.body, ["status"]);
     assert.equal(health.body.status, "ok");
 
     const ready = await injectJson(server, "GET", "/ready");
     assert.equal(ready.statusCode, 200);
     assertTraceHeader(ready);
+    assertResponseFields(ready.body, ["status", "components"]);
+    assertResponseFields(ready.body.components, [
+      "marketData",
+      "marketSnapshotStore",
+      "routing",
+      "pricing",
+      "risk",
+      "signer",
+      "quoteRepository",
+      "riskDecisionStore",
+      "inventory",
+      "execution",
+      "settlementEventStore",
+      "pnl",
+      "metrics",
+    ]);
     assert.equal(ready.body.status, "ready");
     assert.equal(ready.body.components.signer, "ok");
     assert.equal(ready.body.components.marketData, "ok");
@@ -643,6 +660,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
     assert.equal(quote.statusCode, 200);
     assertTraceHeader(quote);
+    assertResponseFields(quote.body, ["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"]);
     assert.match(quote.body.quoteId, /^q_/);
     assert.equal(quote.body.amountOut, "998400000");
     assert.equal(quote.body.minAmountOut, "993408000");
@@ -664,6 +682,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     });
     assert.equal(submit.statusCode, 202);
     assertTraceHeader(submit);
+    assertResponseFields(submit.body, ["status", "txHash", "settlementEventId", "hedgeOrderId", "pnlId"]);
     assert.equal(submit.body.status, "accepted");
     assert.match(submit.body.txHash, /^0x[0-9a-fA-F]{64}$/);
     assert.match(submit.body.settlementEventId, /^se_/);
@@ -673,6 +692,19 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
     assert.equal(status.statusCode, 200);
     assertTraceHeader(status);
+    assertResponseFields(status.body, [
+      "quoteId",
+      "status",
+      "snapshotId",
+      "deadline",
+      "txHash",
+      "settlementEventId",
+      "hedgeOrderId",
+      "pnlId",
+    ]);
+    assert.equal(status.body.quoteId, quote.body.quoteId);
+    assert.equal(status.body.snapshotId, quote.body.snapshotId);
+    assert.equal(status.body.deadline, quote.body.deadline);
     assert.equal(status.body.status, "settled");
     assert.equal(status.body.txHash, submit.body.txHash);
     assert.equal(status.body.settlementEventId, submit.body.settlementEventId);
@@ -682,6 +714,22 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     const settlement = await injectJson(server, "GET", `/settlements/${submit.body.settlementEventId}`);
     assert.equal(settlement.statusCode, 200);
     assertTraceHeader(settlement);
+    assertResponseFields(settlement.body, [
+      "settlementEventId",
+      "status",
+      "quoteId",
+      "chainId",
+      "txHash",
+      "quoteHash",
+      "blockNumber",
+      "logIndex",
+      "user",
+      "tokenIn",
+      "tokenOut",
+      "amountIn",
+      "amountOut",
+      "observedAt",
+    ]);
     assert.equal(settlement.body.settlementEventId, submit.body.settlementEventId);
     assert.equal(settlement.body.status, "applied");
     assert.equal(settlement.body.quoteId, quote.body.quoteId);
@@ -700,6 +748,18 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     const hedge = await injectJson(server, "GET", `/hedges/${submit.body.hedgeOrderId}`);
     assert.equal(hedge.statusCode, 200);
     assertTraceHeader(hedge);
+    assertResponseFields(hedge.body, [
+      "hedgeOrderId",
+      "status",
+      "settlementEventId",
+      "quoteId",
+      "chainId",
+      "token",
+      "side",
+      "amount",
+      "reason",
+      "createdAt",
+    ]);
     assert.equal(hedge.body.hedgeOrderId, submit.body.hedgeOrderId);
     assert.equal(hedge.body.status, "queued");
     assert.equal(hedge.body.settlementEventId, submit.body.settlementEventId);
@@ -714,10 +774,28 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     const pnl = await injectJson(server, "GET", "/pnl");
     assert.equal(pnl.statusCode, 200);
     assertTraceHeader(pnl);
+    assertResponseFields(pnl.body, ["status", "totalTrades", "grossPnlTokenOut", "trades"]);
     assert.equal(pnl.body.status, "ok");
     assert.equal(pnl.body.totalTrades, 1);
     assert.equal(pnl.body.grossPnlTokenOut, "1600000");
     assert.equal(pnl.body.trades.length, 1);
+    assertResponseFields(pnl.body.trades[0], [
+      "pnlId",
+      "quoteId",
+      "chainId",
+      "user",
+      "tokenIn",
+      "tokenOut",
+      "amountIn",
+      "amountOut",
+      "minAmountOut",
+      "nonce",
+      "deadline",
+      "grossPnlTokenOut",
+      "grossPnlBps",
+      "model",
+      "realizedAt",
+    ]);
     assert.equal(pnl.body.trades[0].pnlId, submit.body.pnlId);
     assert.equal(pnl.body.trades[0].quoteId, quote.body.quoteId);
     assert.equal(pnl.body.trades[0].amountIn, baseQuoteRequest.amountIn);
@@ -3257,6 +3335,10 @@ function quotePayloadFromResponse(quote) {
 
 function assertTraceHeader(response) {
   assert.match(String(response.headers["x-trace-id"]), /^tr_/);
+}
+
+function assertResponseFields(body, fields) {
+  assert.deepEqual(Object.keys(body).sort(), [...fields].sort());
 }
 
 function assertSecurityHeaders(response, { hsts }) {
