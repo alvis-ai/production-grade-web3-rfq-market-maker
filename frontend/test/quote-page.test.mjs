@@ -42,3 +42,17 @@ test("QuotePage ignores stale quote responses after request edits", () => {
     assert.ok(source.includes(expected), expected);
   }
 });
+
+test("QuotePage drives submit eligibility from a ticking TTL clock", () => {
+  for (const expected of [
+    "useEffect",
+    "const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));",
+    "window.setInterval",
+    "window.clearInterval(timer)",
+    "const expiresInSeconds = quote ? Math.max(0, quote.deadline - nowSeconds) : undefined;",
+    "expiresInSeconds > 0",
+    "expiresInSeconds={expiresInSeconds}",
+  ]) {
+    assert.ok(source.includes(expected), expected);
+  }
+});

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   Address,
   HedgeIntentStatus,
@@ -43,6 +43,7 @@ export function QuotePage() {
   const [isWalletEnabled, setIsWalletEnabled] = useState(false);
   const [error, setError] = useState<UIError>();
   const [isLoading, setIsLoading] = useState(false);
+  const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));
   const quoteSessionVersion = useRef(0);
 
   const clearQuoteSession = useCallback(() => {
@@ -92,7 +93,19 @@ export function QuotePage() {
     return buildQuoteFromResponse(quotedRequest, quote);
   }, [quote, quotedRequest]);
 
-  const canSubmit = Boolean(signedQuote && quote && quote.deadline >= Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    if (!quote) return undefined;
+
+    setNowSeconds(Math.floor(Date.now() / 1000));
+    const timer = window.setInterval(() => {
+      setNowSeconds(Math.floor(Date.now() / 1000));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [quote]);
+
+  const expiresInSeconds = quote ? Math.max(0, quote.deadline - nowSeconds) : undefined;
+  const canSubmit = Boolean(signedQuote && quote && expiresInSeconds !== undefined && expiresInSeconds > 0);
 
   async function requestQuote() {
     clearQuoteSession();
@@ -194,6 +207,7 @@ export function QuotePage() {
             submitResult={submitResult}
             error={error}
             canSubmit={canSubmit}
+            expiresInSeconds={expiresInSeconds}
             walletAddress={walletState.address}
             activeChainId={walletState.chainId}
             settlementAddress={rfqSettlementAddress}

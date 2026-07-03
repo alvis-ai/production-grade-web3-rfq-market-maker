@@ -18,6 +18,7 @@ interface QuoteStatusPanelProps {
   submitResult?: SubmitQuoteResponse;
   error?: UIError;
   canSubmit: boolean;
+  expiresInSeconds?: number;
   walletAddress?: string;
   activeChainId?: number;
   settlementAddress?: string;
@@ -36,6 +37,7 @@ export function QuoteStatusPanel({
   submitResult,
   error,
   canSubmit,
+  expiresInSeconds,
   walletAddress,
   activeChainId,
   settlementAddress,
@@ -75,6 +77,10 @@ export function QuoteStatusPanel({
         <div>
           <dt>Deadline</dt>
           <dd>{quote?.deadline ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Expires In</dt>
+          <dd>{expiresInSeconds === undefined ? "-" : `${expiresInSeconds}s`}</dd>
         </div>
         <div>
           <dt>Tx Hash</dt>

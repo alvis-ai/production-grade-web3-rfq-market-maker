@@ -1732,18 +1732,30 @@ grep -q 'traceId' frontend/src/lib/errors.ts
 grep -q 'retryAfterSeconds' frontend/src/lib/errors.ts
 grep -q 'toUIError' frontend/src/pages/QuotePage.tsx
 test -s frontend/test/quote-page.test.mjs
+test -s frontend/test/quote-status-panel.test.mjs
 grep -q 'quotedRequest' frontend/src/pages/QuotePage.tsx
 grep -q 'setQuotedRequest(safeRequest)' frontend/src/pages/QuotePage.tsx
 grep -q 'buildQuoteFromResponse(quotedRequest, quote)' frontend/src/pages/QuotePage.tsx
 grep -q 'clearQuoteSession' frontend/src/pages/QuotePage.tsx
 grep -q 'quoteSessionVersion.current += 1' frontend/src/pages/QuotePage.tsx
 grep -q 'if (quoteSessionVersion.current !== quoteSession) return' frontend/src/pages/QuotePage.tsx
+grep -q 'const \[nowSeconds, setNowSeconds\] = useState' frontend/src/pages/QuotePage.tsx
+grep -q 'window.setInterval' frontend/src/pages/QuotePage.tsx
+grep -q 'window.clearInterval(timer)' frontend/src/pages/QuotePage.tsx
+grep -q 'const expiresInSeconds = quote ? Math.max(0, quote.deadline - nowSeconds) : undefined' frontend/src/pages/QuotePage.tsx
+grep -q 'expiresInSeconds > 0' frontend/src/pages/QuotePage.tsx
+grep -q 'expiresInSeconds={expiresInSeconds}' frontend/src/pages/QuotePage.tsx
+grep -q 'expiresInSeconds?: number' frontend/src/components/QuoteStatusPanel.tsx
+grep -q '<dt>Expires In</dt>' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'onChange={handleRequestChange}' frontend/src/pages/QuotePage.tsx
 grep -q 'QuotePage binds signed quotes to the quoted request snapshot' frontend/test/quote-page.test.mjs
 grep -q 'QuotePage clears quote session when request changes' frontend/test/quote-page.test.mjs
 grep -q 'QuotePage ignores stale quote responses after request edits' frontend/test/quote-page.test.mjs
+grep -q 'QuotePage drives submit eligibility from a ticking TTL clock' frontend/test/quote-page.test.mjs
+grep -q 'QuoteStatusPanel renders the quote TTL countdown field' frontend/test/quote-status-panel.test.mjs
 grep -q 'Quote UI binds every `QuoteResponse` to the validated request snapshot' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'in-flight quote responses are ignored when their session version is no longer current' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
+grep -q 'TTL countdown is driven by a one-second UI clock while a quote is active' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getSettlement' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx
