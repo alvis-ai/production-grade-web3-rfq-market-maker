@@ -1448,7 +1448,7 @@ test("RFQClient rejects malformed successful JSON responses", async () => {
 });
 
 test("RFQClient rejects malformed health and readiness status responses", async () => {
-  const restoreHealthFetch = installFetch(async () => jsonResponse(200, { status: "degraded" }));
+  const restoreHealthFetch = installFetch(async () => jsonResponse(200, Object.create({ status: "ok" })));
 
   try {
     const client = new RFQClient("http://127.0.0.1:3000");
@@ -1468,6 +1468,10 @@ test("RFQClient rejects malformed health and readiness status responses", async 
   }
 
   const malformedReadinessCases = [
+    Object.create({
+      status: "ready",
+      components: readinessComponents,
+    }),
     {
       status: "ready",
       components: {
@@ -2056,6 +2060,10 @@ test("RFQClient rejects malformed successful response fields", async () => {
   };
   const quoteCases = [
     {
+      payload: Object.create(quoteResponse),
+      message: "RFQ quote response returned malformed quoteId",
+    },
+    {
       payload: { ...quoteResponse, quoteId: "" },
       message: "RFQ quote response returned malformed quoteId",
       traceId: "tr_malformed_field",
@@ -2151,6 +2159,10 @@ test("RFQClient rejects malformed successful response fields", async () => {
     pnlId: "pnl_q_test",
   };
   const submitCases = [
+    {
+      payload: withPrototype({ txHash: submitResponse.txHash }, { status: "accepted" }),
+      message: "RFQ submit response returned malformed txHash",
+    },
     {
       payload: { ...submitResponse, txHash: "0x1234" },
       message: "RFQ submit response returned malformed txHash",
@@ -2298,6 +2310,10 @@ function responseHeaders(headers) {
       return normalized.get(name.toLowerCase()) ?? null;
     },
   };
+}
+
+function withPrototype(prototype, ownFields) {
+  return Object.assign(Object.create(prototype), ownFields);
 }
 
 function malleateSignature(value) {

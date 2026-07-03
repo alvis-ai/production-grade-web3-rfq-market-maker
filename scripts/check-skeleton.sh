@@ -2031,6 +2031,14 @@ grep -q 'SECP256K1N_HALF' sdk/src/client.ts
 grep -q 'malleateSignature(await validTypedDataSignature())' sdk/test/sdk.test.mjs
 grep -q 'canonical low-s EIP-712 signature' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'malformed successful response fields' sdk/test/sdk.test.mjs
+grep -q 'assertOwnResponseFields' sdk/src/client.ts
+grep -q 'assertOptionalOwnResponseField' sdk/src/client.ts
+grep -q 'quoteResponseFields = \["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"\]' sdk/src/client.ts
+grep -q 'jsonResponse(200, Object.create({ status: "ok" }))' sdk/test/sdk.test.mjs
+grep -q 'Object.create({' sdk/test/sdk.test.mjs
+grep -q 'payload: Object.create(quoteResponse)' sdk/test/sdk.test.mjs
+grep -q 'withPrototype({ txHash: submitResponse.txHash }, { status: "accepted" })' sdk/test/sdk.test.mjs
+grep -q 'required fields and present optional fields to be own response fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'Stringified numbers and wrapper objects are rejected instead of being coerced with `Number(...)`' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -Fq 'return typeof value === "string" && /^(0|-?[1-9][0-9]*)$/.test(value)' sdk/src/client.ts
 grep -q 'grossPnlTokenOut: "01600000"' sdk/test/sdk.test.mjs

@@ -35,6 +35,65 @@ const isoUtcTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const clientOptionFields = ["fetch", "traceId"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const submitRequestFields = ["quote", "signature"] as const;
+const quoteResponseFields = ["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"] as const;
+const submitResponseRequiredFields = ["status"] as const;
+const submitResponseOptionalFields = ["txHash", "settlementEventId", "hedgeOrderId", "pnlId"] as const;
+const quoteStatusRequiredFields = ["quoteId", "status"] as const;
+const quoteStatusOptionalFields = [
+  "snapshotId",
+  "deadline",
+  "txHash",
+  "settlementEventId",
+  "hedgeOrderId",
+  "pnlId",
+  "errorCode",
+] as const;
+const hedgeStatusFields = [
+  "hedgeOrderId",
+  "status",
+  "settlementEventId",
+  "quoteId",
+  "chainId",
+  "token",
+  "side",
+  "amount",
+  "reason",
+  "createdAt",
+] as const;
+const settlementEventStatusFields = [
+  "settlementEventId",
+  "status",
+  "quoteId",
+  "chainId",
+  "txHash",
+  "quoteHash",
+  "blockNumber",
+  "logIndex",
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "observedAt",
+] as const;
+const pnlSummaryFields = ["status", "totalTrades", "grossPnlTokenOut", "trades"] as const;
+const pnlTradeRecordFields = [
+  "pnlId",
+  "quoteId",
+  "chainId",
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "minAmountOut",
+  "nonce",
+  "deadline",
+  "grossPnlTokenOut",
+  "grossPnlBps",
+  "model",
+  "realizedAt",
+] as const;
 const rfqErrorCodeSet: ReadonlySet<string> = new Set(rfqErrorCodes);
 const readinessDependencyComponents = [
   "marketData",
@@ -426,6 +485,7 @@ function assertOptionalBytes32Field(payload: unknown, field: string, status: num
     throw malformedFieldError(status, label, field);
   }
 
+  assertOptionalOwnResponseField(payload, field, status, label);
   const value = payload[field];
   if (value === undefined) return;
 
@@ -435,13 +495,13 @@ function assertOptionalBytes32Field(payload: unknown, field: string, status: num
 }
 
 function assertRequiredBytes32Field(payload: unknown, field: string, status: number, label: string): void {
-  if (!isRecord(payload) || !isBytes32Hex(payload[field])) {
+  if (!isRecord(payload) || !hasOwnField(payload, field) || !isBytes32Hex(payload[field])) {
     throw malformedFieldError(status, label, field);
   }
 }
 
 function assertRequiredSignatureField(payload: unknown, field: string, status: number, label: string): void {
-  if (!isRecord(payload) || !isSignatureHex(payload[field])) {
+  if (!isRecord(payload) || !hasOwnField(payload, field) || !isSignatureHex(payload[field])) {
     throw malformedFieldError(status, label, field);
   }
 }
@@ -453,13 +513,18 @@ function assertRequiredEnumField(
   status: number,
   label: string,
 ): void {
-  if (!isRecord(payload) || typeof payload[field] !== "string" || !allowedValues.includes(payload[field])) {
+  if (
+    !isRecord(payload) ||
+    !hasOwnField(payload, field) ||
+    typeof payload[field] !== "string" ||
+    !allowedValues.includes(payload[field])
+  ) {
     throw malformedFieldError(status, label, field);
   }
 }
 
 function assertRequiredNonNegativeIntegerField(payload: unknown, field: string, status: number, label: string): void {
-  if (!isRecord(payload) || !isNonNegativeSafeInteger(payload[field])) {
+  if (!isRecord(payload) || !hasOwnField(payload, field) || !isNonNegativeSafeInteger(payload[field])) {
     throw malformedFieldError(status, label, field);
   }
 }
@@ -469,6 +534,7 @@ function assertQuoteResponse(payload: unknown, status: number): asserts payload 
   if (!isRecord(payload)) {
     throw malformedFieldError(status, label, "quoteId");
   }
+  assertOwnResponseFields(payload, quoteResponseFields, [], status, label);
 
   for (const field of ["quoteId", "snapshotId"] as const) {
     if (!isSafeIdentifier(payload[field])) {
@@ -499,6 +565,7 @@ function assertSubmitQuoteResponse(payload: unknown, status: number): asserts pa
   if (!isRecord(payload)) {
     throw malformedFieldError(status, label, "status");
   }
+  assertOwnResponseFields(payload, submitResponseRequiredFields, submitResponseOptionalFields, status, label);
 
   assertRequiredEnumField(payload, "status", ["accepted"], status, label);
   assertOptionalBytes32Field(payload, "txHash", status, label);
@@ -514,6 +581,7 @@ function assertQuoteStatus(payload: unknown, status: number): asserts payload is
   if (!isRecord(payload)) {
     throw malformedFieldError(status, label, "status");
   }
+  assertOwnResponseFields(payload, quoteStatusRequiredFields, quoteStatusOptionalFields, status, label);
 
   if (!isSafeIdentifier(payload.quoteId)) {
     throw malformedFieldError(status, label, "quoteId");
@@ -576,6 +644,7 @@ function assertHedgeIntentStatus(payload: unknown, status: number): asserts payl
   if (!isRecord(payload)) {
     throw malformedFieldError(status, label, "status");
   }
+  assertOwnResponseFields(payload, hedgeStatusFields, [], status, label);
 
   for (const field of ["hedgeOrderId", "settlementEventId", "quoteId"] as const) {
     if (!isSafeIdentifier(payload[field])) {
@@ -611,6 +680,7 @@ function assertSettlementEventStatus(payload: unknown, status: number): asserts 
   if (!isRecord(payload)) {
     throw malformedFieldError(status, label, "status");
   }
+  assertOwnResponseFields(payload, settlementEventStatusFields, [], status, label);
 
   for (const field of ["settlementEventId", "quoteId"] as const) {
     if (!isSafeIdentifier(payload[field])) {
@@ -654,6 +724,7 @@ function assertPnlSummary(payload: unknown, status: number): asserts payload is 
   if (!isRecord(payload)) {
     throw malformedFieldError(status, label, "status");
   }
+  assertOwnResponseFields(payload, pnlSummaryFields, [], status, label);
 
   if (payload.status !== "ok") {
     throw malformedFieldError(status, label, "status");
@@ -687,6 +758,7 @@ function assertPnlTradeRecord(payload: unknown, status: number): asserts payload
   if (!isRecord(payload)) {
     throw malformedFieldError(status, label, "pnlId");
   }
+  assertOwnResponseFields(payload, pnlTradeRecordFields, [], status, label);
 
   for (const field of ["pnlId", "quoteId"] as const) {
     if (!isSafeIdentifier(payload[field])) {
@@ -745,6 +817,39 @@ function assertPnlTradeRecord(payload: unknown, status: number): asserts payload
 
 function malformedFieldError(status: number, label: string, field: string): RFQClientError {
   return new RFQClientError(`${label} returned malformed ${field}`, status);
+}
+
+function assertOwnResponseFields(
+  payload: Record<string, unknown>,
+  requiredFields: readonly string[],
+  optionalFields: readonly string[],
+  status: number,
+  label: string,
+): void {
+  for (const field of requiredFields) {
+    if (!hasOwnField(payload, field)) {
+      throw malformedFieldError(status, label, field);
+    }
+  }
+
+  for (const field of optionalFields) {
+    assertOptionalOwnResponseField(payload, field, status, label);
+  }
+}
+
+function assertOptionalOwnResponseField(
+  payload: Record<string, unknown>,
+  field: string,
+  status: number,
+  label: string,
+): void {
+  if (field in payload && !hasOwnField(payload, field)) {
+    throw malformedFieldError(status, label, field);
+  }
+}
+
+function hasOwnField(payload: object, field: string): boolean {
+  return Object.prototype.hasOwnProperty.call(payload, field);
 }
 
 function isBytes32Hex(value: unknown): value is `0x${string}` {
@@ -895,13 +1000,15 @@ function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {
 }
 
 function isHealthResponse(value: unknown): value is HealthResponse {
-  return isRecord(value) && value.status === "ok";
+  return isRecord(value) && hasOwnField(value, "status") && value.status === "ok";
 }
 
 function isReadinessResponse(value: unknown): value is ReadinessResponse {
   if (!isRecord(value)) return false;
 
   return (
+    hasOwnField(value, "status") &&
+    hasOwnField(value, "components") &&
     (value.status === "ready" || value.status === "degraded") &&
     isReadinessComponents(value.components)
   );
