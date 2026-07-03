@@ -2,6 +2,34 @@ import type { QuoteRequest } from "../../shared/types/rfq.js";
 import type { InventoryProjection } from "../inventory/inventory.service.js";
 import type { PricingResult } from "../pricing/pricing.engine.js";
 
+const basicRiskPolicyFields = [
+  "policyVersion",
+  "enabledChainIds",
+  "tokenAllowlist",
+  "restrictedUsers",
+  "toxicFlowScores",
+  "maxToxicScoreBps",
+  "maxAmountIn",
+  "minAmountOut",
+  "maxSlippageBps",
+  "maxQuotedSpreadBps",
+  "maxAbsoluteInventory",
+] as const;
+const toxicFlowScoreFields = ["user", "scoreBps"] as const;
+const riskInputFields = ["request", "pricing"] as const;
+const riskInputOptionalFields = ["inventoryProjection"] as const;
+const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
+const pricingResultFields = [
+  "amountOut",
+  "minAmountOut",
+  "spreadBps",
+  "sizeImpactBps",
+  "inventorySkewBps",
+  "pricingVersion",
+] as const;
+const inventoryProjectionFields = ["tokenIn", "tokenOut"] as const;
+const inventoryPositionFields = ["chainId", "token", "balance"] as const;
+
 export type RiskDecisionStatus = "approved" | "rejected";
 export type RiskRejectReasonCode =
   | "CHAIN_NOT_ENABLED"
@@ -82,6 +110,7 @@ export class BasicRiskEngine implements RiskEngine {
 
   constructor(policy: BasicRiskPolicy = defaultBasicRiskPolicy) {
     assertObject(policy, "policy");
+    assertOwnFields(policy, basicRiskPolicyFields, "policy");
     assertNonEmptyString(policy.policyVersion, "policyVersion");
     assertChainIds(policy.enabledChainIds);
     assertAddressList(policy.tokenAllowlist, "tokenAllowlist", true);
@@ -229,6 +258,7 @@ function assertToxicFlowScores(scores: readonly ToxicFlowScore[]): void {
   const seenUsers = new Set<string>();
   for (const score of scores) {
     assertObject(score, "toxicFlowScores entry");
+    assertOwnFields(score, toxicFlowScoreFields, "toxicFlowScores entry");
     assertAddress(score.user, "toxicFlowScores.user");
     assertBpsUpperBound(score.scoreBps, "toxicFlowScores.scoreBps");
     const normalizedUser = score.user.toLowerCase();
@@ -247,8 +277,12 @@ function assertAddress(value: string, field: string): void {
 
 function assertRiskInput(input: RiskInput): void {
   assertObject(input, "input");
+  assertOwnFields(input, riskInputFields, "input");
+  assertOwnOptionalFields(input, riskInputOptionalFields, "input");
   assertObject(input.request, "request");
+  assertOwnFields(input.request, quoteRequestFields, "request");
   assertObject(input.pricing, "pricing");
+  assertOwnFields(input.pricing, pricingResultFields, "pricing");
   assertPositiveSafeInteger(input.request.chainId, "request.chainId");
   assertAddress(input.request.user, "request.user");
   assertAddress(input.request.tokenIn, "request.tokenIn");
@@ -271,6 +305,7 @@ function assertRiskInput(input: RiskInput): void {
 
   if (input.inventoryProjection !== undefined) {
     assertObject(input.inventoryProjection, "inventoryProjection");
+    assertOwnFields(input.inventoryProjection, inventoryProjectionFields, "inventoryProjection");
     assertInventoryPosition(input.inventoryProjection.tokenIn, input.request.chainId, input.request.tokenIn, "tokenIn");
     assertInventoryPosition(input.inventoryProjection.tokenOut, input.request.chainId, input.request.tokenOut, "tokenOut");
   }
@@ -283,6 +318,7 @@ function assertInventoryPosition(
   field: "tokenIn" | "tokenOut",
 ): void {
   assertObject(position, `inventoryProjection.${field}`);
+  assertOwnFields(position, inventoryPositionFields, `inventoryProjection.${field}`);
   assertPositiveSafeInteger(position.chainId, `inventoryProjection.${field}.chainId`);
   assertAddress(position.token, `inventoryProjection.${field}.token`);
   if (position.chainId !== expectedChainId || position.token.toLowerCase() !== expectedToken.toLowerCase()) {
@@ -296,6 +332,22 @@ function assertInventoryPosition(
 function assertObject(value: unknown, field: string): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Basic risk ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Basic risk ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertOwnOptionalFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Basic risk ${path}.${field} must be an own field when provided`);
+    }
   }
 }
 

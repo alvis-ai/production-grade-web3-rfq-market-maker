@@ -2517,11 +2517,41 @@ grep -q 'assertArray(chainIds, "enabledChainIds")' backend/src/modules/risk/risk
 grep -q 'assertObject(input.request, "request")' backend/src/modules/risk/risk.engine.ts
 grep -q 'assertObject(input.pricing, "pricing")' backend/src/modules/risk/risk.engine.ts
 grep -q 'assertObject(input.inventoryProjection, "inventoryProjection")' backend/src/modules/risk/risk.engine.ts
+grep -q 'basicRiskPolicyFields = \[' backend/src/modules/risk/risk.engine.ts
+grep -q 'toxicFlowScoreFields = \["user", "scoreBps"\]' backend/src/modules/risk/risk.engine.ts
+grep -q 'riskInputFields = \["request", "pricing"\]' backend/src/modules/risk/risk.engine.ts
+grep -q 'riskInputOptionalFields = \["inventoryProjection"\]' backend/src/modules/risk/risk.engine.ts
+grep -q 'quoteRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' backend/src/modules/risk/risk.engine.ts
+grep -q 'pricingResultFields = \[' backend/src/modules/risk/risk.engine.ts
+grep -q 'inventoryProjectionFields = \["tokenIn", "tokenOut"\]' backend/src/modules/risk/risk.engine.ts
+grep -q 'inventoryPositionFields = \["chainId", "token", "balance"\]' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertOwnFields(policy, basicRiskPolicyFields, "policy")' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertOwnFields(score, toxicFlowScoreFields, "toxicFlowScores entry")' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertOwnFields(input, riskInputFields, "input")' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertOwnOptionalFields(input, riskInputOptionalFields, "input")' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertOwnFields(input.request, quoteRequestFields, "request")' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertOwnFields(input.pricing, pricingResultFields, "pricing")' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertOwnFields(input.inventoryProjection, inventoryProjectionFields, "inventoryProjection")' backend/src/modules/risk/risk.engine.ts
+grep -q 'assertOwnFields(position, inventoryPositionFields, `inventoryProjection.${field}`)' backend/src/modules/risk/risk.engine.ts
+grep -q 'Basic risk ${path}.${field} must be an own field' backend/src/modules/risk/risk.engine.ts
+grep -q 'Basic risk ${path}.${field} must be an own field when provided' backend/src/modules/risk/risk.engine.ts
 grep -q 'BasicRiskEngine rejects unsafe policy configuration at construction' backend/test/risk.test.mjs
 grep -q 'BasicRiskEngine rejects malformed runtime payload envelopes before policy evaluation' backend/test/risk.test.mjs
+grep -q 'BasicRiskEngine rejects inherited runtime input fields before policy evaluation' backend/test/risk.test.mjs
 grep -q 'BasicRiskEngine rejects unsafe runtime inputs before policy evaluation' backend/test/risk.test.mjs
-grep -q 'malformed policy object, policy array fields and toxic-flow score entries must be rejected before field access' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
-grep -q 'malformed root payloads and missing `request` / `pricing` / `inventoryProjection` position objects fail before field access' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'Basic risk policy.policyVersion must be an own field' backend/test/risk.test.mjs
+grep -q 'Basic risk toxicFlowScores entry.user must be an own field' backend/test/risk.test.mjs
+grep -q 'Basic risk input.request must be an own field' backend/test/risk.test.mjs
+grep -q 'Basic risk input.pricing must be an own field' backend/test/risk.test.mjs
+grep -q 'Basic risk input.inventoryProjection must be an own field when provided' backend/test/risk.test.mjs
+grep -q 'Basic risk request.chainId must be an own field' backend/test/risk.test.mjs
+grep -q 'Basic risk pricing.amountOut must be an own field' backend/test/risk.test.mjs
+grep -q 'Basic risk inventoryProjection.tokenIn must be an own field' backend/test/risk.test.mjs
+grep -q 'Basic risk inventoryProjection.tokenIn.chainId must be an own field' backend/test/risk.test.mjs
+grep -q 'malformed policy object、inherited policy fields、policy array fields、toxic-flow score entries and inherited score fields must be rejected before field access' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'missing required own top-level `request` / `pricing` fields' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'inherited optional `inventoryProjection`' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'missing required own projection / position fields fail before nested field access' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'canonical decimal form without leading zeros' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'JavaScript regex coercion' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'policy config fail-fast' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md

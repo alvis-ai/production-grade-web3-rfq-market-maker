@@ -157,6 +157,11 @@ test("BasicRiskEngine rejects unsafe policy configuration at construction", () =
   );
 
   assert.throws(
+    () => new BasicRiskEngine(Object.create(defaultBasicRiskPolicy)),
+    /Basic risk policy.policyVersion must be an own field/,
+  );
+
+  assert.throws(
     () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, enabledChainIds: undefined }),
     /Basic risk enabledChainIds must be an array/,
   );
@@ -249,6 +254,20 @@ test("BasicRiskEngine rejects unsafe policy configuration at construction", () =
       new BasicRiskEngine({
         ...defaultBasicRiskPolicy,
         toxicFlowScores: [
+          Object.create({
+            user: baseRequest.user,
+            scoreBps: 100,
+          }),
+        ],
+      }),
+    /Basic risk toxicFlowScores entry.user must be an own field/,
+  );
+
+  assert.throws(
+    () =>
+      new BasicRiskEngine({
+        ...defaultBasicRiskPolicy,
+        toxicFlowScores: [
           {
             user: baseRequest.user,
             scoreBps: -1,
@@ -289,14 +308,14 @@ test("BasicRiskEngine rejects malformed runtime payload envelopes before policy 
     engine.evaluate({
       pricing: basePricing,
     }),
-    /Basic risk request must be an object/,
+    /Basic risk input.request must be an own field/,
   );
 
   await assert.rejects(
     engine.evaluate({
       request: baseRequest,
     }),
-    /Basic risk pricing must be an object/,
+    /Basic risk input.pricing must be an own field/,
   );
 
   await assert.rejects(
@@ -320,7 +339,75 @@ test("BasicRiskEngine rejects malformed runtime payload envelopes before policy 
         },
       },
     }),
-    /Basic risk inventoryProjection.tokenIn must be an object/,
+    /Basic risk inventoryProjection.tokenIn must be an own field/,
+  );
+});
+
+test("BasicRiskEngine rejects inherited runtime input fields before policy evaluation", async () => {
+  const engine = new BasicRiskEngine();
+  const inventoryProjection = {
+    tokenIn: {
+      chainId: 1,
+      token: baseRequest.tokenIn,
+      balance: 1n,
+    },
+    tokenOut: {
+      chainId: 1,
+      token: baseRequest.tokenOut,
+      balance: -1n,
+    },
+  };
+
+  await assert.rejects(
+    engine.evaluate(Object.create({ request: baseRequest, pricing: basePricing })),
+    /Basic risk input.request must be an own field/,
+  );
+
+  const inheritedInventoryInput = Object.create({ inventoryProjection });
+  Object.assign(inheritedInventoryInput, {
+    request: baseRequest,
+    pricing: basePricing,
+  });
+  await assert.rejects(
+    engine.evaluate(inheritedInventoryInput),
+    /Basic risk input.inventoryProjection must be an own field when provided/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: Object.create(baseRequest),
+      pricing: basePricing,
+    }),
+    /Basic risk request.chainId must be an own field/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: baseRequest,
+      pricing: Object.create(basePricing),
+    }),
+    /Basic risk pricing.amountOut must be an own field/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: baseRequest,
+      pricing: basePricing,
+      inventoryProjection: Object.create(inventoryProjection),
+    }),
+    /Basic risk inventoryProjection.tokenIn must be an own field/,
+  );
+
+  await assert.rejects(
+    engine.evaluate({
+      request: baseRequest,
+      pricing: basePricing,
+      inventoryProjection: {
+        tokenIn: Object.create(inventoryProjection.tokenIn),
+        tokenOut: inventoryProjection.tokenOut,
+      },
+    }),
+    /Basic risk inventoryProjection.tokenIn.chainId must be an own field/,
   );
 });
 
