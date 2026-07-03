@@ -36,6 +36,7 @@ const clientOptionFields = ["fetch", "traceId"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const submitRequestFields = ["quote", "signature"] as const;
 const quoteResponseFields = ["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"] as const;
+const errorResponseFields = ["code", "message", "traceId"] as const;
 const submitResponseRequiredFields = ["status"] as const;
 const submitResponseOptionalFields = ["txHash", "settlementEventId", "hedgeOrderId", "pnlId"] as const;
 const quoteStatusRequiredFields = ["quoteId", "status"] as const;
@@ -990,11 +991,9 @@ function assertNonEmptyIdentifier(value: unknown, field: "quoteId" | "hedgeOrder
 
 function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {
   if (!isRecord(value)) return false;
+  if (!hasExactOwnFields(value, errorResponseFields)) return false;
 
   return (
-    hasOwnField(value, "code") &&
-    hasOwnField(value, "message") &&
-    hasOwnField(value, "traceId") &&
     typeof value.code === "string" &&
     rfqErrorCodeSet.has(value.code) &&
     typeof value.message === "string" &&
@@ -1019,6 +1018,18 @@ function isReadinessResponse(value: unknown): value is ReadinessResponse {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasExactOwnFields(value: Record<string, unknown>, expectedFields: readonly string[]): boolean {
+  const keys = Object.keys(value);
+  if (keys.length !== expectedFields.length) return false;
+
+  const expected = new Set<string>(expectedFields);
+  for (const key of keys) {
+    if (!expected.has(key)) return false;
+  }
+
+  return expectedFields.every((field) => hasOwnField(value, field));
 }
 
 function isReadinessComponents(value: unknown): value is ReadinessResponse["components"] {

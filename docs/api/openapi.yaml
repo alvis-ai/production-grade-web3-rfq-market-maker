@@ -939,6 +939,7 @@ components:
         - degraded
     ErrorResponse:
       type: object
+      additionalProperties: false
       required:
         - code
         - message

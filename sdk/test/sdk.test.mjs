@@ -1248,6 +1248,46 @@ test("RFQClient throws structured RFQClientError for API errors", async () => {
   }
 });
 
+test("RFQClient ignores non-closed API error bodies", async () => {
+  const restoreFetch = installFetch(async () =>
+    jsonResponse(
+      409,
+      {
+        code: "RISK_REJECTED",
+        message: "Risk policy rejected quote",
+        traceId: "tr_body_test",
+        reasonCode: "TOXIC_FLOW_SCORE",
+      },
+      { "x-trace-id": "tr_closed_error_header" },
+    ),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.quote({
+        chainId: quote.chainId,
+        user: quote.user,
+        tokenIn: quote.tokenIn,
+        tokenOut: quote.tokenOut,
+        amountIn: quote.amountIn,
+        slippageBps: 50,
+      }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 409);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ quote failed");
+        assert.equal(error.traceId, "tr_closed_error_header");
+        return true;
+      },
+    );
+  } finally {
+    restoreFetch();
+  }
+});
+
 test("RFQClient exposes Retry-After seconds for rate limited responses", async () => {
   const restoreFetch = installFetch(async () =>
     jsonResponse(

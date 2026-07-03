@@ -1929,6 +1929,13 @@ grep -q 'can receive an injected `fetch` implementation' book/Volume6-Frontend-A
 grep -q 'Client options are closed to own optional `fetch` / `traceId` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'Inherited `traceId` options' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'new RFQClient("http://localhost:3000", { fetch: customFetch })' README.md
+grep -q 'errorResponseFields = \["code", "message", "traceId"\]' sdk/src/client.ts
+grep -Fq 'hasExactOwnFields(value, errorResponseFields)' sdk/src/client.ts
+grep -q 'RFQClient ignores non-closed API error bodies' sdk/test/sdk.test.mjs
+grep -q 'reasonCode: "TOXIC_FLOW_SCORE"' sdk/test/sdk.test.mjs
+grep -q 'structured RFQ errors must be closed own-field `ErrorResponse` objects' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'ErrorResponse` 是闭合 schema' docs/api/errors.md
+grep -q 'additionalProperties: false' docs/api/openapi.yaml
 grep -q 'assertQuoteStatus' sdk/src/client.ts
 grep -q 'assertQuoteStatusPayloadConsistency' sdk/src/client.ts
 grep -q 'assertHedgeIntentStatus' sdk/src/client.ts
@@ -1965,9 +1972,9 @@ grep -q 'response.headers.get("retry-after")' sdk/src/client.ts
 grep -q 'Number.isSafeInteger(seconds)' sdk/src/client.ts
 grep -q 'traceIdFromResponse' sdk/src/client.ts
 grep -q 'normalizeTraceId' sdk/src/client.ts
-grep -q 'hasOwnField(value, "code")' sdk/src/client.ts
-grep -q 'hasOwnField(value, "message")' sdk/src/client.ts
-grep -q 'hasOwnField(value, "traceId")' sdk/src/client.ts
+grep -q 'function hasExactOwnFields' sdk/src/client.ts
+grep -q 'keys.length !== expectedFields.length' sdk/src/client.ts
+grep -q 'expectedFields.every((field) => hasOwnField(value, field))' sdk/src/client.ts
 grep -q 'assertResponsePayload' sdk/src/client.ts
 grep -q 'withResponseTrace' sdk/src/client.ts
 grep -q 'response.headers.get("x-trace-id")' sdk/src/client.ts
