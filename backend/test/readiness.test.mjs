@@ -157,6 +157,26 @@ test("ReadinessService rejects unsafe freshness configuration at construction", 
     () => createReadinessService({}, []),
     /Readiness service config must be an object/,
   );
+  assert.throws(
+    () => createReadinessService({}, Object.create(defaultReadinessServiceConfig)),
+    /Readiness service config.maxSnapshotAgeMs must be an own field/,
+  );
+
+  const configWithInheritedProbeRequest = {
+    maxSnapshotAgeMs: defaultReadinessServiceConfig.maxSnapshotAgeMs,
+    maxSnapshotFutureSkewMs: defaultReadinessServiceConfig.maxSnapshotFutureSkewMs,
+    probeSnapshot: defaultReadinessServiceConfig.probeSnapshot,
+    probeRoutePlan: defaultReadinessServiceConfig.probeRoutePlan,
+    probePricing: defaultReadinessServiceConfig.probePricing,
+    probeQuote: defaultReadinessServiceConfig.probeQuote,
+  };
+  Object.setPrototypeOf(configWithInheritedProbeRequest, {
+    probeRequest: defaultReadinessServiceConfig.probeRequest,
+  });
+  assert.throws(
+    () => createReadinessService({}, configWithInheritedProbeRequest),
+    /Readiness service config.probeRequest must be an own field/,
+  );
 
   assert.throws(
     () =>
@@ -193,6 +213,10 @@ test("ReadinessService rejects unsafe dependency configuration at construction",
   assert.throws(
     () => new ReadinessService([]),
     /Readiness service deps must be an object/,
+  );
+  assert.throws(
+    () => new ReadinessService(Object.create(deps)),
+    /Readiness service deps.marketDataService must be an own field/,
   );
   assert.throws(
     () =>

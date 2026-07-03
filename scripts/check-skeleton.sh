@@ -45,6 +45,9 @@ grep -q 'assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs")'
 grep -q 'assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs")' backend/src/modules/health/readiness.service.ts
 grep -q 'assertRecord(config, "config")' backend/src/modules/health/readiness.service.ts
 grep -q 'assertRecord(deps, "deps")' backend/src/modules/health/readiness.service.ts
+grep -q 'assertOwnFields(config, readinessServiceConfigFields, "config")' backend/src/modules/health/readiness.service.ts
+grep -q 'assertOwnFields(deps, readinessServiceDepsFields, "deps")' backend/src/modules/health/readiness.service.ts
+grep -q 'Readiness service ${path}.${field} must be an own field' backend/src/modules/health/readiness.service.ts
 grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/health/readiness.service.ts
 grep -q 'assertReadinessServiceDeps(deps)' backend/src/modules/health/readiness.service.ts
 grep -q 'assertDependencyMethod(deps.metricsService, "metricsService", "checkHealth")' backend/src/modules/health/readiness.service.ts
@@ -66,11 +69,15 @@ grep -q 'ReadinessService snapshots readiness configuration at construction' bac
 grep -q 'ReadinessService rejects unsafe freshness configuration at construction' backend/test/readiness.test.mjs
 grep -q 'ReadinessService rejects unsafe dependency configuration at construction' backend/test/readiness.test.mjs
 grep -q 'Readiness service config must be an object' backend/test/readiness.test.mjs
+grep -q 'Readiness service config.maxSnapshotAgeMs must be an own field' backend/test/readiness.test.mjs
+grep -q 'Readiness service config.probeRequest must be an own field' backend/test/readiness.test.mjs
 grep -q 'Readiness service marketDataService must be an object' backend/test/readiness.test.mjs
+grep -q 'Readiness service deps.marketDataService must be an own field' backend/test/readiness.test.mjs
 grep -q 'ReadinessService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'Required dependency entries must be own fields before method validation' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'ReadinessService` validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'snapshots `ReadinessServiceConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'ReadinessService` rejects malformed config, dependency map and dependency entries as non-array objects before reading freshness fields or probe methods' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'ReadinessService` rejects malformed config, inherited config fields, malformed dependency map, inherited dependency entries and malformed dependency entries before reading freshness fields or probe methods' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts

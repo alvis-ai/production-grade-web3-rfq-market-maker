@@ -111,6 +111,31 @@ export const defaultReadinessServiceConfig: ReadinessServiceConfig = {
   },
 };
 
+const readinessServiceConfigFields = [
+  "maxSnapshotAgeMs",
+  "maxSnapshotFutureSkewMs",
+  "probeRequest",
+  "probeSnapshot",
+  "probeRoutePlan",
+  "probePricing",
+  "probeQuote",
+] as const;
+const readinessServiceDepsFields = [
+  "marketDataService",
+  "marketSnapshotStore",
+  "routingEngine",
+  "pricingEngine",
+  "riskEngine",
+  "signerService",
+  "quoteRepository",
+  "riskDecisionStore",
+  "inventoryService",
+  "hedgeService",
+  "settlementEventService",
+  "pnlService",
+  "metricsService",
+] as const;
+
 export class ReadinessService {
   private readonly deps: ReadinessServiceDeps;
   private readonly config: ReadinessServiceConfig;
@@ -120,6 +145,7 @@ export class ReadinessService {
     config: ReadinessServiceConfig = defaultReadinessServiceConfig,
   ) {
     assertRecord(config, "config");
+    assertOwnFields(config, readinessServiceConfigFields, "config");
     assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
     assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
     assertReadinessServiceDeps(deps);
@@ -253,6 +279,7 @@ function cloneReadinessServiceDeps(deps: ReadinessServiceDeps): ReadinessService
 
 function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
   assertRecord(deps, "deps");
+  assertOwnFields(deps, readinessServiceDepsFields, "deps");
   assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
   assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
   assertDependencyMethod(deps.pricingEngine, "pricingEngine", "price");
@@ -284,6 +311,14 @@ function assertDependencyMethod(
 function assertRecord(value: unknown, field: "config" | "deps" | keyof ReadinessServiceDeps): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Readiness service ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Readiness service ${path}.${field} must be an own field`);
+    }
   }
 }
 
