@@ -32,6 +32,25 @@ test("validateQuoteFormRequest returns a canonical valid request", () => {
   assert.deepEqual(validateQuoteFormRequest(baseRequest), baseRequest);
 });
 
+test("validateQuoteFormRequest rejects unsafe request object shapes", () => {
+  assert.throws(
+    () => validateQuoteFormRequest(undefined),
+    /quote form request must be an object/,
+  );
+  assert.throws(
+    () => validateQuoteFormRequest(Object.create(baseRequest)),
+    /quote form request\.chainId must be an own field/,
+  );
+  assert.throws(
+    () =>
+      validateQuoteFormRequest({
+        ...baseRequest,
+        routeHint: "internal",
+      }),
+    /quote form request must not include unknown field routeHint/,
+  );
+});
+
 test("validateQuoteFormRequest rejects boxed string address fields", () => {
   for (const field of ["user", "tokenIn", "tokenOut"]) {
     assert.throws(

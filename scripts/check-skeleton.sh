@@ -1693,11 +1693,18 @@ grep -q 'rfqClient.pnl' frontend/src/pages/QuotePage.tsx
 grep -q 'validateQuoteFormRequest(request)' frontend/src/pages/QuotePage.tsx
 grep -q 'tokenIn and tokenOut must be different' frontend/src/lib/quote-request.ts
 grep -q 'amountIn must be a positive uint string' frontend/src/lib/quote-request.ts
+grep -q 'quoteFormRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' frontend/src/lib/quote-request.ts
+grep -q 'assertExactFields(request, quoteFormRequestFields, "quote form request")' frontend/src/lib/quote-request.ts
+grep -Fq '${label}.${field} must be an own field' frontend/src/lib/quote-request.ts
 grep -Fq 'positiveUintPattern = /^[1-9][0-9]*$/' frontend/src/lib/quote-request.ts
 grep -Fq 'typeof value !== "string" || !addressPattern.test(value)' frontend/src/lib/quote-request.ts
 grep -Fq 'typeof value !== "string" || !positiveUintPattern.test(value)' frontend/src/lib/quote-request.ts
+grep -q 'validateQuoteFormRequest rejects unsafe request object shapes' frontend/test/quote-request.test.mjs
+grep -Fq 'quote form request\.chainId must be an own field' frontend/test/quote-request.test.mjs
+grep -q 'quote form request must not include unknown field routeHint' frontend/test/quote-request.test.mjs
 grep -q 'validateQuoteFormRequest rejects boxed string address fields' frontend/test/quote-request.test.mjs
 grep -q 'validateQuoteFormRequest rejects boxed string amountIn' frontend/test/quote-request.test.mjs
+grep -q 'requires closed own quote form request fields' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'boxed `String` objects or other non-primitive values fail before regex validation' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'loadPostTradeSurfaces(status, response)' frontend/src/pages/QuotePage.tsx
 grep -q 'loadPostTradeSurfaces(status, submitResult)' frontend/src/pages/QuotePage.tsx
