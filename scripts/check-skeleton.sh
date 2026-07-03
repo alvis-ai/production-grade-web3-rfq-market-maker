@@ -1731,6 +1731,19 @@ grep -q 'RFQClientError' frontend/src/lib/errors.ts
 grep -q 'traceId' frontend/src/lib/errors.ts
 grep -q 'retryAfterSeconds' frontend/src/lib/errors.ts
 grep -q 'toUIError' frontend/src/pages/QuotePage.tsx
+test -s frontend/test/quote-page.test.mjs
+grep -q 'quotedRequest' frontend/src/pages/QuotePage.tsx
+grep -q 'setQuotedRequest(safeRequest)' frontend/src/pages/QuotePage.tsx
+grep -q 'buildQuoteFromResponse(quotedRequest, quote)' frontend/src/pages/QuotePage.tsx
+grep -q 'clearQuoteSession' frontend/src/pages/QuotePage.tsx
+grep -q 'quoteSessionVersion.current += 1' frontend/src/pages/QuotePage.tsx
+grep -q 'if (quoteSessionVersion.current !== quoteSession) return' frontend/src/pages/QuotePage.tsx
+grep -q 'onChange={handleRequestChange}' frontend/src/pages/QuotePage.tsx
+grep -q 'QuotePage binds signed quotes to the quoted request snapshot' frontend/test/quote-page.test.mjs
+grep -q 'QuotePage clears quote session when request changes' frontend/test/quote-page.test.mjs
+grep -q 'QuotePage ignores stale quote responses after request edits' frontend/test/quote-page.test.mjs
+grep -q 'Quote UI binds every `QuoteResponse` to the validated request snapshot' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
+grep -q 'in-flight quote responses are ignored when their session version is no longer current' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getSettlement' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx

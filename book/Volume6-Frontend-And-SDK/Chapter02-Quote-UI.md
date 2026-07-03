@@ -116,6 +116,7 @@ client.quote(request: QuoteRequest): Promise<QuoteResponse>
 - Before calling `RFQClient.quote()`, the page runs `validateQuoteFormRequest()` to reject malformed user/token addresses, identical token pairs, non-positive `amountIn`, inherited or unknown request fields, and out-of-contract numeric fields locally; backend validation remains authoritative.
 - `validateQuoteFormRequest()` requires closed own quote form request fields and treats address fields and `amountIn` as runtime `unknown` inputs at the helper boundary, so inherited fields, boxed `String` objects or other non-primitive values fail before regex validation and cannot be silently coerced into a quote request.
 - `buildQuoteFromResponse()` builds the wallet submission quote only from closed own request and quote response fields. Inherited or unknown response fields are rejected before `amountOut`, `minAmountOut`, `nonce` or `deadline` can be copied into wallet calldata state.
+- Quote UI binds every `QuoteResponse` to the validated request snapshot that produced it, not to the currently edited form state. Any form or wallet-driven request change clears the active quote session, submit result, post-trade statuses, chain transaction hash and PnL view before another signed quote can be submitted; in-flight quote responses are ignored when their session version is no longer current.
 
 ## Failure Scenarios
 

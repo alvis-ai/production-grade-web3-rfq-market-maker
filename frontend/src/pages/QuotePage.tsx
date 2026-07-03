@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useMemo, useRef, useState } from "react";
 import type {
   Address,
   HedgeIntentStatus,
@@ -31,6 +31,7 @@ const defaultRequest: QuoteRequest = {
 
 export function QuotePage() {
   const [request, setRequest] = useState<QuoteRequest>(defaultRequest);
+  const [quotedRequest, setQuotedRequest] = useState<QuoteRequest>();
   const [quote, setQuote] = useState<QuoteResponse>();
   const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>();
   const [settlementStatus, setSettlementStatus] = useState<SettlementEventStatus>();
@@ -42,6 +43,26 @@ export function QuotePage() {
   const [isWalletEnabled, setIsWalletEnabled] = useState(false);
   const [error, setError] = useState<UIError>();
   const [isLoading, setIsLoading] = useState(false);
+  const quoteSessionVersion = useRef(0);
+
+  const clearQuoteSession = useCallback(() => {
+    quoteSessionVersion.current += 1;
+    setQuotedRequest(undefined);
+    setQuote(undefined);
+    setQuoteStatus(undefined);
+    setSettlementStatus(undefined);
+    setHedgeStatus(undefined);
+    setPnlSummary(undefined);
+    setSubmitResult(undefined);
+    setChainTxHash(undefined);
+    setError(undefined);
+  }, []);
+
+  const handleRequestChange = useCallback((nextRequest: QuoteRequest) => {
+    setRequest(nextRequest);
+    clearQuoteSession();
+    setIsLoading(false);
+  }, [clearQuoteSession]);
 
   const handleWalletChange = useCallback((nextWalletState: WalletState) => {
     setWalletState(nextWalletState);
@@ -49,12 +70,14 @@ export function QuotePage() {
     const walletChainId = nextWalletState.chainId;
     if (!walletAddress || !walletChainId) return;
 
+    clearQuoteSession();
+    setIsLoading(false);
     setRequest((current) => ({
       ...current,
       user: walletAddress as Address,
       chainId: walletChainId,
     }));
-  }, []);
+  }, [clearQuoteSession]);
 
   const handleOnchainError = useCallback((nextError: UIError) => {
     setError(nextError);
@@ -65,30 +88,30 @@ export function QuotePage() {
   }, []);
 
   const signedQuote = useMemo<Quote | undefined>(() => {
-    if (!quote) return undefined;
-    return buildQuoteFromResponse(request, quote);
-  }, [quote, request]);
+    if (!quote || !quotedRequest) return undefined;
+    return buildQuoteFromResponse(quotedRequest, quote);
+  }, [quote, quotedRequest]);
 
   const canSubmit = Boolean(signedQuote && quote && quote.deadline >= Math.floor(Date.now() / 1000));
 
   async function requestQuote() {
+    clearQuoteSession();
+    const quoteSession = quoteSessionVersion.current;
     setIsLoading(true);
-    setError(undefined);
-    setSubmitResult(undefined);
-    setQuoteStatus(undefined);
-    setSettlementStatus(undefined);
-    setHedgeStatus(undefined);
-    setPnlSummary(undefined);
-    setChainTxHash(undefined);
     try {
       const safeRequest = validateQuoteFormRequest(request);
       const response = await rfqClient.quote(safeRequest);
+      if (quoteSessionVersion.current !== quoteSession) return;
+      setQuotedRequest(safeRequest);
       setQuote(response);
     } catch (caught) {
+      if (quoteSessionVersion.current !== quoteSession) return;
       setQuote(undefined);
       setError(toUIError(caught, "Quote request failed"));
     } finally {
-      setIsLoading(false);
+      if (quoteSessionVersion.current === quoteSession) {
+        setIsLoading(false);
+      }
     }
   }
 
@@ -161,7 +184,7 @@ export function QuotePage() {
           </div>
         </header>
         <div className="workspace-grid">
-          <QuoteForm request={request} isLoading={isLoading} onChange={setRequest} onSubmit={requestQuote} />
+          <QuoteForm request={request} isLoading={isLoading} onChange={handleRequestChange} onSubmit={requestQuote} />
           <QuoteStatusPanel
             quote={quote}
             quoteStatus={quoteStatus}
