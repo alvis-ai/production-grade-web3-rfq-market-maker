@@ -4,6 +4,8 @@ import type { SubmitQuoteRequest } from "../../shared/types/rfq.js";
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const localSettlementVerifierPolicyFields = ["verifierVersion", "enabledChainIds", "tokenWhitelist"] as const;
+const settlementVerificationInputFields = ["quoteId", "request"] as const;
 const verificationRequestFields = ["quote", "signature"] as const;
 const settlementQuoteFields = [
   "user",
@@ -54,6 +56,7 @@ export class LocalSettlementVerifier implements SettlementVerifier {
 
   constructor(policy: LocalSettlementVerifierPolicy = defaultLocalSettlementVerifierPolicy) {
     assertObject(policy, "policy");
+    assertOwnFields(policy, localSettlementVerifierPolicyFields, "policy");
     assertNonEmptyString(policy.verifierVersion, "verifierVersion");
     assertChainIds(policy.enabledChainIds);
     assertTokenWhitelist(policy.tokenWhitelist);
@@ -168,6 +171,7 @@ function assertNonEmptyString(value: string, field: string): void {
 
 function assertVerificationInput(input: SettlementVerificationInput): void {
   assertObject(input, "input");
+  assertOwnFields(input, settlementVerificationInputFields, "input");
   assertSafeIdentifier(input.quoteId, "quoteId");
   assertObject(input.request, "request");
   assertOwnFields(input.request, verificationRequestFields, "request");

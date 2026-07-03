@@ -77,7 +77,7 @@ test("LocalSettlementVerifier rejects malformed verification payload envelopes b
     verifier.verify({
       quoteId: "q_missing_request",
     }),
-    /Local settlement verifier request must be an object/,
+    /Local settlement verifier input.request must be an own field/,
   );
 
   await assert.rejects(
@@ -94,6 +94,14 @@ test("LocalSettlementVerifier rejects malformed verification payload envelopes b
 
 test("LocalSettlementVerifier rejects inherited verification fields before settlement checks", async () => {
   const verifier = new LocalSettlementVerifier();
+
+  await assert.rejects(
+    verifier.verify(Object.create({
+      quoteId: "q_inherited_input",
+      request,
+    })),
+    /Local settlement verifier input.quoteId must be an own field/,
+  );
 
   await assert.rejects(
     verifier.verify({
@@ -394,6 +402,22 @@ test("LocalSettlementVerifier rejects unsafe policy configuration at constructio
   assert.throws(
     () => new LocalSettlementVerifier(null),
     /Local settlement verifier policy must be an object/,
+  );
+  assert.throws(
+    () => new LocalSettlementVerifier(Object.create(defaultLocalSettlementVerifierPolicy)),
+    /Local settlement verifier policy.verifierVersion must be an own field/,
+  );
+
+  const policyWithInheritedTokenWhitelist = {
+    verifierVersion: defaultLocalSettlementVerifierPolicy.verifierVersion,
+    enabledChainIds: defaultLocalSettlementVerifierPolicy.enabledChainIds,
+  };
+  Object.setPrototypeOf(policyWithInheritedTokenWhitelist, {
+    tokenWhitelist: defaultLocalSettlementVerifierPolicy.tokenWhitelist,
+  });
+  assert.throws(
+    () => new LocalSettlementVerifier(policyWithInheritedTokenWhitelist),
+    /Local settlement verifier policy.tokenWhitelist must be an own field/,
   );
 
   assert.throws(

@@ -1360,6 +1360,10 @@ grep -Fq 'typeof signature !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(signatur
 grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertObject(policy, "policy")' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'localSettlementVerifierPolicyFields = \["verifierVersion", "enabledChainIds", "tokenWhitelist"\]' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'settlementVerificationInputFields = \["quoteId", "request"\]' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertOwnFields(policy, localSettlementVerifierPolicyFields, "policy")' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertOwnFields(input, settlementVerificationInputFields, "input")' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertArray(chainIds, "enabledChainIds")' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertVerificationInput(input)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'verificationRequestFields = \["quote", "signature"\]' backend/src/modules/settlement/settlement-verifier.service.ts
@@ -1378,8 +1382,12 @@ grep -q 'cloneLocalSettlementVerifierPolicy' backend/src/modules/settlement/sett
 grep -q 'Local settlement verifier enabledChainIds must not contain duplicate chain ids' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'Local settlement verifier tokenWhitelist must not contain duplicate addresses' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'enabledChainIds` 和 `tokenWhitelist` 必须非空且不能包含重复项' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'malformed policy object and policy array fields must be rejected before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'LocalSettlementVerifier.verify()` rejects malformed root payloads, `quoteId` values that are not primitive-string 1-128 character `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'malformed policy object, inherited policy fields and policy array fields must be rejected before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'missing or inherited root `quoteId` / `request` fields' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'Local settlement verifier policy.verifierVersion must be an own field' backend/test/settlement-verifier.test.mjs
+grep -q 'Local settlement verifier policy.tokenWhitelist must be an own field' backend/test/settlement-verifier.test.mjs
+grep -q 'Local settlement verifier input.quoteId must be an own field' backend/test/settlement-verifier.test.mjs
+grep -q 'Local settlement verifier input.request must be an own field' backend/test/settlement-verifier.test.mjs
 grep -q 'inherited `request` / `request.quote` required fields' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'JavaScript regex coercion' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
