@@ -21,7 +21,7 @@ const schemaMappings = [
   ["PnlTradeRecord", "PnlTradeRecord", "PnlTradeRecord"],
   ["PnlSummaryResponse", "PnlSummary", "PnlSummary"],
 ];
-const closedRequestSchemas = ["QuoteRequest", "SubmitQuoteRequest", "SignedQuote"];
+const closedOpenApiSchemas = ["QuoteRequest", "SubmitQuoteRequest", "SignedQuote", "HealthResponse", "ReadinessResponse"];
 const inlineEnumMappings = [
   ["SubmitQuoteResponse", "SubmitQuoteResponse", "SubmitQuoteResponse", "status"],
   ["HedgeIntentStatusResponse", "HedgeIntentStatus", "HedgeIntentStatus", "status"],
@@ -66,7 +66,7 @@ for (const [backendName, sdkName, openapiName] of schemaMappings) {
   );
 }
 
-for (const schemaName of closedRequestSchemas) {
+for (const schemaName of closedOpenApiSchemas) {
   assertOpenApiSchemaClosed(schemaName);
 }
 
@@ -691,6 +691,6 @@ function assertOpenApiSchemaClosed(schemaName) {
   const lines = extractOpenApiSchemaLines(openapiSource, schemaName);
   assert.ok(
     lines.includes("      additionalProperties: false"),
-    `${schemaName} OpenAPI schema must reject unknown request fields with additionalProperties: false`,
+    `${schemaName} OpenAPI schema must reject unknown fields with additionalProperties: false`,
   );
 }

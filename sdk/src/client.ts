@@ -37,6 +37,8 @@ const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn"
 const submitRequestFields = ["quote", "signature"] as const;
 const quoteResponseFields = ["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"] as const;
 const errorResponseFields = ["code", "message", "traceId"] as const;
+const healthResponseFields = ["status"] as const;
+const readinessResponseFields = ["status", "components"] as const;
 const submitResponseRequiredFields = ["status"] as const;
 const submitResponseOptionalFields = ["txHash", "settlementEventId", "hedgeOrderId", "pnlId"] as const;
 const quoteStatusRequiredFields = ["quoteId", "status"] as const;
@@ -1002,15 +1004,14 @@ function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {
 }
 
 function isHealthResponse(value: unknown): value is HealthResponse {
-  return isRecord(value) && hasOwnField(value, "status") && value.status === "ok";
+  return isRecord(value) && hasExactOwnFields(value, healthResponseFields) && value.status === "ok";
 }
 
 function isReadinessResponse(value: unknown): value is ReadinessResponse {
   if (!isRecord(value)) return false;
+  if (!hasExactOwnFields(value, readinessResponseFields)) return false;
 
   return (
-    hasOwnField(value, "status") &&
-    hasOwnField(value, "components") &&
     (value.status === "ready" || value.status === "degraded") &&
     isReadinessComponents(value.components)
   );

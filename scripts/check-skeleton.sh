@@ -503,13 +503,15 @@ grep -q 'positive safe integer minimum' scripts/check-api-schema-consistency.mjs
 grep -q 'non-negative safe integer minimum' scripts/check-api-schema-consistency.mjs
 grep -q 'PositiveUIntString must reject zero, negative values, and leading zeros' scripts/check-api-schema-consistency.mjs
 grep -q 'SignedQuote", "nonce"' scripts/check-api-schema-consistency.mjs
-grep -q 'must reject unknown request fields' scripts/check-api-schema-consistency.mjs
+grep -q 'must reject unknown fields' scripts/check-api-schema-consistency.mjs
 grep -q 'backend/src/modules/health/readiness.service.ts' scripts/check-api-schema-consistency.mjs
 grep -q 'sdk/src/client.ts' scripts/check-api-schema-consistency.mjs
 grep -q 'SDK ReadinessComponentName must match backend readiness components' scripts/check-api-schema-consistency.mjs
 grep -q 'SDK client readiness runtime components must match backend readiness components' scripts/check-api-schema-consistency.mjs
 grep -q 'ReadinessResponse.components OpenAPI properties must match backend readiness components' scripts/check-api-schema-consistency.mjs
 grep -q 'ReadinessResponse.components OpenAPI schema must reject unknown readiness components' scripts/check-api-schema-consistency.mjs
+grep -q 'closedOpenApiSchemas = \["QuoteRequest", "SubmitQuoteRequest", "SignedQuote", "HealthResponse", "ReadinessResponse"\]' scripts/check-api-schema-consistency.mjs
+grep -q 'OpenAPI schema must reject unknown fields with additionalProperties: false' scripts/check-api-schema-consistency.mjs
 grep -q 'OpenAPI ReadinessComponentStatus enum must match backend' scripts/check-api-schema-consistency.mjs
 grep -q 'inlineEnumMappings' scripts/check-api-schema-consistency.mjs
 grep -q 'extractInterfacePropertyStringUnionValues' scripts/check-api-schema-consistency.mjs
@@ -1950,6 +1952,10 @@ grep -q 'function isIsoUtcTimestampString' sdk/src/client.ts
 grep -q 'new Date(parsed).toISOString() === value' sdk/src/client.ts
 grep -q 'isHealthResponse' sdk/src/client.ts
 grep -q 'isReadinessResponse' sdk/src/client.ts
+grep -q 'healthResponseFields = \["status"\]' sdk/src/client.ts
+grep -q 'readinessResponseFields = \["status", "components"\]' sdk/src/client.ts
+grep -q 'hasExactOwnFields(value, healthResponseFields)' sdk/src/client.ts
+grep -q 'hasExactOwnFields(value, readinessResponseFields)' sdk/src/client.ts
 grep -q 'isReadinessComponents' sdk/src/client.ts
 grep -q 'const readinessDependencyComponents' sdk/src/client.ts
 grep -q 'expectedComponents.has(key)' sdk/src/client.ts
@@ -2053,7 +2059,7 @@ grep -q 'malformed successful response fields' sdk/test/sdk.test.mjs
 grep -q 'assertOwnResponseFields' sdk/src/client.ts
 grep -q 'assertOptionalOwnResponseField' sdk/src/client.ts
 grep -q 'quoteResponseFields = \["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"\]' sdk/src/client.ts
-grep -q 'jsonResponse(200, Object.create({ status: "ok" }))' sdk/test/sdk.test.mjs
+grep -Fq 'Object.create({ status: "ok" })' sdk/test/sdk.test.mjs
 grep -q 'Object.create({' sdk/test/sdk.test.mjs
 grep -q 'payload: Object.create(quoteResponse)' sdk/test/sdk.test.mjs
 grep -q 'withPrototype({ txHash: submitResponse.txHash }, { status: "accepted" })' sdk/test/sdk.test.mjs
@@ -2069,7 +2075,9 @@ grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs
 grep -q 'client.pnl' sdk/test/sdk.test.mjs
 grep -q 'client.ready' sdk/test/sdk.test.mjs
-grep -q 'RFQClient.ready()` validates readiness payloads against the fixed backend component set' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'version: "debug-build"' sdk/test/sdk.test.mjs
+grep -q 'generatedAt: "2026-06-27T00:00:00.000Z"' sdk/test/sdk.test.mjs
+grep -q 'RFQClient.health()` and `RFQClient.ready()` require closed own top-level response fields matching OpenAPI' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'percent-encodes safe dynamic status path identifiers' sdk/test/sdk.test.mjs
 grep -q 'q%3Atest-id' sdk/test/sdk.test.mjs
 grep -q 'new RFQClient("http://127.0.0.1:3000/", {' sdk/test/sdk.test.mjs

@@ -870,6 +870,7 @@ components:
             $ref: "#/components/schemas/PnlTradeRecord"
     HealthResponse:
       type: object
+      additionalProperties: false
       required:
         - status
       properties:
@@ -879,6 +880,7 @@ components:
             - ok
     ReadinessResponse:
       type: object
+      additionalProperties: false
       required:
         - status
         - components

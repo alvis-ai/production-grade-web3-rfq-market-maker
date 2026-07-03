@@ -1527,23 +1527,33 @@ test("RFQClient rejects malformed successful JSON responses", async () => {
 });
 
 test("RFQClient rejects malformed health and readiness status responses", async () => {
-  const restoreHealthFetch = installFetch(async () => jsonResponse(200, Object.create({ status: "ok" })));
+  const malformedHealthCases = [
+    Object.create({ status: "ok" }),
+    {
+      status: "ok",
+      version: "debug-build",
+    },
+  ];
 
-  try {
-    const client = new RFQClient("http://127.0.0.1:3000");
+  for (const payload of malformedHealthCases) {
+    const restoreHealthFetch = installFetch(async () => jsonResponse(200, payload));
 
-    await assert.rejects(
-      client.health(),
-      (error) => {
-        assert.ok(error instanceof RFQClientError);
-        assert.equal(error.status, 200);
-        assert.equal(error.code, "RFQ_CLIENT_ERROR");
-        assert.equal(error.message, "RFQ health response returned malformed status");
-        return true;
-      },
-    );
-  } finally {
-    restoreHealthFetch();
+    try {
+      const client = new RFQClient("http://127.0.0.1:3000");
+
+      await assert.rejects(
+        client.health(),
+        (error) => {
+          assert.ok(error instanceof RFQClientError);
+          assert.equal(error.status, 200);
+          assert.equal(error.code, "RFQ_CLIENT_ERROR");
+          assert.equal(error.message, "RFQ health response returned malformed status");
+          return true;
+        },
+      );
+    } finally {
+      restoreHealthFetch();
+    }
   }
 
   const malformedReadinessCases = [
@@ -1551,6 +1561,11 @@ test("RFQClient rejects malformed health and readiness status responses", async 
       status: "ready",
       components: readinessComponents,
     }),
+    {
+      status: "ready",
+      generatedAt: "2026-06-27T00:00:00.000Z",
+      components: readinessComponents,
+    },
     {
       status: "ready",
       components: {
