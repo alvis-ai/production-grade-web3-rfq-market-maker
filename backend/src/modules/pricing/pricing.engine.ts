@@ -41,12 +41,24 @@ const WAD = 1_000_000_000_000_000_000n;
 const BPS = 10_000n;
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const formulaPricingConfigFields = [
+  "baseSpreadBps",
+  "internalInventoryBufferBps",
+  "volatilityDivisor",
+  "maxSizeImpactBps",
+  "maxTotalAdjustmentBps",
+] as const;
+const pricingInputFields = ["request", "snapshot", "routePlan", "inventorySkewBps"] as const;
+const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
+const pricingSnapshotFields = ["snapshotId", "midPrice", "liquidityUsd", "volatilityBps"] as const;
+const routePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"] as const;
 
 export class FormulaPricingEngine implements PricingEngine {
   private readonly config: FormulaPricingConfig;
 
   constructor(config: FormulaPricingConfig = defaultFormulaPricingConfig) {
     assertObject(config, "config");
+    assertOwnFields(config, formulaPricingConfigFields, "config");
     assertNonNegativeSafeInteger(config.baseSpreadBps, "baseSpreadBps");
     assertNonNegativeSafeInteger(config.internalInventoryBufferBps, "internalInventoryBufferBps");
     assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor");
@@ -144,9 +156,13 @@ function assertBpsUpperBound(value: number, field: string): void {
 
 function assertPricingInput(input: PricingInput): void {
   assertObject(input, "input");
+  assertOwnFields(input, pricingInputFields, "input");
   assertObject(input.request, "request");
+  assertOwnFields(input.request, quoteRequestFields, "request");
   assertObject(input.snapshot, "snapshot");
+  assertOwnFields(input.snapshot, pricingSnapshotFields, "snapshot");
   assertObject(input.routePlan, "routePlan");
+  assertOwnFields(input.routePlan, routePlanFields, "routePlan");
   assertPositiveSafeInteger(input.request.chainId, "request.chainId");
   assertAddress(input.request.user, "request.user");
   assertAddress(input.request.tokenIn, "request.tokenIn");
@@ -181,6 +197,14 @@ function assertPricingInput(input: PricingInput): void {
 function assertObject(value: unknown, field: "config" | "input" | "request" | "snapshot" | "routePlan"): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Formula pricing ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Formula pricing ${path}.${field} must be an own field`);
+    }
   }
 }
 

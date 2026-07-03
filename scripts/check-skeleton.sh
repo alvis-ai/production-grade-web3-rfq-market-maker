@@ -2443,6 +2443,17 @@ grep -q 'assertObject(config, "config")' backend/src/modules/pricing/pricing.eng
 grep -q 'assertObject(input.request, "request")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertObject(input.snapshot, "snapshot")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertObject(input.routePlan, "routePlan")' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'formulaPricingConfigFields = \[' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'pricingInputFields = \["request", "snapshot", "routePlan", "inventorySkewBps"\]' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'quoteRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'pricingSnapshotFields = \["snapshotId", "midPrice", "liquidityUsd", "volatilityBps"\]' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'routePlanFields = \["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"\]' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'assertOwnFields(config, formulaPricingConfigFields, "config")' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'assertOwnFields(input, pricingInputFields, "input")' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'assertOwnFields(input.request, quoteRequestFields, "request")' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'assertOwnFields(input.snapshot, pricingSnapshotFields, "snapshot")' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'assertOwnFields(input.routePlan, routePlanFields, "routePlan")' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'Formula pricing ${path}.${field} must be an own field' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/pricing/pricing.engine.ts
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertSafeIdentifier(input.snapshot.snapshotId, "snapshot.snapshotId")' backend/src/modules/pricing/pricing.engine.ts
@@ -2455,7 +2466,15 @@ grep -Fq '/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/pricin
 grep -q 'FormulaPricingEngine snapshots pricing configuration at construction' backend/test/pricing.test.mjs
 grep -q 'FormulaPricingEngine rejects unsafe pricing configuration at construction' backend/test/pricing.test.mjs
 grep -q 'FormulaPricingEngine rejects malformed pricing payload envelopes before quoting' backend/test/pricing.test.mjs
+grep -q 'FormulaPricingEngine rejects inherited pricing input fields before quoting' backend/test/pricing.test.mjs
 grep -q 'FormulaPricingEngine rejects unsafe pricing inputs before quoting' backend/test/pricing.test.mjs
+grep -q 'Object.create(defaultFormulaPricingConfig)' backend/test/pricing.test.mjs
+grep -q 'Formula pricing config.baseSpreadBps must be an own field' backend/test/pricing.test.mjs
+grep -q 'Formula pricing input.request must be an own field' backend/test/pricing.test.mjs
+grep -q 'Formula pricing input.inventorySkewBps must be an own field' backend/test/pricing.test.mjs
+grep -q 'Formula pricing request.chainId must be an own field' backend/test/pricing.test.mjs
+grep -q 'Formula pricing snapshot.snapshotId must be an own field' backend/test/pricing.test.mjs
+grep -q 'Formula pricing routePlan.routeId must be an own field' backend/test/pricing.test.mjs
 grep -q 'amountIn: "01000000000"' backend/test/pricing.test.mjs
 grep -q 'midPrice: "01.25"' backend/test/pricing.test.mjs
 grep -q 'liquidityUsd: "01000000000000"' backend/test/pricing.test.mjs
@@ -2464,13 +2483,17 @@ grep -q 'Formula pricing snapshot.snapshotId must be a primitive string' backend
 grep -q 'Formula pricing snapshot.snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/pricing.test.mjs
 grep -q 'Formula pricing routePlan.routeId must be a primitive string' backend/test/pricing.test.mjs
 grep -q 'Formula pricing routePlan.routeId must be 128 characters or fewer' backend/test/pricing.test.mjs
-grep -q 'malformed root payloads and missing `request` / `snapshot` / `routePlan` objects fail before field access' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
+grep -q 'missing required own top-level `request` / `snapshot` / `routePlan` / `inventorySkewBps` fields fail before nested field access' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
+grep -q 'request, snapshot and route-plan required fields must be own fields' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q '`snapshot.snapshotId` and `routePlan.routeId` as primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'canonical decimal form without leading zeros' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'Snapshot mid price must be a canonical positive decimal string without leading zeros' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
-grep -q 'rejects malformed pricing config objects before reading numeric fields' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
+grep -q 'rejects malformed pricing config objects and inherited config fields before reading numeric fields' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'snapshots `FormulaPricingConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q '先拒绝 malformed pricing config object' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
+grep -q '`FormulaPricingConfig` 的 required fields 都是 own fields' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
+grep -q '顶层 `request`、`snapshot`、`routePlan`、`inventorySkewBps` 必须是 own fields' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
+grep -q '嵌套 request、snapshot 和 routePlan 的 required fields 也必须是 own fields' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q '`snapshot.snapshotId` 和 `routePlan.routeId`，都必须是 primitive string 形态的 1-128 字符 `SafeIdentifier`' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q '`midPrice`、`amountIn`、market liquidity 和 route liquidity 必须使用 canonical decimal form without leading zeros' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q 'pricing config fail-fast' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md

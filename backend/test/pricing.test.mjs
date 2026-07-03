@@ -84,6 +84,11 @@ test("FormulaPricingEngine rejects unsafe pricing configuration at construction"
   );
 
   assert.throws(
+    () => new FormulaPricingEngine(Object.create(defaultFormulaPricingConfig)),
+    /Formula pricing config.baseSpreadBps must be an own field/,
+  );
+
+  assert.throws(
     () => new FormulaPricingEngine({ ...defaultFormulaPricingConfig, baseSpreadBps: -1 }),
     /Formula pricing baseSpreadBps must be a non-negative safe integer/,
   );
@@ -123,7 +128,7 @@ test("FormulaPricingEngine rejects malformed pricing payload envelopes before qu
       routePlan: baseInput.routePlan,
       inventorySkewBps: 0,
     }),
-    /Formula pricing request must be an object/,
+    /Formula pricing input.request must be an own field/,
   );
 
   await assert.rejects(
@@ -140,6 +145,50 @@ test("FormulaPricingEngine rejects malformed pricing payload envelopes before qu
       routePlan: [],
     }),
     /Formula pricing routePlan must be an object/,
+  );
+});
+
+test("FormulaPricingEngine rejects inherited pricing input fields before quoting", async () => {
+  const engine = new FormulaPricingEngine();
+
+  await assert.rejects(
+    engine.price(Object.create(baseInput)),
+    /Formula pricing input.request must be an own field/,
+  );
+
+  const inheritedSkewInput = Object.create({ inventorySkewBps: 0 });
+  Object.assign(inheritedSkewInput, {
+    request: baseInput.request,
+    snapshot: baseInput.snapshot,
+    routePlan: baseInput.routePlan,
+  });
+  await assert.rejects(
+    engine.price(inheritedSkewInput),
+    /Formula pricing input.inventorySkewBps must be an own field/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      request: Object.create(baseInput.request),
+    }),
+    /Formula pricing request.chainId must be an own field/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      snapshot: Object.create(baseInput.snapshot),
+    }),
+    /Formula pricing snapshot.snapshotId must be an own field/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      routePlan: Object.create(baseInput.routePlan),
+    }),
+    /Formula pricing routePlan.routeId must be an own field/,
   );
 });
 
