@@ -559,6 +559,12 @@ grep -q 'readBodyLimitBytes' backend/src/main.ts
 grep -q 'defaultBodyLimitBytes' backend/src/main.ts
 grep -q 'readDecimalIntegerConfig' backend/src/main.ts
 grep -q 'must be a base-10 integer between' backend/src/main.ts
+grep -q 'buildServerOptionFields' backend/src/main.ts
+grep -q 'rateLimitOptionFields = \["windowMs", "maxQuoteRequests", "maxSubmitRequests", "maxStatusRequests"\]' backend/src/main.ts
+grep -q 'assertBuildServerOptions(options)' backend/src/main.ts
+grep -q 'assertOptionalOwnFields(options, buildServerOptionFields, "options")' backend/src/main.ts
+grep -q 'normalizeRateLimitOption(options.rateLimit)' backend/src/main.ts
+grep -q 'assertOptionalOwnFields(rateLimit, rateLimitOptionFields, "rateLimit")' backend/src/main.ts
 grep -q 'assertIntegerOption(options.bodyLimitBytes, "bodyLimitBytes", 1024, 1_048_576)' backend/src/main.ts
 grep -q 'assertIntegerOption(options.quoteTtlSeconds, "quoteTtlSeconds", 1, 3600)' backend/src/main.ts
 grep -q 'assertBooleanOption(options.logger, "logger")' backend/src/main.ts
@@ -2346,12 +2352,17 @@ grep -q 'path、query、fragment、credentials 和 wildcard' docs/api/errors.md
 grep -q '未匹配路由' docs/api/errors.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '`1e2`、`30.0`、`0x1e`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'rejects non-boolean `logger`, `enableHsts` or `trustProxy` values' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'requires a non-array options object, rejects inherited supported option fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'requires `rateLimit` to be `false` or an object whose partial rate-limit fields are own fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/test/api.test.mjs
 grep -q 'RFQ_QUOTE_TTL_SECONDS must be a base-10 integer between 1 and 3600' backend/test/api.test.mjs
 grep -q 'RFQ_BODY_LIMIT_BYTES must be a base-10 integer between 1024 and 1048576' backend/test/api.test.mjs
 grep -q 'PORT must be a base-10 integer between 1 and 65535' backend/test/api.test.mjs
 grep -q 'RFQ API rejects unsafe direct runtime options at startup' backend/test/api.test.mjs
+grep -q 'buildServer options must be an object' backend/test/api.test.mjs
+grep -q 'buildServer options.logger must be an own field when provided' backend/test/api.test.mjs
+grep -q 'buildServer rateLimit must be an object or false' backend/test/api.test.mjs
+grep -q 'buildServer rateLimit.windowMs must be an own field when provided' backend/test/api.test.mjs
 grep -q 'configured quote TTL' backend/test/quote-service.test.mjs
 grep -q 'QuoteService snapshots runtime configuration at construction' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe runtime configuration at construction' backend/test/quote-service.test.mjs

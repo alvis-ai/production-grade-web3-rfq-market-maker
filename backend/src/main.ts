@@ -39,6 +39,28 @@ const traceIdPattern = /^tr_[A-Za-z0-9._:-]+$/;
 const maxStatusIdentifierLength = 128;
 const maxStatusIdentifierRouteParamLength = maxStatusIdentifierLength + 1;
 const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const buildServerOptionFields = [
+  "bodyLimitBytes",
+  "corsAllowedOrigins",
+  "enableHsts",
+  "hedgeService",
+  "logger",
+  "marketDataService",
+  "marketSnapshotStore",
+  "pnlService",
+  "pricingEngine",
+  "quoteRepository",
+  "quoteTtlSeconds",
+  "rateLimit",
+  "riskDecisionStore",
+  "riskEngine",
+  "routingEngine",
+  "settlementEventService",
+  "settlementVerifier",
+  "signerService",
+  "trustProxy",
+] as const;
+const rateLimitOptionFields = ["windowMs", "maxQuoteRequests", "maxSubmitRequests", "maxStatusRequests"] as const;
 
 interface RuntimeProcess {
   argv?: string[];
@@ -74,6 +96,7 @@ export interface BuildServerOptions {
 }
 
 export function buildServer(options: BuildServerOptions = {}) {
+  assertBuildServerOptions(options);
   const logger = options.logger === undefined
     ? true
     : assertBooleanOption(options.logger, "logger");
@@ -128,14 +151,10 @@ export function buildServer(options: BuildServerOptions = {}) {
     settlementVerifier: options.settlementVerifier ?? new LocalSettlementVerifier(),
   });
   const pnlService = options.pnlService ?? new PnlService();
-  const rateLimiter = options.rateLimit === false
+  const rateLimitConfig = normalizeRateLimitOption(options.rateLimit);
+  const rateLimiter = rateLimitConfig === false
     ? undefined
-    : new InMemoryRateLimiter({
-      windowMs: options.rateLimit?.windowMs ?? 60_000,
-      maxQuoteRequests: options.rateLimit?.maxQuoteRequests ?? 120,
-      maxSubmitRequests: options.rateLimit?.maxSubmitRequests ?? 60,
-      maxStatusRequests: options.rateLimit?.maxStatusRequests ?? 300,
-  });
+    : new InMemoryRateLimiter(rateLimitConfig);
   const quoteService = new QuoteService({
     inventoryService,
     marketDataService,
@@ -700,6 +719,53 @@ function assertBooleanOption(value: boolean, name: string): boolean {
   }
 
   return value;
+}
+
+function assertBuildServerOptions(options: unknown): asserts options is BuildServerOptions {
+  if (!isRecord(options)) {
+    throw new Error("buildServer options must be an object");
+  }
+
+  assertOptionalOwnFields(options, buildServerOptionFields, "options");
+}
+
+function normalizeRateLimitOption(rateLimit: BuildServerOptions["rateLimit"]): RateLimitConfig | false {
+  if (rateLimit === false) {
+    return false;
+  }
+
+  if (rateLimit === undefined) {
+    return {
+      windowMs: 60_000,
+      maxQuoteRequests: 120,
+      maxSubmitRequests: 60,
+      maxStatusRequests: 300,
+    };
+  }
+
+  if (!isRecord(rateLimit)) {
+    throw new Error("buildServer rateLimit must be an object or false");
+  }
+  assertOptionalOwnFields(rateLimit, rateLimitOptionFields, "rateLimit");
+
+  return {
+    windowMs: rateLimit.windowMs ?? 60_000,
+    maxQuoteRequests: rateLimit.maxQuoteRequests ?? 120,
+    maxSubmitRequests: rateLimit.maxSubmitRequests ?? 60,
+    maxStatusRequests: rateLimit.maxStatusRequests ?? 300,
+  };
+}
+
+function assertOptionalOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`buildServer ${path}.${field} must be an own field when provided`);
+    }
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function readCorsAllowedOrigins(): string[] {

@@ -304,6 +304,18 @@ test("RFQ API rejects unsafe rate limit configuration at startup", () => {
 
 test("RFQ API rejects unsafe direct runtime options at startup", () => {
   assert.throws(
+    () => buildServer(null),
+    /buildServer options must be an object/,
+  );
+  assert.throws(
+    () => buildServer([]),
+    /buildServer options must be an object/,
+  );
+  assert.throws(
+    () => buildServer(Object.create({ logger: false })),
+    /buildServer options.logger must be an own field when provided/,
+  );
+  assert.throws(
     () => buildServer({ logger: "false" }),
     /logger must be a boolean/,
   );
@@ -326,6 +338,14 @@ test("RFQ API rejects unsafe direct runtime options at startup", () => {
   assert.throws(
     () => buildServer({ logger: false, trustProxy: "true" }),
     /trustProxy must be a boolean/,
+  );
+  assert.throws(
+    () => buildServer({ logger: false, rateLimit: "enabled" }),
+    /buildServer rateLimit must be an object or false/,
+  );
+  assert.throws(
+    () => buildServer({ logger: false, rateLimit: Object.create({ windowMs: 60_000 }) }),
+    /buildServer rateLimit.windowMs must be an own field when provided/,
   );
 });
 
