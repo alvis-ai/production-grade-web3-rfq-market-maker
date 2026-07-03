@@ -1722,6 +1722,73 @@ test("QuoteService marks requested quotes as failed when pricing is unavailable"
   assert.equal(signerCalls, 0);
 });
 
+test("QuoteService rejects malformed pricing engine results before signing", async () => {
+  const validPricingResult = {
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    spreadBps: 16,
+    sizeImpactBps: 1,
+    inventorySkewBps: 0,
+    pricingVersion: "test-pricing",
+  };
+  const malformedPricingResults = [
+    undefined,
+    Object.create(validPricingResult),
+    { ...validPricingResult, internalSpread: 8 },
+    { ...validPricingResult, amountOut: "0998400000" },
+    { ...validPricingResult, amountOut: "900", minAmountOut: "901" },
+    { ...validPricingResult, spreadBps: -1 },
+    { ...validPricingResult, sizeImpactBps: 10001 },
+    { ...validPricingResult, inventorySkewBps: 10001 },
+    { ...validPricingResult, pricingVersion: "pricing/v1" },
+  ];
+
+  for (const malformedPricingResult of malformedPricingResults) {
+    const quoteRepository = new InMemoryQuoteRepository();
+    const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+    let requestedQuoteId;
+    let signAttempts = 0;
+    quoteRepository.saveRequested = async (input) => {
+      requestedQuoteId = input.quoteId;
+      await saveRequested(input);
+    };
+
+    const service = new QuoteService({
+      ...quoteServiceDeps(),
+      quoteRepository,
+      pricingEngine: {
+        async price() {
+          return malformedPricingResult;
+        },
+      },
+      signerService: {
+        async signQuote() {
+          signAttempts += 1;
+          return fixedSignature();
+        },
+        async verifyQuoteSignature() {
+          return true;
+        },
+      },
+    });
+
+    await assert.rejects(
+      service.createQuote(request),
+      (error) => {
+        assert.equal(error.code, "PRICING_UNAVAILABLE");
+        assert.equal(error.statusCode, 503);
+        return true;
+      },
+    );
+
+    assert.equal(signAttempts, 0);
+    assert.match(requestedQuoteId, /^q_/);
+    const status = await quoteRepository.findStatus(requestedQuoteId);
+    assert.equal(status.status, "failed");
+    assert.equal(status.errorCode, "PRICING_UNAVAILABLE");
+  }
+});
+
 test("QuoteService persists approved and rejected risk decisions before signer boundary", async () => {
   const approvedRiskDecisionStore = new InMemoryRiskDecisionRepository();
   const approvedService = new QuoteService({

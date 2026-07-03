@@ -699,6 +699,9 @@ grep -q 'ROUTING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'routingFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'PRICING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'pricingFailure' backend/src/modules/quote/quote.service.ts
+grep -q 'pricingResultFields' backend/src/modules/quote/quote.service.ts
+grep -q 'assertPricingResult(pricingResult)' backend/src/modules/quote/quote.service.ts
+grep -q 'Quote service pricing result.amountOut must be greater than or equal to pricing result.minAmountOut' backend/src/modules/quote/quote.service.ts
 grep -q 'evaluateRisk' backend/src/modules/quote/quote.service.ts
 grep -q 'RISK_ENGINE_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'saveRejectedQuoteBestEffort' backend/src/modules/quote/quote.service.ts
@@ -721,6 +724,9 @@ grep -q '${label}.${inherited} must be an own field when provided' backend/src/s
 grep -q 'Submit validation options allowExpired must be a boolean' backend/src/shared/validation/submit-request.ts
 grep -q 'QuoteService snapshots dependency object at construction' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe dependency configuration at construction' backend/test/quote-service.test.mjs
+grep -q 'QuoteService rejects malformed pricing engine results before signing' backend/test/quote-service.test.mjs
+grep -q 'internalSpread: 8' backend/test/quote-service.test.mjs
+grep -q 'assert.equal(signAttempts, 0)' backend/test/quote-service.test.mjs
 grep -q 'assertRecord(config, "config")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertRecord(deps, "deps")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/quote/quote.service.ts
@@ -738,6 +744,8 @@ grep -q 'Submit validation options.allowExpired must be an own field when provid
 grep -q 'Submit validation options allowExpired must be a boolean' backend/test/validation.test.mjs
 grep -q 'QuoteService` rejects malformed config, inherited config fields, malformed dependency map, inherited required dependency entries, inherited optional `hedgeService`, and malformed dependency entries before reading runtime fields or service methods' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'createQuote()` revalidates and snapshots the quote request at the service boundary' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'validates `PricingResult` returned by the pricing adapter before inventory projection, risk evaluation or signing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Malformed pricing output is treated as `PRICING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requireSubmittableSignedQuote()` revalidates the submit quote and canonical signature' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'The internal `allowExpired` validation option must be an own boolean field' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'internal validation options also reject inherited `allowExpired` fields' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md

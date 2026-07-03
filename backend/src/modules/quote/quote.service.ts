@@ -71,6 +71,18 @@ const quoteServiceDepsFields = [
   "routingEngine",
   "signerService",
 ] as const;
+const pricingResultFields = [
+  "amountOut",
+  "minAmountOut",
+  "spreadBps",
+  "sizeImpactBps",
+  "inventorySkewBps",
+  "pricingVersion",
+] as const;
+const positiveUIntStringPattern = /^[1-9][0-9]*$/;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const maxSafeIdentifierLength = 128;
+const maxBps = 10_000;
 
 export class QuoteService {
   private readonly identityGenerator = new QuoteIdentityGenerator();
@@ -126,12 +138,14 @@ export class QuoteService {
 
     let pricing: PricingResult;
     try {
-      pricing = await this.deps.pricingEngine.price({
+      const pricingResult = await this.deps.pricingEngine.price({
         request: validatedRequest,
         snapshot,
         routePlan,
         inventorySkewBps: inventorySkewBps + hedgeRiskPenaltyBps,
       });
+      assertPricingResult(pricingResult);
+      pricing = pricingResult;
     } catch (error) {
       const failure = pricingFailure(error);
       await this.markQuoteFailedBestEffort(quoteId, failure.code);
@@ -552,6 +566,67 @@ function assertOptionalOwnField(value: object, field: string, path: string): voi
 function assertPositiveSafeInteger(value: number, field: keyof QuoteServiceConfig): void {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`Quote service ${field} must be a positive safe integer`);
+  }
+}
+
+function assertPricingResult(value: unknown): asserts value is PricingResult {
+  if (!isRecord(value)) {
+    throw new Error("Quote service pricing result must be an object");
+  }
+
+  assertOwnFields(value, pricingResultFields, "pricing result");
+  assertNoUnknownFields(value, pricingResultFields, "pricing result");
+  const amountOut = value.amountOut;
+  const minAmountOut = value.minAmountOut;
+  assertPricingUIntString(amountOut, "amountOut");
+  assertPricingUIntString(minAmountOut, "minAmountOut");
+
+  if (BigInt(amountOut) < BigInt(minAmountOut)) {
+    throw new Error(
+      "Quote service pricing result.amountOut must be greater than or equal to pricing result.minAmountOut",
+    );
+  }
+
+  assertNonNegativeBpsInteger(value.spreadBps, "spreadBps");
+  assertNonNegativeBpsInteger(value.sizeImpactBps, "sizeImpactBps");
+  assertBpsMagnitudeInteger(value.inventorySkewBps, "inventorySkewBps");
+  assertPricingSafeIdentifier(value.pricingVersion);
+}
+
+function assertNoUnknownFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of Object.keys(value)) {
+    if (!fields.includes(field)) {
+      throw new Error(`Quote service ${path} must not include unknown field ${field}`);
+    }
+  }
+}
+
+function assertPricingUIntString(value: unknown, field: "amountOut" | "minAmountOut"): asserts value is UIntString {
+  if (typeof value !== "string" || !positiveUIntStringPattern.test(value)) {
+    throw new Error(`Quote service pricing result.${field} must be a positive uint string`);
+  }
+}
+
+function assertNonNegativeBpsInteger(value: unknown, field: "spreadBps" | "sizeImpactBps"): asserts value is number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > maxBps) {
+    throw new Error(`Quote service pricing result.${field} must be a non-negative bps integer`);
+  }
+}
+
+function assertBpsMagnitudeInteger(value: unknown, field: "inventorySkewBps"): asserts value is number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || Math.abs(value) > maxBps) {
+    throw new Error(`Quote service pricing result.${field} must be a safe bps integer`);
+  }
+}
+
+function assertPricingSafeIdentifier(value: unknown): void {
+  if (
+    typeof value !== "string" ||
+    value.trim().length === 0 ||
+    value.length > maxSafeIdentifierLength ||
+    !safeIdentifierPattern.test(value)
+  ) {
+    throw new Error("Quote service pricing result.pricingVersion must be a safe identifier");
   }
 }
 
