@@ -1646,6 +1646,10 @@ test("RFQClient rejects malformed hedge status responses", async () => {
       message: "RFQ hedge status response returned malformed status",
     },
     {
+      payload: { ...hedgeResponse, venue: "CEX_A" },
+      message: "RFQ hedge status response returned malformed venue",
+    },
+    {
       payload: { ...hedgeResponse, chainId: 0 },
       message: "RFQ hedge status response returned malformed chainId",
     },
@@ -1749,6 +1753,10 @@ test("RFQClient rejects malformed submit and quote status responses", async () =
     {
       payload: { ...quoteStatusResponse, status: "unknown" },
       message: "RFQ quote status response returned malformed status",
+    },
+    {
+      payload: { ...quoteStatusResponse, routeHint: "debug" },
+      message: "RFQ quote status response returned malformed routeHint",
     },
     {
       payload: { ...quoteStatusResponse, snapshotId: "" },
@@ -1883,6 +1891,10 @@ test("RFQClient rejects malformed settlement status responses", async () => {
       message: "RFQ settlement event status response returned malformed status",
     },
     {
+      payload: { ...settlementResponse, chainName: "mainnet" },
+      message: "RFQ settlement event status response returned malformed chainName",
+    },
+    {
       payload: { ...settlementResponse, quoteId: "" },
       message: "RFQ settlement event status response returned malformed quoteId",
     },
@@ -1994,6 +2006,10 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
       message: "RFQ PnL summary response returned malformed status",
     },
     {
+      payload: { ...basePnlResponse, reconciliationId: "recon_1" },
+      message: "RFQ PnL summary response returned malformed reconciliationId",
+    },
+    {
       payload: { ...basePnlResponse, totalTrades: 2 },
       message: "RFQ PnL summary response returned malformed totalTrades",
     },
@@ -2026,6 +2042,13 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
         trades: [{ ...basePnlResponse.trades[0], quoteId: "q".repeat(129) }],
       },
       message: "RFQ PnL summary response trade returned malformed quoteId",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], routeId: "route_1" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed routeId",
     },
     {
       payload: {
@@ -2163,6 +2186,10 @@ test("RFQClient rejects malformed successful response fields", async () => {
       traceId: "tr_malformed_field",
     },
     {
+      payload: { ...quoteResponse, routeHint: "debug" },
+      message: "RFQ quote response returned malformed routeHint",
+    },
+    {
       payload: { ...quoteResponse, quoteId: "q.bad" },
       message: "RFQ quote response returned malformed quoteId",
     },
@@ -2260,6 +2287,10 @@ test("RFQClient rejects malformed successful response fields", async () => {
     {
       payload: { ...submitResponse, txHash: "0x1234" },
       message: "RFQ submit response returned malformed txHash",
+    },
+    {
+      payload: { ...submitResponse, relayer: quote.user },
+      message: "RFQ submit response returned malformed relayer",
     },
     {
       payload: { ...submitResponse, settlementEventId: "" },

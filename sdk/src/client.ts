@@ -829,6 +829,8 @@ function assertOwnResponseFields(
   status: number,
   label: string,
 ): void {
+  assertNoUnknownResponseFields(payload, requiredFields, optionalFields, status, label);
+
   for (const field of requiredFields) {
     if (!hasOwnField(payload, field)) {
       throw malformedFieldError(status, label, field);
@@ -837,6 +839,21 @@ function assertOwnResponseFields(
 
   for (const field of optionalFields) {
     assertOptionalOwnResponseField(payload, field, status, label);
+  }
+}
+
+function assertNoUnknownResponseFields(
+  payload: Record<string, unknown>,
+  requiredFields: readonly string[],
+  optionalFields: readonly string[],
+  status: number,
+  label: string,
+): void {
+  const allowed = new Set<string>([...requiredFields, ...optionalFields]);
+  for (const key of Object.keys(payload)) {
+    if (!allowed.has(key)) {
+      throw malformedFieldError(status, label, key);
+    }
   }
 }
 

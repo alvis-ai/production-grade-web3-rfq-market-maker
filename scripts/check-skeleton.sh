@@ -510,7 +510,14 @@ grep -q 'SDK ReadinessComponentName must match backend readiness components' scr
 grep -q 'SDK client readiness runtime components must match backend readiness components' scripts/check-api-schema-consistency.mjs
 grep -q 'ReadinessResponse.components OpenAPI properties must match backend readiness components' scripts/check-api-schema-consistency.mjs
 grep -q 'ReadinessResponse.components OpenAPI schema must reject unknown readiness components' scripts/check-api-schema-consistency.mjs
-grep -q 'closedOpenApiSchemas = \["QuoteRequest", "SubmitQuoteRequest", "SignedQuote", "HealthResponse", "ReadinessResponse"\]' scripts/check-api-schema-consistency.mjs
+grep -q 'const closedOpenApiSchemas = \[' scripts/check-api-schema-consistency.mjs
+grep -q '"QuoteResponse"' scripts/check-api-schema-consistency.mjs
+grep -q '"SubmitQuoteResponse"' scripts/check-api-schema-consistency.mjs
+grep -q '"QuoteStatus"' scripts/check-api-schema-consistency.mjs
+grep -q '"HedgeIntentStatus"' scripts/check-api-schema-consistency.mjs
+grep -q '"SettlementEventStatus"' scripts/check-api-schema-consistency.mjs
+grep -q '"PnlTradeRecord"' scripts/check-api-schema-consistency.mjs
+grep -q '"PnlSummary"' scripts/check-api-schema-consistency.mjs
 grep -q 'OpenAPI schema must reject unknown fields with additionalProperties: false' scripts/check-api-schema-consistency.mjs
 grep -q 'OpenAPI ReadinessComponentStatus enum must match backend' scripts/check-api-schema-consistency.mjs
 grep -q 'inlineEnumMappings' scripts/check-api-schema-consistency.mjs
@@ -2057,13 +2064,21 @@ grep -q 'malleateSignature(await validTypedDataSignature())' sdk/test/sdk.test.m
 grep -q 'canonical low-s EIP-712 signature' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'malformed successful response fields' sdk/test/sdk.test.mjs
 grep -q 'assertOwnResponseFields' sdk/src/client.ts
+grep -q 'assertNoUnknownResponseFields' sdk/src/client.ts
+grep -q 'allowed.has(key)' sdk/src/client.ts
 grep -q 'assertOptionalOwnResponseField' sdk/src/client.ts
 grep -q 'quoteResponseFields = \["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"\]' sdk/src/client.ts
 grep -Fq 'Object.create({ status: "ok" })' sdk/test/sdk.test.mjs
 grep -q 'Object.create({' sdk/test/sdk.test.mjs
 grep -q 'payload: Object.create(quoteResponse)' sdk/test/sdk.test.mjs
 grep -q 'withPrototype({ txHash: submitResponse.txHash }, { status: "accepted" })' sdk/test/sdk.test.mjs
-grep -q 'required fields and present optional fields to be own response fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'successful response validators require closed own response fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'routeHint: "debug"' sdk/test/sdk.test.mjs
+grep -q 'relayer: quote.user' sdk/test/sdk.test.mjs
+grep -q 'venue: "CEX_A"' sdk/test/sdk.test.mjs
+grep -q 'chainName: "mainnet"' sdk/test/sdk.test.mjs
+grep -q 'reconciliationId: "recon_1"' sdk/test/sdk.test.mjs
+grep -q 'routeId: "route_1"' sdk/test/sdk.test.mjs
 grep -q 'Stringified numbers and wrapper objects are rejected instead of being coerced with `Number(...)`' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -Fq 'return typeof value === "string" && /^(0|-?[1-9][0-9]*)$/.test(value)' sdk/src/client.ts
 grep -q 'grossPnlTokenOut: "01600000"' sdk/test/sdk.test.mjs

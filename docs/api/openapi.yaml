@@ -527,6 +527,7 @@ components:
           maximum: 10000
     QuoteResponse:
       type: object
+      additionalProperties: false
       required:
         - quoteId
         - snapshotId
@@ -572,6 +573,7 @@ components:
           description: 65-byte canonical low-s EIP-712 signature encoded as 0x-prefixed hex. The gateway rejects high-s signatures and v values other than 27/28 or normalized 0/1 before quote lookup or settlement verification.
     SubmitQuoteResponse:
       type: object
+      additionalProperties: false
       required:
         - status
       properties:
@@ -637,6 +639,7 @@ components:
           description: Positive JavaScript safe integer chain id.
     QuoteStatus:
       type: object
+      additionalProperties: false
       required:
         - quoteId
         - status
@@ -679,6 +682,7 @@ components:
           description: Internal rejection reason for rejected quote records when available.
     HedgeIntentStatus:
       type: object
+      additionalProperties: false
       required:
         - hedgeOrderId
         - status
@@ -726,6 +730,7 @@ components:
           description: Canonical UTC ISO timestamp generated with Date.prototype.toISOString().
     SettlementEventStatus:
       type: object
+      additionalProperties: false
       required:
         - settlementEventId
         - status
@@ -787,6 +792,7 @@ components:
           description: Canonical UTC ISO timestamp generated with Date.prototype.toISOString().
     PnlTradeRecord:
       type: object
+      additionalProperties: false
       required:
         - pnlId
         - quoteId
@@ -849,6 +855,7 @@ components:
           description: Canonical UTC ISO timestamp generated with Date.prototype.toISOString().
     PnlSummary:
       type: object
+      additionalProperties: false
       required:
         - status
         - totalTrades

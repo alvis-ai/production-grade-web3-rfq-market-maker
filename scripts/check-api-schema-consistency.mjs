@@ -21,7 +21,20 @@ const schemaMappings = [
   ["PnlTradeRecord", "PnlTradeRecord", "PnlTradeRecord"],
   ["PnlSummaryResponse", "PnlSummary", "PnlSummary"],
 ];
-const closedOpenApiSchemas = ["QuoteRequest", "SubmitQuoteRequest", "SignedQuote", "HealthResponse", "ReadinessResponse"];
+const closedOpenApiSchemas = [
+  "QuoteRequest",
+  "QuoteResponse",
+  "SubmitQuoteRequest",
+  "SubmitQuoteResponse",
+  "SignedQuote",
+  "QuoteStatus",
+  "HedgeIntentStatus",
+  "SettlementEventStatus",
+  "PnlTradeRecord",
+  "PnlSummary",
+  "HealthResponse",
+  "ReadinessResponse",
+];
 const inlineEnumMappings = [
   ["SubmitQuoteResponse", "SubmitQuoteResponse", "SubmitQuoteResponse", "status"],
   ["HedgeIntentStatusResponse", "HedgeIntentStatus", "HedgeIntentStatus", "status"],
