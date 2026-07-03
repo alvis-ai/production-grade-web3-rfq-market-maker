@@ -2637,6 +2637,27 @@ test("RFQ API maps oversized JSON bodies to structured errors", async () => {
   }
 });
 
+test("RFQ API ignores inherited framework error fields", async () => {
+  const server = buildServer({ logger: false });
+  server.get("/prototype-framework-error", async () => {
+    throw Object.create({ statusCode: 400, code: "FST_ERR_CTP_BODY_TOO_LARGE" });
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "GET", "/prototype-framework-error");
+
+    assert.equal(response.statusCode, 500);
+    assert.equal(response.body.code, "INTERNAL_ERROR");
+    assert.equal(response.body.message, "Internal server error");
+    assert.match(response.body.traceId, /^tr_/);
+    assert.equal(response.headers["x-trace-id"], response.body.traceId);
+    assertSecurityHeaders(response, { hsts: false });
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rejects submit payloads that violate settlement shape", async () => {
   const server = buildServer({ logger: false });
   await server.ready();

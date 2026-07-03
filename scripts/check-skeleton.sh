@@ -613,7 +613,12 @@ grep -q 'server.setNotFoundHandler' backend/src/main.ts
 grep -q 'Route not found' backend/src/main.ts
 grep -q 'server.setErrorHandler' backend/src/main.ts
 grep -q 'frameworkErrorToAPIError' backend/src/main.ts
+grep -q 'frameworkErrorField(error, "code")' backend/src/main.ts
+grep -q 'frameworkErrorField(error, "statusCode")' backend/src/main.ts
 grep -q 'FST_ERR_CTP_BODY_TOO_LARGE' backend/src/main.ts
+grep -q 'RFQ API ignores inherited framework error fields' backend/test/api.test.mjs
+grep -q 'Object.create({ statusCode: 400, code: "FST_ERR_CTP_BODY_TOO_LARGE" })' backend/test/api.test.mjs
+grep -q '框架错误映射只信任 error 对象自有的 `code` 和 `statusCode` 字段' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'requireConfiguredEnv' backend/src/main.ts
 grep -q 'requireConfiguredPrivateKey' backend/src/main.ts
 grep -q 'requireConfiguredAddress' backend/src/main.ts

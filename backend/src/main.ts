@@ -463,20 +463,29 @@ function frameworkErrorToAPIError(error: unknown): APIError {
     return error;
   }
 
-  const record = error as { code?: unknown; statusCode?: unknown };
-  if (record.code === "FST_ERR_CTP_BODY_TOO_LARGE" || record.statusCode === 413) {
+  const code = frameworkErrorField(error, "code");
+  const statusCode = frameworkErrorField(error, "statusCode");
+  if (code === "FST_ERR_CTP_BODY_TOO_LARGE" || statusCode === 413) {
     return new APIError("INVALID_REQUEST", "Request body too large", 413);
   }
 
-  if (record.statusCode === 400) {
+  if (statusCode === 400) {
     return new APIError("INVALID_REQUEST", "Malformed JSON request body", 400);
   }
 
-  if (record.statusCode === 415) {
+  if (statusCode === 415) {
     return new APIError("INVALID_REQUEST", "Request content type must be application/json", 415);
   }
 
   return toAPIError(error);
+}
+
+function frameworkErrorField(error: unknown, field: "code" | "statusCode"): unknown {
+  if (!isRecord(error) || !Object.prototype.hasOwnProperty.call(error, field)) {
+    return undefined;
+  }
+
+  return error[field];
 }
 
 function hedgeStatusFailure(error: unknown): APIError {
