@@ -1,17 +1,17 @@
 import { useEffect } from "react";
-import type { Address, Quote, QuoteResponse } from "@rfq-market-maker/sdk";
+import type { Quote, QuoteResponse } from "@rfq-market-maker/sdk";
 import { buildSubmitQuoteWriteRequest } from "@rfq-market-maker/sdk";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useChainId, useWriteContract } from "wagmi";
 import { Web3Provider } from "../app/web3";
 import { rfqSettlementAddress } from "../lib/config";
 import { toUIError, type UIError } from "../lib/errors";
+import {
+  prepareWalletSubmit,
+  walletMatchesQuote as quoteMatchesWallet,
+  type WalletState,
+} from "../lib/wallet-submit";
 import "@rainbow-me/rainbowkit/styles.css";
-
-export interface WalletState {
-  address?: Address;
-  chainId?: number;
-}
 
 interface WalletSubmitControlProps {
   quote?: QuoteResponse;
@@ -46,34 +46,23 @@ function WalletSubmitInner({
     onWalletChange({ address, chainId: activeChainId });
   }, [activeChainId, address, onWalletChange]);
 
-  const walletMatchesQuote = Boolean(
-    signedQuote &&
-    address &&
-    address.toLowerCase() === signedQuote.user.toLowerCase() &&
-    activeChainId === signedQuote.chainId,
-  );
+  const walletState: WalletState = { address, chainId: activeChainId };
+  const walletMatchesQuote = quoteMatchesWallet(signedQuote, walletState);
+  const walletSubmit = prepareWalletSubmit({ quote, signedQuote, wallet: walletState });
   const canSubmitOnchain = Boolean(
     canSubmit &&
-    signedQuote &&
-    quote &&
     rfqSettlementAddress &&
-    address &&
+    walletSubmit.ok &&
     walletMatchesQuote &&
     !isPending,
   );
 
   async function submitQuoteOnchain() {
-    if (!quote || !signedQuote || !rfqSettlementAddress) return;
-    if (!address) {
-      onError({ message: "Connect wallet before submitting onchain" });
-      return;
-    }
-    if (address.toLowerCase() !== signedQuote.user.toLowerCase()) {
-      onError({ message: "Connected wallet must match quote user" });
-      return;
-    }
-    if (activeChainId !== signedQuote.chainId) {
-      onError({ message: "Connected wallet network must match quote chainId" });
+    if (!rfqSettlementAddress) return;
+
+    const preparedSubmit = prepareWalletSubmit({ quote, signedQuote, wallet: walletState });
+    if (!preparedSubmit.ok) {
+      onError({ message: preparedSubmit.error });
       return;
     }
 
@@ -81,8 +70,8 @@ function WalletSubmitInner({
       const txHash = await writeContractAsync(
         buildSubmitQuoteWriteRequest({
           settlementAddress: rfqSettlementAddress,
-          quote: signedQuote,
-          signature: quote.signature,
+          quote: preparedSubmit.quote,
+          signature: preparedSubmit.signature,
         }),
       );
       onTxHash(txHash);

@@ -111,7 +111,8 @@ Direct submit does not require backend `/submit`; relay mode uses `POST /submit`
 - Direct wallet submit and API relay submit share the same signed quote payload.
 - Direct wallet submit uses `VITE_RFQ_SETTLEMENT_ADDRESS` as the write target.
 - Submit disabled after deadline.
-- Direct wallet submit is also disabled unless the connected wallet address matches `quote.user` and the active wallet chain id matches `quote.chainId`; the click handler repeats those guards before calling `writeContractAsync`.
+- Direct wallet submit is also disabled unless the connected wallet address matches an own-field `quote.user` and the active wallet chain id matches an own-field `quote.chainId`; the click handler repeats those guards before calling `writeContractAsync`.
+- `prepareWalletSubmit()` rejects inherited or unknown signed quote fields and inherited quote response signature fields before copying `signature` into the SDK write request, so UI readiness and calldata construction share the same closed own-field boundary.
 - Refresh hydrates settlement, hedge and PnL panels from `QuoteStatus` pointers first, with the `/submit` response only as immediate fallback.
 - tx confirmed is not equal to indexed settled until status refresh confirms.
 

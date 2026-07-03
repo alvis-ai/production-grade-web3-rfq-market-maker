@@ -16,7 +16,7 @@ import { toUIError, type UIError } from "../lib/errors";
 import { rfqApiBaseUrl, rfqSettlementAddress } from "../lib/config";
 import { buildQuoteFromResponse, rfqClient } from "../lib/rfq";
 import { validateQuoteFormRequest } from "../lib/quote-request";
-import type { WalletState } from "../components/WalletSubmitControl";
+import type { WalletState } from "../lib/wallet-submit";
 
 const WalletSubmitControl = lazy(() => import("../components/WalletSubmitControl"));
 

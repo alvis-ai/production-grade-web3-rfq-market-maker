@@ -1733,8 +1733,15 @@ grep -q 'useWriteContract' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'buildSubmitQuoteWriteRequest' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'writeContractAsync' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'walletMatchesQuote' frontend/src/components/WalletSubmitControl.tsx
-grep -q 'Connected wallet must match quote user' frontend/src/components/WalletSubmitControl.tsx
-grep -q 'Connected wallet network must match quote chainId' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'prepareWalletSubmit' frontend/src/lib/wallet-submit.ts
+grep -q 'walletMatchesQuote(signedQuote: Quote | undefined, wallet: WalletState)' frontend/src/lib/wallet-submit.ts
+grep -q 'Signed quote must provide closed own wallet submit fields' frontend/src/lib/wallet-submit.ts
+grep -q 'Quote response must provide closed own wallet submit fields' frontend/src/lib/wallet-submit.ts
+grep -q 'Connected wallet must match quote user' frontend/src/lib/wallet-submit.ts
+grep -q 'Connected wallet network must match quote chainId' frontend/src/lib/wallet-submit.ts
+grep -q 'Object.create(signedQuote)' frontend/test/wallet-submit.test.mjs
+grep -q 'Object.create(quoteResponse)' frontend/test/wallet-submit.test.mjs
+grep -q 'prepareWalletSubmit()` rejects inherited or unknown signed quote fields and inherited quote response signature fields' book/Volume6-Frontend-And-SDK/Chapter03-Submit-Flow.md
 grep -q 'quoteResponseFields = \["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"\]' frontend/src/lib/rfq.ts
 grep -q 'assertExactFields(request, quoteRequestFields, "quote request")' frontend/src/lib/rfq.ts
 grep -q 'assertExactFields(response, quoteResponseFields, "quote response")' frontend/src/lib/rfq.ts
