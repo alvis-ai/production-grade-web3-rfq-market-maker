@@ -201,6 +201,73 @@ test("ReadinessService rejects unsafe freshness configuration at construction", 
       ),
     /Readiness service maxSnapshotFutureSkewMs must be a positive safe integer/,
   );
+
+  assert.throws(
+    () =>
+      createReadinessService(
+        {},
+        {
+          ...defaultReadinessServiceConfig,
+          probeRequest: Object.create(defaultReadinessServiceConfig.probeRequest),
+        },
+      ),
+    /Readiness service probeRequest.chainId must be an own field/,
+  );
+  assert.throws(
+    () =>
+      createReadinessService(
+        {},
+        {
+          ...defaultReadinessServiceConfig,
+          probeSnapshot: Object.create(defaultReadinessServiceConfig.probeSnapshot),
+        },
+      ),
+    /Readiness service probeSnapshot.snapshotId must be an own field/,
+  );
+  assert.throws(
+    () =>
+      createReadinessService(
+        {},
+        {
+          ...defaultReadinessServiceConfig,
+          probeRoutePlan: Object.create(defaultReadinessServiceConfig.probeRoutePlan),
+        },
+      ),
+    /Readiness service probeRoutePlan.routeId must be an own field/,
+  );
+  assert.throws(
+    () =>
+      createReadinessService(
+        {},
+        {
+          ...defaultReadinessServiceConfig,
+          probePricing: Object.create(defaultReadinessServiceConfig.probePricing),
+        },
+      ),
+    /Readiness service probePricing.amountOut must be an own field/,
+  );
+  assert.throws(
+    () =>
+      createReadinessService(
+        {},
+        {
+          ...defaultReadinessServiceConfig,
+          probeQuote: Object.create(defaultReadinessServiceConfig.probeQuote),
+        },
+      ),
+    /Readiness service probeQuote.user must be an own field/,
+  );
+  assert.throws(
+    () =>
+      createReadinessService(
+        {},
+        {
+          ...defaultReadinessServiceConfig,
+          probeSnapshot: [],
+        },
+      ),
+    /Readiness service probeSnapshot must be an object/,
+  );
 });
 
 test("ReadinessService rejects unsafe dependency configuration at construction", () => {

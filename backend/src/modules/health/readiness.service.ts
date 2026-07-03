@@ -135,6 +135,28 @@ const readinessServiceDepsFields = [
   "pnlService",
   "metricsService",
 ] as const;
+const probeRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
+const probeSnapshotFields = ["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"] as const;
+const probeRoutePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"] as const;
+const probePricingFields = [
+  "amountOut",
+  "minAmountOut",
+  "spreadBps",
+  "sizeImpactBps",
+  "inventorySkewBps",
+  "pricingVersion",
+] as const;
+const probeQuoteFields = [
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "minAmountOut",
+  "nonce",
+  "deadline",
+  "chainId",
+] as const;
 
 export class ReadinessService {
   private readonly deps: ReadinessServiceDeps;
@@ -148,6 +170,7 @@ export class ReadinessService {
     assertOwnFields(config, readinessServiceConfigFields, "config");
     assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
     assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
+    assertProbeFields(config);
     assertReadinessServiceDeps(deps);
     this.deps = cloneReadinessServiceDeps(deps);
     this.config = cloneReadinessServiceConfig(config);
@@ -273,6 +296,19 @@ function assertPositiveSafeInteger(value: number, field: keyof ReadinessServiceC
   }
 }
 
+function assertProbeFields(config: ReadinessServiceConfig): void {
+  assertRecord(config.probeRequest, "probeRequest");
+  assertOwnFields(config.probeRequest, probeRequestFields, "probeRequest");
+  assertRecord(config.probeSnapshot, "probeSnapshot");
+  assertOwnFields(config.probeSnapshot, probeSnapshotFields, "probeSnapshot");
+  assertRecord(config.probeRoutePlan, "probeRoutePlan");
+  assertOwnFields(config.probeRoutePlan, probeRoutePlanFields, "probeRoutePlan");
+  assertRecord(config.probePricing, "probePricing");
+  assertOwnFields(config.probePricing, probePricingFields, "probePricing");
+  assertRecord(config.probeQuote, "probeQuote");
+  assertOwnFields(config.probeQuote, probeQuoteFields, "probeQuote");
+}
+
 function cloneReadinessServiceDeps(deps: ReadinessServiceDeps): ReadinessServiceDeps {
   return { ...deps };
 }
@@ -308,7 +344,18 @@ function assertDependencyMethod(
   }
 }
 
-function assertRecord(value: unknown, field: "config" | "deps" | keyof ReadinessServiceDeps): void {
+function assertRecord(
+  value: unknown,
+  field:
+    | "config"
+    | "deps"
+    | keyof ReadinessServiceDeps
+    | "probeRequest"
+    | "probeSnapshot"
+    | "probeRoutePlan"
+    | "probePricing"
+    | "probeQuote",
+): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Readiness service ${field} must be an object`);
   }
