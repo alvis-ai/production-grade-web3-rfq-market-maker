@@ -992,6 +992,9 @@ function isRFQErrorResponse(value: unknown): value is RFQErrorResponse {
   if (!isRecord(value)) return false;
 
   return (
+    hasOwnField(value, "code") &&
+    hasOwnField(value, "message") &&
+    hasOwnField(value, "traceId") &&
     typeof value.code === "string" &&
     rfqErrorCodeSet.has(value.code) &&
     typeof value.message === "string" &&

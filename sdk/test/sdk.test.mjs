@@ -1359,6 +1359,45 @@ test("RFQClient falls back for unknown API error codes", async () => {
   }
 });
 
+test("RFQClient ignores prototype-backed API error bodies", async () => {
+  const restoreFetch = installFetch(async () =>
+    jsonResponse(
+      409,
+      Object.create({
+        code: "RISK_REJECTED",
+        message: "Risk policy rejected quote",
+        traceId: "tr_prototype_body",
+      }),
+      { "x-trace-id": "tr_error_header" },
+    ),
+  );
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    await assert.rejects(
+      client.quote({
+        chainId: quote.chainId,
+        user: quote.user,
+        tokenIn: quote.tokenIn,
+        tokenOut: quote.tokenOut,
+        amountIn: quote.amountIn,
+        slippageBps: 50,
+      }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 409);
+        assert.equal(error.code, "RFQ_CLIENT_ERROR");
+        assert.equal(error.message, "RFQ quote failed");
+        assert.equal(error.traceId, "tr_error_header");
+        return true;
+      },
+    );
+  } finally {
+    restoreFetch();
+  }
+});
+
 test("RFQClient ignores unsafe response trace ids and falls back to safe trace headers", async () => {
   const restoreFetch = installFetch(async () =>
     jsonResponse(

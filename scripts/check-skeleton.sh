@@ -1960,9 +1960,14 @@ grep -q 'response.headers.get("retry-after")' sdk/src/client.ts
 grep -q 'Number.isSafeInteger(seconds)' sdk/src/client.ts
 grep -q 'traceIdFromResponse' sdk/src/client.ts
 grep -q 'normalizeTraceId' sdk/src/client.ts
+grep -q 'hasOwnField(value, "code")' sdk/src/client.ts
+grep -q 'hasOwnField(value, "message")' sdk/src/client.ts
+grep -q 'hasOwnField(value, "traceId")' sdk/src/client.ts
 grep -q 'assertResponsePayload' sdk/src/client.ts
 grep -q 'withResponseTrace' sdk/src/client.ts
 grep -q 'response.headers.get("x-trace-id")' sdk/src/client.ts
+grep -q 'ignores prototype-backed API error bodies' sdk/test/sdk.test.mjs
+grep -q 'tr_error_header' sdk/test/sdk.test.mjs
 grep -q 'tr_header_unknown' sdk/test/sdk.test.mjs
 grep -q 'tr_malformed_json' sdk/test/sdk.test.mjs
 grep -q 'tr_malformed_field' sdk/test/sdk.test.mjs
@@ -1970,6 +1975,8 @@ grep -q 'ignores unsafe response trace ids and falls back to safe trace headers'
 grep -q 'tr_safe_header' sdk/test/sdk.test.mjs
 grep -q 'falls back to safe `x-trace-id` response headers' README.md
 grep -q 'falls back to safe `x-trace-id` response headers' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'prototype-backed error body' README.md
+grep -q 'prototype-backed error bodies' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'unsafe body or header values are ignored' README.md
 grep -q 'Unsafe response trace ids' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient baseUrl must be a string' sdk/src/client.ts
