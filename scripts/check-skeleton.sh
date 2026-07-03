@@ -499,6 +499,12 @@ grep -q 'assertResponseFields(hedge.body' backend/test/api.test.mjs
 grep -Fq 'assertResponseFields(pnl.body, ["status", "totalTrades", "grossPnlTokenOut", "trades"])' backend/test/api.test.mjs
 grep -q 'assertResponseFields(pnl.body.trades\[0\]' backend/test/api.test.mjs
 grep -q 'successful response bodies must be closed field sets matching OpenAPI' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'RFQ API returns closed structured error responses' backend/test/api.test.mjs
+grep -q 'function assertClosedErrorResponse' backend/test/api.test.mjs
+grep -Fq 'assertResponseFields(response.body, ["code", "message", "traceId"])' backend/test/api.test.mjs
+grep -q '/closed-internal-error' backend/test/api.test.mjs
+grep -q 'Malformed JSON request body' backend/test/api.test.mjs
+grep -q 'Gateway error response bodies must be closed `ErrorResponse` field sets' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Number.MAX_SAFE_INTEGER + 1' backend/test/api.test.mjs
 grep -q 'additionalProperties: false' docs/api/openapi.yaml
 grep -q 'PositiveUIntString' docs/api/openapi.yaml

@@ -2500,6 +2500,37 @@ test("RFQ API includes trace ids on validation and not found errors", async () =
   }
 });
 
+test("RFQ API returns closed structured error responses", async () => {
+  const server = buildServer({ logger: false });
+  server.get("/closed-internal-error", async () => {
+    throw new Error("internal details must not leak");
+  });
+  await server.ready();
+
+  try {
+    const validationError = await injectJson(server, "POST", "/quote", {
+      ...baseQuoteRequest,
+      routeHint: "debug",
+    });
+    assert.equal(validationError.statusCode, 400);
+    assertClosedErrorResponse(validationError, "INVALID_REQUEST", "Quote request contains unknown field routeHint");
+
+    const notFoundError = await injectJson(server, "GET", "/quote/q_missing");
+    assert.equal(notFoundError.statusCode, 404);
+    assertClosedErrorResponse(notFoundError, "QUOTE_NOT_FOUND", "Quote not found");
+
+    const frameworkError = await injectRaw(server, "POST", "/quote", '{"chainId":');
+    assert.equal(frameworkError.statusCode, 400);
+    assertClosedErrorResponse(frameworkError, "INVALID_REQUEST", "Malformed JSON request body");
+
+    const internalError = await injectJson(server, "GET", "/closed-internal-error");
+    assert.equal(internalError.statusCode, 500);
+    assertClosedErrorResponse(internalError, "INTERNAL_ERROR", "Internal server error");
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rejects unknown request fields", async () => {
   const server = buildServer({ logger: false });
   await server.ready();
@@ -3339,6 +3370,14 @@ function assertTraceHeader(response) {
 
 function assertResponseFields(body, fields) {
   assert.deepEqual(Object.keys(body).sort(), [...fields].sort());
+}
+
+function assertClosedErrorResponse(response, code, message) {
+  assertResponseFields(response.body, ["code", "message", "traceId"]);
+  assert.equal(response.body.code, code);
+  assert.equal(response.body.message, message);
+  assert.match(response.body.traceId, /^tr_/);
+  assert.equal(response.headers["x-trace-id"], response.body.traceId);
 }
 
 function assertSecurityHeaders(response, { hsts }) {
