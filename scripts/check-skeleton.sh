@@ -1278,6 +1278,9 @@ grep -q 'assertOwnFields(deps, executionServiceDepsFields, "deps")' backend/src/
 grep -q 'Execution service ${path}.${field} must be an own field' backend/src/modules/execution/execution.service.ts
 grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/execution/execution.service.ts
 grep -q 'assertDependencyMethod(deps.settlementVerifier, "settlementVerifier", "verify")' backend/src/modules/execution/execution.service.ts
+grep -q 'settlementVerificationResultFields = \["status", "verifierVersion", "amountOut"\]' backend/src/modules/execution/execution.service.ts
+grep -q 'assertSettlementVerificationResult(settlementVerification, request.quote.amountOut)' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution service settlement verification amountOut must match quote amountOut' backend/src/modules/execution/execution.service.ts
 grep -q 'cloneExecutionServiceDeps' backend/src/modules/execution/execution.service.ts
 grep -q 'keccak256(toBytes(payload))' backend/src/modules/execution/execution.service.ts
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/execution/execution.service.ts
@@ -1286,6 +1289,9 @@ grep -q 'buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes' ba
 grep -q 'buildSyntheticTxHash rejects malformed submit payloads before hashing' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService suppresses duplicate settlement side effects' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService snapshots dependency object at construction' backend/test/execution.test.mjs
+grep -q 'SkeletonExecutionService rejects malformed settlement verifier results before side effects' backend/test/execution.test.mjs
+grep -q 'internalRoute: "bypass"' backend/test/execution.test.mjs
+grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService rejects unsafe dependency configuration at construction' backend/test/execution.test.mjs
 grep -q 'Execution service deps.hedgeService must be an own field' backend/test/execution.test.mjs
 grep -q 'Execution service hedgeService must be an object' backend/test/execution.test.mjs
@@ -1452,6 +1458,8 @@ grep -q 'SkeletonExecutionService` snapshots its dependency map at construction'
 grep -q 'Required dependency entries must be own fields before method validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SkeletonExecutionService` rejects malformed dependency envelopes and inherited dependency entries before reading required dependency methods' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'validates the `SettlementVerificationResult` returned by the verifier dependency before settlement event writes' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'malformed or mismatched verifier output returns `SETTLEMENT_UNAVAILABLE` before inventory, hedge, PnL or quote-status side effects' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'optional `pnlService` / `hedgeService` entries must be own fields when provided' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService` validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md

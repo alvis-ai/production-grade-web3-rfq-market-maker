@@ -16,6 +16,7 @@ const executionServiceDepsFields = [
   "settlementEventService",
   "settlementVerifier",
 ] as const;
+const settlementVerificationResultFields = ["status", "verifierVersion", "amountOut"] as const;
 
 export interface ExecutionService {
   submitQuote(request: SubmitQuoteRequest, context: ExecutionContext): Promise<ExecutionResult>;
@@ -145,10 +146,12 @@ export class SkeletonExecutionService implements ExecutionService {
     context: ExecutionContext,
   ): Promise<SettlementVerificationResult> {
     try {
-      return await this.deps.settlementVerifier.verify({
+      const settlementVerification = await this.deps.settlementVerifier.verify({
         quoteId: context.quoteId,
         request,
       });
+      assertSettlementVerificationResult(settlementVerification, request.quote.amountOut);
+      return settlementVerification;
     } catch (error) {
       throw settlementVerificationFailure(error);
     }
@@ -196,7 +199,7 @@ function assertDependencyMethod(
   }
 }
 
-function assertRecord(value: unknown, field: "deps" | keyof ExecutionServiceDeps): void {
+function assertRecord(value: unknown, field: string): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Execution service ${field} must be an object`);
   }
@@ -207,6 +210,53 @@ function assertOwnFields(value: object, fields: readonly string[], path: string)
     if (!Object.prototype.hasOwnProperty.call(value, field)) {
       throw new Error(`Execution service ${path}.${field} must be an own field`);
     }
+  }
+}
+
+function assertExactOwnFields(value: Record<string, unknown>, fields: readonly string[], path: string): void {
+  const expected = new Set(fields);
+  for (const key of Object.keys(value)) {
+    if (!expected.has(key)) {
+      throw malformedSettlementVerificationResult(`Execution service ${path} must not include unknown field ${key}`);
+    }
+  }
+
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw malformedSettlementVerificationResult(`Execution service ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertSettlementVerificationResult(
+  result: unknown,
+  expectedAmountOut: string,
+): asserts result is SettlementVerificationResult {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    throw malformedSettlementVerificationResult("Execution service settlement verification result must be an object");
+  }
+
+  assertExactOwnFields(
+    result as Record<string, unknown>,
+    settlementVerificationResultFields,
+    "settlement verification result",
+  );
+  const verification = result as Record<string, unknown>;
+  if (verification.status !== "verified") {
+    throw malformedSettlementVerificationResult("Execution service settlement verification status must be verified");
+  }
+  if (typeof verification.verifierVersion !== "string" || verification.verifierVersion.trim().length === 0) {
+    throw malformedSettlementVerificationResult(
+      "Execution service settlement verification verifierVersion must be a non-empty string",
+    );
+  }
+  if (typeof verification.amountOut !== "string" || !/^[1-9][0-9]*$/.test(verification.amountOut)) {
+    throw malformedSettlementVerificationResult(
+      "Execution service settlement verification amountOut must be a positive uint string",
+    );
+  }
+  if (verification.amountOut !== expectedAmountOut) {
+    throw malformedSettlementVerificationResult("Execution service settlement verification amountOut must match quote amountOut");
   }
 }
 
@@ -235,6 +285,10 @@ function assertExecutionContext(context: ExecutionContext): void {
       400,
     );
   }
+}
+
+function malformedSettlementVerificationResult(message: string): APIError {
+  return new APIError("SETTLEMENT_UNAVAILABLE", message, 503);
 }
 
 function settlementVerificationFailure(error: unknown): APIError {

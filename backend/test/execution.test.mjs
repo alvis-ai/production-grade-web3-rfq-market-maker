@@ -149,6 +149,99 @@ test("SkeletonExecutionService snapshots dependency object at construction", asy
   assert.equal(replacementInventoryService.getPosition(request.quote.chainId, request.quote.tokenIn).balance, 0n);
 });
 
+test("SkeletonExecutionService rejects malformed settlement verifier results before side effects", async () => {
+  const scenarios = [
+    {
+      name: "non_object",
+      result: undefined,
+      message: /Execution service settlement verification result must be an object/,
+    },
+    {
+      name: "inherited_fields",
+      result: Object.create({
+        status: "verified",
+        verifierVersion: "bad-verifier",
+        amountOut: request.quote.amountOut,
+      }),
+      message: /Execution service settlement verification result\.status must be an own field/,
+    },
+    {
+      name: "unknown_field",
+      result: {
+        status: "verified",
+        verifierVersion: "bad-verifier",
+        amountOut: request.quote.amountOut,
+        internalRoute: "bypass",
+      },
+      message: /Execution service settlement verification result must not include unknown field internalRoute/,
+    },
+    {
+      name: "bad_status",
+      result: {
+        status: "pending",
+        verifierVersion: "bad-verifier",
+        amountOut: request.quote.amountOut,
+      },
+      message: /Execution service settlement verification status must be verified/,
+    },
+    {
+      name: "blank_version",
+      result: {
+        status: "verified",
+        verifierVersion: " ",
+        amountOut: request.quote.amountOut,
+      },
+      message: /Execution service settlement verification verifierVersion must be a non-empty string/,
+    },
+    {
+      name: "noncanonical_amount",
+      result: {
+        status: "verified",
+        verifierVersion: "bad-verifier",
+        amountOut: "0998400000",
+      },
+      message: /Execution service settlement verification amountOut must be a positive uint string/,
+    },
+    {
+      name: "amount_mismatch",
+      result: {
+        status: "verified",
+        verifierVersion: "bad-verifier",
+        amountOut: "1",
+      },
+      message: /Execution service settlement verification amountOut must match quote amountOut/,
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    const inventoryService = new InventoryService();
+    const settlementEventService = new SettlementEventService(inventoryService);
+    const executionService = new SkeletonExecutionService({
+      hedgeService: new HedgeService(),
+      inventoryService,
+      settlementEventService,
+      settlementVerifier: {
+        async verify() {
+          return scenario.result;
+        },
+      },
+    });
+
+    await assert.rejects(
+      executionService.submitQuote(request, { quoteId: `q_bad_verifier_${scenario.name}` }),
+      (error) => {
+        assert.equal(error.code, "SETTLEMENT_UNAVAILABLE");
+        assert.equal(error.statusCode, 503);
+        assert.match(error.message, scenario.message);
+        return true;
+      },
+    );
+    assert.equal(inventoryService.getPosition(request.quote.chainId, request.quote.tokenIn).balance, 0n);
+    assert.equal(inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut).balance, 0n);
+    assert.deepEqual(settlementEventService.listSettlementEvents(), []);
+  }
+});
+
 test("SkeletonExecutionService rejects unsafe dependency configuration at construction", () => {
   const deps = buildExecutionServiceDeps();
 
