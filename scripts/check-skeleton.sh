@@ -1773,6 +1773,13 @@ grep -q 'hashSettlementQuote' sdk/src/index.ts
 grep -q 'buildTreasuryTransferArgs' sdk/src/index.ts
 grep -q 'hashSettlementQuote' sdk/src/quote-hash.ts
 grep -q 'toSettlementQuote' sdk/src/quote-hash.ts
+grep -q 'const settlementQuoteFields' sdk/src/settlement.ts
+grep -q 'submitQuoteWriteRequestFields = \["settlementAddress", "quote", "signature"\]' sdk/src/settlement.ts
+grep -q 'treasuryTransferFields = \["token", "to", "amount"\]' sdk/src/settlement.ts
+grep -q 'assertExactFields(quote, settlementQuoteFields, "quote")' sdk/src/settlement.ts
+grep -q 'assertExactFields(input, submitQuoteWriteRequestFields, "submit quote write request input")' sdk/src/settlement.ts
+grep -q 'assertExactFields(input, treasuryTransferFields, "treasury transfer input")' sdk/src/settlement.ts
+grep -Fq '${label}.${field} must be an own field' sdk/src/settlement.ts
 grep -q 'parseAddress' sdk/src/settlement.ts
 grep -q 'parseSignature' sdk/src/settlement.ts
 grep -q 'SECP256K1N_HALF' sdk/src/settlement.ts
@@ -1784,6 +1791,11 @@ grep -Fq 'typeof value !== "string" || !/^[0-9]+$/.test(value)' sdk/src/settleme
 grep -q 'nonce: parsePositiveUInt(quote.nonce, "quote.nonce")' sdk/src/settlement.ts
 grep -q 'treasury transfer input must be an object' sdk/test/sdk.test.mjs
 grep -q 'quote must be an object' sdk/test/sdk.test.mjs
+grep -Fq 'quote\.user must be an own field' sdk/test/sdk.test.mjs
+grep -q 'quote must not include unknown field routeHint' sdk/test/sdk.test.mjs
+grep -Fq 'submit quote write request input\.settlementAddress must be an own field' sdk/test/sdk.test.mjs
+grep -Fq 'treasury transfer input\.token must be an own field' sdk/test/sdk.test.mjs
+grep -q 'treasury transfer input must not include unknown field memo' sdk/test/sdk.test.mjs
 grep -Fq 'quote\.nonce must be a positive uint string' sdk/test/sdk.test.mjs
 grep -q 'new String(signature)' sdk/test/sdk.test.mjs
 grep -q 'amountIn: 1000000000' sdk/test/sdk.test.mjs
@@ -1792,10 +1804,8 @@ grep -q 'buildSubmitQuoteArgs()` rejects non-canonical high-s ECDSA signatures' 
 grep -q 'quote.amountOut must be greater than or equal to quote.minAmountOut' sdk/src/settlement.ts
 grep -q 'buildQuoteTypedData' sdk/src/eip712.ts
 grep -q 'assertQuoteShape' sdk/src/eip712.ts
-grep -q 'parsePositiveUInt(quote.nonce, "quote.nonce")' sdk/src/eip712.ts
+grep -q 'toSettlementQuote(quote)' sdk/src/eip712.ts
 grep -Fq 'typeof value !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(value)' sdk/src/eip712.ts
-grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' sdk/src/eip712.ts
-grep -q 'quote.tokenIn and quote.tokenOut must be different' sdk/src/eip712.ts
 grep -q 'ProductionGradeRFQ' sdk/src/eip712.ts
 grep -q 'RFQClientError' sdk/test/sdk.test.mjs
 grep -q 'buildQuoteTypedData' sdk/test/sdk.test.mjs
@@ -1804,6 +1814,8 @@ grep -q 'buildSubmitQuoteArgs' sdk/test/sdk.test.mjs
 grep -q 'hashSettlementQuote matches RFQSettlement.hashQuote struct hashing' sdk/test/sdk.test.mjs
 grep -q 'Settlement helpers reject invalid uint inputs before contract calls' sdk/test/sdk.test.mjs
 grep -q 'buildTreasuryTransferArgs' sdk/test/sdk.test.mjs
+grep -q 'write request input, treasury transfer input and quote payloads must provide closed required own fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'inherited-field and unknown-field quote / write-request / treasury-transfer inputs' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQSettlement ABI exposes treasury custody controls' sdk/test/sdk.test.mjs
 grep -q 'emergencyWithdraw' sdk/src/abi.ts
 grep -q 'hashQuote' sdk/src/abi.ts
@@ -1931,7 +1943,7 @@ grep -q 'new String("tr_sdk_wrapper")' sdk/test/sdk.test.mjs
 grep -q 'tr_sdk_' sdk/test/sdk.test.mjs
 grep -q 'RFQClient rejects unsafe quote requests before sending HTTP' sdk/test/sdk.test.mjs
 grep -Fq '^[1-9][0-9]*$' sdk/src/client.ts
-grep -Fq '^[1-9][0-9]*$' sdk/src/eip712.ts
+grep -q 'toSettlementQuote(quote)' sdk/src/eip712.ts
 grep -Fq '^[1-9][0-9]*$' sdk/src/settlement.ts
 grep -q '01000000000' sdk/test/sdk.test.mjs
 grep -q '0998400000' sdk/test/sdk.test.mjs

@@ -1,4 +1,5 @@
 import type { Address, Quote } from "./types.js";
+import { toSettlementQuote } from "./settlement.js";
 
 export const RFQ_EIP712_DOMAIN_NAME = "ProductionGradeRFQ";
 export const RFQ_EIP712_DOMAIN_VERSION = "1";
@@ -45,28 +46,7 @@ export function buildQuoteTypedData(quote: Quote, verifyingContract: Address) {
 }
 
 function assertQuoteShape(quote: Quote): void {
-  assertRecord(quote, "quote");
-  parseAddress(quote.user, "quote.user");
-  parseAddress(quote.tokenIn, "quote.tokenIn");
-  parseAddress(quote.tokenOut, "quote.tokenOut");
-  if (quote.tokenIn.toLowerCase() === quote.tokenOut.toLowerCase()) {
-    throw new Error("quote.tokenIn and quote.tokenOut must be different");
-  }
-  parsePositiveUInt(quote.amountIn, "quote.amountIn");
-  const amountOut = parsePositiveUInt(quote.amountOut, "quote.amountOut");
-  const minAmountOut = parsePositiveUInt(quote.minAmountOut, "quote.minAmountOut");
-  if (amountOut < minAmountOut) {
-    throw new Error("quote.amountOut must be greater than or equal to quote.minAmountOut");
-  }
-  parsePositiveUInt(quote.nonce, "quote.nonce");
-  parsePositiveInteger(quote.deadline, "quote.deadline");
-  parsePositiveInteger(quote.chainId, "quote.chainId");
-}
-
-function assertRecord(value: unknown, field: string): void {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`${field} must be an object`);
-  }
+  toSettlementQuote(quote);
 }
 
 function parseAddress(value: Address, field: string): Address {
@@ -75,22 +55,6 @@ function parseAddress(value: Address, field: string): Address {
   }
 
   return value;
-}
-
-function parsePositiveUInt(value: string, field: string): bigint {
-  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
-    throw new Error(`${field} must be a positive uint string`);
-  }
-
-  return BigInt(value);
-}
-
-function parseUInt(value: string, field: string): bigint {
-  if (typeof value !== "string" || !/^[0-9]+$/.test(value)) {
-    throw new Error(`${field} must be a uint string`);
-  }
-
-  return BigInt(value);
 }
 
 function parsePositiveInteger(value: number, field: string): number {

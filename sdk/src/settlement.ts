@@ -2,6 +2,19 @@ import { rfqSettlementAbi } from "./abi.js";
 import type { Address, Quote, UIntString } from "./types.js";
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
+const settlementQuoteFields = [
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "minAmountOut",
+  "nonce",
+  "deadline",
+  "chainId",
+] as const;
+const submitQuoteWriteRequestFields = ["settlementAddress", "quote", "signature"] as const;
+const treasuryTransferFields = ["token", "to", "amount"] as const;
 
 export interface SettlementQuote {
   user: Address;
@@ -39,6 +52,8 @@ export interface TreasuryTransferInput {
 
 export function toSettlementQuote(quote: Quote): SettlementQuote {
   assertRecord(quote, "quote");
+  assertExactFields(quote, settlementQuoteFields, "quote");
+
   const tokenIn = parseAddress(quote.tokenIn, "quote.tokenIn");
   const tokenOut = parseAddress(quote.tokenOut, "quote.tokenOut");
   const amountOut = parsePositiveUInt(quote.amountOut, "quote.amountOut");
@@ -70,6 +85,8 @@ export function buildSubmitQuoteArgs(quote: Quote, signature: `0x${string}`): Su
 
 export function buildSubmitQuoteWriteRequest(input: SubmitQuoteWriteRequestInput): SubmitQuoteWriteRequest {
   assertRecord(input, "submit quote write request input");
+  assertExactFields(input, submitQuoteWriteRequestFields, "submit quote write request input");
+
   return {
     address: parseAddress(input.settlementAddress, "settlementAddress"),
     abi: rfqSettlementAbi,
@@ -80,12 +97,29 @@ export function buildSubmitQuoteWriteRequest(input: SubmitQuoteWriteRequestInput
 
 export function buildTreasuryTransferArgs(input: TreasuryTransferInput): TreasuryTransferArgs {
   assertRecord(input, "treasury transfer input");
+  assertExactFields(input, treasuryTransferFields, "treasury transfer input");
+
   return [parseAddress(input.token, "token"), parseAddress(input.to, "to"), parseUInt(input.amount, "amount")] as const;
 }
 
 function assertRecord(value: unknown, field: string): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${field} must be an object`);
+  }
+}
+
+function assertExactFields(value: object, expectedFields: readonly string[], label: string): void {
+  const expected = new Set(expectedFields);
+  for (const key of Object.keys(value)) {
+    if (!expected.has(key)) {
+      throw new Error(`${label} must not include unknown field ${key}`);
+    }
+  }
+
+  for (const field of expectedFields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`${label}.${field} must be an own field`);
+    }
   }
 }
 

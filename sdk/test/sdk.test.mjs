@@ -120,6 +120,23 @@ test("buildQuoteTypedData rejects invalid EIP-712 domain and quote fields", () =
       buildQuoteTypedData(
         {
           ...quote,
+          routeHint: "internal",
+        },
+        verifyingContract,
+      ),
+    /quote must not include unknown field routeHint/,
+  );
+
+  assert.throws(
+    () => buildQuoteTypedData(Object.create(quote), verifyingContract),
+    /quote\.user must be an own field/,
+  );
+
+  assert.throws(
+    () =>
+      buildQuoteTypedData(
+        {
+          ...quote,
           tokenIn: "0x1234",
         },
         verifyingContract,
@@ -246,6 +263,29 @@ test("buildSubmitQuoteWriteRequest builds a wagmi and viem compatible contract r
     /submit quote write request input must be an object/,
   );
   assert.throws(
+    () => buildSubmitQuoteWriteRequest(Object.create({ settlementAddress: verifyingContract, quote, signature })),
+    /submit quote write request input\.settlementAddress must be an own field/,
+  );
+  assert.throws(
+    () =>
+      buildSubmitQuoteWriteRequest({
+        settlementAddress: verifyingContract,
+        quote,
+        signature,
+        relayer: quote.user,
+      }),
+    /submit quote write request input must not include unknown field relayer/,
+  );
+  assert.throws(
+    () =>
+      buildSubmitQuoteWriteRequest({
+        settlementAddress: verifyingContract,
+        quote: Object.create(quote),
+        signature,
+      }),
+    /quote\.user must be an own field/,
+  );
+  assert.throws(
     () =>
       buildSubmitQuoteWriteRequest({
         settlementAddress: "0x1234",
@@ -260,6 +300,23 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
   assert.throws(
     () => buildSubmitQuoteArgs(undefined, signature),
     /quote must be an object/,
+  );
+
+  assert.throws(
+    () => buildSubmitQuoteArgs(Object.create(quote), signature),
+    /quote\.user must be an own field/,
+  );
+
+  assert.throws(
+    () =>
+      buildSubmitQuoteArgs(
+        {
+          ...quote,
+          routeHint: "internal",
+        },
+        signature,
+      ),
+    /quote must not include unknown field routeHint/,
   );
 
   assert.throws(
@@ -405,6 +462,22 @@ test("Settlement helpers reject invalid uint inputs before contract calls", () =
   assert.throws(
     () => buildTreasuryTransferArgs(undefined),
     /treasury transfer input must be an object/,
+  );
+
+  assert.throws(
+    () => buildTreasuryTransferArgs(Object.create({ token: quote.tokenOut, to: quote.user, amount: quote.amountOut })),
+    /treasury transfer input\.token must be an own field/,
+  );
+
+  assert.throws(
+    () =>
+      buildTreasuryTransferArgs({
+        token: quote.tokenOut,
+        to: quote.user,
+        amount: quote.amountOut,
+        memo: "release",
+      }),
+    /treasury transfer input must not include unknown field memo/,
   );
 
   assert.throws(
