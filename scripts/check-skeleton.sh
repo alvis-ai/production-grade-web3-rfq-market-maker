@@ -207,6 +207,12 @@ grep -Fq 'typeof value === "string" && /^[1-9][0-9]*$/.test(value)' backend/src/
 grep -Fq '/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/market-data/market-data.service.ts
 grep -Fq '/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'parseCanonicalUtcIsoTimestamp(snapshot.observedAt)' backend/src/modules/market-data/market-data.service.ts
+grep -q 'marketSnapshotIssueFields = \["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"\]' backend/src/modules/market-data/market-data.service.ts
+grep -q 'hasOwnMarketSnapshotIssueFields(snapshot)' backend/src/modules/market-data/market-data.service.ts
+grep -q 'snapshot freshness window is invalid' backend/src/modules/market-data/market-data.service.ts
+grep -q 'Object.create(snapshot), "snapshot is invalid"' backend/test/market-data.test.mjs
+grep -q 'getMarketSnapshotIssue rejects unsafe freshness windows' backend/test/market-data.test.mjs
+grep -q 'getMarketSnapshotIssue()` 校验 `MarketSnapshot` 的 required own `snapshotId`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'isCanonicalUtcIsoTimestamp(snapshot.observedAt)' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'Market snapshot observedAt must be a canonical UTC ISO timestamp' backend/test/market-data.test.mjs
 grep -q 'observedAt: "2026-06-29"' backend/test/market-data.test.mjs

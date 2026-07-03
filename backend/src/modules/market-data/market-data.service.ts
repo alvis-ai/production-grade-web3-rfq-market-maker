@@ -32,6 +32,7 @@ export const defaultStaticMarketDataConfig: StaticMarketDataConfig = {
 const staticMarketDataConfigFields = ["supportedPairs"] as const;
 const staticMarketDataPairFields = ["chainId", "tokenIn", "tokenOut"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
+const marketSnapshotIssueFields = ["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"] as const;
 
 export class StaticMarketDataService implements MarketDataService {
   private readonly supportedPairs: ReadonlySet<string>;
@@ -168,7 +169,17 @@ export function getMarketSnapshotIssue(
   maxSnapshotAgeMs: number,
   maxSnapshotFutureSkewMs = defaultMaxSnapshotFutureSkewMs,
 ): string | undefined {
-  if (snapshot.snapshotId.trim().length === 0) {
+  if (!Number.isSafeInteger(maxSnapshotAgeMs) || maxSnapshotAgeMs < 0) {
+    return "snapshot freshness window is invalid";
+  }
+  if (!Number.isSafeInteger(maxSnapshotFutureSkewMs) || maxSnapshotFutureSkewMs < 0) {
+    return "snapshot future skew window is invalid";
+  }
+  if (!isMarketSnapshotRecord(snapshot) || !hasOwnMarketSnapshotIssueFields(snapshot)) {
+    return "snapshot is invalid";
+  }
+
+  if (typeof snapshot.snapshotId !== "string" || snapshot.snapshotId.trim().length === 0) {
     return "snapshot id is missing";
   }
 
@@ -199,6 +210,20 @@ export function getMarketSnapshotIssue(
   }
 
   return "snapshot is stale";
+}
+
+function isMarketSnapshotRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasOwnMarketSnapshotIssueFields(value: object): boolean {
+  for (const field of marketSnapshotIssueFields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function isPositiveDecimal(value: string): boolean {

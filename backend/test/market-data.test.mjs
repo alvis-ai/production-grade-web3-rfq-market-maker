@@ -225,6 +225,12 @@ test("getMarketSnapshotIssue rejects stale or future-skewed market snapshots", (
 
 test("getMarketSnapshotIssue rejects invalid market snapshot shape", () => {
   const invalidSnapshots = [
+    [undefined, "snapshot is invalid"],
+    [null, "snapshot is invalid"],
+    [[], "snapshot is invalid"],
+    [Object.create(snapshot), "snapshot is invalid"],
+    [{ ...snapshot, snapshotId: undefined }, "snapshot id is missing"],
+    [withoutField(snapshot, "midPrice"), "snapshot is invalid"],
     [{ ...snapshot, snapshotId: " " }, "snapshot id is missing"],
     [{ ...snapshot, midPrice: "0" }, "mid price is invalid"],
     [{ ...snapshot, midPrice: "01.25" }, "mid price is invalid"],
@@ -244,6 +250,13 @@ test("getMarketSnapshotIssue rejects invalid market snapshot shape", () => {
       assert.equal(getMarketSnapshotIssue(invalidSnapshot, 5_000), expectedIssue);
     }
   });
+});
+
+test("getMarketSnapshotIssue rejects unsafe freshness windows", () => {
+  assert.equal(getMarketSnapshotIssue(snapshot, -1), "snapshot freshness window is invalid");
+  assert.equal(getMarketSnapshotIssue(snapshot, 1.5), "snapshot freshness window is invalid");
+  assert.equal(getMarketSnapshotIssue(snapshot, 5_000, -1), "snapshot future skew window is invalid");
+  assert.equal(getMarketSnapshotIssue(snapshot, 5_000, Number.MAX_SAFE_INTEGER + 1), "snapshot future skew window is invalid");
 });
 
 test("InMemoryMarketSnapshotRepository stores idempotent market snapshots", async () => {
@@ -472,4 +485,10 @@ function withFixedNow(isoTimestamp, callback) {
   } finally {
     Date.now = originalDateNow;
   }
+}
+
+function withoutField(source, field) {
+  const copy = { ...source };
+  delete copy[field];
+  return copy;
 }
