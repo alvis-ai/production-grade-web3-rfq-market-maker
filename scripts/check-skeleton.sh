@@ -1737,7 +1737,10 @@ grep -q 'Connected wallet network must match quote chainId' frontend/src/compone
 grep -q 'VITE_RFQ_API_BASE_URL' frontend/src/lib/config.ts
 grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS' frontend/src/lib/config.ts
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID' frontend/src/lib/config.ts
+grep -q 'buildFrontendConfig' frontend/src/lib/config.ts
 grep -q 'readOptionalConfigString' frontend/src/lib/config.ts
+grep -q 'readOwnOptionalConfigString' frontend/src/lib/config.ts
+grep -Fq 'frontend config env.${name} must be an own field when provided' frontend/src/lib/config.ts
 grep -q 'must be a primitive string' frontend/src/lib/config.ts
 grep -q 'normalizeAddress' frontend/src/lib/config.ts
 grep -q 'VITE_RFQ_API_BASE_URL must be an absolute http(s) URL' frontend/src/lib/config.ts
@@ -1748,8 +1751,12 @@ grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address' frontend/src
 grep -q 'normalizeWalletConnectProjectId' frontend/src/lib/config.ts
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID must be 128 characters or fewer' frontend/src/lib/config.ts
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID must contain only letters, numbers, underscore, or hyphen' frontend/src/lib/config.ts
+grep -q 'frontend config builder reads only supported own env fields' frontend/test/config.test.mjs
+grep -q 'frontend config builder rejects malformed or inherited env fields' frontend/test/config.test.mjs
+grep -Fq 'frontend config env\.VITE_RFQ_API_BASE_URL must be an own field when provided' frontend/test/config.test.mjs
 grep -q 'frontend config normalizers reject boxed strings before trim coercion' frontend/test/config.test.mjs
 grep -q 'frontend config normalizers reject non-string explicit values' frontend/test/config.test.mjs
+grep -q 'RFQ 配置键必须是 own optional fields' book/Volume6-Frontend-And-SDK/Chapter01-Frontend-Architecture.md
 grep -q 'WagmiProvider' frontend/src/app/web3.tsx
 grep -q 'RainbowKitProvider' frontend/src/app/web3.tsx
 grep -q 'QueryClientProvider' frontend/src/app/web3.tsx

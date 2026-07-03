@@ -3,11 +3,28 @@ import type { Address } from "@rfq-market-maker/sdk";
 const defaultRFQApiBaseUrl = "http://localhost:3000";
 const defaultRFQSettlementAddress = "0x0000000000000000000000000000000000000004";
 const defaultWalletConnectProjectId = "00000000000000000000000000000000";
-const viteEnv = (import.meta.env ?? {}) as Record<string, unknown>;
 
-export const rfqApiBaseUrl = normalizeBaseUrl(viteEnv.VITE_RFQ_API_BASE_URL);
-export const rfqSettlementAddress = normalizeAddress(viteEnv.VITE_RFQ_SETTLEMENT_ADDRESS);
-export const walletConnectProjectId = normalizeWalletConnectProjectId(viteEnv.VITE_WALLETCONNECT_PROJECT_ID);
+export interface FrontendConfig {
+  rfqApiBaseUrl: string;
+  rfqSettlementAddress: Address;
+  walletConnectProjectId: string;
+}
+
+const frontendConfig = buildFrontendConfig(import.meta.env ?? {});
+
+export const rfqApiBaseUrl = frontendConfig.rfqApiBaseUrl;
+export const rfqSettlementAddress = frontendConfig.rfqSettlementAddress;
+export const walletConnectProjectId = frontendConfig.walletConnectProjectId;
+
+export function buildFrontendConfig(env: unknown): FrontendConfig {
+  assertConfigEnv(env);
+
+  return {
+    rfqApiBaseUrl: normalizeBaseUrl(readOwnOptionalConfigString(env, "VITE_RFQ_API_BASE_URL")),
+    rfqSettlementAddress: normalizeAddress(readOwnOptionalConfigString(env, "VITE_RFQ_SETTLEMENT_ADDRESS")),
+    walletConnectProjectId: normalizeWalletConnectProjectId(readOwnOptionalConfigString(env, "VITE_WALLETCONNECT_PROJECT_ID")),
+  };
+}
 
 export function normalizeBaseUrl(value: unknown): string {
   const candidate = readOptionalConfigString(value, "VITE_RFQ_API_BASE_URL") ?? defaultRFQApiBaseUrl;
@@ -65,4 +82,21 @@ function readOptionalConfigString(value: unknown, name: string): string | undefi
 
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function assertConfigEnv(value: unknown): asserts value is object {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("frontend config env must be an object");
+  }
+}
+
+function readOwnOptionalConfigString(env: object, name: string): string | undefined {
+  if (name in env && !Object.prototype.hasOwnProperty.call(env, name)) {
+    throw new Error(`frontend config env.${name} must be an own field when provided`);
+  }
+
+  const value = Object.prototype.hasOwnProperty.call(env, name)
+    ? (env as Record<string, unknown>)[name]
+    : undefined;
+  return readOptionalConfigString(value, name);
 }
