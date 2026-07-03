@@ -16,6 +16,25 @@ type DependencyMetricStatus = "ok" | "degraded";
 const latencyBucketsSeconds = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const readinessMetricInputFields = ["status", "components"] as const;
+const inventoryMetricPositionFields = ["chainId", "token", "balance"] as const;
+const pnlTradeMetricRecordFields = [
+  "pnlId",
+  "quoteId",
+  "chainId",
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "minAmountOut",
+  "nonce",
+  "deadline",
+  "grossPnlTokenOut",
+  "grossPnlBps",
+  "model",
+  "realizedAt",
+] as const;
 
 interface HistogramState {
   sum: number;
@@ -380,12 +399,14 @@ function assertReadinessMetricInput(readiness: ReadinessResponse): void {
   if (!isRecord(readiness)) {
     throw new Error("Metrics readiness input must be an object");
   }
+  assertOwnFields(readiness, readinessMetricInputFields, "readiness");
   if (!readinessMetricStatuses.includes(readiness.status)) {
     throw new Error("Metrics readiness status must be ready or degraded");
   }
   if (!isRecord(readiness.components)) {
     throw new Error("Metrics readiness components must be an object");
   }
+  assertOwnFields(readiness.components, readinessDependencyComponents, "readiness components");
 
   const expectedComponents = new Set<string>(readinessDependencyComponents);
   for (const component of Object.keys(readiness.components)) {
@@ -405,6 +426,7 @@ function assertInventoryMetricPosition(position: InventoryMetricPosition): void 
   if (!isRecord(position)) {
     throw new Error("Metrics inventory position must be an object");
   }
+  assertOwnFields(position, inventoryMetricPositionFields, "inventory position");
   assertPositiveSafeInteger(position.chainId, "inventory chainId");
   assertAddress(position.token, "inventory token");
   assertBigInt(position.balance, "inventory balance");
@@ -414,6 +436,7 @@ function assertPnlTradeMetricRecord(record: PnlTradeRecord): void {
   if (!isRecord(record)) {
     throw new Error("Metrics PnL trade record must be an object");
   }
+  assertOwnFields(record, pnlTradeMetricRecordFields, "PnL trade record");
 
   assertSafeIdentifier(record.pnlId, "PnL trade pnlId");
   assertSafeIdentifier(record.quoteId, "PnL trade quoteId");
@@ -506,6 +529,14 @@ function assertIntString(value: unknown, field: string): void {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Metrics ${path}.${field} must be an own field`);
+    }
+  }
 }
 
 function isNonEmptyString(value: unknown): value is string {

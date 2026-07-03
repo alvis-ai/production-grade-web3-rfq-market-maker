@@ -108,11 +108,26 @@ test("MetricsService validates inventory and PnL metric inputs before mutating s
   );
   assert.throws(
     () =>
+      metrics.recordInventoryPosition(
+        Object.create({
+          chainId: 1,
+          token,
+          balance: 1n,
+        }),
+      ),
+    /Metrics inventory position.chainId must be an own field/,
+  );
+  assert.throws(
+    () =>
       metrics.recordPnlTrade({
         ...pnlTradeRecord,
         pnlId: new String(pnlTradeRecord.pnlId),
       }),
     /Metrics PnL trade pnlId must be a primitive string/,
+  );
+  assert.throws(
+    () => metrics.recordPnlTrade(Object.create(pnlTradeRecord)),
+    /Metrics PnL trade record.pnlId must be an own field/,
   );
   assert.throws(
     () =>
@@ -302,6 +317,18 @@ test("MetricsService rejects unsupported fixed-label inputs before mutating stat
     /Metrics readiness status must be ready or degraded/,
   );
   assert.throws(
+    () => metrics.recordReadiness(Object.create(readinessResponse)),
+    /Metrics readiness.status must be an own field/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordReadiness({
+        status: "degraded",
+        components: Object.create(readinessResponse.components),
+      }),
+    /Metrics readiness components.marketData must be an own field/,
+  );
+  assert.throws(
     () => {
       const { signer, ...components } = readinessResponse.components;
       metrics.recordReadiness({
@@ -309,7 +336,7 @@ test("MetricsService rejects unsupported fixed-label inputs before mutating stat
         components,
       });
     },
-    /Metrics readiness component signer must be ok or degraded/,
+    /Metrics readiness components.signer must be an own field/,
   );
   assert.throws(
     () =>
