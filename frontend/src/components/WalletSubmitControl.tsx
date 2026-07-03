@@ -59,6 +59,10 @@ function WalletSubmitInner({
 
   async function submitQuoteOnchain() {
     if (!rfqSettlementAddress) return;
+    if (!canSubmit) {
+      onError({ message: "Quote expired; request a new quote" });
+      return;
+    }
 
     const preparedSubmit = prepareWalletSubmit({ quote, signedQuote, wallet: walletState });
     if (!preparedSubmit.ok) {

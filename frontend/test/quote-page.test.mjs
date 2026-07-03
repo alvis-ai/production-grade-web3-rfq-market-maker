@@ -56,3 +56,14 @@ test("QuotePage drives submit eligibility from a ticking TTL clock", () => {
     assert.ok(source.includes(expected), expected);
   }
 });
+
+test("QuotePage rejects expired API submit attempts inside the handler", () => {
+  for (const expected of [
+    "if (!canSubmit) {",
+    'setError({ message: "Quote expired; request a new quote" });',
+    "return;",
+    "rfqClient.submit",
+  ]) {
+    assert.ok(source.includes(expected), expected);
+  }
+});

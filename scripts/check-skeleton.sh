@@ -1733,6 +1733,7 @@ grep -q 'retryAfterSeconds' frontend/src/lib/errors.ts
 grep -q 'toUIError' frontend/src/pages/QuotePage.tsx
 test -s frontend/test/quote-page.test.mjs
 test -s frontend/test/quote-status-panel.test.mjs
+test -s frontend/test/wallet-submit-control.test.mjs
 grep -q 'quotedRequest' frontend/src/pages/QuotePage.tsx
 grep -q 'setQuotedRequest(safeRequest)' frontend/src/pages/QuotePage.tsx
 grep -q 'buildQuoteFromResponse(quotedRequest, quote)' frontend/src/pages/QuotePage.tsx
@@ -1747,15 +1748,20 @@ grep -q 'expiresInSeconds > 0' frontend/src/pages/QuotePage.tsx
 grep -q 'expiresInSeconds={expiresInSeconds}' frontend/src/pages/QuotePage.tsx
 grep -q 'expiresInSeconds?: number' frontend/src/components/QuoteStatusPanel.tsx
 grep -q '<dt>Expires In</dt>' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'Quote expired; request a new quote' frontend/src/pages/QuotePage.tsx
+grep -q 'Quote expired; request a new quote' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'onChange={handleRequestChange}' frontend/src/pages/QuotePage.tsx
 grep -q 'QuotePage binds signed quotes to the quoted request snapshot' frontend/test/quote-page.test.mjs
 grep -q 'QuotePage clears quote session when request changes' frontend/test/quote-page.test.mjs
 grep -q 'QuotePage ignores stale quote responses after request edits' frontend/test/quote-page.test.mjs
 grep -q 'QuotePage drives submit eligibility from a ticking TTL clock' frontend/test/quote-page.test.mjs
+grep -q 'QuotePage rejects expired API submit attempts inside the handler' frontend/test/quote-page.test.mjs
 grep -q 'QuoteStatusPanel renders the quote TTL countdown field' frontend/test/quote-status-panel.test.mjs
+grep -q 'WalletSubmitControl rejects expired onchain submit attempts inside the handler' frontend/test/wallet-submit-control.test.mjs
 grep -q 'Quote UI binds every `QuoteResponse` to the validated request snapshot' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'in-flight quote responses are ignored when their session version is no longer current' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'TTL countdown is driven by a one-second UI clock while a quote is active' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
+grep -q 'API submit is fail-closed inside the `submitQuote()` handler' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getSettlement' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx
@@ -1811,6 +1817,7 @@ grep -q 'Connected wallet network must match quote chainId' frontend/src/lib/wal
 grep -q 'Object.create(signedQuote)' frontend/test/wallet-submit.test.mjs
 grep -q 'Object.create(quoteResponse)' frontend/test/wallet-submit.test.mjs
 grep -q 'prepareWalletSubmit()` rejects inherited or unknown signed quote fields and inherited quote response signature fields' book/Volume6-Frontend-And-SDK/Chapter03-Submit-Flow.md
+grep -q 'wallet submit click handler also repeats the active quote TTL guard' book/Volume6-Frontend-And-SDK/Chapter03-Submit-Flow.md
 grep -q 'quoteResponseFields = \["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"\]' frontend/src/lib/rfq.ts
 grep -q 'assertExactFields(request, quoteRequestFields, "quote request")' frontend/src/lib/rfq.ts
 grep -q 'assertExactFields(response, quoteResponseFields, "quote response")' frontend/src/lib/rfq.ts

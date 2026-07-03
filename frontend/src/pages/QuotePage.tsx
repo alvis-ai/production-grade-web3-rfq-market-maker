@@ -130,6 +130,11 @@ export function QuotePage() {
 
   async function submitQuote() {
     if (!quote || !signedQuote) return;
+    if (!canSubmit) {
+      setError({ message: "Quote expired; request a new quote" });
+      return;
+    }
+
     setError(undefined);
     try {
       const response = await rfqClient.submit({
