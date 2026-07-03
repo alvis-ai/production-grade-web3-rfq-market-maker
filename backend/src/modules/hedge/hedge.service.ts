@@ -4,6 +4,9 @@ export type HedgeFailureReasonCode = "HEDGE_INTENT_FAILED";
 
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const hedgeServiceConfigFields = ["failurePenaltyBps", "maxFailurePenaltyBps"] as const;
+const hedgeIntentFields = ["settlementEventId", "quoteId", "chainId", "token", "side", "amount", "reason"] as const;
+const hedgeRiskInputFields = ["chainId", "token"] as const;
 
 export interface HedgeIntent {
   settlementEventId: string;
@@ -54,6 +57,7 @@ export class HedgeService implements HedgeIntentService {
 
   constructor(config: HedgeServiceConfig = defaultHedgeServiceConfig) {
     assertObject(config, "config");
+    assertOwnFields(config, hedgeServiceConfigFields, "config");
     assertPositiveBps(config.failurePenaltyBps, "failurePenaltyBps");
     assertPositiveBps(config.maxFailurePenaltyBps, "maxFailurePenaltyBps");
 
@@ -178,6 +182,7 @@ function assertPositiveBps(value: number, field: keyof HedgeServiceConfig): void
 
 function assertHedgeIntent(intent: HedgeIntent): void {
   assertObject(intent, "intent");
+  assertOwnFields(intent, hedgeIntentFields, "intent");
   assertSafeIdentifier(intent.settlementEventId, "settlementEventId");
   assertSafeIdentifier(intent.quoteId, "quoteId");
   assertHedgeRiskInput(intent);
@@ -192,6 +197,7 @@ function assertHedgeIntent(intent: HedgeIntent): void {
 
 function assertHedgeRiskInput(input: HedgeRiskInput): void {
   assertObject(input, "risk input");
+  assertOwnFields(input, hedgeRiskInputFields, "risk input");
   if (!Number.isSafeInteger(input.chainId) || input.chainId <= 0) {
     throw new Error("Hedge chainId must be a positive safe integer");
   }
@@ -203,6 +209,14 @@ function assertHedgeRiskInput(input: HedgeRiskInput): void {
 function assertObject(value: unknown, field: "config" | "intent" | "risk input"): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Hedge ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Hedge ${path}.${field} must be an own field`);
+    }
   }
 }
 
