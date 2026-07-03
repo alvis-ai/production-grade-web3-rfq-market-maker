@@ -10,6 +10,19 @@ const RFQ_EIP712_DOMAIN_VERSION = "1";
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const localEIP712SignerConfigFields = ["privateKey", "settlementAddress"] as const;
+const signQuoteInputFields = ["quote", "quoteId", "snapshotId"] as const;
+const signedQuoteFields = [
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "minAmountOut",
+  "nonce",
+  "deadline",
+  "chainId",
+] as const;
 
 const quoteTypes = {
   Quote: [
@@ -47,6 +60,7 @@ export class LocalEIP712SignerService implements SignerService {
 
   constructor(config: LocalEIP712SignerConfig) {
     assertObject(config, "config");
+    assertOwnFields(config, localEIP712SignerConfigFields, "config");
     assertPrivateKey(config.privateKey);
     assertAddress(config.settlementAddress, "settlementAddress");
     this.config = cloneLocalEIP712SignerConfig(config);
@@ -165,6 +179,7 @@ function buildQuoteTypedData(quote: SignedQuote, settlementAddress: `0x${string}
 
 function assertSignQuoteInput(input: SignQuoteInput): void {
   assertObject(input, "input");
+  assertOwnFields(input, signQuoteInputFields, "input");
   assertSafeIdentifier(input.quoteId, "quoteId");
   assertSafeIdentifier(input.snapshotId, "snapshotId");
   assertSignedQuote(input.quote);
@@ -172,6 +187,7 @@ function assertSignQuoteInput(input: SignQuoteInput): void {
 
 function assertSignedQuote(quote: SignedQuote): void {
   assertObject(quote, "quote");
+  assertOwnFields(quote, signedQuoteFields, "quote");
   assertPositiveSafeInteger(quote.chainId, "quote.chainId");
   assertAddress(quote.user, "quote.user");
   assertAddress(quote.tokenIn, "quote.tokenIn");
@@ -192,6 +208,14 @@ function assertSignedQuote(quote: SignedQuote): void {
 function assertObject(value: unknown, field: "config" | "input" | "quote"): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Signer ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Signer ${path}.${field} must be an own field`);
+    }
   }
 }
 

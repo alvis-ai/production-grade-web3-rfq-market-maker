@@ -731,6 +731,13 @@ grep -q 'assertDependencyMethod(metricsService, "metricsService", "recordSignerL
 grep -q 'assertObject(config, "config")' backend/src/modules/signer/signer.service.ts
 grep -q 'assertObject(input, "input")' backend/src/modules/signer/signer.service.ts
 grep -q 'assertObject(quote, "quote")' backend/src/modules/signer/signer.service.ts
+grep -q 'localEIP712SignerConfigFields = \["privateKey", "settlementAddress"\]' backend/src/modules/signer/signer.service.ts
+grep -q 'signQuoteInputFields = \["quote", "quoteId", "snapshotId"\]' backend/src/modules/signer/signer.service.ts
+grep -q 'signedQuoteFields = \[' backend/src/modules/signer/signer.service.ts
+grep -q 'assertOwnFields(config, localEIP712SignerConfigFields, "config")' backend/src/modules/signer/signer.service.ts
+grep -q 'assertOwnFields(input, signQuoteInputFields, "input")' backend/src/modules/signer/signer.service.ts
+grep -q 'assertOwnFields(quote, signedQuoteFields, "quote")' backend/src/modules/signer/signer.service.ts
+grep -q 'Signer ${path}.${field} must be an own field' backend/src/modules/signer/signer.service.ts
 grep -q 'assertPrivateKey(config.privateKey)' backend/src/modules/signer/signer.service.ts
 grep -q 'cloneLocalEIP712SignerConfig' backend/src/modules/signer/signer.service.ts
 grep -q 'assertSignQuoteInput(input)' backend/src/modules/signer/signer.service.ts
@@ -748,6 +755,11 @@ grep -q 'LocalEIP712SignerService snapshots signer configuration at construction
 grep -q 'LocalEIP712SignerService rejects high-s malleated quote signatures' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects unsafe signer configuration at construction' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects malformed signer payload envelopes before signing' backend/test/signer.test.mjs
+grep -q 'LocalEIP712SignerService rejects inherited signer payload fields before signing' backend/test/signer.test.mjs
+grep -q 'Signer config.privateKey must be an own field' backend/test/signer.test.mjs
+grep -q 'Signer input.quote must be an own field' backend/test/signer.test.mjs
+grep -q 'Signer quote.user must be an own field' backend/test/signer.test.mjs
+grep -q 'verifyQuoteSignature(Object.create(quote), fixedSignature())' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects unsafe quote inputs before signing' backend/test/signer.test.mjs
 grep -q 'amountIn: "01000000000"' backend/test/signer.test.mjs
 grep -q 'amountOut: "0998400000"' backend/test/signer.test.mjs
@@ -764,6 +776,9 @@ grep -q 'snapshots `LocalEIP712SignerConfig` at construction after validation' b
 grep -q 'ObservedSignerService` validates inner signer and metrics dependency methods at construction' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'ObservedSignerService` rejects malformed dependency envelopes as non-array objects before reading signer or metrics methods' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'validates malformed config, signing request and quote objects before field access' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
+grep -q 'requires local signer config fields, signing request fields and signed quote fields to be own fields' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
+grep -q 'Direct signer callers cannot pass inherited object properties' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
+grep -q 'Malformed verification inputs, including inherited quote fields, return `false`' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q '`quoteId` and `snapshotId` as primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'canonical decimal form without leading zeros' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q '代码库不保留 placeholder signer' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md

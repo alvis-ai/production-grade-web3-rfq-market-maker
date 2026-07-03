@@ -125,6 +125,11 @@ test("LocalEIP712SignerService rejects unsafe signer configuration at constructi
   );
 
   assert.throws(
+    () => new LocalEIP712SignerService(Object.create({ privateKey, settlementAddress })),
+    /Signer config.privateKey must be an own field/,
+  );
+
+  assert.throws(
     () =>
       new LocalEIP712SignerService({
         privateKey: "0x1234",
@@ -161,6 +166,27 @@ test("LocalEIP712SignerService rejects malformed signer payload envelopes before
       quote: null,
     }),
     /Signer quote must be an object/,
+  );
+});
+
+test("LocalEIP712SignerService rejects inherited signer payload fields before signing", async () => {
+  const signer = new LocalEIP712SignerService({
+    privateKey,
+    settlementAddress,
+  });
+
+  await assert.rejects(
+    signer.signQuote(Object.create({ quote, quoteId: "q_test", snapshotId: "snapshot_test" })),
+    /Signer input.quote must be an own field/,
+  );
+
+  await assert.rejects(
+    signer.signQuote({
+      quote: Object.create(quote),
+      quoteId: "q_test",
+      snapshotId: "snapshot_test",
+    }),
+    /Signer quote.user must be an own field/,
   );
 });
 
@@ -302,6 +328,7 @@ test("LocalEIP712SignerService returns false for malformed verification inputs",
   });
 
   assert.equal(await signer.verifyQuoteSignature(quote, "0x1234"), false);
+  assert.equal(await signer.verifyQuoteSignature(Object.create(quote), fixedSignature()), false);
   assert.equal(
     await signer.verifyQuoteSignature(
       {
