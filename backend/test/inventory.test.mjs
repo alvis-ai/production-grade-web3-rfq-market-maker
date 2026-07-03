@@ -183,6 +183,18 @@ test("InventoryService rejects unsafe skew configuration at construction", () =>
 
   assert.throws(
     () =>
+      new InventoryService(
+        Object.create({
+          skewUnit: 10n,
+          maxPositiveSkewBps: 150,
+          maxNegativeSkewBps: 50,
+        }),
+      ),
+    /Inventory config.skewUnit must be an own field/,
+  );
+
+  assert.throws(
+    () =>
       new InventoryService({
         skewUnit: 0n,
         maxPositiveSkewBps: 150,
@@ -244,6 +256,75 @@ test("InventoryService rejects malformed runtime payload envelopes before mutati
 
   assert.equal(inventory.getPosition(1, tokenIn).balance, 0n);
   assert.equal(inventory.getPosition(1, tokenOut).balance, 0n);
+});
+
+test("InventoryService rejects inherited runtime fields before mutating balances", () => {
+  const inventory = new InventoryService();
+  inventory.applySettlement({
+    chainId: 1,
+    tokenIn,
+    tokenOut,
+    amountIn: "100",
+    amountOut: "80",
+  });
+
+  assert.throws(
+    () => inventory.applySettlement(Object.create({
+      chainId: 1,
+      tokenIn,
+      tokenOut,
+      amountIn: "10",
+      amountOut: "9",
+    })),
+    /Inventory settlement delta.chainId must be an own field/,
+  );
+
+  const inheritedAmountProjection = Object.create({ amountOut: "9" });
+  Object.assign(inheritedAmountProjection, {
+    chainId: 1,
+    tokenIn,
+    tokenOut,
+    amountIn: "10",
+  });
+  assert.throws(
+    () => inventory.projectSettlement(inheritedAmountProjection),
+    /Inventory settlement delta.amountOut must be an own field/,
+  );
+
+  assert.throws(
+    () =>
+      inventory.calculateQuoteSkewBps(
+        Object.create({
+          chainId: 1,
+          token: tokenOut,
+        }),
+      ),
+    /Inventory skew input.chainId must be an own field/,
+  );
+
+  assert.throws(
+    () =>
+      inventory.rebuildFromSettlements([
+        {
+          chainId: 1,
+          tokenIn,
+          tokenOut,
+          amountIn: "10",
+          amountOut: "9",
+        },
+        Object.create({
+          chainId: 1,
+          tokenIn,
+          tokenOut,
+          amountIn: "10",
+          amountOut: "9",
+        }),
+      ]),
+    /Inventory settlement delta.chainId must be an own field/,
+  );
+
+  assert.equal(inventory.getPosition(1, tokenIn).balance, 100n);
+  assert.equal(inventory.getPosition(1, tokenOut).balance, -80n);
 });
 
 test("InventoryService rejects unsafe settlement inputs before mutating balances", () => {
