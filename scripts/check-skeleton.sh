@@ -1310,6 +1310,10 @@ grep -q 'recordSettlement' backend/src/modules/pnl/pnl.service.ts
 grep -q 'simulated_mid_price_v1' backend/src/modules/pnl/pnl.service.ts
 grep -q 'pnlIdsByQuoteModel' backend/src/modules/pnl/pnl.service.ts
 grep -q 'assertPnlInput(input)' backend/src/modules/pnl/pnl.service.ts
+grep -q 'pnlInputFields = \["quoteId", "quote"\]' backend/src/modules/pnl/pnl.service.ts
+grep -q 'assertOwnFields(input, pnlInputFields, "input")' backend/src/modules/pnl/pnl.service.ts
+grep -q 'assertOwnFields(input.quote, signedQuoteFields, "quote")' backend/src/modules/pnl/pnl.service.ts
+grep -q 'Pnl ${path}.${field} must be an own field' backend/src/modules/pnl/pnl.service.ts
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/pnl/pnl.service.ts
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/pnl/pnl.service.ts
 grep -q 'buildPnlId(input.quoteId)' backend/src/modules/pnl/pnl.service.ts
@@ -1334,7 +1338,10 @@ grep -q 'rejects conflicting retry payloads for the same quote and model' backen
 grep -q 'rejects signed quote metadata conflicts for the same quote and model' backend/test/pnl.test.mjs
 grep -q 'rejects unsafe gross PnL bps before storing attribution' backend/test/pnl.test.mjs
 grep -q 'PnlService rejects malformed attribution payload envelopes before recording' backend/test/pnl.test.mjs
+grep -q 'PnlService rejects inherited attribution fields before recording' backend/test/pnl.test.mjs
 grep -q 'PnlService rejects unsafe attribution inputs before recording' backend/test/pnl.test.mjs
+grep -q 'Pnl input.quoteId must be an own field' backend/test/pnl.test.mjs
+grep -q 'Pnl quote.user must be an own field' backend/test/pnl.test.mjs
 grep -q 'Pnl quoteId must be a primitive string' backend/test/pnl.test.mjs
 grep -q 'Pnl quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/pnl.test.mjs
 grep -q 'Pnl pnlId must be 128 characters or fewer' backend/test/pnl.test.mjs
@@ -1343,8 +1350,9 @@ grep -q 'q_amount_number' backend/test/pnl.test.mjs
 grep -q 'q_nonce_leading_zero' backend/test/pnl.test.mjs
 grep -q 'stored signed attribution payload' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnlService` returns defensive copies from `recordSettlement()` and `summary()`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'rejects malformed root payloads and missing `quote` objects before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'validates `quoteId` as a primitive-string `SafeIdentifier` and validates the derived `pnlId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'rejects malformed root payloads, missing `quote` objects, and inherited root or signed quote required fields before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'validates `quoteId` as an own primitive-string `SafeIdentifier` and validates the derived `pnlId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'own canonical positive uint amount fields and nonce without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'canonical positive uint amount fields and nonce without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'JavaScript regex coercion to record malformed attribution' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'positive safe-integer deadline' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md

@@ -4,6 +4,18 @@ const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 const MIN_SAFE_INTEGER_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const pnlInputFields = ["quoteId", "quote"] as const;
+const signedQuoteFields = [
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "minAmountOut",
+  "nonce",
+  "deadline",
+  "chainId",
+] as const;
 
 export interface RecordPnlInput {
   quoteId: string;
@@ -129,6 +141,8 @@ function calculateGrossPnlBps(amountIn: string, grossPnl: bigint): number {
 function assertPnlInput(input: RecordPnlInput): void {
   assertObject(input, "input");
   assertObject(input.quote, "quote");
+  assertOwnFields(input, pnlInputFields, "input");
+  assertOwnFields(input.quote, signedQuoteFields, "quote");
   assertSafeIdentifier(input.quoteId, "quoteId");
   assertPositiveSafeInteger(input.quote.chainId, "quote.chainId");
   assertAddress(input.quote.user, "quote.user");
@@ -153,6 +167,14 @@ function assertPnlInput(input: RecordPnlInput): void {
 function assertObject(value: unknown, field: "input" | "quote"): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(field === "input" ? "Pnl input must be an object" : "Pnl quote must be an object");
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Pnl ${path}.${field} must be an own field`);
+    }
   }
 }
 

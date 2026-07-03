@@ -197,6 +197,32 @@ test("PnlService rejects malformed attribution payload envelopes before recordin
   assert.equal(pnl.summary().totalTrades, 0);
 });
 
+test("PnlService rejects inherited attribution fields before recording", () => {
+  const pnl = new PnlService();
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement(
+        Object.create({
+          quoteId: "q_inherited_root",
+          quote: baseQuote,
+        }),
+      ),
+    /Pnl input.quoteId must be an own field/,
+  );
+
+  assert.throws(
+    () =>
+      pnl.recordSettlement({
+        quoteId: "q_inherited_quote",
+        quote: Object.create(baseQuote),
+      }),
+    /Pnl quote.user must be an own field/,
+  );
+
+  assert.equal(pnl.summary().totalTrades, 0);
+});
+
 test("PnlService rejects unsafe attribution inputs before recording", () => {
   const pnl = new PnlService();
 
