@@ -98,6 +98,11 @@ test("StaticMarketDataService rejects unsafe static market data config", () => {
   );
 
   assert.throws(
+    () => new StaticMarketDataService(Object.create({ supportedPairs: [validPair] })),
+    /Static market data config.supportedPairs must be an own field/,
+  );
+
+  assert.throws(
     () => new StaticMarketDataService({ supportedPairs: [] }),
     /Static market data supportedPairs must contain at least one pair/,
   );
@@ -121,6 +126,14 @@ test("StaticMarketDataService rejects unsafe static market data config", () => {
         supportedPairs: [[]],
       }),
     /Static market data supportedPairs entry must be an object/,
+  );
+
+  assert.throws(
+    () =>
+      new StaticMarketDataService({
+        supportedPairs: [Object.create(validPair)],
+      }),
+    /Static market data supportedPairs entry.chainId must be an own field/,
   );
 
   assert.throws(
@@ -153,6 +166,44 @@ test("StaticMarketDataService rejects unsafe static market data config", () => {
         supportedPairs: [validPair, { ...validPair }],
       }),
     /Static market data supportedPairs must not contain duplicate pairs/,
+  );
+});
+
+test("StaticMarketDataService rejects unsafe snapshot requests before lookup", async () => {
+  const service = new StaticMarketDataService();
+
+  await assert.rejects(
+    service.getSnapshot(undefined),
+    /Static market data request must be an object/,
+  );
+
+  await assert.rejects(
+    service.getSnapshot(Object.create(request)),
+    /Static market data request.chainId must be an own field/,
+  );
+
+  await assert.rejects(
+    service.getSnapshot({
+      ...request,
+      tokenOut: request.tokenIn,
+    }),
+    /Static market data request token pair must contain distinct tokens/,
+  );
+
+  await assert.rejects(
+    service.getSnapshot({
+      ...request,
+      amountIn: "01000000000",
+    }),
+    /Static market data request.amountIn must be a positive uint string/,
+  );
+
+  await assert.rejects(
+    service.getSnapshot({
+      ...request,
+      slippageBps: 10_001,
+    }),
+    /Static market data request.slippageBps must be less than or equal to 10000 bps/,
   );
 });
 

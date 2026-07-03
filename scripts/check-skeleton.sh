@@ -219,6 +219,14 @@ grep -q 'liquidity is invalid' backend/src/modules/market-data/market-data.servi
 grep -q 'assertStaticMarketDataConfig' backend/src/modules/market-data/market-data.service.ts
 grep -q 'assertObject(config, "config")' backend/src/modules/market-data/market-data.service.ts
 grep -q 'assertObject(pair, "supportedPairs entry")' backend/src/modules/market-data/market-data.service.ts
+grep -q 'assertObject(request, "request")' backend/src/modules/market-data/market-data.service.ts
+grep -q 'staticMarketDataConfigFields = \["supportedPairs"\]' backend/src/modules/market-data/market-data.service.ts
+grep -q 'staticMarketDataPairFields = \["chainId", "tokenIn", "tokenOut"\]' backend/src/modules/market-data/market-data.service.ts
+grep -q 'quoteRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' backend/src/modules/market-data/market-data.service.ts
+grep -q 'assertOwnFields(config, staticMarketDataConfigFields, "config")' backend/src/modules/market-data/market-data.service.ts
+grep -q 'assertOwnFields(pair, staticMarketDataPairFields, "supportedPairs entry")' backend/src/modules/market-data/market-data.service.ts
+grep -q 'assertOwnFields(request, quoteRequestFields, "request")' backend/src/modules/market-data/market-data.service.ts
+grep -q 'Static market data ${path}.${field} must be an own field' backend/src/modules/market-data/market-data.service.ts
 grep -q 'cloneStaticMarketDataConfig' backend/src/modules/market-data/market-data.service.ts
 grep -q 'Static market data supportedPairs must not contain duplicate pairs' backend/src/modules/market-data/market-data.service.ts
 grep -q 'getMarketSnapshotIssue rejects stale or future-skewed market snapshots' backend/test/market-data.test.mjs
@@ -226,8 +234,14 @@ grep -q 'StaticMarketDataService rejects unconfigured token pairs' backend/test/
 grep -q 'StaticMarketDataService returns unique pair snapshots' backend/test/market-data.test.mjs
 grep -q 'StaticMarketDataService snapshots supported pairs at construction' backend/test/market-data.test.mjs
 grep -q 'StaticMarketDataService rejects unsafe static market data config' backend/test/market-data.test.mjs
+grep -q 'StaticMarketDataService rejects unsafe snapshot requests before lookup' backend/test/market-data.test.mjs
 grep -q 'Static market data config must be an object' backend/test/market-data.test.mjs
+grep -q 'Static market data config.supportedPairs must be an own field' backend/test/market-data.test.mjs
 grep -q 'Static market data supportedPairs entry must be an object' backend/test/market-data.test.mjs
+grep -q 'Static market data supportedPairs entry.chainId must be an own field' backend/test/market-data.test.mjs
+grep -q 'Static market data request.chainId must be an own field' backend/test/market-data.test.mjs
+grep -q 'Static market data request.amountIn must be a positive uint string' backend/test/market-data.test.mjs
+grep -q 'Static market data request.slippageBps must be less than or equal to 10000 bps' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository stores idempotent market snapshots' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository rejects malformed snapshot payload envelopes before storing' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository rejects inherited snapshot payload fields before storing' backend/test/market-data.test.mjs
@@ -247,7 +261,10 @@ grep -q 'QuoteService blocks routing and signer when market snapshot persistence
 grep -q 'QuoteService marks requested quotes as failed when routing is unavailable' backend/test/quote-service.test.mjs
 grep -q 'QuoteService marks requested quotes as failed when pricing is unavailable' backend/test/quote-service.test.mjs
 grep -q '快照 `StaticMarketDataConfig`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
-grep -q 'StaticMarketDataService` rejects malformed config and `supportedPairs` entries as non-array objects before reading fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q 'Config 的 `supportedPairs` 必须是 own field' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q '每个 supported pair 的 `chainId`、`tokenIn` 和 `tokenOut` 也必须是 own fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q 'inherited config fields, malformed `supportedPairs` entries and inherited pair fields before reading chain/token fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q 'Runtime `getSnapshot(request)` also requires request fields to be own fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'InMemoryMarketSnapshotRepository` mirrors the PostgreSQL market_snapshots contract' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q '`snapshotId` must be an own primitive-string `SafeIdentifier` with 1-128 characters' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q '`source` remains a non-empty source label and must be an own field when provided' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md

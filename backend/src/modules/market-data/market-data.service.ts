@@ -29,6 +29,9 @@ export const defaultStaticMarketDataConfig: StaticMarketDataConfig = {
     },
   ],
 };
+const staticMarketDataConfigFields = ["supportedPairs"] as const;
+const staticMarketDataPairFields = ["chainId", "tokenIn", "tokenOut"] as const;
+const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 
 export class StaticMarketDataService implements MarketDataService {
   private readonly supportedPairs: ReadonlySet<string>;
@@ -41,6 +44,7 @@ export class StaticMarketDataService implements MarketDataService {
   }
 
   async getSnapshot(request: QuoteRequest): Promise<MarketSnapshot> {
+    assertQuoteRequest(request);
     if (!this.supportedPairs.has(pairKey(request))) {
       throw new Error("Market data pair is not configured");
     }
@@ -77,6 +81,7 @@ function cloneStaticMarketDataConfig(config: StaticMarketDataConfig): StaticMark
 
 function assertStaticMarketDataConfig(config: StaticMarketDataConfig): void {
   assertObject(config, "config");
+  assertOwnFields(config, staticMarketDataConfigFields, "config");
   if (!Array.isArray(config.supportedPairs) || config.supportedPairs.length === 0) {
     throw new Error("Static market data supportedPairs must contain at least one pair");
   }
@@ -84,6 +89,7 @@ function assertStaticMarketDataConfig(config: StaticMarketDataConfig): void {
   const seenPairs = new Set<string>();
   for (const pair of config.supportedPairs) {
     assertObject(pair, "supportedPairs entry");
+    assertOwnFields(pair, staticMarketDataPairFields, "supportedPairs entry");
     assertPositiveSafeInteger(pair.chainId, "supportedPairs.chainId");
     assertAddress(pair.tokenIn, "supportedPairs.tokenIn");
     assertAddress(pair.tokenOut, "supportedPairs.tokenOut");
@@ -100,9 +106,31 @@ function assertStaticMarketDataConfig(config: StaticMarketDataConfig): void {
   }
 }
 
-function assertObject(value: unknown, field: "config" | "supportedPairs entry"): void {
+function assertQuoteRequest(request: QuoteRequest): void {
+  assertObject(request, "request");
+  assertOwnFields(request, quoteRequestFields, "request");
+  assertPositiveSafeInteger(request.chainId, "request.chainId");
+  assertAddress(request.user, "request.user");
+  assertAddress(request.tokenIn, "request.tokenIn");
+  assertAddress(request.tokenOut, "request.tokenOut");
+  if (request.tokenIn.toLowerCase() === request.tokenOut.toLowerCase()) {
+    throw new Error("Static market data request token pair must contain distinct tokens");
+  }
+  assertPositiveUIntString(request.amountIn, "request.amountIn");
+  assertNonNegativeBps(request.slippageBps, "request.slippageBps");
+}
+
+function assertObject(value: unknown, field: "config" | "supportedPairs entry" | "request"): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Static market data ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Static market data ${path}.${field} must be an own field`);
+    }
   }
 }
 
@@ -115,6 +143,21 @@ function assertPositiveSafeInteger(value: number, field: string): void {
 function assertAddress(value: string, field: string): void {
   if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
     throw new Error(`Static market data ${field} must be a 20-byte hex address`);
+  }
+}
+
+function assertPositiveUIntString(value: string, field: string): void {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
+    throw new Error(`Static market data ${field} must be a positive uint string`);
+  }
+}
+
+function assertNonNegativeBps(value: number, field: string): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`Static market data ${field} must be a non-negative safe integer`);
+  }
+  if (value > 10_000) {
+    throw new Error(`Static market data ${field} must be less than or equal to 10000 bps`);
   }
 }
 
