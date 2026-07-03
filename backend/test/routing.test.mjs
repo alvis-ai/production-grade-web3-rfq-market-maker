@@ -46,7 +46,7 @@ test("InternalInventoryRoutingEngine rejects malformed route payload envelopes b
     engine.selectRoute({
       snapshot,
     }),
-    /Routing request must be an object/,
+    /Routing input.request must be an own field/,
   );
 
   await assert.rejects(
@@ -55,6 +55,31 @@ test("InternalInventoryRoutingEngine rejects malformed route payload envelopes b
       snapshot: null,
     }),
     /Routing snapshot must be an object/,
+  );
+});
+
+test("InternalInventoryRoutingEngine rejects inherited route input fields before planning", async () => {
+  const engine = new InternalInventoryRoutingEngine();
+
+  await assert.rejects(
+    engine.selectRoute(Object.create({ request, snapshot })),
+    /Routing input.request must be an own field/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      request: Object.create(request),
+      snapshot,
+    }),
+    /Routing request.chainId must be an own field/,
+  );
+
+  await assert.rejects(
+    engine.selectRoute({
+      request,
+      snapshot: Object.create(snapshot),
+    }),
+    /Routing snapshot.snapshotId must be an own field/,
   );
 });
 

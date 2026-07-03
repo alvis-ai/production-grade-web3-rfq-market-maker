@@ -2,6 +2,9 @@ import type { MarketSnapshot, QuoteRequest } from "../../shared/types/rfq.js";
 
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const routeInputFields = ["request", "snapshot"] as const;
+const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
+const routeSnapshotFields = ["snapshotId", "midPrice", "liquidityUsd", "volatilityBps"] as const;
 
 export interface RouteInput {
   request: QuoteRequest;
@@ -40,8 +43,11 @@ export class InternalInventoryRoutingEngine implements RoutingEngine {
 
 function assertRouteInput(input: RouteInput): void {
   assertObject(input, "input");
+  assertOwnFields(input, routeInputFields, "input");
   assertObject(input.request, "request");
+  assertOwnFields(input.request, quoteRequestFields, "request");
   assertObject(input.snapshot, "snapshot");
+  assertOwnFields(input.snapshot, routeSnapshotFields, "snapshot");
   assertPositiveSafeInteger(input.request.chainId, "request.chainId");
   assertAddress(input.request.user, "request.user");
   assertAddress(input.request.tokenIn, "request.tokenIn");
@@ -61,6 +67,14 @@ function assertRouteInput(input: RouteInput): void {
 function assertObject(value: unknown, field: "input" | "request" | "snapshot"): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Routing ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Routing ${path}.${field} must be an own field`);
+    }
   }
 }
 
