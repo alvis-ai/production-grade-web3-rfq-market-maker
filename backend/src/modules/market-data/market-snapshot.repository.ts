@@ -5,6 +5,9 @@ import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js
 export const defaultMarketSnapshotSource = "static-market-data-v1";
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const saveMarketSnapshotInputFields = ["request", "snapshot"] as const;
+const saveMarketSnapshotOptionalFields = ["source"] as const;
+const marketSnapshotFields = ["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"] as const;
 
 export interface MarketSnapshotRecord {
   snapshotId: string;
@@ -85,9 +88,12 @@ function assertSaveMarketSnapshotInput(input: SaveMarketSnapshotInput): void {
   assertObject(input, "input");
   assertObject(input.request, "request");
   assertObject(input.snapshot, "snapshot");
+  assertOwnFields(input, saveMarketSnapshotInputFields, "input");
+  assertOwnOptionalFields(input, saveMarketSnapshotOptionalFields, "input");
 }
 
 function assertMarketSnapshot(snapshot: MarketSnapshot): void {
+  assertOwnFields(snapshot, marketSnapshotFields, "snapshot");
   assertSafeIdentifier(snapshot.snapshotId, "snapshotId");
   if (!isPositiveDecimal(snapshot.midPrice)) {
     throw new Error("Market snapshot midPrice must be a positive decimal");
@@ -106,6 +112,22 @@ function assertMarketSnapshot(snapshot: MarketSnapshot): void {
 function assertObject(value: unknown, field: "input" | "request" | "snapshot"): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Market snapshot ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Market snapshot ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertOwnOptionalFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Market snapshot ${path}.${field} must be an own field when provided`);
+    }
   }
 }
 

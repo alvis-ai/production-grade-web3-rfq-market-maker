@@ -240,6 +240,32 @@ test("InMemoryMarketSnapshotRepository rejects malformed snapshot payload envelo
   assert.equal(await repository.findBySnapshotId(snapshot.snapshotId), undefined);
 });
 
+test("InMemoryMarketSnapshotRepository rejects inherited snapshot payload fields before storing", async () => {
+  const repository = new InMemoryMarketSnapshotRepository();
+
+  await assert.rejects(
+    repository.saveSnapshot(Object.create({ request, snapshot })),
+    /Market snapshot input.request must be an own field/,
+  );
+
+  await assert.rejects(
+    repository.saveSnapshot({
+      request,
+      snapshot: Object.create(snapshot),
+    }),
+    /Market snapshot snapshot.snapshotId must be an own field/,
+  );
+
+  const inheritedSourceInput = Object.create({ source: "inherited-source" });
+  Object.assign(inheritedSourceInput, { request, snapshot });
+  await assert.rejects(
+    repository.saveSnapshot(inheritedSourceInput),
+    /Market snapshot input.source must be an own field when provided/,
+  );
+
+  assert.equal(await repository.findBySnapshotId(snapshot.snapshotId), undefined);
+});
+
 test("InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots", async () => {
   const repository = new InMemoryMarketSnapshotRepository();
 

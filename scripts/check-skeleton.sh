@@ -170,6 +170,14 @@ grep -q 'Market snapshot conflict for' backend/src/modules/market-data/market-sn
 grep -q 'assertSaveMarketSnapshotInput(input)' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'assertObject(input.request, "request")' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'assertObject(input.snapshot, "snapshot")' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'saveMarketSnapshotInputFields = \["request", "snapshot"\]' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'saveMarketSnapshotOptionalFields = \["source"\]' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'marketSnapshotFields = \["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"\]' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'assertOwnFields(input, saveMarketSnapshotInputFields, "input")' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'assertOwnOptionalFields(input, saveMarketSnapshotOptionalFields, "input")' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'assertOwnFields(snapshot, marketSnapshotFields, "snapshot")' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'Market snapshot ${path}.${field} must be an own field' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'Market snapshot ${path}.${field} must be an own field when provided' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'assertSafeIdentifier(snapshotId, "snapshotId")' backend/src/modules/market-data/market-snapshot.repository.ts
@@ -210,6 +218,10 @@ grep -q 'Static market data config must be an object' backend/test/market-data.t
 grep -q 'Static market data supportedPairs entry must be an object' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository stores idempotent market snapshots' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository rejects malformed snapshot payload envelopes before storing' backend/test/market-data.test.mjs
+grep -q 'InMemoryMarketSnapshotRepository rejects inherited snapshot payload fields before storing' backend/test/market-data.test.mjs
+grep -q 'Market snapshot input.request must be an own field' backend/test/market-data.test.mjs
+grep -q 'Market snapshot snapshot.snapshotId must be an own field' backend/test/market-data.test.mjs
+grep -q 'Market snapshot input.source must be an own field when provided' backend/test/market-data.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots' backend/test/market-data.test.mjs
 grep -q 'midPrice: "01.25"' backend/test/market-data.test.mjs
 grep -q 'liquidityUsd: "01000000000000"' backend/test/market-data.test.mjs
@@ -225,12 +237,13 @@ grep -q 'QuoteService marks requested quotes as failed when pricing is unavailab
 grep -q '快照 `StaticMarketDataConfig`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'StaticMarketDataService` rejects malformed config and `supportedPairs` entries as non-array objects before reading fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'InMemoryMarketSnapshotRepository` mirrors the PostgreSQL market_snapshots contract' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
-grep -q '`snapshotId` must be a primitive-string `SafeIdentifier` with 1-128 characters' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q '`snapshotId` must be an own primitive-string `SafeIdentifier` with 1-128 characters' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q '`source` remains a non-empty source label and must be an own field when provided' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'canonical positive decimal string without leading zeros' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'canonical positive uint string without leading zeros' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q '`observedAt` 必须是 `Date.prototype.toISOString()` 生成的 canonical UTC ISO timestamp' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'snapshot lookup validates `snapshotId` before reading the store' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
-grep -q 'Snapshot persistence rejects malformed root payloads and missing `request` / `snapshot` objects before field access or state mutation' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
+grep -q 'Snapshot persistence rejects malformed root payloads, missing `request` / `snapshot` objects, inherited `request` / `snapshot` / `source` fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'persists MarketSnapshotStore audit records before routing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Requested quote persistence happens immediately after market snapshot persistence and before routing or pricing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '`observedAt`，该字段必须是 `Date.prototype.toISOString()` 生成的 canonical UTC ISO timestamp' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
