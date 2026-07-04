@@ -384,6 +384,7 @@ test -s sdk/src/eip712.ts
 test -s sdk/src/index.ts
 test -s sdk/src/quote-hash.ts
 test -s sdk/src/settlement.ts
+test -s sdk/test/sdk-client-config.test.mjs
 test -s sdk/test/sdk-settlement.test.mjs
 test -s sdk/test/sdk.test.mjs
 test -s contracts/src/RFQSettlement.sol
@@ -2145,11 +2146,11 @@ grep -Fq 'RFQClient options.${field} must be an own field when provided' sdk/src
 grep -q 'RFQClient options must not include unknown field' sdk/src/client.ts
 grep -q 'private readonly fetchImpl' sdk/src/client.ts
 grep -Fq 'resolveFetch(clientOptions)' sdk/src/client.ts
-grep -q 'RFQClient rejects unsafe fetch dependencies at construction' sdk/test/sdk.test.mjs
-grep -q 'RFQClient options.fetch must be an own field when provided' sdk/test/sdk.test.mjs
-grep -q 'RFQClient options.traceId must be an own field when provided' sdk/test/sdk.test.mjs
-grep -q 'RFQClient options must not include unknown field retry' sdk/test/sdk.test.mjs
-grep -q 'RFQClient accepts injected fetch implementations' sdk/test/sdk.test.mjs
+grep -q 'RFQClient rejects unsafe fetch dependencies at construction' sdk/test/sdk-client-config.test.mjs
+grep -q 'RFQClient options.fetch must be an own field when provided' sdk/test/sdk-client-config.test.mjs
+grep -q 'RFQClient options.traceId must be an own field when provided' sdk/test/sdk-client-config.test.mjs
+grep -q 'RFQClient options must not include unknown field retry' sdk/test/sdk-client-config.test.mjs
+grep -q 'RFQClient accepts injected fetch implementations' sdk/test/sdk-client-config.test.mjs
 grep -q 'can receive an injected `fetch` implementation' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'Client options are closed to own optional `fetch` / `traceId` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'Inherited `traceId` options' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
@@ -2228,14 +2229,14 @@ grep -q 'RFQClient baseUrl must be an absolute http(s) URL' sdk/src/client.ts
 grep -q 'RFQClient baseUrl must not include credentials' sdk/src/client.ts
 grep -q 'RFQClient baseUrl host must not contain wildcards' sdk/src/client.ts
 grep -q 'RFQClient baseUrl must not include query strings or fragments' sdk/src/client.ts
-grep -q 'RFQClient rejects unsafe base URLs at construction' sdk/test/sdk.test.mjs
-grep -q 'RFQClient baseUrl must be a string' sdk/test/sdk.test.mjs
-grep -q 'RFQClient normalizes safe base URL origins and path prefixes' sdk/test/sdk.test.mjs
-grep -q 'http://api.example.com/rfq/health' sdk/test/sdk.test.mjs
-grep -q 'RFQClient rejects unsafe trace id options' sdk/test/sdk.test.mjs
-grep -q 'RFQClient traceId option must be a primitive string or function' sdk/test/sdk.test.mjs
-grep -q 'RFQClient traceId provider result must be a primitive string' sdk/test/sdk.test.mjs
-grep -q 'new String("tr_sdk_wrapper")' sdk/test/sdk.test.mjs
+grep -q 'RFQClient rejects unsafe base URLs at construction' sdk/test/sdk-client-config.test.mjs
+grep -q 'RFQClient baseUrl must be a string' sdk/test/sdk-client-config.test.mjs
+grep -q 'RFQClient normalizes safe base URL origins and path prefixes' sdk/test/sdk-client-config.test.mjs
+grep -q 'http://api.example.com/rfq/health' sdk/test/sdk-client-config.test.mjs
+grep -q 'RFQClient rejects unsafe trace id options' sdk/test/sdk-client-config.test.mjs
+grep -q 'RFQClient traceId option must be a primitive string or function' sdk/test/sdk-client-config.test.mjs
+grep -q 'RFQClient traceId provider result must be a primitive string' sdk/test/sdk-client-config.test.mjs
+grep -q 'new String("tr_sdk_wrapper")' sdk/test/sdk-client-config.test.mjs
 grep -q 'tr_sdk_' sdk/test/sdk.test.mjs
 grep -q 'RFQClient rejects unsafe quote requests before sending HTTP' sdk/test/sdk.test.mjs
 grep -Fq '^[1-9][0-9]*$' sdk/src/client.ts
@@ -2556,6 +2557,7 @@ grep -Fq '"infra/helm/**"' .github/workflows/docs-ci.yml
 grep -Fq '"backend/src/modules/rate-limit/rate-limit.service.ts"' .github/workflows/docs-ci.yml
 grep -Fq '"backend/src/main.ts"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/src/client.ts"' .github/workflows/docs-ci.yml
+grep -Fq '"sdk/test/sdk-client-config.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-settlement.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk.test.mjs"' .github/workflows/docs-ci.yml
 grep -q 'QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
