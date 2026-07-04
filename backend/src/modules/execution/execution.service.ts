@@ -1,11 +1,17 @@
 import { keccak256, toBytes } from "viem";
-import type { SubmitQuoteRequest, SubmitQuoteResponse } from "../../shared/types/rfq.js";
+import type { SettlementEventStatusResponse, SubmitQuoteRequest, SubmitQuoteResponse } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
 import { validateSubmitQuoteRequest } from "../../shared/validation/submit-request.js";
+import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 import type { HedgeIntent, HedgeResult } from "../hedge/hedge.service.js";
 import type { HedgeIntentService, HedgeFailureReasonCode } from "../hedge/hedge.service.js";
 import type { InventoryPosition, InventoryService } from "../inventory/inventory.service.js";
-import type { ApplySettlementEventResult, SettlementEventStore } from "../settlement/settlement-event.service.js";
+import {
+  hashSettlementQuote,
+  type ApplySettlementEventInput,
+  type ApplySettlementEventResult,
+  type SettlementEventStore,
+} from "../settlement/settlement-event.service.js";
 import type { SettlementVerificationResult, SettlementVerifier } from "../settlement/settlement-verifier.service.js";
 
 const maxSafeIdentifierLength = 128;
@@ -17,6 +23,23 @@ const executionServiceDepsFields = [
   "settlementVerifier",
 ] as const;
 const settlementVerificationResultFields = ["status", "verifierVersion", "amountOut"] as const;
+const settlementEventResultFields = ["event", "duplicate"] as const;
+const settlementEventFields = [
+  "settlementEventId",
+  "status",
+  "quoteId",
+  "chainId",
+  "txHash",
+  "quoteHash",
+  "blockNumber",
+  "logIndex",
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "observedAt",
+] as const;
 
 export interface ExecutionService {
   submitQuote(request: SubmitQuoteRequest, context: ExecutionContext): Promise<ExecutionResult>;
@@ -102,9 +125,11 @@ export class SkeletonExecutionService implements ExecutionService {
     };
   }
 
-  private applySettlementEvent(input: Parameters<SettlementEventStore["applySettlementEvent"]>[0]): ApplySettlementEventResult {
+  private applySettlementEvent(input: ApplySettlementEventInput): ApplySettlementEventResult {
     try {
-      return this.deps.settlementEventService.applySettlementEvent(input);
+      const settlementEventResult = this.deps.settlementEventService.applySettlementEvent(input);
+      assertApplySettlementEventResult(settlementEventResult, input);
+      return settlementEventResult;
     } catch (error) {
       throw settlementEventStoreFailure(error);
     }
@@ -155,6 +180,155 @@ export class SkeletonExecutionService implements ExecutionService {
     } catch (error) {
       throw settlementVerificationFailure(error);
     }
+  }
+}
+
+function assertApplySettlementEventResult(
+  result: unknown,
+  expected: ApplySettlementEventInput,
+): asserts result is ApplySettlementEventResult {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    throw malformedSettlementEventResult("Execution service settlement event result must be an object");
+  }
+
+  assertExactSettlementEventFields(result as Record<string, unknown>, settlementEventResultFields, "settlement event result");
+  const settlementEventResult = result as Record<string, unknown>;
+  if (typeof settlementEventResult.duplicate !== "boolean") {
+    throw malformedSettlementEventResult("Execution service settlement event result.duplicate must be a boolean");
+  }
+
+  assertSettlementEventStatusResponse(settlementEventResult.event, expected);
+}
+
+function assertSettlementEventStatusResponse(
+  event: unknown,
+  expected: ApplySettlementEventInput,
+): asserts event is SettlementEventStatusResponse {
+  if (typeof event !== "object" || event === null || Array.isArray(event)) {
+    throw malformedSettlementEventResult("Execution service settlement event result.event must be an object");
+  }
+
+  assertExactSettlementEventFields(event as Record<string, unknown>, settlementEventFields, "settlement event result.event");
+  const settlementEvent = event as Record<string, unknown>;
+  if (settlementEvent.status !== "applied") {
+    throw malformedSettlementEventResult("Execution service settlement event status must be applied");
+  }
+
+  const expectedTxHash = expected.txHash.toLowerCase();
+  const expectedLogIndex = expected.logIndex ?? 0;
+  const expectedBlockNumber = expected.blockNumber ?? 0;
+  const expectedSettlementEventId = `se_${expected.quote.chainId}_${expectedTxHash.slice(2)}_${expectedLogIndex}`;
+  assertSafeSettlementEventIdentifier(settlementEvent.settlementEventId, "settlementEventId");
+  assertSafeSettlementEventIdentifier(settlementEvent.quoteId, "quoteId");
+  if (settlementEvent.settlementEventId !== expectedSettlementEventId) {
+    throw malformedSettlementEventResult("Execution service settlement event id must match submitted tx hash");
+  }
+  if (settlementEvent.quoteId !== expected.quoteId) {
+    throw malformedSettlementEventResult("Execution service settlement event quoteId must match execution context");
+  }
+  if (
+    typeof settlementEvent.chainId !== "number" ||
+    !Number.isSafeInteger(settlementEvent.chainId) ||
+    settlementEvent.chainId <= 0 ||
+    settlementEvent.chainId !== expected.quote.chainId
+  ) {
+    throw malformedSettlementEventResult("Execution service settlement event chainId must match quote chainId");
+  }
+  assertSettlementEventHash(settlementEvent.txHash, "txHash");
+  if (settlementEvent.txHash.toLowerCase() !== expectedTxHash) {
+    throw malformedSettlementEventResult("Execution service settlement event txHash must match submitted tx hash");
+  }
+  assertSettlementEventHash(settlementEvent.quoteHash, "quoteHash");
+  if (settlementEvent.quoteHash.toLowerCase() !== hashSettlementQuote(expected.quote).toLowerCase()) {
+    throw malformedSettlementEventResult("Execution service settlement event quoteHash must match submitted quote");
+  }
+  assertNonNegativeSafeInteger(settlementEvent.blockNumber, "blockNumber");
+  if (settlementEvent.blockNumber !== expectedBlockNumber) {
+    throw malformedSettlementEventResult("Execution service settlement event blockNumber must match submitted event ordinal");
+  }
+  assertNonNegativeSafeInteger(settlementEvent.logIndex, "logIndex");
+  if (settlementEvent.logIndex !== expectedLogIndex) {
+    throw malformedSettlementEventResult("Execution service settlement event logIndex must match submitted event ordinal");
+  }
+  assertSettlementEventAddress(settlementEvent.user, "user");
+  assertSettlementEventAddress(settlementEvent.tokenIn, "tokenIn");
+  assertSettlementEventAddress(settlementEvent.tokenOut, "tokenOut");
+  if (
+    settlementEvent.user.toLowerCase() !== expected.quote.user.toLowerCase() ||
+    settlementEvent.tokenIn.toLowerCase() !== expected.quote.tokenIn.toLowerCase() ||
+    settlementEvent.tokenOut.toLowerCase() !== expected.quote.tokenOut.toLowerCase()
+  ) {
+    throw malformedSettlementEventResult("Execution service settlement event quote parties must match submitted quote");
+  }
+  assertSettlementEventAmount(settlementEvent.amountIn, "amountIn");
+  assertSettlementEventAmount(settlementEvent.amountOut, "amountOut");
+  if (settlementEvent.amountIn !== expected.quote.amountIn || settlementEvent.amountOut !== expected.quote.amountOut) {
+    throw malformedSettlementEventResult("Execution service settlement event amounts must match submitted quote");
+  }
+  if (!isCanonicalUtcIsoTimestamp(settlementEvent.observedAt)) {
+    throw malformedSettlementEventResult("Execution service settlement event observedAt must be a canonical UTC ISO timestamp");
+  }
+}
+
+function assertExactSettlementEventFields(
+  value: Record<string, unknown>,
+  fields: readonly string[],
+  path: string,
+): void {
+  const expected = new Set(fields);
+  for (const key of Object.keys(value)) {
+    if (!expected.has(key)) {
+      throw malformedSettlementEventResult(`Execution service ${path} must not include unknown field ${key}`);
+    }
+  }
+
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw malformedSettlementEventResult(`Execution service ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertSafeSettlementEventIdentifier(value: unknown, field: "settlementEventId" | "quoteId"): asserts value is string {
+  if (typeof value !== "string") {
+    throw malformedSettlementEventResult(`Execution service settlement event ${field} must be a primitive string`);
+  }
+  if (value.trim().length === 0) {
+    throw malformedSettlementEventResult(`Execution service settlement event ${field} must be non-empty`);
+  }
+  if (value.length > maxSafeIdentifierLength) {
+    throw malformedSettlementEventResult(`Execution service settlement event ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw malformedSettlementEventResult(
+      `Execution service settlement event ${field} must contain only letters, numbers, underscore, colon, or hyphen`,
+    );
+  }
+}
+
+function assertSettlementEventHash(value: unknown, field: "txHash" | "quoteHash"): asserts value is `0x${string}` {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
+    throw malformedSettlementEventResult(`Execution service settlement event ${field} must be a 32-byte hex string`);
+  }
+}
+
+function assertNonNegativeSafeInteger(value: unknown, field: "blockNumber" | "logIndex"): asserts value is number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    throw malformedSettlementEventResult(
+      `Execution service settlement event ${field} must be a non-negative safe integer`,
+    );
+  }
+}
+
+function assertSettlementEventAddress(value: unknown, field: "user" | "tokenIn" | "tokenOut"): asserts value is `0x${string}` {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw malformedSettlementEventResult(`Execution service settlement event ${field} must be a 20-byte hex address`);
+  }
+}
+
+function assertSettlementEventAmount(value: unknown, field: "amountIn" | "amountOut"): asserts value is string {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
+    throw malformedSettlementEventResult(`Execution service settlement event ${field} must be a positive uint string`);
   }
 }
 
@@ -289,6 +463,10 @@ function assertExecutionContext(context: ExecutionContext): void {
 
 function malformedSettlementVerificationResult(message: string): APIError {
   return new APIError("SETTLEMENT_UNAVAILABLE", message, 503);
+}
+
+function malformedSettlementEventResult(message: string): APIError {
+  return new APIError("SETTLEMENT_EVENT_STORE_UNAVAILABLE", message, 503);
 }
 
 function settlementVerificationFailure(error: unknown): APIError {

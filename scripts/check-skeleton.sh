@@ -1337,6 +1337,9 @@ grep -q 'assertDependencyMethod(deps.settlementVerifier, "settlementVerifier", "
 grep -q 'settlementVerificationResultFields = \["status", "verifierVersion", "amountOut"\]' backend/src/modules/execution/execution.service.ts
 grep -q 'assertSettlementVerificationResult(settlementVerification, request.quote.amountOut)' backend/src/modules/execution/execution.service.ts
 grep -q 'Execution service settlement verification amountOut must match quote amountOut' backend/src/modules/execution/execution.service.ts
+grep -q 'settlementEventResultFields = \["event", "duplicate"\]' backend/src/modules/execution/execution.service.ts
+grep -q 'assertApplySettlementEventResult(settlementEventResult, input)' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution service settlement event quoteHash must match submitted quote' backend/src/modules/execution/execution.service.ts
 grep -q 'cloneExecutionServiceDeps' backend/src/modules/execution/execution.service.ts
 grep -q 'keccak256(toBytes(payload))' backend/src/modules/execution/execution.service.ts
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/execution/execution.service.ts
@@ -1347,6 +1350,9 @@ grep -q 'SkeletonExecutionService suppresses duplicate settlement side effects' 
 grep -q 'SkeletonExecutionService snapshots dependency object at construction' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService rejects malformed settlement verifier results before side effects' backend/test/execution.test.mjs
 grep -q 'internalRoute: "bypass"' backend/test/execution.test.mjs
+grep -q 'SkeletonExecutionService rejects malformed settlement event results before follow-up side effects' backend/test/execution.test.mjs
+grep -q 'internalState: "unsafe"' backend/test/execution.test.mjs
+grep -q 'assert.equal(inventoryReads, 0)' backend/test/execution.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService rejects unsafe dependency configuration at construction' backend/test/execution.test.mjs
 grep -q 'Execution service deps.hedgeService must be an own field' backend/test/execution.test.mjs
@@ -1362,6 +1368,8 @@ grep -q 'Execution context quoteId must contain only letters, numbers, underscor
 grep -q 'Execution context quoteId must be 128 characters or fewer' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService rejects unsafe execution inputs before settlement side effects' backend/test/execution.test.mjs
 grep -q 'rejects malformed execution context envelopes plus execution `quoteId` values that are not own primitive-string 1-128 character `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'validates the `ApplySettlementEventResult` returned by the settlement event store' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'Malformed or mismatched event-store output returns `SETTLEMENT_EVENT_STORE_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
