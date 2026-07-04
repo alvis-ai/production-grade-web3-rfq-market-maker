@@ -1,6 +1,6 @@
 export { rfqSettlementAbi, treasuryAbi } from "./abi.js";
 export { RFQClient, RFQClientError } from "./client.js";
-export { rfqErrorCodes } from "./types.js";
+export { rfqErrorCodes, simulatedPnlModelDescription } from "./types.js";
 export {
   RFQ_EIP712_DOMAIN_NAME,
   RFQ_EIP712_DOMAIN_VERSION,

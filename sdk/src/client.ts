@@ -97,6 +97,7 @@ const pnlTradeRecordFields = [
   "grossPnlTokenOut",
   "grossPnlBps",
   "model",
+  "modelDescription",
   "realizedAt",
 ] as const;
 const rfqErrorCodeSet: ReadonlySet<string> = new Set(rfqErrorCodes);
@@ -823,6 +824,12 @@ function assertPnlTradeRecord(payload: unknown, status: number): asserts payload
   }
   if (payload.model !== "simulated_mid_price_v1") {
     throw malformedFieldError(status, label, "model");
+  }
+  if (
+    payload.modelDescription !==
+      "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL"
+  ) {
+    throw malformedFieldError(status, label, "modelDescription");
   }
 }
 

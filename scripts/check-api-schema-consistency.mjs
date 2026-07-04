@@ -42,6 +42,7 @@ const inlineEnumMappings = [
   ["HedgeIntentStatusResponse", "HedgeIntentStatus", "HedgeIntentStatus", "reason"],
   ["SettlementEventStatusResponse", "SettlementEventStatus", "SettlementEventStatus", "status"],
   ["PnlTradeRecord", "PnlTradeRecord", "PnlTradeRecord", "model"],
+  ["PnlTradeRecord", "PnlTradeRecord", "PnlTradeRecord", "modelDescription"],
   ["PnlSummaryResponse", "PnlSummary", "PnlSummary", "status"],
 ];
 const sdkRuntimeEnumMappings = [
@@ -52,6 +53,7 @@ const sdkRuntimeEnumMappings = [
   ["HedgeIntentStatus", "reason", "assertHedgeIntentStatus"],
   ["SettlementEventStatus", "status", "assertSettlementEventStatus"],
   ["PnlTradeRecord", "model", "assertPnlTradeRecord"],
+  ["PnlTradeRecord", "modelDescription", "assertPnlTradeRecord"],
   ["PnlSummary", "status", "assertPnlSummary"],
   ["HealthResponse", "status", "isHealthResponse"],
   ["ReadinessResponse", "status", "isReadinessResponse"],

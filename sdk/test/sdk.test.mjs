@@ -13,6 +13,7 @@ import {
   hashSettlementQuote,
   quoteTypes,
   rfqSettlementAbi,
+  simulatedPnlModelDescription,
   treasuryAbi,
 } from "../dist/index.js";
 
@@ -695,6 +696,7 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
         grossPnlTokenOut: "1600000",
         grossPnlBps: 16,
         model: "simulated_mid_price_v1",
+        modelDescription: simulatedPnlModelDescription,
         realizedAt: "2026-06-27T00:00:00.000Z",
       },
     ],
@@ -2129,6 +2131,7 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
         grossPnlTokenOut: "1600000",
         grossPnlBps: 16,
         model: "simulated_mid_price_v1",
+        modelDescription: simulatedPnlModelDescription,
         realizedAt: "2026-06-27T00:00:00.000Z",
       },
     ],
@@ -2260,6 +2263,13 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
         trades: [{ ...basePnlResponse.trades[0], model: "unknown_model" }],
       },
       message: "RFQ PnL summary response trade returned malformed model",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], modelDescription: "unsupported PnL model" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed modelDescription",
     },
     {
       payload: {

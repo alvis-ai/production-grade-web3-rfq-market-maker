@@ -1,3 +1,4 @@
+import { simulatedPnlModelDescription } from "../../shared/types/rfq.js";
 import type { IntString, PnlSummaryResponse, PnlTradeRecord, SignedQuote } from "../../shared/types/rfq.js";
 
 const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
@@ -83,6 +84,7 @@ export class PnlService implements PnlStore {
       grossPnlTokenOut: grossPnl.toString() as IntString,
       grossPnlBps: calculateGrossPnlBps(input.quote.amountIn, grossPnl),
       model,
+      modelDescription: simulatedPnlModelDescription,
       realizedAt: new Date().toISOString(),
     };
 

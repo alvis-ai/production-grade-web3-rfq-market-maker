@@ -13,6 +13,8 @@ const baseQuote = {
   deadline: 1893456000,
   chainId: 1,
 };
+const simulatedPnlModelDescription =
+  "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL";
 
 test("PnlService records signed realized PnL and aggregates summary", () => {
   const pnl = new PnlService();
@@ -29,6 +31,7 @@ test("PnlService records signed realized PnL and aggregates summary", () => {
   assert.equal(gain.nonce, baseQuote.nonce);
   assert.equal(gain.deadline, baseQuote.deadline);
   assert.equal(gain.model, "simulated_mid_price_v1");
+  assert.equal(gain.modelDescription, simulatedPnlModelDescription);
 
   const loss = pnl.recordSettlement({
     quoteId: "q_loss",

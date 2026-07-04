@@ -38,6 +38,7 @@ import { APIError, toAPIError } from "./shared/errors/api-error.js";
 import { validateQuoteRequest } from "./shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.js";
 import { isCanonicalUtcIsoTimestamp } from "./shared/validation/timestamp.js";
+import { simulatedPnlModelDescription } from "./shared/types/rfq.js";
 import type { PnlTradeRecord } from "./shared/types/rfq.js";
 
 const defaultBodyLimitBytes = 32_768;
@@ -88,6 +89,7 @@ const pnlTradeRecordFields = [
   "grossPnlTokenOut",
   "grossPnlBps",
   "model",
+  "modelDescription",
   "realizedAt",
 ] as const;
 
@@ -654,6 +656,9 @@ function assertPnlRecordResult(record: unknown, input: RecordPnlInput): asserts 
   }
   if (record.model !== "simulated_mid_price_v1") {
     throw new Error("API PnL record model must be simulated_mid_price_v1");
+  }
+  if (record.modelDescription !== simulatedPnlModelDescription) {
+    throw new Error("API PnL record modelDescription must describe simulated_mid_price_v1");
   }
   if (!isCanonicalUtcIsoTimestamp(record.realizedAt)) {
     throw new Error("API PnL record realizedAt must be a canonical UTC ISO timestamp");

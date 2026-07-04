@@ -368,6 +368,7 @@ CREATE TABLE pnl_records (
   gross_pnl_token_out NUMERIC(78, 0) NOT NULL,
   gross_pnl_bps BIGINT NOT NULL,
   model TEXT NOT NULL,
+  model_description TEXT NOT NULL,
   realized_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (quote_id, model),
@@ -377,6 +378,9 @@ CREATE TABLE pnl_records (
     AND id ~ '^[A-Za-z0-9_:-]+$'
   ),
   CONSTRAINT chk_pnl_records_model CHECK (model IN ('simulated_mid_price_v1')),
+  CONSTRAINT chk_pnl_records_model_description CHECK (
+    model_description = 'Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL'
+  ),
   CONSTRAINT chk_pnl_records_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_pnl_records_addresses_hex CHECK (
     user_address ~ '^0x[0-9a-fA-F]{40}$'

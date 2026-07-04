@@ -3,6 +3,8 @@ import test from "node:test";
 import { MetricsService } from "../dist/modules/metrics/metrics.service.js";
 
 const token = "0x0000000000000000000000000000000000000003";
+const simulatedPnlModelDescription =
+  "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL";
 const pnlTradeRecord = {
   pnlId: "pnl_q_1",
   quoteId: "q_1",
@@ -18,6 +20,7 @@ const pnlTradeRecord = {
   grossPnlTokenOut: "1600000",
   grossPnlBps: 16,
   model: "simulated_mid_price_v1",
+  modelDescription: simulatedPnlModelDescription,
   realizedAt: "2026-06-29T00:00:00.000Z",
 };
 const readinessResponse = {
@@ -240,6 +243,14 @@ test("MetricsService validates inventory and PnL metric inputs before mutating s
         minAmountOut: "999000000",
       }),
     /Metrics PnL trade amountOut must be greater than or equal to minAmountOut/,
+  );
+  assert.throws(
+    () =>
+      metrics.recordPnlTrade({
+        ...pnlTradeRecord,
+        modelDescription: "unsupported PnL model",
+      }),
+    /Metrics PnL trade modelDescription must describe simulated_mid_price_v1/,
   );
   assert.throws(
     () =>

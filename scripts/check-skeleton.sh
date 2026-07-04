@@ -591,6 +591,7 @@ grep -q 'recordSettlement' backend/src/main.ts
 grep -q 'pnlTradeRecordFields = \[' backend/src/main.ts
 grep -q 'assertPnlRecordResult(pnlRecord, input)' backend/src/main.ts
 grep -q 'API PnL record grossPnlTokenOut must match submitted quote' backend/src/main.ts
+grep -q 'API PnL record modelDescription must describe simulated_mid_price_v1' backend/src/main.ts
 grep -q 'settlementEventResult.duplicate' backend/src/main.ts
 grep -q 'markPostSettlementQuoteStatus' backend/src/main.ts
 grep -q 'markSettlementRejectedQuoteFailed' backend/src/main.ts
@@ -1170,6 +1171,7 @@ grep -q 'chk_hedge_orders_reason' docs/database/schema.sql
 grep -q 'chk_hedge_orders_venue_non_empty' docs/database/schema.sql
 grep -q 'chk_hedge_orders_external_order_id_non_empty' docs/database/schema.sql
 grep -q 'chk_pnl_records_model' docs/database/schema.sql
+grep -q 'chk_pnl_records_model_description' docs/database/schema.sql
 grep -q 'user_address TEXT NOT NULL' docs/database/schema.sql
 grep -q 'liquidity_usd NUMERIC(78, 0) NOT NULL' docs/database/schema.sql
 grep -q 'AND liquidity_usd > 0' docs/database/schema.sql
@@ -1234,6 +1236,7 @@ grep -q 'hedge_orders must persist HedgeIntentStatusResponse' scripts/check-data
 grep -q 'hedge_orders must reject empty venue values' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must reject empty external_order_id values when present' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
+grep -q 'pnl_records must constrain supported attribution model descriptions' scripts/check-database-schema-consistency.mjs
 grep -q '操作表 primary id 使用 SafeIdentifier 约束' docs/database/er-diagram.md
 grep -q 'primary id 都必须符合 SafeIdentifier' docs/database/er-diagram.md
 grep -q 'distinct token pair' docs/database/er-diagram.md
@@ -1251,7 +1254,8 @@ grep -q 'quotes.pricing_version`、`quotes.risk_policy_version` 和 `quotes.reje
 grep -q 'quotes.deadline` 使用 BIGINT 保存 EIP-712 signed quote 的 Unix seconds' docs/database/er-diagram.md
 grep -q 'quotes.slippage_bps` 保存原始 `QuoteRequest.slippageBps`' docs/database/er-diagram.md
 grep -q 'quotes.spread_bps`、`quotes.size_impact_bps` 和 `quotes.inventory_skew_bps`' docs/database/er-diagram.md
-grep -q 'safe-integer `deadline` 和 safe-integer signed `gross_pnl_bps` 作为 signed attribution snapshot' docs/database/er-diagram.md
+grep -q 'safe-integer `deadline`、safe-integer signed `gross_pnl_bps` 和固定 `model_description` 作为 signed attribution snapshot' docs/database/er-diagram.md
+grep -q 'model_description' docs/database/er-diagram.md
 grep -q 'safe-integer signed `gross_pnl_bps`' docs/database/er-diagram.md
 grep -q 'settlement_events.log_index` 和 `settlement_events.block_number` 使用 BIGINT 保存链上 event ordinal' docs/database/er-diagram.md
 grep -q 'reason_code` 只允许出现在 rejected decision 上' docs/database/er-diagram.md
@@ -1667,6 +1671,7 @@ grep -q 'interface PnlStore' backend/src/modules/pnl/pnl.service.ts
 grep -q 'class PnlService' backend/src/modules/pnl/pnl.service.ts
 grep -q 'recordSettlement' backend/src/modules/pnl/pnl.service.ts
 grep -q 'simulated_mid_price_v1' backend/src/modules/pnl/pnl.service.ts
+grep -q 'simulatedPnlModelDescription' backend/src/modules/pnl/pnl.service.ts
 grep -q 'pnlIdsByQuoteModel' backend/src/modules/pnl/pnl.service.ts
 grep -q 'assertPnlInput(input)' backend/src/modules/pnl/pnl.service.ts
 grep -q 'pnlInputFields = \["quoteId", "quote"\]' backend/src/modules/pnl/pnl.service.ts
@@ -2152,6 +2157,7 @@ grep -q '"nonce"' sdk/src/client.ts
 grep -q 'RFQ settlement event status response returned malformed nonce' sdk/test/sdk.test.mjs
 grep -q 'assertPnlSummary' sdk/src/client.ts
 grep -q 'assertPnlTradeRecord' sdk/src/client.ts
+grep -q 'modelDescription' sdk/src/client.ts
 grep -q 'function isPositiveSafeInteger' sdk/src/client.ts
 grep -q 'function isNonNegativeSafeInteger' sdk/src/client.ts
 grep -q 'function isSafeInteger' sdk/src/client.ts
@@ -2284,6 +2290,7 @@ grep -q 'Stringified numbers and wrapper objects are rejected instead of being c
 grep -Fq 'return typeof value === "string" && /^(0|-?[1-9][0-9]*)$/.test(value)' sdk/src/client.ts
 grep -q 'grossPnlTokenOut: "01600000"' sdk/test/sdk.test.mjs
 grep -q 'grossPnlTokenOut: "-0"' sdk/test/sdk.test.mjs
+grep -q 'malformed modelDescription' sdk/test/sdk.test.mjs
 grep -q 'canonical signed gross PnL strings without leading zeros or negative zero' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'canonical UTC ISO timestamps generated with `Date.prototype.toISOString()`' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'client.health' sdk/test/sdk.test.mjs
@@ -2654,6 +2661,7 @@ grep -q 'PNL_STORE_UNAVAILABLE' docs/api/errors.md
 grep -q 'getPnlSummary' docs/api/openapi.yaml
 grep -q 'PnlSummary' docs/api/openapi.yaml
 grep -q 'PnlTradeRecord' docs/api/openapi.yaml
+grep -q 'modelDescription' docs/api/openapi.yaml
 grep -q 'Every response includes an x-trace-id header' docs/api/openapi.yaml
 grep -q 'Every HTTP response includes an `x-trace-id` header' README.md
 grep -q 'assertTraceHeader' backend/test/api.test.mjs

@@ -100,6 +100,7 @@ const requiredTables = {
     "gross_pnl_token_out",
     "gross_pnl_bps",
     "model",
+    "model_description",
     "realized_at",
   ],
 };
@@ -228,6 +229,7 @@ const requiredCheckConstraints = {
   pnl_records: [
     ["chk_pnl_records_id_safe", "pnl_records must constrain primary ids to safe identifiers"],
     ["chk_pnl_records_model", "pnl_records must constrain supported attribution models"],
+    ["chk_pnl_records_model_description", "pnl_records must constrain supported attribution model descriptions"],
     ["chk_pnl_records_chain_id_safe", "pnl_records must constrain chain_id to JavaScript safe integer range"],
     ["chk_pnl_records_addresses_hex", "pnl_records must constrain token address shape"],
     ["chk_pnl_records_distinct_tokens", "pnl_records must constrain token pair addresses to be distinct"],
@@ -525,6 +527,12 @@ assert.ok(
   "pnl model constraint must match backend PnlTradeRecord model values",
 );
 assert.ok(
+  /model_description\s*=\s*'Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL'/i.test(
+    tables.get("pnl_records").body,
+  ),
+  "pnl model_description constraint must match backend PnlTradeRecord modelDescription value",
+);
+assert.ok(
   /deadline\s+BETWEEN\s+1\s+AND\s+9007199254740991/i.test(tables.get("pnl_records").body),
   "pnl_records must require safe-integer signed attribution deadlines",
 );
@@ -636,6 +644,7 @@ const pnlColumnMapping = {
   grossPnlTokenOut: "gross_pnl_token_out",
   grossPnlBps: "gross_pnl_bps",
   model: "model",
+  modelDescription: "model_description",
   realizedAt: "realized_at",
 };
 for (const field of pnlFields) {

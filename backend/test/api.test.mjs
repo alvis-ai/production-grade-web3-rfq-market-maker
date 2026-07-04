@@ -17,6 +17,8 @@ const baseQuoteRequest = {
   amountIn: "1000000000",
   slippageBps: 50,
 };
+const simulatedPnlModelDescription =
+  "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL";
 const secp256k1n = BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
 
 test("production startup requires explicit signer configuration", () => {
@@ -797,6 +799,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
       "grossPnlTokenOut",
       "grossPnlBps",
       "model",
+      "modelDescription",
       "realizedAt",
     ]);
     assert.equal(pnl.body.trades[0].pnlId, submit.body.pnlId);
@@ -806,6 +809,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(pnl.body.trades[0].grossPnlTokenOut, "1600000");
     assert.equal(pnl.body.trades[0].grossPnlBps, 16);
     assert.equal(pnl.body.trades[0].model, "simulated_mid_price_v1");
+    assert.equal(pnl.body.trades[0].modelDescription, simulatedPnlModelDescription);
     assert.match(pnl.body.trades[0].realizedAt, /^\d{4}-\d{2}-\d{2}T/);
 
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
@@ -1610,6 +1614,7 @@ test("RFQ API treats malformed PnL store results as post-settlement PnL failures
     (validRecord) => ({ ...validRecord, pnlId: "pnl.bad" }),
     (validRecord) => ({ ...validRecord, amountOut: "1" }),
     (validRecord) => ({ ...validRecord, grossPnlTokenOut: "0" }),
+    (validRecord) => ({ ...validRecord, modelDescription: "unsupported PnL model" }),
     (validRecord) => ({ ...validRecord, realizedAt: "2026-01-01T00:00:00Z" }),
   ];
 
@@ -1635,6 +1640,7 @@ test("RFQ API treats malformed PnL store results as post-settlement PnL failures
             grossPnlTokenOut: grossPnl.toString(),
             grossPnlBps: Number((grossPnl * 10_000n) / BigInt(input.quote.amountIn)),
             model: "simulated_mid_price_v1",
+            modelDescription: simulatedPnlModelDescription,
             realizedAt: "2026-01-01T00:00:00.000Z",
           };
 

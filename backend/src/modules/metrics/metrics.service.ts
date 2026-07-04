@@ -1,4 +1,5 @@
 import type { ReadinessComponentName, ReadinessResponse } from "../health/readiness.service.js";
+import { simulatedPnlModelDescription } from "../../shared/types/rfq.js";
 import type { Address, PnlTradeRecord } from "../../shared/types/rfq.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 import type { RateLimitedEndpoint } from "../rate-limit/rate-limit.service.js";
@@ -33,6 +34,7 @@ const pnlTradeMetricRecordFields = [
   "grossPnlTokenOut",
   "grossPnlBps",
   "model",
+  "modelDescription",
   "realizedAt",
 ] as const;
 
@@ -464,6 +466,9 @@ function assertPnlTradeMetricRecord(record: PnlTradeRecord): void {
 
   if (record.model !== "simulated_mid_price_v1") {
     throw new Error("Metrics PnL trade model must be simulated_mid_price_v1");
+  }
+  if (record.modelDescription !== simulatedPnlModelDescription) {
+    throw new Error("Metrics PnL trade modelDescription must describe simulated_mid_price_v1");
   }
   if (!isCanonicalUtcIsoTimestamp(record.realizedAt)) {
     throw new Error("Metrics PnL trade realizedAt must be a canonical UTC ISO timestamp");

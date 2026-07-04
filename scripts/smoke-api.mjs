@@ -13,6 +13,8 @@ const localSignerPrivateKey =
   process.env.RFQ_SIGNER_PRIVATE_KEY ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const settlementAddress = process.env.RFQ_SETTLEMENT_ADDRESS ?? "0x0000000000000000000000000000000000000004";
 const expectedSignerAddress = privateKeyToAccount(localSignerPrivateKey).address;
+const simulatedPnlModelDescription =
+  "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL";
 const quoteRequest = JSON.parse(await readFile("examples/quote-request.json", "utf8"));
 const quoteTypes = {
   Quote: [
@@ -106,6 +108,7 @@ assertEqual(pnl.totalTrades, 1, "pnl trade count");
 assertEqual(pnl.grossPnlTokenOut, "1600000", "gross pnl");
 assertEqual(pnl.trades[0].pnlId, submitResponse.pnlId, "pnl trade id");
 assertEqual(pnl.trades[0].quoteId, quoteResponse.quoteId, "pnl quote id");
+assertEqual(pnl.trades[0].modelDescription, simulatedPnlModelDescription, "pnl model description");
 
 const metrics = await requestText("GET", "/metrics");
 assertIncludes(metrics, "rfq_quote_requests_total 1", "quote request metric");

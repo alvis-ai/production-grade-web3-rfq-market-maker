@@ -824,6 +824,7 @@ components:
         - grossPnlTokenOut
         - grossPnlBps
         - model
+        - modelDescription
         - realizedAt
       properties:
         pnlId:
@@ -865,6 +866,11 @@ components:
           type: string
           enum:
             - simulated_mid_price_v1
+        modelDescription:
+          type: string
+          enum:
+            - Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL
+          description: Machine-readable description of the reference PnL model boundary.
         realizedAt:
           type: string
           format: date-time

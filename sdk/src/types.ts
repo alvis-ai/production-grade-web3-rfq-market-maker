@@ -1,6 +1,8 @@
 export type Address = `0x${string}`;
 export type UIntString = string;
 export type IntString = string;
+export const simulatedPnlModelDescription =
+  "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL" as const;
 
 export interface QuoteRequest {
   chainId: number;
@@ -143,6 +145,7 @@ export interface PnlTradeRecord {
   grossPnlTokenOut: IntString;
   grossPnlBps: number;
   model: "simulated_mid_price_v1";
+  modelDescription: "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL";
   realizedAt: string;
 }
 
