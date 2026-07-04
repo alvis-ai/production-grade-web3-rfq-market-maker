@@ -385,6 +385,7 @@ test -s sdk/src/index.ts
 test -s sdk/src/quote-hash.ts
 test -s sdk/src/settlement.ts
 test -s sdk/test/sdk-client-config.test.mjs
+test -s sdk/test/sdk-client-errors.test.mjs
 test -s sdk/test/sdk-client-requests.test.mjs
 test -s sdk/test/sdk-settlement.test.mjs
 test -s sdk/test/sdk.test.mjs
@@ -2158,8 +2159,8 @@ grep -q 'Inherited `traceId` options' book/Volume6-Frontend-And-SDK/Chapter04-SD
 grep -q 'new RFQClient("http://localhost:3000", { fetch: customFetch })' README.md
 grep -q 'errorResponseFields = \["code", "message", "traceId"\]' sdk/src/client.ts
 grep -Fq 'hasExactOwnFields(value, errorResponseFields)' sdk/src/client.ts
-grep -q 'RFQClient ignores non-closed API error bodies' sdk/test/sdk.test.mjs
-grep -q 'reasonCode: "TOXIC_FLOW_SCORE"' sdk/test/sdk.test.mjs
+grep -q 'RFQClient ignores non-closed API error bodies' sdk/test/sdk-client-errors.test.mjs
+grep -q 'reasonCode: "TOXIC_FLOW_SCORE"' sdk/test/sdk-client-errors.test.mjs
 grep -q 'structured RFQ errors must be closed own-field `ErrorResponse` objects' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'ErrorResponse` 是闭合 schema' docs/api/errors.md
 grep -q 'additionalProperties: false' docs/api/openapi.yaml
@@ -2212,13 +2213,13 @@ grep -q 'expectedFields.every((field) => hasOwnField(value, field))' sdk/src/cli
 grep -q 'assertResponsePayload' sdk/src/client.ts
 grep -q 'withResponseTrace' sdk/src/client.ts
 grep -q 'response.headers.get("x-trace-id")' sdk/src/client.ts
-grep -q 'ignores prototype-backed API error bodies' sdk/test/sdk.test.mjs
-grep -q 'tr_error_header' sdk/test/sdk.test.mjs
-grep -q 'tr_header_unknown' sdk/test/sdk.test.mjs
+grep -q 'ignores prototype-backed API error bodies' sdk/test/sdk-client-errors.test.mjs
+grep -q 'tr_error_header' sdk/test/sdk-client-errors.test.mjs
+grep -q 'tr_header_unknown' sdk/test/sdk-client-errors.test.mjs
 grep -q 'tr_malformed_json' sdk/test/sdk.test.mjs
 grep -q 'tr_malformed_field' sdk/test/sdk.test.mjs
-grep -q 'ignores unsafe response trace ids and falls back to safe trace headers' sdk/test/sdk.test.mjs
-grep -q 'tr_safe_header' sdk/test/sdk.test.mjs
+grep -q 'ignores unsafe response trace ids and falls back to safe trace headers' sdk/test/sdk-client-errors.test.mjs
+grep -q 'tr_safe_header' sdk/test/sdk-client-errors.test.mjs
 grep -q 'falls back to safe `x-trace-id` response headers' README.md
 grep -q 'falls back to safe `x-trace-id` response headers' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'prototype-backed error body' README.md
@@ -2319,11 +2320,11 @@ grep -q 'percent-encodes safe dynamic status path identifiers' sdk/test/sdk-clie
 grep -q 'q%3Atest-id' sdk/test/sdk-client-requests.test.mjs
 grep -q 'new RFQClient("http://127.0.0.1:3000/", {' sdk/test/sdk.test.mjs
 grep -q 'degraded readiness payloads' sdk/test/sdk.test.mjs
-grep -q 'falls back for unknown API error codes' sdk/test/sdk.test.mjs
-grep -q 'exposes Retry-After seconds for rate limited responses' sdk/test/sdk.test.mjs
-grep -q 'ignores non-canonical Retry-After headers' sdk/test/sdk.test.mjs
-grep -q '"60.0"' sdk/test/sdk.test.mjs
-grep -q '"6e1"' sdk/test/sdk.test.mjs
+grep -q 'falls back for unknown API error codes' sdk/test/sdk-client-errors.test.mjs
+grep -q 'exposes Retry-After seconds for rate limited responses' sdk/test/sdk-client-errors.test.mjs
+grep -q 'ignores non-canonical Retry-After headers' sdk/test/sdk-client-errors.test.mjs
+grep -q '"60.0"' sdk/test/sdk-client-errors.test.mjs
+grep -q '"6e1"' sdk/test/sdk-client-errors.test.mjs
 grep -q 'retryAfterSeconds' README.md
 grep -q 'canonical positive decimal delay-seconds value' README.md
 grep -q 'zero, leading-zero, decimal, exponent, HTTP-date and oversized values are ignored' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
@@ -2559,6 +2560,7 @@ grep -Fq '"backend/src/modules/rate-limit/rate-limit.service.ts"' .github/workfl
 grep -Fq '"backend/src/main.ts"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/src/client.ts"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-config.test.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"sdk/test/sdk-client-errors.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-requests.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-settlement.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk.test.mjs"' .github/workflows/docs-ci.yml
@@ -2593,6 +2595,7 @@ grep -q 'backend API tests must assert x-trace-id exists on successful responses
 grep -q 'defaultRateLimitConfig' scripts/check-rate-limit-consistency.mjs
 grep -q 'Retry-After' scripts/check-rate-limit-consistency.mjs
 grep -q 'sdk/src/client.ts' scripts/check-rate-limit-consistency.mjs
+grep -q 'sdk/test/sdk-client-errors.test.mjs' scripts/check-rate-limit-consistency.mjs
 grep -q 'frontend/src/lib/errors.ts' scripts/check-rate-limit-consistency.mjs
 grep -q 'frontend/src/components/QuoteStatusPanel.tsx' scripts/check-rate-limit-consistency.mjs
 grep -q 'retryAfterSeconds' scripts/check-rate-limit-consistency.mjs

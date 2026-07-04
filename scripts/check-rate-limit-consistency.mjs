@@ -9,7 +9,7 @@ const apiGatewayTestSource = await readFile("backend/test/api-gateway.test.mjs",
 const apiRateLimitTestSource = await readFile("backend/test/api-rate-limit.test.mjs", "utf8");
 const rateLimitTestSource = await readFile("backend/test/rate-limit.test.mjs", "utf8");
 const sdkClientSource = await readFile("sdk/src/client.ts", "utf8");
-const sdkTestSource = await readFile("sdk/test/sdk.test.mjs", "utf8");
+const sdkClientErrorsTestSource = await readFile("sdk/test/sdk-client-errors.test.mjs", "utf8");
 const frontendErrorSource = await readFile("frontend/src/lib/errors.ts", "utf8");
 const frontendStatusPanelSource = await readFile("frontend/src/components/QuoteStatusPanel.tsx", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
@@ -111,7 +111,7 @@ assertContains(sdkClientSource, [
   "Number.isSafeInteger(seconds)",
 ], "sdk/src/client.ts");
 
-assertContains(sdkTestSource, [
+assertContains(sdkClientErrorsTestSource, [
   "exposes Retry-After seconds for rate limited responses",
   "ignores non-canonical Retry-After headers",
   'code: "RATE_LIMITED"',
@@ -120,7 +120,7 @@ assertContains(sdkTestSource, [
   '"6e1"',
   "assert.equal(error.retryAfterSeconds, 60)",
   "assert.equal(error.retryAfterSeconds, undefined)",
-], "sdk/test/sdk.test.mjs");
+], "sdk/test/sdk-client-errors.test.mjs");
 
 assertContains(frontendErrorSource, [
   "retryAfterSeconds?: number",
