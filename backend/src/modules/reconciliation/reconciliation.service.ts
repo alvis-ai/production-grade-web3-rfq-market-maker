@@ -27,6 +27,13 @@ export interface SettlementToQuoteReconciliationError {
   reason: string;
 }
 
+export interface RemovedSettlementToQuoteReconciliationReport {
+  scannedRemovedSettlementEvents: number;
+  repairedQuoteStatuses: number;
+  skippedQuoteStatuses: number;
+  errors: SettlementToQuoteReconciliationError[];
+}
+
 export interface SettlementToPnlReconciliationReport {
   scannedSettlementEvents: number;
   repairedPnlRecords: number;
@@ -108,6 +115,46 @@ export class ReconciliationService {
           reason: error instanceof Error ? error.message : "RECONCILIATION_FAILED",
         });
       }
+    }
+
+    return report;
+  }
+
+  async reconcileRemovedSettlementToQuote(
+    event: SettlementEventForReconciliation,
+  ): Promise<RemovedSettlementToQuoteReconciliationReport> {
+    const report: RemovedSettlementToQuoteReconciliationReport = {
+      scannedRemovedSettlementEvents: 1,
+      repairedQuoteStatuses: 0,
+      skippedQuoteStatuses: 0,
+      errors: [],
+    };
+
+    try {
+      const result = await this.deps.quoteRepository.clearSettlementStatus({
+        quoteId: event.quoteId,
+        txHash: event.txHash,
+        settlementEventId: event.settlementEventId,
+      });
+      if (!result.status) {
+        report.errors.push({
+          settlementEventId: event.settlementEventId,
+          quoteId: event.quoteId,
+          reason: "QUOTE_NOT_FOUND",
+        });
+        return report;
+      }
+      if (result.cleared) {
+        report.repairedQuoteStatuses += 1;
+      } else {
+        report.skippedQuoteStatuses += 1;
+      }
+    } catch (error) {
+      report.errors.push({
+        settlementEventId: event.settlementEventId,
+        quoteId: event.quoteId,
+        reason: error instanceof Error ? error.message : "RECONCILIATION_FAILED",
+      });
     }
 
     return report;
@@ -239,6 +286,7 @@ function assertReconciliationServiceDeps(deps: ReconciliationServiceDeps): void 
   assertDependencyMethod(deps.settlementEventService, "settlementEventService", "getSettlementEventsByQuoteHash");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findStatus");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markStatus");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "clearSettlementStatus");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByQuoteId");
   assertOptionalDependencyMethod(deps.pnlService, "pnlService", "summary");
   assertOptionalDependencyMethod(deps.pnlService, "pnlService", "recordSettlement");

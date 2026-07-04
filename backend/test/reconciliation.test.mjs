@@ -146,6 +146,62 @@ test("ReconciliationService scopes repairs by chain-scoped settlement quote hash
   assert.equal(pnlSummary.trades[0].quoteId, "q_hash_target");
 });
 
+test("ReconciliationService repairs quote status after a removed settlement event", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const settlementEventService = new SettlementEventService(new InventoryService());
+  const reorgedQuote = {
+    ...quote,
+    deadline: Math.floor(Date.now() / 1000) + 60,
+  };
+  await saveSignedQuote(quoteRepository, "q_reorg_quote", reorgedQuote);
+  const settlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_reorg_quote",
+    quote: reorgedQuote,
+    txHash: `0x${"19".repeat(32)}`,
+    blockNumber: 250,
+    logIndex: 1,
+  });
+  await quoteRepository.markStatus("q_reorg_quote", "settled", {
+    txHash: settlement.event.txHash,
+    settlementEventId: settlement.event.settlementEventId,
+    hedgeOrderId: "h_reorg_quote",
+    pnlId: "pnl_reorg_quote",
+  });
+  const removed = settlementEventService.removeSettlementEvent({
+    chainId: settlement.event.chainId,
+    txHash: settlement.event.txHash,
+    blockNumber: settlement.event.blockNumber,
+    logIndex: settlement.event.logIndex,
+  });
+
+  const reconciliation = new ReconciliationService({
+    quoteRepository,
+    settlementEventService,
+  });
+  const firstReport = await reconciliation.reconcileRemovedSettlementToQuote(removed.event);
+  const retryReport = await reconciliation.reconcileRemovedSettlementToQuote(removed.event);
+
+  assert.deepEqual(firstReport, {
+    scannedRemovedSettlementEvents: 1,
+    repairedQuoteStatuses: 1,
+    skippedQuoteStatuses: 0,
+    errors: [],
+  });
+  assert.deepEqual(retryReport, {
+    scannedRemovedSettlementEvents: 1,
+    repairedQuoteStatuses: 0,
+    skippedQuoteStatuses: 1,
+    errors: [],
+  });
+
+  const status = await quoteRepository.findStatus("q_reorg_quote");
+  assert.equal(status.status, "signed");
+  assert.equal(status.txHash, undefined);
+  assert.equal(status.settlementEventId, undefined);
+  assert.equal(status.hedgeOrderId, undefined);
+  assert.equal(status.pnlId, undefined);
+});
+
 test("ReconciliationService snapshots dependency object at construction", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const settlementEventService = new SettlementEventService(new InventoryService());
@@ -267,6 +323,19 @@ test("ReconciliationService rejects unsafe dependency configuration at construct
     () =>
       new ReconciliationService({
         ...deps,
+        quoteRepository: {
+          async findStatus() {
+            return undefined;
+          },
+          async markStatus() {},
+        },
+      }),
+    /ReconciliationService quoteRepository.clearSettlementStatus must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
         pnlService: "bad pnl dependency",
       }),
     /ReconciliationService pnlService must be an object when provided/,
@@ -319,6 +388,65 @@ test("ReconciliationService rejects unsafe dependency configuration at construct
       }),
     /ReconciliationService hedgeService.getHedgeIntentBySettlementEvent must be a function when provided/,
   );
+});
+
+test("ReconciliationService reports removed settlement quote repair conflicts", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const settlementEventService = new SettlementEventService(new InventoryService());
+  await saveSignedQuote(quoteRepository, "q_reorg_conflict", quote);
+  await quoteRepository.markStatus("q_reorg_conflict", "settled", {
+    txHash: `0x${"20".repeat(32)}`,
+    settlementEventId: "se_reorg_actual",
+  });
+  const settlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_reorg_conflict",
+    quote,
+    txHash: `0x${"21".repeat(32)}`,
+    blockNumber: 251,
+    logIndex: 0,
+  });
+  const missingQuoteSettlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_reorg_missing",
+    quote: {
+      ...quote,
+      nonce: "2",
+    },
+    txHash: `0x${"22".repeat(32)}`,
+    blockNumber: 252,
+    logIndex: 0,
+  });
+  const reconciliation = new ReconciliationService({
+    quoteRepository,
+    settlementEventService,
+  });
+
+  const conflictReport = await reconciliation.reconcileRemovedSettlementToQuote(settlement.event);
+  const missingReport = await reconciliation.reconcileRemovedSettlementToQuote(missingQuoteSettlement.event);
+
+  assert.deepEqual(conflictReport, {
+    scannedRemovedSettlementEvents: 1,
+    repairedQuoteStatuses: 0,
+    skippedQuoteStatuses: 0,
+    errors: [
+      {
+        settlementEventId: settlement.event.settlementEventId,
+        quoteId: "q_reorg_conflict",
+        reason: "Quote q_reorg_conflict settlement status removal conflict",
+      },
+    ],
+  });
+  assert.deepEqual(missingReport, {
+    scannedRemovedSettlementEvents: 1,
+    repairedQuoteStatuses: 0,
+    skippedQuoteStatuses: 0,
+    errors: [
+      {
+        settlementEventId: missingQuoteSettlement.event.settlementEventId,
+        quoteId: "q_reorg_missing",
+        reason: "QUOTE_NOT_FOUND",
+      },
+    ],
+  });
 });
 
 test("ReconciliationService rejects unsafe settlement quote hash filters before scanning", async () => {

@@ -79,6 +79,45 @@ const afterStatus = await quoteRepository.findStatus("q_reconciliation_check");
 const hedge = hedgeService.getHedgeIntentBySettlementEvent(settlement.event.settlementEventId);
 const pnlSummary = pnlService.summary();
 
+const reorgQuoteRepository = new InMemoryQuoteRepository();
+const reorgSettlementEventService = new SettlementEventService(new InventoryService());
+await reorgQuoteRepository.saveSigned({
+  quoteId: "q_reconciliation_reorg_check",
+  snapshotId: "snapshot_reconciliation_reorg_check",
+  slippageBps: 50,
+  spreadBps: 8,
+  sizeImpactBps: 0,
+  inventorySkewBps: 0,
+  quote,
+  pricingVersion: "reconciliation-check-pricing",
+  riskPolicyVersion: "reconciliation-check-risk",
+  signature: `0x${"11".repeat(64)}1b`,
+});
+const reorgSettlement = reorgSettlementEventService.applySettlementEvent({
+  quoteId: "q_reconciliation_reorg_check",
+  quote,
+  txHash: `0x${"cd".repeat(32)}`,
+  blockNumber: 123457,
+  logIndex: 8,
+});
+await reorgQuoteRepository.markStatus("q_reconciliation_reorg_check", "settled", {
+  txHash: reorgSettlement.event.txHash,
+  settlementEventId: reorgSettlement.event.settlementEventId,
+});
+const removedSettlement = reorgSettlementEventService.removeSettlementEvent({
+  chainId: reorgSettlement.event.chainId,
+  txHash: reorgSettlement.event.txHash,
+  blockNumber: reorgSettlement.event.blockNumber,
+  logIndex: reorgSettlement.event.logIndex,
+});
+const reorgReconciliation = new ReconciliationService({
+  quoteRepository: reorgQuoteRepository,
+  settlementEventService: reorgSettlementEventService,
+});
+const removedQuoteReport = await reorgReconciliation.reconcileRemovedSettlementToQuote(removedSettlement.event);
+const removedQuoteRetryReport = await reorgReconciliation.reconcileRemovedSettlementToQuote(removedSettlement.event);
+const afterReorgStatus = await reorgQuoteRepository.findStatus("q_reconciliation_reorg_check");
+
 assert.deepEqual(quoteReport, {
   scannedSettlementEvents: 1,
   repairedQuoteStatuses: 1,
@@ -146,6 +185,21 @@ assert.equal(hedge.quoteId, "q_reconciliation_check");
 assert.equal(hedge.settlementEventId, settlement.event.settlementEventId);
 assert.equal(pnlSummary.totalTrades, 1);
 assert.equal(pnlSummary.trades[0].quoteId, "q_reconciliation_check");
+assert.deepEqual(removedQuoteReport, {
+  scannedRemovedSettlementEvents: 1,
+  repairedQuoteStatuses: 1,
+  skippedQuoteStatuses: 0,
+  errors: [],
+});
+assert.deepEqual(removedQuoteRetryReport, {
+  scannedRemovedSettlementEvents: 1,
+  repairedQuoteStatuses: 0,
+  skippedQuoteStatuses: 1,
+  errors: [],
+});
+assert.equal(afterReorgStatus.status, "signed");
+assert.equal(afterReorgStatus.txHash, undefined);
+assert.equal(afterReorgStatus.settlementEventId, undefined);
 
 console.log(JSON.stringify({
   status: "ok",
@@ -159,4 +213,6 @@ console.log(JSON.stringify({
   quoteHashHedgeRetryReport,
   quoteHashPnlRetryReport,
   unmatchedQuoteHashReport,
+  removedQuoteReport,
+  removedQuoteRetryReport,
 }, null, 2));

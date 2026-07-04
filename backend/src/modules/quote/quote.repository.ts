@@ -13,6 +13,8 @@ const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const requestedQuoteInputFields = ["quoteId", "request", "snapshotId"] as const;
 const rejectedQuoteInputFields = ["quoteId", "request", "snapshotId", "rejectCode"] as const;
 const rejectedQuoteOptionalFields = ["riskPolicyVersion"] as const;
+const clearSettlementStatusInputFields = ["quoteId", "txHash", "settlementEventId"] as const;
+const clearSettlementStatusOptionalFields = ["nowSeconds"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const signedQuoteInputFields = [
   "quoteId",
@@ -72,6 +74,18 @@ export interface QuoteStatusMetadata {
   pnlId?: string;
 }
 
+export interface ClearSettlementStatusInput {
+  quoteId: string;
+  txHash: `0x${string}`;
+  settlementEventId: string;
+  nowSeconds?: number;
+}
+
+export interface ClearSettlementStatusResult {
+  status?: QuoteStatusResponse;
+  cleared: boolean;
+}
+
 export interface QuoteRepository {
   checkHealth?(): Promise<void>;
   saveRequested(input: SaveRequestedQuoteInput): Promise<void>;
@@ -80,6 +94,7 @@ export interface QuoteRepository {
   findStatus(quoteId: string): Promise<QuoteStatusResponse | undefined>;
   markFailed(quoteId: string, errorCode: string): Promise<void>;
   markStatus(quoteId: string, status: QuoteLifecycleStatus, metadata?: QuoteStatusMetadata): Promise<void>;
+  clearSettlementStatus(input: ClearSettlementStatusInput): Promise<ClearSettlementStatusResult>;
   findSignedQuoteByQuoteId(quoteId: string): Promise<QuoteRecord | undefined>;
   findQuoteIdByChainUserNonce(chainId: number, user: Address, nonce: UIntString): Promise<string | undefined>;
   findSignedQuoteByChainUserNonce(chainId: number, user: Address, nonce: UIntString): Promise<QuoteRecord | undefined>;
@@ -215,17 +230,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     const record = this.records.get(quoteId);
     if (!record) return undefined;
 
-    return {
-      quoteId: record.quoteId,
-      status: record.status,
-      snapshotId: record.snapshotId,
-      deadline: record.deadline,
-      txHash: record.txHash,
-      settlementEventId: record.settlementEventId,
-      hedgeOrderId: record.hedgeOrderId,
-      pnlId: record.pnlId,
-      errorCode: record.rejectCode,
-    };
+    return quoteStatusResponseFromRecord(record);
   }
 
   async markFailed(quoteId: string, errorCode: string): Promise<void> {
@@ -264,6 +269,38 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       status,
       ...statusMetadata,
     });
+  }
+
+  async clearSettlementStatus(input: ClearSettlementStatusInput): Promise<ClearSettlementStatusResult> {
+    const normalizedInput = normalizeClearSettlementStatusInput(input);
+    const current = this.records.get(normalizedInput.quoteId);
+    if (!current) {
+      return {
+        cleared: false,
+      };
+    }
+    if (!hasSettlementStatusMetadata(current)) {
+      return {
+        status: quoteStatusResponseFromRecord(current),
+        cleared: false,
+      };
+    }
+
+    assertCanClearSettlementStatus(current, normalizedInput);
+    const nextRecord: QuoteRecord = {
+      ...current,
+      status: shouldExpireAfterSettlementRemoval(current, normalizedInput.nowSeconds) ? "expired" : "signed",
+      txHash: undefined,
+      settlementEventId: undefined,
+      hedgeOrderId: undefined,
+      pnlId: undefined,
+    };
+    this.records.set(current.quoteId, nextRecord);
+
+    return {
+      status: quoteStatusResponseFromRecord(nextRecord),
+      cleared: true,
+    };
   }
 
   async findQuoteIdByChainUserNonce(
@@ -320,6 +357,20 @@ function cloneQuoteRecord(record: QuoteRecord): QuoteRecord {
   return { ...record };
 }
 
+function quoteStatusResponseFromRecord(record: QuoteRecord): QuoteStatusResponse {
+  return {
+    quoteId: record.quoteId,
+    status: record.status,
+    snapshotId: record.snapshotId,
+    deadline: record.deadline,
+    txHash: record.txHash,
+    settlementEventId: record.settlementEventId,
+    hedgeOrderId: record.hedgeOrderId,
+    pnlId: record.pnlId,
+    errorCode: record.rejectCode,
+  };
+}
+
 function assertRequestedQuoteInput(input: SaveRequestedQuoteInput): void {
   assertObject(input, "input", "Requested quote");
   assertOwnFields(input, requestedQuoteInputFields, "input", "Requested quote");
@@ -341,6 +392,27 @@ function assertRejectedQuoteInput(input: SaveRejectedQuoteInput): void {
     assertNonEmptyString(input.riskPolicyVersion, "riskPolicyVersion", "Rejected quote");
   }
   assertQuoteRequest(input.request, "Rejected quote");
+}
+
+function normalizeClearSettlementStatusInput(input: ClearSettlementStatusInput): Required<ClearSettlementStatusInput> {
+  assertObject(input, "input", "Clear settlement status");
+  assertOwnFields(input, clearSettlementStatusInputFields, "input", "Clear settlement status");
+  assertOwnOptionalFields(input, clearSettlementStatusOptionalFields, "input", "Clear settlement status");
+  assertSafeIdentifier(input.quoteId, "quoteId", "Clear settlement status");
+  assertSafeIdentifier(input.settlementEventId, "settlementEventId", "Clear settlement status");
+  if (typeof input.txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(input.txHash)) {
+    throw new Error("Clear settlement status txHash must be a 32-byte hex string");
+  }
+
+  const nowSeconds = input.nowSeconds ?? Math.floor(Date.now() / 1000);
+  assertPositiveSafeInteger(nowSeconds, "nowSeconds", "Clear settlement status");
+
+  return {
+    quoteId: input.quoteId,
+    txHash: input.txHash.toLowerCase() as `0x${string}`,
+    settlementEventId: input.settlementEventId,
+    nowSeconds,
+  };
 }
 
 function assertQuoteRequest(request: QuoteRequest, subject: "Requested quote" | "Rejected quote"): void {
@@ -565,6 +637,31 @@ function assertCanSaveSignedQuote(record: QuoteRecord, input: SaveSignedQuoteInp
   }
 
   throw new Error(`Quote ${input.quoteId} cannot save signed quote from ${record.status}`);
+}
+
+function hasSettlementStatusMetadata(record: QuoteRecord): boolean {
+  return (
+    record.txHash !== undefined ||
+    record.settlementEventId !== undefined ||
+    record.hedgeOrderId !== undefined ||
+    record.pnlId !== undefined
+  );
+}
+
+function assertCanClearSettlementStatus(record: QuoteRecord, input: Required<ClearSettlementStatusInput>): void {
+  if (record.status !== "submitted" && record.status !== "settled") {
+    throw new Error(`Quote ${record.quoteId} cannot clear settlement status from ${record.status}`);
+  }
+  if (
+    record.txHash?.toLowerCase() !== input.txHash ||
+    record.settlementEventId !== input.settlementEventId
+  ) {
+    throw new Error(`Quote ${record.quoteId} settlement status removal conflict`);
+  }
+}
+
+function shouldExpireAfterSettlementRemoval(record: QuoteRecord, nowSeconds: number): boolean {
+  return record.deadline !== undefined && record.deadline <= nowSeconds;
 }
 
 function isSameRequestedQuotePayload(record: QuoteRecord, input: SaveRequestedQuoteInput | SaveRejectedQuoteInput): boolean {
