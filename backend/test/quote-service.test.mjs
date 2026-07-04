@@ -1939,6 +1939,111 @@ test("QuoteService rejects malformed pricing engine results before signing", asy
   }
 });
 
+test("QuoteService fails closed on malformed inventory projections before signing", async () => {
+  const validInventoryProjection = {
+    tokenIn: {
+      chainId: request.chainId,
+      token: request.tokenIn,
+      balance: 1_000_000_000n,
+    },
+    tokenOut: {
+      chainId: request.chainId,
+      token: request.tokenOut,
+      balance: -998_400_000n,
+    },
+  };
+  const malformedInventoryProjections = [
+    undefined,
+    Object.create(validInventoryProjection),
+    { ...validInventoryProjection, internalExposure: "unsafe" },
+    { tokenOut: validInventoryProjection.tokenOut },
+    { tokenIn: Object.create(validInventoryProjection.tokenIn), tokenOut: validInventoryProjection.tokenOut },
+    { tokenIn: { ...validInventoryProjection.tokenIn, chainId: "1" }, tokenOut: validInventoryProjection.tokenOut },
+    { tokenIn: { ...validInventoryProjection.tokenIn, token: request.tokenOut }, tokenOut: validInventoryProjection.tokenOut },
+    { tokenIn: { ...validInventoryProjection.tokenIn, balance: "1000000000" }, tokenOut: validInventoryProjection.tokenOut },
+    { tokenIn: validInventoryProjection.tokenIn, tokenOut: { ...validInventoryProjection.tokenOut, token: request.tokenIn } },
+    { tokenIn: validInventoryProjection.tokenIn, tokenOut: { ...validInventoryProjection.tokenOut, balance: "0" } },
+    { tokenIn: validInventoryProjection.tokenIn, tokenOut: { ...validInventoryProjection.tokenOut, pending: 1n } },
+  ];
+
+  for (const malformedInventoryProjection of malformedInventoryProjections) {
+    const quoteRepository = new InMemoryQuoteRepository();
+    const riskDecisionStore = new InMemoryRiskDecisionRepository();
+    const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+    let requestedQuoteId;
+    let riskAttempts = 0;
+    let signAttempts = 0;
+    quoteRepository.saveRequested = async (input) => {
+      requestedQuoteId = input.quoteId;
+      await saveRequested(input);
+    };
+
+    const service = new QuoteService({
+      ...quoteServiceDeps(),
+      inventoryService: {
+        calculateQuoteSkewBps() {
+          return 0;
+        },
+        projectSettlement() {
+          return malformedInventoryProjection;
+        },
+      },
+      quoteRepository,
+      riskDecisionStore,
+      pricingEngine: {
+        async price() {
+          return {
+            amountOut: "998400000",
+            minAmountOut: "993408000",
+            spreadBps: 16,
+            sizeImpactBps: 1,
+            inventorySkewBps: 0,
+            pricingVersion: "test-pricing",
+          };
+        },
+      },
+      riskEngine: {
+        async evaluate() {
+          riskAttempts += 1;
+          return {
+            status: "approved",
+            policyVersion: "unsafe-risk-engine",
+          };
+        },
+      },
+      signerService: {
+        async signQuote() {
+          signAttempts += 1;
+          return fixedSignature();
+        },
+        async verifyQuoteSignature() {
+          return true;
+        },
+      },
+    });
+
+    await assert.rejects(
+      service.createQuote(request),
+      (error) => {
+        assert.equal(error.code, "RISK_REJECTED");
+        assert.equal(error.statusCode, 409);
+        return true;
+      },
+    );
+
+    assert.equal(riskAttempts, 0);
+    assert.equal(signAttempts, 0);
+    assert.match(requestedQuoteId, /^q_/);
+    const persistedDecision = await riskDecisionStore.findByQuoteId(requestedQuoteId);
+    assert.equal(persistedDecision.decision, "rejected");
+    assert.equal(persistedDecision.reasonCode, "RISK_ENGINE_UNAVAILABLE");
+    assert.equal(persistedDecision.policyVersion, "risk-engine-unavailable");
+    const status = await quoteRepository.findStatus(requestedQuoteId);
+    assert.equal(status.status, "rejected");
+    assert.equal(status.errorCode, "RISK_ENGINE_UNAVAILABLE");
+  }
+});
+
 test("QuoteService persists approved and rejected risk decisions before signer boundary", async () => {
   const approvedRiskDecisionStore = new InMemoryRiskDecisionRepository();
   const approvedService = new QuoteService({

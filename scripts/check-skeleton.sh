@@ -157,6 +157,8 @@ grep -q 'assertObject(input, "skew input")' backend/src/modules/inventory/invent
 grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/inventory/inventory.service.ts
 grep -q '`calculateQuoteSkewBps` output is also validated by Quote Service before Pricing Service is called' book/Volume3-RiskEngine/Chapter01-Inventory.md
 grep -q 'malformed skew output is treated as `PRICING_UNAVAILABLE`' book/Volume3-RiskEngine/Chapter01-Inventory.md
+grep -q '`projectSettlement` output is validated by Quote Service before Risk Service is called' book/Volume3-RiskEngine/Chapter01-Inventory.md
+grep -q 'malformed projected inventory is treated as `RISK_ENGINE_UNAVAILABLE`' book/Volume3-RiskEngine/Chapter01-Inventory.md
 grep -q 'InventoryService snapshots skew configuration at construction' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects unsafe skew configuration at construction' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects malformed runtime payload envelopes before mutating balances' backend/test/inventory.test.mjs
@@ -291,6 +293,9 @@ grep -q 'QuoteService marks requested quotes as failed when pricing is unavailab
 grep -q 'QuoteService rejects malformed inventory and hedge pricing adjustments before pricing' backend/test/quote-service.test.mjs
 grep -q 'hedgeRiskPenaltyBps: "25"' backend/test/quote-service.test.mjs
 grep -q 'inventorySkewBps: 9_990' backend/test/quote-service.test.mjs
+grep -q 'QuoteService fails closed on malformed inventory projections before signing' backend/test/quote-service.test.mjs
+grep -q 'internalExposure: "unsafe"' backend/test/quote-service.test.mjs
+grep -q 'assert.equal(riskAttempts, 0)' backend/test/quote-service.test.mjs
 grep -q '快照 `StaticMarketDataConfig`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'Config 的 `supportedPairs` 必须是 own field' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q '每个 supported pair 的 `chainId`、`tokenIn` 和 `tokenOut` 也必须是 own fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
@@ -707,6 +712,7 @@ grep -q 'MARKET_DATA_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'ROUTING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'routingFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'routePlanFields = \["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"\]' backend/src/modules/quote/quote.service.ts
+grep -q 'inventoryProjectionFields = \["tokenIn", "tokenOut"\]' backend/src/modules/quote/quote.service.ts
 grep -q 'assertRoutePlan(routeResult, validatedRequest)' backend/src/modules/quote/quote.service.ts
 grep -q 'Quote service route plan token pair must match quote request token pair' backend/src/modules/quote/quote.service.ts
 grep -q 'PRICING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
@@ -718,8 +724,11 @@ grep -q 'Quote service pricing adjustment bps must be a safe bps integer' backen
 grep -q 'pricingResultFields' backend/src/modules/quote/quote.service.ts
 grep -q 'assertPricingResult(pricingResult)' backend/src/modules/quote/quote.service.ts
 grep -q 'Quote service pricing result.amountOut must be greater than or equal to pricing result.minAmountOut' backend/src/modules/quote/quote.service.ts
+grep -q 'assertInventoryProjection(projectionResult, validatedRequest)' backend/src/modules/quote/quote.service.ts
+grep -q 'Quote service inventory projection.${field} must match quote request ${field}' backend/src/modules/quote/quote.service.ts
 grep -q 'evaluateRisk' backend/src/modules/quote/quote.service.ts
 grep -q 'RISK_ENGINE_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
+grep -q 'riskUnavailableDecision()' backend/src/modules/quote/quote.service.ts
 grep -q 'assertRiskDecision(riskDecision)' backend/src/modules/quote/quote.service.ts
 grep -q 'Quote service risk decision.status must be approved or rejected' backend/src/modules/quote/quote.service.ts
 grep -q 'Quote service risk decision.reasonCode must be a stable risk reject reason' backend/src/modules/quote/quote.service.ts
@@ -772,6 +781,8 @@ grep -q 'validates pricing adjustment inputs before calling Pricing Service' boo
 grep -q 'Malformed inventory skew, malformed hedge penalty or an overflowing combined adjustment is treated as `PRICING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'validates `PricingResult` returned by the pricing adapter before inventory projection, risk evaluation or signing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Malformed pricing output is treated as `PRICING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'validates `InventoryProjection` returned by the inventory adapter before risk evaluation or signer access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Malformed projected inventory is treated as risk unavailable' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'validates `RiskDecision` returned by the risk adapter before audit persistence or signer access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Malformed risk output is treated the same as risk engine dependency failure' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requireSubmittableSignedQuote()` revalidates the submit quote and canonical signature' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -860,6 +871,7 @@ grep -q 'Basic risk restrictedUsers must not contain duplicate addresses' backen
 grep -q 'Basic risk toxicFlowScores must not contain duplicate users' backend/test/risk.test.mjs
 grep -q 'enabledChainIds` 和 `tokenAllowlist` 必须非空且不能包含重复项' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q '覆盖 toxic-flow score' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'malformed `projectSettlement` output cannot be ignored by a custom risk engine' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'class LocalEIP712SignerService' backend/src/modules/signer/signer.service.ts
 grep -q 'class ObservedSignerService' backend/src/modules/signer/signer.service.ts
 grep -q 'SIGNER_UNAVAILABLE' backend/src/modules/signer/signer.service.ts

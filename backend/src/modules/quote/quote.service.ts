@@ -11,7 +11,7 @@ import type {
 import { APIError } from "../../shared/errors/api-error.js";
 import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "../../shared/validation/submit-request.js";
-import type { InventoryService } from "../inventory/inventory.service.js";
+import type { InventoryProjection, InventoryService } from "../inventory/inventory.service.js";
 import {
   defaultMaxSnapshotFutureSkewMs,
   getMarketSnapshotIssue,
@@ -72,6 +72,8 @@ const quoteServiceDepsFields = [
   "signerService",
 ] as const;
 const routePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"] as const;
+const inventoryProjectionFields = ["tokenIn", "tokenOut"] as const;
+const inventoryPositionFields = ["chainId", "token", "balance"] as const;
 const pricingResultFields = [
   "amountOut",
   "minAmountOut",
@@ -183,15 +185,20 @@ export class QuoteService {
       await this.markQuoteFailedBestEffort(quoteId, failure.code);
       throw failure;
     }
-    const inventoryProjection = this.deps.inventoryService.projectSettlement({
-      chainId: validatedRequest.chainId,
-      tokenIn: validatedRequest.tokenIn,
-      tokenOut: validatedRequest.tokenOut,
-      amountIn: validatedRequest.amountIn,
-      amountOut: pricing.amountOut,
-    });
-
-    const risk = await this.evaluateRisk({ request: validatedRequest, pricing, inventoryProjection });
+    let risk: RiskDecision;
+    try {
+      const projectionResult = this.deps.inventoryService.projectSettlement({
+        chainId: validatedRequest.chainId,
+        tokenIn: validatedRequest.tokenIn,
+        tokenOut: validatedRequest.tokenOut,
+        amountIn: validatedRequest.amountIn,
+        amountOut: pricing.amountOut,
+      });
+      assertInventoryProjection(projectionResult, validatedRequest);
+      risk = await this.evaluateRisk({ request: validatedRequest, pricing, inventoryProjection: projectionResult });
+    } catch {
+      risk = riskUnavailableDecision();
+    }
     try {
       await this.saveRiskDecision({
         quoteId,
@@ -404,11 +411,7 @@ export class QuoteService {
       assertRiskDecision(riskDecision);
       return riskDecision;
     } catch {
-      return {
-        status: "rejected",
-        reasonCode: "RISK_ENGINE_UNAVAILABLE",
-        policyVersion: "risk-engine-unavailable",
-      };
+      return riskUnavailableDecision();
     }
   }
 
@@ -670,6 +673,50 @@ function assertPricingAdjustmentBps(value: unknown): asserts value is number {
   }
 }
 
+function assertInventoryProjection(value: unknown, request: QuoteRequest): asserts value is InventoryProjection {
+  if (!isRecord(value)) {
+    throw new Error("Quote service inventory projection must be an object");
+  }
+
+  assertOwnFields(value, inventoryProjectionFields, "inventory projection");
+  assertNoUnknownFields(value, inventoryProjectionFields, "inventory projection");
+  assertInventoryProjectionPosition(value.tokenIn, request.chainId, request.tokenIn, "tokenIn");
+  assertInventoryProjectionPosition(value.tokenOut, request.chainId, request.tokenOut, "tokenOut");
+}
+
+function assertInventoryProjectionPosition(
+  value: unknown,
+  expectedChainId: number,
+  expectedToken: Address,
+  field: "tokenIn" | "tokenOut",
+): asserts value is InventoryProjection["tokenIn"] {
+  if (!isRecord(value)) {
+    throw new Error(`Quote service inventory projection.${field} must be an object`);
+  }
+
+  assertOwnFields(value, inventoryPositionFields, `inventory projection.${field}`);
+  assertNoUnknownFields(value, inventoryPositionFields, `inventory projection.${field}`);
+  const chainId = value.chainId;
+  const token = value.token;
+  const balance = value.balance;
+  if (typeof chainId !== "number" || !Number.isSafeInteger(chainId) || chainId <= 0) {
+    throw new Error(`Quote service inventory projection.${field}.chainId must be a positive safe integer`);
+  }
+  assertInventoryProjectionAddress(token, field);
+  if (chainId !== expectedChainId || token.toLowerCase() !== expectedToken.toLowerCase()) {
+    throw new Error(`Quote service inventory projection.${field} must match quote request ${field}`);
+  }
+  if (typeof balance !== "bigint") {
+    throw new Error(`Quote service inventory projection.${field}.balance must be a bigint`);
+  }
+}
+
+function assertInventoryProjectionAddress(value: unknown, field: "tokenIn" | "tokenOut"): asserts value is Address {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Quote service inventory projection.${field}.token must be a 20-byte hex address`);
+  }
+}
+
 function assertPricingResult(value: unknown): asserts value is PricingResult {
   if (!isRecord(value)) {
     throw new Error("Quote service pricing result must be an object");
@@ -764,6 +811,14 @@ function assertRiskRejectReasonCode(value: unknown): asserts value is RiskReject
   if (typeof value !== "string" || !riskRejectReasonCodes.has(value)) {
     throw new Error("Quote service risk decision.reasonCode must be a stable risk reject reason");
   }
+}
+
+function riskUnavailableDecision(): RiskDecision {
+  return {
+    status: "rejected",
+    reasonCode: "RISK_ENGINE_UNAVAILABLE",
+    policyVersion: "risk-engine-unavailable",
+  };
 }
 
 function isExactSignedQuote(
