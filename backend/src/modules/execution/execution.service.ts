@@ -30,6 +30,7 @@ const executionServiceDepsFields = [
 const settlementVerificationResultFields = ["status", "verifierVersion", "amountOut"] as const;
 const settlementEventResultFields = ["event", "duplicate"] as const;
 const hedgeResultFields = ["status", "hedgeOrderId", "record"] as const;
+const inventoryPositionFields = ["chainId", "token", "balance"] as const;
 const hedgeIntentStatusFields = [
   "hedgeOrderId",
   "status",
@@ -77,7 +78,7 @@ export interface ExecutionContext {
 export interface ExecutionResult {
   response: SubmitQuoteResponse;
   settlementEventResult: ApplySettlementEventResult;
-  inventoryPositions: {
+  inventoryPositions?: {
     tokenIn: InventoryPosition;
     tokenOut: InventoryPosition;
   };
@@ -115,11 +116,7 @@ export class SkeletonExecutionService implements ExecutionService {
       logIndex: 0,
     });
 
-    const tokenInPosition = this.deps.inventoryService.getPosition(validatedRequest.quote.chainId, validatedRequest.quote.tokenIn);
-    const tokenOutPosition = this.deps.inventoryService.getPosition(
-      validatedRequest.quote.chainId,
-      validatedRequest.quote.tokenOut,
-    );
+    const inventoryPositions = this.readInventoryPositions(validatedRequest);
     const { hedgeResult, hedgeFailure, hedgeLagSeconds } = settlementEventResult.duplicate
       ? { hedgeResult: undefined, hedgeFailure: undefined, hedgeLagSeconds: undefined }
       : this.createHedgeIntent(validatedRequest, context, settlementEventResult.event.settlementEventId);
@@ -132,10 +129,7 @@ export class SkeletonExecutionService implements ExecutionService {
         hedgeOrderId: hedgeResult?.hedgeOrderId,
       },
       settlementEventResult,
-      inventoryPositions: {
-        tokenIn: tokenInPosition,
-        tokenOut: tokenOutPosition,
-      },
+      inventoryPositions,
       settlementVerification,
       hedgeResult,
       hedgeFailure,
@@ -150,6 +144,20 @@ export class SkeletonExecutionService implements ExecutionService {
       return settlementEventResult;
     } catch (error) {
       throw settlementEventStoreFailure(error);
+    }
+  }
+
+  private readInventoryPositions(
+    request: SubmitQuoteRequest,
+  ): ExecutionResult["inventoryPositions"] {
+    try {
+      const tokenIn = this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenIn);
+      const tokenOut = this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut);
+      assertInventoryPositionResult(tokenIn, request.quote.chainId, request.quote.tokenIn, "tokenIn");
+      assertInventoryPositionResult(tokenOut, request.quote.chainId, request.quote.tokenOut, "tokenOut");
+      return { tokenIn, tokenOut };
+    } catch {
+      return undefined;
     }
   }
 
@@ -232,6 +240,50 @@ function assertHedgeResult(result: unknown, expected: HedgeIntent): asserts resu
   }
   assertSafeExecutionIdentifier(hedgeResult.hedgeOrderId, "hedgeOrderId", "hedge result");
   assertHedgeIntentStatusResponse(hedgeResult.record, expected, hedgeResult.hedgeOrderId);
+}
+
+function assertInventoryPositionResult(
+  position: unknown,
+  expectedChainId: number,
+  expectedToken: string,
+  field: "tokenIn" | "tokenOut",
+): asserts position is InventoryPosition {
+  if (typeof position !== "object" || position === null || Array.isArray(position)) {
+    throw new Error(`Execution service inventory position.${field} must be an object`);
+  }
+
+  assertExactInventoryPositionFields(position as Record<string, unknown>, `inventory position.${field}`);
+  const inventoryPosition = position as Record<string, unknown>;
+  if (
+    typeof inventoryPosition.chainId !== "number" ||
+    !Number.isSafeInteger(inventoryPosition.chainId) ||
+    inventoryPosition.chainId <= 0 ||
+    inventoryPosition.chainId !== expectedChainId
+  ) {
+    throw new Error(`Execution service inventory position.${field}.chainId must match submitted quote`);
+  }
+  assertExecutionAddress(inventoryPosition.token, "token", `inventory position.${field}`);
+  if (inventoryPosition.token.toLowerCase() !== expectedToken.toLowerCase()) {
+    throw new Error(`Execution service inventory position.${field}.token must match submitted quote`);
+  }
+  if (typeof inventoryPosition.balance !== "bigint") {
+    throw new Error(`Execution service inventory position.${field}.balance must be a bigint`);
+  }
+}
+
+function assertExactInventoryPositionFields(value: Record<string, unknown>, path: string): void {
+  const expected = new Set<string>(inventoryPositionFields);
+  for (const key of Object.keys(value)) {
+    if (!expected.has(key)) {
+      throw new Error(`Execution service ${path} must not include unknown field ${key}`);
+    }
+  }
+
+  for (const field of inventoryPositionFields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Execution service ${path}.${field} must be an own field`);
+    }
+  }
 }
 
 function assertHedgeIntentStatusResponse(

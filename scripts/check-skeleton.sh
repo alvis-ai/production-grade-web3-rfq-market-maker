@@ -594,6 +594,8 @@ grep -q 'settlementEventResult.duplicate' backend/src/main.ts
 grep -q 'markPostSettlementQuoteStatus' backend/src/main.ts
 grep -q 'markSettlementRejectedQuoteFailed' backend/src/main.ts
 grep -q 'recordInventoryPosition' backend/src/main.ts
+grep -q 'recordInventoryPositionBestEffort(metricsService, result.inventoryPositions.tokenIn)' backend/src/main.ts
+grep -q 'a malformed gauge sample must not change submit semantics' backend/src/main.ts
 grep -q 'reply.code(202)' backend/src/main.ts
 grep -q '"submitted"' backend/src/main.ts
 grep -q '"settled"' backend/src/main.ts
@@ -1346,6 +1348,9 @@ grep -q 'Execution service settlement event quoteHash must match submitted quote
 grep -q 'hedgeResultFields = \["status", "hedgeOrderId", "record"\]' backend/src/modules/execution/execution.service.ts
 grep -q 'assertHedgeResult(hedgeResult, intent)' backend/src/modules/execution/execution.service.ts
 grep -q 'Execution service hedge result.record amount must match hedge intent' backend/src/modules/execution/execution.service.ts
+grep -q 'inventoryPositionFields = \["chainId", "token", "balance"\]' backend/src/modules/execution/execution.service.ts
+grep -q 'readInventoryPositions(validatedRequest)' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution service inventory position.${field}.balance must be a bigint' backend/src/modules/execution/execution.service.ts
 grep -q 'cloneExecutionServiceDeps' backend/src/modules/execution/execution.service.ts
 grep -q 'keccak256(toBytes(payload))' backend/src/modules/execution/execution.service.ts
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/execution/execution.service.ts
@@ -1362,6 +1367,8 @@ grep -q 'assert.equal(inventoryReads, 0)' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService treats malformed hedge results as post-settlement hedge failures' backend/test/execution.test.mjs
 grep -q 'assert.equal(result.response.hedgeOrderId, undefined)' backend/test/execution.test.mjs
 grep -q 'assert.equal(hedgeFailures, 1)' backend/test/execution.test.mjs
+grep -q 'SkeletonExecutionService treats malformed inventory position reads as metric-only unavailable' backend/test/execution.test.mjs
+grep -q 'assert.equal(result.inventoryPositions, undefined)' backend/test/execution.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService rejects unsafe dependency configuration at construction' backend/test/execution.test.mjs
 grep -q 'Execution service deps.hedgeService must be an own field' backend/test/execution.test.mjs
@@ -1664,6 +1671,8 @@ grep -q 'stored signed attribution payload' book/Volume5-BackendEngineering/Chap
 grep -q 'PnlService` returns defensive copies from `recordSettlement()` and `summary()`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates the `PnlTradeRecord` returned by `PnlStore.recordSettlement()` before exposing `pnlId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'malformed or mismatched PnL store output is treated as `PNL_RECORD_FAILED`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'Post-settlement inventory position reads are a metrics boundary' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'Malformed or unavailable position reads leave the settlement accepted' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rejects malformed root payloads, missing `quote` objects, and inherited root or signed quote required fields before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates `quoteId` as an own primitive-string `SafeIdentifier` and validates the derived `pnlId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'own canonical positive uint amount fields and nonce without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -1804,6 +1813,8 @@ grep -q 'MetricsService snapshots inventory positions before storing gauges' bac
 grep -q 'readiness metrics must provide own `status` / `components` fields plus the exact supported component set as own fields' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'Inventory position fields and PnL trade record fields must be own fields' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'inherited object properties or `String` wrapper objects cannot rely on JavaScript `RegExp.test()` coercion' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'records `rfq_inventory_balance` best-effort after settlement acceptance' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'malformed, inherited or mismatched inventory position samples cannot convert an already-applied settlement into a submit error' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'PnL trade `pnlId` and `quoteId` must be primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'amount fields and nonce must be canonical positive uint strings without leading zeros' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 ! grep -q 'rfq_settlement_event_lag_seconds' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md

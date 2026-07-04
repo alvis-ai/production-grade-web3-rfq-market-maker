@@ -398,6 +398,56 @@ test("SkeletonExecutionService treats malformed hedge results as post-settlement
   }
 });
 
+test("SkeletonExecutionService treats malformed inventory position reads as metric-only unavailable", async () => {
+  const validTokenInPosition = {
+    chainId: request.quote.chainId,
+    token: request.quote.tokenIn,
+    balance: BigInt(request.quote.amountIn),
+  };
+  const validTokenOutPosition = {
+    chainId: request.quote.chainId,
+    token: request.quote.tokenOut,
+    balance: -BigInt(request.quote.amountOut),
+  };
+  const malformedPositionPairs = [
+    { tokenIn: undefined, tokenOut: validTokenOutPosition },
+    { tokenIn: Object.create(validTokenInPosition), tokenOut: validTokenOutPosition },
+    { tokenIn: { ...validTokenInPosition, internalState: "unsafe" }, tokenOut: validTokenOutPosition },
+    { tokenIn: { ...validTokenInPosition, chainId: "1" }, tokenOut: validTokenOutPosition },
+    { tokenIn: { ...validTokenInPosition, token: request.quote.tokenOut }, tokenOut: validTokenOutPosition },
+    { tokenIn: { ...validTokenInPosition, balance: "1000000000" }, tokenOut: validTokenOutPosition },
+    { tokenIn: validTokenInPosition, tokenOut: { ...validTokenOutPosition, token: request.quote.tokenIn } },
+    { tokenIn: validTokenInPosition, tokenOut: { ...validTokenOutPosition, balance: "0" } },
+  ];
+
+  for (const positions of malformedPositionPairs) {
+    const settlementInventory = new InventoryService();
+    const hedgeService = new HedgeService();
+    const executionService = new SkeletonExecutionService({
+      hedgeService,
+      inventoryService: {
+        getPosition(_chainId, token) {
+          return token.toLowerCase() === request.quote.tokenIn.toLowerCase() ? positions.tokenIn : positions.tokenOut;
+        },
+      },
+      settlementEventService: new SettlementEventService(settlementInventory),
+      settlementVerifier: new LocalSettlementVerifier(),
+    });
+
+    const result = await executionService.submitQuote(request, {
+      quoteId: `q_bad_inventory_position_${malformedPositionPairs.indexOf(positions)}`,
+    });
+
+    assert.equal(result.response.status, "accepted");
+    assert.match(result.response.settlementEventId, /^se_/);
+    assert.match(result.response.hedgeOrderId, /^h_/);
+    assert.equal(result.inventoryPositions, undefined);
+    assert.equal(result.hedgeResult?.record.settlementEventId, result.response.settlementEventId);
+    assert.equal(settlementInventory.getPosition(request.quote.chainId, request.quote.tokenIn).balance, BigInt(request.quote.amountIn));
+    assert.equal(settlementInventory.getPosition(request.quote.chainId, request.quote.tokenOut).balance, -BigInt(request.quote.amountOut));
+  }
+});
+
 test("SkeletonExecutionService rejects unsafe dependency configuration at construction", () => {
   const deps = buildExecutionServiceDeps();
 

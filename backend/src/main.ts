@@ -357,8 +357,10 @@ export function buildServer(options: BuildServerOptions = {}) {
         if (pnlRecord) {
           metricsService.recordPnlTrade(pnlRecord);
         }
-        metricsService.recordInventoryPosition(result.inventoryPositions.tokenIn);
-        metricsService.recordInventoryPosition(result.inventoryPositions.tokenOut);
+        if (result.inventoryPositions) {
+          recordInventoryPositionBestEffort(metricsService, result.inventoryPositions.tokenIn);
+          recordInventoryPositionBestEffort(metricsService, result.inventoryPositions.tokenOut);
+        }
       }
       await markPostSettlementQuoteStatus(quoteService, metricsService, quoteId, {
         txHash: result.response.txHash,
@@ -542,6 +544,17 @@ function recordPnlSettlementBestEffort(
   } catch {
     metricsService.recordPnlRecordError("PNL_RECORD_FAILED");
     return undefined;
+  }
+}
+
+function recordInventoryPositionBestEffort(
+  metricsService: MetricsService,
+  position: Parameters<MetricsService["recordInventoryPosition"]>[0],
+): void {
+  try {
+    metricsService.recordInventoryPosition(position);
+  } catch {
+    // Settlement has already been accepted; a malformed gauge sample must not change submit semantics.
   }
 }
 
