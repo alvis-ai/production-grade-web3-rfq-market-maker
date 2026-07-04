@@ -164,7 +164,7 @@ function assertDependencyObject(dependency: unknown, dependencyName: "inner" | "
   }
 }
 
-function buildQuoteTypedData(quote: SignedQuote, settlementAddress: `0x${string}`) {
+export function buildQuoteTypedData(quote: SignedQuote, settlementAddress: `0x${string}`) {
   return {
       domain: {
         name: RFQ_EIP712_DOMAIN_NAME,

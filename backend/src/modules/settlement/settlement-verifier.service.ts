@@ -1,10 +1,18 @@
+import { recoverTypedDataAddress } from "viem";
 import { APIError } from "../../shared/errors/api-error.js";
 import type { SubmitQuoteRequest } from "../../shared/types/rfq.js";
+import { buildQuoteTypedData } from "../signer/signer.service.js";
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
-const localSettlementVerifierPolicyFields = ["verifierVersion", "enabledChainIds", "tokenWhitelist"] as const;
+const localSettlementVerifierPolicyFields = [
+  "verifierVersion",
+  "enabledChainIds",
+  "tokenWhitelist",
+  "settlementAddress",
+  "trustedSignerAddress",
+] as const;
 const settlementVerificationInputFields = ["quoteId", "request"] as const;
 const verificationRequestFields = ["quote", "signature"] as const;
 const settlementQuoteFields = [
@@ -38,6 +46,8 @@ export interface LocalSettlementVerifierPolicy {
   verifierVersion: string;
   enabledChainIds: readonly number[];
   tokenWhitelist: readonly `0x${string}`[];
+  settlementAddress: `0x${string}`;
+  trustedSignerAddress: `0x${string}`;
 }
 
 export const defaultLocalSettlementVerifierPolicy: LocalSettlementVerifierPolicy = {
@@ -47,12 +57,15 @@ export const defaultLocalSettlementVerifierPolicy: LocalSettlementVerifierPolicy
     "0x0000000000000000000000000000000000000002",
     "0x0000000000000000000000000000000000000003",
   ],
+  settlementAddress: "0x0000000000000000000000000000000000000004",
+  trustedSignerAddress: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
 };
 
 export class LocalSettlementVerifier implements SettlementVerifier {
   private readonly policy: LocalSettlementVerifierPolicy;
   private readonly enabledChainIds: ReadonlySet<number>;
   private readonly tokenWhitelist: ReadonlySet<string>;
+  private readonly trustedSignerAddress: string;
 
   constructor(policy: LocalSettlementVerifierPolicy = defaultLocalSettlementVerifierPolicy) {
     assertObject(policy, "policy");
@@ -60,10 +73,13 @@ export class LocalSettlementVerifier implements SettlementVerifier {
     assertNonEmptyString(policy.verifierVersion, "verifierVersion");
     assertChainIds(policy.enabledChainIds);
     assertTokenWhitelist(policy.tokenWhitelist);
+    assertAddress(policy.settlementAddress, "settlementAddress");
+    assertAddress(policy.trustedSignerAddress, "trustedSignerAddress");
 
     this.policy = cloneLocalSettlementVerifierPolicy(policy);
     this.enabledChainIds = new Set(this.policy.enabledChainIds);
     this.tokenWhitelist = new Set(this.policy.tokenWhitelist.map((token) => token.toLowerCase()));
+    this.trustedSignerAddress = this.policy.trustedSignerAddress.toLowerCase();
   }
 
   async verify(input: SettlementVerificationInput): Promise<SettlementVerificationResult> {
@@ -92,6 +108,8 @@ export class LocalSettlementVerifier implements SettlementVerifier {
     if (BigInt(quote.amountOut) < BigInt(quote.minAmountOut)) {
       throw this.reverted("AMOUNT_OUT_BELOW_MINIMUM", "Settlement amountOut is below minimum");
     }
+
+    await this.assertTrustedSigner(quote, signature);
 
     return {
       status: "verified",
@@ -122,6 +140,22 @@ export class LocalSettlementVerifier implements SettlementVerifier {
     const normalizedV = v < 27 ? v + 27 : v;
     if (normalizedV !== 27 && normalizedV !== 28) {
       throw this.reverted("INVALID_SIGNATURE", "Settlement signature v value must be 27 or 28");
+    }
+  }
+
+  private async assertTrustedSigner(quote: SubmitQuoteRequest["quote"], signature: string): Promise<void> {
+    let recoveredSigner: `0x${string}`;
+    try {
+      recoveredSigner = await recoverTypedDataAddress({
+        ...buildQuoteTypedData(quote, this.policy.settlementAddress),
+        signature: signature as `0x${string}`,
+      });
+    } catch {
+      throw this.reverted("INVALID_SIGNATURE", "Settlement signature could not be recovered");
+    }
+
+    if (recoveredSigner.toLowerCase() !== this.trustedSignerAddress) {
+      throw this.reverted("INVALID_SIGNATURE", "Settlement signature is not from the trusted signer");
     }
   }
 
@@ -229,6 +263,12 @@ function assertTokenWhitelist(tokens: readonly `0x${string}`[]): void {
       throw new Error("Local settlement verifier tokenWhitelist must not contain duplicate addresses");
     }
     seenTokens.add(normalized);
+  }
+}
+
+function assertAddress(value: string, field: string): void {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Local settlement verifier ${field} must be a 20-byte hex address`);
   }
 }
 

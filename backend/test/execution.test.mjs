@@ -6,20 +6,30 @@ import { HedgeService } from "../dist/modules/hedge/hedge.service.js";
 import { InventoryService } from "../dist/modules/inventory/inventory.service.js";
 import { hashSettlementQuote, SettlementEventService } from "../dist/modules/settlement/settlement-event.service.js";
 import { LocalSettlementVerifier } from "../dist/modules/settlement/settlement-verifier.service.js";
+import { LocalEIP712SignerService } from "../dist/modules/signer/signer.service.js";
+
+const executionQuote = {
+  user: "0x0000000000000000000000000000000000000001",
+  tokenIn: "0x0000000000000000000000000000000000000002",
+  tokenOut: "0x0000000000000000000000000000000000000003",
+  amountIn: "1000000000",
+  amountOut: "998400000",
+  minAmountOut: "993408000",
+  nonce: "42",
+  deadline: 1893456000,
+  chainId: 1,
+};
 
 const request = {
-  quote: {
-    user: "0x0000000000000000000000000000000000000001",
-    tokenIn: "0x0000000000000000000000000000000000000002",
-    tokenOut: "0x0000000000000000000000000000000000000003",
-    amountIn: "1000000000",
-    amountOut: "998400000",
-    minAmountOut: "993408000",
-    nonce: "42",
-    deadline: 1893456000,
-    chainId: 1,
-  },
-  signature: `0x${"11".repeat(64)}1b`,
+  quote: executionQuote,
+  signature: await new LocalEIP712SignerService({
+    privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    settlementAddress: "0x0000000000000000000000000000000000000004",
+  }).signQuote({
+    quote: executionQuote,
+    quoteId: "q_test",
+    snapshotId: "snapshot_test",
+  }),
 };
 
 test("buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes", () => {

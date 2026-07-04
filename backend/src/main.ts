@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
+import { privateKeyToAccount } from "viem/accounts";
 import { SkeletonExecutionService } from "./modules/execution/execution.service.js";
 import { HedgeService, type HedgeIntentService } from "./modules/hedge/hedge.service.js";
 import { ReadinessService } from "./modules/health/readiness.service.js";
@@ -21,8 +22,18 @@ import { InMemoryRiskDecisionRepository, type RiskDecisionStore } from "./module
 import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine, type RoutingEngine } from "./modules/routing/routing.engine.js";
 import { SettlementEventService, type SettlementEventStore } from "./modules/settlement/settlement-event.service.js";
-import { LocalSettlementVerifier, type SettlementVerifier } from "./modules/settlement/settlement-verifier.service.js";
-import { LocalEIP712SignerService, ObservedSignerService, type SignerService } from "./modules/signer/signer.service.js";
+import {
+  defaultLocalSettlementVerifierPolicy,
+  LocalSettlementVerifier,
+  type LocalSettlementVerifierPolicy,
+  type SettlementVerifier,
+} from "./modules/settlement/settlement-verifier.service.js";
+import {
+  LocalEIP712SignerService,
+  ObservedSignerService,
+  type LocalEIP712SignerConfig,
+  type SignerService,
+} from "./modules/signer/signer.service.js";
 import { APIError, toAPIError } from "./shared/errors/api-error.js";
 import { validateQuoteRequest } from "./shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.js";
@@ -154,7 +165,12 @@ export function buildServer(options: BuildServerOptions = {}) {
   const marketDataService = options.marketDataService ?? new StaticMarketDataService();
   const marketSnapshotStore = options.marketSnapshotStore ?? new InMemoryMarketSnapshotRepository();
   const metricsService = new MetricsService();
-  const signerService = options.signerService ?? new LocalEIP712SignerService(readSignerConfig());
+  let localSignerConfig: LocalEIP712SignerConfig | undefined;
+  const getLocalSignerConfig = () => {
+    localSignerConfig ??= readSignerConfig();
+    return localSignerConfig;
+  };
+  const signerService = options.signerService ?? new LocalEIP712SignerService(getLocalSignerConfig());
   const quoteRepository = options.quoteRepository ?? new InMemoryQuoteRepository();
   const riskDecisionStore = options.riskDecisionStore ?? new InMemoryRiskDecisionRepository();
   const routingEngine = options.routingEngine ?? new InternalInventoryRoutingEngine();
@@ -166,7 +182,9 @@ export function buildServer(options: BuildServerOptions = {}) {
     hedgeService,
     inventoryService,
     settlementEventService,
-    settlementVerifier: options.settlementVerifier ?? new LocalSettlementVerifier(),
+    settlementVerifier: options.settlementVerifier ?? new LocalSettlementVerifier(
+      buildDefaultSettlementVerifierPolicy(getLocalSignerConfig()),
+    ),
   });
   const pnlService = options.pnlService ?? new PnlService();
   const rateLimitConfig = normalizeRateLimitOption(options.rateLimit);
@@ -804,6 +822,16 @@ function readSignerConfig() {
   return {
     privateKey: (privateKey ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as `0x${string}`,
     settlementAddress: (settlementAddress ?? "0x0000000000000000000000000000000000000004") as `0x${string}`,
+  };
+}
+
+function buildDefaultSettlementVerifierPolicy(
+  signerConfig: LocalEIP712SignerConfig,
+): LocalSettlementVerifierPolicy {
+  return {
+    ...defaultLocalSettlementVerifierPolicy,
+    settlementAddress: signerConfig.settlementAddress,
+    trustedSignerAddress: privateKeyToAccount(signerConfig.privateKey).address,
   };
 }
 

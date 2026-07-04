@@ -4,6 +4,12 @@ import {
   LocalSettlementVerifier,
   defaultLocalSettlementVerifierPolicy,
 } from "../dist/modules/settlement/settlement-verifier.service.js";
+import { LocalEIP712SignerService } from "../dist/modules/signer/signer.service.js";
+
+const defaultSignerConfig = {
+  privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+  settlementAddress: "0x0000000000000000000000000000000000000004",
+};
 
 const quote = {
   user: "0x0000000000000000000000000000000000000001",
@@ -13,13 +19,13 @@ const quote = {
   amountOut: "998400000",
   minAmountOut: "993408000",
   nonce: "42",
-  deadline: Math.floor(Date.now() / 1000) + 30,
+  deadline: 1893456000,
   chainId: 1,
 };
 
 const request = {
   quote,
-  signature: `0x${"11".repeat(64)}1b`,
+  signature: await signQuote(quote),
 };
 
 test("LocalSettlementVerifier accepts contract-shaped settlement quotes", async () => {
@@ -375,6 +381,36 @@ test("LocalSettlementVerifier rejects non-canonical settlement signatures", asyn
   );
 });
 
+test("LocalSettlementVerifier rejects signatures outside the trusted EIP-712 signer and settlement domain", async () => {
+  await assertSettlementRevert(
+    new LocalSettlementVerifier().verify({
+      quoteId: "q_untrusted_signer",
+      request: {
+        ...request,
+        signature: await signQuote(quote, {
+          ...defaultSignerConfig,
+          privateKey: "0x59c6995e998f97a5a0044966f094538b2923b206d98a74dc7c90d40b3692cc62",
+        }),
+      },
+    }),
+    "INVALID_SIGNATURE",
+  );
+
+  await assertSettlementRevert(
+    new LocalSettlementVerifier().verify({
+      quoteId: "q_wrong_settlement_domain",
+      request: {
+        ...request,
+        signature: await signQuote(quote, {
+          ...defaultSignerConfig,
+          settlementAddress: "0x0000000000000000000000000000000000000005",
+        }),
+      },
+    }),
+    "INVALID_SIGNATURE",
+  );
+});
+
 test("LocalSettlementVerifier snapshots policy configuration at construction", async () => {
   const mutablePolicy = {
     ...defaultLocalSettlementVerifierPolicy,
@@ -496,6 +532,24 @@ test("LocalSettlementVerifier rejects unsafe policy configuration at constructio
     () =>
       new LocalSettlementVerifier({
         ...defaultLocalSettlementVerifierPolicy,
+        settlementAddress: "0x00000000000000000000000000000000000000zz",
+      }),
+    /Local settlement verifier settlementAddress must be a 20-byte hex address/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
+        trustedSignerAddress: new String(defaultLocalSettlementVerifierPolicy.trustedSignerAddress),
+      }),
+    /Local settlement verifier trustedSignerAddress must be a 20-byte hex address/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
         tokenWhitelist: [
           "0x00000000000000000000000000000000000000cc",
           "0x00000000000000000000000000000000000000CC",
@@ -511,5 +565,13 @@ async function assertSettlementRevert(promise, internalReasonCode) {
     assert.equal(error.statusCode, 409);
     assert.equal(error.internalReasonCode, internalReasonCode);
     return true;
+  });
+}
+
+function signQuote(signedQuote, signerConfig = defaultSignerConfig) {
+  return new LocalEIP712SignerService(signerConfig).signQuote({
+    quote: signedQuote,
+    quoteId: "q_test",
+    snapshotId: "snapshot_test",
   });
 }
