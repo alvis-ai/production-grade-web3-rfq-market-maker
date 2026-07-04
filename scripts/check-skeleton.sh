@@ -1340,6 +1340,9 @@ grep -q 'Execution service settlement verification amountOut must match quote am
 grep -q 'settlementEventResultFields = \["event", "duplicate"\]' backend/src/modules/execution/execution.service.ts
 grep -q 'assertApplySettlementEventResult(settlementEventResult, input)' backend/src/modules/execution/execution.service.ts
 grep -q 'Execution service settlement event quoteHash must match submitted quote' backend/src/modules/execution/execution.service.ts
+grep -q 'hedgeResultFields = \["status", "hedgeOrderId", "record"\]' backend/src/modules/execution/execution.service.ts
+grep -q 'assertHedgeResult(hedgeResult, intent)' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution service hedge result.record amount must match hedge intent' backend/src/modules/execution/execution.service.ts
 grep -q 'cloneExecutionServiceDeps' backend/src/modules/execution/execution.service.ts
 grep -q 'keccak256(toBytes(payload))' backend/src/modules/execution/execution.service.ts
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/execution/execution.service.ts
@@ -1353,6 +1356,9 @@ grep -q 'internalRoute: "bypass"' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService rejects malformed settlement event results before follow-up side effects' backend/test/execution.test.mjs
 grep -q 'internalState: "unsafe"' backend/test/execution.test.mjs
 grep -q 'assert.equal(inventoryReads, 0)' backend/test/execution.test.mjs
+grep -q 'SkeletonExecutionService treats malformed hedge results as post-settlement hedge failures' backend/test/execution.test.mjs
+grep -q 'assert.equal(result.response.hedgeOrderId, undefined)' backend/test/execution.test.mjs
+grep -q 'assert.equal(hedgeFailures, 1)' backend/test/execution.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService rejects unsafe dependency configuration at construction' backend/test/execution.test.mjs
 grep -q 'Execution service deps.hedgeService must be an own field' backend/test/execution.test.mjs
@@ -1370,6 +1376,8 @@ grep -q 'SkeletonExecutionService rejects unsafe execution inputs before settlem
 grep -q 'rejects malformed execution context envelopes plus execution `quoteId` values that are not own primitive-string 1-128 character `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates the `ApplySettlementEventResult` returned by the settlement event store' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Malformed or mismatched event-store output returns `SETTLEMENT_EVENT_STORE_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'validates the `HedgeResult` returned by the hedge adapter before exposing `hedgeOrderId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'Malformed or mismatched hedge output is treated as `HEDGE_INTENT_FAILED`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
@@ -2658,6 +2666,8 @@ grep -q 'HEDGE_INTENT_FAILED' backend/test/api.test.mjs
 grep -q 'quote risk penalty' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q '`quoteRiskPenaltyBps` output is a Quote Service dependency boundary' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'fails the requested quote with `PRICING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
+grep -q '`createHedgeIntent` output is an Execution Service dependency boundary' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
+grep -q 'the submit response omits `hedgeOrderId`' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'HEDGE_INTENT_FAILED' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'HEDGE_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'post-settlement quote status persistence fails' backend/test/api.test.mjs

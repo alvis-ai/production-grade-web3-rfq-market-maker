@@ -325,6 +325,79 @@ test("SkeletonExecutionService rejects malformed settlement event results before
   }
 });
 
+test("SkeletonExecutionService treats malformed hedge results as post-settlement hedge failures", async () => {
+  const malformedHedgeResultBuilders = [
+    () => undefined,
+    (validResult) => Object.create(validResult),
+    (validResult) => ({ ...validResult, internalState: "unsafe" }),
+    (validResult) => ({ ...validResult, status: "submitted" }),
+    (validResult) => ({ ...validResult, hedgeOrderId: "h.bad" }),
+    (validResult) => ({ ...validResult, record: undefined }),
+    (validResult) => ({ ...validResult, record: Object.create(validResult.record) }),
+    (validResult) => ({ ...validResult, record: { ...validResult.record, internalState: "unsafe" } }),
+    (validResult) => ({ ...validResult, record: { ...validResult.record, hedgeOrderId: "h_other" } }),
+    (validResult) => ({ ...validResult, record: { ...validResult.record, status: "filled" } }),
+    (validResult) => ({ ...validResult, record: { ...validResult.record, settlementEventId: "se_other" } }),
+    (validResult) => ({ ...validResult, record: { ...validResult.record, quoteId: "q_other" } }),
+    (validResult) => ({ ...validResult, record: { ...validResult.record, chainId: 2 } }),
+    (validResult) => ({ ...validResult, record: { ...validResult.record, token: request.quote.tokenIn } }),
+    (validResult) => ({ ...validResult, record: { ...validResult.record, side: "sell" } }),
+    (validResult) => ({ ...validResult, record: { ...validResult.record, amount: "0998400000" } }),
+    (validResult) => ({ ...validResult, record: { ...validResult.record, amount: "1" } }),
+    (validResult) => ({ ...validResult, record: { ...validResult.record, reason: "risk_reduction" } }),
+    (validResult) => ({ ...validResult, record: { ...validResult.record, createdAt: "2026-01-01T00:00:00Z" } }),
+  ];
+
+  for (let index = 0; index < malformedHedgeResultBuilders.length; index += 1) {
+    const inventoryService = new InventoryService();
+    const context = { quoteId: `q_bad_hedge_result_${index}` };
+    let hedgeFailures = 0;
+    const executionService = new SkeletonExecutionService({
+      hedgeService: {
+        createHedgeIntent(intent) {
+          const validRecord = {
+            hedgeOrderId: "h_valid",
+            status: "queued",
+            settlementEventId: intent.settlementEventId,
+            quoteId: intent.quoteId,
+            chainId: intent.chainId,
+            token: intent.token,
+            side: intent.side,
+            amount: intent.amount,
+            reason: intent.reason,
+            createdAt: "2026-01-01T00:00:00.000Z",
+          };
+          const validResult = {
+            status: "queued",
+            hedgeOrderId: validRecord.hedgeOrderId,
+            record: validRecord,
+          };
+
+          return malformedHedgeResultBuilders[index](validResult);
+        },
+        recordHedgeFailure(_intent, reasonCode) {
+          assert.equal(reasonCode, "HEDGE_INTENT_FAILED");
+          hedgeFailures += 1;
+        },
+      },
+      inventoryService,
+      settlementEventService: new SettlementEventService(inventoryService),
+      settlementVerifier: new LocalSettlementVerifier(),
+    });
+
+    const result = await executionService.submitQuote(request, context);
+
+    assert.equal(result.response.status, "accepted");
+    assert.match(result.response.settlementEventId, /^se_/);
+    assert.equal(result.response.hedgeOrderId, undefined);
+    assert.equal(result.hedgeResult, undefined);
+    assert.equal(result.hedgeFailure?.reasonCode, "HEDGE_INTENT_FAILED");
+    assert.equal(hedgeFailures, 1);
+    assert.equal(result.inventoryPositions.tokenIn.balance, BigInt(request.quote.amountIn));
+    assert.equal(result.inventoryPositions.tokenOut.balance, -BigInt(request.quote.amountOut));
+  }
+});
+
 test("SkeletonExecutionService rejects unsafe dependency configuration at construction", () => {
   const deps = buildExecutionServiceDeps();
 

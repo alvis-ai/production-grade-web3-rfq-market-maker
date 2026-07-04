@@ -1,5 +1,10 @@
 import { keccak256, toBytes } from "viem";
-import type { SettlementEventStatusResponse, SubmitQuoteRequest, SubmitQuoteResponse } from "../../shared/types/rfq.js";
+import type {
+  HedgeIntentStatusResponse,
+  SettlementEventStatusResponse,
+  SubmitQuoteRequest,
+  SubmitQuoteResponse,
+} from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
 import { validateSubmitQuoteRequest } from "../../shared/validation/submit-request.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
@@ -24,6 +29,19 @@ const executionServiceDepsFields = [
 ] as const;
 const settlementVerificationResultFields = ["status", "verifierVersion", "amountOut"] as const;
 const settlementEventResultFields = ["event", "duplicate"] as const;
+const hedgeResultFields = ["status", "hedgeOrderId", "record"] as const;
+const hedgeIntentStatusFields = [
+  "hedgeOrderId",
+  "status",
+  "settlementEventId",
+  "quoteId",
+  "chainId",
+  "token",
+  "side",
+  "amount",
+  "reason",
+  "createdAt",
+] as const;
 const settlementEventFields = [
   "settlementEventId",
   "status",
@@ -152,8 +170,10 @@ export class SkeletonExecutionService implements ExecutionService {
     const startedAt = Date.now();
 
     try {
+      const hedgeResult = this.deps.hedgeService.createHedgeIntent(intent);
+      assertHedgeResult(hedgeResult, intent);
       return {
-        hedgeResult: this.deps.hedgeService.createHedgeIntent(intent),
+        hedgeResult,
         hedgeLagSeconds: elapsedSeconds(startedAt),
       };
     } catch {
@@ -198,6 +218,85 @@ function assertApplySettlementEventResult(
   }
 
   assertSettlementEventStatusResponse(settlementEventResult.event, expected);
+}
+
+function assertHedgeResult(result: unknown, expected: HedgeIntent): asserts result is HedgeResult {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    throw new Error("Execution service hedge result must be an object");
+  }
+
+  assertExactHedgeFields(result as Record<string, unknown>, hedgeResultFields, "hedge result");
+  const hedgeResult = result as Record<string, unknown>;
+  if (hedgeResult.status !== "queued") {
+    throw new Error("Execution service hedge result status must be queued");
+  }
+  assertSafeExecutionIdentifier(hedgeResult.hedgeOrderId, "hedgeOrderId", "hedge result");
+  assertHedgeIntentStatusResponse(hedgeResult.record, expected, hedgeResult.hedgeOrderId);
+}
+
+function assertHedgeIntentStatusResponse(
+  record: unknown,
+  expected: HedgeIntent,
+  expectedHedgeOrderId: string,
+): asserts record is HedgeIntentStatusResponse {
+  if (typeof record !== "object" || record === null || Array.isArray(record)) {
+    throw new Error("Execution service hedge result.record must be an object");
+  }
+
+  assertExactHedgeFields(record as Record<string, unknown>, hedgeIntentStatusFields, "hedge result.record");
+  const hedgeRecord = record as Record<string, unknown>;
+  assertSafeExecutionIdentifier(hedgeRecord.hedgeOrderId, "hedgeOrderId", "hedge result.record");
+  if (hedgeRecord.hedgeOrderId !== expectedHedgeOrderId) {
+    throw new Error("Execution service hedge result.record hedgeOrderId must match hedge result hedgeOrderId");
+  }
+  if (hedgeRecord.status !== "queued") {
+    throw new Error("Execution service hedge result.record status must be queued");
+  }
+  assertSafeExecutionIdentifier(hedgeRecord.settlementEventId, "settlementEventId", "hedge result.record");
+  assertSafeExecutionIdentifier(hedgeRecord.quoteId, "quoteId", "hedge result.record");
+  if (hedgeRecord.settlementEventId !== expected.settlementEventId || hedgeRecord.quoteId !== expected.quoteId) {
+    throw new Error("Execution service hedge result.record identifiers must match hedge intent");
+  }
+  if (
+    typeof hedgeRecord.chainId !== "number" ||
+    !Number.isSafeInteger(hedgeRecord.chainId) ||
+    hedgeRecord.chainId <= 0 ||
+    hedgeRecord.chainId !== expected.chainId
+  ) {
+    throw new Error("Execution service hedge result.record chainId must match hedge intent");
+  }
+  assertExecutionAddress(hedgeRecord.token, "token", "hedge result.record");
+  if (hedgeRecord.token.toLowerCase() !== expected.token.toLowerCase()) {
+    throw new Error("Execution service hedge result.record token must match hedge intent");
+  }
+  if (hedgeRecord.side !== expected.side) {
+    throw new Error("Execution service hedge result.record side must match hedge intent");
+  }
+  assertExecutionAmount(hedgeRecord.amount, "amount", "hedge result.record");
+  if (hedgeRecord.amount !== expected.amount) {
+    throw new Error("Execution service hedge result.record amount must match hedge intent");
+  }
+  if (hedgeRecord.reason !== expected.reason) {
+    throw new Error("Execution service hedge result.record reason must match hedge intent");
+  }
+  if (!isCanonicalUtcIsoTimestamp(hedgeRecord.createdAt)) {
+    throw new Error("Execution service hedge result.record createdAt must be a canonical UTC ISO timestamp");
+  }
+}
+
+function assertExactHedgeFields(value: Record<string, unknown>, fields: readonly string[], path: string): void {
+  const expected = new Set(fields);
+  for (const key of Object.keys(value)) {
+    if (!expected.has(key)) {
+      throw new Error(`Execution service ${path} must not include unknown field ${key}`);
+    }
+  }
+
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Execution service ${path}.${field} must be an own field`);
+    }
+  }
 }
 
 function assertSettlementEventStatusResponse(
@@ -290,19 +389,10 @@ function assertExactSettlementEventFields(
 }
 
 function assertSafeSettlementEventIdentifier(value: unknown, field: "settlementEventId" | "quoteId"): asserts value is string {
-  if (typeof value !== "string") {
-    throw malformedSettlementEventResult(`Execution service settlement event ${field} must be a primitive string`);
-  }
-  if (value.trim().length === 0) {
-    throw malformedSettlementEventResult(`Execution service settlement event ${field} must be non-empty`);
-  }
-  if (value.length > maxSafeIdentifierLength) {
-    throw malformedSettlementEventResult(`Execution service settlement event ${field} must be 128 characters or fewer`);
-  }
-  if (!safeIdentifierPattern.test(value)) {
-    throw malformedSettlementEventResult(
-      `Execution service settlement event ${field} must contain only letters, numbers, underscore, colon, or hyphen`,
-    );
+  try {
+    assertSafeExecutionIdentifier(value, field, "settlement event");
+  } catch (error) {
+    throw malformedSettlementEventResult(error instanceof Error ? error.message : `Execution service settlement event ${field} is invalid`);
   }
 }
 
@@ -321,14 +411,59 @@ function assertNonNegativeSafeInteger(value: unknown, field: "blockNumber" | "lo
 }
 
 function assertSettlementEventAddress(value: unknown, field: "user" | "tokenIn" | "tokenOut"): asserts value is `0x${string}` {
-  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
-    throw malformedSettlementEventResult(`Execution service settlement event ${field} must be a 20-byte hex address`);
+  try {
+    assertExecutionAddress(value, field, "settlement event");
+  } catch (error) {
+    throw malformedSettlementEventResult(error instanceof Error ? error.message : `Execution service settlement event ${field} is invalid`);
   }
 }
 
 function assertSettlementEventAmount(value: unknown, field: "amountIn" | "amountOut"): asserts value is string {
+  try {
+    assertExecutionAmount(value, field, "settlement event");
+  } catch (error) {
+    throw malformedSettlementEventResult(error instanceof Error ? error.message : `Execution service settlement event ${field} is invalid`);
+  }
+}
+
+function assertSafeExecutionIdentifier(
+  value: unknown,
+  field: "hedgeOrderId" | "settlementEventId" | "quoteId",
+  path: string,
+): asserts value is string {
+  if (typeof value !== "string") {
+    throw new Error(`Execution service ${path} ${field} must be a primitive string`);
+  }
+  if (value.trim().length === 0) {
+    throw new Error(`Execution service ${path} ${field} must be non-empty`);
+  }
+  if (value.length > maxSafeIdentifierLength) {
+    throw new Error(`Execution service ${path} ${field} must be 128 characters or fewer`);
+  }
+  if (!safeIdentifierPattern.test(value)) {
+    throw new Error(
+      `Execution service ${path} ${field} must contain only letters, numbers, underscore, colon, or hyphen`,
+    );
+  }
+}
+
+function assertExecutionAddress(
+  value: unknown,
+  field: "user" | "tokenIn" | "tokenOut" | "token",
+  path: string,
+): asserts value is `0x${string}` {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Execution service ${path} ${field} must be a 20-byte hex address`);
+  }
+}
+
+function assertExecutionAmount(
+  value: unknown,
+  field: "amountIn" | "amountOut" | "amount",
+  path: string,
+): asserts value is string {
   if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
-    throw malformedSettlementEventResult(`Execution service settlement event ${field} must be a positive uint string`);
+    throw new Error(`Execution service ${path} ${field} must be a positive uint string`);
   }
 }
 
