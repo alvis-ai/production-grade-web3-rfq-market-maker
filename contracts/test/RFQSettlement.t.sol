@@ -163,6 +163,78 @@ contract RFQSettlementTest {
         );
     }
 
+    function testFuzzSubmitQuoteSettlesBoundedAmounts(
+        uint256 rawAmountIn,
+        uint256 rawAmountOut,
+        uint256 rawMinAmountOut,
+        uint256 rawNonce
+    ) public {
+        IRFQSettlement.Quote memory quote = _quote(_boundUint(rawNonce, 1, type(uint128).max));
+        quote.amountIn = _boundUint(rawAmountIn, 1, 500 ether);
+        quote.amountOut = _boundUint(rawAmountOut, 1, 500 ether);
+        quote.minAmountOut = _boundUint(rawMinAmountOut, 1, quote.amountOut);
+        bytes memory signature = _sign(quote);
+
+        uint256 userTokenInBefore = tokenIn.balanceOf(user);
+        uint256 userTokenOutBefore = tokenOut.balanceOf(user);
+        uint256 treasuryTokenInBefore = tokenIn.balanceOf(address(treasury));
+        uint256 treasuryTokenOutBefore = tokenOut.balanceOf(address(treasury));
+
+        vm.prank(user);
+        uint256 amountOut = settlement.submitQuote(quote, signature);
+
+        require(amountOut == quote.amountOut, "fuzz amount out mismatch");
+        require(settlement.usedNonces(user, quote.nonce), "fuzz nonce not consumed");
+        require(
+            tokenIn.balanceOf(user) == userTokenInBefore - quote.amountIn,
+            "fuzz user tokenIn not debited"
+        );
+        require(
+            tokenIn.balanceOf(address(treasury)) == treasuryTokenInBefore + quote.amountIn,
+            "fuzz treasury tokenIn not credited"
+        );
+        require(
+            tokenOut.balanceOf(user) == userTokenOutBefore + quote.amountOut,
+            "fuzz user tokenOut not credited"
+        );
+        require(
+            tokenOut.balanceOf(address(treasury)) == treasuryTokenOutBefore - quote.amountOut,
+            "fuzz treasury tokenOut not debited"
+        );
+    }
+
+    function testFuzzSubmitQuoteRejectsMinOutAboveAmountOutWithoutSideEffects(
+        uint256 rawAmountOut,
+        uint256 rawExtraMinOut,
+        uint256 rawNonce
+    ) public {
+        IRFQSettlement.Quote memory quote = _quote(_boundUint(rawNonce, 1, type(uint128).max));
+        quote.amountOut = _boundUint(rawAmountOut, 1, 500 ether);
+        quote.minAmountOut = quote.amountOut + _boundUint(rawExtraMinOut, 1, 500 ether);
+        bytes memory signature = _sign(quote);
+
+        uint256 userTokenInBefore = tokenIn.balanceOf(user);
+        uint256 userTokenOutBefore = tokenOut.balanceOf(user);
+        uint256 treasuryTokenInBefore = tokenIn.balanceOf(address(treasury));
+        uint256 treasuryTokenOutBefore = tokenOut.balanceOf(address(treasury));
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.AmountOutBelowMinimum.selector);
+        settlement.submitQuote(quote, signature);
+
+        require(!settlement.usedNonces(user, quote.nonce), "fuzz nonce consumed on minOut failure");
+        require(tokenIn.balanceOf(user) == userTokenInBefore, "fuzz user tokenIn changed");
+        require(tokenOut.balanceOf(user) == userTokenOutBefore, "fuzz user tokenOut changed");
+        require(
+            tokenIn.balanceOf(address(treasury)) == treasuryTokenInBefore,
+            "fuzz treasury tokenIn changed"
+        );
+        require(
+            tokenOut.balanceOf(address(treasury)) == treasuryTokenOutBefore,
+            "fuzz treasury tokenOut changed"
+        );
+    }
+
     function testSubmitQuoteEmitsQuoteSettledForIndexer() public {
         IRFQSettlement.Quote memory quote = _quote(12);
         bytes32 quoteHash = settlement.hashQuote(quote);
@@ -641,5 +713,10 @@ contract RFQSettlementTest {
 
     function _expectMissingRole(bytes32 role, address account) private {
         vm.expectRevert(abi.encodeWithSelector(RFQSettlement.MissingRole.selector, role, account));
+    }
+
+    function _boundUint(uint256 value, uint256 min, uint256 max) private pure returns (uint256) {
+        require(min <= max, "invalid fuzz bounds");
+        return min + (value % (max - min + 1));
     }
 }

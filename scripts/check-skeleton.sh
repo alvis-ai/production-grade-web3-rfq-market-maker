@@ -2292,6 +2292,10 @@ grep -q 'testRejectsFailedTokenTransfers' contracts/test/Treasury.t.sol
 grep -q 'testRejectsNonContractTokenTransfers' contracts/test/Treasury.t.sol
 grep -q 'testRejectsReentrantRelease' contracts/test/Treasury.t.sol
 grep -q 'testSubmitQuoteTransfersTokensAndConsumesNonce' contracts/test/RFQSettlement.t.sol
+grep -q 'testFuzzSubmitQuoteSettlesBoundedAmounts' contracts/test/RFQSettlement.t.sol
+grep -q 'testFuzzSubmitQuoteRejectsMinOutAboveAmountOutWithoutSideEffects' contracts/test/RFQSettlement.t.sol
+grep -q '_boundUint(rawNonce, 1, type(uint128).max)' contracts/test/RFQSettlement.t.sol
+grep -q 'fuzz treasury tokenOut not debited' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteEmitsQuoteSettledForIndexer' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsReplay' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUntrustedSigner' contracts/test/RFQSettlement.t.sol
@@ -3077,6 +3081,8 @@ grep -q 'removed/reorg logs' book/Volume7-ProductionDeployment/Chapter05-Runbook
 grep -q '本地 `SafeERC20` 库' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'SIGNER_ADMIN_ROLE' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'TOKEN_ADMIN_ROLE' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
+grep -q 'includes focused fuzz tests for bounded valid settlement amounts' book/Volume4-SmartContracts/Chapter06-Testing.md
+grep -q 'asserts `AmountOutBelowMinimum` leaves nonce and balances unchanged' book/Volume4-SmartContracts/Chapter06-Testing.md
 grep -q 'testSubmitQuoteAcceptsNoReturnERC20Transfers' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsFalseReturnTokenInBeforeConsumingNonce' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsFalseReturnTokenOutAndRollsBackTokenIn' contracts/test/RFQSettlement.t.sol
