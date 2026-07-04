@@ -596,6 +596,9 @@ grep -q 'markSettlementRejectedQuoteFailed' backend/src/main.ts
 grep -q 'recordInventoryPosition' backend/src/main.ts
 grep -q 'recordInventoryPositionBestEffort(metricsService, result.inventoryPositions.tokenIn)' backend/src/main.ts
 grep -q 'a malformed gauge sample must not change submit semantics' backend/src/main.ts
+grep -q 'inFlightSubmitQuoteIds = new Set<string>()' backend/src/main.ts
+grep -q 'reserveSubmitQuoteId(inFlightSubmitQuoteIds, quoteId)' backend/src/main.ts
+grep -q 'throw new APIError("QUOTE_ALREADY_USED", "Quote already used", 409)' backend/src/main.ts
 grep -q 'reply.code(202)' backend/src/main.ts
 grep -q '"submitted"' backend/src/main.ts
 grep -q '"settled"' backend/src/main.ts
@@ -1673,6 +1676,8 @@ grep -q 'validates the `PnlTradeRecord` returned by `PnlStore.recordSettlement()
 grep -q 'malformed or mismatched PnL store output is treated as `PNL_RECORD_FAILED`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Post-settlement inventory position reads are a metrics boundary' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Malformed or unavailable position reads leave the settlement accepted' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'keeps an in-process `quoteId` reservation while `/submit` is executing' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'client double-click into two accepted HTTP responses' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rejects malformed root payloads, missing `quote` objects, and inherited root or signed quote required fields before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates `quoteId` as an own primitive-string `SafeIdentifier` and validates the derived `pnlId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'own canonical positive uint amount fields and nonce without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -2809,6 +2814,8 @@ grep -q 'quote.nonce must be a positive uint string' backend/test/validation.tes
 grep -q 'Settlement event quote.nonce must be a positive uint string' backend/test/settlement-event.test.mjs
 grep -q 'unissued submit quotes' backend/test/api.test.mjs
 grep -q 'replayed submit quotes' backend/test/api.test.mjs
+grep -q 'concurrent submit attempts for the same signed quote' backend/test/api.test.mjs
+grep -q 'assert.equal(verifyCalls, 1)' backend/test/api.test.mjs
 grep -q 'same millisecond' backend/test/api.test.mjs
 grep -q 'rate limits quote requests by client' backend/test/api.test.mjs
 grep -q 'rate limits submit requests before validation and settlement' backend/test/api.test.mjs

@@ -173,6 +173,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const rateLimiter = rateLimitConfig === false
     ? undefined
     : new InMemoryRateLimiter(rateLimitConfig);
+  const inFlightSubmitQuoteIds = new Set<string>();
   const quoteService = new QuoteService({
     inventoryService,
     marketDataService,
@@ -330,6 +331,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   server.post("/submit", async (request, reply) => {
     const startedAt = Date.now();
     let quoteId: string | undefined;
+    let releaseSubmitReservation: (() => void) | undefined;
     metricsService.recordSubmitRequest();
     try {
       const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "submit", request, reply, trustProxy);
@@ -340,6 +342,7 @@ export function buildServer(options: BuildServerOptions = {}) {
 
       const submitRequest = validateSubmitQuoteRequest(request.body);
       quoteId = await quoteService.requireSubmittableSignedQuote(submitRequest.quote, submitRequest.signature);
+      releaseSubmitReservation = reserveSubmitQuoteId(inFlightSubmitQuoteIds, quoteId);
       const result = await executionService.submitQuote(submitRequest, { quoteId });
       const pnlRecord = result.settlementEventResult.duplicate
         ? undefined
@@ -381,6 +384,7 @@ export function buildServer(options: BuildServerOptions = {}) {
 
       return sendError(reply, requestTraceId(request), apiError);
     } finally {
+      releaseSubmitReservation?.();
       metricsService.recordSubmitLatency(elapsedSeconds(startedAt));
     }
   });
@@ -423,6 +427,17 @@ function sendError(
   error: APIError,
 ) {
   return reply.header("x-trace-id", traceId).code(error.statusCode).send(error.toResponse(traceId));
+}
+
+function reserveSubmitQuoteId(inFlightSubmitQuoteIds: Set<string>, quoteId: string): () => void {
+  if (inFlightSubmitQuoteIds.has(quoteId)) {
+    throw new APIError("QUOTE_ALREADY_USED", "Quote already used", 409);
+  }
+
+  inFlightSubmitQuoteIds.add(quoteId);
+  return () => {
+    inFlightSubmitQuoteIds.delete(quoteId);
+  };
 }
 
 function assertStatusIdentifier(value: unknown, field: "quoteId" | "hedgeOrderId" | "settlementEventId" | "pnlId"): void {

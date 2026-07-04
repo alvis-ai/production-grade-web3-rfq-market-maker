@@ -3350,6 +3350,88 @@ test("RFQ API rejects replayed submit quotes", async () => {
   }
 });
 
+test("RFQ API rejects concurrent submit attempts for the same signed quote", async () => {
+  let resolveFirstVerifierStarted;
+  let releaseFirstVerifier;
+  const firstVerifierStarted = new Promise((resolve) => {
+    resolveFirstVerifierStarted = resolve;
+  });
+  const firstVerifierGate = new Promise((resolve) => {
+    releaseFirstVerifier = resolve;
+  });
+  const localVerifier = new LocalSettlementVerifier();
+  let verifyCalls = 0;
+  const server = buildServer({
+    logger: false,
+    settlementVerifier: {
+      async verify(input) {
+        verifyCalls += 1;
+        if (verifyCalls === 1) {
+          resolveFirstVerifierStarted();
+          await firstVerifierGate;
+        }
+
+        return localVerifier.verify(input);
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const quote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(quote.statusCode, 200);
+    const submitPayload = {
+      quote: {
+        user: baseQuoteRequest.user,
+        tokenIn: baseQuoteRequest.tokenIn,
+        tokenOut: baseQuoteRequest.tokenOut,
+        amountIn: baseQuoteRequest.amountIn,
+        amountOut: quote.body.amountOut,
+        minAmountOut: quote.body.minAmountOut,
+        nonce: quote.body.nonce,
+        deadline: quote.body.deadline,
+        chainId: baseQuoteRequest.chainId,
+      },
+      signature: quote.body.signature,
+    };
+
+    const firstSubmitPromise = injectJson(server, "POST", "/submit", submitPayload);
+    await firstVerifierStarted;
+    const concurrentReplay = await injectJson(server, "POST", "/submit", submitPayload);
+    releaseFirstVerifier();
+    const firstSubmit = await firstSubmitPromise;
+
+    assert.equal(firstSubmit.statusCode, 202);
+    assert.equal(concurrentReplay.statusCode, 409);
+    assert.equal(concurrentReplay.body.code, "QUOTE_ALREADY_USED");
+    assert.equal(verifyCalls, 1);
+
+    const status = await injectJson(server, "GET", `/quote/${quote.body.quoteId}`);
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.body.status, "settled");
+    assert.equal(status.body.txHash, firstSubmit.body.txHash);
+    assert.equal(status.body.settlementEventId, firstSubmit.body.settlementEventId);
+    assert.equal(status.body.hedgeOrderId, firstSubmit.body.hedgeOrderId);
+    assert.equal(status.body.pnlId, firstSubmit.body.pnlId);
+
+    const settlement = await injectJson(server, "GET", `/settlements/${firstSubmit.body.settlementEventId}`);
+    assert.equal(settlement.statusCode, 200);
+    assert.equal(settlement.body.quoteId, quote.body.quoteId);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.payload, /rfq_submit_requests_total 2/);
+    assert.match(metrics.payload, /rfq_submit_accepted_total 1/);
+    assert.match(metrics.payload, /rfq_submit_errors_total 1/);
+    assert.match(metrics.payload, /rfq_settlements_total 1/);
+    assert.match(metrics.payload, /rfq_hedge_intents_total 1/);
+    assert.match(metrics.payload, /rfq_pnl_trades_total 1/);
+  } finally {
+    releaseFirstVerifier?.();
+    await server.close();
+  }
+});
+
 test("RFQ API generates unique quote ids and nonces within the same millisecond", async () => {
   const originalDateNow = Date.now;
   Date.now = () => 1893456000000;
