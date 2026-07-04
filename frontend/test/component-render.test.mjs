@@ -10,6 +10,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
 
 const require = createRequire(import.meta.url);
+const reactUrl = pathToFileURL(require.resolve("react")).href;
 const reactJsxRuntimeUrl = pathToFileURL(require.resolve("react/jsx-runtime")).href;
 const tempDir = await mkdtemp(join(tmpdir(), "rfq-frontend-component-test-"));
 let transpiledModuleCounter = 0;
@@ -26,25 +27,87 @@ async function transpileFrontendModule(relativePath, transformSource = (source) 
     },
     fileName: sourceUrl.pathname,
   });
-  const moduleText = outputText.replaceAll('"react/jsx-runtime"', JSON.stringify(reactJsxRuntimeUrl));
+  const moduleText = outputText
+    .replaceAll('"react/jsx-runtime"', JSON.stringify(reactJsxRuntimeUrl))
+    .replaceAll('"react"', JSON.stringify(reactUrl));
   const modulePath = join(tempDir, `module-${transpiledModuleCounter++}.mjs`);
   await writeFile(modulePath, moduleText);
   return pathToFileURL(modulePath).href;
 }
 
-async function importQuoteFormModule() {
+async function transpileQuoteFormModule() {
   const integerInputUrl = await transpileFrontendModule("../src/lib/integer-input.ts");
-  const quoteFormUrl = await transpileFrontendModule("../src/components/QuoteForm.tsx", (source) =>
+  return transpileFrontendModule("../src/components/QuoteForm.tsx", (source) =>
     source.replace(
       'import { parseIntegerInput } from "../lib/integer-input";',
       `import { parseIntegerInput } from ${JSON.stringify(integerInputUrl)};`,
     ),
   );
-  return import(quoteFormUrl);
+}
+
+async function importQuoteFormModule() {
+  return import(await transpileQuoteFormModule());
+}
+
+async function transpileQuoteStatusPanelModule() {
+  return transpileFrontendModule("../src/components/QuoteStatusPanel.tsx");
 }
 
 async function importQuoteStatusPanelModule() {
-  return import(await transpileFrontendModule("../src/components/QuoteStatusPanel.tsx"));
+  return import(await transpileQuoteStatusPanelModule());
+}
+
+async function importQuotePageModule() {
+  const quoteFormUrl = await transpileQuoteFormModule();
+  const quoteStatusPanelUrl = await transpileQuoteStatusPanelModule();
+  const quotePageUrl = await transpileFrontendModule("../src/pages/QuotePage.tsx", (source) =>
+    source
+      .replace(
+        'import { QuoteForm } from "../components/QuoteForm";',
+        `import { QuoteForm } from ${JSON.stringify(quoteFormUrl)};`,
+      )
+      .replace(
+        'import { QuoteStatusPanel } from "../components/QuoteStatusPanel";',
+        `import { QuoteStatusPanel } from ${JSON.stringify(quoteStatusPanelUrl)};`,
+      )
+      .replace(
+        'import { toUIError, type UIError } from "../lib/errors";',
+        'const toUIError = (caught, fallback) => ({ message: caught instanceof Error ? caught.message : fallback });',
+      )
+      .replace(
+        'import { rfqApiBaseUrl, rfqSettlementAddress } from "../lib/config";',
+        'const rfqApiBaseUrl = "http://localhost:3000";\nconst rfqSettlementAddress = "0x0000000000000000000000000000000000000004";',
+      )
+      .replace(
+        'import { buildQuoteFromResponse, rfqClient } from "../lib/rfq";',
+        [
+          "const buildQuoteFromResponse = (request, response) => ({",
+          "  user: request.user,",
+          "  tokenIn: request.tokenIn,",
+          "  tokenOut: request.tokenOut,",
+          "  amountIn: request.amountIn,",
+          "  amountOut: response.amountOut,",
+          "  minAmountOut: response.minAmountOut,",
+          "  nonce: response.nonce,",
+          "  deadline: response.deadline,",
+          "  chainId: request.chainId,",
+          "});",
+          "const rfqClient = {",
+          "  quote: async () => { throw new Error('mock quote should not be called during server render'); },",
+          "  submit: async () => { throw new Error('mock submit should not be called during server render'); },",
+          "  getQuote: async () => { throw new Error('mock getQuote should not be called during server render'); },",
+          "  getSettlement: async () => { throw new Error('mock getSettlement should not be called during server render'); },",
+          "  getHedge: async () => { throw new Error('mock getHedge should not be called during server render'); },",
+          "  pnl: async () => { throw new Error('mock pnl should not be called during server render'); },",
+          "};",
+        ].join("\n"),
+      )
+      .replace(
+        'import { validateQuoteFormRequest } from "../lib/quote-request";',
+        "const validateQuoteFormRequest = (request) => request;",
+      ),
+  );
+  return import(quotePageUrl);
 }
 
 function findElements(root, predicate, matches = []) {
@@ -95,6 +158,35 @@ const request = Object.freeze({
   tokenOut: "0x3333333333333333333333333333333333333333",
   amountIn: "1000000000000000000",
   slippageBps: 50,
+});
+
+test("QuotePage component renders the initial trading workspace", async () => {
+  const { QuotePage } = await importQuotePageModule();
+  const markup = renderToStaticMarkup(createElement(QuotePage));
+
+  for (const expected of [
+    "RFQ / Prop AMM",
+    "Production RFQ Trading Console",
+    "API http://localhost:3000",
+    "Request Quote",
+    "Quote State",
+    "not requested",
+    "Enable Wallet",
+    "Submit API",
+    "Refresh",
+    "0x0000000000000000000000000000000000000002",
+    "0x0000000000000000000000000000000000000003",
+    "0x0000000000000000000000000000000000000004",
+    "1000000000",
+  ]) {
+    assert.ok(markup.includes(expected), expected);
+  }
+
+  assert.match(markup, /aria-label="RFQ trading workspace"/);
+  assert.match(markup, /value="1"/);
+  assert.match(markup, /value="50"/);
+  assert.match(markup, /disabled="">Submit API<\/button>/);
+  assert.match(markup, /class="secondary-button" disabled="">Refresh<\/button>/);
 });
 
 test("QuoteForm component invokes controlled field changes and submit handlers", async () => {

@@ -137,7 +137,7 @@ Avoid firing quote request on every keystroke. Use explicit request button or de
 
 ## Testing Strategy
 
-测试 valid input、invalid input、numeric field parsing, submit-time request validation, quote loading、risk rejected、expired countdown 和 disabled submit。组件层测试应实际执行 `QuoteForm`、`QuoteStatusPanel` 和 `WalletSubmitControl` 的 React render path，触发受控输入、submit、refresh、wallet state、contract write 和 action handlers，而不仅依赖源码字符串匹配。
+测试 valid input、invalid input、numeric field parsing, submit-time request validation, quote loading、risk rejected、expired countdown 和 disabled submit。组件层测试应实际执行 `QuotePage`、`QuoteForm`、`QuoteStatusPanel` 和 `WalletSubmitControl` 的 React render path，覆盖初始 trading workspace、受控输入、submit、refresh、wallet state、contract write 和 action handlers，而不仅依赖源码字符串匹配。
 
 ## Interview Notes
 
