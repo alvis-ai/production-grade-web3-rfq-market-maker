@@ -2007,6 +2007,10 @@ grep -q 'traceId: nextFrontendTraceId' frontend/src/lib/rfq.ts
 grep -Fq 'sends a dynamic `tr_web_*` `x-trace-id` through the SDK' README.md
 grep -Fq '每个浏览器 API 请求都会发送一个符合 gateway 规则的 `tr_web_*` `x-trace-id`' book/Volume6-Frontend-And-SDK/Chapter01-Frontend-Architecture.md
 grep -q 'Hedge Status' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'Hedge External Order' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'hedgeStatus?.externalOrderId' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'Hedge Updated' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'hedgeStatus?.updatedAt' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Settlement Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Realized PnL' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'quoteStatus?.settlementEventId' frontend/src/components/QuoteStatusPanel.tsx

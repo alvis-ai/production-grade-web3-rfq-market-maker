@@ -118,6 +118,7 @@ client.quote(request: QuoteRequest): Promise<QuoteResponse>
 - `buildQuoteFromResponse()` builds the wallet submission quote only from closed own request and quote response fields. Inherited or unknown response fields are rejected before `amountOut`, `minAmountOut`, `nonce` or `deadline` can be copied into wallet calldata state.
 - Quote UI binds every `QuoteResponse` to the validated request snapshot that produced it, not to the currently edited form state. Any form or wallet-driven request change clears the active quote session, submit result, post-trade statuses, chain transaction hash and PnL view before another signed quote can be submitted; in-flight quote responses are ignored when their session version is no longer current.
 - TTL countdown is driven by a one-second UI clock while a quote is active. `canSubmit` depends on `expiresInSeconds > 0`, and `QuoteStatusPanel` renders the remaining seconds so users see the signed quote lifecycle rather than a static Unix deadline only.
+- Post-trade hedge state displays both the internal hedge lifecycle status and venue reconciliation metadata: `Hedge External Order` shows `hedgeStatus.externalOrderId` when a hedge reaches `filled`, and `Hedge Updated` shows the latest hedge status transition timestamp for filled or failed outcomes.
 - API submit is fail-closed inside the `submitQuote()` handler as well as through disabled buttons: when `canSubmit` is false, the page shows `Quote expired; request a new quote` and does not call `RFQClient.submit()`.
 
 ## Failure Scenarios

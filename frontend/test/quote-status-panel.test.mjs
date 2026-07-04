@@ -14,3 +14,14 @@ test("QuoteStatusPanel renders the quote TTL countdown field", () => {
     assert.ok(source.includes(expected), expected);
   }
 });
+
+test("QuoteStatusPanel renders terminal hedge outcome fields", () => {
+  for (const expected of [
+    "<dt>Hedge External Order</dt>",
+    "hedgeStatus?.externalOrderId",
+    "<dt>Hedge Updated</dt>",
+    "hedgeStatus?.updatedAt",
+  ]) {
+    assert.ok(source.includes(expected), expected);
+  }
+});

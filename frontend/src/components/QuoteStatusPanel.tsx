@@ -115,6 +115,14 @@ export function QuoteStatusPanel({
           <dd>{hedgeStatus?.status ?? "-"}</dd>
         </div>
         <div>
+          <dt>Hedge External Order</dt>
+          <dd>{hedgeStatus?.externalOrderId ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Hedge Updated</dt>
+          <dd>{hedgeStatus?.updatedAt ?? "-"}</dd>
+        </div>
+        <div>
           <dt>PnL ID</dt>
           <dd>{pnlId ?? "-"}</dd>
         </div>

@@ -277,7 +277,9 @@ test("QuoteStatusPanel component renders post-trade state and wires actions", as
     },
     hedgeStatus: {
       hedgeOrderId: "h_component",
-      status: "queued",
+      status: "filled",
+      externalOrderId: "cex_order_component",
+      updatedAt: "2026-07-04T00:00:01.000Z",
     },
     pnlSummary: {
       grossPnlTokenOut: "123456",
@@ -328,7 +330,9 @@ test("QuoteStatusPanel component renders post-trade state and wires actions", as
     "applied",
     "77",
     "h_component",
-    "queued",
+    "filled",
+    "cex_order_component",
+    "2026-07-04T00:00:01.000Z",
     "pnl_component",
     "123456",
     "Rate limited",
