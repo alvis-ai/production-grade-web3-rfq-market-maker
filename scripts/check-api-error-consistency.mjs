@@ -5,6 +5,8 @@ const apiErrorSource = await readFile("backend/src/shared/errors/api-error.ts", 
 const backendSource = await readSourceTree("backend/src");
 const apiGatewayTestSource = await readFile("backend/test/api-gateway.test.mjs", "utf8");
 const apiTestSource = await readFile("backend/test/api.test.mjs", "utf8");
+const apiValidationTestSource = await readFile("backend/test/api-validation.test.mjs", "utf8");
+const apiTraceContractTestSource = `${apiTestSource}\n${apiValidationTestSource}`;
 const sdkTypesSource = await readFile("sdk/src/types.ts", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const errorDocsSource = await readFile("docs/api/errors.md", "utf8");
@@ -44,7 +46,7 @@ for (const response of openapiNon2xxResponses) {
       : `OpenAPI ${response.key} error response must use ErrorResponse`,
   );
 }
-assertTraceHeaderContract(backendSource, apiGatewayTestSource, apiTestSource, openapiSource, openapiResponses);
+assertTraceHeaderContract(backendSource, apiGatewayTestSource, apiTraceContractTestSource, openapiSource, openapiResponses);
 
 console.log(`API error code consistency check passed (${backendCodes.length} codes)`);
 
