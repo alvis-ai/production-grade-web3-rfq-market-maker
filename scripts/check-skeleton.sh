@@ -31,6 +31,7 @@ test -s backend/test/metrics.test.mjs
 test -s backend/test/quote-identity.test.mjs
 test -s backend/test/quote-repository.test.mjs
 test -s backend/test/quote-service.test.mjs
+test -s backend/test/quote-service-config.test.mjs
 test -s backend/test/quote-status-repository.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
@@ -778,8 +779,8 @@ grep -q 'normalizeValidationOptions(options)' backend/src/shared/validation/subm
 grep -q 'assertOwnOptionalFields(options, SUBMIT_VALIDATION_OPTION_FIELDS, "Submit validation options")' backend/src/shared/validation/submit-request.ts
 grep -q '${label}.${inherited} must be an own field when provided' backend/src/shared/validation/submit-request.ts
 grep -q 'Submit validation options allowExpired must be a boolean' backend/src/shared/validation/submit-request.ts
-grep -q 'QuoteService snapshots dependency object at construction' backend/test/quote-service.test.mjs
-grep -q 'QuoteService rejects unsafe dependency configuration at construction' backend/test/quote-service.test.mjs
+grep -q 'QuoteService snapshots dependency object at construction' backend/test/quote-service-config.test.mjs
+grep -q 'QuoteService rejects unsafe dependency configuration at construction' backend/test/quote-service-config.test.mjs
 grep -q 'QuoteService rejects malformed pricing engine results before signing' backend/test/quote-service.test.mjs
 grep -q 'internalSpread: 8' backend/test/quote-service.test.mjs
 grep -q 'assert.equal(signAttempts, 0)' backend/test/quote-service.test.mjs
@@ -789,13 +790,13 @@ grep -q 'approvedWithInheritedReason' backend/test/quote-service.test.mjs
 grep -q 'assertRecord(config, "config")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertRecord(deps, "deps")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/quote/quote.service.ts
-grep -q 'Quote service config must be an object' backend/test/quote-service.test.mjs
-grep -q 'Quote service config.maxSnapshotAgeMs must be an own field' backend/test/quote-service.test.mjs
-grep -q 'Quote service config.quoteTtlSeconds must be an own field' backend/test/quote-service.test.mjs
-grep -q 'Quote service marketDataService must be an object' backend/test/quote-service.test.mjs
-grep -q 'Quote service deps.inventoryService must be an own field' backend/test/quote-service.test.mjs
-grep -q 'Quote service deps.hedgeService must be an own field when provided' backend/test/quote-service.test.mjs
-grep -q 'Quote service hedgeService must be an object when provided' backend/test/quote-service.test.mjs
+grep -q 'Quote service config must be an object' backend/test/quote-service-config.test.mjs
+grep -q 'Quote service config.maxSnapshotAgeMs must be an own field' backend/test/quote-service-config.test.mjs
+grep -q 'Quote service config.quoteTtlSeconds must be an own field' backend/test/quote-service-config.test.mjs
+grep -q 'Quote service marketDataService must be an object' backend/test/quote-service-config.test.mjs
+grep -q 'Quote service deps.inventoryService must be an own field' backend/test/quote-service-config.test.mjs
+grep -q 'Quote service deps.hedgeService must be an own field when provided' backend/test/quote-service-config.test.mjs
+grep -q 'Quote service hedgeService must be an object when provided' backend/test/quote-service-config.test.mjs
 grep -q 'QuoteService rejects unsafe quote requests before dependency side effects' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe submit quotes before quote lookup or signature verification' backend/test/quote-service.test.mjs
 grep -q 'validateSubmitQuoteRequest validates internal submit validation options' backend/test/validation.test.mjs
@@ -2768,8 +2769,8 @@ grep -q 'buildServer options.logger must be an own field when provided' backend/
 grep -q 'buildServer rateLimit must be an object or false' backend/test/api-gateway.test.mjs
 grep -q 'buildServer rateLimit.windowMs must be an own field when provided' backend/test/api-gateway.test.mjs
 grep -q 'configured quote TTL' backend/test/quote-service.test.mjs
-grep -q 'QuoteService snapshots runtime configuration at construction' backend/test/quote-service.test.mjs
-grep -q 'QuoteService rejects unsafe runtime configuration at construction' backend/test/quote-service.test.mjs
+grep -q 'QuoteService snapshots runtime configuration at construction' backend/test/quote-service-config.test.mjs
+grep -q 'QuoteService rejects unsafe runtime configuration at construction' backend/test/quote-service-config.test.mjs
 grep -q 'snapshots `QuoteServiceConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'runtime config fail-fast' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '"viem"' backend/package.json
