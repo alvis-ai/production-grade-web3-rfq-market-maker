@@ -14,6 +14,7 @@ test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/test/api-error.test.mjs
 test -s backend/test/api-gateway.test.mjs
+test -s backend/test/api-rate-limit.test.mjs
 test -s backend/test/api.test.mjs
 test -s backend/test/hedge.test.mjs
 test -s backend/test/inventory.test.mjs
@@ -685,10 +686,10 @@ grep -q 'RFQ_TRUST_PROXY: "false"' docker-compose.yml
 grep -q 'RFQ_TRUST_PROXY: "false"' infra/k8s/configmap.yaml
 grep -q 'RFQ_TRUST_PROXY: "false"' infra/helm/rfq-market-maker/values.yaml
 grep -q 'RFQ API rejects invalid RFQ_TRUST_PROXY at startup' backend/test/api-gateway.test.mjs
-grep -q 'does not trust x-forwarded-for for rate limit identity by default' backend/test/api.test.mjs
-grep -q 'trusts x-forwarded-for for rate limit identity only when proxy trust is enabled' backend/test/api.test.mjs
-grep -q 'rejects oversized trusted forwarded rate limit identity' backend/test/api.test.mjs
-grep -q 'rejects unsafe trusted forwarded rate limit identity' backend/test/api.test.mjs
+grep -q 'does not trust x-forwarded-for for rate limit identity by default' backend/test/api-rate-limit.test.mjs
+grep -q 'trusts x-forwarded-for for rate limit identity only when proxy trust is enabled' backend/test/api-rate-limit.test.mjs
+grep -q 'rejects oversized trusted forwarded rate limit identity' backend/test/api-rate-limit.test.mjs
+grep -q 'rejects unsafe trusted forwarded rate limit identity' backend/test/api-rate-limit.test.mjs
 grep -q 'only enable it when a trusted reverse proxy or ingress strips untrusted' README.md
 grep -Fq '128 character limit and `[A-Za-z0-9_.:-]` character set' README.md
 grep -q 'x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`' docs/api/errors.md
@@ -2914,12 +2915,12 @@ grep -q 'replayed submit quotes' backend/test/submit-concurrency.test.mjs
 grep -q 'concurrent submit attempts for the same signed quote' backend/test/submit-concurrency.test.mjs
 grep -q 'assert.equal(verifyCalls, 1)' backend/test/submit-concurrency.test.mjs
 grep -q 'same millisecond' backend/test/api.test.mjs
-grep -q 'rate limits quote requests by client' backend/test/api.test.mjs
-grep -q 'rate limits submit requests before validation and settlement' backend/test/api.test.mjs
-grep -q 'rate limits quote status requests by client' backend/test/api.test.mjs
-grep -q 'rfq_rate_limited_total\\{endpoint="quote"\\} 1' backend/test/api.test.mjs
-grep -q 'rfq_rate_limited_total\\{endpoint="submit"\\} 1' backend/test/api.test.mjs
-grep -q 'rfq_rate_limited_total\\{endpoint="status"\\} 1' backend/test/api.test.mjs
+grep -q 'rate limits quote requests by client' backend/test/api-rate-limit.test.mjs
+grep -q 'rate limits submit requests before validation and settlement' backend/test/api-rate-limit.test.mjs
+grep -q 'rate limits quote status requests by client' backend/test/api-rate-limit.test.mjs
+grep -q 'rfq_rate_limited_total\\{endpoint="quote"\\} 1' backend/test/api-rate-limit.test.mjs
+grep -q 'rfq_rate_limited_total\\{endpoint="submit"\\} 1' backend/test/api-rate-limit.test.mjs
+grep -q 'rfq_rate_limited_total\\{endpoint="status"\\} 1' backend/test/api-rate-limit.test.mjs
 grep -q 'PnL record creation fails' backend/test/api.test.mjs
 grep -q 'malformed PnL store results as post-settlement PnL failures' backend/test/api.test.mjs
 grep -q 'internalState: "unsafe"' backend/test/api.test.mjs

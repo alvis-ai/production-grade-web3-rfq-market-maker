@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 const rateLimiterSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const mainSource = await readFile("backend/src/main.ts", "utf8");
 const apiGatewayTestSource = await readFile("backend/test/api-gateway.test.mjs", "utf8");
-const apiTestSource = await readFile("backend/test/api.test.mjs", "utf8");
+const apiRateLimitTestSource = await readFile("backend/test/api-rate-limit.test.mjs", "utf8");
 const rateLimitTestSource = await readFile("backend/test/rate-limit.test.mjs", "utf8");
 const sdkClientSource = await readFile("sdk/src/client.ts", "utf8");
 const sdkTestSource = await readFile("sdk/test/sdk.test.mjs", "utf8");
@@ -78,7 +78,7 @@ assertContains(apiGatewayTestSource, [
   "buildServer rateLimit.windowMs must be an own field when provided",
 ], "backend/test/api-gateway.test.mjs");
 
-assertContains(apiTestSource, [
+assertContains(apiRateLimitTestSource, [
   "rate limits quote requests by client",
   "does not trust x-forwarded-for for rate limit identity by default",
   "trusts x-forwarded-for for rate limit identity only when proxy trust is enabled",
@@ -92,7 +92,7 @@ assertContains(apiTestSource, [
   'assert.equal(secondSubmit.body.code, "RATE_LIMITED")',
   "assert.equal(secondStatus.statusCode, 429)",
   'assert.equal(secondStatus.body.code, "RATE_LIMITED")',
-], "backend/test/api.test.mjs");
+], "backend/test/api-rate-limit.test.mjs");
 
 assertContains(rateLimitTestSource, [
   "InMemoryRateLimiter normalizes client identities before bucketing",
