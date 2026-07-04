@@ -17,6 +17,7 @@ test -s backend/test/api-gateway.test.mjs
 test -s backend/test/api-hedge.test.mjs
 test -s backend/test/api-market-data.test.mjs
 test -s backend/test/api-pnl.test.mjs
+test -s backend/test/api-quote-dependencies.test.mjs
 test -s backend/test/api-rate-limit.test.mjs
 test -s backend/test/api-readiness.test.mjs
 test -s backend/test/api-signer.test.mjs
@@ -138,7 +139,7 @@ grep -q 'Risk decision quoteId must contain only letters, numbers, underscore, c
 grep -q 'Risk decision riskDecisionId must be 128 characters or fewer' backend/test/risk-decision.test.mjs
 grep -q 'QuoteService persists approved and rejected risk decisions before signer boundary' backend/test/quote-service.test.mjs
 grep -q 'QuoteService blocks signer when risk decision persistence fails' backend/test/quote-service.test.mjs
-grep -q 'RFQ API marks requested quotes failed when risk decision audit store fails' backend/test/api.test.mjs
+grep -q 'RFQ API marks requested quotes failed when risk decision audit store fails' backend/test/api-quote-dependencies.test.mjs
 grep -q 'persists RiskDecisionStore audit records before signer' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'best-effort 将 requested quote 标记为 `failed`，并阻断 Signer' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'RiskDecisionStore mirrors the PostgreSQL risk_decisions contract' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
@@ -2867,15 +2868,15 @@ grep -q 'stale market data' backend/test/api-market-data.test.mjs
 grep -q 'market data timestamps too far in the future' backend/test/api-market-data.test.mjs
 grep -q 'market data failures' backend/test/api-market-data.test.mjs
 grep -q 'invalid market data before pricing and signing' backend/test/api-market-data.test.mjs
-grep -q 'routing engine failures' backend/test/api.test.mjs
-grep -q 'ROUTING_UNAVAILABLE' backend/test/api.test.mjs
+grep -q 'routing engine failures' backend/test/api-quote-dependencies.test.mjs
+grep -q 'ROUTING_UNAVAILABLE' backend/test/api-quote-dependencies.test.mjs
 grep -q 'ROUTING_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'quote store failures' backend/test/api.test.mjs
+grep -q 'quote store failures' backend/test/api-quote-dependencies.test.mjs
 grep -q 'quote status store failures' backend/test/api-status.test.mjs
 grep -q 'QUOTE_STORE_UNAVAILABLE' backend/test/api-status.test.mjs
 grep -q 'QUOTE_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Quote status store unavailable' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'pricing engine failures' backend/test/api.test.mjs
+grep -q 'pricing engine failures' backend/test/api-quote-dependencies.test.mjs
 grep -q 'market data shape is invalid' backend/test/api-readiness.test.mjs
 grep -q 'degrades readiness when market data is stale' backend/test/api-readiness.test.mjs
 grep -q 'degrades readiness when market data timestamp is too far in the future' backend/test/api-readiness.test.mjs
