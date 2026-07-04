@@ -530,8 +530,10 @@ test("RFQSettlement ABI exposes treasury custody controls", () => {
 test("RFQSettlement ABI exposes role-based admin controls", () => {
   for (const name of [
     "DEFAULT_ADMIN_ROLE",
+    "PAUSER_ROLE",
     "SIGNER_ADMIN_ROLE",
     "TOKEN_ADMIN_ROLE",
+    "TREASURY_ADMIN_ROLE",
     "grantRole",
     "revokeRole",
     "hasRole",
@@ -546,6 +548,41 @@ test("RFQSettlement ABI exposes role-based admin controls", () => {
 
   assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "RoleGranted"));
   assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "RoleRevoked"));
+});
+
+test("Contract ABIs expose custom errors for revert decoding", () => {
+  for (const name of [
+    "InvalidSigner",
+    "InvalidSignatureLength",
+    "InvalidSignatureS",
+    "InvalidSignatureV",
+    "NonceAlreadyUsed",
+    "QuoteExpired",
+    "TokenNotWhitelisted",
+    "AmountOutBelowMinimum",
+    "CannotRevokeLastAdmin",
+  ]) {
+    assert.ok(
+      rfqSettlementAbi.some((item) => item.type === "error" && item.name === name),
+      `missing RFQSettlement error ${name}`,
+    );
+  }
+
+  const missingRoleError = rfqSettlementAbi.find(
+    (item) => item.type === "error" && item.name === "MissingRole",
+  );
+  assert.ok(missingRoleError, "missing RFQSettlement error MissingRole");
+  assert.deepEqual(
+    missingRoleError.inputs.map((input) => `${input.name}:${input.type}`),
+    ["role:bytes32", "account:address"],
+  );
+
+  for (const name of ["NotOwner", "NotSettlement", "ReentrantCall", "InvalidAddress", "TransferFailed"]) {
+    assert.ok(
+      treasuryAbi.some((item) => item.type === "error" && item.name === name),
+      `missing Treasury error ${name}`,
+    );
+  }
 });
 
 test("RFQClient sends quote, submit, status, health, and metrics requests with expected shapes", async () => {

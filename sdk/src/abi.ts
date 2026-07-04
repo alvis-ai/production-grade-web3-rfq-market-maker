@@ -59,6 +59,20 @@ export const rfqSettlementAbi = [
   },
   {
     type: "function",
+    name: "TREASURY_ADMIN_ROLE",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "bytes32" }],
+  },
+  {
+    type: "function",
+    name: "PAUSER_ROLE",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "bytes32" }],
+  },
+  {
+    type: "function",
     name: "grantRole",
     stateMutability: "nonpayable",
     inputs: [
@@ -224,6 +238,33 @@ export const rfqSettlementAbi = [
       { name: "newSigner", type: "address", indexed: true },
     ],
   },
+  { type: "error", name: "NotOwner", inputs: [] },
+  { type: "error", name: "Paused", inputs: [] },
+  { type: "error", name: "ReentrantCall", inputs: [] },
+  { type: "error", name: "InvalidAddress", inputs: [] },
+  { type: "error", name: "InvalidSigner", inputs: [] },
+  { type: "error", name: "InvalidSignatureLength", inputs: [] },
+  { type: "error", name: "InvalidSignatureS", inputs: [] },
+  { type: "error", name: "InvalidSignatureV", inputs: [] },
+  { type: "error", name: "InvalidChainId", inputs: [] },
+  { type: "error", name: "QuoteExpired", inputs: [] },
+  { type: "error", name: "NonceAlreadyUsed", inputs: [] },
+  { type: "error", name: "TokenNotWhitelisted", inputs: [] },
+  { type: "error", name: "InvalidQuoteUser", inputs: [] },
+  { type: "error", name: "InvalidTokenPair", inputs: [] },
+  { type: "error", name: "InvalidAmount", inputs: [] },
+  { type: "error", name: "InvalidNonce", inputs: [] },
+  { type: "error", name: "AmountOutBelowMinimum", inputs: [] },
+  { type: "error", name: "TransferFailed", inputs: [] },
+  {
+    type: "error",
+    name: "MissingRole",
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" },
+    ],
+  },
+  { type: "error", name: "CannotRevokeLastAdmin", inputs: [] },
 ] as const;
 
 export const treasuryAbi = [
@@ -313,4 +354,10 @@ export const treasuryAbi = [
       { name: "newSettlement", type: "address", indexed: true },
     ],
   },
+  { type: "error", name: "NotOwner", inputs: [] },
+  { type: "error", name: "NotSettlement", inputs: [] },
+  { type: "error", name: "ReentrantCall", inputs: [] },
+  { type: "error", name: "InvalidAddress", inputs: [] },
+  { type: "error", name: "InvalidAmount", inputs: [] },
+  { type: "error", name: "TransferFailed", inputs: [] },
 ] as const;

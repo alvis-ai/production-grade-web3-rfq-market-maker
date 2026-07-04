@@ -14,8 +14,10 @@ const contracts = [
     abiExport: "rfqSettlementAbi",
     functions: [
       "DEFAULT_ADMIN_ROLE",
+      "PAUSER_ROLE",
       "SIGNER_ADMIN_ROLE",
       "TOKEN_ADMIN_ROLE",
+      "TREASURY_ADMIN_ROLE",
       "domainSeparator",
       "grantRole",
       "hashQuote",
@@ -61,6 +63,8 @@ for (const contract of contracts) {
   const abiBlock = extractAbiBlock(sdkAbiSource, contract.abiExport);
   const sdkFunctions = extractAbiNames(abiBlock, "function");
   const sdkEvents = extractAbiNames(abiBlock, "event");
+  const sdkErrors = extractAbiNames(abiBlock, "error");
+  const solidityErrors = extractSolidityErrors(contract.source);
 
   assertNames(
     sdkFunctions,
@@ -71,6 +75,16 @@ for (const contract of contracts) {
     sdkEvents,
     contract.events,
     `${contract.abiExport} events must include ${contract.label} integration surface`,
+  );
+  assertNames(
+    sdkErrors,
+    solidityErrors,
+    `${contract.abiExport} errors must include every ${contract.label} custom error for revert decoding`,
+  );
+  assertNames(
+    solidityErrors,
+    sdkErrors,
+    `${contract.abiExport} errors must not include custom errors absent from ${contract.label}`,
   );
 
   for (const name of contract.functions) {
@@ -103,6 +117,10 @@ function extractAbiNames(source, type) {
   }
 
   return names;
+}
+
+function extractSolidityErrors(source) {
+  return [...new Set([...source.matchAll(/\berror\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)].map(([, name]) => name))];
 }
 
 function assertNames(actual, expected, label) {
