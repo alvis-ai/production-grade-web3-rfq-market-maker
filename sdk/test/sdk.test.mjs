@@ -600,6 +600,7 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     tokenOut: quote.tokenOut,
     amountIn: quote.amountIn,
     amountOut: quote.amountOut,
+    nonce: quote.nonce,
     observedAt: "2026-06-27T00:00:00.000Z",
   };
   const pnlResponse = {
@@ -1139,6 +1140,7 @@ test("RFQClient percent-encodes safe dynamic status path identifiers", async () 
         tokenOut: quote.tokenOut,
         amountIn: quote.amountIn,
         amountOut: quote.amountOut,
+        nonce: quote.nonce,
         observedAt: "2026-06-27T00:00:00.000Z",
       });
     }
@@ -1874,6 +1876,7 @@ test("RFQClient rejects malformed settlement status responses", async () => {
     tokenOut: quote.tokenOut,
     amountIn: quote.amountIn,
     amountOut: quote.amountOut,
+    nonce: quote.nonce,
     observedAt: "2026-06-27T00:00:00.000Z",
   };
 
@@ -1941,6 +1944,14 @@ test("RFQClient rejects malformed settlement status responses", async () => {
     {
       payload: { ...settlementResponse, amountIn: "0" },
       message: "RFQ settlement event status response returned malformed amountIn",
+    },
+    {
+      payload: { ...settlementResponse, nonce: "0" },
+      message: "RFQ settlement event status response returned malformed nonce",
+    },
+    {
+      payload: { ...settlementResponse, nonce: "01" },
+      message: "RFQ settlement event status response returned malformed nonce",
     },
     {
       payload: { ...settlementResponse, observedAt: "not-a-date" },
@@ -2354,6 +2365,7 @@ test("RFQClient rejects malformed successful response fields", async () => {
       tokenOut: quote.tokenOut,
       amountIn: quote.amountIn,
       amountOut: quote.amountOut,
+      nonce: quote.nonce,
       observedAt: "2026-06-27T00:00:00.000Z",
     }),
   );

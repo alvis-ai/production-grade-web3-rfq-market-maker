@@ -57,6 +57,7 @@ const settlementEventFields = [
   "tokenOut",
   "amountIn",
   "amountOut",
+  "nonce",
   "observedAt",
 ] as const;
 
@@ -413,8 +414,13 @@ function assertSettlementEventStatusResponse(
   }
   assertSettlementEventAmount(settlementEvent.amountIn, "amountIn");
   assertSettlementEventAmount(settlementEvent.amountOut, "amountOut");
-  if (settlementEvent.amountIn !== expected.quote.amountIn || settlementEvent.amountOut !== expected.quote.amountOut) {
-    throw malformedSettlementEventResult("Execution service settlement event amounts must match submitted quote");
+  assertSettlementEventAmount(settlementEvent.nonce, "nonce");
+  if (
+    settlementEvent.amountIn !== expected.quote.amountIn ||
+    settlementEvent.amountOut !== expected.quote.amountOut ||
+    settlementEvent.nonce !== expected.quote.nonce
+  ) {
+    throw malformedSettlementEventResult("Execution service settlement event amounts and nonce must match submitted quote");
   }
   if (!isCanonicalUtcIsoTimestamp(settlementEvent.observedAt)) {
     throw malformedSettlementEventResult("Execution service settlement event observedAt must be a canonical UTC ISO timestamp");
@@ -470,7 +476,7 @@ function assertSettlementEventAddress(value: unknown, field: "user" | "tokenIn" 
   }
 }
 
-function assertSettlementEventAmount(value: unknown, field: "amountIn" | "amountOut"): asserts value is string {
+function assertSettlementEventAmount(value: unknown, field: "amountIn" | "amountOut" | "nonce"): asserts value is string {
   try {
     assertExecutionAmount(value, field, "settlement event");
   } catch (error) {
@@ -511,7 +517,7 @@ function assertExecutionAddress(
 
 function assertExecutionAmount(
   value: unknown,
-  field: "amountIn" | "amountOut" | "amount",
+  field: "amountIn" | "amountOut" | "amount" | "nonce",
   path: string,
 ): asserts value is string {
   if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {

@@ -77,6 +77,7 @@ const settlementEventStatusFields = [
   "tokenOut",
   "amountIn",
   "amountOut",
+  "nonce",
   "observedAt",
 ] as const;
 const pnlSummaryFields = ["status", "totalTrades", "grossPnlTokenOut", "trades"] as const;
@@ -715,7 +716,7 @@ function assertSettlementEventStatus(payload: unknown, status: number): asserts 
   if (tokenIn.toLowerCase() === tokenOut.toLowerCase()) {
     throw malformedFieldError(status, label, "tokenOut");
   }
-  for (const field of ["amountIn", "amountOut"] as const) {
+  for (const field of ["amountIn", "amountOut", "nonce"] as const) {
     if (!isPositiveUIntString(payload[field])) {
       throw malformedFieldError(status, label, field);
     }

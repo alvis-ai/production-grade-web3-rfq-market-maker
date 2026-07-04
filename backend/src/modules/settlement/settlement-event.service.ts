@@ -122,6 +122,7 @@ export class SettlementEventService implements SettlementEventStore {
       tokenOut: input.quote.tokenOut,
       amountIn: input.quote.amountIn,
       amountOut: input.quote.amountOut,
+      nonce: input.quote.nonce,
       observedAt: new Date().toISOString(),
     };
 
@@ -216,7 +217,8 @@ export class SettlementEventService implements SettlementEventStore {
       event.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
       event.tokenOut.toLowerCase() === input.quote.tokenOut.toLowerCase() &&
       event.amountIn === input.quote.amountIn &&
-      event.amountOut === input.quote.amountOut
+      event.amountOut === input.quote.amountOut &&
+      event.nonce === input.quote.nonce
     );
   }
 }

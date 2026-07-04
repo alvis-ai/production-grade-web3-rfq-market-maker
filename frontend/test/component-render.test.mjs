@@ -181,6 +181,7 @@ test("QuoteStatusPanel component renders post-trade state and wires actions", as
       status: "applied",
       quoteHash: `0x${"33".repeat(32)}`,
       blockNumber: 12345,
+      nonce: "77",
     },
     hedgeStatus: {
       hedgeOrderId: "h_component",
@@ -233,6 +234,7 @@ test("QuoteStatusPanel component renders post-trade state and wires actions", as
     "42s",
     "se_component",
     "applied",
+    "77",
     "h_component",
     "queued",
     "pnl_component",

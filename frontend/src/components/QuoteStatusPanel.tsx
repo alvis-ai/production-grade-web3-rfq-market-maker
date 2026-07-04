@@ -99,6 +99,10 @@ export function QuoteStatusPanel({
           <dd>{settlementStatus?.quoteHash ?? "-"}</dd>
         </div>
         <div>
+          <dt>Nonce</dt>
+          <dd>{settlementStatus?.nonce ?? quote?.nonce ?? "-"}</dd>
+        </div>
+        <div>
           <dt>Block</dt>
           <dd>{settlementStatus?.blockNumber ?? "-"}</dd>
         </div>

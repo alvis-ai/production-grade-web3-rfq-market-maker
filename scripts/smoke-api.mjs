@@ -90,6 +90,7 @@ assertEqual(settlementStatus.txHash, submitResponse.txHash, "settlement txHash")
 assertBytes32Hex(settlementStatus.quoteHash, "settlement quoteHash");
 assertEqual(settlementStatus.blockNumber, 0, "settlement block number");
 assertEqual(settlementStatus.logIndex, 0, "settlement log index");
+assertEqual(settlementStatus.nonce, quoteResponse.nonce, "settlement nonce");
 
 const hedgeStatus = await request("GET", `/hedges/${encodeURIComponent(submitResponse.hedgeOrderId)}`);
 assertEqual(hedgeStatus.status, "queued", "hedge status");

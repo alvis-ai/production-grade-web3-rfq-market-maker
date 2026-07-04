@@ -269,6 +269,7 @@ test("SkeletonExecutionService rejects malformed settlement event results before
     tokenOut: request.quote.tokenOut,
     amountIn: request.quote.amountIn,
     amountOut: request.quote.amountOut,
+    nonce: request.quote.nonce,
     observedAt: "2026-01-01T00:00:00.000Z",
   };
   const validResult = {
@@ -295,6 +296,7 @@ test("SkeletonExecutionService rejects malformed settlement event results before
     { event: { ...validSettlementEvent, user: request.quote.tokenIn }, duplicate: false },
     { event: { ...validSettlementEvent, amountOut: "0998400000" }, duplicate: false },
     { event: { ...validSettlementEvent, amountOut: "1" }, duplicate: false },
+    { event: { ...validSettlementEvent, nonce: "43" }, duplicate: false },
     { event: { ...validSettlementEvent, observedAt: "2026-01-01T00:00:00Z" }, duplicate: false },
   ];
 

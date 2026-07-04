@@ -1295,8 +1295,10 @@ grep -q 'trg_hedge_orders_set_updated_at' docs/database/schema.sql
 grep -q 'must refresh updated_at through a BEFORE UPDATE trigger' scripts/check-database-schema-consistency.mjs
 grep -q '共享 `set_updated_at()` trigger' docs/database/er-diagram.md
 grep -q 'quote_hash TEXT NOT NULL' docs/database/schema.sql
+grep -q 'nonce NUMERIC(78, 0) NOT NULL' docs/database/schema.sql
 grep -q 'quote_hash' docs/database/er-diagram.md
 grep -q 'quoteHash: "quote_hash"' scripts/check-database-schema-consistency.mjs
+grep -q 'nonce: "nonce"' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events must persist SettlementEventStatusResponse' scripts/check-database-schema-consistency.mjs
 grep -q 'uq_hedge_orders_settlement_event' docs/database/schema.sql
 grep -q 'settlement_event_id TEXT NOT NULL REFERENCES settlement_events(id)' docs/database/schema.sql
@@ -1414,6 +1416,8 @@ grep -q 'eventIdsByQuoteId' backend/src/modules/settlement/settlement-event.serv
 grep -q 'txHash.slice(2)}_${logIndex}' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'matchesExistingEvent' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'event.nonce === input.quote.nonce' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'nonce: input.quote.nonce' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'cloneSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/settlement/settlement-event.service.ts
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/settlement/settlement-event.service.ts
@@ -1425,6 +1429,7 @@ grep -q 'Settlement event ${field} must be a primitive string' backend/src/modul
 grep -q 'Settlement event quote.amountOut must be greater than or equal to quote.minAmountOut' backend/src/modules/settlement/settlement-event.service.ts
 grep -Fq '!/^[1-9][0-9]*$/.test(value)' backend/src/modules/settlement/settlement-event.service.ts
 grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'assert.equal(first.event.nonce, quote.nonce)' backend/test/settlement-event.test.mjs
 grep -q 'keeps distinct events with the same tx hash prefix' backend/test/settlement-event.test.mjs
 grep -q 'rejects conflicting events for an already settled quote' backend/test/settlement-event.test.mjs
 grep -q 'lists settlement events in chain order' backend/test/settlement-event.test.mjs
@@ -1453,6 +1458,8 @@ grep -q '`txHash` as a runtime string and a 32-byte hex string' book/Volume5-Bac
 grep -q 'Settlement event ingestion validates `quoteId` as an own primitive-string `SafeIdentifier`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rejects inherited optional `blockNumber` / `logIndex`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Settlement status lookups also validate `settlementEventId` before reading the in-memory store' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'persists the signed `nonce` alongside `quoteHash`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'quoteHash` and `nonce` emitted by `RFQSettlement.QuoteSettled`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'removes reorged events and rebuilds inventory from canonical events' backend/test/settlement-event.test.mjs
 grep -q 'treats duplicate reorg removals as idempotent' backend/test/settlement-event.test.mjs
 grep -q 'rejects conflicting reorg removals before mutating state' backend/test/settlement-event.test.mjs
@@ -2112,6 +2119,8 @@ grep -q 'assertQuoteStatus' sdk/src/client.ts
 grep -q 'assertQuoteStatusPayloadConsistency' sdk/src/client.ts
 grep -q 'assertHedgeIntentStatus' sdk/src/client.ts
 grep -q 'assertSettlementEventStatus' sdk/src/client.ts
+grep -q '"nonce"' sdk/src/client.ts
+grep -q 'RFQ settlement event status response returned malformed nonce' sdk/test/sdk.test.mjs
 grep -q 'assertPnlSummary' sdk/src/client.ts
 grep -q 'assertPnlTradeRecord' sdk/src/client.ts
 grep -q 'function isPositiveSafeInteger' sdk/src/client.ts
@@ -2561,6 +2570,9 @@ grep -q 'Hedge intent creation failure does not roll back settlement' docs/api/o
 grep -q 'getSettlementEvent' docs/api/openapi.yaml
 grep -q 'SettlementEventStatus' docs/api/openapi.yaml
 grep -q 'quoteHash' docs/api/openapi.yaml
+grep -q 'persist the emitted nonce for chainId/user/nonce' docs/api/openapi.yaml
+grep -q 'assertEqual(settlementStatus.nonce, quoteResponse.nonce, "settlement nonce")' scripts/smoke-api.mjs
+grep -q 'settlementStatus?.nonce' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'hashSettlementQuote' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'blockNumber?: number' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'normalizeTxHash' backend/src/modules/settlement/settlement-event.service.ts

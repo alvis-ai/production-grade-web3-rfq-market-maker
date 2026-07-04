@@ -280,6 +280,7 @@ for (const [schemaName, propertyName] of [
   ["HedgeIntentStatus", "amount"],
   ["SettlementEventStatus", "amountIn"],
   ["SettlementEventStatus", "amountOut"],
+  ["SettlementEventStatus", "nonce"],
   ["PnlTradeRecord", "amountIn"],
   ["PnlTradeRecord", "amountOut"],
   ["PnlTradeRecord", "minAmountOut"],

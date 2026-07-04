@@ -102,6 +102,7 @@ export interface SettlementEventStatusResponse {
   tokenOut: Address;
   amountIn: UIntString;
   amountOut: UIntString;
+  nonce: UIntString;
   observedAt: string;
 }
 

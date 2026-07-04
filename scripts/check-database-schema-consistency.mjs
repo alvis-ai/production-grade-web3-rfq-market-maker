@@ -658,6 +658,7 @@ const settlementColumnMapping = {
   tokenOut: "token_out",
   amountIn: "amount_in",
   amountOut: "amount_out",
+  nonce: "nonce",
   observedAt: "created_at",
 };
 for (const field of settlementFields) {

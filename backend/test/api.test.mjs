@@ -728,6 +728,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
       "tokenOut",
       "amountIn",
       "amountOut",
+      "nonce",
       "observedAt",
     ]);
     assert.equal(settlement.body.settlementEventId, submit.body.settlementEventId);
@@ -743,6 +744,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(settlement.body.tokenOut, baseQuoteRequest.tokenOut);
     assert.equal(settlement.body.amountIn, baseQuoteRequest.amountIn);
     assert.equal(settlement.body.amountOut, quote.body.amountOut);
+    assert.equal(settlement.body.nonce, quote.body.nonce);
     assert.match(settlement.body.observedAt, /^\d{4}-\d{2}-\d{2}T/);
 
     const hedge = await injectJson(server, "GET", `/hedges/${submit.body.hedgeOrderId}`);

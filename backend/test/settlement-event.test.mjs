@@ -40,6 +40,7 @@ test("SettlementEventService applies each chain event idempotently", () => {
   assert.equal(first.event.quoteHash, "0x4b1a6949619f6bafcefcde5376e278dd0eeff6a660a6cdccad19977866943d8e");
   assert.equal(first.event.blockNumber, 0);
   assert.equal(first.event.logIndex, 7);
+  assert.equal(first.event.nonce, quote.nonce);
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 1000n);
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenOut).balance, -990n);
 
