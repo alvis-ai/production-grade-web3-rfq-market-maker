@@ -115,6 +115,64 @@ test("SettlementEventService lists settlement events in chain order", () => {
   );
 });
 
+test("SettlementEventService finds settlement events by chain-scoped quote hash", () => {
+  const inventory = new InventoryService();
+  const settlements = new SettlementEventService(inventory);
+
+  const later = settlements.applySettlementEvent({
+    quoteId: "q_hash_later",
+    quote,
+    txHash: `0x${"71".repeat(32)}`,
+    blockNumber: 12,
+    logIndex: 0,
+  });
+  const earlier = settlements.applySettlementEvent({
+    quoteId: "q_hash_earlier",
+    quote,
+    txHash: `0x${"72".repeat(32)}`,
+    blockNumber: 11,
+    logIndex: 5,
+  });
+  const unrelated = settlements.applySettlementEvent({
+    quoteId: "q_hash_unrelated",
+    quote: {
+      ...quote,
+      nonce: "2",
+    },
+    txHash: `0x${"73".repeat(32)}`,
+    blockNumber: 10,
+    logIndex: 0,
+  });
+
+  const uppercaseQuoteHash = `0x${later.event.quoteHash.slice(2).toUpperCase()}`;
+  const matches = settlements.getSettlementEventsByQuoteHash({
+    chainId: quote.chainId,
+    quoteHash: uppercaseQuoteHash,
+  });
+
+  assert.deepEqual(
+    matches.map((event) => event.settlementEventId),
+    [earlier.event.settlementEventId, later.event.settlementEventId],
+  );
+  assert.deepEqual(
+    settlements.getSettlementEventsByQuoteHash({
+      chainId: quote.chainId,
+      quoteHash: unrelated.event.quoteHash,
+    }).map((event) => event.settlementEventId),
+    [unrelated.event.settlementEventId],
+  );
+  assert.deepEqual(
+    settlements.getSettlementEventsByQuoteHash({
+      chainId: 2,
+      quoteHash: later.event.quoteHash,
+    }),
+    [],
+  );
+
+  matches[0].quoteId = "q_mutated";
+  assert.equal(settlements.getSettlementEvent(earlier.event.settlementEventId).quoteId, "q_hash_earlier");
+});
+
 test("SettlementEventService returns defensive copies of settlement events", () => {
   const inventory = new InventoryService();
   const settlements = new SettlementEventService(inventory);
@@ -142,6 +200,59 @@ test("SettlementEventService returns defensive copies of settlement events", () 
   const reloaded = settlements.getSettlementEvent(applied.event.settlementEventId);
   assert.equal(reloaded.status, "applied");
   assert.equal(reloaded.txHash, `0x${"15".repeat(32)}`);
+});
+
+test("SettlementEventService rejects unsafe quote hash lookup envelopes", () => {
+  const inventory = new InventoryService();
+  const settlements = new SettlementEventService(inventory);
+  const quoteHash = hashSettlementQuote(quote);
+
+  assert.throws(
+    () => settlements.getSettlementEventsByQuoteHash([]),
+    /Settlement event quote hash lookup input must be an object/,
+  );
+  assert.throws(
+    () =>
+      settlements.getSettlementEventsByQuoteHash(
+        Object.create({
+          chainId: quote.chainId,
+          quoteHash,
+        }),
+      ),
+    /Settlement event quote hash lookup input.chainId must be an own field/,
+  );
+
+  const inheritedQuoteHashInput = Object.create({ quoteHash });
+  Object.assign(inheritedQuoteHashInput, { chainId: quote.chainId });
+  assert.throws(
+    () => settlements.getSettlementEventsByQuoteHash(inheritedQuoteHashInput),
+    /Settlement event quote hash lookup input.quoteHash must be an own field/,
+  );
+
+  assert.throws(
+    () =>
+      settlements.getSettlementEventsByQuoteHash({
+        chainId: 0,
+        quoteHash,
+      }),
+    /Settlement event lookup.chainId must be a positive safe integer/,
+  );
+  assert.throws(
+    () =>
+      settlements.getSettlementEventsByQuoteHash({
+        chainId: quote.chainId,
+        quoteHash: "0x1234",
+      }),
+    /Settlement event quoteHash must be a 32-byte hex string/,
+  );
+  assert.throws(
+    () =>
+      settlements.getSettlementEventsByQuoteHash({
+        chainId: quote.chainId,
+        quoteHash: new String(quoteHash),
+      }),
+    /Settlement event quoteHash must be a 32-byte hex string/,
+  );
 });
 
 test("SettlementEventService rejects unsafe settlement event lookup identifiers", () => {
@@ -317,6 +428,20 @@ test("SettlementEventService removes reorged events and rebuilds inventory from 
   assert.equal(settlements.getSettlementEvent(reorged.event.settlementEventId), undefined);
   assert.deepEqual(
     settlements.listSettlementEvents().map((event) => event.settlementEventId),
+    [canonical.event.settlementEventId],
+  );
+  assert.deepEqual(
+    settlements.getSettlementEventsByQuoteHash({
+      chainId: quote.chainId,
+      quoteHash: reorged.event.quoteHash,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    settlements.getSettlementEventsByQuoteHash({
+      chainId: quote.chainId,
+      quoteHash: canonical.event.quoteHash,
+    }).map((event) => event.settlementEventId),
     [canonical.event.settlementEventId],
   );
   assert.equal(inventory.getPosition(quote.chainId, quote.tokenIn).balance, 2000n);

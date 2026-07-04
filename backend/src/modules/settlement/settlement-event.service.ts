@@ -11,6 +11,7 @@ const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const settlementEventInputFields = ["quoteId", "quote", "txHash"] as const;
 const removeSettlementEventInputFields = ["chainId", "txHash"] as const;
+const settlementQuoteHashLookupFields = ["chainId", "quoteHash"] as const;
 const settlementEventOrdinalFields = ["blockNumber", "logIndex"] as const;
 const settlementQuoteFields = [
   "user",
@@ -39,6 +40,11 @@ export interface RemoveSettlementEventInput {
   logIndex?: number;
 }
 
+export interface GetSettlementEventsByQuoteHashInput {
+  chainId: number;
+  quoteHash: `0x${string}`;
+}
+
 export interface ApplySettlementEventResult {
   event: SettlementEventStatusResponse;
   duplicate: boolean;
@@ -54,6 +60,7 @@ export interface SettlementEventStore {
   applySettlementEvent(input: ApplySettlementEventInput): ApplySettlementEventResult;
   removeSettlementEvent(input: RemoveSettlementEventInput): RemoveSettlementEventResult;
   getSettlementEvent(settlementEventId: string): SettlementEventStatusResponse | undefined;
+  getSettlementEventsByQuoteHash(input: GetSettlementEventsByQuoteHashInput): SettlementEventStatusResponse[];
   listSettlementEvents(): SettlementEventStatusResponse[];
 }
 
@@ -61,6 +68,7 @@ export class SettlementEventService implements SettlementEventStore {
   private readonly events = new Map<string, SettlementEventStatusResponse>();
   private readonly eventIdsByKey = new Map<string, string>();
   private readonly eventIdsByQuoteId = new Map<string, string>();
+  private readonly eventIdsByChainQuoteHash = new Map<string, string[]>();
 
   constructor(private readonly inventoryService: InventoryService) {
     assertSettlementEventServiceDeps(inventoryService);
@@ -130,6 +138,7 @@ export class SettlementEventService implements SettlementEventStore {
     this.events.set(event.settlementEventId, event);
     this.eventIdsByKey.set(key, event.settlementEventId);
     this.eventIdsByQuoteId.set(event.quoteId, event.settlementEventId);
+    this.indexQuoteHash(event);
 
     return {
       event: cloneSettlementEvent(event),
@@ -161,6 +170,7 @@ export class SettlementEventService implements SettlementEventStore {
     this.events.delete(event.settlementEventId);
     this.eventIdsByKey.delete(key);
     this.eventIdsByQuoteId.delete(event.quoteId);
+    this.removeQuoteHashIndex(event);
     this.inventoryService.rebuildFromSettlements(
       this.listSettlementEvents().map((canonicalEvent) => this.toSettlementDelta(canonicalEvent)),
     );
@@ -177,14 +187,23 @@ export class SettlementEventService implements SettlementEventStore {
     return event ? cloneSettlementEvent(event) : undefined;
   }
 
-  listSettlementEvents(): SettlementEventStatusResponse[] {
-    return [...this.events.values()].sort((left, right) => {
-      if (left.blockNumber !== right.blockNumber) {
-        return left.blockNumber - right.blockNumber;
+  getSettlementEventsByQuoteHash(input: GetSettlementEventsByQuoteHashInput): SettlementEventStatusResponse[] {
+    assertSettlementQuoteHashLookupInput(input);
+    const quoteHash = normalizeQuoteHash(input.quoteHash);
+    const eventIds = this.eventIdsByChainQuoteHash.get(this.quoteHashKey(input.chainId, quoteHash)) ?? [];
+
+    return eventIds.map((settlementEventId) => {
+      const event = this.events.get(settlementEventId);
+      if (!event) {
+        throw new Error(`Settlement event quote hash index is inconsistent for ${settlementEventId}`);
       }
 
-      return left.logIndex - right.logIndex;
-    }).map(cloneSettlementEvent);
+      return event;
+    }).sort(compareSettlementEventsByChainOrder).map(cloneSettlementEvent);
+  }
+
+  listSettlementEvents(): SettlementEventStatusResponse[] {
+    return [...this.events.values()].sort(compareSettlementEventsByChainOrder).map(cloneSettlementEvent);
   }
 
   private toSettlementDelta(event: SettlementEventStatusResponse): SettlementDelta {
@@ -199,6 +218,38 @@ export class SettlementEventService implements SettlementEventStore {
 
   private eventKey(chainId: number, txHash: `0x${string}`, logIndex: number): string {
     return `${chainId}:${txHash.toLowerCase()}:${logIndex}`;
+  }
+
+  private quoteHashKey(chainId: number, quoteHash: `0x${string}`): string {
+    return `${chainId}:${quoteHash.toLowerCase()}`;
+  }
+
+  private indexQuoteHash(event: SettlementEventStatusResponse): void {
+    const key = this.quoteHashKey(event.chainId, event.quoteHash);
+    const eventIds = this.eventIdsByChainQuoteHash.get(key);
+    if (!eventIds) {
+      this.eventIdsByChainQuoteHash.set(key, [event.settlementEventId]);
+      return;
+    }
+    if (!eventIds.includes(event.settlementEventId)) {
+      eventIds.push(event.settlementEventId);
+    }
+  }
+
+  private removeQuoteHashIndex(event: SettlementEventStatusResponse): void {
+    const key = this.quoteHashKey(event.chainId, event.quoteHash);
+    const eventIds = this.eventIdsByChainQuoteHash.get(key);
+    if (!eventIds) {
+      return;
+    }
+
+    const remainingEventIds = eventIds.filter((settlementEventId) => settlementEventId !== event.settlementEventId);
+    if (remainingEventIds.length === 0) {
+      this.eventIdsByChainQuoteHash.delete(key);
+      return;
+    }
+
+    this.eventIdsByChainQuoteHash.set(key, remainingEventIds);
   }
 
   private matchesExistingEvent(
@@ -225,6 +276,17 @@ export class SettlementEventService implements SettlementEventStore {
 
 function cloneSettlementEvent(event: SettlementEventStatusResponse): SettlementEventStatusResponse {
   return { ...event };
+}
+
+function compareSettlementEventsByChainOrder(
+  left: SettlementEventStatusResponse,
+  right: SettlementEventStatusResponse,
+): number {
+  if (left.blockNumber !== right.blockNumber) {
+    return left.blockNumber - right.blockNumber;
+  }
+
+  return left.logIndex - right.logIndex;
 }
 
 function buildSettlementEventId(chainId: number, txHash: `0x${string}`, logIndex: number): string {
@@ -255,6 +317,14 @@ function assertDependencyMethod(
 function normalizeTxHash(value: unknown): `0x${string}` {
   if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
     throw new Error("Settlement event txHash must be a 32-byte hex string");
+  }
+
+  return value.toLowerCase() as `0x${string}`;
+}
+
+function normalizeQuoteHash(value: unknown): `0x${string}` {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error("Settlement event quoteHash must be a 32-byte hex string");
   }
 
   return value.toLowerCase() as `0x${string}`;
@@ -316,6 +386,12 @@ function assertRemoveSettlementEventInput(input: RemoveSettlementEventInput): vo
   assertPositiveSafeInteger(input.chainId, "reorg.chainId");
 }
 
+function assertSettlementQuoteHashLookupInput(input: GetSettlementEventsByQuoteHashInput): void {
+  assertRecord(input, "quote hash lookup input");
+  assertOwnFields(input, settlementQuoteHashLookupFields, "quote hash lookup input");
+  assertPositiveSafeInteger(input.chainId, "lookup.chainId");
+}
+
 function assertSettlementQuote(quote: SignedQuote): void {
   assertRecord(quote, "quote");
   assertOwnFields(quote, settlementQuoteFields, "quote");
@@ -339,7 +415,7 @@ function assertSettlementQuote(quote: SignedQuote): void {
   }
 }
 
-function assertRecord(value: unknown, field: "inventoryService" | "input" | "reorg input" | "quote"): void {
+function assertRecord(value: unknown, field: string): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Settlement event ${field} must be an object`);
   }

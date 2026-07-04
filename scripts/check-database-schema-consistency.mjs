@@ -9,6 +9,10 @@ const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");
 const quoteRepositorySource = await readFile("backend/src/modules/quote/quote.repository.ts", "utf8");
 const riskEngineSource = await readFile("backend/src/modules/risk/risk.engine.ts", "utf8");
+const settlementEventServiceSource = await readFile(
+  "backend/src/modules/settlement/settlement-event.service.ts",
+  "utf8",
+);
 const maxSafeInteger = "9007199254740991";
 const secp256k1HalfOrder = "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0";
 const safeIdentifierPattern = "^[A-Za-z0-9_:-]+$";
@@ -565,6 +569,18 @@ assert.ok(
     schemaSource,
   ),
   "settlement_events must support chain-scoped quote_hash lookups from indexed QuoteSettled logs",
+);
+assert.ok(
+  settlementEventServiceSource.includes("eventIdsByChainQuoteHash"),
+  "SettlementEventService must keep a runtime mirror of the chain-scoped settlement quote_hash index",
+);
+assert.ok(
+  settlementEventServiceSource.includes("getSettlementEventsByQuoteHash"),
+  "SettlementEventService must expose chain-scoped settlement quote_hash lookup",
+);
+assert.ok(
+  erDiagramSource.includes("SettlementEventService.getSettlementEventsByQuoteHash"),
+  "ER diagram must document the runtime settlement quote_hash lookup path",
 );
 for (const [indexName, columnName] of [
   ["idx_quotes_snapshot_id", "snapshot_id"],
