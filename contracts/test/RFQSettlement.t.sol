@@ -235,6 +235,41 @@ contract RFQSettlementTest {
         );
     }
 
+    function testFuzzSubmitQuoteRejectsExpiredDeadlineWithoutSideEffects(
+        uint256 rawNow,
+        uint256 rawExpiredBy,
+        uint256 rawNonce
+    ) public {
+        uint256 nowSeconds = _boundUint(rawNow, 2, type(uint64).max);
+        uint256 expiredBy = _boundUint(rawExpiredBy, 1, nowSeconds);
+        vm.warp(nowSeconds);
+
+        IRFQSettlement.Quote memory quote = _quote(_boundUint(rawNonce, 1, type(uint128).max));
+        quote.deadline = nowSeconds - expiredBy;
+        bytes memory signature = _sign(quote);
+
+        uint256 userTokenInBefore = tokenIn.balanceOf(user);
+        uint256 userTokenOutBefore = tokenOut.balanceOf(user);
+        uint256 treasuryTokenInBefore = tokenIn.balanceOf(address(treasury));
+        uint256 treasuryTokenOutBefore = tokenOut.balanceOf(address(treasury));
+
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.QuoteExpired.selector);
+        settlement.submitQuote(quote, signature);
+
+        require(!settlement.usedNonces(user, quote.nonce), "fuzz nonce consumed on expiry");
+        require(tokenIn.balanceOf(user) == userTokenInBefore, "fuzz user tokenIn changed");
+        require(tokenOut.balanceOf(user) == userTokenOutBefore, "fuzz user tokenOut changed");
+        require(
+            tokenIn.balanceOf(address(treasury)) == treasuryTokenInBefore,
+            "fuzz treasury tokenIn changed"
+        );
+        require(
+            tokenOut.balanceOf(address(treasury)) == treasuryTokenOutBefore,
+            "fuzz treasury tokenOut changed"
+        );
+    }
+
     function testSubmitQuoteEmitsQuoteSettledForIndexer() public {
         IRFQSettlement.Quote memory quote = _quote(12);
         bytes32 quoteHash = settlement.hashQuote(quote);
