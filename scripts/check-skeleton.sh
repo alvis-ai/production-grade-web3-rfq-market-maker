@@ -15,6 +15,7 @@ test -s backend/src/main.ts
 test -s backend/test/api-error.test.mjs
 test -s backend/test/api-gateway.test.mjs
 test -s backend/test/api-hedge.test.mjs
+test -s backend/test/api-market-data.test.mjs
 test -s backend/test/api-pnl.test.mjs
 test -s backend/test/api-rate-limit.test.mjs
 test -s backend/test/api-readiness.test.mjs
@@ -2809,7 +2810,7 @@ grep -q 'preserves signer errors when marking failed quotes fails' backend/test/
 grep -q 'signing is unavailable' backend/test/api-signer.test.mjs
 grep -q 'preserves signer errors when failed quote persistence fails' backend/test/api-signer.test.mjs
 grep -q 'rfq_signer_errors_total' backend/test/api-signer.test.mjs
-grep -q 'unconfigured market data pairs before pricing and signing' backend/test/api.test.mjs
+grep -q 'unconfigured market data pairs before pricing and signing' backend/test/api-market-data.test.mjs
 grep -q 'settlement constraints before simulated settlement' backend/test/api.test.mjs
 grep -q 'settlementRejectionFailureCode' backend/src/main.ts
 grep -q 'failed quote status persistence fails' backend/test/api.test.mjs
@@ -2862,10 +2863,10 @@ grep -q 'RISK_REJECTED' backend/test/api.test.mjs
 grep -q 'risk rejection when rejected quote persistence fails' backend/test/api.test.mjs
 grep -q 'Rejected quote persistence unavailable' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'SLIPPAGE_TOO_WIDE' backend/test/api.test.mjs
-grep -q 'stale market data' backend/test/api.test.mjs
-grep -q 'market data timestamps too far in the future' backend/test/api.test.mjs
-grep -q 'market data failures' backend/test/api.test.mjs
-grep -q 'invalid market data before pricing and signing' backend/test/api.test.mjs
+grep -q 'stale market data' backend/test/api-market-data.test.mjs
+grep -q 'market data timestamps too far in the future' backend/test/api-market-data.test.mjs
+grep -q 'market data failures' backend/test/api-market-data.test.mjs
+grep -q 'invalid market data before pricing and signing' backend/test/api-market-data.test.mjs
 grep -q 'routing engine failures' backend/test/api.test.mjs
 grep -q 'ROUTING_UNAVAILABLE' backend/test/api.test.mjs
 grep -q 'ROUTING_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
