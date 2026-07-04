@@ -63,6 +63,17 @@ const pnlReport = await reconciliation.reconcileSettlementToPnl();
 const quoteRetryReport = await reconciliation.reconcileSettlementToQuote();
 const hedgeRetryReport = await reconciliation.reconcileSettlementToHedge();
 const pnlRetryReport = await reconciliation.reconcileSettlementToPnl();
+const quoteHashFilter = {
+  chainId: quote.chainId,
+  quoteHash: settlement.event.quoteHash,
+};
+const quoteHashQuoteRetryReport = await reconciliation.reconcileSettlementToQuote(quoteHashFilter);
+const quoteHashHedgeRetryReport = await reconciliation.reconcileSettlementToHedge(quoteHashFilter);
+const quoteHashPnlRetryReport = await reconciliation.reconcileSettlementToPnl(quoteHashFilter);
+const unmatchedQuoteHashReport = await reconciliation.reconcileSettlementToQuote({
+  chainId: 2,
+  quoteHash: settlement.event.quoteHash,
+});
 
 const afterStatus = await quoteRepository.findStatus("q_reconciliation_check");
 const hedge = hedgeService.getHedgeIntentBySettlementEvent(settlement.event.settlementEventId);
@@ -104,6 +115,30 @@ assert.deepEqual(pnlRetryReport, {
   skippedPnlRecords: 1,
   errors: [],
 });
+assert.deepEqual(quoteHashQuoteRetryReport, {
+  scannedSettlementEvents: 1,
+  repairedQuoteStatuses: 0,
+  skippedQuoteStatuses: 1,
+  errors: [],
+});
+assert.deepEqual(quoteHashHedgeRetryReport, {
+  scannedSettlementEvents: 1,
+  repairedHedgeIntents: 0,
+  skippedHedgeIntents: 1,
+  errors: [],
+});
+assert.deepEqual(quoteHashPnlRetryReport, {
+  scannedSettlementEvents: 1,
+  repairedPnlRecords: 0,
+  skippedPnlRecords: 1,
+  errors: [],
+});
+assert.deepEqual(unmatchedQuoteHashReport, {
+  scannedSettlementEvents: 0,
+  repairedQuoteStatuses: 0,
+  skippedQuoteStatuses: 0,
+  errors: [],
+});
 assert.equal(afterStatus.status, "settled");
 assert.equal(afterStatus.txHash, settlement.event.txHash);
 assert.equal(afterStatus.settlementEventId, settlement.event.settlementEventId);
@@ -120,4 +155,8 @@ console.log(JSON.stringify({
   quoteRetryReport,
   hedgeRetryReport,
   pnlRetryReport,
+  quoteHashQuoteRetryReport,
+  quoteHashHedgeRetryReport,
+  quoteHashPnlRetryReport,
+  unmatchedQuoteHashReport,
 }, null, 2));

@@ -5,6 +5,14 @@ import type { SettlementEventStore } from "../settlement/settlement-event.servic
 import type { SignedQuote } from "../../shared/types/rfq.js";
 
 const reconciliationServiceDepsFields = ["quoteRepository", "settlementEventService"] as const;
+const settlementReconciliationFilterFields = ["chainId", "quoteHash"] as const;
+
+type SettlementEventForReconciliation = ReturnType<SettlementEventStore["listSettlementEvents"]>[number];
+
+export interface SettlementReconciliationFilter {
+  chainId: number;
+  quoteHash: `0x${string}`;
+}
 
 export interface SettlementToQuoteReconciliationReport {
   scannedSettlementEvents: number;
@@ -60,8 +68,10 @@ export class ReconciliationService {
     this.deps = cloneReconciliationServiceDeps(deps);
   }
 
-  async reconcileSettlementToQuote(): Promise<SettlementToQuoteReconciliationReport> {
-    const events = this.deps.settlementEventService.listSettlementEvents();
+  async reconcileSettlementToQuote(
+    filter?: SettlementReconciliationFilter,
+  ): Promise<SettlementToQuoteReconciliationReport> {
+    const events = this.listSettlementEventsForReconciliation(filter);
     const report: SettlementToQuoteReconciliationReport = {
       scannedSettlementEvents: events.length,
       repairedQuoteStatuses: 0,
@@ -103,12 +113,14 @@ export class ReconciliationService {
     return report;
   }
 
-  async reconcileSettlementToPnl(): Promise<SettlementToPnlReconciliationReport> {
+  async reconcileSettlementToPnl(
+    filter?: SettlementReconciliationFilter,
+  ): Promise<SettlementToPnlReconciliationReport> {
     if (!this.deps.pnlService) {
       throw new Error("ReconciliationService pnlService is required for settlement-to-PnL reconciliation");
     }
 
-    const events = this.deps.settlementEventService.listSettlementEvents();
+    const events = this.listSettlementEventsForReconciliation(filter);
     const report: SettlementToPnlReconciliationReport = {
       scannedSettlementEvents: events.length,
       repairedPnlRecords: 0,
@@ -152,12 +164,14 @@ export class ReconciliationService {
     return report;
   }
 
-  async reconcileSettlementToHedge(): Promise<SettlementToHedgeReconciliationReport> {
+  async reconcileSettlementToHedge(
+    filter?: SettlementReconciliationFilter,
+  ): Promise<SettlementToHedgeReconciliationReport> {
     if (!this.deps.hedgeService) {
       throw new Error("ReconciliationService hedgeService is required for settlement-to-hedge reconciliation");
     }
 
-    const events = this.deps.settlementEventService.listSettlementEvents();
+    const events = this.listSettlementEventsForReconciliation(filter);
     const report: SettlementToHedgeReconciliationReport = {
       scannedSettlementEvents: events.length,
       repairedHedgeIntents: 0,
@@ -188,11 +202,22 @@ export class ReconciliationService {
 
     return report;
   }
+
+  private listSettlementEventsForReconciliation(
+    filter: SettlementReconciliationFilter | undefined,
+  ): SettlementEventForReconciliation[] {
+    if (filter === undefined) {
+      return this.deps.settlementEventService.listSettlementEvents();
+    }
+
+    const normalizedFilter = normalizeSettlementReconciliationFilter(filter);
+    return this.deps.settlementEventService.getSettlementEventsByQuoteHash(normalizedFilter);
+  }
 }
 
 function isAlreadyReconciled(
   status: Awaited<ReturnType<QuoteRepository["findStatus"]>>,
-  event: ReturnType<SettlementEventStore["listSettlementEvents"]>[number],
+  event: SettlementEventForReconciliation,
 ): boolean {
   return (
     status?.status === "settled" &&
@@ -211,6 +236,7 @@ function assertReconciliationServiceDeps(deps: ReconciliationServiceDeps): void 
   assertOptionalOwnField(deps, "pnlService", "deps");
   assertOptionalOwnField(deps, "hedgeService", "deps");
   assertDependencyMethod(deps.settlementEventService, "settlementEventService", "listSettlementEvents");
+  assertDependencyMethod(deps.settlementEventService, "settlementEventService", "getSettlementEventsByQuoteHash");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findStatus");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markStatus");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByQuoteId");
@@ -250,7 +276,7 @@ function assertOptionalDependencyMethod(
   }
 }
 
-function assertRecord(value: unknown, field: "deps" | keyof ReconciliationServiceDeps): void {
+function assertRecord(value: unknown, field: string): void {
   if (!isRecord(value)) {
     throw new Error(`ReconciliationService ${field} must be an object`);
   }
@@ -274,8 +300,35 @@ function assertOptionalOwnField(value: object, field: string, path: string): voi
   }
 }
 
+function normalizeSettlementReconciliationFilter(
+  filter: SettlementReconciliationFilter,
+): SettlementReconciliationFilter {
+  assertRecord(filter, "filter");
+  assertOwnFields(filter, settlementReconciliationFilterFields, "filter");
+  assertPositiveSafeInteger(filter.chainId, "filter.chainId");
+
+  return {
+    chainId: filter.chainId,
+    quoteHash: normalizeQuoteHash(filter.quoteHash),
+  };
+}
+
+function normalizeQuoteHash(value: unknown): `0x${string}` {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error("ReconciliationService filter.quoteHash must be a 32-byte hex string");
+  }
+
+  return value.toLowerCase() as `0x${string}`;
+}
+
+function assertPositiveSafeInteger(value: unknown, field: string): void {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`ReconciliationService ${field} must be a positive safe integer`);
+  }
+}
+
 function hedgeIntentFromSettlementEvent(
-  event: ReturnType<SettlementEventStore["listSettlementEvents"]>[number],
+  event: SettlementEventForReconciliation,
 ): HedgeIntent {
   return {
     settlementEventId: event.settlementEventId,

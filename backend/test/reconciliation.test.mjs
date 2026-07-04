@@ -58,6 +58,94 @@ test("ReconciliationService repairs quote status from settlement events", async 
   });
 });
 
+test("ReconciliationService scopes repairs by chain-scoped settlement quote hash", async () => {
+  const hedgeService = new HedgeService();
+  const pnlService = new PnlService();
+  const quoteRepository = new InMemoryQuoteRepository();
+  const settlementEventService = new SettlementEventService(new InventoryService());
+  const unrelatedQuote = {
+    ...quote,
+    amountOut: "970",
+    minAmountOut: "960",
+    nonce: "2",
+  };
+  await saveSignedQuote(quoteRepository, "q_hash_target", quote);
+  await saveSignedQuote(quoteRepository, "q_hash_unrelated", unrelatedQuote);
+
+  const targetSettlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_hash_target",
+    quote,
+    txHash: `0x${"17".repeat(32)}`,
+    blockNumber: 200,
+    logIndex: 0,
+  });
+  const unrelatedSettlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_hash_unrelated",
+    quote: unrelatedQuote,
+    txHash: `0x${"18".repeat(32)}`,
+    blockNumber: 201,
+    logIndex: 0,
+  });
+  const reconciliation = new ReconciliationService({
+    hedgeService,
+    pnlService,
+    quoteRepository,
+    settlementEventService,
+  });
+  const filter = {
+    chainId: quote.chainId,
+    quoteHash: `0x${targetSettlement.event.quoteHash.slice(2).toUpperCase()}`,
+  };
+
+  const quoteReport = await reconciliation.reconcileSettlementToQuote(filter);
+  const hedgeReport = await reconciliation.reconcileSettlementToHedge(filter);
+  const pnlReport = await reconciliation.reconcileSettlementToPnl(filter);
+  const noMatchReport = await reconciliation.reconcileSettlementToQuote({
+    chainId: 2,
+    quoteHash: targetSettlement.event.quoteHash,
+  });
+
+  assert.deepEqual(quoteReport, {
+    scannedSettlementEvents: 1,
+    repairedQuoteStatuses: 1,
+    skippedQuoteStatuses: 0,
+    errors: [],
+  });
+  assert.deepEqual(hedgeReport, {
+    scannedSettlementEvents: 1,
+    repairedHedgeIntents: 1,
+    skippedHedgeIntents: 0,
+    errors: [],
+  });
+  assert.deepEqual(pnlReport, {
+    scannedSettlementEvents: 1,
+    repairedPnlRecords: 1,
+    skippedPnlRecords: 0,
+    errors: [],
+  });
+  assert.deepEqual(noMatchReport, {
+    scannedSettlementEvents: 0,
+    repairedQuoteStatuses: 0,
+    skippedQuoteStatuses: 0,
+    errors: [],
+  });
+
+  const targetStatus = await quoteRepository.findStatus("q_hash_target");
+  const unrelatedStatus = await quoteRepository.findStatus("q_hash_unrelated");
+  const targetHedge = hedgeService.getHedgeIntentBySettlementEvent(targetSettlement.event.settlementEventId);
+  const unrelatedHedge = hedgeService.getHedgeIntentBySettlementEvent(unrelatedSettlement.event.settlementEventId);
+  const pnlSummary = pnlService.summary();
+
+  assert.equal(targetStatus.status, "settled");
+  assert.equal(targetStatus.settlementEventId, targetSettlement.event.settlementEventId);
+  assert.equal(unrelatedStatus.status, "signed");
+  assert.equal(unrelatedStatus.settlementEventId, undefined);
+  assert.equal(targetHedge.quoteId, "q_hash_target");
+  assert.equal(unrelatedHedge, undefined);
+  assert.equal(pnlSummary.totalTrades, 1);
+  assert.equal(pnlSummary.trades[0].quoteId, "q_hash_target");
+});
+
 test("ReconciliationService snapshots dependency object at construction", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const settlementEventService = new SettlementEventService(new InventoryService());
@@ -159,6 +247,18 @@ test("ReconciliationService rejects unsafe dependency configuration at construct
     () =>
       new ReconciliationService({
         ...deps,
+        settlementEventService: {
+          listSettlementEvents() {
+            return [];
+          },
+        },
+      }),
+    /ReconciliationService settlementEventService.getSettlementEventsByQuoteHash must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
         quoteRepository: {},
       }),
     /ReconciliationService quoteRepository.findStatus must be a function/,
@@ -218,6 +318,49 @@ test("ReconciliationService rejects unsafe dependency configuration at construct
         },
       }),
     /ReconciliationService hedgeService.getHedgeIntentBySettlementEvent must be a function when provided/,
+  );
+});
+
+test("ReconciliationService rejects unsafe settlement quote hash filters before scanning", async () => {
+  const reconciliation = new ReconciliationService(reconciliationServiceDeps());
+  const quoteHash = `0x${"19".repeat(32)}`;
+
+  await assert.rejects(
+    reconciliation.reconcileSettlementToQuote([]),
+    /ReconciliationService filter must be an object/,
+  );
+  await assert.rejects(
+    reconciliation.reconcileSettlementToQuote(Object.create({ chainId: quote.chainId, quoteHash })),
+    /ReconciliationService filter.chainId must be an own field/,
+  );
+
+  const inheritedQuoteHashFilter = Object.create({ quoteHash });
+  Object.assign(inheritedQuoteHashFilter, { chainId: quote.chainId });
+  await assert.rejects(
+    reconciliation.reconcileSettlementToQuote(inheritedQuoteHashFilter),
+    /ReconciliationService filter.quoteHash must be an own field/,
+  );
+
+  await assert.rejects(
+    reconciliation.reconcileSettlementToHedge({
+      chainId: 0,
+      quoteHash,
+    }),
+    /ReconciliationService filter.chainId must be a positive safe integer/,
+  );
+  await assert.rejects(
+    reconciliation.reconcileSettlementToPnl({
+      chainId: quote.chainId,
+      quoteHash: "0x1234",
+    }),
+    /ReconciliationService filter.quoteHash must be a 32-byte hex string/,
+  );
+  await assert.rejects(
+    reconciliation.reconcileSettlementToPnl({
+      chainId: quote.chainId,
+      quoteHash: new String(quoteHash),
+    }),
+    /ReconciliationService filter.quoteHash must be a 32-byte hex string/,
   );
 });
 
