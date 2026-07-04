@@ -14,6 +14,7 @@ test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/test/api-error.test.mjs
 test -s backend/test/api-gateway.test.mjs
+test -s backend/test/api-pnl.test.mjs
 test -s backend/test/api-rate-limit.test.mjs
 test -s backend/test/api.test.mjs
 test -s backend/test/hedge.test.mjs
@@ -2921,10 +2922,10 @@ grep -q 'rate limits quote status requests by client' backend/test/api-rate-limi
 grep -q 'rfq_rate_limited_total\\{endpoint="quote"\\} 1' backend/test/api-rate-limit.test.mjs
 grep -q 'rfq_rate_limited_total\\{endpoint="submit"\\} 1' backend/test/api-rate-limit.test.mjs
 grep -q 'rfq_rate_limited_total\\{endpoint="status"\\} 1' backend/test/api-rate-limit.test.mjs
-grep -q 'PnL record creation fails' backend/test/api.test.mjs
-grep -q 'malformed PnL store results as post-settlement PnL failures' backend/test/api.test.mjs
-grep -q 'internalState: "unsafe"' backend/test/api.test.mjs
-grep -q 'PnL summary store failures' backend/test/api.test.mjs
+grep -q 'PnL record creation fails' backend/test/api-pnl.test.mjs
+grep -q 'malformed PnL store results as post-settlement PnL failures' backend/test/api-pnl.test.mjs
+grep -q 'internalState: "unsafe"' backend/test/api-pnl.test.mjs
+grep -q 'PnL summary store failures' backend/test/api-pnl.test.mjs
 grep -q 'rfq_pnl_record_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'PnL attribution after settlement is best-effort' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService.reconcileSettlementToQuote()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
