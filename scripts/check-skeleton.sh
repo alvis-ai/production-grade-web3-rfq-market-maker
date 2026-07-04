@@ -27,6 +27,7 @@ test -s backend/test/risk-decision.test.mjs
 test -s backend/test/routing.test.mjs
 test -s backend/test/settlement-event.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
+test -s backend/test/submit-concurrency.test.mjs
 test -s backend/test/validation.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
 grep -q 'marketDataService: MarketDataService' backend/src/modules/health/readiness.service.ts
@@ -2908,9 +2909,9 @@ grep -q 'expired submit quotes' backend/test/api.test.mjs
 grep -q 'quote.nonce must be a positive uint string' backend/test/validation.test.mjs
 grep -q 'Settlement event quote.nonce must be a positive uint string' backend/test/settlement-event.test.mjs
 grep -q 'unissued submit quotes' backend/test/api.test.mjs
-grep -q 'replayed submit quotes' backend/test/api.test.mjs
-grep -q 'concurrent submit attempts for the same signed quote' backend/test/api.test.mjs
-grep -q 'assert.equal(verifyCalls, 1)' backend/test/api.test.mjs
+grep -q 'replayed submit quotes' backend/test/submit-concurrency.test.mjs
+grep -q 'concurrent submit attempts for the same signed quote' backend/test/submit-concurrency.test.mjs
+grep -q 'assert.equal(verifyCalls, 1)' backend/test/submit-concurrency.test.mjs
 grep -q 'same millisecond' backend/test/api.test.mjs
 grep -q 'rate limits quote requests by client' backend/test/api.test.mjs
 grep -q 'rate limits submit requests before validation and settlement' backend/test/api.test.mjs
