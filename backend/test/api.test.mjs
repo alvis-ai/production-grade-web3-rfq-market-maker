@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer, installGracefulShutdown, readServerListenConfig } from "../dist/main.js";
+import { HedgeService } from "../dist/modules/hedge/hedge.service.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
 import { BasicRiskEngine, defaultBasicRiskPolicy } from "../dist/modules/risk/risk.engine.js";
 import {
@@ -1344,6 +1345,85 @@ test("RFQ API returns structured errors for missing hedge intents", async () => 
     assert.equal(response.body.code, "HEDGE_NOT_FOUND");
     assert.match(response.body.traceId, /^tr_/);
     assert.equal(response.headers["x-trace-id"], response.body.traceId);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API returns filled and failed hedge outcomes from the hedge status store", async () => {
+  const hedgeService = new HedgeService();
+  const server = buildServer({ logger: false, hedgeService });
+  await server.ready();
+
+  try {
+    const filledQuote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(filledQuote.statusCode, 200);
+
+    const filledSubmit = await injectJson(server, "POST", "/submit", {
+      quote: quotePayloadFromResponse(filledQuote.body),
+      signature: filledQuote.body.signature,
+    });
+    assert.equal(filledSubmit.statusCode, 202);
+
+    const filled = hedgeService.markHedgeIntentFilled({
+      hedgeOrderId: filledSubmit.body.hedgeOrderId,
+      externalOrderId: "cex_order_api_1",
+    });
+    assert.equal(filled.updated, true);
+
+    const filledResponse = await injectJson(server, "GET", `/hedges/${filledSubmit.body.hedgeOrderId}`);
+    assert.equal(filledResponse.statusCode, 200);
+    assertTraceHeader(filledResponse);
+    assertResponseFields(filledResponse.body, [
+      "hedgeOrderId",
+      "status",
+      "settlementEventId",
+      "quoteId",
+      "chainId",
+      "token",
+      "side",
+      "amount",
+      "reason",
+      "createdAt",
+      "externalOrderId",
+      "updatedAt",
+    ]);
+    assert.equal(filledResponse.body.hedgeOrderId, filledSubmit.body.hedgeOrderId);
+    assert.equal(filledResponse.body.status, "filled");
+    assert.equal(filledResponse.body.externalOrderId, "cex_order_api_1");
+    assert.equal(filledResponse.body.updatedAt, filled.record.updatedAt);
+
+    const failedQuote = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(failedQuote.statusCode, 200);
+
+    const failedSubmit = await injectJson(server, "POST", "/submit", {
+      quote: quotePayloadFromResponse(failedQuote.body),
+      signature: failedQuote.body.signature,
+    });
+    assert.equal(failedSubmit.statusCode, 202);
+
+    const failed = hedgeService.markHedgeIntentFailed(failedSubmit.body.hedgeOrderId);
+    assert.equal(failed.updated, true);
+
+    const failedResponse = await injectJson(server, "GET", `/hedges/${failedSubmit.body.hedgeOrderId}`);
+    assert.equal(failedResponse.statusCode, 200);
+    assertTraceHeader(failedResponse);
+    assertResponseFields(failedResponse.body, [
+      "hedgeOrderId",
+      "status",
+      "settlementEventId",
+      "quoteId",
+      "chainId",
+      "token",
+      "side",
+      "amount",
+      "reason",
+      "createdAt",
+      "updatedAt",
+    ]);
+    assert.equal(failedResponse.body.hedgeOrderId, failedSubmit.body.hedgeOrderId);
+    assert.equal(failedResponse.body.status, "failed");
+    assert.equal(failedResponse.body.updatedAt, failed.record.updatedAt);
   } finally {
     await server.close();
   }

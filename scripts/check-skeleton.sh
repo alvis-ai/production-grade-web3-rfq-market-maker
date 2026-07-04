@@ -2608,6 +2608,7 @@ grep -q 'not ready because at least one quote dependency is degraded' docs/api/o
 grep -q 'signer sign/verify capability' docs/api/openapi.yaml
 grep -q 'getHedgeIntent' docs/api/openapi.yaml
 grep -q 'HedgeIntentStatus' docs/api/openapi.yaml
+grep -q 'RFQ API returns filled and failed hedge outcomes from the hedge status store' backend/test/api.test.mjs
 grep -q 'HEDGE_NOT_FOUND' docs/api/openapi.yaml
 grep -q 'HEDGE_STORE_UNAVAILABLE' docs/api/openapi.yaml
 grep -q 'HEDGE_STORE_UNAVAILABLE' docs/api/errors.md

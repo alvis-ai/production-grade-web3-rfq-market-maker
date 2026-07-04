@@ -104,7 +104,7 @@ Submit state includes `quote`, `signature`, `txHash`, `settlementEventId`, `hedg
 
 ## API Design
 
-Direct submit does not require backend `/submit`; relay mode uses `POST /submit`。Both modes should converge on `GET /quote/:id` for quote status. Relay mode may return `settlementEventId`、`hedgeOrderId` and `pnlId` immediately from `/submit`, but refresh and polling must treat `QuoteStatus` as the durable source of these navigation pointers. When `GET /quote/:id` returns those IDs, the UI and SDK call `GET /settlements/:id` to show settlement consumption, `GET /hedges/:id` to show the queued hedge intent and `GET /pnl` to show realized PnL summary.
+Direct submit does not require backend `/submit`; relay mode uses `POST /submit`。Both modes should converge on `GET /quote/:id` for quote status. Relay mode may return `settlementEventId`、`hedgeOrderId` and `pnlId` immediately from `/submit`, but refresh and polling must treat `QuoteStatus` as the durable source of these navigation pointers. When `GET /quote/:id` returns those IDs, the UI and SDK call `GET /settlements/:id` to show settlement consumption, `GET /hedges/:id` to show the current hedge lifecycle status and venue reconciliation metadata, and `GET /pnl` to show realized PnL summary.
 
 ## Engineering Decisions
 

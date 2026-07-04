@@ -250,10 +250,12 @@ paths:
       operationId: getHedgeIntent
       summary: Get hedge intent status by id
       description: >
-        Returns the queued hedge intent created after a submit request updates
-        inventory. The initial reference implementation records hedge intent
-        metadata in memory; production deployments should back this endpoint with
-        a durable execution store.
+        Returns the hedge intent created after a submit request updates
+        inventory, including its current queued, filled, or failed lifecycle
+        status and terminal venue reconciliation metadata when available. The
+        reference implementation records hedge intent metadata in memory;
+        production deployments should back this endpoint with a durable
+        execution store.
       tags:
         - Hedge
       parameters:
