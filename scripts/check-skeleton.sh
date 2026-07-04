@@ -393,6 +393,7 @@ test -s sdk/src/settlement.ts
 test -s sdk/test/sdk-client-config.test.mjs
 test -s sdk/test/sdk-client-errors.test.mjs
 test -s sdk/test/sdk-client-requests.test.mjs
+test -s sdk/test/sdk-client-accounting-responses.test.mjs
 test -s sdk/test/sdk-client-responses.test.mjs
 test -s sdk/test/sdk-client-status-responses.test.mjs
 test -s sdk/test/sdk-settlement.test.mjs
@@ -2139,7 +2140,7 @@ grep -q 'function isSafeIdentifier' sdk/src/client.ts
 grep -q 'statusIdentifierPattern.test(value)' sdk/src/client.ts
 grep -q 'RFQ quote response returned malformed quoteId' sdk/test/sdk-client-responses.test.mjs
 grep -q 'RFQ submit response returned malformed pnlId' sdk/test/sdk-client-responses.test.mjs
-grep -q 'RFQ PnL summary response trade returned malformed quoteId' sdk/test/sdk-client-responses.test.mjs
+grep -q 'RFQ PnL summary response trade returned malformed quoteId' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'RFQClient rejects unsafe dynamic status identifiers before fetch' sdk/test/sdk-client-requests.test.mjs
 grep -q 'RFQ submit request must not include unknown field relayer' sdk/test/sdk-client-requests.test.mjs
 grep -q 'RFQ submit request missing required field signature' sdk/test/sdk-client-requests.test.mjs
@@ -2178,7 +2179,7 @@ grep -q 'assertQuoteStatusPayloadConsistency' sdk/src/client.ts
 grep -q 'assertHedgeIntentStatus' sdk/src/client.ts
 grep -q 'assertSettlementEventStatus' sdk/src/client.ts
 grep -q '"nonce"' sdk/src/client.ts
-grep -q 'RFQ settlement event status response returned malformed nonce' sdk/test/sdk-client-responses.test.mjs
+grep -q 'RFQ settlement event status response returned malformed nonce' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'assertPnlSummary' sdk/src/client.ts
 grep -q 'assertPnlTradeRecord' sdk/src/client.ts
 grep -q 'modelDescription' sdk/src/client.ts
@@ -2282,12 +2283,12 @@ grep -q 'malformed submit and quote status responses' sdk/test/sdk-client-respon
 grep -q 'deadline: "1893456000"' sdk/test/sdk-client-responses.test.mjs
 grep -q 'q_rejected' sdk/test/sdk-client-responses.test.mjs
 grep -q 'lifecycle payload consistency between status and settlement pointers' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'malformed settlement status responses' sdk/test/sdk-client-responses.test.mjs
-grep -q 'blockNumber: "123456"' sdk/test/sdk-client-responses.test.mjs
-grep -q 'observedAt: "June 27, 2026"' sdk/test/sdk-client-responses.test.mjs
-grep -q 'malformed PnL summary responses' sdk/test/sdk-client-responses.test.mjs
-grep -q 'totalTrades: "1"' sdk/test/sdk-client-responses.test.mjs
-grep -q 'realizedAt: "2026-02-31T00:00:00.000Z"' sdk/test/sdk-client-responses.test.mjs
+grep -q 'malformed settlement status responses' sdk/test/sdk-client-accounting-responses.test.mjs
+grep -q 'blockNumber: "123456"' sdk/test/sdk-client-accounting-responses.test.mjs
+grep -q 'observedAt: "June 27, 2026"' sdk/test/sdk-client-accounting-responses.test.mjs
+grep -q 'malformed PnL summary responses' sdk/test/sdk-client-accounting-responses.test.mjs
+grep -q 'totalTrades: "1"' sdk/test/sdk-client-accounting-responses.test.mjs
+grep -q 'realizedAt: "2026-02-31T00:00:00.000Z"' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'isBytes32Hex' sdk/src/client.ts
 grep -q 'isSignatureHex' sdk/src/client.ts
 grep -q 'SECP256K1N_HALF' sdk/src/client.ts
@@ -2307,14 +2308,14 @@ grep -q 'successful response validators require closed own response fields' book
 grep -q 'routeHint: "debug"' sdk/test/sdk-client-responses.test.mjs
 grep -q 'relayer: quote.user' sdk/test/sdk-client-responses.test.mjs
 grep -q 'venue: "CEX_A"' sdk/test/sdk-client-status-responses.test.mjs
-grep -q 'chainName: "mainnet"' sdk/test/sdk-client-responses.test.mjs
-grep -q 'reconciliationId: "recon_1"' sdk/test/sdk-client-responses.test.mjs
-grep -q 'routeId: "route_1"' sdk/test/sdk-client-responses.test.mjs
+grep -q 'chainName: "mainnet"' sdk/test/sdk-client-accounting-responses.test.mjs
+grep -q 'reconciliationId: "recon_1"' sdk/test/sdk-client-accounting-responses.test.mjs
+grep -q 'routeId: "route_1"' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'Stringified numbers and wrapper objects are rejected instead of being coerced with `Number(...)`' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -Fq 'return typeof value === "string" && /^(0|-?[1-9][0-9]*)$/.test(value)' sdk/src/client.ts
-grep -q 'grossPnlTokenOut: "01600000"' sdk/test/sdk-client-responses.test.mjs
-grep -q 'grossPnlTokenOut: "-0"' sdk/test/sdk-client-responses.test.mjs
-grep -q 'malformed modelDescription' sdk/test/sdk-client-responses.test.mjs
+grep -q 'grossPnlTokenOut: "01600000"' sdk/test/sdk-client-accounting-responses.test.mjs
+grep -q 'grossPnlTokenOut: "-0"' sdk/test/sdk-client-accounting-responses.test.mjs
+grep -q 'malformed modelDescription' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'canonical signed gross PnL strings without leading zeros or negative zero' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'canonical UTC ISO timestamps generated with `Date.prototype.toISOString()`' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'client.health' sdk/test/sdk.test.mjs
@@ -2571,6 +2572,7 @@ grep -Fq '"sdk/src/client.ts"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-config.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-errors.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-requests.test.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"sdk/test/sdk-client-accounting-responses.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-responses.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-status-responses.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-settlement.test.mjs"' .github/workflows/docs-ci.yml
