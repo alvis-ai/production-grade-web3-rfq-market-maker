@@ -18,6 +18,7 @@ test -s backend/test/api-hedge.test.mjs
 test -s backend/test/api-pnl.test.mjs
 test -s backend/test/api-rate-limit.test.mjs
 test -s backend/test/api-readiness.test.mjs
+test -s backend/test/api-signer.test.mjs
 test -s backend/test/api-status.test.mjs
 test -s backend/test/api.test.mjs
 test -s backend/test/hedge.test.mjs
@@ -2805,9 +2806,9 @@ grep -q 'built-in Anvil signer fallback is only for unset `NODE_ENV`, `developme
 grep -q '默认 Anvil signer 只允许用于 unset `NODE_ENV`、`development` 或 `test`' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'marks requested quotes as failed when signer is unavailable' backend/test/quote-service.test.mjs
 grep -q 'preserves signer errors when marking failed quotes fails' backend/test/quote-service.test.mjs
-grep -q 'signing is unavailable' backend/test/api.test.mjs
-grep -q 'preserves signer errors when failed quote persistence fails' backend/test/api.test.mjs
-grep -q 'rfq_signer_errors_total' backend/test/api.test.mjs
+grep -q 'signing is unavailable' backend/test/api-signer.test.mjs
+grep -q 'preserves signer errors when failed quote persistence fails' backend/test/api-signer.test.mjs
+grep -q 'rfq_signer_errors_total' backend/test/api-signer.test.mjs
 grep -q 'unconfigured market data pairs before pricing and signing' backend/test/api.test.mjs
 grep -q 'settlement constraints before simulated settlement' backend/test/api.test.mjs
 grep -q 'settlementRejectionFailureCode' backend/src/main.ts
