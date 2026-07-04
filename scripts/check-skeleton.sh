@@ -587,6 +587,9 @@ grep -q 'InMemoryQuoteRepository' backend/src/main.ts
 grep -q 'new InventoryService' backend/src/main.ts
 grep -q 'new HedgeService' backend/src/main.ts
 grep -q 'recordSettlement' backend/src/main.ts
+grep -q 'pnlTradeRecordFields = \[' backend/src/main.ts
+grep -q 'assertPnlRecordResult(pnlRecord, input)' backend/src/main.ts
+grep -q 'API PnL record grossPnlTokenOut must match submitted quote' backend/src/main.ts
 grep -q 'settlementEventResult.duplicate' backend/src/main.ts
 grep -q 'markPostSettlementQuoteStatus' backend/src/main.ts
 grep -q 'markSettlementRejectedQuoteFailed' backend/src/main.ts
@@ -1659,6 +1662,8 @@ grep -q 'q_amount_number' backend/test/pnl.test.mjs
 grep -q 'q_nonce_leading_zero' backend/test/pnl.test.mjs
 grep -q 'stored signed attribution payload' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnlService` returns defensive copies from `recordSettlement()` and `summary()`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'validates the `PnlTradeRecord` returned by `PnlStore.recordSettlement()` before exposing `pnlId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'malformed or mismatched PnL store output is treated as `PNL_RECORD_FAILED`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rejects malformed root payloads, missing `quote` objects, and inherited root or signed quote required fields before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates `quoteId` as an own primitive-string `SafeIdentifier` and validates the derived `pnlId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'own canonical positive uint amount fields and nonce without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -2796,6 +2801,8 @@ grep -q 'rfq_rate_limited_total\\{endpoint="quote"\\} 1' backend/test/api.test.m
 grep -q 'rfq_rate_limited_total\\{endpoint="submit"\\} 1' backend/test/api.test.mjs
 grep -q 'rfq_rate_limited_total\\{endpoint="status"\\} 1' backend/test/api.test.mjs
 grep -q 'PnL record creation fails' backend/test/api.test.mjs
+grep -q 'malformed PnL store results as post-settlement PnL failures' backend/test/api.test.mjs
+grep -q 'internalState: "unsafe"' backend/test/api.test.mjs
 grep -q 'PnL summary store failures' backend/test/api.test.mjs
 grep -q 'rfq_pnl_record_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'PnL attribution after settlement is best-effort' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md

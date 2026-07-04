@@ -26,6 +26,7 @@ import { LocalEIP712SignerService, ObservedSignerService, type SignerService } f
 import { APIError, toAPIError } from "./shared/errors/api-error.js";
 import { validateQuoteRequest } from "./shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.js";
+import { isCanonicalUtcIsoTimestamp } from "./shared/validation/timestamp.js";
 import type { PnlTradeRecord } from "./shared/types/rfq.js";
 
 const defaultBodyLimitBytes = 32_768;
@@ -61,6 +62,23 @@ const buildServerOptionFields = [
   "trustProxy",
 ] as const;
 const rateLimitOptionFields = ["windowMs", "maxQuoteRequests", "maxSubmitRequests", "maxStatusRequests"] as const;
+const pnlTradeRecordFields = [
+  "pnlId",
+  "quoteId",
+  "chainId",
+  "user",
+  "tokenIn",
+  "tokenOut",
+  "amountIn",
+  "amountOut",
+  "minAmountOut",
+  "nonce",
+  "deadline",
+  "grossPnlTokenOut",
+  "grossPnlBps",
+  "model",
+  "realizedAt",
+] as const;
 
 interface RuntimeProcess {
   argv?: string[];
@@ -405,7 +423,7 @@ function sendError(
   return reply.header("x-trace-id", traceId).code(error.statusCode).send(error.toResponse(traceId));
 }
 
-function assertStatusIdentifier(value: unknown, field: "quoteId" | "hedgeOrderId" | "settlementEventId"): void {
+function assertStatusIdentifier(value: unknown, field: "quoteId" | "hedgeOrderId" | "settlementEventId" | "pnlId"): void {
   if (typeof value !== "string") {
     throw new APIError("INVALID_REQUEST", `${field} must be a primitive string`, 400);
   }
@@ -518,11 +536,129 @@ function recordPnlSettlementBestEffort(
   input: RecordPnlInput,
 ): PnlTradeRecord | undefined {
   try {
-    return pnlService.recordSettlement(input);
+    const pnlRecord = pnlService.recordSettlement(input);
+    assertPnlRecordResult(pnlRecord, input);
+    return pnlRecord;
   } catch {
     metricsService.recordPnlRecordError("PNL_RECORD_FAILED");
     return undefined;
   }
+}
+
+function assertPnlRecordResult(record: unknown, input: RecordPnlInput): asserts record is PnlTradeRecord {
+  if (!isRecord(record)) {
+    throw new Error("API PnL record result must be an object");
+  }
+
+  assertExactOwnFields(record, pnlTradeRecordFields, "PnL record result");
+  assertStatusIdentifier(record.pnlId, "pnlId");
+  assertStatusIdentifier(record.quoteId, "quoteId");
+  if (record.pnlId !== `pnl_${input.quoteId}` || record.quoteId !== input.quoteId) {
+    throw new Error("API PnL record identifiers must match submitted quote");
+  }
+  if (
+    typeof record.chainId !== "number" ||
+    !Number.isSafeInteger(record.chainId) ||
+    record.chainId <= 0 ||
+    record.chainId !== input.quote.chainId
+  ) {
+    throw new Error("API PnL record chainId must match submitted quote");
+  }
+  assertAddress(record.user, "PnL record user");
+  assertAddress(record.tokenIn, "PnL record tokenIn");
+  assertAddress(record.tokenOut, "PnL record tokenOut");
+  if (
+    record.user.toLowerCase() !== input.quote.user.toLowerCase() ||
+    record.tokenIn.toLowerCase() !== input.quote.tokenIn.toLowerCase() ||
+    record.tokenOut.toLowerCase() !== input.quote.tokenOut.toLowerCase()
+  ) {
+    throw new Error("API PnL record quote parties must match submitted quote");
+  }
+  assertPositiveUIntString(record.amountIn, "PnL record amountIn");
+  assertPositiveUIntString(record.amountOut, "PnL record amountOut");
+  assertPositiveUIntString(record.minAmountOut, "PnL record minAmountOut");
+  assertPositiveUIntString(record.nonce, "PnL record nonce");
+  if (
+    record.amountIn !== input.quote.amountIn ||
+    record.amountOut !== input.quote.amountOut ||
+    record.minAmountOut !== input.quote.minAmountOut ||
+    record.nonce !== input.quote.nonce
+  ) {
+    throw new Error("API PnL record quote amounts must match submitted quote");
+  }
+  if (BigInt(record.amountOut) < BigInt(record.minAmountOut)) {
+    throw new Error("API PnL record amountOut must be greater than or equal to minAmountOut");
+  }
+  if (
+    typeof record.deadline !== "number" ||
+    !Number.isSafeInteger(record.deadline) ||
+    record.deadline <= 0 ||
+    record.deadline !== input.quote.deadline
+  ) {
+    throw new Error("API PnL record deadline must match submitted quote");
+  }
+
+  assertIntString(record.grossPnlTokenOut, "PnL record grossPnlTokenOut");
+  const expectedGrossPnl = BigInt(input.quote.amountIn) - BigInt(input.quote.amountOut);
+  if (record.grossPnlTokenOut !== expectedGrossPnl.toString()) {
+    throw new Error("API PnL record grossPnlTokenOut must match submitted quote");
+  }
+  if (!Number.isSafeInteger(record.grossPnlBps) || record.grossPnlBps !== calculateGrossPnlBps(input.quote.amountIn, expectedGrossPnl)) {
+    throw new Error("API PnL record grossPnlBps must match submitted quote");
+  }
+  if (record.model !== "simulated_mid_price_v1") {
+    throw new Error("API PnL record model must be simulated_mid_price_v1");
+  }
+  if (!isCanonicalUtcIsoTimestamp(record.realizedAt)) {
+    throw new Error("API PnL record realizedAt must be a canonical UTC ISO timestamp");
+  }
+}
+
+function assertExactOwnFields(value: Record<string, unknown>, fields: readonly string[], path: string): void {
+  const expected = new Set(fields);
+  for (const key of Object.keys(value)) {
+    if (!expected.has(key)) {
+      throw new Error(`API ${path} must not include unknown field ${key}`);
+    }
+  }
+
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`API ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertPositiveUIntString(value: unknown, field: string): asserts value is string {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
+    throw new Error(`API ${field} must be a positive uint string`);
+  }
+}
+
+function assertIntString(value: unknown, field: string): asserts value is string {
+  if (typeof value !== "string" || !/^(0|-?[1-9][0-9]*)$/.test(value)) {
+    throw new Error(`API ${field} must be an integer string`);
+  }
+}
+
+function assertAddress(value: unknown, field: string): asserts value is `0x${string}` {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`API ${field} must be a 20-byte hex address`);
+  }
+}
+
+function calculateGrossPnlBps(amountIn: string, grossPnl: bigint): number {
+  const notional = BigInt(amountIn);
+  if (notional <= 0n) {
+    return 0;
+  }
+
+  const grossPnlBps = (grossPnl * 10_000n) / notional;
+  if (grossPnlBps < BigInt(Number.MIN_SAFE_INTEGER) || grossPnlBps > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error("API PnL record grossPnlBps must be a safe integer");
+  }
+
+  return Number(grossPnlBps);
 }
 
 async function markPostSettlementQuoteStatus(
