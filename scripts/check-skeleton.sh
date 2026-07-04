@@ -18,6 +18,7 @@ test -s backend/test/api-hedge.test.mjs
 test -s backend/test/api-pnl.test.mjs
 test -s backend/test/api-rate-limit.test.mjs
 test -s backend/test/api-readiness.test.mjs
+test -s backend/test/api-status.test.mjs
 test -s backend/test/api.test.mjs
 test -s backend/test/hedge.test.mjs
 test -s backend/test/inventory.test.mjs
@@ -467,9 +468,9 @@ grep -q 'maxStatusIdentifierLength' backend/src/main.ts
 grep -q 'maxStatusIdentifierRouteParamLength' backend/src/main.ts
 grep -q 'maxParamLength: maxStatusIdentifierRouteParamLength' backend/src/main.ts
 grep -q 'statusIdentifierPattern' backend/src/main.ts
-grep -q 'RFQ API rejects unsafe status path identifiers before store lookup' backend/test/api.test.mjs
-grep -q 'quoteId must be 128 characters or fewer' backend/test/api.test.mjs
-grep -q 'settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/api.test.mjs
+grep -q 'RFQ API rejects unsafe status path identifiers before store lookup' backend/test/api-status.test.mjs
+grep -q 'quoteId must be 128 characters or fewer' backend/test/api-status.test.mjs
+grep -q 'settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/api-status.test.mjs
 grep -q 'primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Status endpoints reject unsafe dynamic identifiers before store lookup' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'server.get("/ready"' backend/src/main.ts
@@ -2815,7 +2816,7 @@ grep -q 'target_status="FAILED"' backend/test/api.test.mjs
 grep -q 'settlement verifier failures' backend/test/api.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/api.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'settlement event store failures' backend/test/api.test.mjs
+grep -q 'settlement event store failures' backend/test/api-status.test.mjs
 grep -q 'settlement event write failures' backend/test/api.test.mjs
 grep -q 'Settlement event store write failure' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -2868,8 +2869,8 @@ grep -q 'routing engine failures' backend/test/api.test.mjs
 grep -q 'ROUTING_UNAVAILABLE' backend/test/api.test.mjs
 grep -q 'ROUTING_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'quote store failures' backend/test/api.test.mjs
-grep -q 'quote status store failures' backend/test/api.test.mjs
-grep -q 'QUOTE_STORE_UNAVAILABLE' backend/test/api.test.mjs
+grep -q 'quote status store failures' backend/test/api-status.test.mjs
+grep -q 'QUOTE_STORE_UNAVAILABLE' backend/test/api-status.test.mjs
 grep -q 'QUOTE_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Quote status store unavailable' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'pricing engine failures' backend/test/api.test.mjs
