@@ -16,6 +16,7 @@ test -s backend/test/api-error.test.mjs
 test -s backend/test/api-gateway.test.mjs
 test -s backend/test/api-pnl.test.mjs
 test -s backend/test/api-rate-limit.test.mjs
+test -s backend/test/api-readiness.test.mjs
 test -s backend/test/api.test.mjs
 test -s backend/test/hedge.test.mjs
 test -s backend/test/inventory.test.mjs
@@ -2871,14 +2872,14 @@ grep -q 'QUOTE_STORE_UNAVAILABLE' backend/test/api.test.mjs
 grep -q 'QUOTE_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Quote status store unavailable' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'pricing engine failures' backend/test/api.test.mjs
-grep -q 'market data shape is invalid' backend/test/api.test.mjs
-grep -q 'degrades readiness when market data is stale' backend/test/api.test.mjs
-grep -q 'degrades readiness when market data timestamp is too far in the future' backend/test/api.test.mjs
-grep -q 'degrades readiness when routing probe fails' backend/test/api.test.mjs
-grep -q 'degrades readiness when pricing probe fails' backend/test/api.test.mjs
-grep -q 'degrades readiness when risk probe fails' backend/test/api.test.mjs
-grep -q 'degrades readiness when signer probe fails' backend/test/api.test.mjs
-grep -q 'degrades readiness when storage dependency probes fail' backend/test/api.test.mjs
+grep -q 'market data shape is invalid' backend/test/api-readiness.test.mjs
+grep -q 'degrades readiness when market data is stale' backend/test/api-readiness.test.mjs
+grep -q 'degrades readiness when market data timestamp is too far in the future' backend/test/api-readiness.test.mjs
+grep -q 'degrades readiness when routing probe fails' backend/test/api-readiness.test.mjs
+grep -q 'degrades readiness when pricing probe fails' backend/test/api-readiness.test.mjs
+grep -q 'degrades readiness when risk probe fails' backend/test/api-readiness.test.mjs
+grep -q 'degrades readiness when signer probe fails' backend/test/api-readiness.test.mjs
+grep -q 'degrades readiness when storage dependency probes fail' backend/test/api-readiness.test.mjs
 grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness routing degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness pricing degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
