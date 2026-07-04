@@ -34,6 +34,7 @@ test -s backend/test/quote-repository.test.mjs
 test -s backend/test/quote-service-dependencies.test.mjs
 test -s backend/test/quote-service.test.mjs
 test -s backend/test/quote-service-config.test.mjs
+test -s backend/test/quote-status-repository-clear.test.mjs
 test -s backend/test/quote-status-repository.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
@@ -1543,8 +1544,9 @@ grep -q 'repairs PnL records from settlement events and signed quotes' backend/t
 grep -q 'reports PnL reconciliation events whose signed quote is missing' backend/test/reconciliation.test.mjs
 grep -q 'reports PnL conflicts without stopping later events' backend/test/reconciliation.test.mjs
 grep -q 'requires PnL service for settlement-to-PnL repair' backend/test/reconciliation.test.mjs
-grep -q 'clears matching settlement status after reorg removal' backend/test/quote-status-repository.test.mjs
-grep -q 'expires settlement status when removed quote is past deadline' backend/test/quote-status-repository.test.mjs
+grep -q 'clears matching settlement status after reorg removal' backend/test/quote-status-repository-clear.test.mjs
+grep -q 'expires settlement status when removed quote is past deadline' backend/test/quote-status-repository-clear.test.mjs
+grep -q 'rejects unsafe settlement status clearing' backend/test/quote-status-repository-clear.test.mjs
 grep -q 'removes hedge intents by settlement event after reorgs' backend/test/hedge.test.mjs
 grep -q 'removes PnL records by quote and model after reorgs' backend/test/pnl.test.mjs
 grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlement-verifier.service.ts
