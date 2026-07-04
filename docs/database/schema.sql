@@ -296,6 +296,7 @@ CREATE TABLE settlement_events (
 );
 
 CREATE UNIQUE INDEX uq_settlement_events_quote_id ON settlement_events (quote_id);
+CREATE INDEX idx_settlement_events_chain_quote_hash ON settlement_events (chain_id, quote_hash);
 
 CREATE TABLE inventory_positions (
   id TEXT PRIMARY KEY,

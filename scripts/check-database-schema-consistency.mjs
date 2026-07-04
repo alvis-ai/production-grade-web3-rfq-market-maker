@@ -543,6 +543,7 @@ for (const indexName of [
   "idx_market_snapshots_pair_observed_at",
   "idx_risk_decisions_quote_id",
   "uq_settlement_events_quote_id",
+  "idx_settlement_events_chain_quote_hash",
   "uq_hedge_orders_settlement_event",
   "idx_pnl_records_realized_at",
   "idx_pnl_records_chain_pair_realized_at",
@@ -558,6 +559,12 @@ assert.ok(
     schemaSource,
   ),
   "market_snapshots must support latest snapshot lookup by chain and token pair",
+);
+assert.ok(
+  /CREATE\s+INDEX\s+idx_settlement_events_chain_quote_hash\s+ON\s+settlement_events\s*\(\s*chain_id\s*,\s*quote_hash\s*\)\s*;/i.test(
+    schemaSource,
+  ),
+  "settlement_events must support chain-scoped quote_hash lookups from indexed QuoteSettled logs",
 );
 for (const [indexName, columnName] of [
   ["idx_quotes_snapshot_id", "snapshot_id"],
