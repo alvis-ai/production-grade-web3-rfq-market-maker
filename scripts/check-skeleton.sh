@@ -30,6 +30,7 @@ test -s backend/test/market-data.test.mjs
 test -s backend/test/metrics.test.mjs
 test -s backend/test/quote-identity.test.mjs
 test -s backend/test/quote-repository.test.mjs
+test -s backend/test/quote-service-dependencies.test.mjs
 test -s backend/test/quote-service.test.mjs
 test -s backend/test/quote-service-config.test.mjs
 test -s backend/test/quote-status-repository.test.mjs
@@ -141,8 +142,8 @@ grep -q 'Risk decision decision.reasonCode must be an own field when provided' b
 grep -q 'Risk decision quoteId must be a primitive string' backend/test/risk-decision.test.mjs
 grep -q 'Risk decision quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/risk-decision.test.mjs
 grep -q 'Risk decision riskDecisionId must be 128 characters or fewer' backend/test/risk-decision.test.mjs
-grep -q 'QuoteService persists approved and rejected risk decisions before signer boundary' backend/test/quote-service.test.mjs
-grep -q 'QuoteService blocks signer when risk decision persistence fails' backend/test/quote-service.test.mjs
+grep -q 'QuoteService persists approved and rejected risk decisions before signer boundary' backend/test/quote-service-dependencies.test.mjs
+grep -q 'QuoteService blocks signer when risk decision persistence fails' backend/test/quote-service-dependencies.test.mjs
 grep -q 'RFQ API marks requested quotes failed when risk decision audit store fails' backend/test/api-quote-dependencies.test.mjs
 grep -q 'persists RiskDecisionStore audit records before signer' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'best-effort 将 requested quote 标记为 `failed`，并阻断 Signer' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -298,19 +299,19 @@ grep -q 'InMemoryMarketSnapshotRepository rejects unsafe snapshot lookup identif
 grep -q 'Market snapshot snapshotId must be a primitive string' backend/test/market-data.test.mjs
 grep -q 'Market snapshot snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/market-data.test.mjs
 grep -q 'Market snapshot snapshotId must be 128 characters or fewer' backend/test/market-data.test.mjs
-grep -q 'QuoteService persists market snapshots before downstream quote side effects' backend/test/quote-service.test.mjs
-grep -q 'QuoteService blocks routing and signer when market snapshot persistence fails' backend/test/quote-service.test.mjs
-grep -q 'QuoteService marks requested quotes as failed when routing is unavailable' backend/test/quote-service.test.mjs
-grep -q 'QuoteService rejects malformed route plans before pricing and signing' backend/test/quote-service.test.mjs
-grep -q 'internalVenue: "external"' backend/test/quote-service.test.mjs
-grep -q 'assert.equal(pricingAttempts, 0)' backend/test/quote-service.test.mjs
-grep -q 'QuoteService marks requested quotes as failed when pricing is unavailable' backend/test/quote-service.test.mjs
-grep -q 'QuoteService rejects malformed inventory and hedge pricing adjustments before pricing' backend/test/quote-service.test.mjs
-grep -q 'hedgeRiskPenaltyBps: "25"' backend/test/quote-service.test.mjs
-grep -q 'inventorySkewBps: 9_990' backend/test/quote-service.test.mjs
-grep -q 'QuoteService fails closed on malformed inventory projections before signing' backend/test/quote-service.test.mjs
-grep -q 'internalExposure: "unsafe"' backend/test/quote-service.test.mjs
-grep -q 'assert.equal(riskAttempts, 0)' backend/test/quote-service.test.mjs
+grep -q 'QuoteService persists market snapshots before downstream quote side effects' backend/test/quote-service-dependencies.test.mjs
+grep -q 'QuoteService blocks routing and signer when market snapshot persistence fails' backend/test/quote-service-dependencies.test.mjs
+grep -q 'QuoteService marks requested quotes as failed when routing is unavailable' backend/test/quote-service-dependencies.test.mjs
+grep -q 'QuoteService rejects malformed route plans before pricing and signing' backend/test/quote-service-dependencies.test.mjs
+grep -q 'internalVenue: "external"' backend/test/quote-service-dependencies.test.mjs
+grep -q 'assert.equal(pricingAttempts, 0)' backend/test/quote-service-dependencies.test.mjs
+grep -q 'QuoteService marks requested quotes as failed when pricing is unavailable' backend/test/quote-service-dependencies.test.mjs
+grep -q 'QuoteService rejects malformed inventory and hedge pricing adjustments before pricing' backend/test/quote-service-dependencies.test.mjs
+grep -q 'hedgeRiskPenaltyBps: "25"' backend/test/quote-service-dependencies.test.mjs
+grep -q 'inventorySkewBps: 9_990' backend/test/quote-service-dependencies.test.mjs
+grep -q 'QuoteService fails closed on malformed inventory projections before signing' backend/test/quote-service-dependencies.test.mjs
+grep -q 'internalExposure: "unsafe"' backend/test/quote-service-dependencies.test.mjs
+grep -q 'assert.equal(riskAttempts, 0)' backend/test/quote-service-dependencies.test.mjs
 grep -q '快照 `StaticMarketDataConfig`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'Config 的 `supportedPairs` 必须是 own field' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q '每个 supported pair 的 `chainId`、`tokenIn` 和 `tokenOut` 也必须是 own fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
@@ -781,12 +782,12 @@ grep -q '${label}.${inherited} must be an own field when provided' backend/src/s
 grep -q 'Submit validation options allowExpired must be a boolean' backend/src/shared/validation/submit-request.ts
 grep -q 'QuoteService snapshots dependency object at construction' backend/test/quote-service-config.test.mjs
 grep -q 'QuoteService rejects unsafe dependency configuration at construction' backend/test/quote-service-config.test.mjs
-grep -q 'QuoteService rejects malformed pricing engine results before signing' backend/test/quote-service.test.mjs
-grep -q 'internalSpread: 8' backend/test/quote-service.test.mjs
-grep -q 'assert.equal(signAttempts, 0)' backend/test/quote-service.test.mjs
-grep -q 'QuoteService fails closed on malformed risk engine decisions before signing' backend/test/quote-service.test.mjs
-grep -q 'TEMPORARY_RISK_REASON' backend/test/quote-service.test.mjs
-grep -q 'approvedWithInheritedReason' backend/test/quote-service.test.mjs
+grep -q 'QuoteService rejects malformed pricing engine results before signing' backend/test/quote-service-dependencies.test.mjs
+grep -q 'internalSpread: 8' backend/test/quote-service-dependencies.test.mjs
+grep -q 'assert.equal(signAttempts, 0)' backend/test/quote-service-dependencies.test.mjs
+grep -q 'QuoteService fails closed on malformed risk engine decisions before signing' backend/test/quote-service-dependencies.test.mjs
+grep -q 'TEMPORARY_RISK_REASON' backend/test/quote-service-dependencies.test.mjs
+grep -q 'approvedWithInheritedReason' backend/test/quote-service-dependencies.test.mjs
 grep -q 'assertRecord(config, "config")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertRecord(deps, "deps")' backend/src/modules/quote/quote.service.ts
 grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/quote/quote.service.ts
