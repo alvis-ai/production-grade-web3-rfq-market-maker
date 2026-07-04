@@ -31,7 +31,7 @@ const settlementVerificationResultFields = ["status", "verifierVersion", "amount
 const settlementEventResultFields = ["event", "duplicate"] as const;
 const hedgeResultFields = ["status", "hedgeOrderId", "record"] as const;
 const inventoryPositionFields = ["chainId", "token", "balance"] as const;
-const hedgeIntentStatusFields = [
+const hedgeIntentStatusRequiredFields = [
   "hedgeOrderId",
   "status",
   "settlementEventId",
@@ -43,6 +43,7 @@ const hedgeIntentStatusFields = [
   "reason",
   "createdAt",
 ] as const;
+const hedgeIntentStatusOptionalFields = ["externalOrderId", "updatedAt"] as const;
 const settlementEventFields = [
   "settlementEventId",
   "status",
@@ -296,7 +297,12 @@ function assertHedgeIntentStatusResponse(
     throw new Error("Execution service hedge result.record must be an object");
   }
 
-  assertExactHedgeFields(record as Record<string, unknown>, hedgeIntentStatusFields, "hedge result.record");
+  assertExactHedgeFields(
+    record as Record<string, unknown>,
+    hedgeIntentStatusRequiredFields,
+    "hedge result.record",
+    hedgeIntentStatusOptionalFields,
+  );
   const hedgeRecord = record as Record<string, unknown>;
   assertSafeExecutionIdentifier(hedgeRecord.hedgeOrderId, "hedgeOrderId", "hedge result.record");
   if (hedgeRecord.hedgeOrderId !== expectedHedgeOrderId) {
@@ -335,10 +341,21 @@ function assertHedgeIntentStatusResponse(
   if (!isCanonicalUtcIsoTimestamp(hedgeRecord.createdAt)) {
     throw new Error("Execution service hedge result.record createdAt must be a canonical UTC ISO timestamp");
   }
+  if (hedgeRecord.externalOrderId !== undefined && !isNonEmptyString(hedgeRecord.externalOrderId)) {
+    throw new Error("Execution service hedge result.record externalOrderId must be a non-empty string");
+  }
+  if (hedgeRecord.updatedAt !== undefined && !isCanonicalUtcIsoTimestamp(hedgeRecord.updatedAt)) {
+    throw new Error("Execution service hedge result.record updatedAt must be a canonical UTC ISO timestamp");
+  }
 }
 
-function assertExactHedgeFields(value: Record<string, unknown>, fields: readonly string[], path: string): void {
-  const expected = new Set(fields);
+function assertExactHedgeFields(
+  value: Record<string, unknown>,
+  fields: readonly string[],
+  path: string,
+  optionalFields: readonly string[] = [],
+): void {
+  const expected = new Set([...fields, ...optionalFields]);
   for (const key of Object.keys(value)) {
     if (!expected.has(key)) {
       throw new Error(`Execution service ${path} must not include unknown field ${key}`);
@@ -347,6 +364,11 @@ function assertExactHedgeFields(value: Record<string, unknown>, fields: readonly
 
   for (const field of fields) {
     if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Execution service ${path}.${field} must be an own field`);
+    }
+  }
+  for (const field of optionalFields) {
+    if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
       throw new Error(`Execution service ${path}.${field} must be an own field`);
     }
   }
@@ -523,6 +545,10 @@ function assertExecutionAmount(
   if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
     throw new Error(`Execution service ${path} ${field} must be a positive uint string`);
   }
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 export function buildSyntheticTxHash(request: SubmitQuoteRequest, context: ExecutionContext): `0x${string}` {

@@ -93,9 +93,11 @@ export interface QuoteStatus {
   errorCode?: string;
 }
 
+export type HedgeIntentStatusValue = "queued" | "filled" | "failed";
+
 export interface HedgeIntentStatus {
   hedgeOrderId: string;
-  status: "queued";
+  status: HedgeIntentStatusValue;
   settlementEventId: string;
   quoteId: string;
   chainId: number;
@@ -104,6 +106,8 @@ export interface HedgeIntentStatus {
   amount: UIntString;
   reason: "inventory_rebalance" | "risk_reduction";
   createdAt: string;
+  externalOrderId?: string;
+  updatedAt?: string;
 }
 
 export interface SettlementEventStatus {

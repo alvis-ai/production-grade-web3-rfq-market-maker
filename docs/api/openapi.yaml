@@ -702,6 +702,8 @@ components:
           type: string
           enum:
             - queued
+            - filled
+            - failed
         settlementEventId:
           $ref: "#/components/schemas/SafeIdentifier"
         quoteId:
@@ -729,6 +731,14 @@ components:
           type: string
           format: date-time
           description: Canonical UTC ISO timestamp generated with Date.prototype.toISOString().
+        externalOrderId:
+          type: string
+          minLength: 1
+          description: External venue order reference once a queued hedge is filled.
+        updatedAt:
+          type: string
+          format: date-time
+          description: Canonical UTC ISO timestamp for the latest hedge status transition.
     SettlementEventStatus:
       type: object
       additionalProperties: false

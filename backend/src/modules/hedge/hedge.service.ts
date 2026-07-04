@@ -1,4 +1,4 @@
-import type { Address, HedgeIntentStatusResponse, UIntString } from "../../shared/types/rfq.js";
+import type { Address, HedgeIntentStatus, HedgeIntentStatusResponse, UIntString } from "../../shared/types/rfq.js";
 
 export type HedgeFailureReasonCode = "HEDGE_INTENT_FAILED";
 
@@ -7,6 +7,7 @@ const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const hedgeServiceConfigFields = ["failurePenaltyBps", "maxFailurePenaltyBps"] as const;
 const hedgeIntentFields = ["settlementEventId", "quoteId", "chainId", "token", "side", "amount", "reason"] as const;
 const hedgeRiskInputFields = ["chainId", "token"] as const;
+const markHedgeIntentFilledFields = ["hedgeOrderId", "externalOrderId"] as const;
 
 export interface HedgeIntent {
   settlementEventId: string;
@@ -19,7 +20,7 @@ export interface HedgeIntent {
 }
 
 export interface HedgeResult {
-  status: "queued";
+  status: HedgeIntentStatus;
   hedgeOrderId: string;
   record: HedgeIntentStatusResponse;
 }
@@ -27,6 +28,16 @@ export interface HedgeResult {
 export interface RemoveHedgeIntentResult {
   record?: HedgeIntentStatusResponse;
   removed: boolean;
+}
+
+export interface UpdateHedgeIntentResult {
+  record?: HedgeIntentStatusResponse;
+  updated: boolean;
+}
+
+export interface MarkHedgeIntentFilledInput {
+  hedgeOrderId: string;
+  externalOrderId: string;
 }
 
 export interface HedgeRiskInput {
@@ -40,6 +51,8 @@ export interface HedgeIntentService {
   getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined;
   getHedgeIntentBySettlementEvent(settlementEventId: string): HedgeIntentStatusResponse | undefined;
   removeHedgeIntentBySettlementEvent(settlementEventId: string): RemoveHedgeIntentResult;
+  markHedgeIntentFilled?(input: MarkHedgeIntentFilledInput): UpdateHedgeIntentResult;
+  markHedgeIntentFailed?(hedgeOrderId: string): UpdateHedgeIntentResult;
   recordHedgeFailure?(intent: HedgeIntent, reasonCode: HedgeFailureReasonCode): void;
   quoteRiskPenaltyBps?(input: HedgeRiskInput): number;
 }
@@ -91,7 +104,7 @@ export class HedgeService implements HedgeIntentService {
       }
 
       return {
-        status: "queued",
+        status: existingRecord.status,
         hedgeOrderId: existingRecord.hedgeOrderId,
         record: cloneHedgeIntentStatus(existingRecord),
       };
@@ -159,6 +172,66 @@ export class HedgeService implements HedgeIntentService {
     return {
       record: cloneHedgeIntentStatus(intent),
       removed: true,
+    };
+  }
+
+  markHedgeIntentFilled(input: MarkHedgeIntentFilledInput): UpdateHedgeIntentResult {
+    assertMarkHedgeIntentFilledInput(input);
+    const intent = this.intents.get(input.hedgeOrderId);
+    if (!intent) {
+      return {
+        updated: false,
+      };
+    }
+    if (intent.status === "failed") {
+      throw new Error(`Hedge intent ${input.hedgeOrderId} cannot transition from failed to filled`);
+    }
+    if (intent.status === "filled") {
+      if (intent.externalOrderId !== input.externalOrderId) {
+        throw new Error(`Hedge intent ${input.hedgeOrderId} filled externalOrderId conflict`);
+      }
+
+      return {
+        record: cloneHedgeIntentStatus(intent),
+        updated: false,
+      };
+    }
+
+    intent.status = "filled";
+    intent.externalOrderId = input.externalOrderId;
+    intent.updatedAt = new Date().toISOString();
+
+    return {
+      record: cloneHedgeIntentStatus(intent),
+      updated: true,
+    };
+  }
+
+  markHedgeIntentFailed(hedgeOrderId: string): UpdateHedgeIntentResult {
+    assertSafeIdentifier(hedgeOrderId, "hedgeOrderId");
+    const intent = this.intents.get(hedgeOrderId);
+    if (!intent) {
+      return {
+        updated: false,
+      };
+    }
+    if (intent.status === "filled") {
+      throw new Error(`Hedge intent ${hedgeOrderId} cannot transition from filled to failed`);
+    }
+    if (intent.status === "failed") {
+      return {
+        record: cloneHedgeIntentStatus(intent),
+        updated: false,
+      };
+    }
+
+    intent.status = "failed";
+    delete intent.externalOrderId;
+    intent.updatedAt = new Date().toISOString();
+
+    return {
+      record: cloneHedgeIntentStatus(intent),
+      updated: true,
     };
   }
 
@@ -235,7 +308,23 @@ function assertHedgeRiskInput(input: HedgeRiskInput): void {
   }
 }
 
-function assertObject(value: unknown, field: "config" | "intent" | "risk input"): void {
+function assertMarkHedgeIntentFilledInput(input: MarkHedgeIntentFilledInput): void {
+  assertObject(input, "filled input");
+  assertOwnFields(input, markHedgeIntentFilledFields, "filled input");
+  assertSafeIdentifier(input.hedgeOrderId, "hedgeOrderId");
+  assertExternalOrderId(input.externalOrderId);
+}
+
+function assertExternalOrderId(value: unknown): void {
+  if (typeof value !== "string") {
+    throw new Error("Hedge externalOrderId must be a primitive string");
+  }
+  if (value.trim().length === 0) {
+    throw new Error("Hedge externalOrderId must be a non-empty string");
+  }
+}
+
+function assertObject(value: unknown, field: "config" | "intent" | "risk input" | "filled input"): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Hedge ${field} must be an object`);
   }

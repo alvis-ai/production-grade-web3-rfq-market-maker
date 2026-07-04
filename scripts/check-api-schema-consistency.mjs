@@ -84,9 +84,9 @@ for (const schemaName of closedOpenApiSchemas) {
 }
 
 for (const [backendName, sdkName, openapiName, propertyName] of inlineEnumMappings) {
-  const backendValues = extractInterfacePropertyStringUnionValues(backendTypesSource, backendName, propertyName);
+  const backendValues = extractInterfacePropertyEnumValues(backendTypesSource, backendName, propertyName);
   assert.deepEqual(
-    extractInterfacePropertyStringUnionValues(sdkTypesSource, sdkName, propertyName),
+    extractInterfacePropertyEnumValues(sdkTypesSource, sdkName, propertyName),
     backendValues,
     `SDK ${sdkName}.${propertyName} enum must match backend ${backendName}.${propertyName}`,
   );

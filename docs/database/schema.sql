@@ -341,7 +341,7 @@ CREATE TABLE hedge_orders (
   ),
   CONSTRAINT chk_hedge_orders_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_hedge_orders_side CHECK (side IN ('buy', 'sell')),
-  CONSTRAINT chk_hedge_orders_status CHECK (status IN ('queued')),
+  CONSTRAINT chk_hedge_orders_status CHECK (status IN ('queued', 'filled', 'failed')),
   CONSTRAINT chk_hedge_orders_reason CHECK (reason IN ('inventory_rebalance', 'risk_reduction')),
   CONSTRAINT chk_hedge_orders_venue_non_empty CHECK (btrim(venue) <> ''),
   CONSTRAINT chk_hedge_orders_external_order_id_non_empty CHECK (

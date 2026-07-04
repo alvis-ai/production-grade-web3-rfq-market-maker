@@ -1716,7 +1716,7 @@ test("RFQClient rejects malformed hedge status responses", async () => {
       message: "RFQ hedge status response returned malformed quoteId",
     },
     {
-      payload: { ...hedgeResponse, status: "filled" },
+      payload: { ...hedgeResponse, status: "submitted" },
       message: "RFQ hedge status response returned malformed status",
     },
     {
@@ -1755,6 +1755,14 @@ test("RFQClient rejects malformed hedge status responses", async () => {
       payload: { ...hedgeResponse, createdAt: "2026-06-27" },
       message: "RFQ hedge status response returned malformed createdAt",
     },
+    {
+      payload: { ...hedgeResponse, externalOrderId: " " },
+      message: "RFQ hedge status response returned malformed externalOrderId",
+    },
+    {
+      payload: { ...hedgeResponse, updatedAt: "not-a-date" },
+      message: "RFQ hedge status response returned malformed updatedAt",
+    },
   ];
 
   for (const { payload, message } of cases) {
@@ -1776,6 +1784,49 @@ test("RFQClient rejects malformed hedge status responses", async () => {
     } finally {
       restoreFetch();
     }
+  }
+});
+
+test("RFQClient accepts terminal hedge status responses", async () => {
+  const terminalResponses = [
+    {
+      hedgeOrderId: "h_1_00000003_000001",
+      status: "filled",
+      settlementEventId: "se_1_22222222_0",
+      quoteId: "q_test",
+      chainId: quote.chainId,
+      token: quote.tokenOut,
+      side: "buy",
+      amount: quote.amountOut,
+      reason: "inventory_rebalance",
+      createdAt: "2026-06-27T00:00:00.000Z",
+      externalOrderId: "cex_order_1",
+      updatedAt: "2026-06-27T00:00:01.000Z",
+    },
+    {
+      hedgeOrderId: "h_1_00000003_000002",
+      status: "failed",
+      settlementEventId: "se_1_33333333_0",
+      quoteId: "q_failed",
+      chainId: quote.chainId,
+      token: quote.tokenOut,
+      side: "buy",
+      amount: quote.amountOut,
+      reason: "risk_reduction",
+      createdAt: "2026-06-27T00:00:00.000Z",
+      updatedAt: "2026-06-27T00:00:02.000Z",
+    },
+  ];
+  let index = 0;
+  const restoreFetch = installFetch(async () => jsonResponse(200, terminalResponses[index++]));
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+
+    assert.deepEqual(await client.getHedge(terminalResponses[0].hedgeOrderId), terminalResponses[0]);
+    assert.deepEqual(await client.getHedge(terminalResponses[1].hedgeOrderId), terminalResponses[1]);
+  } finally {
+    restoreFetch();
   }
 });
 

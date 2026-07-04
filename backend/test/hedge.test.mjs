@@ -104,6 +104,81 @@ test("HedgeService returns defensive copies of hedge intent status records", () 
   assert.equal(bySettlement.amount, intent.amount);
 });
 
+test("HedgeService records filled and failed hedge outcomes as terminal status", () => {
+  const filledService = new HedgeService();
+  const filledCreated = filledService.createHedgeIntent(intent);
+
+  const filled = filledService.markHedgeIntentFilled({
+    hedgeOrderId: filledCreated.hedgeOrderId,
+    externalOrderId: "cex_order_1",
+  });
+
+  assert.equal(filled.updated, true);
+  assert.equal(filled.record.hedgeOrderId, filledCreated.hedgeOrderId);
+  assert.equal(filled.record.status, "filled");
+  assert.equal(filled.record.externalOrderId, "cex_order_1");
+  assert.match(filled.record.updatedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.deepEqual(filledService.getHedgeIntent(filledCreated.hedgeOrderId), filled.record);
+
+  filled.record.status = "failed";
+  filled.record.externalOrderId = "mutated";
+  const loadedFilled = filledService.getHedgeIntentBySettlementEvent(intent.settlementEventId);
+  assert.equal(loadedFilled.status, "filled");
+  assert.equal(loadedFilled.externalOrderId, "cex_order_1");
+  assert.equal(filledService.createHedgeIntent(intent).status, "filled");
+
+  const duplicateFill = filledService.markHedgeIntentFilled({
+    hedgeOrderId: filledCreated.hedgeOrderId,
+    externalOrderId: "cex_order_1",
+  });
+  assert.equal(duplicateFill.updated, false);
+  assert.deepEqual(duplicateFill.record, loadedFilled);
+
+  assert.throws(
+    () =>
+      filledService.markHedgeIntentFilled({
+        hedgeOrderId: filledCreated.hedgeOrderId,
+        externalOrderId: "cex_order_2",
+      }),
+    /filled externalOrderId conflict/,
+  );
+  assert.throws(
+    () => filledService.markHedgeIntentFailed(filledCreated.hedgeOrderId),
+    /cannot transition from filled to failed/,
+  );
+
+  const failedService = new HedgeService();
+  const failedCreated = failedService.createHedgeIntent(intent);
+  const failed = failedService.markHedgeIntentFailed(failedCreated.hedgeOrderId);
+
+  assert.equal(failed.updated, true);
+  assert.equal(failed.record.status, "failed");
+  assert.equal(failed.record.externalOrderId, undefined);
+  assert.match(failed.record.updatedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(failedService.createHedgeIntent(intent).status, "failed");
+
+  const duplicateFailed = failedService.markHedgeIntentFailed(failedCreated.hedgeOrderId);
+  assert.equal(duplicateFailed.updated, false);
+  assert.deepEqual(duplicateFailed.record, failedService.getHedgeIntent(failedCreated.hedgeOrderId));
+  assert.throws(
+    () =>
+      failedService.markHedgeIntentFilled({
+        hedgeOrderId: failedCreated.hedgeOrderId,
+        externalOrderId: "cex_order_1",
+      }),
+    /cannot transition from failed to filled/,
+  );
+
+  assert.deepEqual(
+    failedService.markHedgeIntentFilled({
+      hedgeOrderId: "h_missing",
+      externalOrderId: "cex_order_missing",
+    }),
+    { updated: false },
+  );
+  assert.deepEqual(failedService.markHedgeIntentFailed("h_missing"), { updated: false });
+});
+
 test("HedgeService removes hedge intents by settlement event after reorgs", () => {
   const service = new HedgeService();
   const created = service.createHedgeIntent(intent);
@@ -333,6 +408,52 @@ test("HedgeService rejects unsafe hedge status lookup identifiers", () => {
   assert.throws(
     () => service.removeHedgeIntentBySettlementEvent(new String(intent.settlementEventId)),
     /Hedge settlementEventId must be a primitive string/,
+  );
+  assert.throws(
+    () => service.markHedgeIntentFilled(undefined),
+    /Hedge filled input must be an object/,
+  );
+  assert.throws(
+    () => service.markHedgeIntentFilled([]),
+    /Hedge filled input must be an object/,
+  );
+  assert.throws(
+    () =>
+      service.markHedgeIntentFilled(
+        Object.create({
+          hedgeOrderId: "h_1_00000000_000001",
+          externalOrderId: "cex_order_1",
+        }),
+      ),
+    /Hedge filled input.hedgeOrderId must be an own field/,
+  );
+  assert.throws(
+    () =>
+      service.markHedgeIntentFilled({
+        hedgeOrderId: "h/bad",
+        externalOrderId: "cex_order_1",
+      }),
+    /Hedge hedgeOrderId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+  assert.throws(
+    () =>
+      service.markHedgeIntentFilled({
+        hedgeOrderId: "h_1_00000000_000001",
+        externalOrderId: new String("cex_order_1"),
+      }),
+    /Hedge externalOrderId must be a primitive string/,
+  );
+  assert.throws(
+    () =>
+      service.markHedgeIntentFilled({
+        hedgeOrderId: "h_1_00000000_000001",
+        externalOrderId: " ",
+      }),
+    /Hedge externalOrderId must be a non-empty string/,
+  );
+  assert.throws(
+    () => service.markHedgeIntentFailed("h/bad"),
+    /Hedge hedgeOrderId must contain only letters, numbers, underscore, colon, or hyphen/,
   );
 
   const valid = service.createHedgeIntent(intent);

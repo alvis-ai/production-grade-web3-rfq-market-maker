@@ -75,9 +75,11 @@ export interface MarketSnapshot {
   observedAt: string;
 }
 
+export type HedgeIntentStatus = "queued" | "filled" | "failed";
+
 export interface HedgeIntentStatusResponse {
   hedgeOrderId: string;
-  status: "queued";
+  status: HedgeIntentStatus;
   settlementEventId: string;
   quoteId: string;
   chainId: number;
@@ -86,6 +88,8 @@ export interface HedgeIntentStatusResponse {
   amount: UIntString;
   reason: "inventory_rebalance" | "risk_reduction";
   createdAt: string;
+  externalOrderId?: string;
+  updatedAt?: string;
 }
 
 export interface SettlementEventStatusResponse {

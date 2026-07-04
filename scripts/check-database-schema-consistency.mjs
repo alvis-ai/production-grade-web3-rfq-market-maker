@@ -500,7 +500,10 @@ assert.ok(
   "hedge side constraint must match backend HedgeIntent side values",
 );
 assert.ok(
-  /status\s+IN\s*\(\s*'queued'\s*\)/i.test(tables.get("hedge_orders").body),
+  arraysEqual(
+    extractColumnInValues(tables.get("hedge_orders").body, "status"),
+    extractInterfacePropertyEnumValues(backendTypesSource, "HedgeIntentStatusResponse", "status"),
+  ),
   "hedge status constraint must match backend HedgeIntentStatusResponse status values",
 );
 assert.ok(
@@ -717,6 +720,8 @@ const hedgeColumnMapping = {
   amount: "amount",
   reason: "reason",
   createdAt: "created_at",
+  externalOrderId: "external_order_id",
+  updatedAt: "updated_at",
 };
 for (const field of hedgeFields) {
   assert.ok(hedgeColumnMapping[field], `HedgeIntentStatusResponse.${field} must have a database column mapping`);
@@ -791,7 +796,7 @@ function extractInterfaceFields(source, interfaceName) {
   const match = source.match(new RegExp(`export\\s+interface\\s+${interfaceName}\\s+\\{([\\s\\S]*?)\\n\\}`));
   assert.ok(match, `Unable to find backend interface ${interfaceName}`);
 
-  return [...match[1].matchAll(/^\s+([a-zA-Z][a-zA-Z0-9]*):/gm)].map((item) => item[1]);
+  return [...match[1].matchAll(/^\s+([a-zA-Z][a-zA-Z0-9]*)(?:\?)?:/gm)].map((item) => item[1]);
 }
 
 function extractOpenApiSchemaProperties(source, schemaName) {
@@ -832,11 +837,32 @@ function extractStringUnionValues(source, typeName) {
   return [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
 }
 
+function extractInterfacePropertyEnumValues(source, interfaceName, propertyName) {
+  const match = source.match(new RegExp(`export\\s+interface\\s+${interfaceName}\\s+\\{([\\s\\S]*?)\\n\\}`));
+  assert.ok(match, `Unable to find backend interface ${interfaceName}`);
+
+  const propertyMatch = match[1].match(new RegExp(`^\\s+${propertyName}\\??:\\s*([^;]+);`, "m"));
+  assert.ok(propertyMatch, `Unable to find ${interfaceName}.${propertyName}`);
+
+  const literalValues = [...propertyMatch[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+  if (literalValues.length > 0) {
+    return literalValues;
+  }
+
+  const aliasMatch = propertyMatch[1].trim().match(/^([A-Z][A-Za-z0-9]*)$/);
+  assert.ok(aliasMatch, `${interfaceName}.${propertyName} must be a string literal union or type alias`);
+  return extractStringUnionValues(source, aliasMatch[1]);
+}
+
 function extractColumnInValues(source, columnName) {
   const match = source.match(new RegExp(`${columnName}\\s+IN\\s*\\(([\\s\\S]*?)\\)`, "i"));
   assert.ok(match, `Unable to find ${columnName} IN constraint`);
 
   return [...match[1].matchAll(/'([^']+)'/g)].map((item) => item[1]);
+}
+
+function arraysEqual(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function hasAlterTableForeignKey(tableName, constraintName, columnName, referencedTable, referencedColumn) {

@@ -51,7 +51,7 @@ const quoteStatusOptionalFields = [
   "pnlId",
   "errorCode",
 ] as const;
-const hedgeStatusFields = [
+const hedgeStatusRequiredFields = [
   "hedgeOrderId",
   "status",
   "settlementEventId",
@@ -63,6 +63,7 @@ const hedgeStatusFields = [
   "reason",
   "createdAt",
 ] as const;
+const hedgeStatusOptionalFields = ["externalOrderId", "updatedAt"] as const;
 const settlementEventStatusFields = [
   "settlementEventId",
   "status",
@@ -648,7 +649,7 @@ function assertHedgeIntentStatus(payload: unknown, status: number): asserts payl
   if (!isRecord(payload)) {
     throw malformedFieldError(status, label, "status");
   }
-  assertOwnResponseFields(payload, hedgeStatusFields, [], status, label);
+  assertOwnResponseFields(payload, hedgeStatusRequiredFields, hedgeStatusOptionalFields, status, label);
 
   for (const field of ["hedgeOrderId", "settlementEventId", "quoteId"] as const) {
     if (!isSafeIdentifier(payload[field])) {
@@ -659,7 +660,7 @@ function assertHedgeIntentStatus(payload: unknown, status: number): asserts payl
   if (!isIsoUtcTimestampString(createdAt)) {
     throw malformedFieldError(status, label, "createdAt");
   }
-  if (payload.status !== "queued") {
+  if (payload.status !== "queued" && payload.status !== "filled" && payload.status !== "failed") {
     throw malformedFieldError(status, label, "status");
   }
   if (!isPositiveSafeInteger(payload.chainId)) {
@@ -676,6 +677,12 @@ function assertHedgeIntentStatus(payload: unknown, status: number): asserts payl
   }
   if (payload.reason !== "inventory_rebalance" && payload.reason !== "risk_reduction") {
     throw malformedFieldError(status, label, "reason");
+  }
+  if (payload.externalOrderId !== undefined && !isNonEmptyString(payload.externalOrderId)) {
+    throw malformedFieldError(status, label, "externalOrderId");
+  }
+  if (payload.updatedAt !== undefined && !isIsoUtcTimestampString(payload.updatedAt)) {
+    throw malformedFieldError(status, label, "updatedAt");
   }
 }
 
