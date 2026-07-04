@@ -31,6 +31,7 @@ test -s backend/test/metrics.test.mjs
 test -s backend/test/quote-identity.test.mjs
 test -s backend/test/quote-repository.test.mjs
 test -s backend/test/quote-service.test.mjs
+test -s backend/test/quote-status-repository.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
 test -s backend/test/readiness.test.mjs
@@ -1019,7 +1020,7 @@ grep -q 'Signed quote signature v value must be 27 or 28' backend/src/modules/qu
 grep -q 'Signed quote signature s value must be in the lower half order' backend/test/quote-repository.test.mjs
 grep -q 'new String(fixedSignature())' backend/test/quote-repository.test.mjs
 grep -q 'q_bad_amount_leading_zero' backend/test/quote-repository.test.mjs
-grep -q 'new String(`0x${"aa".repeat(32)}`)' backend/test/quote-repository.test.mjs
+grep -q 'new String(`0x${"aa".repeat(32)}`)' backend/test/quote-status-repository.test.mjs
 grep -q 'InMemoryQuoteRepository rejects malformed quote persistence envelopes before storing' backend/test/quote-repository.test.mjs
 grep -q 'Requested quote input.request must be an own field' backend/test/quote-repository.test.mjs
 grep -q 'InMemoryQuoteRepository rejects inherited quote persistence fields before storing' backend/test/quote-repository.test.mjs
@@ -1042,8 +1043,8 @@ grep -q 'Requested quote quoteId must be a primitive string' backend/test/quote-
 grep -q 'Requested quote quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/quote-repository.test.mjs
 grep -q 'Signed quote snapshotId must be a primitive string' backend/test/quote-repository.test.mjs
 grep -q 'Signed quote snapshotId must be 128 characters or fewer' backend/test/quote-repository.test.mjs
-grep -q 'Quote status hedgeOrderId must be a primitive string' backend/test/quote-repository.test.mjs
-grep -q 'Quote status hedgeOrderId must be 128 characters or fewer' backend/test/quote-repository.test.mjs
+grep -q 'Quote status hedgeOrderId must be a primitive string' backend/test/quote-status-repository.test.mjs
+grep -q 'Quote status hedgeOrderId must be 128 characters or fewer' backend/test/quote-status-repository.test.mjs
 grep -q 'Requested and rejected quote persistence rejects malformed root payloads and missing `request` objects before field access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Requested and rejected persistence require own top-level fields and own request fields before writing quote state' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'inherited optional `riskPolicyVersion` is rejected before it can affect the stored audit payload' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -1085,27 +1086,27 @@ grep -q 'findSignedQuoteByQuoteId' backend/test/quote-repository.test.mjs
 grep -q 'returns defensive copies of signed quote records' backend/test/quote-repository.test.mjs
 grep -q 'rejects signed quote identity rewrites' backend/test/quote-repository.test.mjs
 grep -q 'rejects signed quote payload rewrites' backend/test/quote-repository.test.mjs
-grep -q 'rejects saveSigned lifecycle regressions' backend/test/quote-repository.test.mjs
+grep -q 'rejects saveSigned lifecycle regressions' backend/test/quote-status-repository.test.mjs
 grep -q 'rejects unsafe signed quote persistence inputs' backend/test/quote-repository.test.mjs
 grep -q 'persists expired status when signed quote status is read after deadline' backend/test/quote-service.test.mjs
 grep -q 'rejects expired signed quotes before signature verification' backend/test/quote-service.test.mjs
 grep -q 'rejects unsafe requested and rejected quote persistence inputs' backend/test/quote-repository.test.mjs
 grep -q 'rejects requested quote payload rewrites' backend/test/quote-repository.test.mjs
 grep -q 'rejects rejected quote payload rewrites' backend/test/quote-repository.test.mjs
-grep -q 'rejects terminal quote status regressions' backend/test/quote-repository.test.mjs
-grep -q 'Failed quote errorCode cannot be changed' backend/test/quote-repository.test.mjs
-grep -q 'cannot transition from terminal status rejected to failed' backend/test/quote-repository.test.mjs
-grep -q 'cannot transition from requested to settled through markStatus' backend/test/quote-repository.test.mjs
-grep -q 'cannot transition from submitted to expired' backend/test/quote-repository.test.mjs
-grep -q 'rejects malformed quote status metadata' backend/test/quote-repository.test.mjs
-grep -q 'rejects conflicting quote status metadata rewrites' backend/test/quote-repository.test.mjs
-grep -q 'Quote status hedgeOrderId cannot be changed once set' backend/test/quote-repository.test.mjs
-grep -Fq 'txHash: `0x${"AA".repeat(32)}`' backend/test/quote-repository.test.mjs
-grep -q 'rejects settlement statuses without chain pointers' backend/test/quote-repository.test.mjs
-grep -q 'rejects non-settlement statuses with settlement pointers' backend/test/quote-repository.test.mjs
-grep -q 'expired status must not include txHash' backend/test/quote-repository.test.mjs
-grep -q 'rejects malformed failed quote metadata' backend/test/quote-repository.test.mjs
-grep -q 'preserves settlement metadata across status updates' backend/test/quote-repository.test.mjs
+grep -q 'rejects terminal quote status regressions' backend/test/quote-status-repository.test.mjs
+grep -q 'Failed quote errorCode cannot be changed' backend/test/quote-status-repository.test.mjs
+grep -q 'cannot transition from terminal status rejected to failed' backend/test/quote-status-repository.test.mjs
+grep -q 'cannot transition from requested to settled through markStatus' backend/test/quote-status-repository.test.mjs
+grep -q 'cannot transition from submitted to expired' backend/test/quote-status-repository.test.mjs
+grep -q 'rejects malformed quote status metadata' backend/test/quote-status-repository.test.mjs
+grep -q 'rejects conflicting quote status metadata rewrites' backend/test/quote-status-repository.test.mjs
+grep -q 'Quote status hedgeOrderId cannot be changed once set' backend/test/quote-status-repository.test.mjs
+grep -Fq 'txHash: `0x${"AA".repeat(32)}`' backend/test/quote-status-repository.test.mjs
+grep -q 'rejects settlement statuses without chain pointers' backend/test/quote-status-repository.test.mjs
+grep -q 'rejects non-settlement statuses with settlement pointers' backend/test/quote-status-repository.test.mjs
+grep -q 'expired status must not include txHash' backend/test/quote-status-repository.test.mjs
+grep -q 'rejects malformed failed quote metadata' backend/test/quote-status-repository.test.mjs
+grep -q 'preserves settlement metadata across status updates' backend/test/quote-status-repository.test.mjs
 grep -q 'chainId:user:nonce' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Requested quote storage is write-once by `quoteId`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'including a different `slippageBps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -1538,8 +1539,8 @@ grep -q 'repairs PnL records from settlement events and signed quotes' backend/t
 grep -q 'reports PnL reconciliation events whose signed quote is missing' backend/test/reconciliation.test.mjs
 grep -q 'reports PnL conflicts without stopping later events' backend/test/reconciliation.test.mjs
 grep -q 'requires PnL service for settlement-to-PnL repair' backend/test/reconciliation.test.mjs
-grep -q 'clears matching settlement status after reorg removal' backend/test/quote-repository.test.mjs
-grep -q 'expires settlement status when removed quote is past deadline' backend/test/quote-repository.test.mjs
+grep -q 'clears matching settlement status after reorg removal' backend/test/quote-status-repository.test.mjs
+grep -q 'expires settlement status when removed quote is past deadline' backend/test/quote-status-repository.test.mjs
 grep -q 'removes hedge intents by settlement event after reorgs' backend/test/hedge.test.mjs
 grep -q 'removes PnL records by quote and model after reorgs' backend/test/pnl.test.mjs
 grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlement-verifier.service.ts
