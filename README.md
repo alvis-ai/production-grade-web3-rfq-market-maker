@@ -147,7 +147,7 @@ The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK 
 
 Direct `buildServer(options)` embedding follows the same runtime bounds for `bodyLimitBytes` and `quoteTtlSeconds`, and rejects non-boolean `logger`, `enableHsts` or `trustProxy` values before the Fastify instance is created.
 
-The frontend reads `VITE_RFQ_API_BASE_URL`, `VITE_RFQ_SETTLEMENT_ADDRESS` and `VITE_WALLETCONNECT_PROJECT_ID` at Vite build/dev-server time. It shows the active API endpoint in the trading console header, sends a dynamic `tr_web_*` `x-trace-id` through the SDK for each API request, and uses Wagmi/RainbowKit with the SDK `rfqSettlementAbi`, `buildSubmitQuoteArgs`, and `hashSettlementQuote` helpers for wallet-driven `submitQuote` transactions and settlement-event reconciliation.
+The frontend reads `VITE_RFQ_API_BASE_URL`, `VITE_RFQ_SETTLEMENT_ADDRESS` and `VITE_WALLETCONNECT_PROJECT_ID` at Vite build/dev-server time. It shows the active API endpoint in the trading console header, sends a dynamic `tr_web_*` `x-trace-id` through the SDK for each API request, and uses Wagmi/RainbowKit with the SDK `rfqSettlementAbi`, `buildSubmitQuoteArgs`, and `hashSettlementQuote` helpers for wallet-driven `submitQuote` transactions and settlement-event reconciliation. Wallet and contract-call failures are normalized into bounded UI messages, preferring viem/wagmi `shortMessage`, `details` or custom-error cause text when present.
 
 ## Local Docker Stack
 

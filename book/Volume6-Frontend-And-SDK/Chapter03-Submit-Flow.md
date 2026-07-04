@@ -64,7 +64,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-Submit Flow 使用 Viem/Wagmi 编码交易，钱包负责签名和广播。前端不手写 ABI tuple，而是复用 SDK 的 `rfqSettlementAbi` 和 `buildSubmitQuoteArgs`，保证浏览器、SDK 测试和合约 ABI 的参数结构一致。
+Submit Flow 使用 Viem/Wagmi 编码交易，钱包负责签名和广播。前端不手写 ABI tuple，而是复用 SDK 的 `rfqSettlementAbi` 和 `buildSubmitQuoteArgs`，保证浏览器、SDK 测试和合约 ABI 的参数结构一致。钱包提交失败时，UI 只读取 bounded own string 字段，并优先展示 viem/wagmi `shortMessage`、`details` 或嵌套 `cause` 中的 custom-error 文本，避免把冗长或原型链污染的错误对象直接渲染给用户。
 
 ## Sequence Diagram
 
