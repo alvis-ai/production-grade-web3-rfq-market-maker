@@ -124,7 +124,7 @@ Mapping 简单但每个 nonce 需要 storage write。未来高频场景可考虑
 
 ## Testing Strategy
 
-测试首次提交成功、重复提交失败、nonce 为 0 失败、不同用户相同 nonce、过期 quote 不标记 nonce 和 transfer revert 回滚 nonce。
+测试首次提交成功、重复提交失败、nonce 为 0 失败、不同用户相同 nonce、过期 quote 不标记 nonce 和 transfer revert 回滚 nonce。合约 fuzz 测试还应覆盖不同用户复用同一个 nonce 值时都能各自结算一次，防止实现意外变成 global nonce gate。
 
 ## Interview Notes
 

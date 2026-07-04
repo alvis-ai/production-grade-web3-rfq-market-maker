@@ -2343,6 +2343,7 @@ grep -q 'testSubmitQuoteTransfersTokensAndConsumesNonce' contracts/test/RFQSettl
 grep -q 'testFuzzSubmitQuoteSettlesBoundedAmounts' contracts/test/RFQSettlement.t.sol
 grep -q 'testFuzzSubmitQuoteRejectsMinOutAboveAmountOutWithoutSideEffects' contracts/test/RFQSettlement.t.sol
 grep -q 'testFuzzSubmitQuoteRejectsExpiredDeadlineWithoutSideEffects' contracts/test/RFQSettlement.t.sol
+grep -q 'testFuzzSubmitQuoteAllowsDifferentUsersToReuseNonce' contracts/test/RFQSettlement.t.sol
 grep -q '_boundUint(rawNonce, 1, type(uint128).max)' contracts/test/RFQSettlement.t.sol
 grep -q 'fuzz treasury tokenOut not debited' contracts/test/RFQSettlement.t.sol
 grep -q 'fuzz nonce consumed on expiry' contracts/test/RFQSettlement.t.sol

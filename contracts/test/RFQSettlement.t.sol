@@ -270,6 +270,48 @@ contract RFQSettlementTest {
         );
     }
 
+    function testFuzzSubmitQuoteAllowsDifferentUsersToReuseNonce(
+        uint256 rawNonce,
+        uint256 rawAmountIn,
+        uint256 rawAmountOut,
+        uint256 rawMinAmountOut
+    ) public {
+        address secondUser = address(0xBEEF);
+        uint256 nonce = _boundUint(rawNonce, 1, type(uint128).max);
+        uint256 amountIn = _boundUint(rawAmountIn, 1, 100 ether);
+        uint256 amountOut = _boundUint(rawAmountOut, 1, 100 ether);
+        uint256 minAmountOut = _boundUint(rawMinAmountOut, 1, amountOut);
+
+        tokenIn.mint(secondUser, amountIn);
+        vm.prank(secondUser);
+        tokenIn.approve(address(settlement), type(uint256).max);
+
+        IRFQSettlement.Quote memory firstQuote = _quote(nonce);
+        firstQuote.amountIn = amountIn;
+        firstQuote.amountOut = amountOut;
+        firstQuote.minAmountOut = minAmountOut;
+        bytes memory firstSignature = _sign(firstQuote);
+
+        IRFQSettlement.Quote memory secondQuote = _quote(nonce);
+        secondQuote.user = secondUser;
+        secondQuote.amountIn = amountIn;
+        secondQuote.amountOut = amountOut;
+        secondQuote.minAmountOut = minAmountOut;
+        bytes memory secondSignature = _sign(secondQuote);
+
+        vm.prank(user);
+        settlement.submitQuote(firstQuote, firstSignature);
+
+        vm.prank(secondUser);
+        settlement.submitQuote(secondQuote, secondSignature);
+
+        require(settlement.usedNonces(user, nonce), "first user nonce not consumed");
+        require(settlement.usedNonces(secondUser, nonce), "second user nonce not consumed");
+        require(tokenIn.balanceOf(address(treasury)) == amountIn * 2, "treasury tokenIn mismatch");
+        require(tokenOut.balanceOf(user) == amountOut, "first user tokenOut mismatch");
+        require(tokenOut.balanceOf(secondUser) == amountOut, "second user tokenOut mismatch");
+    }
+
     function testSubmitQuoteEmitsQuoteSettledForIndexer() public {
         IRFQSettlement.Quote memory quote = _quote(12);
         bytes32 quoteHash = settlement.hashQuote(quote);
