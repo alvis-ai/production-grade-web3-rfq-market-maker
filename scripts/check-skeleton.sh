@@ -14,6 +14,7 @@ test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/test/api-error.test.mjs
 test -s backend/test/api-gateway.test.mjs
+test -s backend/test/api-hedge.test.mjs
 test -s backend/test/api-pnl.test.mjs
 test -s backend/test/api-rate-limit.test.mjs
 test -s backend/test/api-readiness.test.mjs
@@ -2621,7 +2622,7 @@ grep -q 'not ready because at least one quote dependency is degraded' docs/api/o
 grep -q 'signer sign/verify capability' docs/api/openapi.yaml
 grep -q 'getHedgeIntent' docs/api/openapi.yaml
 grep -q 'HedgeIntentStatus' docs/api/openapi.yaml
-grep -q 'RFQ API returns filled and failed hedge outcomes from the hedge status store' backend/test/api.test.mjs
+grep -q 'RFQ API returns filled and failed hedge outcomes from the hedge status store' backend/test/api-hedge.test.mjs
 grep -q 'HEDGE_NOT_FOUND' docs/api/openapi.yaml
 grep -q 'HEDGE_STORE_UNAVAILABLE' docs/api/openapi.yaml
 grep -q 'HEDGE_STORE_UNAVAILABLE' docs/api/errors.md
@@ -2774,12 +2775,12 @@ grep -q 'rfq_submit_latency_seconds_count 2' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' scripts/smoke-api.mjs
 grep -q 'rfq_hedge_lag_seconds_count 1' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' backend/test/api.test.mjs
-grep -q 'hedge intent creation fails' backend/test/api.test.mjs
-grep -q 'lastPenaltyRead' backend/test/api.test.mjs
+grep -q 'hedge intent creation fails' backend/test/api-hedge.test.mjs
+grep -q 'lastPenaltyRead' backend/test/api-hedge.test.mjs
 grep -q 'QuoteService includes hedge risk penalty in pricing input' backend/test/quote-service.test.mjs
 grep -q 'HedgeService accumulates bounded quote risk penalty after hedge failures' backend/test/hedge.test.mjs
-grep -q 'hedge status store failures' backend/test/api.test.mjs
-grep -q 'HEDGE_INTENT_FAILED' backend/test/api.test.mjs
+grep -q 'hedge status store failures' backend/test/api-hedge.test.mjs
+grep -q 'HEDGE_INTENT_FAILED' backend/test/api-hedge.test.mjs
 grep -q 'quote risk penalty' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q '`quoteRiskPenaltyBps` output is a Quote Service dependency boundary' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'fails the requested quote with `PRICING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
