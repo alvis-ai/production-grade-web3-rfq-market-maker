@@ -385,6 +385,7 @@ test -s sdk/src/index.ts
 test -s sdk/src/quote-hash.ts
 test -s sdk/src/settlement.ts
 test -s sdk/test/sdk-client-config.test.mjs
+test -s sdk/test/sdk-client-requests.test.mjs
 test -s sdk/test/sdk-settlement.test.mjs
 test -s sdk/test/sdk.test.mjs
 test -s contracts/src/RFQSettlement.sol
@@ -2129,14 +2130,14 @@ grep -q 'statusIdentifierPattern.test(value)' sdk/src/client.ts
 grep -q 'RFQ quote response returned malformed quoteId' sdk/test/sdk.test.mjs
 grep -q 'RFQ submit response returned malformed pnlId' sdk/test/sdk.test.mjs
 grep -q 'RFQ PnL summary response trade returned malformed quoteId' sdk/test/sdk.test.mjs
-grep -q 'RFQClient rejects unsafe dynamic status identifiers before fetch' sdk/test/sdk.test.mjs
-grep -q 'RFQ submit request must not include unknown field relayer' sdk/test/sdk.test.mjs
-grep -q 'RFQ submit request missing required field signature' sdk/test/sdk.test.mjs
-grep -q 'RFQ quote request missing required field chainId' sdk/test/sdk.test.mjs
-grep -q 'RFQ submit request missing required field quote' sdk/test/sdk.test.mjs
-grep -q 'new String("q_test")' sdk/test/sdk.test.mjs
-grep -q 'new String("h_test")' sdk/test/sdk.test.mjs
-grep -q 'new String("se_test")' sdk/test/sdk.test.mjs
+grep -q 'RFQClient rejects unsafe dynamic status identifiers before fetch' sdk/test/sdk-client-requests.test.mjs
+grep -q 'RFQ submit request must not include unknown field relayer' sdk/test/sdk-client-requests.test.mjs
+grep -q 'RFQ submit request missing required field signature' sdk/test/sdk-client-requests.test.mjs
+grep -q 'RFQ quote request missing required field chainId' sdk/test/sdk-client-requests.test.mjs
+grep -q 'RFQ submit request missing required field quote' sdk/test/sdk-client-requests.test.mjs
+grep -q 'new String("q_test")' sdk/test/sdk-client-requests.test.mjs
+grep -q 'new String("h_test")' sdk/test/sdk-client-requests.test.mjs
+grep -q 'new String("se_test")' sdk/test/sdk-client-requests.test.mjs
 grep -q 'identifiers must be non-empty, 128 characters or fewer' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'boxed `String` identifiers fail before `encodeURIComponent()` or fetch' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'export interface RFQClientOptions' sdk/src/client.ts
@@ -2238,11 +2239,11 @@ grep -q 'RFQClient traceId option must be a primitive string or function' sdk/te
 grep -q 'RFQClient traceId provider result must be a primitive string' sdk/test/sdk-client-config.test.mjs
 grep -q 'new String("tr_sdk_wrapper")' sdk/test/sdk-client-config.test.mjs
 grep -q 'tr_sdk_' sdk/test/sdk.test.mjs
-grep -q 'RFQClient rejects unsafe quote requests before sending HTTP' sdk/test/sdk.test.mjs
+grep -q 'RFQClient rejects unsafe quote requests before sending HTTP' sdk/test/sdk-client-requests.test.mjs
 grep -Fq '^[1-9][0-9]*$' sdk/src/client.ts
 grep -q 'toSettlementQuote(quote)' sdk/src/eip712.ts
 grep -Fq '^[1-9][0-9]*$' sdk/src/settlement.ts
-grep -q '01000000000' sdk/test/sdk.test.mjs
+grep -q '01000000000' sdk/test/sdk-client-requests.test.mjs
 grep -q '0998400000' sdk/test/sdk-settlement.test.mjs
 grep -q 'base URL and outgoing trace ids must be runtime primitive strings' README.md
 grep -q 'no credentials, no wildcard host, and no query string or fragment' README.md
@@ -2253,7 +2254,7 @@ grep -q 'rejects non-string, empty, relative or non-`http(s)` base URLs' book/Vo
 grep -q 'preserving safe path prefixes such as `/rfq`' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient.quote()` validates outgoing quote requests locally' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'without leading zeros' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'RFQClient rejects unsafe submit requests before sending HTTP' sdk/test/sdk.test.mjs
+grep -q 'RFQClient rejects unsafe submit requests before sending HTTP' sdk/test/sdk-client-requests.test.mjs
 grep -q 'RFQClient.submit()` validates outgoing submit payloads locally with closed top-level own `quote` / `signature` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'reject non-string address, signature and uint-like values' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID` 由 RainbowKit 使用' book/Volume6-Frontend-And-SDK/Chapter01-Frontend-Architecture.md
@@ -2314,8 +2315,8 @@ grep -q 'client.ready' sdk/test/sdk.test.mjs
 grep -q 'version: "debug-build"' sdk/test/sdk.test.mjs
 grep -q 'generatedAt: "2026-06-27T00:00:00.000Z"' sdk/test/sdk.test.mjs
 grep -q 'RFQClient.health()` and `RFQClient.ready()` require closed own top-level response fields matching OpenAPI' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'percent-encodes safe dynamic status path identifiers' sdk/test/sdk.test.mjs
-grep -q 'q%3Atest-id' sdk/test/sdk.test.mjs
+grep -q 'percent-encodes safe dynamic status path identifiers' sdk/test/sdk-client-requests.test.mjs
+grep -q 'q%3Atest-id' sdk/test/sdk-client-requests.test.mjs
 grep -q 'new RFQClient("http://127.0.0.1:3000/", {' sdk/test/sdk.test.mjs
 grep -q 'degraded readiness payloads' sdk/test/sdk.test.mjs
 grep -q 'falls back for unknown API error codes' sdk/test/sdk.test.mjs
@@ -2558,6 +2559,7 @@ grep -Fq '"backend/src/modules/rate-limit/rate-limit.service.ts"' .github/workfl
 grep -Fq '"backend/src/main.ts"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/src/client.ts"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-config.test.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"sdk/test/sdk-client-requests.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-settlement.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk.test.mjs"' .github/workflows/docs-ci.yml
 grep -q 'QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
