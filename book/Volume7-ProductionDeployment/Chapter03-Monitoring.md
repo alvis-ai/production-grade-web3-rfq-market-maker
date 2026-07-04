@@ -181,7 +181,7 @@ Metrics endpoint must not leak private keys, full wallet labels, or internal thr
 
 Metrics collection must be low overhead. Histograms should use bounded buckets.
 
-本地性能回归使用 `make benchmark-quote`，输出 `POST /quote` 的 samples、errors、p50、p95 和 max latency。默认门禁为 p95 <= 50 ms 且 errors = 0；CI 通过 `make verify` 运行该门禁。生产环境仍应使用真实网络、真实 signer、真实数据库和并发流量做容量测试，本地 benchmark 只用于捕捉代码级明显回归。
+本地性能回归使用 `make benchmark-quote` 和 `make benchmark-submit`。Quote benchmark 输出 `POST /quote` 的 samples、errors、p50、p95 和 max latency，默认门禁为 p95 <= 50 ms 且 errors = 0。Submit benchmark 为每个样本先生成 fresh signed quote，再测量 `POST /submit` 的 settlement、inventory、hedge 和 PnL 接受路径，默认门禁为 50 measured samples、p95 <= 100 ms 且 setup/submit errors = 0。CI 通过 `make verify` 运行这些门禁。生产环境仍应使用真实网络、真实 signer、真实数据库和并发流量做容量测试，本地 benchmark 只用于捕捉代码级明显回归。
 
 ## Testing Strategy
 

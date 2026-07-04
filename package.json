@@ -25,6 +25,7 @@
     "database:schema:check": "make database-schema-check",
     "reconciliation:check": "make reconciliation-check",
     "benchmark:quote": "make benchmark-quote",
+    "benchmark:submit": "make benchmark-submit",
     "backend:build": "make backend-build",
     "backend:test": "make backend-test",
     "backend:typecheck": "make backend-typecheck",

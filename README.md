@@ -192,15 +192,18 @@ Repository quality gate:
 make verify
 ```
 
-`make verify` runs skeleton, examples, configuration, documentation, book template, ADR, security documentation, metrics consistency, runbook consistency, Grafana dashboard consistency, deployment manifest consistency, CI workflow consistency, Docker Compose, EIP-712, ABI, API rate-limit, API error-code, API schema, API route, database schema, quote benchmark, backend, SDK, frontend and local API smoke checks through one entrypoint. If Foundry is installed locally it also runs `make contract-test`; otherwise contract tests remain enforced by the dedicated GitHub Actions contract workflow.
+`make verify` runs skeleton, examples, configuration, documentation, book template, ADR, security documentation, metrics consistency, runbook consistency, Grafana dashboard consistency, deployment manifest consistency, CI workflow consistency, Docker Compose, EIP-712, ABI, API rate-limit, API error-code, API schema, API route, database schema, quote and submit benchmarks, backend, SDK, frontend and local API smoke checks through one entrypoint. If Foundry is installed locally it also runs `make contract-test`; otherwise contract tests remain enforced by the dedicated GitHub Actions contract workflow.
 
-Local quote benchmark:
+Local benchmarks:
 
 ```sh
 make benchmark-quote
+make benchmark-submit
 ```
 
-The benchmark builds the backend and exercises `POST /quote` through Fastify injection without binding a network port. Defaults are 100 samples, p95 <= 50 ms and zero HTTP errors. Override with `RFQ_BENCHMARK_QUOTE_REQUESTS`, `RFQ_BENCHMARK_MAX_P95_MS` and `RFQ_BENCHMARK_MAX_ERRORS` for local profiling.
+The quote benchmark builds the backend and exercises `POST /quote` through Fastify injection without binding a network port. Defaults are 100 samples, p95 <= 50 ms and zero HTTP errors. Override with `RFQ_BENCHMARK_QUOTE_REQUESTS`, `RFQ_BENCHMARK_MAX_P95_MS` and `RFQ_BENCHMARK_MAX_ERRORS` for local profiling.
+
+The submit benchmark builds the backend, requests a fresh quote per sample, then measures `POST /submit` through settlement verification, inventory update, hedge intent creation and PnL attribution. Defaults are 50 measured submit samples, p95 <= 100 ms and zero setup or submit errors. Override with `RFQ_BENCHMARK_SUBMIT_REQUESTS`, `RFQ_BENCHMARK_SUBMIT_MAX_P95_MS` and `RFQ_BENCHMARK_SUBMIT_MAX_ERRORS`.
 
 ## TypeScript SDK
 

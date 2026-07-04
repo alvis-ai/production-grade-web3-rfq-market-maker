@@ -205,6 +205,8 @@ Relay mode must prevent arbitrary transaction submission. It should only submit 
 
 Execution path can be asynchronous. RPC latency should not block quote generation.
 
+当前本地性能门禁包含 `make benchmark-submit`。它用 Fastify injection 为每个样本先获取 fresh signed quote，再测量 `/submit` 的签名验证、settlement event 写入、inventory update、hedge intent 创建和 PnL attribution 路径；默认 50 measured samples、p95 <= 100 ms、setup/submit errors = 0。该 benchmark 只捕捉代码级明显回归，生产容量仍必须使用真实 RPC、数据库、队列和并发流量验证。
+
 ## Testing Strategy
 
 测试 payload generation、relay failure、tx revert、settlement verifier unavailable、settlement verifier policy fail-fast、PnL attribution input validation、event confirmation、duplicate submit、duplicate settlement side-effect suppression、reorg removal inventory replay、post-settlement status persistence failure 和 quote expired。

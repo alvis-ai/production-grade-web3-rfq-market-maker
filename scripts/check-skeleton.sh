@@ -7,6 +7,7 @@ test -s pnpm-lock.yaml
 test -s .dockerignore
 test -s .env.example
 test -s benchmark/quote-benchmark.mjs
+test -s benchmark/submit-benchmark.mjs
 test -s .github/workflows/backend-ci.yml
 test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
@@ -2397,6 +2398,7 @@ grep -q 'make api-schema-check' scripts/verify.sh
 grep -q 'make api-route-check' scripts/verify.sh
 grep -q 'make database-schema-check' scripts/verify.sh
 grep -q 'make benchmark-quote' scripts/verify.sh
+grep -q 'make benchmark-submit' scripts/verify.sh
 grep -q 'make backend-test' scripts/verify.sh
 grep -q 'make sdk-test' scripts/verify.sh
 grep -q 'make frontend-test' scripts/verify.sh
@@ -2436,16 +2438,29 @@ grep -q 'api:route:check' package.json
 grep -q 'database-schema-check' Makefile
 grep -q 'database:schema:check' package.json
 grep -q 'benchmark-quote' Makefile
+grep -q 'benchmark-submit' Makefile
 grep -q 'benchmark:quote' package.json
+grep -q 'benchmark:submit' package.json
 grep -q 'make benchmark-quote' README.md
+grep -q 'make benchmark-submit' README.md
 grep -q 'RFQ_BENCHMARK_MAX_P95_MS' README.md
+grep -q 'RFQ_BENCHMARK_SUBMIT_MAX_P95_MS' README.md
 grep -q 'make benchmark-quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'make benchmark-submit' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'make benchmark-submit' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'make benchmark-quote' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+grep -q 'make benchmark-submit' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'RFQ_BENCHMARK_QUOTE_REQUESTS' benchmark/quote-benchmark.mjs
 grep -q 'RFQ_BENCHMARK_MAX_P95_MS' benchmark/quote-benchmark.mjs
 grep -q 'POST /quote' benchmark/quote-benchmark.mjs
 grep -q 'buildServer' benchmark/quote-benchmark.mjs
 grep -q 'rateLimit: false' benchmark/quote-benchmark.mjs
+grep -q 'RFQ_BENCHMARK_SUBMIT_REQUESTS' benchmark/submit-benchmark.mjs
+grep -q 'RFQ_BENCHMARK_SUBMIT_MAX_P95_MS' benchmark/submit-benchmark.mjs
+grep -q 'POST /submit' benchmark/submit-benchmark.mjs
+grep -q 'setupRoute: "POST /quote"' benchmark/submit-benchmark.mjs
+grep -q 'maxAbsoluteInventory' benchmark/submit-benchmark.mjs
+grep -q 'rateLimit: false' benchmark/submit-benchmark.mjs
 grep -q 'smoke-api-local' Makefile
 grep -q 'FOUNDRY_DISABLE_NIGHTLY_WARNING=1 forge build' Makefile
 grep -q 'FOUNDRY_DISABLE_NIGHTLY_WARNING=1 forge test --offline' Makefile
