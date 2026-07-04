@@ -392,6 +392,7 @@ test -s sdk/test/sdk-client-config.test.mjs
 test -s sdk/test/sdk-client-errors.test.mjs
 test -s sdk/test/sdk-client-requests.test.mjs
 test -s sdk/test/sdk-client-responses.test.mjs
+test -s sdk/test/sdk-client-status-responses.test.mjs
 test -s sdk/test/sdk-settlement.test.mjs
 test -s sdk/test/sdk.test.mjs
 test -s contracts/src/RFQSettlement.sol
@@ -2270,10 +2271,10 @@ grep -q 'assertQuoteResponse' sdk/src/client.ts
 grep -q 'assertSubmitQuoteResponse' sdk/src/client.ts
 grep -q 'readJsonResponse' sdk/src/client.ts
 grep -q 'malformed successful JSON responses' sdk/test/sdk-client-responses.test.mjs
-grep -q 'malformed health and readiness status responses' sdk/test/sdk-client-responses.test.mjs
-grep -q 'externalUrl: "ok"' sdk/test/sdk-client-responses.test.mjs
-grep -q 'malformed hedge status responses' sdk/test/sdk-client-responses.test.mjs
-grep -q 'createdAt: "2026-06-27"' sdk/test/sdk-client-responses.test.mjs
+grep -q 'malformed health and readiness status responses' sdk/test/sdk-client-status-responses.test.mjs
+grep -q 'externalUrl: "ok"' sdk/test/sdk-client-status-responses.test.mjs
+grep -q 'malformed hedge status responses' sdk/test/sdk-client-status-responses.test.mjs
+grep -q 'createdAt: "2026-06-27"' sdk/test/sdk-client-status-responses.test.mjs
 grep -q 'malformed submit and quote status responses' sdk/test/sdk-client-responses.test.mjs
 grep -q 'deadline: "1893456000"' sdk/test/sdk-client-responses.test.mjs
 grep -q 'q_rejected' sdk/test/sdk-client-responses.test.mjs
@@ -2295,14 +2296,14 @@ grep -q 'assertNoUnknownResponseFields' sdk/src/client.ts
 grep -q 'allowed.has(key)' sdk/src/client.ts
 grep -q 'assertOptionalOwnResponseField' sdk/src/client.ts
 grep -q 'quoteResponseFields = \["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"\]' sdk/src/client.ts
-grep -Fq 'Object.create({ status: "ok" })' sdk/test/sdk-client-responses.test.mjs
-grep -q 'Object.create({' sdk/test/sdk-client-responses.test.mjs
+grep -Fq 'Object.create({ status: "ok" })' sdk/test/sdk-client-status-responses.test.mjs
+grep -q 'Object.create({' sdk/test/sdk-client-status-responses.test.mjs
 grep -q 'payload: Object.create(quoteResponse)' sdk/test/sdk-client-responses.test.mjs
 grep -q 'withPrototype({ txHash: submitResponse.txHash }, { status: "accepted" })' sdk/test/sdk-client-responses.test.mjs
 grep -q 'successful response validators require closed own response fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'routeHint: "debug"' sdk/test/sdk-client-responses.test.mjs
 grep -q 'relayer: quote.user' sdk/test/sdk-client-responses.test.mjs
-grep -q 'venue: "CEX_A"' sdk/test/sdk-client-responses.test.mjs
+grep -q 'venue: "CEX_A"' sdk/test/sdk-client-status-responses.test.mjs
 grep -q 'chainName: "mainnet"' sdk/test/sdk-client-responses.test.mjs
 grep -q 'reconciliationId: "recon_1"' sdk/test/sdk-client-responses.test.mjs
 grep -q 'routeId: "route_1"' sdk/test/sdk-client-responses.test.mjs
@@ -2318,13 +2319,13 @@ grep -q 'client.getSettlement' sdk/test/sdk.test.mjs
 grep -q 'client.getHedge' sdk/test/sdk.test.mjs
 grep -q 'client.pnl' sdk/test/sdk.test.mjs
 grep -q 'client.ready' sdk/test/sdk.test.mjs
-grep -q 'version: "debug-build"' sdk/test/sdk-client-responses.test.mjs
-grep -q 'generatedAt: "2026-06-27T00:00:00.000Z"' sdk/test/sdk-client-responses.test.mjs
+grep -q 'version: "debug-build"' sdk/test/sdk-client-status-responses.test.mjs
+grep -q 'generatedAt: "2026-06-27T00:00:00.000Z"' sdk/test/sdk-client-status-responses.test.mjs
 grep -q 'RFQClient.health()` and `RFQClient.ready()` require closed own top-level response fields matching OpenAPI' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'percent-encodes safe dynamic status path identifiers' sdk/test/sdk-client-requests.test.mjs
 grep -q 'q%3Atest-id' sdk/test/sdk-client-requests.test.mjs
 grep -q 'new RFQClient("http://127.0.0.1:3000/", {' sdk/test/sdk.test.mjs
-grep -q 'degraded readiness payloads' sdk/test/sdk-client-responses.test.mjs
+grep -q 'degraded readiness payloads' sdk/test/sdk-client-status-responses.test.mjs
 grep -q 'falls back for unknown API error codes' sdk/test/sdk-client-errors.test.mjs
 grep -q 'exposes Retry-After seconds for rate limited responses' sdk/test/sdk-client-errors.test.mjs
 grep -q 'ignores non-canonical Retry-After headers' sdk/test/sdk-client-errors.test.mjs
@@ -2568,6 +2569,7 @@ grep -Fq '"sdk/test/sdk-client-config.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-errors.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-requests.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-responses.test.mjs"' .github/workflows/docs-ci.yml
+grep -Fq '"sdk/test/sdk-client-status-responses.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-settlement.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk.test.mjs"' .github/workflows/docs-ci.yml
 grep -q 'QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs

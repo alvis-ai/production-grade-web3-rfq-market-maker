@@ -59,6 +59,7 @@ assertContains(workflows.docs, [
   '- "sdk/test/sdk-client-errors.test.mjs"',
   '- "sdk/test/sdk-client-requests.test.mjs"',
   '- "sdk/test/sdk-client-responses.test.mjs"',
+  '- "sdk/test/sdk-client-status-responses.test.mjs"',
   '- "sdk/test/sdk-settlement.test.mjs"',
   '- "sdk/test/sdk.test.mjs"',
   '- "scripts/check-api-error-consistency.mjs"',
