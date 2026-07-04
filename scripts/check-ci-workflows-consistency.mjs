@@ -55,6 +55,7 @@ assertContains(workflows.docs, [
   '- "backend/src/main.ts"',
   '- "sdk/src/client.ts"',
   '- "sdk/src/types.ts"',
+  '- "sdk/test/sdk-settlement.test.mjs"',
   '- "sdk/test/sdk.test.mjs"',
   '- "scripts/check-api-error-consistency.mjs"',
   '- "scripts/check-api-route-consistency.mjs"',

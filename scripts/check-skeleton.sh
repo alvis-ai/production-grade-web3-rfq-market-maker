@@ -384,6 +384,7 @@ test -s sdk/src/eip712.ts
 test -s sdk/src/index.ts
 test -s sdk/src/quote-hash.ts
 test -s sdk/src/settlement.ts
+test -s sdk/test/sdk-settlement.test.mjs
 test -s sdk/test/sdk.test.mjs
 test -s contracts/src/RFQSettlement.sol
 test -s contracts/test/RFQSettlement.t.sol
@@ -2063,17 +2064,17 @@ grep -Fq 'typeof value !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(value)' sdk/s
 grep -Fq 'typeof value !== "string" || !/^0x[a-fA-F0-9]{130}$/.test(value)' sdk/src/settlement.ts
 grep -Fq 'typeof value !== "string" || !/^[0-9]+$/.test(value)' sdk/src/settlement.ts
 grep -q 'nonce: parsePositiveUInt(quote.nonce, "quote.nonce")' sdk/src/settlement.ts
-grep -q 'treasury transfer input must be an object' sdk/test/sdk.test.mjs
-grep -q 'quote must be an object' sdk/test/sdk.test.mjs
-grep -Fq 'quote\.user must be an own field' sdk/test/sdk.test.mjs
-grep -q 'quote must not include unknown field routeHint' sdk/test/sdk.test.mjs
-grep -Fq 'submit quote write request input\.settlementAddress must be an own field' sdk/test/sdk.test.mjs
-grep -Fq 'treasury transfer input\.token must be an own field' sdk/test/sdk.test.mjs
-grep -q 'treasury transfer input must not include unknown field memo' sdk/test/sdk.test.mjs
-grep -Fq 'quote\.nonce must be a positive uint string' sdk/test/sdk.test.mjs
-grep -q 'new String(signature)' sdk/test/sdk.test.mjs
-grep -q 'amountIn: 1000000000' sdk/test/sdk.test.mjs
-grep -q 'Settlement helpers reject high-s signatures before contract calls' sdk/test/sdk.test.mjs
+grep -q 'treasury transfer input must be an object' sdk/test/sdk-settlement.test.mjs
+grep -q 'quote must be an object' sdk/test/sdk-settlement.test.mjs
+grep -Fq 'quote\.user must be an own field' sdk/test/sdk-settlement.test.mjs
+grep -q 'quote must not include unknown field routeHint' sdk/test/sdk-settlement.test.mjs
+grep -Fq 'submit quote write request input\.settlementAddress must be an own field' sdk/test/sdk-settlement.test.mjs
+grep -Fq 'treasury transfer input\.token must be an own field' sdk/test/sdk-settlement.test.mjs
+grep -q 'treasury transfer input must not include unknown field memo' sdk/test/sdk-settlement.test.mjs
+grep -Fq 'quote\.nonce must be a positive uint string' sdk/test/sdk-settlement.test.mjs
+grep -q 'new String(signature)' sdk/test/sdk-settlement.test.mjs
+grep -q 'amountIn: 1000000000' sdk/test/sdk-settlement.test.mjs
+grep -q 'Settlement helpers reject high-s signatures before contract calls' sdk/test/sdk-settlement.test.mjs
 grep -q 'buildSubmitQuoteArgs()` rejects non-canonical high-s ECDSA signatures' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'quote.amountOut must be greater than or equal to quote.minAmountOut' sdk/src/settlement.ts
 grep -q 'buildQuoteTypedData' sdk/src/eip712.ts
@@ -2082,27 +2083,27 @@ grep -q 'toSettlementQuote(quote)' sdk/src/eip712.ts
 grep -Fq 'typeof value !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(value)' sdk/src/eip712.ts
 grep -q 'ProductionGradeRFQ' sdk/src/eip712.ts
 grep -q 'RFQClientError' sdk/test/sdk.test.mjs
-grep -q 'buildQuoteTypedData' sdk/test/sdk.test.mjs
-grep -q 'buildQuoteTypedData rejects invalid EIP-712 domain and quote fields' sdk/test/sdk.test.mjs
-grep -q 'buildSubmitQuoteArgs' sdk/test/sdk.test.mjs
-grep -q 'hashSettlementQuote matches RFQSettlement.hashQuote struct hashing' sdk/test/sdk.test.mjs
-grep -q 'Settlement helpers reject invalid uint inputs before contract calls' sdk/test/sdk.test.mjs
-grep -q 'buildTreasuryTransferArgs' sdk/test/sdk.test.mjs
+grep -q 'buildQuoteTypedData' sdk/test/sdk-settlement.test.mjs
+grep -q 'buildQuoteTypedData rejects invalid EIP-712 domain and quote fields' sdk/test/sdk-settlement.test.mjs
+grep -q 'buildSubmitQuoteArgs' sdk/test/sdk-settlement.test.mjs
+grep -q 'hashSettlementQuote matches RFQSettlement.hashQuote struct hashing' sdk/test/sdk-settlement.test.mjs
+grep -q 'Settlement helpers reject invalid uint inputs before contract calls' sdk/test/sdk-settlement.test.mjs
+grep -q 'buildTreasuryTransferArgs' sdk/test/sdk-settlement.test.mjs
 grep -q 'write request input, treasury transfer input and quote payloads must provide closed required own fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'inherited-field and unknown-field quote / write-request / treasury-transfer inputs' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'RFQSettlement ABI exposes treasury custody controls' sdk/test/sdk.test.mjs
+grep -q 'RFQSettlement ABI exposes treasury custody controls' sdk/test/sdk-settlement.test.mjs
 grep -q 'emergencyWithdraw' sdk/src/abi.ts
 grep -q 'hashQuote' sdk/src/abi.ts
-grep -q 'rfqSettlementAbi' sdk/test/sdk.test.mjs
-grep -q 'recoverTypedDataAddress' sdk/test/sdk.test.mjs
-grep -q 'verifyTypedData' sdk/test/sdk.test.mjs
+grep -q 'rfqSettlementAbi' sdk/test/sdk-settlement.test.mjs
+grep -q 'recoverTypedDataAddress' sdk/test/sdk-settlement.test.mjs
+grep -q 'verifyTypedData' sdk/test/sdk-settlement.test.mjs
 grep -q 'submitQuote' sdk/src/abi.ts
 grep -q 'setTreasury' sdk/src/abi.ts
 grep -q 'TreasuryUpdated' sdk/src/abi.ts
 grep -q 'setTokenWhitelist' sdk/src/abi.ts
 grep -q 'grantRole' sdk/src/abi.ts
 grep -q 'RoleGranted' sdk/src/abi.ts
-grep -q 'RFQSettlement ABI exposes role-based admin controls' sdk/test/sdk.test.mjs
+grep -q 'RFQSettlement ABI exposes role-based admin controls' sdk/test/sdk-settlement.test.mjs
 grep -q 'async submit' sdk/src/client.ts
 grep -q 'assertQuoteRequest(request)' sdk/src/client.ts
 grep -q 'quoteRequestFields' sdk/src/client.ts
@@ -2241,7 +2242,7 @@ grep -Fq '^[1-9][0-9]*$' sdk/src/client.ts
 grep -q 'toSettlementQuote(quote)' sdk/src/eip712.ts
 grep -Fq '^[1-9][0-9]*$' sdk/src/settlement.ts
 grep -q '01000000000' sdk/test/sdk.test.mjs
-grep -q '0998400000' sdk/test/sdk.test.mjs
+grep -q '0998400000' sdk/test/sdk-settlement.test.mjs
 grep -q 'base URL and outgoing trace ids must be runtime primitive strings' README.md
 grep -q 'no credentials, no wildcard host, and no query string or fragment' README.md
 grep -q 'Integrators can pass `{ traceId:' README.md
@@ -2555,6 +2556,7 @@ grep -Fq '"infra/helm/**"' .github/workflows/docs-ci.yml
 grep -Fq '"backend/src/modules/rate-limit/rate-limit.service.ts"' .github/workflows/docs-ci.yml
 grep -Fq '"backend/src/main.ts"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/src/client.ts"' .github/workflows/docs-ci.yml
+grep -Fq '"sdk/test/sdk-settlement.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk.test.mjs"' .github/workflows/docs-ci.yml
 grep -q 'QUOTE_TYPEHASH' scripts/check-eip712-consistency.mjs
 grep -q 'backend signer Quote fields must match SDK Quote fields' scripts/check-eip712-consistency.mjs
