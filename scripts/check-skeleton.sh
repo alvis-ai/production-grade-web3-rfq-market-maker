@@ -2518,6 +2518,9 @@ grep -q 'typescript-check' Makefile
 grep -q 'api-error-check' Makefile
 grep -q '65-byte canonical low-s EIP-712 signature' docs/api/openapi.yaml
 grep -q 'Expected ${label} to be a 65-byte hex string' scripts/smoke-api.mjs
+grep -q 'recoverTypedDataAddress' scripts/smoke-api.mjs
+grep -q 'privateKeyToAccount' scripts/smoke-api.mjs
+grep -q 'recovered quote signer' scripts/smoke-api.mjs
 grep -q 'amountOut must be greater than or equal to minAmountOut' docs/api/openapi.yaml
 grep -q 'Signed quote not found' docs/api/openapi.yaml
 grep -q 'settlement verification' docs/api/openapi.yaml
@@ -2632,6 +2635,7 @@ grep -q 'RFQ_BODY_LIMIT_BYTES' README.md
 grep -q 'must be a base-10 integer from 1 to 3600' README.md
 grep -q 'must be a base-10 integer from 1024 to 1048576' README.md
 grep -q 'rejects non-boolean `logger`, `enableHsts` or `trustProxy` values' README.md
+grep -q 'cryptographically recovers the EIP-712 signer from the returned signature' README.md
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' README.md
 grep -q 'startup rejects entries with paths, query strings, fragments, credentials, or wildcards' README.md
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID` configures RainbowKit wallet connection and must be a 128-character-or-shorter safe string' README.md
@@ -2683,6 +2687,7 @@ grep -q 'rfq_submit_errors_total 1' scripts/smoke-api.mjs
 grep -q 'rfq_quote_latency_seconds_count 1' scripts/smoke-api.mjs
 grep -q 'rfq_signer_requests_total{operation="sign"} 1' scripts/smoke-api.mjs
 grep -q 'rfq_signer_latency_seconds_count{operation="verify"} 1' scripts/smoke-api.mjs
+grep -q 'recoveredSigner' scripts/smoke-api.mjs
 grep -q 'rfq_submit_latency_seconds_count 2' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' scripts/smoke-api.mjs
 grep -q 'rfq_hedge_lag_seconds_count 1' scripts/smoke-api.mjs
@@ -3117,5 +3122,6 @@ grep -q 'prometheus.io/path' infra/helm/rfq-market-maker/values.yaml
 grep -q 'name: rfq-market-maker' infra/helm/rfq-market-maker/Chart.yaml
 grep -q '/docker-entrypoint-initdb.d/001-schema.sql' book/Volume7-ProductionDeployment/Chapter01-Docker.md
 grep -q 'Redis uses `redis-cli ping`' book/Volume7-ProductionDeployment/Chapter01-Docker.md
+grep -q 'recovers the `/quote` EIP-712 signer from the returned signature before submit' book/Volume7-ProductionDeployment/Chapter01-Docker.md
 
 echo "skeleton check passed"

@@ -143,7 +143,7 @@ Compose settings are lightweight for laptops, not production sizing.
 
 ## Testing Strategy
 
-Smoke test: start compose, verify backend health on `localhost:3000`, open frontend on `localhost:5173`, and confirm Prometheus can scrape `rfq-backend`.
+Smoke test: start compose, verify backend health on `localhost:3000`, open frontend on `localhost:5173`, and confirm Prometheus can scrape `rfq-backend`. The local API smoke path also recovers the `/quote` EIP-712 signer from the returned signature before submit, using the configured signer key and settlement address, so it proves the quote artifact is cryptographically bound to the expected trusted signer rather than only matching response shape.
 
 ## Interview Notes
 

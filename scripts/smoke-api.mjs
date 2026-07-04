@@ -1,9 +1,32 @@
 #!/usr/bin/env node
 
+import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+
+const requireFromBackend = createRequire(new URL("../backend/package.json", import.meta.url));
+const { recoverTypedDataAddress } = await import(pathToFileURL(requireFromBackend.resolve("viem")).href);
+const { privateKeyToAccount } = await import(pathToFileURL(requireFromBackend.resolve("viem/accounts")).href);
 
 const apiUrl = process.env.API_URL ?? "http://127.0.0.1:3000";
+const localSignerPrivateKey =
+  process.env.RFQ_SIGNER_PRIVATE_KEY ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const settlementAddress = process.env.RFQ_SETTLEMENT_ADDRESS ?? "0x0000000000000000000000000000000000000004";
+const expectedSignerAddress = privateKeyToAccount(localSignerPrivateKey).address;
 const quoteRequest = JSON.parse(await readFile("examples/quote-request.json", "utf8"));
+const quoteTypes = {
+  Quote: [
+    { name: "user", type: "address" },
+    { name: "tokenIn", type: "address" },
+    { name: "tokenOut", type: "address" },
+    { name: "amountIn", type: "uint256" },
+    { name: "amountOut", type: "uint256" },
+    { name: "minAmountOut", type: "uint256" },
+    { name: "nonce", type: "uint256" },
+    { name: "deadline", type: "uint256" },
+    { name: "chainId", type: "uint256" },
+  ],
+};
 
 const health = await request("GET", "/health");
 assertEqual(health.status, "ok", "health status");
@@ -32,6 +55,7 @@ const signedQuote = {
   deadline: quoteResponse.deadline,
   chainId: quoteRequest.chainId,
 };
+const recoveredSigner = await assertSignedQuoteRecoversTrustedSigner(signedQuote, quoteResponse.signature);
 
 const submitResponse = await request("POST", "/submit", {
   quote: signedQuote,
@@ -128,6 +152,7 @@ console.log(
       grossPnlTokenOut: pnl.grossPnlTokenOut,
       readiness: readiness.status,
       replayTraceId: replayError.payload.traceId,
+      recoveredSigner,
     },
     null,
     2,
@@ -207,6 +232,38 @@ function assertBytes32Hex(value, label) {
   if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
     throw new Error(`Expected ${label} to be a 32-byte hex string`);
   }
+}
+
+async function assertSignedQuoteRecoversTrustedSigner(quote, signature) {
+  const recoveredSigner = await recoverTypedDataAddress({
+    domain: {
+      name: "ProductionGradeRFQ",
+      version: "1",
+      chainId: quote.chainId,
+      verifyingContract: settlementAddress,
+    },
+    types: quoteTypes,
+    primaryType: "Quote",
+    message: {
+      user: quote.user,
+      tokenIn: quote.tokenIn,
+      tokenOut: quote.tokenOut,
+      amountIn: BigInt(quote.amountIn),
+      amountOut: BigInt(quote.amountOut),
+      minAmountOut: BigInt(quote.minAmountOut),
+      nonce: BigInt(quote.nonce),
+      deadline: BigInt(quote.deadline),
+      chainId: BigInt(quote.chainId),
+    },
+    signature,
+  });
+
+  assertEqual(
+    recoveredSigner.toLowerCase(),
+    expectedSignerAddress.toLowerCase(),
+    "recovered quote signer",
+  );
+  return recoveredSigner;
 }
 
 function assertIncludes(value, expected, label) {
