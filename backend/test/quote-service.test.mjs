@@ -1795,6 +1795,83 @@ test("QuoteService marks requested quotes as failed when pricing is unavailable"
   assert.equal(signerCalls, 0);
 });
 
+test("QuoteService rejects malformed inventory and hedge pricing adjustments before pricing", async () => {
+  const malformedPricingAdjustmentCases = [
+    { inventorySkewBps: undefined, hedgeRiskPenaltyBps: 0 },
+    { inventorySkewBps: Number.NaN, hedgeRiskPenaltyBps: 0 },
+    { inventorySkewBps: 10_001, hedgeRiskPenaltyBps: 0 },
+    { inventorySkewBps: 0.5, hedgeRiskPenaltyBps: 0 },
+    { inventorySkewBps: "0", hedgeRiskPenaltyBps: 0 },
+    { inventorySkewBps: 0, hedgeRiskPenaltyBps: undefined },
+    { inventorySkewBps: 0, hedgeRiskPenaltyBps: -1 },
+    { inventorySkewBps: 0, hedgeRiskPenaltyBps: 10_001 },
+    { inventorySkewBps: 0, hedgeRiskPenaltyBps: 0.5 },
+    { inventorySkewBps: 0, hedgeRiskPenaltyBps: "25" },
+    { inventorySkewBps: 9_990, hedgeRiskPenaltyBps: 25 },
+  ];
+
+  for (const { inventorySkewBps, hedgeRiskPenaltyBps } of malformedPricingAdjustmentCases) {
+    const quoteRepository = new InMemoryQuoteRepository();
+    const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+    let requestedQuoteId;
+    let pricingAttempts = 0;
+    let signAttempts = 0;
+    quoteRepository.saveRequested = async (input) => {
+      requestedQuoteId = input.quoteId;
+      await saveRequested(input);
+    };
+
+    const service = new QuoteService({
+      ...quoteServiceDeps(),
+      inventoryService: {
+        calculateQuoteSkewBps() {
+          return inventorySkewBps;
+        },
+        projectSettlement() {
+          throw new Error("inventory projection should not be called for malformed pricing adjustments");
+        },
+      },
+      hedgeService: {
+        quoteRiskPenaltyBps() {
+          return hedgeRiskPenaltyBps;
+        },
+      },
+      quoteRepository,
+      pricingEngine: {
+        async price() {
+          pricingAttempts += 1;
+          throw new Error("pricing should not be called for malformed pricing adjustments");
+        },
+      },
+      signerService: {
+        async signQuote() {
+          signAttempts += 1;
+          return fixedSignature();
+        },
+        async verifyQuoteSignature() {
+          return true;
+        },
+      },
+    });
+
+    await assert.rejects(
+      service.createQuote(request),
+      (error) => {
+        assert.equal(error.code, "PRICING_UNAVAILABLE");
+        assert.equal(error.statusCode, 503);
+        return true;
+      },
+    );
+
+    assert.equal(pricingAttempts, 0);
+    assert.equal(signAttempts, 0);
+    assert.match(requestedQuoteId, /^q_/);
+    const status = await quoteRepository.findStatus(requestedQuoteId);
+    assert.equal(status.status, "failed");
+    assert.equal(status.errorCode, "PRICING_UNAVAILABLE");
+  }
+});
+
 test("QuoteService rejects malformed pricing engine results before signing", async () => {
   const validPricingResult = {
     amountOut: "998400000",

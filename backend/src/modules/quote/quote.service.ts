@@ -146,14 +146,27 @@ export class QuoteService {
       await this.markQuoteFailedBestEffort(quoteId, failure.code);
       throw failure;
     }
-    const inventorySkewBps = this.deps.inventoryService.calculateQuoteSkewBps({
-      chainId: validatedRequest.chainId,
-      token: validatedRequest.tokenOut,
-    });
-    const hedgeRiskPenaltyBps = this.deps.hedgeService?.quoteRiskPenaltyBps?.({
-      chainId: validatedRequest.chainId,
-      token: validatedRequest.tokenOut,
-    }) ?? 0;
+    let pricingAdjustmentBps: number;
+    try {
+      const inventorySkewResult = this.deps.inventoryService.calculateQuoteSkewBps({
+        chainId: validatedRequest.chainId,
+        token: validatedRequest.tokenOut,
+      });
+      assertInventorySkewBps(inventorySkewResult);
+      const hedgeRiskPenaltyResult = this.deps.hedgeService?.quoteRiskPenaltyBps
+        ? this.deps.hedgeService.quoteRiskPenaltyBps({
+            chainId: validatedRequest.chainId,
+            token: validatedRequest.tokenOut,
+          })
+        : 0;
+      assertHedgeRiskPenaltyBps(hedgeRiskPenaltyResult);
+      pricingAdjustmentBps = inventorySkewResult + hedgeRiskPenaltyResult;
+      assertPricingAdjustmentBps(pricingAdjustmentBps);
+    } catch (error) {
+      const failure = pricingFailure(error);
+      await this.markQuoteFailedBestEffort(quoteId, failure.code);
+      throw failure;
+    }
 
     let pricing: PricingResult;
     try {
@@ -161,7 +174,7 @@ export class QuoteService {
         request: validatedRequest,
         snapshot,
         routePlan,
-        inventorySkewBps: inventorySkewBps + hedgeRiskPenaltyBps,
+        inventorySkewBps: pricingAdjustmentBps,
       });
       assertPricingResult(pricingResult);
       pricing = pricingResult;
@@ -636,6 +649,24 @@ function assertRouteAddress(value: unknown, field: "tokenIn" | "tokenOut"): asse
 function assertRouteExpectedLiquidity(value: unknown): asserts value is UIntString {
   if (typeof value !== "string" || !positiveUIntStringPattern.test(value)) {
     throw new Error("Quote service route plan.expectedLiquidityUsd must be a positive uint string");
+  }
+}
+
+function assertInventorySkewBps(value: unknown): asserts value is number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || Math.abs(value) > maxBps) {
+    throw new Error("Quote service inventory skew bps must be a safe bps integer");
+  }
+}
+
+function assertHedgeRiskPenaltyBps(value: unknown): asserts value is number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > maxBps) {
+    throw new Error("Quote service hedge risk penalty bps must be a non-negative bps integer");
+  }
+}
+
+function assertPricingAdjustmentBps(value: unknown): asserts value is number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || Math.abs(value) > maxBps) {
+    throw new Error("Quote service pricing adjustment bps must be a safe bps integer");
   }
 }
 

@@ -155,6 +155,8 @@ grep -q 'assertInventorySkewInput(input)' backend/src/modules/inventory/inventor
 grep -q 'assertObject(input, "settlement delta")' backend/src/modules/inventory/inventory.service.ts
 grep -q 'assertObject(input, "skew input")' backend/src/modules/inventory/inventory.service.ts
 grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/inventory/inventory.service.ts
+grep -q '`calculateQuoteSkewBps` output is also validated by Quote Service before Pricing Service is called' book/Volume3-RiskEngine/Chapter01-Inventory.md
+grep -q 'malformed skew output is treated as `PRICING_UNAVAILABLE`' book/Volume3-RiskEngine/Chapter01-Inventory.md
 grep -q 'InventoryService snapshots skew configuration at construction' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects unsafe skew configuration at construction' backend/test/inventory.test.mjs
 grep -q 'InventoryService rejects malformed runtime payload envelopes before mutating balances' backend/test/inventory.test.mjs
@@ -286,6 +288,9 @@ grep -q 'QuoteService rejects malformed route plans before pricing and signing' 
 grep -q 'internalVenue: "external"' backend/test/quote-service.test.mjs
 grep -q 'assert.equal(pricingAttempts, 0)' backend/test/quote-service.test.mjs
 grep -q 'QuoteService marks requested quotes as failed when pricing is unavailable' backend/test/quote-service.test.mjs
+grep -q 'QuoteService rejects malformed inventory and hedge pricing adjustments before pricing' backend/test/quote-service.test.mjs
+grep -q 'hedgeRiskPenaltyBps: "25"' backend/test/quote-service.test.mjs
+grep -q 'inventorySkewBps: 9_990' backend/test/quote-service.test.mjs
 grep -q '快照 `StaticMarketDataConfig`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'Config 的 `supportedPairs` 必须是 own field' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q '每个 supported pair 的 `chainId`、`tokenIn` 和 `tokenOut` 也必须是 own fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
@@ -706,6 +711,10 @@ grep -q 'assertRoutePlan(routeResult, validatedRequest)' backend/src/modules/quo
 grep -q 'Quote service route plan token pair must match quote request token pair' backend/src/modules/quote/quote.service.ts
 grep -q 'PRICING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'pricingFailure' backend/src/modules/quote/quote.service.ts
+grep -q 'assertInventorySkewBps(inventorySkewResult)' backend/src/modules/quote/quote.service.ts
+grep -q 'assertHedgeRiskPenaltyBps(hedgeRiskPenaltyResult)' backend/src/modules/quote/quote.service.ts
+grep -q 'assertPricingAdjustmentBps(pricingAdjustmentBps)' backend/src/modules/quote/quote.service.ts
+grep -q 'Quote service pricing adjustment bps must be a safe bps integer' backend/src/modules/quote/quote.service.ts
 grep -q 'pricingResultFields' backend/src/modules/quote/quote.service.ts
 grep -q 'assertPricingResult(pricingResult)' backend/src/modules/quote/quote.service.ts
 grep -q 'Quote service pricing result.amountOut must be greater than or equal to pricing result.minAmountOut' backend/src/modules/quote/quote.service.ts
@@ -759,6 +768,8 @@ grep -q 'QuoteService` rejects malformed config, inherited config fields, malfor
 grep -q 'createQuote()` revalidates and snapshots the quote request at the service boundary' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'validates `RoutePlan` returned by the routing adapter before inventory skew, pricing, risk evaluation or signing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Malformed route output is treated as `ROUTING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'validates pricing adjustment inputs before calling Pricing Service' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Malformed inventory skew, malformed hedge penalty or an overflowing combined adjustment is treated as `PRICING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'validates `PricingResult` returned by the pricing adapter before inventory projection, risk evaluation or signing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Malformed pricing output is treated as `PRICING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'validates `RiskDecision` returned by the risk adapter before audit persistence or signer access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -1573,7 +1584,7 @@ grep -q 'canonical positive uint string without leading zeros' book/Volume5-Back
 grep -q 'inherited object properties' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'Hedge status lookups validate `hedgeOrderId` and `settlementEventId` as primitive-string `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'Malformed hedge config, intent and risk feedback root payloads are rejected before field access or state mutation' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
-grep -q 'hedgeRiskPenaltyBps' backend/src/modules/quote/quote.service.ts
+grep -q 'hedgeRiskPenaltyResult' backend/src/modules/quote/quote.service.ts
 grep -q 'interface PnlStore' backend/src/modules/pnl/pnl.service.ts
 grep -q 'class PnlService' backend/src/modules/pnl/pnl.service.ts
 grep -q 'recordSettlement' backend/src/modules/pnl/pnl.service.ts
@@ -2625,6 +2636,8 @@ grep -q 'HedgeService accumulates bounded quote risk penalty after hedge failure
 grep -q 'hedge status store failures' backend/test/api.test.mjs
 grep -q 'HEDGE_INTENT_FAILED' backend/test/api.test.mjs
 grep -q 'quote risk penalty' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
+grep -q '`quoteRiskPenaltyBps` output is a Quote Service dependency boundary' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
+grep -q 'fails the requested quote with `PRICING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'HEDGE_INTENT_FAILED' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'HEDGE_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'post-settlement quote status persistence fails' backend/test/api.test.mjs
