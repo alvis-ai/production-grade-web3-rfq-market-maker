@@ -1830,6 +1830,10 @@ grep -q 'toUIError' frontend/src/pages/QuotePage.tsx
 test -s frontend/test/quote-page.test.mjs
 test -s frontend/test/quote-status-panel.test.mjs
 test -s frontend/test/wallet-submit-control.test.mjs
+test -s frontend/test/component-render.test.mjs
+grep -q 'QuoteForm component invokes controlled field changes and submit handlers' frontend/test/component-render.test.mjs
+grep -q 'QuoteStatusPanel component renders post-trade state and wires actions' frontend/test/component-render.test.mjs
+grep -q 'renderToStaticMarkup' frontend/test/component-render.test.mjs
 grep -q 'quotedRequest' frontend/src/pages/QuotePage.tsx
 grep -q 'setQuotedRequest(safeRequest)' frontend/src/pages/QuotePage.tsx
 grep -q 'buildQuoteFromResponse(quotedRequest, quote)' frontend/src/pages/QuotePage.tsx
@@ -1858,6 +1862,7 @@ grep -q 'Quote UI binds every `QuoteResponse` to the validated request snapshot'
 grep -q 'in-flight quote responses are ignored when their session version is no longer current' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'TTL countdown is driven by a one-second UI clock while a quote is active' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'API submit is fail-closed inside the `submitQuote()` handler' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
+grep -q '组件层测试应实际执行 `QuoteForm` 和 `QuoteStatusPanel` 的 React render path' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getSettlement' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx
