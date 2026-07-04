@@ -1898,12 +1898,16 @@ grep -q 'QuotePage ignores stale quote responses after request edits' frontend/t
 grep -q 'QuotePage drives submit eligibility from a ticking TTL clock' frontend/test/quote-page.test.mjs
 grep -q 'QuotePage rejects expired API submit attempts inside the handler' frontend/test/quote-page.test.mjs
 grep -q 'QuoteStatusPanel renders the quote TTL countdown field' frontend/test/quote-status-panel.test.mjs
-grep -q 'WalletSubmitControl rejects expired onchain submit attempts inside the handler' frontend/test/wallet-submit-control.test.mjs
+grep -q 'WalletSubmitControl enables onchain submit only for matching wallet state' frontend/test/wallet-submit-control.test.mjs
+grep -q 'WalletSubmitControl disables onchain submit for mismatch and pending states' frontend/test/wallet-submit-control.test.mjs
+grep -q 'WalletSubmitControl reports expired, preparation, and write errors' frontend/test/wallet-submit-control.test.mjs
+grep -q 'setWagmiMock' frontend/test/wallet-submit-control.test.mjs
+grep -q 'writeContractAsync' frontend/test/wallet-submit-control.test.mjs
 grep -q 'Quote UI binds every `QuoteResponse` to the validated request snapshot' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'in-flight quote responses are ignored when their session version is no longer current' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'TTL countdown is driven by a one-second UI clock while a quote is active' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'API submit is fail-closed inside the `submitQuote()` handler' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
-grep -q '组件层测试应实际执行 `QuoteForm` 和 `QuoteStatusPanel` 的 React render path' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
+grep -q '组件层测试应实际执行 `QuoteForm`、`QuoteStatusPanel` 和 `WalletSubmitControl` 的 React render path' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getSettlement' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx
