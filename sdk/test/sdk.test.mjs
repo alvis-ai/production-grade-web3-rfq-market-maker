@@ -527,6 +527,41 @@ test("RFQSettlement ABI exposes treasury custody controls", () => {
   assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "TreasuryUpdated"));
 });
 
+test("RFQSettlement ABI exposes public state getters for operations", () => {
+  for (const name of ["owner", "trustedSigner", "paused", "tokenWhitelist", "usedNonces"]) {
+    assert.ok(
+      rfqSettlementAbi.some((item) => item.type === "function" && item.name === name),
+      `missing RFQSettlement getter ${name}`,
+    );
+  }
+
+  const tokenWhitelistGetter = rfqSettlementAbi.find(
+    (item) => item.type === "function" && item.name === "tokenWhitelist",
+  );
+  assert.ok(tokenWhitelistGetter, "missing RFQSettlement getter tokenWhitelist");
+  assert.deepEqual(
+    tokenWhitelistGetter.inputs.map((input) => `${input.name}:${input.type}`),
+    ["token:address"],
+  );
+  assert.deepEqual(
+    tokenWhitelistGetter.outputs.map((output) => `${output.name}:${output.type}`),
+    ["whitelisted:bool"],
+  );
+
+  const usedNoncesGetter = rfqSettlementAbi.find(
+    (item) => item.type === "function" && item.name === "usedNonces",
+  );
+  assert.ok(usedNoncesGetter, "missing RFQSettlement getter usedNonces");
+  assert.deepEqual(
+    usedNoncesGetter.inputs.map((input) => `${input.name}:${input.type}`),
+    ["user:address", "nonce:uint256"],
+  );
+  assert.deepEqual(
+    usedNoncesGetter.outputs.map((output) => `${output.name}:${output.type}`),
+    ["used:bool"],
+  );
+});
+
 test("RFQSettlement ABI exposes role-based admin controls", () => {
   for (const name of [
     "DEFAULT_ADMIN_ROLE",

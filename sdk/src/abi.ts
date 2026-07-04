@@ -73,6 +73,44 @@ export const rfqSettlementAbi = [
   },
   {
     type: "function",
+    name: "owner",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "trustedSigner",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "paused",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "tokenWhitelist",
+    stateMutability: "view",
+    inputs: [{ name: "token", type: "address" }],
+    outputs: [{ name: "whitelisted", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "usedNonces",
+    stateMutability: "view",
+    inputs: [
+      { name: "user", type: "address" },
+      { name: "nonce", type: "uint256" },
+    ],
+    outputs: [{ name: "used", type: "bool" }],
+  },
+  {
+    type: "function",
     name: "grantRole",
     stateMutability: "nonpayable",
     inputs: [
