@@ -1678,6 +1678,79 @@ test("QuoteService marks requested quotes as failed when routing is unavailable"
   assert.equal(signerCalls, 0);
 });
 
+test("QuoteService rejects malformed route plans before pricing and signing", async () => {
+  const validRoutePlan = {
+    routeId: "route_test",
+    venue: "internal_inventory",
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    expectedLiquidityUsd: "10000000000000",
+  };
+  const malformedRoutePlans = [
+    undefined,
+    Object.create(validRoutePlan),
+    { ...validRoutePlan, internalVenue: "external" },
+    { ...validRoutePlan, routeId: "route/test" },
+    { ...validRoutePlan, venue: "external_amm" },
+    { ...validRoutePlan, tokenIn: request.tokenOut },
+    { ...validRoutePlan, tokenOut: request.tokenIn },
+    { ...validRoutePlan, expectedLiquidityUsd: "01000000000000" },
+  ];
+
+  for (const malformedRoutePlan of malformedRoutePlans) {
+    const quoteRepository = new InMemoryQuoteRepository();
+    const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+    let requestedQuoteId;
+    let pricingAttempts = 0;
+    let signAttempts = 0;
+    quoteRepository.saveRequested = async (input) => {
+      requestedQuoteId = input.quoteId;
+      await saveRequested(input);
+    };
+
+    const service = new QuoteService({
+      ...quoteServiceDeps(),
+      quoteRepository,
+      routingEngine: {
+        async selectRoute() {
+          return malformedRoutePlan;
+        },
+      },
+      pricingEngine: {
+        async price() {
+          pricingAttempts += 1;
+          throw new Error("pricing should not be called for malformed route plans");
+        },
+      },
+      signerService: {
+        async signQuote() {
+          signAttempts += 1;
+          return fixedSignature();
+        },
+        async verifyQuoteSignature() {
+          return true;
+        },
+      },
+    });
+
+    await assert.rejects(
+      service.createQuote(request),
+      (error) => {
+        assert.equal(error.code, "ROUTING_UNAVAILABLE");
+        assert.equal(error.statusCode, 503);
+        return true;
+      },
+    );
+
+    assert.equal(pricingAttempts, 0);
+    assert.equal(signAttempts, 0);
+    assert.match(requestedQuoteId, /^q_/);
+    const status = await quoteRepository.findStatus(requestedQuoteId);
+    assert.equal(status.status, "failed");
+    assert.equal(status.errorCode, "ROUTING_UNAVAILABLE");
+  }
+});
+
 test("QuoteService marks requested quotes as failed when pricing is unavailable", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);

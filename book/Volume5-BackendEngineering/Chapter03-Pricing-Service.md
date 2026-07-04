@@ -62,7 +62,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-Pricing Service 依赖 Market Data、Routing plan 和 Inventory projection，但不直接访问 Signer。Routing Engine 选择报价路径失败时，Quote Service 应在调用 Pricing Service 前返回 `ROUTING_UNAVAILABLE`。
+Pricing Service 依赖 Market Data、Routing plan 和 Inventory projection，但不直接访问 Signer。Routing Engine 选择报价路径失败或返回 malformed route plan 时，Quote Service 应在调用 Pricing Service 前返回 `ROUTING_UNAVAILABLE`，避免 pricing adapter 在错误 token pair、错误 venue 或不可解释 liquidity 上继续生成可签名报价。
 
 ## Sequence Diagram
 

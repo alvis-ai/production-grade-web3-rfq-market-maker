@@ -71,6 +71,7 @@ const quoteServiceDepsFields = [
   "routingEngine",
   "signerService",
 ] as const;
+const routePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"] as const;
 const pricingResultFields = [
   "amountOut",
   "minAmountOut",
@@ -137,7 +138,9 @@ export class QuoteService {
 
     let routePlan: RoutePlan;
     try {
-      routePlan = await this.deps.routingEngine.selectRoute({ request: validatedRequest, snapshot });
+      const routeResult = await this.deps.routingEngine.selectRoute({ request: validatedRequest, snapshot });
+      assertRoutePlan(routeResult, validatedRequest);
+      routePlan = routeResult;
     } catch (error) {
       const failure = routingFailure(error);
       await this.markQuoteFailedBestEffort(quoteId, failure.code);
@@ -584,6 +587,55 @@ function assertOptionalOwnField(value: object, field: string, path: string): voi
 function assertPositiveSafeInteger(value: number, field: keyof QuoteServiceConfig): void {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`Quote service ${field} must be a positive safe integer`);
+  }
+}
+
+function assertRoutePlan(value: unknown, request: QuoteRequest): asserts value is RoutePlan {
+  if (!isRecord(value)) {
+    throw new Error("Quote service route plan must be an object");
+  }
+
+  assertOwnFields(value, routePlanFields, "route plan");
+  assertNoUnknownFields(value, routePlanFields, "route plan");
+  assertRouteSafeIdentifier(value.routeId);
+  if (value.venue !== "internal_inventory") {
+    throw new Error("Quote service route plan.venue must be internal_inventory");
+  }
+
+  const tokenIn = value.tokenIn;
+  const tokenOut = value.tokenOut;
+  assertRouteAddress(tokenIn, "tokenIn");
+  assertRouteAddress(tokenOut, "tokenOut");
+  if (
+    tokenIn.toLowerCase() !== request.tokenIn.toLowerCase() ||
+    tokenOut.toLowerCase() !== request.tokenOut.toLowerCase()
+  ) {
+    throw new Error("Quote service route plan token pair must match quote request token pair");
+  }
+
+  assertRouteExpectedLiquidity(value.expectedLiquidityUsd);
+}
+
+function assertRouteSafeIdentifier(value: unknown): asserts value is string {
+  if (
+    typeof value !== "string" ||
+    value.trim().length === 0 ||
+    value.length > maxSafeIdentifierLength ||
+    !safeIdentifierPattern.test(value)
+  ) {
+    throw new Error("Quote service route plan.routeId must be a safe identifier");
+  }
+}
+
+function assertRouteAddress(value: unknown, field: "tokenIn" | "tokenOut"): asserts value is Address {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Quote service route plan.${field} must be a 20-byte hex address`);
+  }
+}
+
+function assertRouteExpectedLiquidity(value: unknown): asserts value is UIntString {
+  if (typeof value !== "string" || !positiveUIntStringPattern.test(value)) {
+    throw new Error("Quote service route plan.expectedLiquidityUsd must be a positive uint string");
   }
 }
 

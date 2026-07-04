@@ -282,6 +282,9 @@ grep -q 'Market snapshot snapshotId must be 128 characters or fewer' backend/tes
 grep -q 'QuoteService persists market snapshots before downstream quote side effects' backend/test/quote-service.test.mjs
 grep -q 'QuoteService blocks routing and signer when market snapshot persistence fails' backend/test/quote-service.test.mjs
 grep -q 'QuoteService marks requested quotes as failed when routing is unavailable' backend/test/quote-service.test.mjs
+grep -q 'QuoteService rejects malformed route plans before pricing and signing' backend/test/quote-service.test.mjs
+grep -q 'internalVenue: "external"' backend/test/quote-service.test.mjs
+grep -q 'assert.equal(pricingAttempts, 0)' backend/test/quote-service.test.mjs
 grep -q 'QuoteService marks requested quotes as failed when pricing is unavailable' backend/test/quote-service.test.mjs
 grep -q '快照 `StaticMarketDataConfig`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'Config 的 `supportedPairs` 必须是 own field' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
@@ -698,6 +701,9 @@ grep -q 'cloneQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
 grep -q 'MARKET_DATA_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'ROUTING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'routingFailure' backend/src/modules/quote/quote.service.ts
+grep -q 'routePlanFields = \["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"\]' backend/src/modules/quote/quote.service.ts
+grep -q 'assertRoutePlan(routeResult, validatedRequest)' backend/src/modules/quote/quote.service.ts
+grep -q 'Quote service route plan token pair must match quote request token pair' backend/src/modules/quote/quote.service.ts
 grep -q 'PRICING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'pricingFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'pricingResultFields' backend/src/modules/quote/quote.service.ts
@@ -751,6 +757,8 @@ grep -q 'Submit validation options.allowExpired must be an own field when provid
 grep -q 'Submit validation options allowExpired must be a boolean' backend/test/validation.test.mjs
 grep -q 'QuoteService` rejects malformed config, inherited config fields, malformed dependency map, inherited required dependency entries, inherited optional `hedgeService`, and malformed dependency entries before reading runtime fields or service methods' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'createQuote()` revalidates and snapshots the quote request at the service boundary' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'validates `RoutePlan` returned by the routing adapter before inventory skew, pricing, risk evaluation or signing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Malformed route output is treated as `ROUTING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'validates `PricingResult` returned by the pricing adapter before inventory projection, risk evaluation or signing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'Malformed pricing output is treated as `PRICING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'validates `RiskDecision` returned by the risk adapter before audit persistence or signer access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -2821,6 +2829,7 @@ grep -q 'Formula pricing routePlan.routeId must be 128 characters or fewer' back
 grep -q 'missing required own top-level `request` / `snapshot` / `routePlan` / `inventorySkewBps` fields fail before nested field access' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'request, snapshot and route-plan required fields must be own fields' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q '`snapshot.snapshotId` and `routePlan.routeId` as primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
+grep -q 'malformed route plan 时，Quote Service 应在调用 Pricing Service 前返回 `ROUTING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'canonical decimal form without leading zeros' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'Snapshot mid price must be a canonical positive decimal string without leading zeros' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'rejects malformed pricing config objects and inherited config fields before reading numeric fields' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
