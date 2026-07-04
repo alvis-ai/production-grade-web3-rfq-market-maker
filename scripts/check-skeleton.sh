@@ -13,6 +13,7 @@ test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/test/api-error.test.mjs
+test -s backend/test/api-gateway.test.mjs
 test -s backend/test/api.test.mjs
 test -s backend/test/hedge.test.mjs
 test -s backend/test/inventory.test.mjs
@@ -678,12 +679,12 @@ grep -q 'server.addHook("onRequest"' backend/src/main.ts
 grep -q 'requestTraceId' backend/src/main.ts
 grep -q 'safeIncomingTraceId' backend/src/main.ts
 grep -q 'traceIdPattern' backend/src/main.ts
-grep -q 'RFQ API propagates safe incoming trace ids and falls back for unsafe values' backend/test/api.test.mjs
+grep -q 'RFQ API propagates safe incoming trace ids and falls back for unsafe values' backend/test/api-gateway.test.mjs
 grep -q 'RFQ_TRUST_PROXY=false' .env.example
 grep -q 'RFQ_TRUST_PROXY: "false"' docker-compose.yml
 grep -q 'RFQ_TRUST_PROXY: "false"' infra/k8s/configmap.yaml
 grep -q 'RFQ_TRUST_PROXY: "false"' infra/helm/rfq-market-maker/values.yaml
-grep -q 'RFQ API rejects invalid RFQ_TRUST_PROXY at startup' backend/test/api.test.mjs
+grep -q 'RFQ API rejects invalid RFQ_TRUST_PROXY at startup' backend/test/api-gateway.test.mjs
 grep -q 'does not trust x-forwarded-for for rate limit identity by default' backend/test/api.test.mjs
 grep -q 'trusts x-forwarded-for for rate limit identity only when proxy trust is enabled' backend/test/api.test.mjs
 grep -q 'rejects oversized trusted forwarded rate limit identity' backend/test/api.test.mjs
@@ -2670,8 +2671,8 @@ grep -q 'onRequest` hook' book/Volume5-BackendEngineering/Chapter01-API-Gateway.
 grep -q 'Fastify parser' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readOwnEnvValue(env, "RFQ_QUOTE_TTL_SECONDS")' backend/src/main.ts
 grep -q 'readOwnEnvValue(env, "HOST")' backend/src/main.ts
-grep -q 'RFQ API reads startup environment only from own fields' backend/test/api.test.mjs
-grep -q 'Object.create({ HOST: "0.0.0.0", PORT: "8080" })' backend/test/api.test.mjs
+grep -q 'RFQ API reads startup environment only from own fields' backend/test/api-gateway.test.mjs
+grep -q 'Object.create({ HOST: "0.0.0.0", PORT: "8080" })' backend/test/api-gateway.test.mjs
 grep -q 'Gateway startup reads environment configuration only from own fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Backend startup reads only own environment fields' README.md
 grep -q 'RFQ_BODY_LIMIT_BYTES' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
@@ -2733,15 +2734,15 @@ grep -q 'RFQ_QUOTE_TTL_SECONDS' book/Volume5-BackendEngineering/Chapter02-Quote-
 grep -q '`1e2`、`30.0`、`0x1e`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'requires a non-array options object, rejects inherited supported option fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'requires `rateLimit` to be `false` or an object whose partial rate-limit fields are own fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/test/api.test.mjs
-grep -q 'RFQ_QUOTE_TTL_SECONDS must be a base-10 integer between 1 and 3600' backend/test/api.test.mjs
-grep -q 'RFQ_BODY_LIMIT_BYTES must be a base-10 integer between 1024 and 1048576' backend/test/api.test.mjs
-grep -q 'PORT must be a base-10 integer between 1 and 65535' backend/test/api.test.mjs
-grep -q 'RFQ API rejects unsafe direct runtime options at startup' backend/test/api.test.mjs
-grep -q 'buildServer options must be an object' backend/test/api.test.mjs
-grep -q 'buildServer options.logger must be an own field when provided' backend/test/api.test.mjs
-grep -q 'buildServer rateLimit must be an object or false' backend/test/api.test.mjs
-grep -q 'buildServer rateLimit.windowMs must be an own field when provided' backend/test/api.test.mjs
+grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/test/api-gateway.test.mjs
+grep -q 'RFQ_QUOTE_TTL_SECONDS must be a base-10 integer between 1 and 3600' backend/test/api-gateway.test.mjs
+grep -q 'RFQ_BODY_LIMIT_BYTES must be a base-10 integer between 1024 and 1048576' backend/test/api-gateway.test.mjs
+grep -q 'PORT must be a base-10 integer between 1 and 65535' backend/test/api-gateway.test.mjs
+grep -q 'RFQ API rejects unsafe direct runtime options at startup' backend/test/api-gateway.test.mjs
+grep -q 'buildServer options must be an object' backend/test/api-gateway.test.mjs
+grep -q 'buildServer options.logger must be an own field when provided' backend/test/api-gateway.test.mjs
+grep -q 'buildServer rateLimit must be an object or false' backend/test/api-gateway.test.mjs
+grep -q 'buildServer rateLimit.windowMs must be an own field when provided' backend/test/api-gateway.test.mjs
 grep -q 'configured quote TTL' backend/test/quote-service.test.mjs
 grep -q 'QuoteService snapshots runtime configuration at construction' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe runtime configuration at construction' backend/test/quote-service.test.mjs
@@ -2789,12 +2790,12 @@ grep -q 'Duplicate settlement events are idempotent' book/Volume5-BackendEnginee
 grep -q 'rfq_quote_status_update_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
-grep -q 'production startup requires explicit signer configuration' backend/test/api.test.mjs
-grep -q 'non-local startup requires explicit signer configuration' backend/test/api.test.mjs
-grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=staging' backend/test/api.test.mjs
-grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=production' backend/test/api.test.mjs
-grep -q 'RFQ_SIGNER_PRIVATE_KEY must be a 32-byte hex string when NODE_ENV=production' backend/test/api.test.mjs
-grep -q 'RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address when NODE_ENV=production' backend/test/api.test.mjs
+grep -q 'production startup requires explicit signer configuration' backend/test/api-gateway.test.mjs
+grep -q 'non-local startup requires explicit signer configuration' backend/test/api-gateway.test.mjs
+grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=staging' backend/test/api-gateway.test.mjs
+grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=production' backend/test/api-gateway.test.mjs
+grep -q 'RFQ_SIGNER_PRIVATE_KEY must be a 32-byte hex string when NODE_ENV=production' backend/test/api-gateway.test.mjs
+grep -q 'RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address when NODE_ENV=production' backend/test/api-gateway.test.mjs
 grep -q 'built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`' README.md
 grep -q '默认 Anvil signer 只允许用于 unset `NODE_ENV`、`development` 或 `test`' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'marks requested quotes as failed when signer is unavailable' backend/test/quote-service.test.mjs
@@ -2889,20 +2890,20 @@ grep -q 'TOKEN_IN_INVENTORY_LIMIT_EXCEEDED' backend/test/api.test.mjs
 grep -q 'trace ids' backend/test/api.test.mjs
 grep -q 'malformed JSON bodies' backend/test/api.test.mjs
 grep -q 'oversized JSON bodies' backend/test/api.test.mjs
-grep -q 'RFQ_BODY_LIMIT_BYTES' backend/test/api.test.mjs
-grep -q 'CORS headers for allowed browser origins' backend/test/api.test.mjs
-grep -q 'CORS preflight for allowed origins' backend/test/api.test.mjs
-grep -q 'CORS preflight for disallowed origins' backend/test/api.test.mjs
-grep -q 'RFQ_CORS_ALLOWED_ORIGINS' backend/test/api.test.mjs
-grep -q 'normalizes RFQ_CORS_ALLOWED_ORIGINS at startup' backend/test/api.test.mjs
-grep -q 'https://app.example.com?debug=true' backend/test/api.test.mjs
+grep -q 'RFQ_BODY_LIMIT_BYTES' backend/test/api-gateway.test.mjs
+grep -q 'CORS headers for allowed browser origins' backend/test/api-gateway.test.mjs
+grep -q 'CORS preflight for allowed origins' backend/test/api-gateway.test.mjs
+grep -q 'CORS preflight for disallowed origins' backend/test/api-gateway.test.mjs
+grep -q 'RFQ_CORS_ALLOWED_ORIGINS' backend/test/api-gateway.test.mjs
+grep -q 'normalizes RFQ_CORS_ALLOWED_ORIGINS at startup' backend/test/api-gateway.test.mjs
+grep -q 'https://app.example.com?debug=true' backend/test/api-gateway.test.mjs
 grep -q 'URL origins without path, query, fragment, credentials, or wildcards' backend/src/main.ts
-grep -q 'security headers on successful responses' backend/test/api.test.mjs
-grep -q 'emits HSTS when enabled' backend/test/api.test.mjs
-grep -q 'RFQ_ENABLE_HSTS' backend/test/api.test.mjs
-grep -q 'assertSecurityHeaders' backend/test/api.test.mjs
-grep -q 'graceful shutdown handlers' backend/test/api.test.mjs
-grep -q 'graceful shutdown failures' backend/test/api.test.mjs
+grep -q 'security headers on successful responses' backend/test/api-gateway.test.mjs
+grep -q 'emits HSTS when enabled' backend/test/api-gateway.test.mjs
+grep -q 'RFQ_ENABLE_HSTS' backend/test/api-gateway.test.mjs
+grep -q 'assertSecurityHeaders' backend/test/api-gateway.test.mjs
+grep -q 'graceful shutdown handlers' backend/test/api-gateway.test.mjs
+grep -q 'graceful shutdown failures' backend/test/api-gateway.test.mjs
 grep -q 'unmatched routes to structured errors' backend/test/api.test.mjs
 grep -q 'settlement shape' backend/test/api.test.mjs
 grep -q 'expired submit quotes' backend/test/api.test.mjs
@@ -2950,7 +2951,7 @@ grep -q 'snapshots `RateLimitConfig` at construction after validation' book/Volu
 grep -q 'Malformed rate limit config objects and inherited config fields are rejected before numeric field access' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'required own `endpoint` / `clientId` fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'evicts expired client buckets before checking' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'unsafe rate limit configuration at startup' backend/test/api.test.mjs
+grep -q 'unsafe rate limit configuration at startup' backend/test/api-gateway.test.mjs
 grep -q 'assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertBpsUpperBound(config.maxTotalAdjustmentBps, "maxTotalAdjustmentBps")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'cloneFormulaPricingConfig' backend/src/modules/pricing/pricing.engine.ts

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 const apiErrorSource = await readFile("backend/src/shared/errors/api-error.ts", "utf8");
 const backendSource = await readSourceTree("backend/src");
+const apiGatewayTestSource = await readFile("backend/test/api-gateway.test.mjs", "utf8");
 const apiTestSource = await readFile("backend/test/api.test.mjs", "utf8");
 const sdkTypesSource = await readFile("sdk/src/types.ts", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
@@ -43,7 +44,7 @@ for (const response of openapiNon2xxResponses) {
       : `OpenAPI ${response.key} error response must use ErrorResponse`,
   );
 }
-assertTraceHeaderContract(backendSource, apiTestSource, openapiSource, openapiResponses);
+assertTraceHeaderContract(backendSource, apiGatewayTestSource, apiTestSource, openapiSource, openapiResponses);
 
 console.log(`API error code consistency check passed (${backendCodes.length} codes)`);
 
@@ -164,7 +165,7 @@ function extractBackendApiErrorStatuses(source) {
   );
 }
 
-function assertTraceHeaderContract(backend, apiTest, openapi, responses) {
+function assertTraceHeaderContract(backend, apiGatewayTest, apiTest, openapi, responses) {
   assert.ok(
     openapi.includes("Every response includes an x-trace-id header"),
     "OpenAPI info description must document the x-trace-id response header",
@@ -213,9 +214,9 @@ function assertTraceHeaderContract(backend, apiTest, openapi, responses) {
     "backend API tests must assert x-trace-id exists on successful responses",
   );
   assert.ok(
-    apiTest.includes("RFQ API propagates safe incoming trace ids and falls back for unsafe values") &&
-      apiTest.includes('"x-trace-id": "tr_client_123"') &&
-      apiTest.includes('"x-trace-id": "trace with spaces"'),
+    apiGatewayTest.includes("RFQ API propagates safe incoming trace ids and falls back for unsafe values") &&
+      apiGatewayTest.includes('"x-trace-id": "tr_client_123"') &&
+      apiGatewayTest.includes('"x-trace-id": "trace with spaces"'),
     "backend API tests must cover safe incoming trace propagation and unsafe trace fallback",
   );
 }

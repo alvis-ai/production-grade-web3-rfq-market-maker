@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 
 const rateLimiterSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const mainSource = await readFile("backend/src/main.ts", "utf8");
+const apiGatewayTestSource = await readFile("backend/test/api-gateway.test.mjs", "utf8");
 const apiTestSource = await readFile("backend/test/api.test.mjs", "utf8");
 const rateLimitTestSource = await readFile("backend/test/rate-limit.test.mjs", "utf8");
 const sdkClientSource = await readFile("sdk/src/client.ts", "utf8");
@@ -70,9 +71,14 @@ assertContains(mainSource, [
   'request.headers["x-forwarded-for"]',
 ], "backend/src/main.ts");
 
-assertContains(apiTestSource, [
+assertContains(apiGatewayTestSource, [
   "RFQ API rejects unsafe rate limit configuration at startup",
   "RFQ API rejects invalid RFQ_TRUST_PROXY at startup",
+  "buildServer rateLimit must be an object or false",
+  "buildServer rateLimit.windowMs must be an own field when provided",
+], "backend/test/api-gateway.test.mjs");
+
+assertContains(apiTestSource, [
   "rate limits quote requests by client",
   "does not trust x-forwarded-for for rate limit identity by default",
   "trusts x-forwarded-for for rate limit identity only when proxy trust is enabled",
@@ -80,8 +86,6 @@ assertContains(apiTestSource, [
   "rejects unsafe trusted forwarded rate limit identity",
   "rate limits submit requests before validation and settlement",
   "rate limits quote status requests by client",
-  "buildServer rateLimit must be an object or false",
-  "buildServer rateLimit.windowMs must be an own field when provided",
   "assert.equal(secondQuote.statusCode, 429)",
   'assert.equal(secondQuote.body.code, "RATE_LIMITED")',
   "assert.equal(secondSubmit.statusCode, 429)",
