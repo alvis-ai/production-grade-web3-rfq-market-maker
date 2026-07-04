@@ -202,6 +202,77 @@ test("ReconciliationService repairs quote status after a removed settlement even
   assert.equal(status.pnlId, undefined);
 });
 
+test("ReconciliationService removes hedge and PnL records after a removed settlement event", async () => {
+  const hedgeService = new HedgeService();
+  const pnlService = new PnlService();
+  const settlementEventService = new SettlementEventService(new InventoryService());
+  const settlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_reorg_post_trade",
+    quote,
+    txHash: `0x${"23".repeat(32)}`,
+    blockNumber: 260,
+    logIndex: 0,
+  });
+  const hedge = hedgeService.createHedgeIntent({
+    settlementEventId: settlement.event.settlementEventId,
+    quoteId: settlement.event.quoteId,
+    chainId: settlement.event.chainId,
+    token: settlement.event.tokenOut,
+    side: "buy",
+    amount: settlement.event.amountOut,
+    reason: "inventory_rebalance",
+  });
+  pnlService.recordSettlement({
+    quoteId: settlement.event.quoteId,
+    quote,
+  });
+  const removed = settlementEventService.removeSettlementEvent({
+    chainId: settlement.event.chainId,
+    txHash: settlement.event.txHash,
+    blockNumber: settlement.event.blockNumber,
+    logIndex: settlement.event.logIndex,
+  });
+  const reconciliation = new ReconciliationService({
+    hedgeService,
+    pnlService,
+    quoteRepository: new InMemoryQuoteRepository(),
+    settlementEventService,
+  });
+
+  const hedgeReport = await reconciliation.reconcileRemovedSettlementToHedge(removed.event);
+  const pnlReport = await reconciliation.reconcileRemovedSettlementToPnl(removed.event);
+  const hedgeRetryReport = await reconciliation.reconcileRemovedSettlementToHedge(removed.event);
+  const pnlRetryReport = await reconciliation.reconcileRemovedSettlementToPnl(removed.event);
+
+  assert.deepEqual(hedgeReport, {
+    scannedRemovedSettlementEvents: 1,
+    removedHedgeIntents: 1,
+    skippedHedgeIntents: 0,
+    errors: [],
+  });
+  assert.deepEqual(pnlReport, {
+    scannedRemovedSettlementEvents: 1,
+    removedPnlRecords: 1,
+    skippedPnlRecords: 0,
+    errors: [],
+  });
+  assert.deepEqual(hedgeRetryReport, {
+    scannedRemovedSettlementEvents: 1,
+    removedHedgeIntents: 0,
+    skippedHedgeIntents: 1,
+    errors: [],
+  });
+  assert.deepEqual(pnlRetryReport, {
+    scannedRemovedSettlementEvents: 1,
+    removedPnlRecords: 0,
+    skippedPnlRecords: 1,
+    errors: [],
+  });
+  assert.equal(hedgeService.getHedgeIntent(hedge.hedgeOrderId), undefined);
+  assert.equal(hedgeService.getHedgeIntentBySettlementEvent(settlement.event.settlementEventId), undefined);
+  assert.equal(pnlService.summary().totalTrades, 0);
+});
+
 test("ReconciliationService snapshots dependency object at construction", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const settlementEventService = new SettlementEventService(new InventoryService());
@@ -364,6 +435,21 @@ test("ReconciliationService rejects unsafe dependency configuration at construct
     () =>
       new ReconciliationService({
         ...deps,
+        pnlService: {
+          summary() {
+            return { totalTrades: 0 };
+          },
+          recordSettlement() {
+            throw new Error("unused");
+          },
+        },
+      }),
+    /ReconciliationService pnlService.removePnlRecord must be a function when provided/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
         hedgeService: "bad hedge dependency",
       }),
     /ReconciliationService hedgeService must be an object when provided/,
@@ -387,6 +473,21 @@ test("ReconciliationService rejects unsafe dependency configuration at construct
         },
       }),
     /ReconciliationService hedgeService.getHedgeIntentBySettlementEvent must be a function when provided/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
+        hedgeService: {
+          getHedgeIntentBySettlementEvent() {
+            return undefined;
+          },
+          createHedgeIntent() {
+            throw new Error("unused");
+          },
+        },
+      }),
+    /ReconciliationService hedgeService.removeHedgeIntentBySettlementEvent must be a function when provided/,
   );
 });
 
@@ -688,6 +789,26 @@ test("ReconciliationService requires PnL service for settlement-to-PnL repair", 
     reconciliation.reconcileSettlementToPnl(),
     /pnlService is required for settlement-to-PnL reconciliation/,
   );
+  await assert.rejects(
+    reconciliation.reconcileRemovedSettlementToPnl({
+      settlementEventId: "se_removed_pnl",
+      status: "applied",
+      quoteId: "q_removed_pnl",
+      chainId: quote.chainId,
+      txHash: `0x${"24".repeat(32)}`,
+      quoteHash: `0x${"25".repeat(32)}`,
+      blockNumber: 1,
+      logIndex: 0,
+      user: quote.user,
+      tokenIn: quote.tokenIn,
+      tokenOut: quote.tokenOut,
+      amountIn: quote.amountIn,
+      amountOut: quote.amountOut,
+      nonce: quote.nonce,
+      observedAt: new Date().toISOString(),
+    }),
+    /pnlService is required for removed-settlement-to-PnL reconciliation/,
+  );
 });
 
 test("ReconciliationService repairs hedge intents from settlement events", async () => {
@@ -785,6 +906,26 @@ test("ReconciliationService requires hedge service for settlement-to-hedge repai
   await assert.rejects(
     reconciliation.reconcileSettlementToHedge(),
     /hedgeService is required for settlement-to-hedge reconciliation/,
+  );
+  await assert.rejects(
+    reconciliation.reconcileRemovedSettlementToHedge({
+      settlementEventId: "se_removed_hedge",
+      status: "applied",
+      quoteId: "q_removed_hedge",
+      chainId: quote.chainId,
+      txHash: `0x${"26".repeat(32)}`,
+      quoteHash: `0x${"27".repeat(32)}`,
+      blockNumber: 1,
+      logIndex: 0,
+      user: quote.user,
+      tokenIn: quote.tokenIn,
+      tokenOut: quote.tokenOut,
+      amountIn: quote.amountIn,
+      amountOut: quote.amountOut,
+      nonce: quote.nonce,
+      observedAt: new Date().toISOString(),
+    }),
+    /hedgeService is required for removed-settlement-to-hedge reconciliation/,
   );
 });
 

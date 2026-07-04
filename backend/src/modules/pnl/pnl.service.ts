@@ -5,6 +5,8 @@ const MIN_SAFE_INTEGER_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const pnlInputFields = ["quoteId", "quote"] as const;
+const removePnlRecordInputFields = ["quoteId"] as const;
+const removePnlRecordOptionalFields = ["model"] as const;
 const signedQuoteFields = [
   "user",
   "tokenIn",
@@ -22,9 +24,20 @@ export interface RecordPnlInput {
   quote: SignedQuote;
 }
 
+export interface RemovePnlRecordInput {
+  quoteId: string;
+  model?: PnlTradeRecord["model"];
+}
+
+export interface RemovePnlRecordResult {
+  record?: PnlTradeRecord;
+  removed: boolean;
+}
+
 export interface PnlStore {
   checkHealth?(): void;
   recordSettlement(input: RecordPnlInput): PnlTradeRecord;
+  removePnlRecord(input: RemovePnlRecordInput): RemovePnlRecordResult;
   summary(): PnlSummaryResponse;
 }
 
@@ -76,6 +89,30 @@ export class PnlService implements PnlStore {
     this.trades.set(record.pnlId, record);
     this.pnlIdsByQuoteModel.set(this.quoteModelKey(input.quoteId, record.model), record.pnlId);
     return clonePnlTradeRecord(record);
+  }
+
+  removePnlRecord(input: RemovePnlRecordInput): RemovePnlRecordResult {
+    const normalizedInput = normalizeRemovePnlRecordInput(input);
+    const key = this.quoteModelKey(normalizedInput.quoteId, normalizedInput.model);
+    const pnlId = this.pnlIdsByQuoteModel.get(key);
+    if (!pnlId) {
+      return {
+        removed: false,
+      };
+    }
+
+    const record = this.trades.get(pnlId);
+    if (!record) {
+      throw new Error(`PnL record index is inconsistent for ${pnlId}`);
+    }
+
+    this.trades.delete(pnlId);
+    this.pnlIdsByQuoteModel.delete(key);
+
+    return {
+      record: clonePnlTradeRecord(record),
+      removed: true,
+    };
   }
 
   summary(): PnlSummaryResponse {
@@ -164,9 +201,31 @@ function assertPnlInput(input: RecordPnlInput): void {
   }
 }
 
-function assertObject(value: unknown, field: "input" | "quote"): void {
+function normalizeRemovePnlRecordInput(input: RemovePnlRecordInput): Required<RemovePnlRecordInput> {
+  assertObject(input, "remove input");
+  assertOwnFields(input, removePnlRecordInputFields, "remove input");
+  assertOwnOptionalFields(input, removePnlRecordOptionalFields, "remove input");
+  assertSafeIdentifier(input.quoteId, "quoteId");
+  if (input.model !== undefined && input.model !== "simulated_mid_price_v1") {
+    throw new Error("Pnl model must be simulated_mid_price_v1");
+  }
+
+  return {
+    quoteId: input.quoteId,
+    model: input.model ?? "simulated_mid_price_v1",
+  };
+}
+
+function assertObject(value: unknown, field: "input" | "quote" | "remove input"): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(field === "input" ? "Pnl input must be an object" : "Pnl quote must be an object");
+    if (field === "input") {
+      throw new Error("Pnl input must be an object");
+    }
+    if (field === "quote") {
+      throw new Error("Pnl quote must be an object");
+    }
+
+    throw new Error("Pnl remove input must be an object");
   }
 }
 
@@ -174,6 +233,14 @@ function assertOwnFields(value: object, fields: readonly string[], path: string)
   for (const field of fields) {
     if (!Object.prototype.hasOwnProperty.call(value, field)) {
       throw new Error(`Pnl ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertOwnOptionalFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Pnl ${path}.${field} must be an own field when provided`);
     }
   }
 }

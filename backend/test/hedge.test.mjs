@@ -104,6 +104,27 @@ test("HedgeService returns defensive copies of hedge intent status records", () 
   assert.equal(bySettlement.amount, intent.amount);
 });
 
+test("HedgeService removes hedge intents by settlement event after reorgs", () => {
+  const service = new HedgeService();
+  const created = service.createHedgeIntent(intent);
+
+  const removed = service.removeHedgeIntentBySettlementEvent(intent.settlementEventId);
+  assert.equal(removed.removed, true);
+  assert.equal(removed.record.hedgeOrderId, created.hedgeOrderId);
+  assert.equal(removed.record.amount, intent.amount);
+
+  removed.record.amount = "1";
+  const retry = service.removeHedgeIntentBySettlementEvent(intent.settlementEventId);
+
+  assert.deepEqual(retry, { removed: false });
+  assert.equal(service.getHedgeIntent(created.hedgeOrderId), undefined);
+  assert.equal(service.getHedgeIntentBySettlementEvent(intent.settlementEventId), undefined);
+
+  const recreated = service.createHedgeIntent(intent);
+  assert.notEqual(recreated.hedgeOrderId, created.hedgeOrderId);
+  assert.deepEqual(service.getHedgeIntentBySettlementEvent(intent.settlementEventId), recreated.record);
+});
+
 test("HedgeService rejects unsafe failure penalty configuration at construction", () => {
   assert.throws(
     () => new HedgeService(null),
@@ -303,6 +324,14 @@ test("HedgeService rejects unsafe hedge status lookup identifiers", () => {
   );
   assert.throws(
     () => service.getHedgeIntentBySettlementEvent(new String(intent.settlementEventId)),
+    /Hedge settlementEventId must be a primitive string/,
+  );
+  assert.throws(
+    () => service.removeHedgeIntentBySettlementEvent("se/bad"),
+    /Hedge settlementEventId must contain only letters, numbers, underscore, colon, or hyphen/,
+  );
+  assert.throws(
+    () => service.removeHedgeIntentBySettlementEvent(new String(intent.settlementEventId)),
     /Hedge settlementEventId must be a primitive string/,
   );
 

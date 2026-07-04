@@ -95,6 +95,33 @@ test("PnlService returns defensive copies of PnL trade records", () => {
   assert.equal(reloaded.trades[0].grossPnlTokenOut, "10");
 });
 
+test("PnlService removes PnL records by quote and model after reorgs", () => {
+  const pnl = new PnlService();
+  const first = pnl.recordSettlement({
+    quoteId: "q_remove",
+    quote: baseQuote,
+  });
+
+  const removed = pnl.removePnlRecord({ quoteId: "q_remove" });
+  assert.equal(removed.removed, true);
+  assert.equal(removed.record.pnlId, first.pnlId);
+  assert.equal(removed.record.amountOut, baseQuote.amountOut);
+
+  removed.record.amountOut = "1";
+  const retry = pnl.removePnlRecord({ quoteId: "q_remove" });
+
+  assert.deepEqual(retry, { removed: false });
+  assert.equal(pnl.summary().totalTrades, 0);
+  assert.equal(pnl.summary().grossPnlTokenOut, "0");
+
+  const recreated = pnl.recordSettlement({
+    quoteId: "q_remove",
+    quote: baseQuote,
+  });
+  assert.equal(recreated.pnlId, first.pnlId);
+  assert.equal(pnl.summary().totalTrades, 1);
+});
+
 test("PnlService rejects conflicting retry payloads for the same quote and model", () => {
   const pnl = new PnlService();
 
@@ -352,4 +379,46 @@ test("PnlService rejects unsafe attribution inputs before recording", () => {
   );
 
   assert.equal(pnl.summary().totalTrades, 0);
+});
+
+test("PnlService rejects unsafe PnL removal inputs before state mutation", () => {
+  const pnl = new PnlService();
+  pnl.recordSettlement({
+    quoteId: "q_remove_unsafe",
+    quote: baseQuote,
+  });
+
+  assert.throws(
+    () => pnl.removePnlRecord(undefined),
+    /Pnl remove input must be an object/,
+  );
+  assert.throws(
+    () => pnl.removePnlRecord([]),
+    /Pnl remove input must be an object/,
+  );
+  assert.throws(
+    () => pnl.removePnlRecord(Object.create({ quoteId: "q_remove_unsafe" })),
+    /Pnl remove input.quoteId must be an own field/,
+  );
+
+  const inheritedModelInput = Object.create({ model: "simulated_mid_price_v1" });
+  Object.assign(inheritedModelInput, { quoteId: "q_remove_unsafe" });
+  assert.throws(
+    () => pnl.removePnlRecord(inheritedModelInput),
+    /Pnl remove input.model must be an own field when provided/,
+  );
+  assert.throws(
+    () => pnl.removePnlRecord({ quoteId: new String("q_remove_unsafe") }),
+    /Pnl quoteId must be a primitive string/,
+  );
+  assert.throws(
+    () =>
+      pnl.removePnlRecord({
+        quoteId: "q_remove_unsafe",
+        model: "unsupported_model",
+      }),
+    /Pnl model must be simulated_mid_price_v1/,
+  );
+
+  assert.equal(pnl.summary().totalTrades, 1);
 });

@@ -79,6 +79,8 @@ const afterStatus = await quoteRepository.findStatus("q_reconciliation_check");
 const hedge = hedgeService.getHedgeIntentBySettlementEvent(settlement.event.settlementEventId);
 const pnlSummary = pnlService.summary();
 
+const reorgHedgeService = new HedgeService();
+const reorgPnlService = new PnlService();
 const reorgQuoteRepository = new InMemoryQuoteRepository();
 const reorgSettlementEventService = new SettlementEventService(new InventoryService());
 await reorgQuoteRepository.saveSigned({
@@ -104,6 +106,19 @@ await reorgQuoteRepository.markStatus("q_reconciliation_reorg_check", "settled",
   txHash: reorgSettlement.event.txHash,
   settlementEventId: reorgSettlement.event.settlementEventId,
 });
+const reorgHedge = reorgHedgeService.createHedgeIntent({
+  settlementEventId: reorgSettlement.event.settlementEventId,
+  quoteId: reorgSettlement.event.quoteId,
+  chainId: reorgSettlement.event.chainId,
+  token: reorgSettlement.event.tokenOut,
+  side: "buy",
+  amount: reorgSettlement.event.amountOut,
+  reason: "inventory_rebalance",
+});
+reorgPnlService.recordSettlement({
+  quoteId: reorgSettlement.event.quoteId,
+  quote,
+});
 const removedSettlement = reorgSettlementEventService.removeSettlementEvent({
   chainId: reorgSettlement.event.chainId,
   txHash: reorgSettlement.event.txHash,
@@ -111,12 +126,20 @@ const removedSettlement = reorgSettlementEventService.removeSettlementEvent({
   logIndex: reorgSettlement.event.logIndex,
 });
 const reorgReconciliation = new ReconciliationService({
+  hedgeService: reorgHedgeService,
+  pnlService: reorgPnlService,
   quoteRepository: reorgQuoteRepository,
   settlementEventService: reorgSettlementEventService,
 });
 const removedQuoteReport = await reorgReconciliation.reconcileRemovedSettlementToQuote(removedSettlement.event);
+const removedHedgeReport = await reorgReconciliation.reconcileRemovedSettlementToHedge(removedSettlement.event);
+const removedPnlReport = await reorgReconciliation.reconcileRemovedSettlementToPnl(removedSettlement.event);
 const removedQuoteRetryReport = await reorgReconciliation.reconcileRemovedSettlementToQuote(removedSettlement.event);
+const removedHedgeRetryReport = await reorgReconciliation.reconcileRemovedSettlementToHedge(removedSettlement.event);
+const removedPnlRetryReport = await reorgReconciliation.reconcileRemovedSettlementToPnl(removedSettlement.event);
 const afterReorgStatus = await reorgQuoteRepository.findStatus("q_reconciliation_reorg_check");
+const afterReorgHedge = reorgHedgeService.getHedgeIntent(reorgHedge.hedgeOrderId);
+const afterReorgPnlSummary = reorgPnlService.summary();
 
 assert.deepEqual(quoteReport, {
   scannedSettlementEvents: 1,
@@ -191,15 +214,41 @@ assert.deepEqual(removedQuoteReport, {
   skippedQuoteStatuses: 0,
   errors: [],
 });
+assert.deepEqual(removedHedgeReport, {
+  scannedRemovedSettlementEvents: 1,
+  removedHedgeIntents: 1,
+  skippedHedgeIntents: 0,
+  errors: [],
+});
+assert.deepEqual(removedPnlReport, {
+  scannedRemovedSettlementEvents: 1,
+  removedPnlRecords: 1,
+  skippedPnlRecords: 0,
+  errors: [],
+});
 assert.deepEqual(removedQuoteRetryReport, {
   scannedRemovedSettlementEvents: 1,
   repairedQuoteStatuses: 0,
   skippedQuoteStatuses: 1,
   errors: [],
 });
+assert.deepEqual(removedHedgeRetryReport, {
+  scannedRemovedSettlementEvents: 1,
+  removedHedgeIntents: 0,
+  skippedHedgeIntents: 1,
+  errors: [],
+});
+assert.deepEqual(removedPnlRetryReport, {
+  scannedRemovedSettlementEvents: 1,
+  removedPnlRecords: 0,
+  skippedPnlRecords: 1,
+  errors: [],
+});
 assert.equal(afterReorgStatus.status, "signed");
 assert.equal(afterReorgStatus.txHash, undefined);
 assert.equal(afterReorgStatus.settlementEventId, undefined);
+assert.equal(afterReorgHedge, undefined);
+assert.equal(afterReorgPnlSummary.totalTrades, 0);
 
 console.log(JSON.stringify({
   status: "ok",
@@ -214,5 +263,9 @@ console.log(JSON.stringify({
   quoteHashPnlRetryReport,
   unmatchedQuoteHashReport,
   removedQuoteReport,
+  removedHedgeReport,
+  removedPnlReport,
   removedQuoteRetryReport,
+  removedHedgeRetryReport,
+  removedPnlRetryReport,
 }, null, 2));

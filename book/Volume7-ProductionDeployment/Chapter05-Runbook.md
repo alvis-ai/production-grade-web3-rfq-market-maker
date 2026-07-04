@@ -181,7 +181,8 @@ Use this procedure when signer compromise, settlement replay uncertainty, treasu
 2. Stop high-notional quote signing.
 3. Replay from last confirmed block and apply removed/reorg logs through `SettlementEventService.removeSettlementEvent()`.
 4. For each removed event, run `ReconciliationService.reconcileRemovedSettlementToQuote()` so `/quote/:quoteId` no longer points at a non-canonical settlement.
-5. Reconcile inventory from the canonical settlement event stream before restoring normal quote size.
+5. Run `ReconciliationService.reconcileRemovedSettlementToHedge()` and `ReconciliationService.reconcileRemovedSettlementToPnl()` for the same removed event so hedge and realized PnL stores no longer retain post-trade records from the reorged settlement.
+6. Reconcile inventory from the canonical settlement event stream before restoring normal quote size.
 
 ### Hedge Failure
 
@@ -200,7 +201,7 @@ Alerts: `RFQQuoteStatusUpdateErrors`, `RFQHedgeIntentErrors`, `RFQHedgeLagHigh`,
 4. Start `ReconciliationService.reconcileSettlementToHedge()` for `rfq_hedge_intent_errors_total`; if hedge intent creation keeps failing, tighten quote limits for the affected output token.
 5. Check `rfq_hedge_lag_seconds` and hedge worker backlog; if lag remains high, widen spread and reduce quote limits before re-enabling full traffic.
 6. Start `ReconciliationService.reconcileSettlementToPnl()` for `rfq_pnl_record_errors_total` and rebuild missing realized PnL rows from settlement events and signed quote records.
-7. When the drift follows a reorg removal, run `ReconciliationService.reconcileRemovedSettlementToQuote()` for the removed event before canonical event-stream reconciliation.
+7. When the drift follows a reorg removal, run `ReconciliationService.reconcileRemovedSettlementToQuote()`, `ReconciliationService.reconcileRemovedSettlementToHedge()` and `ReconciliationService.reconcileRemovedSettlementToPnl()` for the removed event before canonical event-stream reconciliation.
 8. Verify `/settlements/:settlementEventId`, `/quote/:quoteId`, `/hedges/:hedgeOrderId`, `/pnl` and `GET /metrics` before closing the incident.
 
 ### Pod Termination Or Rollout Drain

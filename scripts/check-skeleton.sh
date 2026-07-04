@@ -1482,7 +1482,9 @@ grep -q 'cloneReconciliationServiceDeps' backend/src/modules/reconciliation/reco
 grep -q 'reconcileSettlementToQuote' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileRemovedSettlementToQuote' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileSettlementToHedge' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'reconcileRemovedSettlementToHedge' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileSettlementToPnl' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'reconcileRemovedSettlementToPnl' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'normalizeSettlementReconciliationFilter' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'hedgeIntentFromSettlementEvent' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'createHedgeIntent(hedgeIntent)' backend/src/modules/reconciliation/reconciliation.service.ts
@@ -1490,8 +1492,11 @@ grep -q 'QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.serv
 grep -q 'SIGNED_QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'clearSettlementStatus' backend/src/modules/quote/quote.repository.ts
 grep -q 'settlement status removal conflict' backend/src/modules/quote/quote.repository.ts
+grep -q 'removeHedgeIntentBySettlementEvent' backend/src/modules/hedge/hedge.service.ts
+grep -q 'removePnlRecord' backend/src/modules/pnl/pnl.service.ts
 grep -q 'repairs quote status from settlement events' backend/test/reconciliation.test.mjs
 grep -q 'repairs quote status after a removed settlement event' backend/test/reconciliation.test.mjs
+grep -q 'removes hedge and PnL records after a removed settlement event' backend/test/reconciliation.test.mjs
 grep -q 'reports removed settlement quote repair conflicts' backend/test/reconciliation.test.mjs
 grep -q 'scopes repairs by chain-scoped settlement quote hash' backend/test/reconciliation.test.mjs
 grep -q 'rejects unsafe settlement quote hash filters before scanning' backend/test/reconciliation.test.mjs
@@ -1513,6 +1518,8 @@ grep -q 'reports PnL conflicts without stopping later events' backend/test/recon
 grep -q 'requires PnL service for settlement-to-PnL repair' backend/test/reconciliation.test.mjs
 grep -q 'clears matching settlement status after reorg removal' backend/test/quote-service.test.mjs
 grep -q 'expires settlement status when removed quote is past deadline' backend/test/quote-service.test.mjs
+grep -q 'removes hedge intents by settlement event after reorgs' backend/test/hedge.test.mjs
+grep -q 'removes PnL records by quote and model after reorgs' backend/test/pnl.test.mjs
 grep -q 'class LocalSettlementVerifier' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'recoverTypedDataAddress' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'buildQuoteTypedData(quote, this.policy.settlementAddress)' backend/src/modules/settlement/settlement-verifier.service.ts
@@ -2884,7 +2891,9 @@ grep -q 'PnL attribution after settlement is best-effort' book/Volume5-BackendEn
 grep -q 'ReconciliationService.reconcileSettlementToQuote()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService.reconcileRemovedSettlementToQuote()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService.reconcileSettlementToHedge()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'ReconciliationService.reconcileRemovedSettlementToHedge()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'ReconciliationService.reconcileSettlementToPnl()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'ReconciliationService.reconcileRemovedSettlementToPnl()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SettlementEventService.getSettlementEventsByQuoteHash' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'make reconciliation-check' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnL attribution input validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -3061,6 +3070,8 @@ grep -q 'ReconciliationService.reconcileSettlementToHedge()' book/Volume7-Produc
 grep -q 'settlement-to-PnL reconciliation' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'ReconciliationService.reconcileSettlementToPnl()' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'ReconciliationService.reconcileRemovedSettlementToQuote()' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'ReconciliationService.reconcileRemovedSettlementToHedge()' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'ReconciliationService.reconcileRemovedSettlementToPnl()' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q '{ chainId, quoteHash }' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'make reconciliation-check' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'reconciliation-check: backend-build' Makefile
@@ -3078,6 +3089,10 @@ grep -q 'quoteHashQuoteRetryReport' scripts/reconciliation-check.mjs
 grep -q 'unmatchedQuoteHashReport' scripts/reconciliation-check.mjs
 grep -q 'removedQuoteReport' scripts/reconciliation-check.mjs
 grep -q 'removedQuoteRetryReport' scripts/reconciliation-check.mjs
+grep -q 'removedHedgeReport' scripts/reconciliation-check.mjs
+grep -q 'removedPnlReport' scripts/reconciliation-check.mjs
+grep -q 'removedHedgeRetryReport' scripts/reconciliation-check.mjs
+grep -q 'removedPnlRetryReport' scripts/reconciliation-check.mjs
 grep -q 'rfq-backend-secrets' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'Missing or malformed signer Secret' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q '32-byte hex string' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md

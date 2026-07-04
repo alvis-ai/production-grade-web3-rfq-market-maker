@@ -24,6 +24,11 @@ export interface HedgeResult {
   record: HedgeIntentStatusResponse;
 }
 
+export interface RemoveHedgeIntentResult {
+  record?: HedgeIntentStatusResponse;
+  removed: boolean;
+}
+
 export interface HedgeRiskInput {
   chainId: number;
   token: Address;
@@ -34,6 +39,7 @@ export interface HedgeIntentService {
   createHedgeIntent(intent: HedgeIntent): HedgeResult;
   getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined;
   getHedgeIntentBySettlementEvent(settlementEventId: string): HedgeIntentStatusResponse | undefined;
+  removeHedgeIntentBySettlementEvent(settlementEventId: string): RemoveHedgeIntentResult;
   recordHedgeFailure?(intent: HedgeIntent, reasonCode: HedgeFailureReasonCode): void;
   quoteRiskPenaltyBps?(input: HedgeRiskInput): number;
 }
@@ -131,6 +137,29 @@ export class HedgeService implements HedgeIntentService {
     const hedgeOrderId = this.hedgeOrderIdsBySettlementEvent.get(settlementEventId);
     const intent = hedgeOrderId ? this.intents.get(hedgeOrderId) : undefined;
     return intent ? cloneHedgeIntentStatus(intent) : undefined;
+  }
+
+  removeHedgeIntentBySettlementEvent(settlementEventId: string): RemoveHedgeIntentResult {
+    assertSafeIdentifier(settlementEventId, "settlementEventId");
+    const hedgeOrderId = this.hedgeOrderIdsBySettlementEvent.get(settlementEventId);
+    if (!hedgeOrderId) {
+      return {
+        removed: false,
+      };
+    }
+
+    const intent = this.intents.get(hedgeOrderId);
+    if (!intent) {
+      throw new Error(`Hedge intent index is inconsistent for ${hedgeOrderId}`);
+    }
+
+    this.intents.delete(hedgeOrderId);
+    this.hedgeOrderIdsBySettlementEvent.delete(settlementEventId);
+
+    return {
+      record: cloneHedgeIntentStatus(intent),
+      removed: true,
+    };
   }
 
   recordHedgeFailure(intent: HedgeIntent, _reasonCode: HedgeFailureReasonCode): void {

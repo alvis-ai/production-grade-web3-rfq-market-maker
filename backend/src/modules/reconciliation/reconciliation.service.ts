@@ -47,6 +47,13 @@ export interface SettlementToPnlReconciliationError {
   reason: string;
 }
 
+export interface RemovedSettlementToPnlReconciliationReport {
+  scannedRemovedSettlementEvents: number;
+  removedPnlRecords: number;
+  skippedPnlRecords: number;
+  errors: SettlementToPnlReconciliationError[];
+}
+
 export interface SettlementToHedgeReconciliationReport {
   scannedSettlementEvents: number;
   repairedHedgeIntents: number;
@@ -58,6 +65,13 @@ export interface SettlementToHedgeReconciliationError {
   settlementEventId: string;
   quoteId: string;
   reason: string;
+}
+
+export interface RemovedSettlementToHedgeReconciliationReport {
+  scannedRemovedSettlementEvents: number;
+  removedHedgeIntents: number;
+  skippedHedgeIntents: number;
+  errors: SettlementToHedgeReconciliationError[];
 }
 
 export interface ReconciliationServiceDeps {
@@ -211,6 +225,38 @@ export class ReconciliationService {
     return report;
   }
 
+  async reconcileRemovedSettlementToPnl(
+    event: SettlementEventForReconciliation,
+  ): Promise<RemovedSettlementToPnlReconciliationReport> {
+    if (!this.deps.pnlService) {
+      throw new Error("ReconciliationService pnlService is required for removed-settlement-to-PnL reconciliation");
+    }
+
+    const report: RemovedSettlementToPnlReconciliationReport = {
+      scannedRemovedSettlementEvents: 1,
+      removedPnlRecords: 0,
+      skippedPnlRecords: 0,
+      errors: [],
+    };
+
+    try {
+      const result = this.deps.pnlService.removePnlRecord({ quoteId: event.quoteId });
+      if (result.removed) {
+        report.removedPnlRecords += 1;
+      } else {
+        report.skippedPnlRecords += 1;
+      }
+    } catch (error) {
+      report.errors.push({
+        settlementEventId: event.settlementEventId,
+        quoteId: event.quoteId,
+        reason: error instanceof Error ? error.message : "RECONCILIATION_FAILED",
+      });
+    }
+
+    return report;
+  }
+
   async reconcileSettlementToHedge(
     filter?: SettlementReconciliationFilter,
   ): Promise<SettlementToHedgeReconciliationReport> {
@@ -245,6 +291,38 @@ export class ReconciliationService {
           reason: error instanceof Error ? error.message : "RECONCILIATION_FAILED",
         });
       }
+    }
+
+    return report;
+  }
+
+  async reconcileRemovedSettlementToHedge(
+    event: SettlementEventForReconciliation,
+  ): Promise<RemovedSettlementToHedgeReconciliationReport> {
+    if (!this.deps.hedgeService) {
+      throw new Error("ReconciliationService hedgeService is required for removed-settlement-to-hedge reconciliation");
+    }
+
+    const report: RemovedSettlementToHedgeReconciliationReport = {
+      scannedRemovedSettlementEvents: 1,
+      removedHedgeIntents: 0,
+      skippedHedgeIntents: 0,
+      errors: [],
+    };
+
+    try {
+      const result = this.deps.hedgeService.removeHedgeIntentBySettlementEvent(event.settlementEventId);
+      if (result.removed) {
+        report.removedHedgeIntents += 1;
+      } else {
+        report.skippedHedgeIntents += 1;
+      }
+    } catch (error) {
+      report.errors.push({
+        settlementEventId: event.settlementEventId,
+        quoteId: event.quoteId,
+        reason: error instanceof Error ? error.message : "RECONCILIATION_FAILED",
+      });
     }
 
     return report;
@@ -290,8 +368,10 @@ function assertReconciliationServiceDeps(deps: ReconciliationServiceDeps): void 
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByQuoteId");
   assertOptionalDependencyMethod(deps.pnlService, "pnlService", "summary");
   assertOptionalDependencyMethod(deps.pnlService, "pnlService", "recordSettlement");
+  assertOptionalDependencyMethod(deps.pnlService, "pnlService", "removePnlRecord");
   assertOptionalDependencyMethod(deps.hedgeService, "hedgeService", "getHedgeIntentBySettlementEvent");
   assertOptionalDependencyMethod(deps.hedgeService, "hedgeService", "createHedgeIntent");
+  assertOptionalDependencyMethod(deps.hedgeService, "hedgeService", "removeHedgeIntentBySettlementEvent");
 }
 
 function assertDependencyMethod(
