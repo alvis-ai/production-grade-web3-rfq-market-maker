@@ -92,6 +92,8 @@ test -s backend/test/settlement-verifier-validation.test.mjs
 test -s backend/test/signer.test.mjs
 test -s backend/test/signer-validation.test.mjs
 test -s backend/test/submit-concurrency.test.mjs
+test -s backend/test/submit-options-validation.test.mjs
+test -s backend/test/submit-schema-validation.test.mjs
 test -s backend/test/submit-validation.test.mjs
 test -s backend/test/validation.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
@@ -558,14 +560,14 @@ grep -q 'typeof input !== "string"' backend/src/shared/validation/submit-request
 grep -q 'rejects request JSON primitive types that would require coercion' backend/test/api-validation.test.mjs
 grep -q 'RFQ API rejects missing required request fields' backend/test/api-validation.test.mjs
 grep -q 'rejects non-schema JSON primitive types before coercion' backend/test/validation.test.mjs
-grep -q 'validateSubmitQuoteRequest rejects non-schema JSON primitive types before coercion' backend/test/submit-validation.test.mjs
+grep -q 'validateSubmitQuoteRequest rejects non-schema JSON primitive types before coercion' backend/test/submit-schema-validation.test.mjs
 grep -q 'validateQuoteRequest rejects missing required fields before field validation' backend/test/validation.test.mjs
-grep -q 'validateSubmitQuoteRequest rejects missing required fields before field validation' backend/test/submit-validation.test.mjs
+grep -q 'validateSubmitQuoteRequest rejects missing required fields before field validation' backend/test/submit-schema-validation.test.mjs
 grep -q 'Quote request must include field amountIn' backend/test/validation.test.mjs
-grep -q 'Submit quote must include field nonce' backend/test/submit-validation.test.mjs
+grep -q 'Submit quote must include field nonce' backend/test/submit-schema-validation.test.mjs
 grep -q 'validateQuoteRequest rejects boxed string fields before regex coercion' backend/test/validation.test.mjs
-grep -q 'validateSubmitQuoteRequest rejects boxed string fields before regex coercion' backend/test/submit-validation.test.mjs
-grep -q 'signature must be a primitive string' backend/test/submit-validation.test.mjs
+grep -q 'validateSubmitQuoteRequest rejects boxed string fields before regex coercion' backend/test/submit-schema-validation.test.mjs
+grep -q 'signature must be a primitive string' backend/test/submit-schema-validation.test.mjs
 grep -q '001000000000' backend/test/validation.test.mjs
 grep -q '0998400000' backend/test/submit-validation.test.mjs
 grep -q '不能用 `Number()` 或 `String()`' docs/api/errors.md
@@ -856,9 +858,9 @@ grep -q 'Quote service hedgeService must be an object when provided' backend/tes
 grep -q 'QuoteService rejects unsafe quote requests before dependency side effects' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe submit quotes before quote lookup or signature verification' backend/test/quote-service-submit.test.mjs
 grep -q 'QuoteService rejects submit signatures that differ from the stored signed quote' backend/test/quote-service-submit.test.mjs
-grep -q 'validateSubmitQuoteRequest validates internal submit validation options' backend/test/submit-validation.test.mjs
-grep -q 'Submit validation options.allowExpired must be an own field when provided' backend/test/submit-validation.test.mjs
-grep -q 'Submit validation options allowExpired must be a boolean' backend/test/submit-validation.test.mjs
+grep -q 'validateSubmitQuoteRequest validates internal submit validation options' backend/test/submit-options-validation.test.mjs
+grep -q 'Submit validation options.allowExpired must be an own field when provided' backend/test/submit-options-validation.test.mjs
+grep -q 'Submit validation options allowExpired must be a boolean' backend/test/submit-options-validation.test.mjs
 grep -q 'QuoteService` rejects malformed config, inherited config fields, malformed dependency map, inherited required dependency entries, inherited optional `hedgeService`, and malformed dependency entries before reading runtime fields or service methods' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'createQuote()` revalidates and snapshots the quote request at the service boundary' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'validates `RoutePlan` returned by the routing adapter before inventory skew, pricing, risk evaluation or signing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
