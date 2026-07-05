@@ -45,6 +45,7 @@ test -s backend/test/quote-repository-validation.test.mjs
 test -s backend/test/quote-service-dependencies.test.mjs
 test -s backend/test/quote-service-pricing-dependencies.test.mjs
 test -s backend/test/quote-service-risk-dependencies.test.mjs
+test -s backend/test/quote-service-submit.test.mjs
 test -s backend/test/quote-service.test.mjs
 test -s backend/test/quote-service-config.test.mjs
 test -s backend/test/quote-status-repository-clear.test.mjs
@@ -829,7 +830,8 @@ grep -q 'Quote service deps.inventoryService must be an own field' backend/test/
 grep -q 'Quote service deps.hedgeService must be an own field when provided' backend/test/quote-service-config.test.mjs
 grep -q 'Quote service hedgeService must be an object when provided' backend/test/quote-service-config.test.mjs
 grep -q 'QuoteService rejects unsafe quote requests before dependency side effects' backend/test/quote-service.test.mjs
-grep -q 'QuoteService rejects unsafe submit quotes before quote lookup or signature verification' backend/test/quote-service.test.mjs
+grep -q 'QuoteService rejects unsafe submit quotes before quote lookup or signature verification' backend/test/quote-service-submit.test.mjs
+grep -q 'QuoteService rejects submit signatures that differ from the stored signed quote' backend/test/quote-service-submit.test.mjs
 grep -q 'validateSubmitQuoteRequest validates internal submit validation options' backend/test/validation.test.mjs
 grep -q 'Submit validation options.allowExpired must be an own field when provided' backend/test/validation.test.mjs
 grep -q 'Submit validation options allowExpired must be a boolean' backend/test/validation.test.mjs
@@ -1121,7 +1123,7 @@ grep -q 'rejects signed quote payload rewrites' backend/test/quote-repository.te
 grep -q 'rejects saveSigned lifecycle regressions' backend/test/quote-status-repository.test.mjs
 grep -q 'rejects unsafe signed quote persistence inputs' backend/test/quote-repository-validation.test.mjs
 grep -q 'persists expired status when signed quote status is read after deadline' backend/test/quote-service.test.mjs
-grep -q 'rejects expired signed quotes before signature verification' backend/test/quote-service.test.mjs
+grep -q 'rejects expired signed quotes before signature verification' backend/test/quote-service-submit.test.mjs
 grep -q 'rejects unsafe requested and rejected quote persistence inputs' backend/test/quote-repository-lifecycle.test.mjs
 grep -q 'rejects requested quote payload rewrites' backend/test/quote-repository-lifecycle.test.mjs
 grep -q 'rejects rejected quote payload rewrites' backend/test/quote-repository-lifecycle.test.mjs
