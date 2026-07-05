@@ -7,8 +7,17 @@ const apiGatewayStartupTestSource = await readFile("backend/test/api-gateway.tes
 const apiGatewayRuntimeTestSource = await readFile("backend/test/api-gateway-runtime.test.mjs", "utf8");
 const apiGatewayTestSource = `${apiGatewayStartupTestSource}\n${apiGatewayRuntimeTestSource}`;
 const apiTestSource = await readFile("backend/test/api.test.mjs", "utf8");
+const apiRiskTestSource = await readFile("backend/test/api-risk.test.mjs", "utf8");
+const apiSignerTestSource = await readFile("backend/test/api-signer.test.mjs", "utf8");
+const apiSubmitTestSource = await readFile("backend/test/api-submit.test.mjs", "utf8");
 const apiValidationTestSource = await readFile("backend/test/api-validation.test.mjs", "utf8");
-const apiTraceContractTestSource = `${apiTestSource}\n${apiValidationTestSource}`;
+const apiTraceContractTestSource = [
+  apiTestSource,
+  apiRiskTestSource,
+  apiSignerTestSource,
+  apiSubmitTestSource,
+  apiValidationTestSource,
+].join("\n");
 const sdkTypesSource = await readFile("sdk/src/types.ts", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const errorDocsSource = await readFile("docs/api/errors.md", "utf8");
