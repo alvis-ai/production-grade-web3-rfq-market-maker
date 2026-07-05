@@ -39,6 +39,7 @@ test -s backend/test/quote-status-repository.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
 test -s backend/test/readiness.test.mjs
+test -s backend/test/reconciliation-config.test.mjs
 test -s backend/test/risk-decision.test.mjs
 test -s backend/test/routing.test.mjs
 test -s backend/test/settlement-event.test.mjs
@@ -1531,13 +1532,13 @@ grep -q 'scopes repairs by chain-scoped settlement quote hash' backend/test/reco
 grep -q 'rejects unsafe settlement quote hash filters before scanning' backend/test/reconciliation.test.mjs
 grep -q 'reports terminal quote conflicts without stopping later events' backend/test/reconciliation.test.mjs
 grep -q 'reports settlement events whose quotes are missing' backend/test/reconciliation.test.mjs
-grep -q 'ReconciliationService snapshots dependency object at construction' backend/test/reconciliation.test.mjs
-grep -q 'ReconciliationService rejects unsafe dependency configuration at construction' backend/test/reconciliation.test.mjs
-grep -q 'ReconciliationService deps.quoteRepository must be an own field' backend/test/reconciliation.test.mjs
-grep -q 'ReconciliationService deps.pnlService must be an own field when provided' backend/test/reconciliation.test.mjs
-grep -q 'ReconciliationService deps.hedgeService must be an own field when provided' backend/test/reconciliation.test.mjs
-grep -q 'ReconciliationService settlementEventService must be an object' backend/test/reconciliation.test.mjs
-grep -q 'ReconciliationService pnlService must be an object when provided' backend/test/reconciliation.test.mjs
+grep -q 'ReconciliationService snapshots dependency object at construction' backend/test/reconciliation-config.test.mjs
+grep -q 'ReconciliationService rejects unsafe dependency configuration at construction' backend/test/reconciliation-config.test.mjs
+grep -q 'ReconciliationService deps.quoteRepository must be an own field' backend/test/reconciliation-config.test.mjs
+grep -q 'ReconciliationService deps.pnlService must be an own field when provided' backend/test/reconciliation-config.test.mjs
+grep -q 'ReconciliationService deps.hedgeService must be an own field when provided' backend/test/reconciliation-config.test.mjs
+grep -q 'ReconciliationService settlementEventService must be an object' backend/test/reconciliation-config.test.mjs
+grep -q 'ReconciliationService pnlService must be an object when provided' backend/test/reconciliation-config.test.mjs
 grep -q 'repairs hedge intents from settlement events' backend/test/reconciliation.test.mjs
 grep -q 'reports hedge intent conflicts without stopping later events' backend/test/reconciliation.test.mjs
 grep -q 'requires hedge service for settlement-to-hedge repair' backend/test/reconciliation.test.mjs
