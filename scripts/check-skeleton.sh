@@ -30,6 +30,8 @@ test -s backend/test/api-submit.test.mjs
 test -s backend/test/api-validation-gateway.test.mjs
 test -s backend/test/api-validation.test.mjs
 test -s backend/test/api.test.mjs
+test -s backend/test/execution.test.mjs
+test -s backend/test/execution-settlement-results.test.mjs
 test -s backend/test/execution-validation.test.mjs
 test -s backend/test/hedge.test.mjs
 test -s backend/test/hedge-validation.test.mjs
@@ -1422,17 +1424,17 @@ grep -q 'buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes' ba
 grep -q 'buildSyntheticTxHash rejects malformed submit payloads before hashing' backend/test/execution-validation.test.mjs
 grep -q 'SkeletonExecutionService suppresses duplicate settlement side effects' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService snapshots dependency object at construction' backend/test/execution.test.mjs
-grep -q 'SkeletonExecutionService rejects malformed settlement verifier results before side effects' backend/test/execution.test.mjs
-grep -q 'internalRoute: "bypass"' backend/test/execution.test.mjs
-grep -q 'SkeletonExecutionService rejects malformed settlement event results before follow-up side effects' backend/test/execution.test.mjs
-grep -q 'internalState: "unsafe"' backend/test/execution.test.mjs
-grep -q 'assert.equal(inventoryReads, 0)' backend/test/execution.test.mjs
+grep -q 'SkeletonExecutionService rejects malformed settlement verifier results before side effects' backend/test/execution-settlement-results.test.mjs
+grep -q 'internalRoute: "bypass"' backend/test/execution-settlement-results.test.mjs
+grep -q 'SkeletonExecutionService rejects malformed settlement event results before follow-up side effects' backend/test/execution-settlement-results.test.mjs
+grep -q 'internalState: "unsafe"' backend/test/execution-settlement-results.test.mjs
+grep -q 'assert.equal(inventoryReads, 0)' backend/test/execution-settlement-results.test.mjs
 grep -q 'SkeletonExecutionService treats malformed hedge results as post-settlement hedge failures' backend/test/execution.test.mjs
 grep -q 'assert.equal(result.response.hedgeOrderId, undefined)' backend/test/execution.test.mjs
 grep -q 'assert.equal(hedgeFailures, 1)' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService treats malformed inventory position reads as metric-only unavailable' backend/test/execution.test.mjs
 grep -q 'assert.equal(result.inventoryPositions, undefined)' backend/test/execution.test.mjs
-grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/execution.test.mjs
+grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/execution-settlement-results.test.mjs
 grep -q 'SkeletonExecutionService rejects unsafe dependency configuration at construction' backend/test/execution-validation.test.mjs
 grep -q 'Execution service deps.hedgeService must be an own field' backend/test/execution-validation.test.mjs
 grep -q 'Execution service hedgeService must be an object' backend/test/execution-validation.test.mjs
