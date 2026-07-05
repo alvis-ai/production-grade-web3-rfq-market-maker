@@ -56,6 +56,7 @@ test -s backend/test/quote-service-pricing-dependencies.test.mjs
 test -s backend/test/quote-service-risk-dependencies.test.mjs
 test -s backend/test/quote-service-submit.test.mjs
 test -s backend/test/quote-service.test.mjs
+test -s backend/test/quote-service-dependency-config.test.mjs
 test -s backend/test/quote-service-config.test.mjs
 test -s backend/test/quote-status-repository-clear.test.mjs
 test -s backend/test/quote-status-repository.test.mjs
@@ -828,8 +829,8 @@ grep -q 'normalizeValidationOptions(options)' backend/src/shared/validation/subm
 grep -q 'assertOwnOptionalFields(options, SUBMIT_VALIDATION_OPTION_FIELDS, "Submit validation options")' backend/src/shared/validation/submit-request.ts
 grep -q '${label}.${inherited} must be an own field when provided' backend/src/shared/validation/submit-request.ts
 grep -q 'Submit validation options allowExpired must be a boolean' backend/src/shared/validation/submit-request.ts
-grep -q 'QuoteService snapshots dependency object at construction' backend/test/quote-service-config.test.mjs
-grep -q 'QuoteService rejects unsafe dependency configuration at construction' backend/test/quote-service-config.test.mjs
+grep -q 'QuoteService snapshots dependency object at construction' backend/test/quote-service-dependency-config.test.mjs
+grep -q 'QuoteService rejects unsafe dependency configuration at construction' backend/test/quote-service-dependency-config.test.mjs
 grep -q 'QuoteService rejects malformed pricing engine results before signing' backend/test/quote-service-pricing-dependencies.test.mjs
 grep -q 'internalSpread: 8' backend/test/quote-service-pricing-dependencies.test.mjs
 grep -q 'assert.equal(signAttempts, 0)' backend/test/quote-service-pricing-dependencies.test.mjs
@@ -842,10 +843,10 @@ grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/quote/quo
 grep -q 'Quote service config must be an object' backend/test/quote-service-config.test.mjs
 grep -q 'Quote service config.maxSnapshotAgeMs must be an own field' backend/test/quote-service-config.test.mjs
 grep -q 'Quote service config.quoteTtlSeconds must be an own field' backend/test/quote-service-config.test.mjs
-grep -q 'Quote service marketDataService must be an object' backend/test/quote-service-config.test.mjs
-grep -q 'Quote service deps.inventoryService must be an own field' backend/test/quote-service-config.test.mjs
-grep -q 'Quote service deps.hedgeService must be an own field when provided' backend/test/quote-service-config.test.mjs
-grep -q 'Quote service hedgeService must be an object when provided' backend/test/quote-service-config.test.mjs
+grep -q 'Quote service marketDataService must be an object' backend/test/quote-service-dependency-config.test.mjs
+grep -q 'Quote service deps.inventoryService must be an own field' backend/test/quote-service-dependency-config.test.mjs
+grep -q 'Quote service deps.hedgeService must be an own field when provided' backend/test/quote-service-dependency-config.test.mjs
+grep -q 'Quote service hedgeService must be an object when provided' backend/test/quote-service-dependency-config.test.mjs
 grep -q 'QuoteService rejects unsafe quote requests before dependency side effects' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe submit quotes before quote lookup or signature verification' backend/test/quote-service-submit.test.mjs
 grep -q 'QuoteService rejects submit signatures that differ from the stored signed quote' backend/test/quote-service-submit.test.mjs
