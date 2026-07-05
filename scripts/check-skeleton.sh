@@ -69,6 +69,7 @@ test -s backend/test/risk-runtime-validation.test.mjs
 test -s backend/test/risk-validation.test.mjs
 test -s backend/test/routing.test.mjs
 test -s backend/test/settlement-event.test.mjs
+test -s backend/test/settlement-event-lookup-validation.test.mjs
 test -s backend/test/settlement-event-validation.test.mjs
 test -s backend/test/settlement-event-reorg.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
@@ -1500,11 +1501,11 @@ grep -q 'keeps distinct events with the same tx hash prefix' backend/test/settle
 grep -q 'rejects conflicting events for an already settled quote' backend/test/settlement-event-validation.test.mjs
 grep -q 'lists settlement events in chain order' backend/test/settlement-event.test.mjs
 grep -q 'returns defensive copies of settlement events' backend/test/settlement-event.test.mjs
-grep -q 'rejects unsafe settlement event lookup identifiers' backend/test/settlement-event-validation.test.mjs
-grep -q 'Settlement event settlementEventId must be a primitive string' backend/test/settlement-event-validation.test.mjs
+grep -q 'rejects unsafe settlement event lookup identifiers' backend/test/settlement-event-lookup-validation.test.mjs
+grep -q 'Settlement event settlementEventId must be a primitive string' backend/test/settlement-event-lookup-validation.test.mjs
 grep -q 'Settlement event quoteId must be a primitive string' backend/test/settlement-event-validation.test.mjs
-grep -q 'Settlement event settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/settlement-event-validation.test.mjs
-grep -q 'SettlementEventService rejects unsafe inventory dependency at construction' backend/test/settlement-event-validation.test.mjs
+grep -q 'Settlement event settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/settlement-event-lookup-validation.test.mjs
+grep -q 'SettlementEventService rejects unsafe inventory dependency at construction' backend/test/settlement-event-lookup-validation.test.mjs
 grep -q 'SettlementEventService rejects malformed event payload envelopes before side effects' backend/test/settlement-event-validation.test.mjs
 grep -q 'Object.create({' backend/test/settlement-event-validation.test.mjs
 grep -q 'Settlement event input.quoteId must be an own field' backend/test/settlement-event-validation.test.mjs
@@ -1531,7 +1532,7 @@ grep -q 'treats duplicate reorg removals as idempotent' backend/test/settlement-
 grep -q 'rejects conflicting reorg removals before mutating state' backend/test/settlement-event-reorg.test.mjs
 grep -q 'rejects conflicting payloads for an existing chain event key' backend/test/settlement-event-validation.test.mjs
 grep -q 'SettlementEventService rejects unsafe settlement quote inputs before side effects' backend/test/settlement-event-validation.test.mjs
-grep -q 'hashSettlementQuote rejects malformed quote fields before ABI encoding' backend/test/settlement-event-validation.test.mjs
+grep -q 'hashSettlementQuote rejects malformed quote fields before ABI encoding' backend/test/settlement-event-lookup-validation.test.mjs
 grep -q 'class ReconciliationService' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'assertReconciliationServiceDeps(deps)' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'assertRecord(deps, "deps")' backend/src/modules/reconciliation/reconciliation.service.ts
