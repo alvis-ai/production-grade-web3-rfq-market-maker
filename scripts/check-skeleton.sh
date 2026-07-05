@@ -45,6 +45,7 @@ test -s backend/test/reconciliation-pnl.test.mjs
 test -s backend/test/risk-decision.test.mjs
 test -s backend/test/routing.test.mjs
 test -s backend/test/settlement-event.test.mjs
+test -s backend/test/settlement-event-reorg.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
 test -s backend/test/submit-concurrency.test.mjs
 test -s backend/test/validation.test.mjs
@@ -1492,9 +1493,9 @@ grep -q 'rejects inherited optional `blockNumber` / `logIndex`' book/Volume5-Bac
 grep -q 'Settlement status lookups also validate `settlementEventId` before reading the in-memory store' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'persists the signed `nonce` alongside `quoteHash`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'quoteHash` and `nonce` emitted by `RFQSettlement.QuoteSettled`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'removes reorged events and rebuilds inventory from canonical events' backend/test/settlement-event.test.mjs
-grep -q 'treats duplicate reorg removals as idempotent' backend/test/settlement-event.test.mjs
-grep -q 'rejects conflicting reorg removals before mutating state' backend/test/settlement-event.test.mjs
+grep -q 'removes reorged events and rebuilds inventory from canonical events' backend/test/settlement-event-reorg.test.mjs
+grep -q 'treats duplicate reorg removals as idempotent' backend/test/settlement-event-reorg.test.mjs
+grep -q 'rejects conflicting reorg removals before mutating state' backend/test/settlement-event-reorg.test.mjs
 grep -q 'rejects conflicting payloads for an existing chain event key' backend/test/settlement-event.test.mjs
 grep -q 'SettlementEventService rejects unsafe settlement quote inputs before side effects' backend/test/settlement-event.test.mjs
 grep -q 'hashSettlementQuote rejects malformed quote fields before ABI encoding' backend/test/settlement-event.test.mjs
