@@ -41,6 +41,7 @@ test -s backend/test/market-data.test.mjs
 test -s backend/test/market-data-validation.test.mjs
 test -s backend/test/market-snapshot-repository-validation.test.mjs
 test -s backend/test/metrics.test.mjs
+test -s backend/test/metrics-inventory-pnl-validation.test.mjs
 test -s backend/test/metrics-validation.test.mjs
 test -s backend/test/quote-identity.test.mjs
 test -s backend/test/quote-repository-lifecycle.test.mjs
@@ -1835,27 +1836,27 @@ grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)' backe
 grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/metrics/metrics.service.ts
 grep -Fq 'typeof value !== "string" || !/^(0|-?[1-9][0-9]*)$/.test(value)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'isCanonicalUtcIsoTimestamp(record.realizedAt)' backend/src/modules/metrics/metrics.service.ts
-grep -q 'Metrics PnL trade pnlId must be a primitive string' backend/test/metrics-validation.test.mjs
-grep -q 'Metrics PnL trade record.pnlId must be an own field' backend/test/metrics-validation.test.mjs
-grep -q 'Metrics PnL trade pnlId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/metrics-validation.test.mjs
-grep -q 'Metrics PnL trade quoteId must be a primitive string' backend/test/metrics-validation.test.mjs
-grep -q 'Metrics PnL trade quoteId must be 128 characters or fewer' backend/test/metrics-validation.test.mjs
-grep -q 'token: new String(token)' backend/test/metrics-validation.test.mjs
-grep -q 'Metrics inventory position.chainId must be an own field' backend/test/metrics-validation.test.mjs
+grep -q 'Metrics PnL trade pnlId must be a primitive string' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'Metrics PnL trade record.pnlId must be an own field' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'Metrics PnL trade pnlId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'Metrics PnL trade quoteId must be a primitive string' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'Metrics PnL trade quoteId must be 128 characters or fewer' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'token: new String(token)' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'Metrics inventory position.chainId must be an own field' backend/test/metrics-inventory-pnl-validation.test.mjs
 grep -q 'Metrics readiness.status must be an own field' backend/test/metrics-validation.test.mjs
 grep -q 'Metrics readiness components.marketData must be an own field' backend/test/metrics-validation.test.mjs
 grep -q 'Metrics readiness components.signer must be an own field' backend/test/metrics-validation.test.mjs
-grep -q 'user: new String(pnlTradeRecord.user)' backend/test/metrics-validation.test.mjs
-grep -q 'tokenIn: new String(pnlTradeRecord.tokenIn)' backend/test/metrics-validation.test.mjs
-grep -q 'grossPnlTokenOut: new String("1600000")' backend/test/metrics-validation.test.mjs
-grep -q 'grossPnlTokenOut: "01600000"' backend/test/metrics-validation.test.mjs
-grep -q 'grossPnlTokenOut: "-0"' backend/test/metrics-validation.test.mjs
-grep -q 'amountIn: "0100000000"' backend/test/metrics-validation.test.mjs
-grep -q 'nonce: "01"' backend/test/metrics-validation.test.mjs
-grep -q 'realizedAt: "2026-06-29"' backend/test/metrics-validation.test.mjs
-grep -q 'realizedAt: "June 29, 2026"' backend/test/metrics-validation.test.mjs
-grep -q 'realizedAt: "2026-02-31T00:00:00.000Z"' backend/test/metrics-validation.test.mjs
-grep -q 'Metrics PnL trade realizedAt must be a canonical UTC ISO timestamp' backend/test/metrics-validation.test.mjs
+grep -q 'user: new String(pnlTradeRecord.user)' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'tokenIn: new String(pnlTradeRecord.tokenIn)' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'grossPnlTokenOut: new String("1600000")' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'grossPnlTokenOut: "01600000"' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'grossPnlTokenOut: "-0"' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'amountIn: "0100000000"' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'nonce: "01"' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'realizedAt: "2026-06-29"' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'realizedAt: "June 29, 2026"' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'realizedAt: "2026-02-31T00:00:00.000Z"' backend/test/metrics-inventory-pnl-validation.test.mjs
+grep -q 'Metrics PnL trade realizedAt must be a canonical UTC ISO timestamp' backend/test/metrics-inventory-pnl-validation.test.mjs
 grep -q 'validates fixed-label inputs before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'validates dynamic label values before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'Histogram observations must be finite numbers before mutation' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
@@ -1918,7 +1919,7 @@ grep -q 'rfq_realized_pnl_token_out' backend/src/modules/metrics/metrics.service
 grep -q 'assertInventoryMetricPosition(position)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertPnlTradeMetricRecord(record)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'cloneInventoryMetricPosition' backend/src/modules/metrics/metrics.service.ts
-grep -q 'MetricsService validates inventory and PnL metric inputs before mutating state' backend/test/metrics-validation.test.mjs
+grep -q 'MetricsService validates inventory and PnL metric inputs before mutating state' backend/test/metrics-inventory-pnl-validation.test.mjs
 grep -q 'MetricsService snapshots inventory positions before storing gauges' backend/test/metrics.test.mjs
 grep -q 'readiness metrics must provide own `status` / `components` fields plus the exact supported component set as own fields' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'Inventory position fields and PnL trade record fields must be own fields' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
