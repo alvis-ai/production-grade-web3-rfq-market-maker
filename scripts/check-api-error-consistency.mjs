@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 
 const apiErrorSource = await readFile("backend/src/shared/errors/api-error.ts", "utf8");
 const backendSource = await readSourceTree("backend/src");
-const apiGatewayTestSource = await readFile("backend/test/api-gateway.test.mjs", "utf8");
+const apiGatewayStartupTestSource = await readFile("backend/test/api-gateway.test.mjs", "utf8");
+const apiGatewayRuntimeTestSource = await readFile("backend/test/api-gateway-runtime.test.mjs", "utf8");
+const apiGatewayTestSource = `${apiGatewayStartupTestSource}\n${apiGatewayRuntimeTestSource}`;
 const apiTestSource = await readFile("backend/test/api.test.mjs", "utf8");
 const apiValidationTestSource = await readFile("backend/test/api-validation.test.mjs", "utf8");
 const apiTraceContractTestSource = `${apiTestSource}\n${apiValidationTestSource}`;

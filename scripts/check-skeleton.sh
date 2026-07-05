@@ -14,6 +14,7 @@ test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/test/api-error.test.mjs
 test -s backend/test/api-gateway.test.mjs
+test -s backend/test/api-gateway-runtime.test.mjs
 test -s backend/test/api-hedge.test.mjs
 test -s backend/test/api-market-data.test.mjs
 test -s backend/test/api-pnl.test.mjs
@@ -708,7 +709,7 @@ grep -q 'server.addHook("onRequest"' backend/src/main.ts
 grep -q 'requestTraceId' backend/src/main.ts
 grep -q 'safeIncomingTraceId' backend/src/main.ts
 grep -q 'traceIdPattern' backend/src/main.ts
-grep -q 'RFQ API propagates safe incoming trace ids and falls back for unsafe values' backend/test/api-gateway.test.mjs
+grep -q 'RFQ API propagates safe incoming trace ids and falls back for unsafe values' backend/test/api-gateway-runtime.test.mjs
 grep -q 'RFQ_TRUST_PROXY=false' .env.example
 grep -q 'RFQ_TRUST_PROXY: "false"' docker-compose.yml
 grep -q 'RFQ_TRUST_PROXY: "false"' infra/k8s/configmap.yaml
@@ -2606,6 +2607,7 @@ grep -q 'OpenAPI ${response.key} must reference components.headers.TraceId' scri
 grep -q 'TraceId:' docs/api/openapi.yaml
 grep -q '#/components/headers/TraceId' docs/api/openapi.yaml
 grep -q 'backend/test/api.test.mjs' scripts/check-api-error-consistency.mjs
+grep -q 'backend/test/api-gateway-runtime.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-validation.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'apiTraceContractTestSource' scripts/check-api-error-consistency.mjs
 grep -q 'assertTraceHeaderContract' scripts/check-api-error-consistency.mjs
@@ -2931,19 +2933,19 @@ grep -q 'trace ids' backend/test/api-validation.test.mjs
 grep -q 'malformed JSON bodies' backend/test/api-validation.test.mjs
 grep -q 'oversized JSON bodies' backend/test/api-validation.test.mjs
 grep -q 'RFQ_BODY_LIMIT_BYTES' backend/test/api-gateway.test.mjs
-grep -q 'CORS headers for allowed browser origins' backend/test/api-gateway.test.mjs
-grep -q 'CORS preflight for allowed origins' backend/test/api-gateway.test.mjs
-grep -q 'CORS preflight for disallowed origins' backend/test/api-gateway.test.mjs
+grep -q 'CORS headers for allowed browser origins' backend/test/api-gateway-runtime.test.mjs
+grep -q 'CORS preflight for allowed origins' backend/test/api-gateway-runtime.test.mjs
+grep -q 'CORS preflight for disallowed origins' backend/test/api-gateway-runtime.test.mjs
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' backend/test/api-gateway.test.mjs
 grep -q 'normalizes RFQ_CORS_ALLOWED_ORIGINS at startup' backend/test/api-gateway.test.mjs
 grep -q 'https://app.example.com?debug=true' backend/test/api-gateway.test.mjs
 grep -q 'URL origins without path, query, fragment, credentials, or wildcards' backend/src/main.ts
-grep -q 'security headers on successful responses' backend/test/api-gateway.test.mjs
-grep -q 'emits HSTS when enabled' backend/test/api-gateway.test.mjs
+grep -q 'security headers on successful responses' backend/test/api-gateway-runtime.test.mjs
+grep -q 'emits HSTS when enabled' backend/test/api-gateway-runtime.test.mjs
 grep -q 'RFQ_ENABLE_HSTS' backend/test/api-gateway.test.mjs
-grep -q 'assertSecurityHeaders' backend/test/api-gateway.test.mjs
-grep -q 'graceful shutdown handlers' backend/test/api-gateway.test.mjs
-grep -q 'graceful shutdown failures' backend/test/api-gateway.test.mjs
+grep -q 'assertSecurityHeaders' backend/test/api-gateway-runtime.test.mjs
+grep -q 'graceful shutdown handlers' backend/test/api-gateway-runtime.test.mjs
+grep -q 'graceful shutdown failures' backend/test/api-gateway-runtime.test.mjs
 grep -q 'unmatched routes to structured errors' backend/test/api-validation.test.mjs
 grep -q 'settlement shape' backend/test/api-validation.test.mjs
 grep -q 'expired submit quotes' backend/test/api.test.mjs
