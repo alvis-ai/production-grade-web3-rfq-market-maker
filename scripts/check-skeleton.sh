@@ -29,6 +29,7 @@ test -s backend/test/api-risk.test.mjs
 test -s backend/test/api-signer.test.mjs
 test -s backend/test/api-status.test.mjs
 test -s backend/test/api-submit-dependencies.test.mjs
+test -s backend/test/api-submit-settlement-dependencies.test.mjs
 test -s backend/test/api-submit.test.mjs
 test -s backend/test/api-validation-gateway.test.mjs
 test -s backend/test/api-validation.test.mjs
@@ -2658,6 +2659,7 @@ grep -q 'backend/test/api.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-risk.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-signer.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-submit-dependencies.test.mjs' scripts/check-api-error-consistency.mjs
+grep -q 'backend/test/api-submit-settlement-dependencies.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-submit.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-gateway-runtime.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-validation-gateway.test.mjs' scripts/check-api-error-consistency.mjs
@@ -2903,11 +2905,11 @@ grep -q 'settlement constraints before simulated settlement' backend/test/api-su
 grep -q 'settlementRejectionFailureCode' backend/src/main.ts
 grep -q 'failed quote status persistence fails' backend/test/api-submit-dependencies.test.mjs
 grep -q 'target_status="FAILED"' backend/test/api-submit-dependencies.test.mjs
-grep -q 'settlement verifier failures' backend/test/api-submit-dependencies.test.mjs
-grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/api-submit-dependencies.test.mjs
+grep -q 'settlement verifier failures' backend/test/api-submit-settlement-dependencies.test.mjs
+grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/api-submit-settlement-dependencies.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'settlement event store failures' backend/test/api-status.test.mjs
-grep -q 'settlement event write failures' backend/test/api-submit-dependencies.test.mjs
+grep -q 'settlement event write failures' backend/test/api-submit-settlement-dependencies.test.mjs
 grep -q 'Settlement event store write failure' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'A signed quote may bind to only one settlement event' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md

@@ -10,6 +10,7 @@ const apiTestSource = await readFile("backend/test/api.test.mjs", "utf8");
 const apiRiskTestSource = await readFile("backend/test/api-risk.test.mjs", "utf8");
 const apiSignerTestSource = await readFile("backend/test/api-signer.test.mjs", "utf8");
 const apiSubmitDependencyTestSource = await readFile("backend/test/api-submit-dependencies.test.mjs", "utf8");
+const apiSubmitSettlementDependencyTestSource = await readFile("backend/test/api-submit-settlement-dependencies.test.mjs", "utf8");
 const apiSubmitTestSource = await readFile("backend/test/api-submit.test.mjs", "utf8");
 const apiValidationGatewayTestSource = await readFile("backend/test/api-validation-gateway.test.mjs", "utf8");
 const apiValidationTestSource = await readFile("backend/test/api-validation.test.mjs", "utf8");
@@ -18,6 +19,7 @@ const apiTraceContractTestSource = [
   apiRiskTestSource,
   apiSignerTestSource,
   apiSubmitDependencyTestSource,
+  apiSubmitSettlementDependencyTestSource,
   apiSubmitTestSource,
   apiValidationGatewayTestSource,
   apiValidationTestSource,
