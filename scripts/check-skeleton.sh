@@ -40,6 +40,7 @@ test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
 test -s backend/test/readiness.test.mjs
 test -s backend/test/reconciliation-config.test.mjs
+test -s backend/test/reconciliation-pnl.test.mjs
 test -s backend/test/risk-decision.test.mjs
 test -s backend/test/routing.test.mjs
 test -s backend/test/settlement-event.test.mjs
@@ -1542,10 +1543,10 @@ grep -q 'ReconciliationService pnlService must be an object when provided' backe
 grep -q 'repairs hedge intents from settlement events' backend/test/reconciliation.test.mjs
 grep -q 'reports hedge intent conflicts without stopping later events' backend/test/reconciliation.test.mjs
 grep -q 'requires hedge service for settlement-to-hedge repair' backend/test/reconciliation.test.mjs
-grep -q 'repairs PnL records from settlement events and signed quotes' backend/test/reconciliation.test.mjs
-grep -q 'reports PnL reconciliation events whose signed quote is missing' backend/test/reconciliation.test.mjs
-grep -q 'reports PnL conflicts without stopping later events' backend/test/reconciliation.test.mjs
-grep -q 'requires PnL service for settlement-to-PnL repair' backend/test/reconciliation.test.mjs
+grep -q 'repairs PnL records from settlement events and signed quotes' backend/test/reconciliation-pnl.test.mjs
+grep -q 'reports PnL reconciliation events whose signed quote is missing' backend/test/reconciliation-pnl.test.mjs
+grep -q 'reports PnL conflicts without stopping later events' backend/test/reconciliation-pnl.test.mjs
+grep -q 'requires PnL service for settlement-to-PnL repair' backend/test/reconciliation-pnl.test.mjs
 grep -q 'clears matching settlement status after reorg removal' backend/test/quote-status-repository-clear.test.mjs
 grep -q 'expires settlement status when removed quote is past deadline' backend/test/quote-status-repository-clear.test.mjs
 grep -q 'rejects unsafe settlement status clearing' backend/test/quote-status-repository-clear.test.mjs
