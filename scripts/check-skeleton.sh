@@ -53,6 +53,7 @@ test -s backend/test/risk-decision.test.mjs
 test -s backend/test/risk-validation.test.mjs
 test -s backend/test/routing.test.mjs
 test -s backend/test/settlement-event.test.mjs
+test -s backend/test/settlement-event-validation.test.mjs
 test -s backend/test/settlement-event-reorg.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
 test -s backend/test/signer.test.mjs
@@ -1474,25 +1475,25 @@ grep -Fq '!/^[1-9][0-9]*$/.test(value)' backend/src/modules/settlement/settlemen
 grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'assert.equal(first.event.nonce, quote.nonce)' backend/test/settlement-event.test.mjs
 grep -q 'keeps distinct events with the same tx hash prefix' backend/test/settlement-event.test.mjs
-grep -q 'rejects conflicting events for an already settled quote' backend/test/settlement-event.test.mjs
+grep -q 'rejects conflicting events for an already settled quote' backend/test/settlement-event-validation.test.mjs
 grep -q 'lists settlement events in chain order' backend/test/settlement-event.test.mjs
 grep -q 'returns defensive copies of settlement events' backend/test/settlement-event.test.mjs
-grep -q 'rejects unsafe settlement event lookup identifiers' backend/test/settlement-event.test.mjs
-grep -q 'Settlement event settlementEventId must be a primitive string' backend/test/settlement-event.test.mjs
-grep -q 'Settlement event quoteId must be a primitive string' backend/test/settlement-event.test.mjs
-grep -q 'Settlement event settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/settlement-event.test.mjs
-grep -q 'SettlementEventService rejects unsafe inventory dependency at construction' backend/test/settlement-event.test.mjs
-grep -q 'SettlementEventService rejects malformed event payload envelopes before side effects' backend/test/settlement-event.test.mjs
-grep -q 'Object.create({' backend/test/settlement-event.test.mjs
-grep -q 'Settlement event input.quoteId must be an own field' backend/test/settlement-event.test.mjs
-grep -q 'Settlement event quote.user must be an own field' backend/test/settlement-event.test.mjs
-grep -q 'Settlement event input.logIndex must be an own field when provided' backend/test/settlement-event.test.mjs
-grep -q 'Settlement event reorg input.txHash must be an own field' backend/test/settlement-event.test.mjs
-grep -q 'new String(`0x${"55".repeat(32)}`)' backend/test/settlement-event.test.mjs
-grep -q 'amountIn: "01000"' backend/test/settlement-event.test.mjs
-grep -q 'amountOut: "0990"' backend/test/settlement-event.test.mjs
-grep -q 'minAmountOut: "0980"' backend/test/settlement-event.test.mjs
-grep -q 'nonce: "01"' backend/test/settlement-event.test.mjs
+grep -q 'rejects unsafe settlement event lookup identifiers' backend/test/settlement-event-validation.test.mjs
+grep -q 'Settlement event settlementEventId must be a primitive string' backend/test/settlement-event-validation.test.mjs
+grep -q 'Settlement event quoteId must be a primitive string' backend/test/settlement-event-validation.test.mjs
+grep -q 'Settlement event settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/settlement-event-validation.test.mjs
+grep -q 'SettlementEventService rejects unsafe inventory dependency at construction' backend/test/settlement-event-validation.test.mjs
+grep -q 'SettlementEventService rejects malformed event payload envelopes before side effects' backend/test/settlement-event-validation.test.mjs
+grep -q 'Object.create({' backend/test/settlement-event-validation.test.mjs
+grep -q 'Settlement event input.quoteId must be an own field' backend/test/settlement-event-validation.test.mjs
+grep -q 'Settlement event quote.user must be an own field' backend/test/settlement-event-validation.test.mjs
+grep -q 'Settlement event input.logIndex must be an own field when provided' backend/test/settlement-event-validation.test.mjs
+grep -q 'Settlement event reorg input.txHash must be an own field' backend/test/settlement-event-validation.test.mjs
+grep -q 'new String(`0x${"55".repeat(32)}`)' backend/test/settlement-event-validation.test.mjs
+grep -q 'amountIn: "01000"' backend/test/settlement-event-validation.test.mjs
+grep -q 'amountOut: "0990"' backend/test/settlement-event-validation.test.mjs
+grep -q 'minAmountOut: "0980"' backend/test/settlement-event-validation.test.mjs
+grep -q 'nonce: "01"' backend/test/settlement-event-validation.test.mjs
 grep -q 'returns defensive copies from apply, remove, get and list operations' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'canonical positive uint strings without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SettlementEventService` validates inventory dependency methods at construction' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -1506,9 +1507,9 @@ grep -q 'quoteHash` and `nonce` emitted by `RFQSettlement.QuoteSettled`' book/Vo
 grep -q 'removes reorged events and rebuilds inventory from canonical events' backend/test/settlement-event-reorg.test.mjs
 grep -q 'treats duplicate reorg removals as idempotent' backend/test/settlement-event-reorg.test.mjs
 grep -q 'rejects conflicting reorg removals before mutating state' backend/test/settlement-event-reorg.test.mjs
-grep -q 'rejects conflicting payloads for an existing chain event key' backend/test/settlement-event.test.mjs
-grep -q 'SettlementEventService rejects unsafe settlement quote inputs before side effects' backend/test/settlement-event.test.mjs
-grep -q 'hashSettlementQuote rejects malformed quote fields before ABI encoding' backend/test/settlement-event.test.mjs
+grep -q 'rejects conflicting payloads for an existing chain event key' backend/test/settlement-event-validation.test.mjs
+grep -q 'SettlementEventService rejects unsafe settlement quote inputs before side effects' backend/test/settlement-event-validation.test.mjs
+grep -q 'hashSettlementQuote rejects malformed quote fields before ABI encoding' backend/test/settlement-event-validation.test.mjs
 grep -q 'class ReconciliationService' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'assertReconciliationServiceDeps(deps)' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'assertRecord(deps, "deps")' backend/src/modules/reconciliation/reconciliation.service.ts
@@ -2689,8 +2690,8 @@ grep -q 'Expected ${label} to be a 32-byte hex string' scripts/smoke-api.mjs
 grep -q 'normalizeEventOrdinal' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'non-negative safe integer' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'normalizes transaction hashes for idempotency' backend/test/settlement-event.test.mjs
-grep -q 'rejects invalid transaction hashes before side effects' backend/test/settlement-event.test.mjs
-grep -q 'rejects invalid chain event ordinals before side effects' backend/test/settlement-event.test.mjs
+grep -q 'rejects invalid transaction hashes before side effects' backend/test/settlement-event-validation.test.mjs
+grep -q 'rejects invalid chain event ordinals before side effects' backend/test/settlement-event-validation.test.mjs
 grep -q 'quoteHash' backend/src/shared/types/rfq.ts
 grep -q 'blockNumber: number' backend/src/shared/types/rfq.ts
 grep -q 'quoteHash' sdk/src/types.ts
@@ -2959,7 +2960,7 @@ grep -q 'unmatched routes to structured errors' backend/test/api-validation.test
 grep -q 'settlement shape' backend/test/api-validation.test.mjs
 grep -q 'expired submit quotes' backend/test/api-submit.test.mjs
 grep -q 'quote.nonce must be a positive uint string' backend/test/validation.test.mjs
-grep -q 'Settlement event quote.nonce must be a positive uint string' backend/test/settlement-event.test.mjs
+grep -q 'Settlement event quote.nonce must be a positive uint string' backend/test/settlement-event-validation.test.mjs
 grep -q 'unissued submit quotes' backend/test/api-submit.test.mjs
 grep -q 'replayed submit quotes' backend/test/submit-concurrency.test.mjs
 grep -q 'concurrent submit attempts for the same signed quote' backend/test/submit-concurrency.test.mjs
