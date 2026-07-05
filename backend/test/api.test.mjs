@@ -250,55 +250,6 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
   }
 });
 
-test("RFQ API generates unique quote ids and nonces within the same millisecond", async () => {
-  const originalDateNow = Date.now;
-  Date.now = () => 1893456000000;
-
-  const server = buildServer({
-    logger: false,
-    marketDataService: {
-      async getSnapshot(request) {
-        return {
-          snapshotId: [
-            "snapshot",
-            request.chainId.toString(),
-            request.tokenIn.slice(2, 10).toLowerCase(),
-            request.tokenOut.slice(2, 10).toLowerCase(),
-          ].join("_"),
-          midPrice: "1",
-          liquidityUsd: "10000000000000",
-          volatilityBps: 25,
-          observedAt: new Date(Date.now()).toISOString(),
-        };
-      },
-    },
-  });
-  await server.ready();
-
-  try {
-    const responses = [];
-    for (let index = 0; index < 5; index += 1) {
-      responses.push(await injectJson(server, "POST", "/quote", baseQuoteRequest));
-    }
-
-    const quoteIds = new Set();
-    const nonces = new Set();
-    for (const response of responses) {
-      assert.equal(response.statusCode, 200);
-      assert.match(response.body.quoteId, /^q_[0-9]+$/);
-      assert.match(response.body.nonce, /^[0-9]+$/);
-      quoteIds.add(response.body.quoteId);
-      nonces.add(response.body.nonce);
-    }
-
-    assert.equal(quoteIds.size, responses.length);
-    assert.equal(nonces.size, responses.length);
-  } finally {
-    await server.close();
-    Date.now = originalDateNow;
-  }
-});
-
 async function injectJson(server, method, url, payload, headers = {}) {
   const requestHeaders = { ...headers };
   if (payload) {

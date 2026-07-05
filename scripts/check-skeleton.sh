@@ -21,6 +21,7 @@ test -s backend/test/api-hedge.test.mjs
 test -s backend/test/api-market-data.test.mjs
 test -s backend/test/api-pnl.test.mjs
 test -s backend/test/api-quote-dependencies.test.mjs
+test -s backend/test/api-quote-identity.test.mjs
 test -s backend/test/api-rate-limit.test.mjs
 test -s backend/test/api-readiness.test.mjs
 test -s backend/test/api-readiness-storage.test.mjs
@@ -2998,7 +2999,7 @@ grep -q 'unissued submit quotes' backend/test/api-submit.test.mjs
 grep -q 'replayed submit quotes' backend/test/submit-concurrency.test.mjs
 grep -q 'concurrent submit attempts for the same signed quote' backend/test/submit-concurrency.test.mjs
 grep -q 'assert.equal(verifyCalls, 1)' backend/test/submit-concurrency.test.mjs
-grep -q 'same millisecond' backend/test/api.test.mjs
+grep -q 'same millisecond' backend/test/api-quote-identity.test.mjs
 grep -q 'rate limits quote requests by client' backend/test/api-rate-limit.test.mjs
 grep -q 'rate limits submit requests before validation and settlement' backend/test/api-rate-limit.test.mjs
 grep -q 'rate limits quote status requests by client' backend/test/api-rate-limit.test.mjs
