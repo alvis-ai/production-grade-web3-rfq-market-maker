@@ -24,6 +24,7 @@ test -s backend/test/api-signer.test.mjs
 test -s backend/test/api-status.test.mjs
 test -s backend/test/api-validation.test.mjs
 test -s backend/test/api.test.mjs
+test -s backend/test/execution-validation.test.mjs
 test -s backend/test/hedge.test.mjs
 test -s backend/test/inventory.test.mjs
 test -s backend/test/market-data.test.mjs
@@ -1394,7 +1395,7 @@ grep -q 'keccak256(toBytes(payload))' backend/src/modules/execution/execution.se
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/execution/execution.service.ts
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/execution/execution.service.ts
 grep -q 'buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes' backend/test/execution.test.mjs
-grep -q 'buildSyntheticTxHash rejects malformed submit payloads before hashing' backend/test/execution.test.mjs
+grep -q 'buildSyntheticTxHash rejects malformed submit payloads before hashing' backend/test/execution-validation.test.mjs
 grep -q 'SkeletonExecutionService suppresses duplicate settlement side effects' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService snapshots dependency object at construction' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService rejects malformed settlement verifier results before side effects' backend/test/execution.test.mjs
@@ -1408,19 +1409,19 @@ grep -q 'assert.equal(hedgeFailures, 1)' backend/test/execution.test.mjs
 grep -q 'SkeletonExecutionService treats malformed inventory position reads as metric-only unavailable' backend/test/execution.test.mjs
 grep -q 'assert.equal(result.inventoryPositions, undefined)' backend/test/execution.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/execution.test.mjs
-grep -q 'SkeletonExecutionService rejects unsafe dependency configuration at construction' backend/test/execution.test.mjs
-grep -q 'Execution service deps.hedgeService must be an own field' backend/test/execution.test.mjs
-grep -q 'Execution service hedgeService must be an object' backend/test/execution.test.mjs
-grep -q 'Execution service settlementVerifier must be an object' backend/test/execution.test.mjs
+grep -q 'SkeletonExecutionService rejects unsafe dependency configuration at construction' backend/test/execution-validation.test.mjs
+grep -q 'Execution service deps.hedgeService must be an own field' backend/test/execution-validation.test.mjs
+grep -q 'Execution service hedgeService must be an object' backend/test/execution-validation.test.mjs
+grep -q 'Execution service settlementVerifier must be an object' backend/test/execution-validation.test.mjs
 grep -q 'validateSubmitQuoteRequest(request)' backend/src/modules/execution/execution.service.ts
 grep -q 'Execution context quoteId must be an own field' backend/src/modules/execution/execution.service.ts
 grep -q 'Execution context quoteId must be a primitive string' backend/src/modules/execution/execution.service.ts
 grep -q 'Execution context quoteId must be a non-empty string' backend/src/modules/execution/execution.service.ts
-grep -q 'Execution context quoteId must be an own field' backend/test/execution.test.mjs
-grep -q 'Execution context quoteId must be a primitive string' backend/test/execution.test.mjs
-grep -q 'Execution context quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/execution.test.mjs
-grep -q 'Execution context quoteId must be 128 characters or fewer' backend/test/execution.test.mjs
-grep -q 'SkeletonExecutionService rejects unsafe execution inputs before settlement side effects' backend/test/execution.test.mjs
+grep -q 'Execution context quoteId must be an own field' backend/test/execution-validation.test.mjs
+grep -q 'Execution context quoteId must be a primitive string' backend/test/execution-validation.test.mjs
+grep -q 'Execution context quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/execution-validation.test.mjs
+grep -q 'Execution context quoteId must be 128 characters or fewer' backend/test/execution-validation.test.mjs
+grep -q 'SkeletonExecutionService rejects unsafe execution inputs before settlement side effects' backend/test/execution-validation.test.mjs
 grep -q 'rejects malformed execution context envelopes plus execution `quoteId` values that are not own primitive-string 1-128 character `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates the `ApplySettlementEventResult` returned by the settlement event store' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Malformed or mismatched event-store output returns `SETTLEMENT_EVENT_STORE_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
