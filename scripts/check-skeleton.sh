@@ -59,6 +59,7 @@ test -s backend/test/pnl.test.mjs
 test -s backend/test/pnl-validation.test.mjs
 test -s backend/test/rate-limit.test.mjs
 test -s backend/test/readiness.test.mjs
+test -s backend/test/readiness-validation.test.mjs
 test -s backend/test/reconciliation-config.test.mjs
 test -s backend/test/reconciliation-hedge.test.mjs
 test -s backend/test/reconciliation-pnl.test.mjs
@@ -115,21 +116,21 @@ grep -q 'pnlStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'ReadinessService degrades the aggregate status when a dependency probe fails' backend/test/readiness.test.mjs
 grep -q 'ReadinessService snapshots dependency object at construction' backend/test/readiness.test.mjs
 grep -q 'ReadinessService snapshots readiness configuration at construction' backend/test/readiness.test.mjs
-grep -q 'ReadinessService rejects unsafe freshness configuration at construction' backend/test/readiness.test.mjs
-grep -q 'ReadinessService rejects unsafe dependency configuration at construction' backend/test/readiness.test.mjs
-grep -q 'Readiness service config must be an object' backend/test/readiness.test.mjs
-grep -q 'Readiness service config.maxSnapshotAgeMs must be an own field' backend/test/readiness.test.mjs
-grep -q 'Readiness service config.probeRequest must be an own field' backend/test/readiness.test.mjs
+grep -q 'ReadinessService rejects unsafe freshness configuration at construction' backend/test/readiness-validation.test.mjs
+grep -q 'ReadinessService rejects unsafe dependency configuration at construction' backend/test/readiness-validation.test.mjs
+grep -q 'Readiness service config must be an object' backend/test/readiness-validation.test.mjs
+grep -q 'Readiness service config.maxSnapshotAgeMs must be an own field' backend/test/readiness-validation.test.mjs
+grep -q 'Readiness service config.probeRequest must be an own field' backend/test/readiness-validation.test.mjs
 grep -q 'assertProbeFields(config)' backend/src/modules/health/readiness.service.ts
 grep -q 'probeRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' backend/src/modules/health/readiness.service.ts
 grep -q 'probeSnapshotFields = \["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"\]' backend/src/modules/health/readiness.service.ts
 grep -q 'probeRoutePlanFields = \["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"\]' backend/src/modules/health/readiness.service.ts
 grep -q 'probePricingFields = \[' backend/src/modules/health/readiness.service.ts
 grep -q 'probeQuoteFields = \[' backend/src/modules/health/readiness.service.ts
-grep -q 'probeRequest: Object.create(defaultReadinessServiceConfig.probeRequest)' backend/test/readiness.test.mjs
-grep -q 'probeSnapshot: Object.create(defaultReadinessServiceConfig.probeSnapshot)' backend/test/readiness.test.mjs
-grep -q 'Readiness service marketDataService must be an object' backend/test/readiness.test.mjs
-grep -q 'Readiness service deps.marketDataService must be an own field' backend/test/readiness.test.mjs
+grep -q 'probeRequest: Object.create(defaultReadinessServiceConfig.probeRequest)' backend/test/readiness-validation.test.mjs
+grep -q 'probeSnapshot: Object.create(defaultReadinessServiceConfig.probeSnapshot)' backend/test/readiness-validation.test.mjs
+grep -q 'Readiness service marketDataService must be an object' backend/test/readiness-validation.test.mjs
+grep -q 'Readiness service deps.marketDataService must be an own field' backend/test/readiness-validation.test.mjs
 grep -q 'ReadinessService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Required dependency entries must be own fields before method validation' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'ReadinessService` validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
