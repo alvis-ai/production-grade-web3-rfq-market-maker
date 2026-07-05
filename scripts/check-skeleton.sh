@@ -39,6 +39,7 @@ test -s backend/test/inventory.test.mjs
 test -s backend/test/inventory-validation.test.mjs
 test -s backend/test/market-data.test.mjs
 test -s backend/test/market-data-validation.test.mjs
+test -s backend/test/market-snapshot-repository-validation.test.mjs
 test -s backend/test/metrics.test.mjs
 test -s backend/test/metrics-validation.test.mjs
 test -s backend/test/quote-identity.test.mjs
@@ -276,7 +277,7 @@ grep -q 'Object.create(snapshot), "snapshot is invalid"' backend/test/market-dat
 grep -q 'getMarketSnapshotIssue rejects unsafe freshness windows' backend/test/market-data-validation.test.mjs
 grep -q 'getMarketSnapshotIssue()` 校验 `MarketSnapshot` 的 required own `snapshotId`' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'isCanonicalUtcIsoTimestamp(snapshot.observedAt)' backend/src/modules/market-data/market-snapshot.repository.ts
-grep -q 'Market snapshot observedAt must be a canonical UTC ISO timestamp' backend/test/market-data-validation.test.mjs
+grep -q 'Market snapshot observedAt must be a canonical UTC ISO timestamp' backend/test/market-snapshot-repository-validation.test.mjs
 grep -q 'observedAt: "2026-06-29"' backend/test/market-data-validation.test.mjs
 grep -q 'observedAt: "June 29, 2026"' backend/test/market-data-validation.test.mjs
 grep -q 'observedAt: "2026-02-31T00:00:00.000Z"' backend/test/market-data-validation.test.mjs
@@ -318,19 +319,19 @@ grep -q 'Static market data request.chainId must be an own field' backend/test/m
 grep -q 'Static market data request.amountIn must be a positive uint string' backend/test/market-data-validation.test.mjs
 grep -q 'Static market data request.slippageBps must be less than or equal to 10000 bps' backend/test/market-data-validation.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository stores idempotent market snapshots' backend/test/market-data.test.mjs
-grep -q 'InMemoryMarketSnapshotRepository rejects malformed snapshot payload envelopes before storing' backend/test/market-data-validation.test.mjs
-grep -q 'InMemoryMarketSnapshotRepository rejects inherited snapshot payload fields before storing' backend/test/market-data-validation.test.mjs
-grep -q 'Market snapshot input.request must be an own field' backend/test/market-data-validation.test.mjs
-grep -q 'Market snapshot snapshot.snapshotId must be an own field' backend/test/market-data-validation.test.mjs
-grep -q 'Market snapshot input.source must be an own field when provided' backend/test/market-data-validation.test.mjs
-grep -q 'InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots' backend/test/market-data-validation.test.mjs
-grep -q 'midPrice: "01.25"' backend/test/market-data-validation.test.mjs
-grep -q 'liquidityUsd: "01000000000000"' backend/test/market-data-validation.test.mjs
+grep -q 'InMemoryMarketSnapshotRepository rejects malformed snapshot payload envelopes before storing' backend/test/market-snapshot-repository-validation.test.mjs
+grep -q 'InMemoryMarketSnapshotRepository rejects inherited snapshot payload fields before storing' backend/test/market-snapshot-repository-validation.test.mjs
+grep -q 'Market snapshot input.request must be an own field' backend/test/market-snapshot-repository-validation.test.mjs
+grep -q 'Market snapshot snapshot.snapshotId must be an own field' backend/test/market-snapshot-repository-validation.test.mjs
+grep -q 'Market snapshot input.source must be an own field when provided' backend/test/market-snapshot-repository-validation.test.mjs
+grep -q 'InMemoryMarketSnapshotRepository rejects conflicts and unsafe snapshots' backend/test/market-snapshot-repository-validation.test.mjs
+grep -q 'midPrice: "01.25"' backend/test/market-snapshot-repository-validation.test.mjs
+grep -q 'liquidityUsd: "01000000000000"' backend/test/market-snapshot-repository-validation.test.mjs
 grep -q 'InMemoryMarketSnapshotRepository returns defensive copies' backend/test/market-data.test.mjs
-grep -q 'InMemoryMarketSnapshotRepository rejects unsafe snapshot lookup identifiers' backend/test/market-data-validation.test.mjs
-grep -q 'Market snapshot snapshotId must be a primitive string' backend/test/market-data-validation.test.mjs
-grep -q 'Market snapshot snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/market-data-validation.test.mjs
-grep -q 'Market snapshot snapshotId must be 128 characters or fewer' backend/test/market-data-validation.test.mjs
+grep -q 'InMemoryMarketSnapshotRepository rejects unsafe snapshot lookup identifiers' backend/test/market-snapshot-repository-validation.test.mjs
+grep -q 'Market snapshot snapshotId must be a primitive string' backend/test/market-snapshot-repository-validation.test.mjs
+grep -q 'Market snapshot snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/market-snapshot-repository-validation.test.mjs
+grep -q 'Market snapshot snapshotId must be 128 characters or fewer' backend/test/market-snapshot-repository-validation.test.mjs
 grep -q 'QuoteService persists market snapshots before downstream quote side effects' backend/test/quote-service-dependencies.test.mjs
 grep -q 'QuoteService blocks routing and signer when market snapshot persistence fails' backend/test/quote-service-dependencies.test.mjs
 grep -q 'QuoteService marks requested quotes as failed when routing is unavailable' backend/test/quote-service-dependencies.test.mjs
