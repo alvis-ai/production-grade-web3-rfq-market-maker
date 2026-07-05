@@ -22,6 +22,7 @@ test -s backend/test/api-pnl.test.mjs
 test -s backend/test/api-quote-dependencies.test.mjs
 test -s backend/test/api-rate-limit.test.mjs
 test -s backend/test/api-readiness.test.mjs
+test -s backend/test/api-readiness-storage.test.mjs
 test -s backend/test/api-risk.test.mjs
 test -s backend/test/api-signer.test.mjs
 test -s backend/test/api-status.test.mjs
@@ -2957,7 +2958,7 @@ grep -q 'degrades readiness when routing probe fails' backend/test/api-readiness
 grep -q 'degrades readiness when pricing probe fails' backend/test/api-readiness.test.mjs
 grep -q 'degrades readiness when risk probe fails' backend/test/api-readiness.test.mjs
 grep -q 'degrades readiness when signer probe fails' backend/test/api-readiness.test.mjs
-grep -q 'degrades readiness when storage dependency probes fail' backend/test/api-readiness.test.mjs
+grep -q 'degrades readiness when storage dependency probes fail' backend/test/api-readiness-storage.test.mjs
 grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness routing degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness pricing degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
