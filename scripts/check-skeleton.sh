@@ -50,6 +50,7 @@ test -s backend/test/quote-status-repository-clear.test.mjs
 test -s backend/test/quote-status-repository.test.mjs
 test -s backend/test/quote-status-repository-validation.test.mjs
 test -s backend/test/pnl.test.mjs
+test -s backend/test/pnl-validation.test.mjs
 test -s backend/test/rate-limit.test.mjs
 test -s backend/test/readiness.test.mjs
 test -s backend/test/reconciliation-config.test.mjs
@@ -1748,18 +1749,18 @@ grep -q 'returns the existing attribution record for quote retries' backend/test
 grep -q 'returns defensive copies of PnL trade records' backend/test/pnl.test.mjs
 grep -q 'rejects conflicting retry payloads for the same quote and model' backend/test/pnl.test.mjs
 grep -q 'rejects signed quote metadata conflicts for the same quote and model' backend/test/pnl.test.mjs
-grep -q 'rejects unsafe gross PnL bps before storing attribution' backend/test/pnl.test.mjs
-grep -q 'PnlService rejects malformed attribution payload envelopes before recording' backend/test/pnl.test.mjs
-grep -q 'PnlService rejects inherited attribution fields before recording' backend/test/pnl.test.mjs
-grep -q 'PnlService rejects unsafe attribution inputs before recording' backend/test/pnl.test.mjs
-grep -q 'Pnl input.quoteId must be an own field' backend/test/pnl.test.mjs
-grep -q 'Pnl quote.user must be an own field' backend/test/pnl.test.mjs
-grep -q 'Pnl quoteId must be a primitive string' backend/test/pnl.test.mjs
-grep -q 'Pnl quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/pnl.test.mjs
-grep -q 'Pnl pnlId must be 128 characters or fewer' backend/test/pnl.test.mjs
-grep -q 'q_bad_user_object' backend/test/pnl.test.mjs
-grep -q 'q_amount_number' backend/test/pnl.test.mjs
-grep -q 'q_nonce_leading_zero' backend/test/pnl.test.mjs
+grep -q 'rejects unsafe gross PnL bps before storing attribution' backend/test/pnl-validation.test.mjs
+grep -q 'PnlService rejects malformed attribution payload envelopes before recording' backend/test/pnl-validation.test.mjs
+grep -q 'PnlService rejects inherited attribution fields before recording' backend/test/pnl-validation.test.mjs
+grep -q 'PnlService rejects unsafe attribution inputs before recording' backend/test/pnl-validation.test.mjs
+grep -q 'Pnl input.quoteId must be an own field' backend/test/pnl-validation.test.mjs
+grep -q 'Pnl quote.user must be an own field' backend/test/pnl-validation.test.mjs
+grep -q 'Pnl quoteId must be a primitive string' backend/test/pnl-validation.test.mjs
+grep -q 'Pnl quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/pnl-validation.test.mjs
+grep -q 'Pnl pnlId must be 128 characters or fewer' backend/test/pnl-validation.test.mjs
+grep -q 'q_bad_user_object' backend/test/pnl-validation.test.mjs
+grep -q 'q_amount_number' backend/test/pnl-validation.test.mjs
+grep -q 'q_nonce_leading_zero' backend/test/pnl-validation.test.mjs
 grep -q 'stored signed attribution payload' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnlService` returns defensive copies from `recordSettlement()` and `summary()`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates the `PnlTradeRecord` returned by `PnlStore.recordSettlement()` before exposing `pnlId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
