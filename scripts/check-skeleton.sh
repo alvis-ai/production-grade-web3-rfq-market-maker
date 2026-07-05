@@ -37,6 +37,8 @@ test -s backend/test/execution.test.mjs
 test -s backend/test/execution-settlement-results.test.mjs
 test -s backend/test/execution-validation.test.mjs
 test -s backend/test/hedge.test.mjs
+test -s backend/test/hedge-config-validation.test.mjs
+test -s backend/test/hedge-input-shape-validation.test.mjs
 test -s backend/test/hedge-validation.test.mjs
 test -s backend/test/inventory.test.mjs
 test -s backend/test/inventory-config-validation.test.mjs
@@ -1717,14 +1719,14 @@ grep -q 'assertObject(input, "risk input")' backend/src/modules/hedge/hedge.serv
 grep -Fq 'typeof input.token !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(input.token)' backend/src/modules/hedge/hedge.service.ts
 grep -Fq '!/^[1-9][0-9]*$/.test(value)' backend/src/modules/hedge/hedge.service.ts
 grep -q 'failurePenaltyBps must be less than or equal to maxFailurePenaltyBps' backend/src/modules/hedge/hedge.service.ts
-grep -q 'HedgeService rejects unsafe failure penalty configuration at construction' backend/test/hedge-validation.test.mjs
+grep -q 'HedgeService rejects unsafe failure penalty configuration at construction' backend/test/hedge-config-validation.test.mjs
 grep -q 'HedgeService snapshots failure penalty configuration at construction' backend/test/hedge.test.mjs
-grep -q 'HedgeService rejects malformed intent and risk payload envelopes before state writes' backend/test/hedge-validation.test.mjs
-grep -q 'HedgeService rejects inherited intent and risk fields before state writes' backend/test/hedge-validation.test.mjs
-grep -q 'Hedge config.failurePenaltyBps must be an own field' backend/test/hedge-validation.test.mjs
-grep -q 'Hedge intent.settlementEventId must be an own field' backend/test/hedge-validation.test.mjs
-grep -q 'Hedge intent.amount must be an own field' backend/test/hedge-validation.test.mjs
-grep -q 'Hedge risk input.chainId must be an own field' backend/test/hedge-validation.test.mjs
+grep -q 'HedgeService rejects malformed intent and risk payload envelopes before state writes' backend/test/hedge-input-shape-validation.test.mjs
+grep -q 'HedgeService rejects inherited intent and risk fields before state writes' backend/test/hedge-input-shape-validation.test.mjs
+grep -q 'Hedge config.failurePenaltyBps must be an own field' backend/test/hedge-config-validation.test.mjs
+grep -q 'Hedge intent.settlementEventId must be an own field' backend/test/hedge-input-shape-validation.test.mjs
+grep -q 'Hedge intent.amount must be an own field' backend/test/hedge-input-shape-validation.test.mjs
+grep -q 'Hedge risk input.chainId must be an own field' backend/test/hedge-input-shape-validation.test.mjs
 grep -q 'HedgeService rejects unsafe intent inputs before writing hedge state' backend/test/hedge-validation.test.mjs
 grep -q 'amount: "0100"' backend/test/hedge-validation.test.mjs
 grep -q 'token: new String(intent.token)' backend/test/hedge-validation.test.mjs
