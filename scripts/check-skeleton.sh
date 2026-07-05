@@ -26,6 +26,7 @@ test -s backend/test/api-signer.test.mjs
 test -s backend/test/api-status.test.mjs
 test -s backend/test/api-submit-dependencies.test.mjs
 test -s backend/test/api-submit.test.mjs
+test -s backend/test/api-validation-gateway.test.mjs
 test -s backend/test/api-validation.test.mjs
 test -s backend/test/api.test.mjs
 test -s backend/test/execution-validation.test.mjs
@@ -559,11 +560,11 @@ grep -q 'assertResponseFields(hedge.body' backend/test/api.test.mjs
 grep -Fq 'assertResponseFields(pnl.body, ["status", "totalTrades", "grossPnlTokenOut", "trades"])' backend/test/api.test.mjs
 grep -q 'assertResponseFields(pnl.body.trades\[0\]' backend/test/api.test.mjs
 grep -q 'successful response bodies must be closed field sets matching OpenAPI' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'RFQ API returns closed structured error responses' backend/test/api-validation.test.mjs
-grep -q 'function assertClosedErrorResponse' backend/test/api-validation.test.mjs
-grep -Fq 'assertResponseFields(response.body, ["code", "message", "traceId"])' backend/test/api-validation.test.mjs
-grep -q '/closed-internal-error' backend/test/api-validation.test.mjs
-grep -q 'Malformed JSON request body' backend/test/api-validation.test.mjs
+grep -q 'RFQ API returns closed structured error responses' backend/test/api-validation-gateway.test.mjs
+grep -q 'function assertClosedErrorResponse' backend/test/api-validation-gateway.test.mjs
+grep -Fq 'assertResponseFields(response.body, ["code", "message", "traceId"])' backend/test/api-validation-gateway.test.mjs
+grep -q '/closed-internal-error' backend/test/api-validation-gateway.test.mjs
+grep -q 'Malformed JSON request body' backend/test/api-validation-gateway.test.mjs
 grep -q 'Gateway error response bodies must be closed `ErrorResponse` field sets' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Number.MAX_SAFE_INTEGER + 1' backend/test/api-validation.test.mjs
 grep -q 'additionalProperties: false' docs/api/openapi.yaml
@@ -709,8 +710,8 @@ grep -q 'frameworkErrorToAPIError' backend/src/main.ts
 grep -q 'frameworkErrorField(error, "code")' backend/src/main.ts
 grep -q 'frameworkErrorField(error, "statusCode")' backend/src/main.ts
 grep -q 'FST_ERR_CTP_BODY_TOO_LARGE' backend/src/main.ts
-grep -q 'RFQ API ignores inherited framework error fields' backend/test/api-validation.test.mjs
-grep -q 'Object.create({ statusCode: 400, code: "FST_ERR_CTP_BODY_TOO_LARGE" })' backend/test/api-validation.test.mjs
+grep -q 'RFQ API ignores inherited framework error fields' backend/test/api-validation-gateway.test.mjs
+grep -q 'Object.create({ statusCode: 400, code: "FST_ERR_CTP_BODY_TOO_LARGE" })' backend/test/api-validation-gateway.test.mjs
 grep -q '框架错误映射只信任 error 对象自有的 `code` 和 `statusCode` 字段' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'requireConfiguredEnv' backend/src/main.ts
 grep -q 'requireConfiguredPrivateKey' backend/src/main.ts
@@ -2625,6 +2626,7 @@ grep -q 'backend/test/api-signer.test.mjs' scripts/check-api-error-consistency.m
 grep -q 'backend/test/api-submit-dependencies.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-submit.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-gateway-runtime.test.mjs' scripts/check-api-error-consistency.mjs
+grep -q 'backend/test/api-validation-gateway.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-validation.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'apiTraceContractTestSource' scripts/check-api-error-consistency.mjs
 grep -q 'assertTraceHeaderContract' scripts/check-api-error-consistency.mjs
@@ -2946,9 +2948,9 @@ grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter05-Si
 grep -q 'toxic-flow users' backend/test/api-risk.test.mjs
 grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/test/api-risk.test.mjs
 grep -q 'TOKEN_IN_INVENTORY_LIMIT_EXCEEDED' backend/test/api-risk.test.mjs
-grep -q 'trace ids' backend/test/api-validation.test.mjs
-grep -q 'malformed JSON bodies' backend/test/api-validation.test.mjs
-grep -q 'oversized JSON bodies' backend/test/api-validation.test.mjs
+grep -q 'trace ids' backend/test/api-validation-gateway.test.mjs
+grep -q 'malformed JSON bodies' backend/test/api-validation-gateway.test.mjs
+grep -q 'oversized JSON bodies' backend/test/api-validation-gateway.test.mjs
 grep -q 'RFQ_BODY_LIMIT_BYTES' backend/test/api-gateway.test.mjs
 grep -q 'CORS headers for allowed browser origins' backend/test/api-gateway-runtime.test.mjs
 grep -q 'CORS preflight for allowed origins' backend/test/api-gateway-runtime.test.mjs
@@ -2963,7 +2965,7 @@ grep -q 'RFQ_ENABLE_HSTS' backend/test/api-gateway.test.mjs
 grep -q 'assertSecurityHeaders' backend/test/api-gateway-runtime.test.mjs
 grep -q 'graceful shutdown handlers' backend/test/api-gateway-runtime.test.mjs
 grep -q 'graceful shutdown failures' backend/test/api-gateway-runtime.test.mjs
-grep -q 'unmatched routes to structured errors' backend/test/api-validation.test.mjs
+grep -q 'unmatched routes to structured errors' backend/test/api-validation-gateway.test.mjs
 grep -q 'settlement shape' backend/test/api-validation.test.mjs
 grep -q 'expired submit quotes' backend/test/api-submit.test.mjs
 grep -q 'quote.nonce must be a positive uint string' backend/test/validation.test.mjs
