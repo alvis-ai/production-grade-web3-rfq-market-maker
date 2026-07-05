@@ -56,6 +56,7 @@ test -s backend/test/readiness.test.mjs
 test -s backend/test/reconciliation-config.test.mjs
 test -s backend/test/reconciliation-hedge.test.mjs
 test -s backend/test/reconciliation-pnl.test.mjs
+test -s backend/test/reconciliation-reorg.test.mjs
 test -s backend/test/risk-decision.test.mjs
 test -s backend/test/risk-validation.test.mjs
 test -s backend/test/routing.test.mjs
@@ -1548,9 +1549,9 @@ grep -q 'settlement status removal conflict' backend/src/modules/quote/quote.rep
 grep -q 'removeHedgeIntentBySettlementEvent' backend/src/modules/hedge/hedge.service.ts
 grep -q 'removePnlRecord' backend/src/modules/pnl/pnl.service.ts
 grep -q 'repairs quote status from settlement events' backend/test/reconciliation.test.mjs
-grep -q 'repairs quote status after a removed settlement event' backend/test/reconciliation.test.mjs
-grep -q 'removes hedge and PnL records after a removed settlement event' backend/test/reconciliation.test.mjs
-grep -q 'reports removed settlement quote repair conflicts' backend/test/reconciliation.test.mjs
+grep -q 'repairs quote status after a removed settlement event' backend/test/reconciliation-reorg.test.mjs
+grep -q 'removes hedge and PnL records after a removed settlement event' backend/test/reconciliation-reorg.test.mjs
+grep -q 'reports removed settlement quote repair conflicts' backend/test/reconciliation-reorg.test.mjs
 grep -q 'scopes repairs by chain-scoped settlement quote hash' backend/test/reconciliation.test.mjs
 grep -q 'rejects unsafe settlement quote hash filters before scanning' backend/test/reconciliation.test.mjs
 grep -q 'reports terminal quote conflicts without stopping later events' backend/test/reconciliation.test.mjs
