@@ -73,6 +73,7 @@ test -s backend/test/settlement-verifier-validation.test.mjs
 test -s backend/test/signer.test.mjs
 test -s backend/test/signer-validation.test.mjs
 test -s backend/test/submit-concurrency.test.mjs
+test -s backend/test/submit-validation.test.mjs
 test -s backend/test/validation.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
 grep -q 'marketDataService: MarketDataService' backend/src/modules/health/readiness.service.ts
@@ -401,7 +402,7 @@ grep -q '`snapshot.snapshotId` as a primitive-string `SafeIdentifier` with 1-128
 test -s backend/src/shared/validation/quote-request.ts
 test -s backend/src/shared/validation/submit-request.ts
 test -s backend/src/shared/validation/timestamp.ts
-grep -q 'validateSubmitQuoteRequest rejects unsafe submit payloads before execution' backend/test/validation.test.mjs
+grep -q 'validateSubmitQuoteRequest rejects unsafe submit payloads before execution' backend/test/submit-validation.test.mjs
 test -s frontend/src/lib/rfq.ts
 test -s frontend/src/lib/config.ts
 test -s frontend/src/lib/errors.ts
@@ -538,15 +539,16 @@ grep -q 'typeof input !== "string"' backend/src/shared/validation/submit-request
 grep -q 'rejects request JSON primitive types that would require coercion' backend/test/api-validation.test.mjs
 grep -q 'RFQ API rejects missing required request fields' backend/test/api-validation.test.mjs
 grep -q 'rejects non-schema JSON primitive types before coercion' backend/test/validation.test.mjs
+grep -q 'validateSubmitQuoteRequest rejects non-schema JSON primitive types before coercion' backend/test/submit-validation.test.mjs
 grep -q 'validateQuoteRequest rejects missing required fields before field validation' backend/test/validation.test.mjs
-grep -q 'validateSubmitQuoteRequest rejects missing required fields before field validation' backend/test/validation.test.mjs
+grep -q 'validateSubmitQuoteRequest rejects missing required fields before field validation' backend/test/submit-validation.test.mjs
 grep -q 'Quote request must include field amountIn' backend/test/validation.test.mjs
-grep -q 'Submit quote must include field nonce' backend/test/validation.test.mjs
+grep -q 'Submit quote must include field nonce' backend/test/submit-validation.test.mjs
 grep -q 'validateQuoteRequest rejects boxed string fields before regex coercion' backend/test/validation.test.mjs
-grep -q 'validateSubmitQuoteRequest rejects boxed string fields before regex coercion' backend/test/validation.test.mjs
-grep -q 'signature must be a primitive string' backend/test/validation.test.mjs
+grep -q 'validateSubmitQuoteRequest rejects boxed string fields before regex coercion' backend/test/submit-validation.test.mjs
+grep -q 'signature must be a primitive string' backend/test/submit-validation.test.mjs
 grep -q '001000000000' backend/test/validation.test.mjs
-grep -q '0998400000' backend/test/validation.test.mjs
+grep -q '0998400000' backend/test/submit-validation.test.mjs
 grep -q '不能用 `Number()` 或 `String()`' docs/api/errors.md
 grep -q 'required fields、unknown fields' docs/api/errors.md
 grep -q '校验 required fields、unknown fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
@@ -630,7 +632,7 @@ grep -q 'signature must be 65 bytes' backend/src/shared/validation/submit-reques
 grep -q 'SECP256K1N_HALF' backend/src/shared/validation/submit-request.ts
 grep -q 'signature s value must be in the lower half order' backend/src/shared/validation/submit-request.ts
 grep -q 'signature v value must be 27 or 28' backend/src/shared/validation/submit-request.ts
-grep -q 'signature s value must be in the lower half order' backend/test/validation.test.mjs
+grep -q 'signature s value must be in the lower half order' backend/test/submit-validation.test.mjs
 grep -q 'signature v value must be 27 or 28' backend/test/api-validation.test.mjs
 grep -q 'canonical low-s EIP-712 signature' docs/api/openapi.yaml
 grep -q 'rejects non-canonical signatures before quote lookup' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -835,9 +837,9 @@ grep -q 'Quote service hedgeService must be an object when provided' backend/tes
 grep -q 'QuoteService rejects unsafe quote requests before dependency side effects' backend/test/quote-service.test.mjs
 grep -q 'QuoteService rejects unsafe submit quotes before quote lookup or signature verification' backend/test/quote-service-submit.test.mjs
 grep -q 'QuoteService rejects submit signatures that differ from the stored signed quote' backend/test/quote-service-submit.test.mjs
-grep -q 'validateSubmitQuoteRequest validates internal submit validation options' backend/test/validation.test.mjs
-grep -q 'Submit validation options.allowExpired must be an own field when provided' backend/test/validation.test.mjs
-grep -q 'Submit validation options allowExpired must be a boolean' backend/test/validation.test.mjs
+grep -q 'validateSubmitQuoteRequest validates internal submit validation options' backend/test/submit-validation.test.mjs
+grep -q 'Submit validation options.allowExpired must be an own field when provided' backend/test/submit-validation.test.mjs
+grep -q 'Submit validation options allowExpired must be a boolean' backend/test/submit-validation.test.mjs
 grep -q 'QuoteService` rejects malformed config, inherited config fields, malformed dependency map, inherited required dependency entries, inherited optional `hedgeService`, and malformed dependency entries before reading runtime fields or service methods' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'createQuote()` revalidates and snapshots the quote request at the service boundary' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'validates `RoutePlan` returned by the routing adapter before inventory skew, pricing, risk evaluation or signing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -2977,7 +2979,7 @@ grep -q 'graceful shutdown failures' backend/test/api-gateway-runtime.test.mjs
 grep -q 'unmatched routes to structured errors' backend/test/api-validation-gateway.test.mjs
 grep -q 'settlement shape' backend/test/api-validation.test.mjs
 grep -q 'expired submit quotes' backend/test/api-submit.test.mjs
-grep -q 'quote.nonce must be a positive uint string' backend/test/validation.test.mjs
+grep -q 'quote.nonce must be a positive uint string' backend/test/submit-validation.test.mjs
 grep -q 'Settlement event quote.nonce must be a positive uint string' backend/test/settlement-event-validation.test.mjs
 grep -q 'unissued submit quotes' backend/test/api-submit.test.mjs
 grep -q 'replayed submit quotes' backend/test/submit-concurrency.test.mjs
