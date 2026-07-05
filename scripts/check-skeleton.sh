@@ -21,6 +21,7 @@ test -s backend/test/api-pnl.test.mjs
 test -s backend/test/api-quote-dependencies.test.mjs
 test -s backend/test/api-rate-limit.test.mjs
 test -s backend/test/api-readiness.test.mjs
+test -s backend/test/api-risk.test.mjs
 test -s backend/test/api-signer.test.mjs
 test -s backend/test/api-status.test.mjs
 test -s backend/test/api-validation.test.mjs
@@ -2652,8 +2653,8 @@ grep -q 'ROUTING_UNAVAILABLE' docs/api/errors.md
 grep -q 'QUOTE_STORE_UNAVAILABLE' docs/api/openapi.yaml
 grep -q 'QUOTE_STORE_UNAVAILABLE' docs/api/errors.md
 
-grep -q 'risk engine is unavailable' backend/test/api.test.mjs
-grep -q 'RISK_ENGINE_UNAVAILABLE' backend/test/api.test.mjs
+grep -q 'risk engine is unavailable' backend/test/api-risk.test.mjs
+grep -q 'RISK_ENGINE_UNAVAILABLE' backend/test/api-risk.test.mjs
 grep -q 'RISK_ENGINE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'stale' docs/api/openapi.yaml
 grep -q 'getReadiness' docs/api/openapi.yaml
@@ -2898,10 +2899,10 @@ grep -q 'settlement verifier policy fail-fast' book/Volume5-BackendEngineering/C
 grep -q 'JavaScript regex coercion 进入 `/submit` 结算验证路径' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'amount fields and nonce must be own canonical positive uint strings without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'only converts `amountOut` and `minAmountOut` to BigInt for the minimum-output comparison' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'RISK_REJECTED' backend/test/api.test.mjs
-grep -q 'risk rejection when rejected quote persistence fails' backend/test/api.test.mjs
+grep -q 'RISK_REJECTED' backend/test/api-risk.test.mjs
+grep -q 'risk rejection when rejected quote persistence fails' backend/test/api-risk.test.mjs
 grep -q 'Rejected quote persistence unavailable' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
-grep -q 'SLIPPAGE_TOO_WIDE' backend/test/api.test.mjs
+grep -q 'SLIPPAGE_TOO_WIDE' backend/test/api-risk.test.mjs
 grep -q 'stale market data' backend/test/api-market-data.test.mjs
 grep -q 'market data timestamps too far in the future' backend/test/api-market-data.test.mjs
 grep -q 'market data failures' backend/test/api-market-data.test.mjs
@@ -2930,9 +2931,9 @@ grep -q 'readiness risk degraded' book/Volume5-BackendEngineering/Chapter01-API-
 grep -q 'readiness config fail-fast' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness storage dependency degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
-grep -q 'toxic-flow users' backend/test/api.test.mjs
-grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/test/api.test.mjs
-grep -q 'TOKEN_IN_INVENTORY_LIMIT_EXCEEDED' backend/test/api.test.mjs
+grep -q 'toxic-flow users' backend/test/api-risk.test.mjs
+grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/test/api-risk.test.mjs
+grep -q 'TOKEN_IN_INVENTORY_LIMIT_EXCEEDED' backend/test/api-risk.test.mjs
 grep -q 'trace ids' backend/test/api-validation.test.mjs
 grep -q 'malformed JSON bodies' backend/test/api-validation.test.mjs
 grep -q 'oversized JSON bodies' backend/test/api-validation.test.mjs
@@ -3108,7 +3109,7 @@ grep -q 'canonical decimal form without leading zeros' book/Volume5-BackendEngin
 grep -q 'JavaScript regex coercion' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'policy config fail-fast' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'snapshots `BasicRiskPolicy` at construction after validation' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
-grep -q 'pricing spread exceeds risk guard before signing' backend/test/api.test.mjs
+grep -q 'pricing spread exceeds risk guard before signing' backend/test/api-risk.test.mjs
 grep -q 'QUOTED_SPREAD_TOO_WIDE' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'maxQuotedSpreadBps' book/Volume3-RiskEngine/Chapter05-Position-Limits.md
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
