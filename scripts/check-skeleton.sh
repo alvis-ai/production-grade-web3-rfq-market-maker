@@ -58,6 +58,8 @@ test -s backend/test/quote-status-repository.test.mjs
 test -s backend/test/quote-status-repository-validation.test.mjs
 test -s backend/test/pnl.test.mjs
 test -s backend/test/pnl-validation.test.mjs
+test -s backend/test/pricing.test.mjs
+test -s backend/test/pricing-validation.test.mjs
 test -s backend/test/rate-limit.test.mjs
 test -s backend/test/readiness.test.mjs
 test -s backend/test/readiness-validation.test.mjs
@@ -3059,25 +3061,25 @@ grep -q 'maxSizeImpactBps must be less than or equal to maxTotalAdjustmentBps' b
 grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/pricing/pricing.engine.ts
 grep -Fq '/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'FormulaPricingEngine snapshots pricing configuration at construction' backend/test/pricing.test.mjs
-grep -q 'FormulaPricingEngine rejects unsafe pricing configuration at construction' backend/test/pricing.test.mjs
-grep -q 'FormulaPricingEngine rejects malformed pricing payload envelopes before quoting' backend/test/pricing.test.mjs
-grep -q 'FormulaPricingEngine rejects inherited pricing input fields before quoting' backend/test/pricing.test.mjs
-grep -q 'FormulaPricingEngine rejects unsafe pricing inputs before quoting' backend/test/pricing.test.mjs
-grep -q 'Object.create(defaultFormulaPricingConfig)' backend/test/pricing.test.mjs
-grep -q 'Formula pricing config.baseSpreadBps must be an own field' backend/test/pricing.test.mjs
-grep -q 'Formula pricing input.request must be an own field' backend/test/pricing.test.mjs
-grep -q 'Formula pricing input.inventorySkewBps must be an own field' backend/test/pricing.test.mjs
-grep -q 'Formula pricing request.chainId must be an own field' backend/test/pricing.test.mjs
-grep -q 'Formula pricing snapshot.snapshotId must be an own field' backend/test/pricing.test.mjs
-grep -q 'Formula pricing routePlan.routeId must be an own field' backend/test/pricing.test.mjs
-grep -q 'amountIn: "01000000000"' backend/test/pricing.test.mjs
-grep -q 'midPrice: "01.25"' backend/test/pricing.test.mjs
-grep -q 'liquidityUsd: "01000000000000"' backend/test/pricing.test.mjs
-grep -q 'expectedLiquidityUsd: "01000000000000"' backend/test/pricing.test.mjs
-grep -q 'Formula pricing snapshot.snapshotId must be a primitive string' backend/test/pricing.test.mjs
-grep -q 'Formula pricing snapshot.snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/pricing.test.mjs
-grep -q 'Formula pricing routePlan.routeId must be a primitive string' backend/test/pricing.test.mjs
-grep -q 'Formula pricing routePlan.routeId must be 128 characters or fewer' backend/test/pricing.test.mjs
+grep -q 'FormulaPricingEngine rejects unsafe pricing configuration at construction' backend/test/pricing-validation.test.mjs
+grep -q 'FormulaPricingEngine rejects malformed pricing payload envelopes before quoting' backend/test/pricing-validation.test.mjs
+grep -q 'FormulaPricingEngine rejects inherited pricing input fields before quoting' backend/test/pricing-validation.test.mjs
+grep -q 'FormulaPricingEngine rejects unsafe pricing inputs before quoting' backend/test/pricing-validation.test.mjs
+grep -q 'Object.create(defaultFormulaPricingConfig)' backend/test/pricing-validation.test.mjs
+grep -q 'Formula pricing config.baseSpreadBps must be an own field' backend/test/pricing-validation.test.mjs
+grep -q 'Formula pricing input.request must be an own field' backend/test/pricing-validation.test.mjs
+grep -q 'Formula pricing input.inventorySkewBps must be an own field' backend/test/pricing-validation.test.mjs
+grep -q 'Formula pricing request.chainId must be an own field' backend/test/pricing-validation.test.mjs
+grep -q 'Formula pricing snapshot.snapshotId must be an own field' backend/test/pricing-validation.test.mjs
+grep -q 'Formula pricing routePlan.routeId must be an own field' backend/test/pricing-validation.test.mjs
+grep -q 'amountIn: "01000000000"' backend/test/pricing-validation.test.mjs
+grep -q 'midPrice: "01.25"' backend/test/pricing-validation.test.mjs
+grep -q 'liquidityUsd: "01000000000000"' backend/test/pricing-validation.test.mjs
+grep -q 'expectedLiquidityUsd: "01000000000000"' backend/test/pricing-validation.test.mjs
+grep -q 'Formula pricing snapshot.snapshotId must be a primitive string' backend/test/pricing-validation.test.mjs
+grep -q 'Formula pricing snapshot.snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/pricing-validation.test.mjs
+grep -q 'Formula pricing routePlan.routeId must be a primitive string' backend/test/pricing-validation.test.mjs
+grep -q 'Formula pricing routePlan.routeId must be 128 characters or fewer' backend/test/pricing-validation.test.mjs
 grep -q 'missing required own top-level `request` / `snapshot` / `routePlan` / `inventorySkewBps` fields fail before nested field access' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'request, snapshot and route-plan required fields must be own fields' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q '`snapshot.snapshotId` and `routePlan.routeId` as primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
