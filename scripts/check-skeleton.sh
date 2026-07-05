@@ -56,6 +56,7 @@ test -s backend/test/settlement-event.test.mjs
 test -s backend/test/settlement-event-validation.test.mjs
 test -s backend/test/settlement-event-reorg.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
+test -s backend/test/settlement-verifier-validation.test.mjs
 test -s backend/test/signer.test.mjs
 test -s backend/test/signer-validation.test.mjs
 test -s backend/test/submit-concurrency.test.mjs
@@ -1611,10 +1612,10 @@ grep -q '`settlementAddress` 和 `trustedSignerAddress` 必须是真实字符串
 grep -q 'recovers the EIP-712 signer against the configured `settlementAddress`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'malformed policy object, inherited policy fields and policy array fields must be rejected before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'missing or inherited root `quoteId` / `request` fields' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'Local settlement verifier policy.verifierVersion must be an own field' backend/test/settlement-verifier.test.mjs
-grep -q 'Local settlement verifier policy.tokenWhitelist must be an own field' backend/test/settlement-verifier.test.mjs
-grep -q 'Local settlement verifier input.quoteId must be an own field' backend/test/settlement-verifier.test.mjs
-grep -q 'Local settlement verifier input.request must be an own field' backend/test/settlement-verifier.test.mjs
+grep -q 'Local settlement verifier policy.verifierVersion must be an own field' backend/test/settlement-verifier-validation.test.mjs
+grep -q 'Local settlement verifier policy.tokenWhitelist must be an own field' backend/test/settlement-verifier-validation.test.mjs
+grep -q 'Local settlement verifier input.quoteId must be an own field' backend/test/settlement-verifier-validation.test.mjs
+grep -q 'Local settlement verifier input.request must be an own field' backend/test/settlement-verifier-validation.test.mjs
 grep -q 'inherited `request` / `request.quote` required fields' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'JavaScript regex coercion' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -2871,15 +2872,15 @@ grep -q 'A signed quote may bind to only one settlement event' book/Volume5-Back
 grep -q 'errorCode, "TOKEN_NOT_WHITELISTED"' backend/test/api-submit.test.mjs
 grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api-submit.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs
-grep -q 'LocalSettlementVerifier rejects malformed verification payload envelopes before settlement checks' backend/test/settlement-verifier.test.mjs
-grep -q 'LocalSettlementVerifier rejects malformed settlement quote fields before policy checks' backend/test/settlement-verifier.test.mjs
-grep -q 'q_bad_amount_leading_zero' backend/test/settlement-verifier.test.mjs
+grep -q 'LocalSettlementVerifier rejects malformed verification payload envelopes before settlement checks' backend/test/settlement-verifier-validation.test.mjs
+grep -q 'LocalSettlementVerifier rejects malformed settlement quote fields before policy checks' backend/test/settlement-verifier-validation.test.mjs
+grep -q 'q_bad_amount_leading_zero' backend/test/settlement-verifier-validation.test.mjs
 grep -q 'q_invalid_signature_object' backend/test/settlement-verifier.test.mjs
-grep -q 'Local settlement verifier quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/settlement-verifier.test.mjs
-grep -q 'Local settlement verifier quoteId must be a primitive string' backend/test/settlement-verifier.test.mjs
-grep -q 'Local settlement verifier quoteId must be 128 characters or fewer' backend/test/settlement-verifier.test.mjs
-grep -q 'Local settlement verifier settlementAddress must be a 20-byte hex address' backend/test/settlement-verifier.test.mjs
-grep -q 'Local settlement verifier trustedSignerAddress must be a 20-byte hex address' backend/test/settlement-verifier.test.mjs
+grep -q 'Local settlement verifier quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/settlement-verifier-validation.test.mjs
+grep -q 'Local settlement verifier quoteId must be a primitive string' backend/test/settlement-verifier-validation.test.mjs
+grep -q 'Local settlement verifier quoteId must be 128 characters or fewer' backend/test/settlement-verifier-validation.test.mjs
+grep -q 'Local settlement verifier settlementAddress must be a 20-byte hex address' backend/test/settlement-verifier-validation.test.mjs
+grep -q 'Local settlement verifier trustedSignerAddress must be a 20-byte hex address' backend/test/settlement-verifier-validation.test.mjs
 grep -q 'LocalSettlementVerifier rejects disabled settlement chains' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects expired settlement quotes' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects invalid settlement token pairs' backend/test/settlement-verifier.test.mjs
@@ -2890,11 +2891,11 @@ grep -q 'LocalSettlementVerifier rejects signatures outside the trusted EIP-712 
 grep -q 'q_untrusted_signer' backend/test/settlement-verifier.test.mjs
 grep -q 'q_wrong_settlement_domain' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier snapshots policy configuration at construction' backend/test/settlement-verifier.test.mjs
-grep -q 'LocalSettlementVerifier rejects unsafe policy configuration at construction' backend/test/settlement-verifier.test.mjs
-grep -q 'q_bad_nonce_leading_zero' backend/test/settlement-verifier.test.mjs
+grep -q 'LocalSettlementVerifier rejects unsafe policy configuration at construction' backend/test/settlement-verifier-validation.test.mjs
+grep -q 'q_bad_nonce_leading_zero' backend/test/settlement-verifier-validation.test.mjs
 ! grep -q 'BigInt(quote.amountIn) <= 0n' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -Fq 'typeof token !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(token)' backend/src/modules/settlement/settlement-verifier.service.ts
-grep -q 'new String(quote.tokenIn)' backend/test/settlement-verifier.test.mjs
+grep -q 'new String(quote.tokenIn)' backend/test/settlement-verifier-validation.test.mjs
 grep -q 'signature shape, canonical low-s/v checks' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'The default settlement verifier derives its trusted signer address and verifying contract from the same `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` startup config' README.md
 grep -q 'buildDefaultSettlementVerifierPolicy(getLocalSignerConfig())' backend/src/main.ts
