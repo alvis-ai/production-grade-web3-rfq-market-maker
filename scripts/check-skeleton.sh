@@ -33,6 +33,7 @@ test -s backend/test/metrics.test.mjs
 test -s backend/test/quote-identity.test.mjs
 test -s backend/test/quote-repository-lifecycle.test.mjs
 test -s backend/test/quote-repository.test.mjs
+test -s backend/test/quote-repository-validation.test.mjs
 test -s backend/test/quote-service-dependencies.test.mjs
 test -s backend/test/quote-service-pricing-dependencies.test.mjs
 test -s backend/test/quote-service-risk-dependencies.test.mjs
@@ -1031,18 +1032,18 @@ grep -Fq 'typeof metadata.txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(met
 grep -q 'SECP256K1N_HALF' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote signature s value must be in the lower half order' backend/src/modules/quote/quote.repository.ts
 grep -q 'Signed quote signature v value must be 27 or 28' backend/src/modules/quote/quote.repository.ts
-grep -q 'Signed quote signature s value must be in the lower half order' backend/test/quote-repository.test.mjs
-grep -q 'new String(fixedSignature())' backend/test/quote-repository.test.mjs
+grep -q 'Signed quote signature s value must be in the lower half order' backend/test/quote-repository-validation.test.mjs
+grep -q 'new String(fixedSignature())' backend/test/quote-repository-validation.test.mjs
 grep -q 'q_bad_amount_leading_zero' backend/test/quote-repository-lifecycle.test.mjs
 grep -q 'new String(`0x${"aa".repeat(32)}`)' backend/test/quote-status-repository.test.mjs
-grep -q 'InMemoryQuoteRepository rejects malformed quote persistence envelopes before storing' backend/test/quote-repository.test.mjs
-grep -q 'Requested quote input.request must be an own field' backend/test/quote-repository.test.mjs
-grep -q 'InMemoryQuoteRepository rejects inherited quote persistence fields before storing' backend/test/quote-repository.test.mjs
-grep -q 'Requested quote input.quoteId must be an own field' backend/test/quote-repository.test.mjs
-grep -q 'Requested quote request.chainId must be an own field' backend/test/quote-repository.test.mjs
-grep -q 'Rejected quote input.riskPolicyVersion must be an own field when provided' backend/test/quote-repository.test.mjs
-grep -q 'Signed quote quote.user must be an own field' backend/test/quote-repository.test.mjs
-grep -q 'Signed quote input.quoteId must be an own field' backend/test/quote-repository.test.mjs
+grep -q 'InMemoryQuoteRepository rejects malformed quote persistence envelopes before storing' backend/test/quote-repository-validation.test.mjs
+grep -q 'Requested quote input.request must be an own field' backend/test/quote-repository-validation.test.mjs
+grep -q 'InMemoryQuoteRepository rejects inherited quote persistence fields before storing' backend/test/quote-repository-validation.test.mjs
+grep -q 'Requested quote input.quoteId must be an own field' backend/test/quote-repository-validation.test.mjs
+grep -q 'Requested quote request.chainId must be an own field' backend/test/quote-repository-validation.test.mjs
+grep -q 'Rejected quote input.riskPolicyVersion must be an own field when provided' backend/test/quote-repository-validation.test.mjs
+grep -q 'Signed quote quote.user must be an own field' backend/test/quote-repository-validation.test.mjs
+grep -q 'Signed quote input.quoteId must be an own field' backend/test/quote-repository-validation.test.mjs
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/quote/quote.repository.ts
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertSafeIdentifier(input.quoteId, "quoteId", "Requested quote")' backend/src/modules/quote/quote.repository.ts
@@ -1055,8 +1056,8 @@ grep -q '${subject} ${field} must be a primitive string' backend/src/modules/quo
 grep -q 'Quote status ${field} must be a primitive string' backend/src/modules/quote/quote.repository.ts
 grep -q 'Requested quote quoteId must be a primitive string' backend/test/quote-repository-lifecycle.test.mjs
 grep -q 'Requested quote quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/quote-repository-lifecycle.test.mjs
-grep -q 'Signed quote snapshotId must be a primitive string' backend/test/quote-repository.test.mjs
-grep -q 'Signed quote snapshotId must be 128 characters or fewer' backend/test/quote-repository.test.mjs
+grep -q 'Signed quote snapshotId must be a primitive string' backend/test/quote-repository-validation.test.mjs
+grep -q 'Signed quote snapshotId must be 128 characters or fewer' backend/test/quote-repository-validation.test.mjs
 grep -q 'Quote status hedgeOrderId must be a primitive string' backend/test/quote-status-repository.test.mjs
 grep -q 'Quote status hedgeOrderId must be 128 characters or fewer' backend/test/quote-status-repository.test.mjs
 grep -q 'Requested and rejected quote persistence rejects malformed root payloads and missing `request` objects before field access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -1101,7 +1102,7 @@ grep -q 'returns defensive copies of signed quote records' backend/test/quote-re
 grep -q 'rejects signed quote identity rewrites' backend/test/quote-repository.test.mjs
 grep -q 'rejects signed quote payload rewrites' backend/test/quote-repository.test.mjs
 grep -q 'rejects saveSigned lifecycle regressions' backend/test/quote-status-repository.test.mjs
-grep -q 'rejects unsafe signed quote persistence inputs' backend/test/quote-repository.test.mjs
+grep -q 'rejects unsafe signed quote persistence inputs' backend/test/quote-repository-validation.test.mjs
 grep -q 'persists expired status when signed quote status is read after deadline' backend/test/quote-service.test.mjs
 grep -q 'rejects expired signed quotes before signature verification' backend/test/quote-service.test.mjs
 grep -q 'rejects unsafe requested and rejected quote persistence inputs' backend/test/quote-repository-lifecycle.test.mjs
@@ -1363,9 +1364,9 @@ grep -q 'record.spreadBps === input.spreadBps' backend/src/modules/quote/quote.r
 grep -q 'record.sizeImpactBps === input.sizeImpactBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'record.inventorySkewBps === input.inventorySkewBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'slippageBps: request.slippageBps + 1' backend/test/quote-repository-lifecycle.test.mjs
-grep -q 'Signed quote slippageBps must be less than or equal to 10000 bps' backend/test/quote-repository.test.mjs
-grep -q 'Signed quote spreadBps must be less than or equal to 10000 bps' backend/test/quote-repository.test.mjs
-grep -q 'Signed quote inventorySkewBps magnitude must be less than or equal to 10000 bps' backend/test/quote-repository.test.mjs
+grep -q 'Signed quote slippageBps must be less than or equal to 10000 bps' backend/test/quote-repository-validation.test.mjs
+grep -q 'Signed quote spreadBps must be less than or equal to 10000 bps' backend/test/quote-repository-validation.test.mjs
+grep -q 'Signed quote inventorySkewBps magnitude must be less than or equal to 10000 bps' backend/test/quote-repository-validation.test.mjs
 grep -q 'slippageBps: 50' scripts/reconciliation-check.mjs
 grep -q 'spreadBps: 8' scripts/reconciliation-check.mjs
 grep -q 'unique index `(quote_id)`' docs/database/er-diagram.md
