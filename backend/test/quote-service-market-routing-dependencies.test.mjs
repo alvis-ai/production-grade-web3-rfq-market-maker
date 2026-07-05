@@ -19,22 +19,44 @@ const request = {
   slippageBps: 50,
 };
 
-test("QuoteService marks requested quotes as failed when pricing is unavailable", async () => {
-  const quoteRepository = new InMemoryQuoteRepository();
-  const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
-  let requestedQuoteId;
-  let signerCalls = 0;
-  quoteRepository.saveRequested = async (input) => {
-    requestedQuoteId = input.quoteId;
-    await saveRequested(input);
-  };
-
+test("QuoteService persists market snapshots before downstream quote side effects", async () => {
+  const marketSnapshotStore = new InMemoryMarketSnapshotRepository();
   const service = new QuoteService({
     ...quoteServiceDeps(),
-    quoteRepository,
-    pricingEngine: {
-      async price() {
-        throw new Error("pricing backend offline");
+    marketSnapshotStore,
+  });
+
+  const quote = await service.createQuote(request);
+  const storedSnapshot = await marketSnapshotStore.findBySnapshotId(quote.snapshotId);
+
+  assert.ok(storedSnapshot);
+  assert.equal(storedSnapshot.chainId, request.chainId);
+  assert.equal(storedSnapshot.tokenIn, request.tokenIn);
+  assert.equal(storedSnapshot.tokenOut, request.tokenOut);
+  assert.equal(storedSnapshot.midPrice, "1");
+  assert.equal(storedSnapshot.liquidityUsd, "10000000000000");
+  assert.equal(storedSnapshot.volatilityBps, 25);
+  assert.equal(storedSnapshot.source, "static-market-data-v1");
+});
+
+test("QuoteService blocks routing and signer when market snapshot persistence fails", async () => {
+  let routingCalls = 0;
+  let signerCalls = 0;
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    marketSnapshotStore: {
+      checkHealth() {},
+      async saveSnapshot() {
+        throw new Error("market snapshot store offline");
+      },
+      async findBySnapshotId() {
+        return undefined;
+      },
+    },
+    routingEngine: {
+      async selectRoute() {
+        routingCalls += 1;
+        throw new Error("routing should not be called");
       },
     },
     signerService: {
@@ -51,7 +73,55 @@ test("QuoteService marks requested quotes as failed when pricing is unavailable"
   await assert.rejects(
     service.createQuote(request),
     (error) => {
-      assert.equal(error.code, "PRICING_UNAVAILABLE");
+      assert.equal(error.code, "QUOTE_STORE_UNAVAILABLE");
+      return true;
+    },
+  );
+
+  assert.equal(routingCalls, 0);
+  assert.equal(signerCalls, 0);
+});
+
+test("QuoteService marks requested quotes as failed when routing is unavailable", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+  let requestedQuoteId;
+  let pricingCalls = 0;
+  let signerCalls = 0;
+  quoteRepository.saveRequested = async (input) => {
+    requestedQuoteId = input.quoteId;
+    await saveRequested(input);
+  };
+
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteRepository,
+    routingEngine: {
+      async selectRoute() {
+        throw new Error("routing backend offline");
+      },
+    },
+    pricingEngine: {
+      async price() {
+        pricingCalls += 1;
+        throw new Error("pricing should not be called");
+      },
+    },
+    signerService: {
+      async signQuote() {
+        signerCalls += 1;
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() {
+        return true;
+      },
+    },
+  });
+
+  await assert.rejects(
+    service.createQuote(request),
+    (error) => {
+      assert.equal(error.code, "ROUTING_UNAVAILABLE");
       return true;
     },
   );
@@ -59,26 +129,31 @@ test("QuoteService marks requested quotes as failed when pricing is unavailable"
   assert.match(requestedQuoteId, /^q_/);
   const status = await quoteRepository.findStatus(requestedQuoteId);
   assert.equal(status.status, "failed");
-  assert.equal(status.errorCode, "PRICING_UNAVAILABLE");
+  assert.equal(status.errorCode, "ROUTING_UNAVAILABLE");
+  assert.equal(pricingCalls, 0);
   assert.equal(signerCalls, 0);
 });
 
-test("QuoteService rejects malformed inventory and hedge pricing adjustments before pricing", async () => {
-  const malformedPricingAdjustmentCases = [
-    { inventorySkewBps: undefined, hedgeRiskPenaltyBps: 0 },
-    { inventorySkewBps: Number.NaN, hedgeRiskPenaltyBps: 0 },
-    { inventorySkewBps: 10_001, hedgeRiskPenaltyBps: 0 },
-    { inventorySkewBps: 0.5, hedgeRiskPenaltyBps: 0 },
-    { inventorySkewBps: "0", hedgeRiskPenaltyBps: 0 },
-    { inventorySkewBps: 0, hedgeRiskPenaltyBps: undefined },
-    { inventorySkewBps: 0, hedgeRiskPenaltyBps: -1 },
-    { inventorySkewBps: 0, hedgeRiskPenaltyBps: 10_001 },
-    { inventorySkewBps: 0, hedgeRiskPenaltyBps: 0.5 },
-    { inventorySkewBps: 0, hedgeRiskPenaltyBps: "25" },
-    { inventorySkewBps: 9_990, hedgeRiskPenaltyBps: 25 },
+test("QuoteService rejects malformed route plans before pricing and signing", async () => {
+  const validRoutePlan = {
+    routeId: "route_test",
+    venue: "internal_inventory",
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    expectedLiquidityUsd: "10000000000000",
+  };
+  const malformedRoutePlans = [
+    undefined,
+    Object.create(validRoutePlan),
+    { ...validRoutePlan, internalVenue: "external" },
+    { ...validRoutePlan, routeId: "route/test" },
+    { ...validRoutePlan, venue: "external_amm" },
+    { ...validRoutePlan, tokenIn: request.tokenOut },
+    { ...validRoutePlan, tokenOut: request.tokenIn },
+    { ...validRoutePlan, expectedLiquidityUsd: "01000000000000" },
   ];
 
-  for (const { inventorySkewBps, hedgeRiskPenaltyBps } of malformedPricingAdjustmentCases) {
+  for (const malformedRoutePlan of malformedRoutePlans) {
     const quoteRepository = new InMemoryQuoteRepository();
     const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
     let requestedQuoteId;
@@ -91,24 +166,16 @@ test("QuoteService rejects malformed inventory and hedge pricing adjustments bef
 
     const service = new QuoteService({
       ...quoteServiceDeps(),
-      inventoryService: {
-        calculateQuoteSkewBps() {
-          return inventorySkewBps;
-        },
-        projectSettlement() {
-          throw new Error("inventory projection should not be called for malformed pricing adjustments");
-        },
-      },
-      hedgeService: {
-        quoteRiskPenaltyBps() {
-          return hedgeRiskPenaltyBps;
-        },
-      },
       quoteRepository,
+      routingEngine: {
+        async selectRoute() {
+          return malformedRoutePlan;
+        },
+      },
       pricingEngine: {
         async price() {
           pricingAttempts += 1;
-          throw new Error("pricing should not be called for malformed pricing adjustments");
+          throw new Error("pricing should not be called for malformed route plans");
         },
       },
       signerService: {
@@ -125,7 +192,7 @@ test("QuoteService rejects malformed inventory and hedge pricing adjustments bef
     await assert.rejects(
       service.createQuote(request),
       (error) => {
-        assert.equal(error.code, "PRICING_UNAVAILABLE");
+        assert.equal(error.code, "ROUTING_UNAVAILABLE");
         assert.equal(error.statusCode, 503);
         return true;
       },
@@ -136,7 +203,7 @@ test("QuoteService rejects malformed inventory and hedge pricing adjustments bef
     assert.match(requestedQuoteId, /^q_/);
     const status = await quoteRepository.findStatus(requestedQuoteId);
     assert.equal(status.status, "failed");
-    assert.equal(status.errorCode, "PRICING_UNAVAILABLE");
+    assert.equal(status.errorCode, "ROUTING_UNAVAILABLE");
   }
 });
 

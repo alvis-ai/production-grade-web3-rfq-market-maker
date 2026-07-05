@@ -48,6 +48,7 @@ test -s backend/test/quote-repository-lifecycle.test.mjs
 test -s backend/test/quote-repository.test.mjs
 test -s backend/test/quote-repository-validation.test.mjs
 test -s backend/test/quote-service-dependencies.test.mjs
+test -s backend/test/quote-service-market-routing-dependencies.test.mjs
 test -s backend/test/quote-service-pricing-dependencies.test.mjs
 test -s backend/test/quote-service-risk-dependencies.test.mjs
 test -s backend/test/quote-service-submit.test.mjs
@@ -339,12 +340,12 @@ grep -q 'InMemoryMarketSnapshotRepository rejects unsafe snapshot lookup identif
 grep -q 'Market snapshot snapshotId must be a primitive string' backend/test/market-snapshot-repository-validation.test.mjs
 grep -q 'Market snapshot snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/market-snapshot-repository-validation.test.mjs
 grep -q 'Market snapshot snapshotId must be 128 characters or fewer' backend/test/market-snapshot-repository-validation.test.mjs
-grep -q 'QuoteService persists market snapshots before downstream quote side effects' backend/test/quote-service-dependencies.test.mjs
-grep -q 'QuoteService blocks routing and signer when market snapshot persistence fails' backend/test/quote-service-dependencies.test.mjs
-grep -q 'QuoteService marks requested quotes as failed when routing is unavailable' backend/test/quote-service-dependencies.test.mjs
-grep -q 'QuoteService rejects malformed route plans before pricing and signing' backend/test/quote-service-dependencies.test.mjs
-grep -q 'internalVenue: "external"' backend/test/quote-service-dependencies.test.mjs
-grep -q 'assert.equal(pricingAttempts, 0)' backend/test/quote-service-dependencies.test.mjs
+grep -q 'QuoteService persists market snapshots before downstream quote side effects' backend/test/quote-service-market-routing-dependencies.test.mjs
+grep -q 'QuoteService blocks routing and signer when market snapshot persistence fails' backend/test/quote-service-market-routing-dependencies.test.mjs
+grep -q 'QuoteService marks requested quotes as failed when routing is unavailable' backend/test/quote-service-market-routing-dependencies.test.mjs
+grep -q 'QuoteService rejects malformed route plans before pricing and signing' backend/test/quote-service-market-routing-dependencies.test.mjs
+grep -q 'internalVenue: "external"' backend/test/quote-service-market-routing-dependencies.test.mjs
+grep -q 'assert.equal(pricingAttempts, 0)' backend/test/quote-service-market-routing-dependencies.test.mjs
 grep -q 'QuoteService marks requested quotes as failed when pricing is unavailable' backend/test/quote-service-dependencies.test.mjs
 grep -q 'QuoteService rejects malformed inventory and hedge pricing adjustments before pricing' backend/test/quote-service-dependencies.test.mjs
 grep -q 'hedgeRiskPenaltyBps: "25"' backend/test/quote-service-dependencies.test.mjs
