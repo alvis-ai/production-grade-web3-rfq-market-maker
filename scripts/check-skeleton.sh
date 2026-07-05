@@ -24,6 +24,7 @@ test -s backend/test/api-readiness.test.mjs
 test -s backend/test/api-risk.test.mjs
 test -s backend/test/api-signer.test.mjs
 test -s backend/test/api-status.test.mjs
+test -s backend/test/api-submit-dependencies.test.mjs
 test -s backend/test/api-submit.test.mjs
 test -s backend/test/api-validation.test.mjs
 test -s backend/test/api.test.mjs
@@ -2621,6 +2622,7 @@ grep -q '#/components/headers/TraceId' docs/api/openapi.yaml
 grep -q 'backend/test/api.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-risk.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-signer.test.mjs' scripts/check-api-error-consistency.mjs
+grep -q 'backend/test/api-submit-dependencies.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-submit.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-gateway-runtime.test.mjs' scripts/check-api-error-consistency.mjs
 grep -q 'backend/test/api-validation.test.mjs' scripts/check-api-error-consistency.mjs
@@ -2841,8 +2843,8 @@ grep -q '`createHedgeIntent` output is an Execution Service dependency boundary'
 grep -q 'the submit response omits `hedgeOrderId`' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'HEDGE_INTENT_FAILED' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'HEDGE_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
-grep -q 'post-settlement quote status persistence fails' backend/test/api-submit.test.mjs
-grep -q 'rfq_quote_status_update_errors_total' backend/test/api-submit.test.mjs
+grep -q 'post-settlement quote status persistence fails' backend/test/api-submit-dependencies.test.mjs
+grep -q 'rfq_quote_status_update_errors_total' backend/test/api-submit-dependencies.test.mjs
 grep -q 'Duplicate settlement events are idempotent' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rfq_quote_status_update_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
@@ -2861,20 +2863,20 @@ grep -q 'signing is unavailable' backend/test/api-signer.test.mjs
 grep -q 'preserves signer errors when failed quote persistence fails' backend/test/api-signer.test.mjs
 grep -q 'rfq_signer_errors_total' backend/test/api-signer.test.mjs
 grep -q 'unconfigured market data pairs before pricing and signing' backend/test/api-market-data.test.mjs
-grep -q 'settlement constraints before simulated settlement' backend/test/api-submit.test.mjs
+grep -q 'settlement constraints before simulated settlement' backend/test/api-submit-dependencies.test.mjs
 grep -q 'settlementRejectionFailureCode' backend/src/main.ts
-grep -q 'failed quote status persistence fails' backend/test/api-submit.test.mjs
-grep -q 'target_status="FAILED"' backend/test/api-submit.test.mjs
-grep -q 'settlement verifier failures' backend/test/api-submit.test.mjs
-grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/api-submit.test.mjs
+grep -q 'failed quote status persistence fails' backend/test/api-submit-dependencies.test.mjs
+grep -q 'target_status="FAILED"' backend/test/api-submit-dependencies.test.mjs
+grep -q 'settlement verifier failures' backend/test/api-submit-dependencies.test.mjs
+grep -q 'SETTLEMENT_UNAVAILABLE' backend/test/api-submit-dependencies.test.mjs
 grep -q 'SETTLEMENT_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'settlement event store failures' backend/test/api-status.test.mjs
-grep -q 'settlement event write failures' backend/test/api-submit.test.mjs
+grep -q 'settlement event write failures' backend/test/api-submit-dependencies.test.mjs
 grep -q 'Settlement event store write failure' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'A signed quote may bind to only one settlement event' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'errorCode, "TOKEN_NOT_WHITELISTED"' backend/test/api-submit.test.mjs
-grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api-submit.test.mjs
+grep -q 'errorCode, "TOKEN_NOT_WHITELISTED"' backend/test/api-submit-dependencies.test.mjs
+grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api-submit-dependencies.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs
 grep -q 'LocalSettlementVerifier rejects malformed verification payload envelopes before settlement checks' backend/test/settlement-verifier-validation.test.mjs
 grep -q 'LocalSettlementVerifier rejects malformed settlement quote fields before policy checks' backend/test/settlement-verifier-validation.test.mjs

@@ -9,12 +9,14 @@ const apiGatewayTestSource = `${apiGatewayStartupTestSource}\n${apiGatewayRuntim
 const apiTestSource = await readFile("backend/test/api.test.mjs", "utf8");
 const apiRiskTestSource = await readFile("backend/test/api-risk.test.mjs", "utf8");
 const apiSignerTestSource = await readFile("backend/test/api-signer.test.mjs", "utf8");
+const apiSubmitDependencyTestSource = await readFile("backend/test/api-submit-dependencies.test.mjs", "utf8");
 const apiSubmitTestSource = await readFile("backend/test/api-submit.test.mjs", "utf8");
 const apiValidationTestSource = await readFile("backend/test/api-validation.test.mjs", "utf8");
 const apiTraceContractTestSource = [
   apiTestSource,
   apiRiskTestSource,
   apiSignerTestSource,
+  apiSubmitDependencyTestSource,
   apiSubmitTestSource,
   apiValidationTestSource,
 ].join("\n");
