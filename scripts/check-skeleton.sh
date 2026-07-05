@@ -65,6 +65,7 @@ test -s backend/test/reconciliation-hedge.test.mjs
 test -s backend/test/reconciliation-pnl.test.mjs
 test -s backend/test/reconciliation-reorg.test.mjs
 test -s backend/test/risk-decision.test.mjs
+test -s backend/test/risk-runtime-validation.test.mjs
 test -s backend/test/risk-validation.test.mjs
 test -s backend/test/routing.test.mjs
 test -s backend/test/settlement-event.test.mjs
@@ -933,8 +934,8 @@ grep -q 'Basic risk toxicFlowScores must not contain duplicate users' backend/sr
 grep -q 'BasicRiskEngine snapshots policy configuration at construction' backend/test/risk.test.mjs
 grep -q 'BasicRiskEngine rejects unsafe policy configuration at construction' backend/test/risk-validation.test.mjs
 grep -q 'new String(baseRequest.tokenIn)' backend/test/risk-validation.test.mjs
-grep -q 'amountIn: "01000000000"' backend/test/risk-validation.test.mjs
-grep -q 'amountOut: "0998400000"' backend/test/risk-validation.test.mjs
+grep -q 'amountIn: "01000000000"' backend/test/risk-runtime-validation.test.mjs
+grep -q 'amountOut: "0998400000"' backend/test/risk-runtime-validation.test.mjs
 grep -q 'Basic risk tokenAllowlist must not contain duplicate addresses' backend/test/risk-validation.test.mjs
 grep -q 'Basic risk restrictedUsers must not contain duplicate addresses' backend/test/risk-validation.test.mjs
 grep -q 'Basic risk toxicFlowScores must not contain duplicate users' backend/test/risk-validation.test.mjs
@@ -3116,18 +3117,18 @@ grep -q 'assertOwnFields(position, inventoryPositionFields, `inventoryProjection
 grep -q 'Basic risk ${path}.${field} must be an own field' backend/src/modules/risk/risk.engine.ts
 grep -q 'Basic risk ${path}.${field} must be an own field when provided' backend/src/modules/risk/risk.engine.ts
 grep -q 'BasicRiskEngine rejects unsafe policy configuration at construction' backend/test/risk-validation.test.mjs
-grep -q 'BasicRiskEngine rejects malformed runtime payload envelopes before policy evaluation' backend/test/risk-validation.test.mjs
-grep -q 'BasicRiskEngine rejects inherited runtime input fields before policy evaluation' backend/test/risk-validation.test.mjs
-grep -q 'BasicRiskEngine rejects unsafe runtime inputs before policy evaluation' backend/test/risk-validation.test.mjs
+grep -q 'BasicRiskEngine rejects malformed runtime payload envelopes before policy evaluation' backend/test/risk-runtime-validation.test.mjs
+grep -q 'BasicRiskEngine rejects inherited runtime input fields before policy evaluation' backend/test/risk-runtime-validation.test.mjs
+grep -q 'BasicRiskEngine rejects unsafe runtime inputs before policy evaluation' backend/test/risk-runtime-validation.test.mjs
 grep -q 'Basic risk policy.policyVersion must be an own field' backend/test/risk-validation.test.mjs
 grep -q 'Basic risk toxicFlowScores entry.user must be an own field' backend/test/risk-validation.test.mjs
-grep -q 'Basic risk input.request must be an own field' backend/test/risk-validation.test.mjs
-grep -q 'Basic risk input.pricing must be an own field' backend/test/risk-validation.test.mjs
-grep -q 'Basic risk input.inventoryProjection must be an own field when provided' backend/test/risk-validation.test.mjs
-grep -q 'Basic risk request.chainId must be an own field' backend/test/risk-validation.test.mjs
-grep -q 'Basic risk pricing.amountOut must be an own field' backend/test/risk-validation.test.mjs
-grep -q 'Basic risk inventoryProjection.tokenIn must be an own field' backend/test/risk-validation.test.mjs
-grep -q 'Basic risk inventoryProjection.tokenIn.chainId must be an own field' backend/test/risk-validation.test.mjs
+grep -q 'Basic risk input.request must be an own field' backend/test/risk-runtime-validation.test.mjs
+grep -q 'Basic risk input.pricing must be an own field' backend/test/risk-runtime-validation.test.mjs
+grep -q 'Basic risk input.inventoryProjection must be an own field when provided' backend/test/risk-runtime-validation.test.mjs
+grep -q 'Basic risk request.chainId must be an own field' backend/test/risk-runtime-validation.test.mjs
+grep -q 'Basic risk pricing.amountOut must be an own field' backend/test/risk-runtime-validation.test.mjs
+grep -q 'Basic risk inventoryProjection.tokenIn must be an own field' backend/test/risk-runtime-validation.test.mjs
+grep -q 'Basic risk inventoryProjection.tokenIn.chainId must be an own field' backend/test/risk-runtime-validation.test.mjs
 grep -q 'malformed policy object、inherited policy fields、policy array fields、toxic-flow score entries and inherited score fields must be rejected before field access' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'missing required own top-level `request` / `pricing` fields' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'inherited optional `inventoryProjection`' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
