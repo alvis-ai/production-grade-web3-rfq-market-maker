@@ -53,6 +53,8 @@ test -s backend/test/routing.test.mjs
 test -s backend/test/settlement-event.test.mjs
 test -s backend/test/settlement-event-reorg.test.mjs
 test -s backend/test/settlement-verifier.test.mjs
+test -s backend/test/signer.test.mjs
+test -s backend/test/signer-validation.test.mjs
 test -s backend/test/submit-concurrency.test.mjs
 test -s backend/test/validation.test.mjs
 test -s backend/src/modules/health/readiness.service.ts
@@ -953,22 +955,22 @@ grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src
 grep -q 'LocalEIP712SignerService binds signatures to the settlement contract address' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService snapshots signer configuration at construction' backend/test/signer.test.mjs
 grep -q 'LocalEIP712SignerService rejects high-s malleated quote signatures' backend/test/signer.test.mjs
-grep -q 'LocalEIP712SignerService rejects unsafe signer configuration at construction' backend/test/signer.test.mjs
-grep -q 'LocalEIP712SignerService rejects malformed signer payload envelopes before signing' backend/test/signer.test.mjs
-grep -q 'LocalEIP712SignerService rejects inherited signer payload fields before signing' backend/test/signer.test.mjs
-grep -q 'Signer config.privateKey must be an own field' backend/test/signer.test.mjs
-grep -q 'Signer input.quote must be an own field' backend/test/signer.test.mjs
-grep -q 'Signer quote.user must be an own field' backend/test/signer.test.mjs
-grep -q 'verifyQuoteSignature(Object.create(quote), fixedSignature())' backend/test/signer.test.mjs
-grep -q 'LocalEIP712SignerService rejects unsafe quote inputs before signing' backend/test/signer.test.mjs
-grep -q 'amountIn: "01000000000"' backend/test/signer.test.mjs
-grep -q 'amountOut: "0998400000"' backend/test/signer.test.mjs
-grep -q 'minAmountOut: "0993408000"' backend/test/signer.test.mjs
-grep -q 'nonce: "042"' backend/test/signer.test.mjs
-grep -q 'Signer quoteId must be a primitive string' backend/test/signer.test.mjs
-grep -q 'Signer quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/signer.test.mjs
-grep -q 'Signer snapshotId must be a primitive string' backend/test/signer.test.mjs
-grep -q 'Signer snapshotId must be 128 characters or fewer' backend/test/signer.test.mjs
+grep -q 'LocalEIP712SignerService rejects unsafe signer configuration at construction' backend/test/signer-validation.test.mjs
+grep -q 'LocalEIP712SignerService rejects malformed signer payload envelopes before signing' backend/test/signer-validation.test.mjs
+grep -q 'LocalEIP712SignerService rejects inherited signer payload fields before signing' backend/test/signer-validation.test.mjs
+grep -q 'Signer config.privateKey must be an own field' backend/test/signer-validation.test.mjs
+grep -q 'Signer input.quote must be an own field' backend/test/signer-validation.test.mjs
+grep -q 'Signer quote.user must be an own field' backend/test/signer-validation.test.mjs
+grep -q 'verifyQuoteSignature(Object.create(quote), fixedSignature())' backend/test/signer-validation.test.mjs
+grep -q 'LocalEIP712SignerService rejects unsafe quote inputs before signing' backend/test/signer-validation.test.mjs
+grep -q 'amountIn: "01000000000"' backend/test/signer-validation.test.mjs
+grep -q 'amountOut: "0998400000"' backend/test/signer-validation.test.mjs
+grep -q 'minAmountOut: "0993408000"' backend/test/signer-validation.test.mjs
+grep -q 'nonce: "042"' backend/test/signer-validation.test.mjs
+grep -q 'Signer quoteId must be a primitive string' backend/test/signer-validation.test.mjs
+grep -q 'Signer quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/signer-validation.test.mjs
+grep -q 'Signer snapshotId must be a primitive string' backend/test/signer-validation.test.mjs
+grep -q 'Signer snapshotId must be 128 characters or fewer' backend/test/signer-validation.test.mjs
 grep -q 'ObservedSignerService rejects unsafe wrapper dependencies at construction' backend/test/signer.test.mjs
 grep -q 'ObservedSignerService rejects malformed inner signer results' backend/test/signer.test.mjs
 grep -q 'non_boolean_verify' backend/test/signer.test.mjs
