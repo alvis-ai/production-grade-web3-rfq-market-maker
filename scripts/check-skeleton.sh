@@ -33,6 +33,7 @@ test -s backend/test/execution-validation.test.mjs
 test -s backend/test/hedge.test.mjs
 test -s backend/test/hedge-validation.test.mjs
 test -s backend/test/inventory.test.mjs
+test -s backend/test/inventory-validation.test.mjs
 test -s backend/test/market-data.test.mjs
 test -s backend/test/market-data-validation.test.mjs
 test -s backend/test/metrics.test.mjs
@@ -199,21 +200,21 @@ grep -q 'malformed skew output is treated as `PRICING_UNAVAILABLE`' book/Volume3
 grep -q '`projectSettlement` output is validated by Quote Service before Risk Service is called' book/Volume3-RiskEngine/Chapter01-Inventory.md
 grep -q 'malformed projected inventory is treated as `RISK_ENGINE_UNAVAILABLE`' book/Volume3-RiskEngine/Chapter01-Inventory.md
 grep -q 'InventoryService snapshots skew configuration at construction' backend/test/inventory.test.mjs
-grep -q 'InventoryService rejects unsafe skew configuration at construction' backend/test/inventory.test.mjs
-grep -q 'InventoryService rejects malformed runtime payload envelopes before mutating balances' backend/test/inventory.test.mjs
-grep -q 'InventoryService rejects inherited runtime fields before mutating balances' backend/test/inventory.test.mjs
-grep -q 'Inventory config.skewUnit must be an own field' backend/test/inventory.test.mjs
-grep -q 'Inventory settlement delta.chainId must be an own field' backend/test/inventory.test.mjs
-grep -q 'Inventory settlement delta.amountOut must be an own field' backend/test/inventory.test.mjs
-grep -q 'Inventory skew input.chainId must be an own field' backend/test/inventory.test.mjs
-grep -q 'InventoryService rejects unsafe settlement inputs before mutating balances' backend/test/inventory.test.mjs
-grep -q 'InventoryService rejects unsafe projection and skew inputs' backend/test/inventory.test.mjs
-grep -q 'amountIn: "0100"' backend/test/inventory.test.mjs
-grep -q 'amountOut: "099"' backend/test/inventory.test.mjs
-grep -q 'amountIn: "010"' backend/test/inventory.test.mjs
+grep -q 'InventoryService rejects unsafe skew configuration at construction' backend/test/inventory-validation.test.mjs
+grep -q 'InventoryService rejects malformed runtime payload envelopes before mutating balances' backend/test/inventory-validation.test.mjs
+grep -q 'InventoryService rejects inherited runtime fields before mutating balances' backend/test/inventory-validation.test.mjs
+grep -q 'Inventory config.skewUnit must be an own field' backend/test/inventory-validation.test.mjs
+grep -q 'Inventory settlement delta.chainId must be an own field' backend/test/inventory-validation.test.mjs
+grep -q 'Inventory settlement delta.amountOut must be an own field' backend/test/inventory-validation.test.mjs
+grep -q 'Inventory skew input.chainId must be an own field' backend/test/inventory-validation.test.mjs
+grep -q 'InventoryService rejects unsafe settlement inputs before mutating balances' backend/test/inventory-validation.test.mjs
+grep -q 'InventoryService rejects unsafe projection and skew inputs' backend/test/inventory-validation.test.mjs
+grep -q 'amountIn: "0100"' backend/test/inventory-validation.test.mjs
+grep -q 'amountOut: "099"' backend/test/inventory-validation.test.mjs
+grep -q 'amountIn: "010"' backend/test/inventory-validation.test.mjs
 grep -q 'rebuildFromSettlements' backend/src/modules/inventory/inventory.service.ts
 grep -q 'InventoryService rebuilds inventory from settlement replay' backend/test/inventory.test.mjs
-grep -q 'InventoryService rejects unsafe settlement replay before mutating balances' backend/test/inventory.test.mjs
+grep -q 'InventoryService rejects unsafe settlement replay before mutating balances' backend/test/inventory-validation.test.mjs
 grep -q 'Inventory settlement replay input must be an array' backend/src/modules/inventory/inventory.service.ts
 grep -q 'Inventory replay validates the entire settlement delta batch before clearing balances' book/Volume3-RiskEngine/Chapter01-Inventory.md
 grep -q 'inventory skew config fail-fast' book/Volume3-RiskEngine/Chapter01-Inventory.md
