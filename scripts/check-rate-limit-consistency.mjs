@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 
 const rateLimiterSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const mainSource = await readFile("backend/src/main.ts", "utf8");
+const apiGatewayEnvTestSource = await readFile("backend/test/api-gateway-env.test.mjs", "utf8");
 const apiGatewayTestSource = await readFile("backend/test/api-gateway.test.mjs", "utf8");
 const apiRateLimitTestSource = await readFile("backend/test/api-rate-limit.test.mjs", "utf8");
 const rateLimitTestSource = await readFile("backend/test/rate-limit.test.mjs", "utf8");
@@ -73,10 +74,13 @@ assertContains(mainSource, [
 
 assertContains(apiGatewayTestSource, [
   "RFQ API rejects unsafe rate limit configuration at startup",
-  "RFQ API rejects invalid RFQ_TRUST_PROXY at startup",
   "buildServer rateLimit must be an object or false",
   "buildServer rateLimit.windowMs must be an own field when provided",
 ], "backend/test/api-gateway.test.mjs");
+
+assertContains(apiGatewayEnvTestSource, [
+  "RFQ API rejects invalid RFQ_TRUST_PROXY at startup",
+], "backend/test/api-gateway-env.test.mjs");
 
 assertContains(apiRateLimitTestSource, [
   "rate limits quote requests by client",
