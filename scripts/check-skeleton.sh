@@ -14,6 +14,7 @@ test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/test/api-error.test.mjs
 test -s backend/test/api-gateway-env.test.mjs
+test -s backend/test/api-gateway-signer-env.test.mjs
 test -s backend/test/api-gateway.test.mjs
 test -s backend/test/api-gateway-runtime.test.mjs
 test -s backend/test/api-hedge.test.mjs
@@ -2873,12 +2874,12 @@ grep -q 'Duplicate settlement events are idempotent' book/Volume5-BackendEnginee
 grep -q 'rfq_quote_status_update_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
-grep -q 'production startup requires explicit signer configuration' backend/test/api-gateway-env.test.mjs
-grep -q 'non-local startup requires explicit signer configuration' backend/test/api-gateway-env.test.mjs
-grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=staging' backend/test/api-gateway-env.test.mjs
-grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=production' backend/test/api-gateway-env.test.mjs
-grep -q 'RFQ_SIGNER_PRIVATE_KEY must be a 32-byte hex string when NODE_ENV=production' backend/test/api-gateway-env.test.mjs
-grep -q 'RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address when NODE_ENV=production' backend/test/api-gateway-env.test.mjs
+grep -q 'production startup requires explicit signer configuration' backend/test/api-gateway-signer-env.test.mjs
+grep -q 'non-local startup requires explicit signer configuration' backend/test/api-gateway-signer-env.test.mjs
+grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=staging' backend/test/api-gateway-signer-env.test.mjs
+grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=production' backend/test/api-gateway-signer-env.test.mjs
+grep -q 'RFQ_SIGNER_PRIVATE_KEY must be a 32-byte hex string when NODE_ENV=production' backend/test/api-gateway-signer-env.test.mjs
+grep -q 'RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address when NODE_ENV=production' backend/test/api-gateway-signer-env.test.mjs
 grep -q 'built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`' README.md
 grep -q '默认 Anvil signer 只允许用于 unset `NODE_ENV`、`development` 或 `test`' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'marks requested quotes as failed when signer is unavailable' backend/test/quote-service.test.mjs
