@@ -40,6 +40,7 @@ test -s backend/test/pnl.test.mjs
 test -s backend/test/rate-limit.test.mjs
 test -s backend/test/readiness.test.mjs
 test -s backend/test/reconciliation-config.test.mjs
+test -s backend/test/reconciliation-hedge.test.mjs
 test -s backend/test/reconciliation-pnl.test.mjs
 test -s backend/test/risk-decision.test.mjs
 test -s backend/test/routing.test.mjs
@@ -1540,9 +1541,9 @@ grep -q 'ReconciliationService deps.pnlService must be an own field when provide
 grep -q 'ReconciliationService deps.hedgeService must be an own field when provided' backend/test/reconciliation-config.test.mjs
 grep -q 'ReconciliationService settlementEventService must be an object' backend/test/reconciliation-config.test.mjs
 grep -q 'ReconciliationService pnlService must be an object when provided' backend/test/reconciliation-config.test.mjs
-grep -q 'repairs hedge intents from settlement events' backend/test/reconciliation.test.mjs
-grep -q 'reports hedge intent conflicts without stopping later events' backend/test/reconciliation.test.mjs
-grep -q 'requires hedge service for settlement-to-hedge repair' backend/test/reconciliation.test.mjs
+grep -q 'repairs hedge intents from settlement events' backend/test/reconciliation-hedge.test.mjs
+grep -q 'reports hedge intent conflicts without stopping later events' backend/test/reconciliation-hedge.test.mjs
+grep -q 'requires hedge service for settlement-to-hedge repair' backend/test/reconciliation-hedge.test.mjs
 grep -q 'repairs PnL records from settlement events and signed quotes' backend/test/reconciliation-pnl.test.mjs
 grep -q 'reports PnL reconciliation events whose signed quote is missing' backend/test/reconciliation-pnl.test.mjs
 grep -q 'reports PnL conflicts without stopping later events' backend/test/reconciliation-pnl.test.mjs
