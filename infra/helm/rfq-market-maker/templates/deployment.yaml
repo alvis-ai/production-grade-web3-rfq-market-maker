@@ -44,6 +44,13 @@ spec:
                   name: {{ .Values.chainlinkConfigSecret.name }}
                   key: {{ .Values.chainlinkConfigSecret.key }}
             {{- end }}
+            {{- if .Values.receiptConfigSecret.enabled }}
+            - name: RFQ_RECEIPT_CONFIG_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.receiptConfigSecret.name }}
+                  key: {{ .Values.receiptConfigSecret.key }}
+            {{- end }}
           lifecycle:
             preStop:
               exec:

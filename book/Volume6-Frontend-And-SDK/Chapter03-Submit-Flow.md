@@ -42,7 +42,7 @@ RFQ quote 包含 signature、deadline 和 nonce。前端提交前必须确认 wa
 
 ## Trade-Off Analysis
 
-Direct wallet submit 简单可信，relay submit 便于本地 smoke 和后端参考链路。第一版同时保留两条路径：`Submit Onchain` 使用 Wagmi 调用 `RFQSettlement.submitQuote`，`Submit API` 使用 `/submit` 触发后端模拟 settlement、inventory、hedge 和 PnL 链路。
+Direct wallet submit 满足 `msg.sender == quote.user` 并保持自托管。`Submit Onchain` 使用 Wagmi 广播 `RFQSettlement.submitQuote`，拿到 txHash 后自动调用 `/submit`；后端独立确认 receipt 与 `QuoteSettled` 后才触发 inventory、hedge 和 PnL。`Submit API` 仅用于显式开启 synthetic settlement 的本地参考环境。
 
 ## System Design
 
@@ -104,12 +104,13 @@ Submit state includes `quote`, `signature`, `txHash`, `settlementEventId`, `hedg
 
 ## API Design
 
-Direct submit does not require backend `/submit`; relay mode uses `POST /submit`。Both modes should converge on `GET /quote/:id` for quote status. Relay mode may return `settlementEventId`、`hedgeOrderId` and `pnlId` immediately from `/submit`, but refresh and polling must treat `QuoteStatus` as the durable source of these navigation pointers. When `GET /quote/:id` returns those IDs, the UI and SDK call `GET /settlements/:id` to show settlement consumption, `GET /hedges/:id` to show the current hedge lifecycle status and venue reconciliation metadata, and `GET /pnl` to show realized PnL summary.
+Wallet broadcast 后调用 `POST /submit` 并携带 `quote`、`signature` 和 `txHash`。HTTP 202 只在后端确认链上证据并消费 settlement event 后返回；refresh 和 polling 仍以 `GET /quote/:id` 为 durable source。`GET /settlements/:id` 展示链上事件，`GET /hedges/:id` 展示 hedge lifecycle，`GET /pnl` 展示 PnL summary。
 
 ## Engineering Decisions
 
 - Direct wallet submit and API relay submit share the same signed quote payload.
 - Direct wallet submit uses `VITE_RFQ_SETTLEMENT_ADDRESS` as the write target.
+- `writeContractAsync()` 返回 txHash 后，页面立即把该 hash 交给 SDK `/submit`；确认过程中保留 txHash 展示，并把 RPC、revert 或 event mismatch 错误与 wallet broadcast 错误分开呈现。
 - Submit disabled after deadline.
 - Direct wallet submit is also disabled unless the connected wallet address matches an own-field `quote.user` and the active wallet chain id matches an own-field `quote.chainId`; the click handler repeats those guards before calling `writeContractAsync`.
 - The wallet submit click handler also repeats the active quote TTL guard. If `canSubmit` is false, it emits `Quote expired; request a new quote` and returns before `prepareWalletSubmit()` or `writeContractAsync()`.

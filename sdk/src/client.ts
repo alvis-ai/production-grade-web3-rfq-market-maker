@@ -35,6 +35,7 @@ const isoUtcTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const clientOptionFields = ["fetch", "traceId"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const submitRequestFields = ["quote", "signature"] as const;
+const submitRequestOptionalFields = ["txHash"] as const;
 const quoteResponseFields = ["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"] as const;
 const errorResponseFields = ["code", "message", "traceId"] as const;
 const healthResponseFields = ["status"] as const;
@@ -457,7 +458,11 @@ function assertSubmitQuoteRequest(request: SubmitQuoteRequest): void {
   if (!isRecord(request)) {
     throw new RFQClientError("RFQ submit request must be an object", 0);
   }
-  assertExactFields(request, submitRequestFields, "RFQ submit request");
+  assertExactFields(request, submitRequestFields, "RFQ submit request", submitRequestOptionalFields);
+  assertOptionalOwnResponseField(request, "txHash", 0, "RFQ submit request");
+  if (request.txHash !== undefined && !isBytes32Hex(request.txHash)) {
+    throw new RFQClientError("RFQ submit request txHash must be a 32-byte hex string", 0);
+  }
 
   try {
     buildSubmitQuoteArgs(request.quote, request.signature);
@@ -471,8 +476,9 @@ function assertExactFields(
   payload: Record<string, unknown>,
   expectedFields: readonly string[],
   label: string,
+  optionalFields: readonly string[] = [],
 ): void {
-  const expected = new Set(expectedFields);
+  const expected = new Set([...expectedFields, ...optionalFields]);
   for (const key of Object.keys(payload)) {
     if (!expected.has(key)) {
       throw new RFQClientError(`${label} must not include unknown field ${key}`, 0);

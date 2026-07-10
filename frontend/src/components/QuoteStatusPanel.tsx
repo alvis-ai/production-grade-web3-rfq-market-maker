@@ -182,7 +182,7 @@ export function QuoteStatusPanel({
       ) : null}
       <div className="action-row">
         <button type="button" disabled={!canSubmit} onClick={onSubmit}>
-          Submit API
+          Simulate API
         </button>
         {onchainAction}
         <button type="button" className="secondary-button" disabled={!quote} onClick={onRefresh}>

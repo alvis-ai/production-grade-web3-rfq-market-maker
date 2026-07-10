@@ -1,6 +1,13 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { privateKeyToAccount } from "viem/accounts";
-import { SkeletonExecutionService } from "./modules/execution/execution.service.js";
+import {
+  SkeletonExecutionService,
+  type SettlementEvidenceProvider,
+} from "./modules/execution/execution.service.js";
+import {
+  parseReceiptExecutionConfig,
+  RuntimeSettlementEvidenceProvider,
+} from "./modules/execution/receipt-settlement-evidence.provider.js";
 import { getPool, endPool } from "./db/pool.js";
 import { HedgeService, type HedgeIntentService } from "./modules/hedge/hedge.service.js";
 import { defaultReadinessServiceConfig, ReadinessService } from "./modules/health/readiness.service.js";
@@ -68,6 +75,13 @@ const traceIdPattern = /^tr_[A-Za-z0-9._:-]+$/;
 const maxStatusIdentifierLength = 128;
 const maxStatusIdentifierRouteParamLength = maxStatusIdentifierLength + 1;
 const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const retryableSettlementEvidenceReasonCodes = new Set([
+  "SETTLEMENT_SENDER_MISMATCH",
+  "SETTLEMENT_TARGET_MISMATCH",
+  "SETTLEMENT_CALLDATA_MISMATCH",
+  "QUOTE_SETTLED_EVENT_MISSING",
+  "QUOTE_SETTLED_EVENT_AMBIGUOUS",
+]);
 const buildServerOptionFields = [
   "bodyLimitBytes",
   "corsAllowedOrigins",
@@ -84,6 +98,7 @@ const buildServerOptionFields = [
   "riskDecisionStore",
   "riskEngine",
   "routingEngine",
+  "settlementEvidenceProvider",
   "settlementEventService",
   "settlementVerifier",
   "signerService",
@@ -129,6 +144,7 @@ export interface BuildServerOptions {
   riskDecisionStore?: RiskDecisionStore;
   riskEngine?: RiskEngine;
   routingEngine?: RoutingEngine;
+  settlementEvidenceProvider?: SettlementEvidenceProvider;
   hedgeService?: HedgeIntentService;
   pnlService?: PnlStore;
   settlementEventService?: SettlementEventStore;
@@ -228,7 +244,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     settlementVerifier: options.settlementVerifier ?? new LocalSettlementVerifier(
       buildDefaultSettlementVerifierPolicy(getLocalSignerConfig()),
     ),
-  });
+  }, options.settlementEvidenceProvider ?? buildRuntimeSettlementEvidenceProvider(getLocalSignerConfig()));
   const pnlService = options.pnlService ?? new PnlService();
   const rateLimitConfig = normalizeRateLimitOption(options.rateLimit);
   const rateLimiter = rateLimitConfig === false
@@ -440,7 +456,11 @@ export function buildServer(options: BuildServerOptions = {}) {
       }
 
       const submitRequest = validateSubmitQuoteRequest(request.body);
-      quoteId = await quoteService.requireSubmittableSignedQuote(submitRequest.quote, submitRequest.signature);
+      quoteId = await quoteService.requireSubmittableSignedQuote(
+        submitRequest.quote,
+        submitRequest.signature,
+        { allowExpired: submitRequest.txHash !== undefined },
+      );
       releaseSubmitReservation = reserveSubmitQuoteId(inFlightSubmitQuoteIds, quoteId);
       const result = await executionService.submitQuote(submitRequest, { quoteId });
       const pnlRecord = result.settlementEventResult.duplicate
@@ -477,7 +497,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     } catch (error) {
       metricsService.recordSubmitError();
       const apiError = toAPIError(error);
-      if (quoteId && apiError.code === "SETTLEMENT_REVERTED") {
+      if (quoteId && shouldMarkSettlementRejectionFailed(apiError)) {
         await markSettlementRejectedQuoteFailed(quoteService, metricsService, quoteId, settlementRejectionFailureCode(apiError));
       }
 
@@ -832,6 +852,11 @@ function settlementRejectionFailureCode(error: APIError): string {
   return error.internalReasonCode ?? error.code;
 }
 
+function shouldMarkSettlementRejectionFailed(error: APIError): boolean {
+  if (error.code !== "SETTLEMENT_REVERTED") return false;
+  return !retryableSettlementEvidenceReasonCodes.has(error.internalReasonCode ?? "");
+}
+
 function requestTraceId(request: FastifyRequest): string {
   const incomingTraceId = safeIncomingTraceId(request.headers["x-trace-id"]);
   if (incomingTraceId) {
@@ -917,6 +942,36 @@ function buildDefaultSettlementVerifierPolicy(
     settlementAddress: signerConfig.settlementAddress,
     trustedSignerAddress: privateKeyToAccount(signerConfig.privateKey).address,
   };
+}
+
+function buildRuntimeSettlementEvidenceProvider(
+  signerConfig: LocalEIP712SignerConfig,
+): RuntimeSettlementEvidenceProvider {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
+  const allowSimulatedSettlement = readOptionalBoolean(
+    readOwnEnvValue(env, "RFQ_ALLOW_SIMULATED_SETTLEMENT"),
+    !requiresExplicitSignerConfig(nodeEnv),
+    "RFQ_ALLOW_SIMULATED_SETTLEMENT",
+  );
+  const config = parseReceiptExecutionConfig(readOwnEnvValue(env, "RFQ_RECEIPT_CONFIG_JSON"));
+  if (!allowSimulatedSettlement && config.chains.length === 0) {
+    throw new Error("RFQ_RECEIPT_CONFIG_JSON must configure at least one chain when simulated settlement is disabled");
+  }
+  for (const chain of config.chains) {
+    if (chain.settlementAddress.toLowerCase() !== signerConfig.settlementAddress.toLowerCase()) {
+      throw new Error("Receipt settlement address must match RFQ_SETTLEMENT_ADDRESS used for EIP-712 signing");
+    }
+  }
+  return new RuntimeSettlementEvidenceProvider(config, allowSimulatedSettlement);
+}
+
+function readOptionalBoolean(value: string | undefined, defaultValue: boolean, name: string): boolean {
+  if (value === undefined || value.trim().length === 0) return defaultValue;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  throw new Error(`${name} must be true or false`);
 }
 
 function requiresExplicitSignerConfig(nodeEnv: string | undefined): boolean {

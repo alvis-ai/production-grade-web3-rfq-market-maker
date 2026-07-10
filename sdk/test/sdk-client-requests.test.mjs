@@ -159,6 +159,16 @@ test("RFQClient rejects unsafe submit requests before sending HTTP", async () =>
     );
 
     await assert.rejects(
+      client.submit({ quote, signature, txHash: "0x1234" }),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.message, "RFQ submit request txHash must be a 32-byte hex string");
+        return true;
+      },
+    );
+
+    await assert.rejects(
       client.submit({ quote, signature: malleateSignature(await validTypedDataSignature()) }),
       (error) => {
         assert.ok(error instanceof RFQClientError);

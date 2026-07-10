@@ -77,6 +77,16 @@ export interface ExecutionContext {
   quoteId: string;
 }
 
+export interface SettlementEvidence {
+  txHash: `0x${string}`;
+  blockNumber: number;
+  logIndex: number;
+}
+
+export interface SettlementEvidenceProvider {
+  resolve(request: SubmitQuoteRequest, context: ExecutionContext): Promise<SettlementEvidence>;
+}
+
 export interface ExecutionResult {
   response: SubmitQuoteResponse;
   settlementEventResult: ApplySettlementEventResult;
@@ -100,22 +110,31 @@ type CreateHedgeIntentResult =
 
 export class SkeletonExecutionService implements ExecutionService {
   private readonly deps: ExecutionServiceDeps;
+  private readonly evidenceProvider: SettlementEvidenceProvider;
 
-  constructor(deps: ExecutionServiceDeps) {
+  constructor(
+    deps: ExecutionServiceDeps,
+    evidenceProvider: SettlementEvidenceProvider = syntheticSettlementEvidenceProvider,
+  ) {
     assertExecutionServiceDeps(deps);
+    assertSettlementEvidenceProvider(evidenceProvider);
     this.deps = cloneExecutionServiceDeps(deps);
+    this.evidenceProvider = {
+      resolve: evidenceProvider.resolve.bind(evidenceProvider),
+    };
   }
 
   async submitQuote(request: SubmitQuoteRequest, context: ExecutionContext): Promise<ExecutionResult> {
     assertExecutionContext(context);
     const validatedRequest = validateSubmitQuoteRequest(request);
     const settlementVerification = await this.verifySettlement(validatedRequest, context);
-    const txHash = buildSyntheticTxHash(validatedRequest, context);
+    const evidence = await this.resolveSettlementEvidence(validatedRequest, context);
     const settlementEventResult = this.applySettlementEvent({
       quoteId: context.quoteId,
       quote: validatedRequest.quote,
-      txHash,
-      logIndex: 0,
+      txHash: evidence.txHash,
+      blockNumber: evidence.blockNumber,
+      logIndex: evidence.logIndex,
     });
 
     const inventoryPositions = this.readInventoryPositions(validatedRequest);
@@ -126,7 +145,7 @@ export class SkeletonExecutionService implements ExecutionService {
     return {
       response: {
         status: "accepted",
-        txHash,
+        txHash: evidence.txHash,
         settlementEventId: settlementEventResult.event.settlementEventId,
         hedgeOrderId: hedgeResult?.hedgeOrderId,
       },
@@ -137,6 +156,20 @@ export class SkeletonExecutionService implements ExecutionService {
       hedgeFailure,
       hedgeLagSeconds,
     };
+  }
+
+  private async resolveSettlementEvidence(
+    request: SubmitQuoteRequest,
+    context: ExecutionContext,
+  ): Promise<SettlementEvidence> {
+    try {
+      const evidence = await this.evidenceProvider.resolve(request, context);
+      assertSettlementEvidence(evidence, request);
+      return evidence;
+    } catch (error) {
+      if (error instanceof APIError) throw error;
+      throw new APIError("SETTLEMENT_UNAVAILABLE", "Settlement evidence is unavailable", 503);
+    }
   }
 
   private applySettlementEvent(input: ApplySettlementEventInput): ApplySettlementEventResult {
@@ -209,6 +242,61 @@ export class SkeletonExecutionService implements ExecutionService {
       return settlementVerification;
     } catch (error) {
       throw settlementVerificationFailure(error);
+    }
+  }
+}
+
+const syntheticSettlementEvidenceProvider: SettlementEvidenceProvider = {
+  async resolve(request, context) {
+    if (request.txHash !== undefined) {
+      throw new APIError(
+        "INVALID_REQUEST",
+        "txHash confirmation is not enabled by the simulated execution provider",
+        400,
+      );
+    }
+    return {
+      txHash: buildSyntheticTxHash(request, context),
+      blockNumber: 0,
+      logIndex: 0,
+    };
+  },
+};
+
+function assertSettlementEvidenceProvider(value: unknown): asserts value is SettlementEvidenceProvider {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("Execution service evidenceProvider must be an object");
+  }
+  if (typeof (value as Record<string, unknown>).resolve !== "function") {
+    throw new Error("Execution service evidenceProvider.resolve must be a function");
+  }
+}
+
+function assertSettlementEvidence(
+  value: unknown,
+  request: SubmitQuoteRequest,
+): asserts value is SettlementEvidence {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("Execution service settlement evidence must be an object");
+  }
+  const evidence = value as Record<string, unknown>;
+  const fields = ["txHash", "blockNumber", "logIndex"] as const;
+  const expected = new Set(fields);
+  for (const field of Object.keys(evidence)) {
+    if (!expected.has(field as typeof fields[number])) throw new Error(`Execution service settlement evidence contains unknown field ${field}`);
+  }
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(evidence, field)) throw new Error(`Execution service settlement evidence.${field} must be an own field`);
+  }
+  if (typeof evidence.txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(evidence.txHash)) {
+    throw new Error("Execution service settlement evidence.txHash must be a 32-byte hex string");
+  }
+  if (request.txHash !== undefined && evidence.txHash.toLowerCase() !== request.txHash.toLowerCase()) {
+    throw new Error("Execution service settlement evidence.txHash must match the submitted txHash");
+  }
+  for (const field of ["blockNumber", "logIndex"] as const) {
+    if (!Number.isSafeInteger(evidence[field]) || Number(evidence[field]) < 0) {
+      throw new Error(`Execution service settlement evidence.${field} must be a non-negative safe integer`);
     }
   }
 }
@@ -554,6 +642,9 @@ function isNonEmptyString(value: unknown): value is string {
 export function buildSyntheticTxHash(request: SubmitQuoteRequest, context: ExecutionContext): `0x${string}` {
   assertExecutionContext(context);
   const validatedRequest = validateSubmitQuoteRequest(request);
+  if (validatedRequest.txHash !== undefined) {
+    throw new APIError("INVALID_REQUEST", "Synthetic tx hash generation does not accept txHash", 400);
+  }
   const payload = JSON.stringify({
     quoteId: context.quoteId,
     quote: validatedRequest.quote,

@@ -426,7 +426,25 @@ export class QuoteService {
     await this.markStoredQuoteFailed(quoteId, errorCode);
   }
 
-  async requireSubmittableSignedQuote(quote: SignedQuote, signature: `0x${string}`): Promise<string> {
+  async requireSubmittableSignedQuote(
+    quote: SignedQuote,
+    signature: `0x${string}`,
+    options: { allowExpired?: boolean } = {},
+  ): Promise<string> {
+    if (typeof options !== "object" || options === null || Array.isArray(options)) {
+      throw new APIError("INVALID_REQUEST", "Submit quote lookup options must be an object", 400);
+    }
+    const unknownOption = Object.keys(options).find((field) => field !== "allowExpired");
+    if (unknownOption) {
+      throw new APIError("INVALID_REQUEST", `Submit quote lookup options contain unknown field ${unknownOption}`, 400);
+    }
+    if ("allowExpired" in options && !Object.prototype.hasOwnProperty.call(options, "allowExpired")) {
+      throw new APIError("INVALID_REQUEST", "Submit quote lookup allowExpired must be an own field", 400);
+    }
+    if (options.allowExpired !== undefined && typeof options.allowExpired !== "boolean") {
+      throw new APIError("INVALID_REQUEST", "Submit quote lookup allowExpired must be a boolean", 400);
+    }
+    const allowExpired = options.allowExpired ?? false;
     const validatedSubmitRequest = validateSubmitQuoteRequest({ quote, signature }, { allowExpired: true });
     const validatedQuote = validatedSubmitRequest.quote;
     const record = await this.findSignedQuoteByChainUserNonce(
@@ -443,10 +461,10 @@ export class QuoteService {
     if (record.status === "failed") {
       throw new APIError("QUOTE_FAILED", "Quote already failed", 409);
     }
-    if (record.status === "expired") {
+    if (record.status === "expired" && !allowExpired) {
       throw new APIError("QUOTE_EXPIRED", "Quote expired", 409);
     }
-    if (record.deadline && record.deadline < Math.floor(Date.now() / 1000)) {
+    if (!allowExpired && record.deadline && record.deadline < Math.floor(Date.now() / 1000)) {
       await this.markQuoteExpiredBestEffort(record.quoteId);
       throw new APIError("QUOTE_EXPIRED", "Quote expired", 409);
     }

@@ -41,6 +41,7 @@ export function QuotePage() {
   const [chainTxHash, setChainTxHash] = useState<`0x${string}`>();
   const [walletState, setWalletState] = useState<WalletState>({});
   const [isWalletEnabled, setIsWalletEnabled] = useState(false);
+  const [isConfirmingOnchain, setIsConfirmingOnchain] = useState(false);
   const [error, setError] = useState<UIError>();
   const [isLoading, setIsLoading] = useState(false);
   const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));
@@ -56,6 +57,7 @@ export function QuotePage() {
     setPnlSummary(undefined);
     setSubmitResult(undefined);
     setChainTxHash(undefined);
+    setIsConfirmingOnchain(false);
     setError(undefined);
   }, []);
 
@@ -84,14 +86,39 @@ export function QuotePage() {
     setError(nextError);
   }, []);
 
-  const handleChainTxHash = useCallback((txHash: `0x${string}`) => {
-    setChainTxHash(txHash);
-  }, []);
-
   const signedQuote = useMemo<Quote | undefined>(() => {
     if (!quote || !quotedRequest) return undefined;
     return buildQuoteFromResponse(quotedRequest, quote);
   }, [quote, quotedRequest]);
+
+  const handleChainTxHash = useCallback((txHash: `0x${string}`) => {
+    setChainTxHash(txHash);
+    if (!quote || !signedQuote) return;
+    const quoteSession = quoteSessionVersion.current;
+    setIsConfirmingOnchain(true);
+    setError(undefined);
+    void (async () => {
+      try {
+        const response = await rfqClient.submit({
+          quote: signedQuote,
+          signature: quote.signature,
+          txHash,
+        });
+        if (quoteSessionVersion.current !== quoteSession) return;
+        setSubmitResult(response);
+        const status = await rfqClient.getQuote(quote.quoteId);
+        if (quoteSessionVersion.current !== quoteSession) return;
+        setQuoteStatus(status);
+        await loadPostTradeSurfaces(status, response);
+      } catch (caught) {
+        if (quoteSessionVersion.current === quoteSession) {
+          setError(toUIError(caught, "Onchain confirmation failed"));
+        }
+      } finally {
+        if (quoteSessionVersion.current === quoteSession) setIsConfirmingOnchain(false);
+      }
+    })();
+  }, [quote, signedQuote]);
 
   useEffect(() => {
     if (!quote) return undefined;
@@ -225,7 +252,7 @@ export function QuotePage() {
                   <WalletSubmitControl
                     quote={quote}
                     signedQuote={signedQuote}
-                    canSubmit={canSubmit}
+                    canSubmit={canSubmit && !isConfirmingOnchain}
                     onWalletChange={handleWalletChange}
                     onTxHash={handleChainTxHash}
                     onError={handleOnchainError}

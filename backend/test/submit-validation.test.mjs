@@ -27,18 +27,29 @@ const canonicalSignature = `0x${"11".repeat(64)}1b`;
 const highSSignature = `0x${"11".repeat(32)}${"f".repeat(64)}1b`;
 
 test("validateSubmitQuoteRequest parses valid signed quote submits", () => {
+  const txHash = `0x${"ab".repeat(32)}`;
   const parsed = validateSubmitQuoteRequest({
     quote: signedQuote,
     signature: canonicalSignature,
+    txHash: txHash.toUpperCase().replace("0X", "0x"),
   });
 
   assert.deepEqual(parsed, {
     quote: signedQuote,
     signature: canonicalSignature,
+    txHash,
   });
 });
 
 test("validateSubmitQuoteRequest rejects unsafe submit payloads before execution", () => {
+  const inheritedTxHash = { quote: signedQuote, signature: canonicalSignature };
+  Object.setPrototypeOf(inheritedTxHash, { txHash: `0x${"ab".repeat(32)}` });
+  assertAPIError(
+    () => validateSubmitQuoteRequest(inheritedTxHash),
+    "INVALID_REQUEST",
+    "Submit request txHash must be an own field when provided",
+    400,
+  );
   assertAPIError(
     () => validateSubmitQuoteRequest({ quote: signedQuote, signature: canonicalSignature, relayer: "0x1234" }),
     "INVALID_REQUEST",
@@ -103,10 +114,22 @@ test("validateSubmitQuoteRequest rejects unsafe submit payloads before execution
     "Quote expired",
     409,
   );
+  const confirmedExpired = validateSubmitQuoteRequest({
+    quote: { ...signedQuote, deadline: Math.floor(Date.now() / 1000) - 1 },
+    signature: canonicalSignature,
+    txHash: `0x${"ab".repeat(32)}`,
+  });
+  assert.equal(confirmedExpired.txHash, `0x${"ab".repeat(32)}`);
   assertAPIError(
     () => validateSubmitQuoteRequest({ quote: signedQuote, signature: "0x1234" }),
     "INVALID_REQUEST",
     "signature must be 65 bytes",
+    400,
+  );
+  assertAPIError(
+    () => validateSubmitQuoteRequest({ quote: signedQuote, signature: canonicalSignature, txHash: "0x1234" }),
+    "INVALID_REQUEST",
+    "txHash must be a 32-byte hex string",
     400,
   );
   assertAPIError(

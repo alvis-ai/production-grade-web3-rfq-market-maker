@@ -38,6 +38,7 @@ export interface QuoteResponse {
 export interface SubmitQuoteRequest {
   quote: Quote;
   signature: `0x${string}`;
+  txHash?: `0x${string}`;
 }
 
 export interface SubmitQuoteResponse {

@@ -2178,8 +2178,9 @@ grep -q 'async submit' sdk/src/client.ts
 grep -q 'assertQuoteRequest(request)' sdk/src/client.ts
 grep -q 'quoteRequestFields' sdk/src/client.ts
 grep -q 'submitRequestFields' sdk/src/client.ts
+grep -q 'submitRequestOptionalFields = \["txHash"\]' sdk/src/client.ts
 grep -q 'assertSubmitQuoteRequest(request)' sdk/src/client.ts
-grep -q 'assertExactFields(request, submitRequestFields, "RFQ submit request")' sdk/src/client.ts
+grep -q 'assertExactFields(request, submitRequestFields, "RFQ submit request", submitRequestOptionalFields)' sdk/src/client.ts
 grep -q 'hasOwnProperty.call(payload, field)' sdk/src/client.ts
 grep -q 'buildSubmitQuoteArgs(request.quote, request.signature)' sdk/src/client.ts
 grep -q 'async getQuote' sdk/src/client.ts
@@ -2719,7 +2720,7 @@ grep -q 'RFQ API returns filled and failed hedge outcomes from the hedge status 
 grep -q 'HEDGE_NOT_FOUND' docs/api/openapi.yaml
 grep -q 'HEDGE_STORE_UNAVAILABLE' docs/api/openapi.yaml
 grep -q 'HEDGE_STORE_UNAVAILABLE' docs/api/errors.md
-grep -q 'Hedge intent creation failure does not roll back settlement' docs/api/openapi.yaml
+grep -q 'Hedge intent creation failure does not roll back an accepted settlement' docs/api/openapi.yaml
 grep -q 'getSettlementEvent' docs/api/openapi.yaml
 grep -q 'SettlementEventStatus' docs/api/openapi.yaml
 grep -q 'quoteHash' docs/api/openapi.yaml

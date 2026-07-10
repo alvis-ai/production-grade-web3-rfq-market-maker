@@ -26,6 +26,7 @@ env:
   RFQ_ENABLE_HSTS: "true"
   RFQ_TRUST_PROXY: "false"
   RFQ_MARKET_DATA_PROVIDER: static
+  RFQ_ALLOW_SIMULATED_SETTLEMENT: "false"
 
 signerSecret:
   name: rfq-backend-secrets
@@ -36,6 +37,11 @@ chainlinkConfigSecret:
   enabled: false
   name: rfq-backend-secrets
   key: RFQ_CHAINLINK_CONFIG_JSON
+
+receiptConfigSecret:
+  enabled: true
+  name: rfq-backend-secrets
+  key: RFQ_RECEIPT_CONFIG_JSON
 
 resources:
   requests:

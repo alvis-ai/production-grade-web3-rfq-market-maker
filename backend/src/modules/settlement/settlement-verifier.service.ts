@@ -93,7 +93,7 @@ export class LocalSettlementVerifier implements SettlementVerifier {
       throw this.reverted("INVALID_CHAIN_ID", "Quote chain id is not enabled for settlement");
     }
 
-    if (quote.deadline < Math.floor(Date.now() / 1000)) {
+    if (input.request.txHash === undefined && quote.deadline < Math.floor(Date.now() / 1000)) {
       throw this.reverted("QUOTE_EXPIRED", "Quote expired before settlement verification");
     }
 

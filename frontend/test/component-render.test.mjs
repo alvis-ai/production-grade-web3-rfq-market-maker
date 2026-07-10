@@ -172,7 +172,7 @@ test("QuotePage component renders the initial trading workspace", async () => {
     "Quote State",
     "not requested",
     "Enable Wallet",
-    "Submit API",
+    "Simulate API",
     "Refresh",
     "0x0000000000000000000000000000000000000002",
     "0x0000000000000000000000000000000000000003",
@@ -185,7 +185,7 @@ test("QuotePage component renders the initial trading workspace", async () => {
   assert.match(markup, /aria-label="RFQ trading workspace"/);
   assert.match(markup, /value="1"/);
   assert.match(markup, /value="50"/);
-  assert.match(markup, /disabled="">Submit API<\/button>/);
+  assert.match(markup, /disabled="">Simulate API<\/button>/);
   assert.match(markup, /class="secondary-button" disabled="">Refresh<\/button>/);
 });
 
@@ -347,7 +347,7 @@ test("QuoteStatusPanel component renders post-trade state and wires actions", as
 
   const tree = QuoteStatusPanel(props);
   const buttons = findElements(tree, (element) => element.type === "button");
-  const submitButton = buttons.find((button) => textContent(button) === "Submit API");
+  const submitButton = buttons.find((button) => textContent(button) === "Simulate API");
   const onchainButton = buttons.find((button) => textContent(button) === "Mock Onchain");
   const refreshButton = buttons.find((button) => textContent(button) === "Refresh");
   assert.ok(submitButton);
@@ -373,6 +373,6 @@ test("QuoteStatusPanel component renders post-trade state and wires actions", as
     },
   });
   const emptyButtons = findElements(emptyTree, (element) => element.type === "button");
-  assert.equal(emptyButtons.find((button) => textContent(button) === "Submit API")?.props.disabled, true);
+  assert.equal(emptyButtons.find((button) => textContent(button) === "Simulate API")?.props.disabled, true);
   assert.equal(emptyButtons.find((button) => textContent(button) === "Refresh")?.props.disabled, true);
 });

@@ -45,6 +45,10 @@ test("buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes", () =
 
   assert.match(txHash, /^0x[0-9a-f]{64}$/);
   assert.equal(txHash, expectedHash);
+  assert.throws(
+    () => buildSyntheticTxHash({ ...request, txHash }, context),
+    /does not accept txHash/,
+  );
 });
 test("SkeletonExecutionService suppresses duplicate settlement side effects", async () => {
   const inventoryService = new InventoryService();

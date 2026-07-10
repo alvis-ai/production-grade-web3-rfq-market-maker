@@ -140,7 +140,7 @@ ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, st
 - 当前后端实现已暴露 quote 和 submit latency histogram，使用固定 bucket，不带 user、quoteId 或 wallet label。
 - Histogram observations must be finite numbers before mutation; finite negative latency values are clamped to zero, but `NaN` and `Infinity` are rejected so Prometheus output cannot contain non-numeric samples.
 - `rfq_quote_rejections_total` 只使用稳定内部 `reasonCode` 作为 label，不暴露阈值、金额、地址或 quoteId。
-- `rfq_hedge_lag_seconds` 使用无高基数 label 的 histogram，当前 reference path 记录 simulated settlement accepted 到 hedge intent queued 的耗时；生产版可复用同一指标记录异步 hedge queue 和 venue submit lag。
+- `rfq_hedge_lag_seconds` 使用无高基数 label 的 histogram，记录 settlement accepted 到 hedge intent queued 的耗时；生产版可复用同一指标记录异步 hedge queue 和 venue submit lag。
 - `rfq_quote_status_update_errors_total` 使用低基数 `target_status` label，记录 settlement 已接受后 quote 状态落库失败，或 settlement rejection 后 failed 状态落库失败的次数；该指标用于触发 reconciliation，而不是让已应用 settlement 回滚或掩盖原始拒绝原因。
 - `rfq_market_data_cache_hits_total` 和 `rfq_market_data_cache_misses_total` 记录 `/quote` 行情读取是否命中后台预热缓存。它们不带 pair、token 或 exchange label，避免把交易对、地址或 CEX symbol 写入高基数 Prometheus 维度；具体 pair 级诊断应通过日志、trace 或 ClickHouse 事件完成。
 - `rfq_rate_limited_total` 使用固定 `endpoint="quote|submit|status"` label，把具体 HTTP route 收敛到稳定端点组，避免把 quoteId、settlementEventId、hedgeOrderId 或动态路径写入 Prometheus。

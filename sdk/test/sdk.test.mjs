@@ -170,7 +170,7 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
       amountIn: quote.amountIn,
       slippageBps: 50,
     }), quoteResponse);
-    assert.deepEqual(await client.submit({ quote, signature }), submitResponse);
+    assert.deepEqual(await client.submit({ quote, signature, txHash: submitResponse.txHash }), submitResponse);
     assert.deepEqual(await client.getQuote("q_test"), statusResponse);
     assert.deepEqual(await client.getHedge(submitResponse.hedgeOrderId), hedgeResponse);
     assert.deepEqual(await client.getSettlement(submitResponse.settlementEventId), settlementResponse);
@@ -182,7 +182,7 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
     assert.equal(calls.length, 9);
     assert.equal(calls[0].url, "http://127.0.0.1:3000/quote");
     assert.equal(calls[0].init.headers["content-type"], "application/json");
-    assert.deepEqual(JSON.parse(calls[1].init.body), { quote, signature });
+    assert.deepEqual(JSON.parse(calls[1].init.body), { quote, signature, txHash: submitResponse.txHash });
     assert.equal(calls[2].url, "http://127.0.0.1:3000/quote/q_test");
     assert.equal(calls[3].url, "http://127.0.0.1:3000/hedges/h_1_00000003_000001");
     assert.equal(calls[4].url, "http://127.0.0.1:3000/settlements/se_1_22222222_0");
