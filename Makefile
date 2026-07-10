@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test typescript-check contract-build contract-test smoke-api smoke-api-local
+.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -42,6 +42,7 @@ help:
 	@echo "  contract-test   Run Foundry contract tests offline"
 	@echo "  smoke-api       Exercise health, quote, submit, and metrics endpoints"
 	@echo "  smoke-api-local Build, start backend locally, run smoke-api, and stop backend"
+	@echo "  db-migrate      Run pending database migrations"
 
 verify:
 	@sh scripts/verify.sh
@@ -162,3 +163,6 @@ smoke-api:
 
 smoke-api-local: backend-build
 	@sh scripts/smoke-api-local.sh
+
+db-migrate: backend-build
+	@node backend/dist/db/migrate.js

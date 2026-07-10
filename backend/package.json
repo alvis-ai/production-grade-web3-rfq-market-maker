@@ -4,16 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && mkdir -p dist/db/migrations && cp src/db/migrations/*.sql dist/db/migrations/",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
+    "@rfq-market-maker/sdk": "workspace:*",
     "fastify": "^4.28.1",
+    "pg": "^8.13.0",
     "viem": "^2.21.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
     "typescript": "^5.5.0"
   }
 }

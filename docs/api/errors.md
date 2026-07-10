@@ -16,7 +16,7 @@
 
 | Code | HTTP Status | Description | User Action |
 | --- | ---: | --- | --- |
-| `INVALID_REQUEST` | 400 / 403 / 404 / 413 / 415 | 请求字段缺失、JSON 格式错误、CORS origin 不在 allowlist、未知路由或方法、body 超限、content type 错误、地址格式错误或 amount 无效 | 修正请求参数 |
+| `INVALID_REQUEST` | 400 / 401 / 403 / 404 / 413 / 415 | 请求字段缺失、API key 缺失或无效、JSON 格式错误、CORS origin 不在 allowlist、未知路由或方法、body 超限、content type 错误、地址格式错误或 amount 无效 | 修正请求参数或认证信息 |
 | `UNSUPPORTED_CHAIN` | 400 | chainId 不在支持范围 | 切换网络 |
 | `UNSUPPORTED_TOKEN` | 400 | token 不在 whitelist | 更换资产 |
 | `AMOUNT_TOO_SMALL` | 400 | amount 小于系统最小交易量 | 提高交易数量 |

@@ -7,7 +7,7 @@ import type { MarketSnapshotStore } from "../market-data/market-snapshot.reposit
 import type { MarketSnapshot, QuoteRequest, SignedQuote } from "../../shared/types/rfq.js";
 import type { SignerService } from "../signer/signer.service.js";
 import type { HedgeIntentService } from "../hedge/hedge.service.js";
-import type { InventoryService } from "../inventory/inventory.service.js";
+import type { IInventoryService } from "../inventory/inventory.service.js";
 import type { MetricsService } from "../metrics/metrics.service.js";
 import type { PnlStore } from "../pnl/pnl.service.js";
 import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
@@ -48,7 +48,7 @@ export interface ReadinessServiceDeps {
   signerService: SignerService;
   quoteRepository: QuoteRepository;
   riskDecisionStore: RiskDecisionStore;
-  inventoryService: InventoryService;
+  inventoryService: IInventoryService;
   hedgeService: HedgeIntentService;
   settlementEventService: SettlementEventStore;
   pnlService: PnlStore;

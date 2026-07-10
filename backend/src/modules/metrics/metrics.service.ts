@@ -69,6 +69,16 @@ export class MetricsService {
   private readonly quoteRejections = new Map<string, number>();
   private readonly inventoryBalances = new Map<string, InventoryMetricPosition>();
   private readonly realizedPnl = new Map<string, bigint>();
+  private priceCacheHits = 0;
+  private priceCacheMisses = 0;
+
+  recordMarketDataCacheHit(): void {
+    this.priceCacheHits += 1;
+  }
+
+  recordMarketDataCacheMiss(): void {
+    this.priceCacheMisses += 1;
+  }
 
   checkHealth(): void {
     this.renderPrometheus();
@@ -255,6 +265,12 @@ export class MetricsService {
       "# HELP rfq_realized_pnl_token_out Total realized spread PnL by chain and output token.",
       "# TYPE rfq_realized_pnl_token_out gauge",
       ...this.renderRealizedPnl(),
+      "# HELP rfq_market_data_cache_hits_total Total cache hits for market data snapshots.",
+      "# TYPE rfq_market_data_cache_hits_total counter",
+      `rfq_market_data_cache_hits_total ${this.priceCacheHits}`,
+      "# HELP rfq_market_data_cache_misses_total Total cache misses for market data snapshots.",
+      "# TYPE rfq_market_data_cache_misses_total counter",
+      `rfq_market_data_cache_misses_total ${this.priceCacheMisses}`,
       "",
     ];
 

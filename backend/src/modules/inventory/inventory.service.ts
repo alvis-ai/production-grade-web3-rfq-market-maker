@@ -48,7 +48,16 @@ export const defaultInventoryServiceConfig: InventoryServiceConfig = {
   maxNegativeSkewBps: 50,
 };
 
-export class InventoryService {
+export interface IInventoryService {
+  checkHealth(): void;
+  applySettlement(delta: SettlementDelta): void;
+  rebuildFromSettlements(deltas: readonly SettlementDelta[]): void;
+  projectSettlement(input: InventoryProjectionInput): InventoryProjection;
+  calculateQuoteSkewBps(input: InventorySkewInput): number;
+  getPosition(chainId: number, token: Address): InventoryPosition;
+}
+
+export class InventoryService implements IInventoryService {
   private readonly config: InventoryServiceConfig;
   private readonly balances = new Map<string, bigint>();
 

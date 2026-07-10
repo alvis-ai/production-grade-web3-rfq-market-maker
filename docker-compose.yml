@@ -3,6 +3,9 @@ services:
     build:
       context: .
       dockerfile: infra/docker/backend.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       HOST: 0.0.0.0
       PORT: 3000
@@ -14,6 +17,7 @@ services:
       RFQ_TRUST_PROXY: "false"
       RFQ_SIGNER_PRIVATE_KEY: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
       RFQ_SETTLEMENT_ADDRESS: 0x0000000000000000000000000000000000000004
+      DATABASE_URL: postgres://rfq:rfq@postgres:5432/rfq_market_maker
     ports:
       - "3000:3000"
 

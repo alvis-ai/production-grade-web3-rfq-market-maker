@@ -175,6 +175,16 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Market Data Cache",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 24, "w": 8, "h": 7 },
+      "targets": [
+        { "expr": "rate(rfq_market_data_cache_hits_total[5m])", "legendFormat": "cache hits/s", "refId": "A" },
+        { "expr": "rate(rfq_market_data_cache_misses_total[5m])", "legendFormat": "cache misses/s", "refId": "B" }
+      ]
     }
   ]
 }

@@ -112,6 +112,8 @@ Key metrics include:
 - `rfq_signer_requests_total`
 - `rfq_signer_errors_total`
 - `rfq_signer_latency_seconds`
+- `rfq_market_data_cache_hits_total`
+- `rfq_market_data_cache_misses_total`
 - `rfq_readiness_status`
 - `rfq_dependency_status`
 - `rfq_settlements_total`
@@ -141,6 +143,7 @@ Key metrics include:
 - Submit error alerting must compare errors with accepted settlements, rate-limit counters and settlement reverts before deciding whether to pause submit traffic.
 - Submit latency alerting should inspect verification, settlement event persistence, inventory, hedge and PnL work before lowering quote availability.
 - Signer throughput alerting should compare quote demand with `sign` operations; safe quote flow must never bypass the signer.
+- Market-data cache alerting should compare `rfq_market_data_cache_hits_total` and `rfq_market_data_cache_misses_total` before increasing quote limits; a cold cache points to disabled prefetch, stale CEX order book streams or unsupported pair configuration.
 - Rate-limit alerting should inspect `endpoint` first, then separate abuse, broken client retries and real demand before changing global limits.
 - Settlement throughput alerting should compare accepted submits with new settlement events to distinguish true settlement stalls from duplicate replay traffic.
 - Hedge intent throughput alerting should compare settlements with hedge intents because hedge lag histograms are silent when no intent is created.

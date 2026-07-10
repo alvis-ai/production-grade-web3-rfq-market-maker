@@ -1,15 +1,23 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { privateKeyToAccount } from "viem/accounts";
 import { SkeletonExecutionService } from "./modules/execution/execution.service.js";
+import { getPool, endPool } from "./db/pool.js";
 import { HedgeService, type HedgeIntentService } from "./modules/hedge/hedge.service.js";
 import { ReadinessService } from "./modules/health/readiness.service.js";
 import { InventoryService } from "./modules/inventory/inventory.service.js";
 import { StaticMarketDataService, type MarketDataService } from "./modules/market-data/market-data.service.js";
 import { InMemoryMarketSnapshotRepository, type MarketSnapshotStore } from "./modules/market-data/market-snapshot.repository.js";
+import { PostgresMarketSnapshotStore } from "./modules/market-data/postgres-market-snapshot.repository.js";
+import { CachedMarketDataService } from "./modules/market-data/cached-market-data.service.js";
+import { SharedPriceCache } from "./modules/market-data/price-cache.js";
+import { BackgroundPriceUpdater } from "./modules/market-data/price-updater.js";
+import { CEXOrderBookMonitor } from "./modules/market-data/cex-orderbook/cex-orderbook-monitor.js";
+import type { OrderBookPairConfig } from "./modules/market-data/cex-orderbook/orderbook.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { PnlService, type PnlStore, type RecordPnlInput } from "./modules/pnl/pnl.service.js";
 import { FormulaPricingEngine, type PricingEngine } from "./modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository, type QuoteRepository } from "./modules/quote/quote.repository.js";
+import { PostgresQuoteRepository } from "./modules/quote/postgres-quote.repository.js";
 import { defaultQuoteServiceConfig, QuoteService } from "./modules/quote/quote.service.js";
 import {
   InMemoryRateLimiter,
@@ -19,6 +27,7 @@ import {
   type RateLimitedEndpoint,
 } from "./modules/rate-limit/rate-limit.service.js";
 import { InMemoryRiskDecisionRepository, type RiskDecisionStore } from "./modules/risk/risk-decision.repository.js";
+import { PostgresRiskDecisionStore } from "./modules/risk/postgres-risk-decision.repository.js";
 import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine, type RoutingEngine } from "./modules/routing/routing.engine.js";
 import { SettlementEventService, type SettlementEventStore } from "./modules/settlement/settlement-event.service.js";
@@ -38,6 +47,7 @@ import { APIError, toAPIError } from "./shared/errors/api-error.js";
 import { validateQuoteRequest } from "./shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.js";
 import { isCanonicalUtcIsoTimestamp } from "./shared/validation/timestamp.js";
+import { defaultStaticMarketDataConfig } from "./modules/market-data/market-data.service.js";
 import { simulatedPnlModelDescription } from "./shared/types/rfq.js";
 import type { PnlTradeRecord } from "./shared/types/rfq.js";
 
@@ -164,17 +174,30 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
 
   const hedgeService = options.hedgeService ?? new HedgeService();
-  const marketDataService = options.marketDataService ?? new StaticMarketDataService();
-  const marketSnapshotStore = options.marketSnapshotStore ?? new InMemoryMarketSnapshotRepository();
   const metricsService = new MetricsService();
+  const rawMarketDataService = options.marketDataService ?? new StaticMarketDataService();
+  const defaultPriceCache = options.marketDataService ? undefined : new SharedPriceCache();
+  // Only wrap with cache when using the default service (not a test mock)
+  const [marketDataService, priceCache] = options.marketDataService
+    ? [rawMarketDataService, undefined as SharedPriceCache | undefined]
+    : [new CachedMarketDataService(rawMarketDataService, defaultPriceCache!, metricsService) as MarketDataService,
+       defaultPriceCache];
+  const postgresPool = shouldUsePostgresPersistence(options) ? getPool() : undefined;
+  const marketSnapshotStore = options.marketSnapshotStore ?? (
+    postgresPool ? new PostgresMarketSnapshotStore(postgresPool) : new InMemoryMarketSnapshotRepository()
+  );
   let localSignerConfig: LocalEIP712SignerConfig | undefined;
   const getLocalSignerConfig = () => {
     localSignerConfig ??= readSignerConfig();
     return localSignerConfig;
   };
   const signerService = options.signerService ?? new LocalEIP712SignerService(getLocalSignerConfig());
-  const quoteRepository = options.quoteRepository ?? new InMemoryQuoteRepository();
-  const riskDecisionStore = options.riskDecisionStore ?? new InMemoryRiskDecisionRepository();
+  const quoteRepository = options.quoteRepository ?? (
+    postgresPool ? new PostgresQuoteRepository(postgresPool) : new InMemoryQuoteRepository()
+  );
+  const riskDecisionStore = options.riskDecisionStore ?? (
+    postgresPool ? new PostgresRiskDecisionStore(postgresPool) : new InMemoryRiskDecisionRepository()
+  );
   const routingEngine = options.routingEngine ?? new InternalInventoryRoutingEngine();
   const pricingEngine = options.pricingEngine ?? new FormulaPricingEngine();
   const riskEngine = options.riskEngine ?? new BasicRiskEngine();
@@ -209,6 +232,41 @@ export function buildServer(options: BuildServerOptions = {}) {
     ...defaultQuoteServiceConfig,
     quoteTtlSeconds,
   });
+  // Start background price updater for managed pairs (only when using default service)
+  const priceUpdaterPairs = readMarketDataPairs();
+  const priceUpdater = !options.marketDataService && priceCache && priceUpdaterPairs.length > 0
+    ? new BackgroundPriceUpdater(rawMarketDataService, priceCache, {
+        pairs: priceUpdaterPairs,
+        intervalMs: 250,
+        maxAgeMs: 5_000,
+      })
+    : undefined;
+  priceUpdater?.start();
+
+  // Start CEX order book monitor (only when using default service)
+  const cexPairs = readCexOrderBookPairs();
+  const cexMonitor = !options.marketDataService && priceCache && cexPairs.length > 0
+    ? new CEXOrderBookMonitor(priceCache, {
+        pairs: cexPairs,
+        exchanges: ["binance", "coinbase"],
+        depthRangeBps: 50,
+        flushIntervalMs: 100,
+        volatilitySampleSize: 10,
+      })
+    : undefined;
+  cexMonitor?.start();
+  if (priceUpdater || cexMonitor) {
+    server.addHook("onClose", async () => {
+      priceUpdater?.stop();
+      cexMonitor?.stop();
+    });
+  }
+  if (postgresPool) {
+    server.addHook("onClose", async () => {
+      await endPool();
+    });
+  }
+
   const readinessService = new ReadinessService({
     hedgeService,
     inventoryService,
@@ -935,6 +993,20 @@ function assertBuildServerOptions(options: unknown): asserts options is BuildSer
   assertOptionalOwnFields(options, buildServerOptionFields, "options");
 }
 
+function shouldUsePostgresPersistence(options: BuildServerOptions): boolean {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const databaseUrl = readOwnEnvValue(env, "DATABASE_URL");
+  if (!databaseUrl || databaseUrl.trim().length === 0) {
+    return false;
+  }
+
+  return (
+    options.marketSnapshotStore === undefined ||
+    options.quoteRepository === undefined ||
+    options.riskDecisionStore === undefined
+  );
+}
+
 function normalizeRateLimitOption(rateLimit: BuildServerOptions["rateLimit"]): RateLimitConfig | false {
   if (rateLimit === false) {
     return false;
@@ -1160,6 +1232,124 @@ export async function startServer() {
 
 function runtimeProcess(): RuntimeProcess | undefined {
   return (globalThis as { process?: RuntimeProcess }).process;
+}
+
+/**
+ * Returns default market data pairs for background price pre-fetching.
+ * Reads from RFQ_MARKET_PAIRS env var (format: chainId:tokenIn:tokenOut,chainId:tokenIn:tokenOut)
+ * or falls back to the static market data config.
+ */
+function readMarketDataPairs(): Array<{ chainId: number; tokenIn: `0x${string}`; tokenOut: `0x${string}`; user: `0x${string}`; amountIn: string; slippageBps: number }> {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const configured = env && Object.prototype.hasOwnProperty.call(env, "RFQ_MARKET_PAIRS")
+    ? env.RFQ_MARKET_PAIRS
+    : undefined;
+
+  if (configured && configured.trim().length > 0) {
+    return configured.split(",").map((pairStr) => {
+      const parts = pairStr.trim().split(":");
+      if (parts.length !== 3) {
+        throw new Error(`Invalid RFQ_MARKET_PAIRS entry: ${pairStr}. Expected format: chainId:tokenIn:tokenOut`);
+      }
+      const chainId = readPairChainId(parts[0], "RFQ_MARKET_PAIRS", pairStr);
+      const tokenIn = readPairAddress(parts[1], "RFQ_MARKET_PAIRS", pairStr);
+      const tokenOut = readPairAddress(parts[2], "RFQ_MARKET_PAIRS", pairStr);
+      assertPairDistinctTokens(tokenIn, tokenOut, "RFQ_MARKET_PAIRS", pairStr);
+      return {
+        chainId,
+        tokenIn,
+        tokenOut,
+        user: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amountIn: "1",
+        slippageBps: 50,
+      };
+    });
+  }
+
+  // Fall back to default static pairs
+  return defaultStaticMarketDataConfig.supportedPairs.map((pair) => ({
+    chainId: pair.chainId,
+    tokenIn: pair.tokenIn,
+    tokenOut: pair.tokenOut,
+    user: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+    amountIn: "1",
+    slippageBps: 50,
+  }));
+}
+
+/**
+ * Reads CEX order book pairs from environment.
+ * Format: RFQ_CEX_PAIRS=chainId:tokenIn:tokenOut:cexSymbol,...
+ * Example: RFQ_CEX_PAIRS=1:0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2:0xdAC17F958D2ee523a2206206994597C13D831ec7:ETHUSDT
+ */
+function readCexOrderBookPairs(): OrderBookPairConfig[] {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const configured = env && Object.prototype.hasOwnProperty.call(env, "RFQ_CEX_PAIRS")
+    ? env.RFQ_CEX_PAIRS
+    : undefined;
+
+  if (!configured || configured.trim().length === 0) return [];
+
+  return configured.split(",").map((pairStr) => {
+    const parts = pairStr.trim().split(":");
+    if (parts.length !== 4) {
+      throw new Error(
+        `Invalid RFQ_CEX_PAIRS entry: ${pairStr}. Expected format: chainId:tokenIn:tokenOut:cexSymbol`,
+      );
+    }
+    const chainId = readPairChainId(parts[0], "RFQ_CEX_PAIRS", pairStr);
+    const tokenIn = readPairAddress(parts[1], "RFQ_CEX_PAIRS", pairStr);
+    const tokenOut = readPairAddress(parts[2], "RFQ_CEX_PAIRS", pairStr);
+    assertPairDistinctTokens(tokenIn, tokenOut, "RFQ_CEX_PAIRS", pairStr);
+    const cexSymbol = parts[3].trim().toUpperCase();
+    if (!/^[A-Z0-9._-]{3,32}$/.test(cexSymbol)) {
+      throw new Error(`Invalid RFQ_CEX_PAIRS entry: ${pairStr}. cexSymbol must be 3-32 exchange symbol characters`);
+    }
+
+    return {
+      chainId,
+      tokenIn,
+      tokenOut,
+      cexSymbol,
+    };
+  });
+}
+
+function readPairChainId(value: string, envName: "RFQ_MARKET_PAIRS" | "RFQ_CEX_PAIRS", entry: string): number {
+  if (!/^[1-9][0-9]*$/.test(value.trim())) {
+    throw new Error(`Invalid ${envName} entry: ${entry}. chainId must be a positive base-10 integer`);
+  }
+
+  const chainId = Number(value);
+  if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+    throw new Error(`Invalid ${envName} entry: ${entry}. chainId must be a positive safe integer`);
+  }
+
+  return chainId;
+}
+
+function readPairAddress(
+  value: string,
+  envName: "RFQ_MARKET_PAIRS" | "RFQ_CEX_PAIRS",
+  entry: string,
+): `0x${string}` {
+  const normalized = value.trim().toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(normalized)) {
+    throw new Error(`Invalid ${envName} entry: ${entry}. token addresses must be 20-byte hex addresses`);
+  }
+
+  return normalized as `0x${string}`;
+}
+
+function assertPairDistinctTokens(
+  tokenIn: `0x${string}`,
+  tokenOut: `0x${string}`,
+  envName: "RFQ_MARKET_PAIRS" | "RFQ_CEX_PAIRS",
+  entry: string,
+): void {
+  if (tokenIn === tokenOut) {
+    throw new Error(`Invalid ${envName} entry: ${entry}. tokenIn and tokenOut must be distinct`);
+  }
 }
 
 const processLike = runtimeProcess();

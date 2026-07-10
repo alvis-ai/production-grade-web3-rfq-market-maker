@@ -118,6 +118,15 @@ groups:
           summary: RFQ signer p95 latency is above 500ms
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQMarketDataCacheCold
+        expr: increase(rfq_market_data_cache_misses_total[10m]) > 0 and increase(rfq_market_data_cache_hits_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ market data cache is not producing quote-path hits
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQReadinessDegraded
         expr: rfq_readiness_status{status="degraded"} == 1
         for: 2m
