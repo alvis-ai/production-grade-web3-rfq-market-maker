@@ -134,6 +134,8 @@ RFQ_BODY_LIMIT_BYTES=32768
 RFQ_CORS_ALLOWED_ORIGINS=http://localhost:5173
 RFQ_ENABLE_HSTS=false
 RFQ_TRUST_PROXY=false
+RFQ_RATE_LIMIT_BACKEND=memory
+# RFQ_REDIS_URL=redis://127.0.0.1:6379/0
 VITE_RFQ_API_BASE_URL=http://localhost:3000
 VITE_RFQ_SETTLEMENT_ADDRESS=0x...
 VITE_WALLETCONNECT_PROJECT_ID=00000000000000000000000000000000
@@ -147,7 +149,7 @@ RFQ_SIGNER_PRIVATE_KEY=0x...
 RFQ_SETTLEMENT_ADDRESS=0x...
 ```
 
-The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract. The default settlement verifier derives its trusted signer address and verifying contract from the same `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` startup config, then recovers the EIP-712 signer during `/submit` before settlement evidence is consumed. `HOST` defaults to `127.0.0.1` and must not contain whitespace; `PORT` defaults to `3000` and must be a base-10 integer from 1 to 65535. Backend startup reads only own environment fields, so prototype-backed `HOST`, `PORT`, `RFQ_QUOTE_TTL_SECONDS`, signer, CORS, HSTS or proxy values are treated as unset. `RFQ_QUOTE_TTL_SECONDS` controls the signed quote lifetime and must be a base-10 integer from 1 to 3600; keep it short enough to limit stale price execution. `RFQ_BODY_LIMIT_BYTES` controls the maximum JSON request body size and must be a base-10 integer from 1024 to 1048576. `RFQ_CORS_ALLOWED_ORIGINS` is a comma-separated allowlist of HTTP(S) URL origins that may call the API; startup rejects entries with paths, query strings, fragments, credentials, or wildcards, then normalizes each accepted origin with `URL.origin`. `RFQ_ENABLE_HSTS` must only be enabled when the public API is served through HTTPS. `RFQ_TRUST_PROXY` defaults to `false`; only enable it when a trusted reverse proxy or ingress strips untrusted `x-forwarded-for` input and writes the client IP. `VITE_RFQ_API_BASE_URL` configures the browser API endpoint and must be an absolute HTTP(S) URL with an optional path prefix, no credentials, no wildcard host, and no query string or fragment. `VITE_RFQ_SETTLEMENT_ADDRESS` configures the browser-side `RFQSettlement.submitQuote` target. `VITE_WALLETCONNECT_PROJECT_ID` configures RainbowKit wallet connection and must be a 128-character-or-shorter safe string containing only letters, numbers, underscore, or hyphen.
+The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract. The default settlement verifier derives its trusted signer address and verifying contract from the same `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` startup config, then recovers the EIP-712 signer during `/submit` before settlement evidence is consumed. `HOST` defaults to `127.0.0.1` and must not contain whitespace; `PORT` defaults to `3000` and must be a base-10 integer from 1 to 65535. Backend startup reads only own environment fields, so prototype-backed `HOST`, `PORT`, `RFQ_QUOTE_TTL_SECONDS`, signer, CORS, HSTS, proxy or Redis values are treated as unset. `RFQ_QUOTE_TTL_SECONDS` controls the signed quote lifetime and must be a base-10 integer from 1 to 3600; keep it short enough to limit stale price execution. `RFQ_BODY_LIMIT_BYTES` controls the maximum JSON request body size and must be a base-10 integer from 1024 to 1048576. `RFQ_CORS_ALLOWED_ORIGINS` is a comma-separated allowlist of HTTP(S) URL origins that may call the API; startup rejects entries with paths, query strings, fragments, credentials, or wildcards, then normalizes each accepted origin with `URL.origin`. `RFQ_ENABLE_HSTS` must only be enabled when the public API is served through HTTPS. `RFQ_TRUST_PROXY` defaults to `false`; only enable it when a trusted reverse proxy or ingress strips untrusted `x-forwarded-for` input and writes the client IP. `VITE_RFQ_API_BASE_URL` configures the browser API endpoint and must be an absolute HTTP(S) URL with an optional path prefix, no credentials, no wildcard host, and no query string or fragment. `VITE_RFQ_SETTLEMENT_ADDRESS` configures the browser-side `RFQSettlement.submitQuote` target. `VITE_WALLETCONNECT_PROJECT_ID` configures RainbowKit wallet connection and must be a 128-character-or-shorter safe string containing only letters, numbers, underscore, or hyphen.
 
 Local development permits synthetic settlement only when `RFQ_ALLOW_SIMULATED_SETTLEMENT=true`. In receipt-confirmed mode the wallet broadcasts `RFQSettlement.submitQuote`, then sends the resulting `txHash` to `POST /submit`. The backend treats that hash only as an RPC lookup key: it waits for configured confirmations, verifies transaction `from`, `to`, and decoded `submitQuote` calldata against the stored quote/signature, requires a successful receipt, and requires exactly one matching `QuoteSettled` event before inventory, hedge, PnL, or quote-status side effects.
 
@@ -178,19 +180,20 @@ Local ports:
 
 ## Production Configuration
 
-When `NODE_ENV` is set to any non-local environment such as `production` or `staging`, the backend refuses to start unless `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` are explicitly configured. It also defaults `RFQ_ALLOW_SIMULATED_SETTLEMENT` to `false` and requires at least one valid chain in `RFQ_RECEIPT_CONFIG_JSON`. The signer private key must be a 32-byte hex string and the settlement contract must be a 20-byte hex address; every receipt chain settlement address must match the EIP-712 settlement address. The built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`; the synthetic settlement fallback has the same local-only boundary.
+When `NODE_ENV` is set to any non-local environment such as `production` or `staging`, the backend refuses to start unless `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` are explicitly configured. It also defaults `RFQ_ALLOW_SIMULATED_SETTLEMENT` to `false`, requires at least one valid chain in `RFQ_RECEIPT_CONFIG_JSON`, forces `RFQ_RATE_LIMIT_BACKEND=redis`, and requires a valid `RFQ_REDIS_URL`. The signer private key must be a 32-byte hex string and the settlement contract must be a 20-byte hex address; every receipt chain settlement address must match the EIP-712 settlement address. The built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`; the synthetic settlement and process-local rate-limit fallbacks have the same local-only boundary.
 
-Leave `RFQ_TRUST_PROXY=false` unless the public API is behind a trusted load balancer or ingress that removes incoming spoofed `x-forwarded-for` headers and sets the canonical client address. When enabled, the rate limiter keys by the first `x-forwarded-for` entry after enforcing the 128 character limit and `[A-Za-z0-9_.:-]` character set; otherwise it uses the direct socket IP.
+Leave `RFQ_TRUST_PROXY=false` unless the public API is behind a trusted load balancer or ingress that removes incoming spoofed `x-forwarded-for` headers and sets the canonical client address. When enabled, the rate limiter keys by the first `x-forwarded-for` entry after enforcing the 128 character limit and `[A-Za-z0-9_.:-]` character set; otherwise it uses the direct socket IP. Redis uses one atomic Lua operation for counter, TTL and limit decisions across replicas. Redis errors return `RATE_LIMIT_UNAVAILABLE`/503 and degrade `rateLimitStore` readiness; the gateway never silently fails open.
 
 Kubernetes deployments load these values from `rfq-backend-secrets`. Replace the placeholders in `infra/k8s/backend-secret.yaml` before applying manifests, or create the same Secret out of band:
 
 ```sh
 kubectl -n rfq-market-maker create secret generic rfq-backend-secrets \
   --from-literal=RFQ_SIGNER_PRIVATE_KEY=0x... \
-  --from-literal=RFQ_SETTLEMENT_ADDRESS=0x...
+  --from-literal=RFQ_SETTLEMENT_ADDRESS=0x... \
+  --from-literal=RFQ_REDIS_URL=rediss://user:password@redis.example.com:6380/0
 ```
 
-The Helm chart expects the same keys through `signerSecret.name`, `signerSecret.privateKeyKey` and `signerSecret.settlementAddressKey`.
+The Helm chart expects signer keys through `signerSecret` and the Redis URL through `redisSecret.name` / `redisSecret.urlKey`.
 
 Local API smoke path:
 

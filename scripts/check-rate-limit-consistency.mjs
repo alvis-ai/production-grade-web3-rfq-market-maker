@@ -4,11 +4,14 @@ import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 
 const rateLimiterSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
+const redisRateLimiterSource = await readFile("backend/src/modules/rate-limit/redis-rate-limit.service.ts", "utf8");
 const mainSource = await readFile("backend/src/main.ts", "utf8");
 const apiGatewayEnvTestSource = await readFile("backend/test/api-gateway-env.test.mjs", "utf8");
 const apiGatewayTestSource = await readFile("backend/test/api-gateway.test.mjs", "utf8");
 const apiRateLimitTestSource = await readFile("backend/test/api-rate-limit.test.mjs", "utf8");
+const apiRedisRateLimitTestSource = await readFile("backend/test/api-redis-rate-limit.test.mjs", "utf8");
 const rateLimitTestSource = await readFile("backend/test/rate-limit.test.mjs", "utf8");
+const redisRateLimitTestSource = await readFile("backend/test/redis-rate-limit.test.mjs", "utf8");
 const sdkClientSource = await readFile("sdk/src/client.ts", "utf8");
 const sdkClientErrorsTestSource = await readFile("sdk/test/sdk-client-errors.test.mjs", "utf8");
 const frontendErrorSource = await readFile("frontend/src/lib/errors.ts", "utf8");
@@ -17,6 +20,12 @@ const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const errorDocsSource = await readFile("docs/api/errors.md", "utf8");
 const gatewayChapterSource = await readFile("book/Volume5-BackendEngineering/Chapter01-API-Gateway.md", "utf8");
 const readmeSource = await readFile("README.md", "utf8");
+const envExampleSource = await readFile(".env.example", "utf8");
+const composeSource = await readFile("docker-compose.yml", "utf8");
+const k8sConfigSource = await readFile("infra/k8s/configmap.yaml", "utf8");
+const k8sSecretSource = await readFile("infra/k8s/backend-secret.yaml", "utf8");
+const helmValuesSource = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
+const helmDeploymentSource = await readFile("infra/helm/rfq-market-maker/templates/deployment.yaml", "utf8");
 
 const defaults = extractDefaultRateLimitConfig(rateLimiterSource);
 
@@ -43,8 +52,36 @@ assertContains(rateLimiterSource, [
   "Rate limit ${field} must be a positive safe integer",
 ], "backend/src/modules/rate-limit/rate-limit.service.ts");
 
+assertContains(redisRateLimiterSource, [
+  "class RedisRateLimiter",
+  "implements RateLimiter",
+  'redis.call("GET", KEYS[1])',
+  'redis.call("SET", KEYS[1], 1, "PX", ARGV[1])',
+  'redis.call("INCR", KEYS[1])',
+  "if current >= tonumber(ARGV[2])",
+  "assertScriptResult(result)",
+  "normalizeRateLimitInput(input)",
+  "limitForRateLimitEndpoint",
+  "async checkHealth()",
+  'response !== "PONG"',
+  "lazyConnect: true",
+  "enableOfflineQueue: false",
+  "maxRetriesPerRequest: 1",
+  "RFQ_REDIS_URL must be a valid redis:// or rediss:// URL without a fragment",
+], "backend/src/modules/rate-limit/redis-rate-limit.service.ts");
+
 assertContains(mainSource, [
   "new InMemoryRateLimiter",
+  "new RedisRateLimiter",
+  "createRedisRateLimitClient(redisUrl)",
+  "resolveRateLimiter(options)",
+  'readOwnEnvValue(env, "RFQ_RATE_LIMIT_BACKEND")',
+  'readOwnEnvValue(env, "RFQ_REDIS_URL")',
+  "RFQ_RATE_LIMIT_BACKEND must be redis when NODE_ENV=${nodeEnv}",
+  'new APIError("RATE_LIMIT_UNAVAILABLE", "Rate limit store unavailable", 503)',
+  "assertRateLimitDecision(decision)",
+  'rateLimitDecisionFields = ["allowed", "remaining", "retryAfterSeconds"]',
+  "rateLimiter: rateLimiter ?? disabledRateLimiterHealth",
   "normalizeRateLimitOption(options.rateLimit)",
   "assertOptionalOwnFields(rateLimit, rateLimitOptionFields, \"rateLimit\")",
   "windowMs: rateLimit.windowMs ?? 60_000",
@@ -107,6 +144,24 @@ assertContains(rateLimitTestSource, [
   "Rate limit clientId must contain only letters, numbers, dot, underscore, colon, or hyphen",
 ], "backend/test/rate-limit.test.mjs");
 
+assertContains(redisRateLimitTestSource, [
+  "RedisRateLimiter maps atomic script results to endpoint decisions",
+  "RedisRateLimiter snapshots configuration and supports bounded key prefixes",
+  "RedisRateLimiter validates dependencies, config, inputs and script output",
+  "RedisRateLimiter probes health, connects lazily and closes clients",
+  "normalizeRedisUrl accepts Redis URLs and rejects unsafe schemes or fragments",
+], "backend/test/redis-rate-limit.test.mjs");
+
+assertContains(apiRedisRateLimitTestSource, [
+  "RFQ API awaits injected distributed rate limit decisions",
+  "RFQ API fails closed when the distributed rate limit store is unavailable",
+  "RFQ API fails closed on malformed distributed rate limit decisions",
+  "RFQ API readiness and shutdown include the rate limit store",
+  "RFQ API validates Redis rate limit runtime configuration",
+  'assert.equal(response.body.code, "RATE_LIMIT_UNAVAILABLE")',
+  'response.body.components.rateLimitStore, "degraded"',
+], "backend/test/api-redis-rate-limit.test.mjs");
+
 assertContains(sdkClientSource, [
   "readonly retryAfterSeconds?: number",
   "retryAfterSeconds(response)",
@@ -153,6 +208,8 @@ assertContains(errorDocsSource, [
   "| `status` | `GET /quote/:quoteId`, `GET /settlements/:settlementEventId`, `GET /hedges/:hedgeOrderId`, `GET /pnl` | 300 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
   "`x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`",
   "forwarded client identities longer than 128 characters or outside `[A-Za-z0-9_.:-]` are rejected as `INVALID_REQUEST`/400",
+  "| `RATE_LIMIT_UNAVAILABLE` | 503 |",
+  "Redis failure is fail-closed as `RATE_LIMIT_UNAVAILABLE`/503",
 ], "docs/api/errors.md");
 
 assertContains(gatewayChapterSource, [
@@ -160,14 +217,13 @@ assertContains(gatewayChapterSource, [
   "quote 120 requests / 60 seconds",
   "submit 60 requests / 60 seconds",
   "status 300 requests / 60 seconds",
-  "错误配置会在启动期 fail fast",
+  "任何非本地 `NODE_ENV` 都强制 `RFQ_RATE_LIMIT_BACKEND=redis`",
+  "单个 Lua script",
+  "超限后不继续递增计数",
   "默认 `RFQ_TRUST_PROXY=false`",
-  "启用 `RFQ_TRUST_PROXY=true`",
-  "client identity trim + lowercase",
-  "128 character clientId upper bound",
-  "clientId character set `[A-Za-z0-9_.:-]`",
   "trusted forwarded identity exceeding 128 characters or outside `[A-Za-z0-9_.:-]` returns `INVALID_REQUEST`/400",
-  "`RATE_LIMITED`、HTTP 429 和 `Retry-After`",
+  "`RATE_LIMIT_UNAVAILABLE`/503",
+  "`rateLimitStore` readiness",
 ], "book/Volume5-BackendEngineering/Chapter01-API-Gateway.md");
 
 assertContains(readmeSource, [
@@ -177,7 +233,26 @@ assertContains(readmeSource, [
   "`Retry-After` header",
   "`RFQ_TRUST_PROXY=false`",
   "128 character limit and `[A-Za-z0-9_.:-]` character set",
+  "forces `RFQ_RATE_LIMIT_BACKEND=redis`",
+  "Redis uses one atomic Lua operation",
+  "`RATE_LIMIT_UNAVAILABLE`/503",
 ], "README.md");
+
+assertContains(envExampleSource, ["RFQ_RATE_LIMIT_BACKEND=memory"], ".env.example");
+assertContains(composeSource, [
+  "RFQ_RATE_LIMIT_BACKEND: redis",
+  "RFQ_REDIS_URL: redis://redis:6379/0",
+  "redis:",
+  "condition: service_healthy",
+], "docker-compose.yml");
+assertContains(k8sConfigSource, ["RFQ_RATE_LIMIT_BACKEND: redis"], "infra/k8s/configmap.yaml");
+assertContains(k8sSecretSource, ["RFQ_REDIS_URL:"], "infra/k8s/backend-secret.yaml");
+assertContains(helmValuesSource, ["redisSecret:", "urlKey: RFQ_REDIS_URL"], "infra/helm/rfq-market-maker/values.yaml");
+assertContains(helmDeploymentSource, [
+  "name: RFQ_REDIS_URL",
+  "name: {{ .Values.redisSecret.name }}",
+  "key: {{ .Values.redisSecret.urlKey }}",
+], "infra/helm/rfq-market-maker/templates/deployment.yaml");
 
 console.log("Rate limit consistency check passed");
 

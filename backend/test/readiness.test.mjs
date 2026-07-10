@@ -24,6 +24,7 @@ const readinessComponents = [
   "signer",
   "quoteRepository",
   "riskDecisionStore",
+  "rateLimitStore",
   "inventory",
   "execution",
   "settlementEventStore",
@@ -57,6 +58,7 @@ test("ReadinessService degrades the aggregate status when a dependency probe fai
   assert.equal(readiness.components.quoteRepository, "degraded");
   assert.equal(readiness.components.marketSnapshotStore, "ok");
   assert.equal(readiness.components.riskDecisionStore, "ok");
+  assert.equal(readiness.components.rateLimitStore, "ok");
   assert.equal(readiness.components.marketData, "ok");
   assert.equal(readiness.components.routing, "ok");
   assert.equal(readiness.components.pricing, "ok");
@@ -67,6 +69,20 @@ test("ReadinessService degrades the aggregate status when a dependency probe fai
   assert.equal(readiness.components.settlementEventStore, "ok");
   assert.equal(readiness.components.pnl, "ok");
   assert.equal(readiness.components.metrics, "ok");
+});
+
+test("ReadinessService degrades when the distributed rate limit store is unavailable", async () => {
+  const readiness = await createReadinessService({
+    rateLimiter: {
+      async checkHealth() {
+        throw new Error("redis unavailable");
+      },
+    },
+  }).check();
+
+  assert.equal(readiness.status, "degraded");
+  assert.equal(readiness.components.rateLimitStore, "degraded");
+  assert.equal(readiness.components.quoteRepository, "ok");
 });
 
 test("ReadinessService snapshots readiness configuration at construction", async () => {
@@ -139,6 +155,11 @@ test("ReadinessService snapshots dependency object at construction", async () =>
       return undefined;
     },
   };
+  deps.rateLimiter = {
+    checkHealth() {
+      throw new Error("mutated rate limit store used");
+    },
+  };
 
   const readiness = await service.check();
 
@@ -168,6 +189,7 @@ function readinessServiceDeps(overrides = {}) {
     }),
     quoteRepository: overrides.quoteRepository ?? new InMemoryQuoteRepository(),
     riskDecisionStore: overrides.riskDecisionStore ?? new InMemoryRiskDecisionRepository(),
+    rateLimiter: overrides.rateLimiter ?? { checkHealth() {} },
     inventoryService,
     hedgeService: overrides.hedgeService ?? new HedgeService(),
     settlementEventService: overrides.settlementEventService ?? new SettlementEventService(inventoryService),

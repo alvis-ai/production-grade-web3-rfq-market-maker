@@ -6,6 +6,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       HOST: 0.0.0.0
       PORT: 3000
@@ -15,6 +17,8 @@ services:
       RFQ_CORS_ALLOWED_ORIGINS: http://localhost:5173
       RFQ_ENABLE_HSTS: "false"
       RFQ_TRUST_PROXY: "false"
+      RFQ_RATE_LIMIT_BACKEND: redis
+      RFQ_REDIS_URL: redis://redis:6379/0
       RFQ_SIGNER_PRIVATE_KEY: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
       RFQ_SETTLEMENT_ADDRESS: 0x0000000000000000000000000000000000000004
       RFQ_ALLOW_SIMULATED_SETTLEMENT: "true"

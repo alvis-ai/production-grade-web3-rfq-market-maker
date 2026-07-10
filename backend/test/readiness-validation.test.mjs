@@ -228,6 +228,14 @@ test("ReadinessService rejects unsafe dependency configuration at construction",
       }),
     /Readiness service metricsService.checkHealth must be a function/,
   );
+  assert.throws(
+    () =>
+      new ReadinessService({
+        ...deps,
+        rateLimiter: {},
+      }),
+    /Readiness service rateLimiter.checkHealth must be a function/,
+  );
 });
 
 function createReadinessService(overrides = {}, config = defaultReadinessServiceConfig) {
@@ -249,6 +257,7 @@ function readinessServiceDeps(overrides = {}) {
     }),
     quoteRepository: overrides.quoteRepository ?? new InMemoryQuoteRepository(),
     riskDecisionStore: overrides.riskDecisionStore ?? new InMemoryRiskDecisionRepository(),
+    rateLimiter: overrides.rateLimiter ?? { checkHealth() {} },
     inventoryService,
     hedgeService: overrides.hedgeService ?? new HedgeService(),
     settlementEventService: overrides.settlementEventService ?? new SettlementEventService(inventoryService),

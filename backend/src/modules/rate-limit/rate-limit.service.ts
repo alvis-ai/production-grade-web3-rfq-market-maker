@@ -18,6 +18,12 @@ export interface RateLimitDecision {
   retryAfterSeconds: number;
 }
 
+export interface RateLimiter {
+  check(input: RateLimitInput): RateLimitDecision | Promise<RateLimitDecision>;
+  checkHealth(): void | Promise<void>;
+  close?(): void | Promise<void>;
+}
+
 interface RateLimitBucket {
   count: number;
   resetAt: number;
@@ -35,17 +41,12 @@ export const defaultRateLimitConfig: RateLimitConfig = {
 const rateLimitConfigFields = ["windowMs", "maxQuoteRequests", "maxSubmitRequests", "maxStatusRequests"] as const;
 const rateLimitInputFields = ["endpoint", "clientId"] as const;
 
-export class InMemoryRateLimiter {
+export class InMemoryRateLimiter implements RateLimiter {
   private readonly config: RateLimitConfig;
   private readonly buckets = new Map<string, RateLimitBucket>();
 
   constructor(config: RateLimitConfig = defaultRateLimitConfig) {
     assertRateLimitConfig(config);
-    assertPositiveSafeInteger(config.windowMs, "windowMs");
-    assertPositiveSafeInteger(config.maxQuoteRequests, "maxQuoteRequests");
-    assertPositiveSafeInteger(config.maxSubmitRequests, "maxSubmitRequests");
-    assertPositiveSafeInteger(config.maxStatusRequests, "maxStatusRequests");
-
     this.config = cloneRateLimitConfig(config);
   }
 
@@ -54,7 +55,7 @@ export class InMemoryRateLimiter {
     assertRateLimitTimestamp(now);
     this.sweepExpiredBuckets(now);
 
-    const limit = this.limitFor(safeInput.endpoint);
+    const limit = limitForRateLimitEndpoint(this.config, safeInput.endpoint);
     const bucketKey = `${safeInput.endpoint}:${safeInput.clientId}`;
     const bucket = this.buckets.get(bucketKey) ?? { count: 0, resetAt: resetAtFor(now, this.config.windowMs) };
 
@@ -77,13 +78,7 @@ export class InMemoryRateLimiter {
     };
   }
 
-  private limitFor(endpoint: RateLimitedEndpoint): number {
-    if (endpoint === "quote") {
-      return this.config.maxQuoteRequests;
-    }
-
-    return endpoint === "submit" ? this.config.maxSubmitRequests : this.config.maxStatusRequests;
-  }
+  checkHealth(): void {}
 
   private sweepExpiredBuckets(now: number): void {
     for (const [bucketKey, bucket] of this.buckets.entries()) {
@@ -94,15 +89,19 @@ export class InMemoryRateLimiter {
   }
 }
 
-function cloneRateLimitConfig(config: RateLimitConfig): RateLimitConfig {
+export function cloneRateLimitConfig(config: RateLimitConfig): RateLimitConfig {
   return { ...config };
 }
 
-function assertRateLimitConfig(config: RateLimitConfig): void {
+export function assertRateLimitConfig(config: RateLimitConfig): void {
   if (!isRecord(config)) {
     throw new Error("Rate limit config must be an object");
   }
   assertOwnFields(config, rateLimitConfigFields, "config");
+  assertPositiveSafeInteger(config.windowMs, "windowMs");
+  assertPositiveSafeInteger(config.maxQuoteRequests, "maxQuoteRequests");
+  assertPositiveSafeInteger(config.maxSubmitRequests, "maxSubmitRequests");
+  assertPositiveSafeInteger(config.maxStatusRequests, "maxStatusRequests");
 }
 
 function assertPositiveSafeInteger(value: number, field: keyof RateLimitConfig): void {
@@ -111,7 +110,7 @@ function assertPositiveSafeInteger(value: number, field: keyof RateLimitConfig):
   }
 }
 
-function normalizeRateLimitInput(input: RateLimitInput): RateLimitInput {
+export function normalizeRateLimitInput(input: RateLimitInput): RateLimitInput {
   if (!isRecord(input)) {
     throw new Error("Rate limit input must be an object");
   }
@@ -135,6 +134,14 @@ function normalizeRateLimitInput(input: RateLimitInput): RateLimitInput {
   }
 
   return { endpoint: input.endpoint, clientId };
+}
+
+export function limitForRateLimitEndpoint(config: RateLimitConfig, endpoint: RateLimitedEndpoint): number {
+  if (endpoint === "quote") {
+    return config.maxQuoteRequests;
+  }
+
+  return endpoint === "submit" ? config.maxSubmitRequests : config.maxStatusRequests;
 }
 
 function normalizeRateLimitClientId(clientId: string): string {

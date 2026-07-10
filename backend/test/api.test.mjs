@@ -37,6 +37,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
       "signer",
       "quoteRepository",
       "riskDecisionStore",
+      "rateLimitStore",
       "inventory",
       "execution",
       "settlementEventStore",
@@ -52,6 +53,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(ready.body.components.marketSnapshotStore, "ok");
     assert.equal(ready.body.components.quoteRepository, "ok");
     assert.equal(ready.body.components.riskDecisionStore, "ok");
+    assert.equal(ready.body.components.rateLimitStore, "ok");
     assert.equal(ready.body.components.inventory, "ok");
     assert.equal(ready.body.components.execution, "ok");
     assert.equal(ready.body.components.settlementEventStore, "ok");

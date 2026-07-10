@@ -37,8 +37,13 @@ import {
   maxRateLimitClientIdLength,
   rateLimitClientIdPattern,
   type RateLimitConfig,
+  type RateLimiter,
   type RateLimitedEndpoint,
 } from "./modules/rate-limit/rate-limit.service.js";
+import {
+  createRedisRateLimitClient,
+  RedisRateLimiter,
+} from "./modules/rate-limit/redis-rate-limit.service.js";
 import { InMemoryRiskDecisionRepository, type RiskDecisionStore } from "./modules/risk/risk-decision.repository.js";
 import { PostgresRiskDecisionStore } from "./modules/risk/postgres-risk-decision.repository.js";
 import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
@@ -70,6 +75,7 @@ const defaultEnableHsts = false;
 const defaultListenHost = "127.0.0.1";
 const defaultListenPort = 3000;
 const defaultTrustProxy = false;
+const disabledRateLimiterHealth = { checkHealth(): void {} };
 const maxTraceIdLength = 128;
 const traceIdPattern = /^tr_[A-Za-z0-9._:-]+$/;
 const maxStatusIdentifierLength = 128;
@@ -95,6 +101,7 @@ const buildServerOptionFields = [
   "quoteRepository",
   "quoteTtlSeconds",
   "rateLimit",
+  "rateLimiter",
   "riskDecisionStore",
   "riskEngine",
   "routingEngine",
@@ -105,6 +112,7 @@ const buildServerOptionFields = [
   "trustProxy",
 ] as const;
 const rateLimitOptionFields = ["windowMs", "maxQuoteRequests", "maxSubmitRequests", "maxStatusRequests"] as const;
+const rateLimitDecisionFields = ["allowed", "remaining", "retryAfterSeconds"] as const;
 const pnlTradeRecordFields = [
   "pnlId",
   "quoteId",
@@ -151,6 +159,7 @@ export interface BuildServerOptions {
   settlementVerifier?: SettlementVerifier;
   signerService?: SignerService;
   rateLimit?: Partial<RateLimitConfig> | false;
+  rateLimiter?: RateLimiter;
   quoteTtlSeconds?: number;
   bodyLimitBytes?: number;
   corsAllowedOrigins?: readonly string[] | false;
@@ -246,10 +255,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     ),
   }, options.settlementEvidenceProvider ?? buildRuntimeSettlementEvidenceProvider(getLocalSignerConfig()));
   const pnlService = options.pnlService ?? new PnlService();
-  const rateLimitConfig = normalizeRateLimitOption(options.rateLimit);
-  const rateLimiter = rateLimitConfig === false
-    ? undefined
-    : new InMemoryRateLimiter(rateLimitConfig);
+  const rateLimiter = resolveRateLimiter(options);
   const inFlightSubmitQuoteIds = new Set<string>();
   const quoteService = new QuoteService({
     inventoryService,
@@ -299,6 +305,11 @@ export function buildServer(options: BuildServerOptions = {}) {
       await endPool();
     });
   }
+  if (rateLimiter?.close) {
+    server.addHook("onClose", async () => {
+      await rateLimiter.close?.();
+    });
+  }
 
   const readinessService = new ReadinessService({
     hedgeService,
@@ -311,6 +322,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     quoteRepository,
     riskDecisionStore,
     riskEngine,
+    rateLimiter: rateLimiter ?? disabledRateLimiterHealth,
     routingEngine,
     settlementEventService,
     signerService,
@@ -346,7 +358,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/pnl", async (request, reply) => {
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
+      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -358,7 +370,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/settlements/:settlementEventId", async (request, reply) => {
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
+      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -381,7 +393,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/quote/:quoteId", async (request, reply) => {
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
+      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -400,7 +412,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/hedges/:hedgeOrderId", async (request, reply) => {
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
+      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -421,7 +433,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     const startedAt = Date.now();
     metricsService.recordQuoteRequest();
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "quote", request, reply, trustProxy);
+      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "quote", request, reply, trustProxy);
       if (!rateLimitResult.allowed) {
         metricsService.recordQuoteError();
         return rateLimitResult.response;
@@ -449,7 +461,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     let releaseSubmitReservation: (() => void) | undefined;
     metricsService.recordSubmitRequest();
     try {
-      const rateLimitResult = enforceRateLimit(rateLimiter, metricsService, "submit", request, reply, trustProxy);
+      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "submit", request, reply, trustProxy);
       if (!rateLimitResult.allowed) {
         metricsService.recordSubmitError();
         return rateLimitResult.response;
@@ -511,22 +523,29 @@ export function buildServer(options: BuildServerOptions = {}) {
   return server;
 }
 
-function enforceRateLimit(
-  rateLimiter: InMemoryRateLimiter | undefined,
+async function enforceRateLimit(
+  rateLimiter: RateLimiter | undefined,
   metricsService: MetricsService,
   endpoint: RateLimitedEndpoint,
   request: FastifyRequest,
   reply: FastifyReply,
   trustProxy: boolean,
-): { allowed: true } | { allowed: false; response: FastifyReply } {
+): Promise<{ allowed: true } | { allowed: false; response: FastifyReply }> {
   if (!rateLimiter) {
     return { allowed: true };
   }
 
-  const decision = rateLimiter.check({
-    endpoint,
-    clientId: clientIdForRateLimit(request, trustProxy),
-  });
+  const clientId = clientIdForRateLimit(request, trustProxy);
+  let decision;
+  try {
+    decision = await rateLimiter.check({
+      endpoint,
+      clientId,
+    });
+    assertRateLimitDecision(decision);
+  } catch {
+    throw new APIError("RATE_LIMIT_UNAVAILABLE", "Rate limit store unavailable", 503);
+  }
   if (decision.allowed) {
     reply.header("x-ratelimit-remaining", decision.remaining.toString());
     return { allowed: true };
@@ -538,6 +557,27 @@ function enforceRateLimit(
     allowed: false,
     response: sendError(reply.header("retry-after", decision.retryAfterSeconds.toString()), requestTraceId(request), error),
   };
+}
+
+function assertRateLimitDecision(decision: unknown): asserts decision is {
+  allowed: boolean;
+  remaining: number;
+  retryAfterSeconds: number;
+} {
+  if (!isRecord(decision)) {
+    throw new Error("Rate limiter decision must be an object");
+  }
+  assertExactOwnFields(decision, rateLimitDecisionFields, "rate limiter decision");
+  if (typeof decision.allowed !== "boolean") {
+    throw new Error("Rate limiter decision allowed must be a boolean");
+  }
+  if (typeof decision.remaining !== "number" || !Number.isSafeInteger(decision.remaining) || decision.remaining < 0) {
+    throw new Error("Rate limiter decision remaining must be a non-negative safe integer");
+  }
+  if (typeof decision.retryAfterSeconds !== "number" ||
+      !Number.isSafeInteger(decision.retryAfterSeconds) || decision.retryAfterSeconds <= 0) {
+    throw new Error("Rate limiter decision retryAfterSeconds must be a positive safe integer");
+  }
 }
 
 function sendError(
@@ -1081,6 +1121,56 @@ function shouldUsePostgresPersistence(options: BuildServerOptions): boolean {
     options.quoteRepository === undefined ||
     options.riskDecisionStore === undefined
   );
+}
+
+function resolveRateLimiter(options: BuildServerOptions): RateLimiter | undefined {
+  if (options.rateLimiter !== undefined) {
+    if (options.rateLimit !== undefined) {
+      throw new Error("buildServer rateLimiter and rateLimit cannot both be provided");
+    }
+    assertRateLimiterOption(options.rateLimiter);
+    return options.rateLimiter;
+  }
+
+  const config = normalizeRateLimitOption(options.rateLimit);
+  if (config === false) {
+    return undefined;
+  }
+
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
+  const configuredBackend = readOwnEnvValue(env, "RFQ_RATE_LIMIT_BACKEND");
+  const backend = configuredBackend?.trim().toLowerCase() ||
+    (requiresExplicitSignerConfig(nodeEnv) ? "redis" : "memory");
+  if (backend !== "memory" && backend !== "redis") {
+    throw new Error("RFQ_RATE_LIMIT_BACKEND must be memory or redis");
+  }
+  if (backend === "memory") {
+    if (requiresExplicitSignerConfig(nodeEnv)) {
+      throw new Error(`RFQ_RATE_LIMIT_BACKEND must be redis when NODE_ENV=${nodeEnv}`);
+    }
+    return new InMemoryRateLimiter(config);
+  }
+
+  const redisUrl = readOwnEnvValue(env, "RFQ_REDIS_URL");
+  if (!redisUrl || redisUrl.trim().length === 0) {
+    throw new Error("RFQ_REDIS_URL is required when RFQ_RATE_LIMIT_BACKEND=redis");
+  }
+  return new RedisRateLimiter(createRedisRateLimitClient(redisUrl), config);
+}
+
+function assertRateLimiterOption(rateLimiter: unknown): asserts rateLimiter is RateLimiter {
+  if (!isRecord(rateLimiter)) {
+    throw new Error("buildServer rateLimiter must be an object");
+  }
+  for (const method of ["check", "checkHealth"] as const) {
+    if (typeof rateLimiter[method] !== "function") {
+      throw new Error(`buildServer rateLimiter.${method} must be a function`);
+    }
+  }
+  if (rateLimiter.close !== undefined && typeof rateLimiter.close !== "function") {
+    throw new Error("buildServer rateLimiter.close must be a function when provided");
+  }
 }
 
 function normalizeRateLimitOption(rateLimit: BuildServerOptions["rateLimit"]): RateLimitConfig | false {

@@ -87,6 +87,7 @@ test("RFQ API degrades readiness when storage dependency probes fail", async () 
     assert.equal(response.body.components.marketSnapshotStore, "degraded");
     assert.equal(response.body.components.quoteRepository, "degraded");
     assert.equal(response.body.components.riskDecisionStore, "degraded");
+    assert.equal(response.body.components.rateLimitStore, "ok");
     assert.equal(response.body.components.execution, "degraded");
     assert.equal(response.body.components.settlementEventStore, "degraded");
     assert.equal(response.body.components.pnl, "degraded");

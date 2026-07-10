@@ -921,13 +921,17 @@ grep -q 'InMemoryRateLimiter normalizes client identities before bucketing' back
 grep -q 'new String("client-a")' backend/test/rate-limit.test.mjs
 grep -q 'Rate limit config.windowMs must be an own field' backend/test/rate-limit.test.mjs
 grep -q 'Rate limit input.endpoint must be an own field' backend/test/rate-limit.test.mjs
-grep -q 'client identity trim + lowercase' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'Malformed rate limit config objects and inherited config fields are rejected before numeric field access' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'required own `endpoint` / `clientId` fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'inherited object properties' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'primitive string clientId' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q '128 character clientId upper bound' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -Fq 'clientId character set `[A-Za-z0-9_.:-]`' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+test -s backend/src/modules/rate-limit/redis-rate-limit.service.ts
+test -s backend/test/redis-rate-limit.test.mjs
+test -s backend/test/api-redis-rate-limit.test.mjs
+grep -q 'class RedisRateLimiter' backend/src/modules/rate-limit/redis-rate-limit.service.ts
+grep -q 'redis.call("SET", KEYS\[1\], 1, "PX", ARGV\[1\])' backend/src/modules/rate-limit/redis-rate-limit.service.ts
+grep -q 'if current >= tonumber(ARGV\[2\])' backend/src/modules/rate-limit/redis-rate-limit.service.ts
+grep -q 'RFQ_RATE_LIMIT_BACKEND must be redis when NODE_ENV=' backend/src/main.ts
+grep -q 'RATE_LIMIT_UNAVAILABLE' backend/src/main.ts
+grep -q '任何非本地 `NODE_ENV` 都强制 `RFQ_RATE_LIMIT_BACKEND=redis`' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q '超限后不继续递增计数' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q '`rateLimitStore` readiness' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'maxQuoteRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxSubmitRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxStatusRequests' backend/src/modules/rate-limit/rate-limit.service.ts
@@ -1890,7 +1894,8 @@ grep -q 'riskDecisionStore、inventory' book/Volume5-BackendEngineering/Chapter0
 grep -q 'rfq_readiness_status' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_dependency_status' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_rate_limited_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
-grep -q 'marketData|routing|pricing' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+grep -q 'marketData|marketSnapshotStore|routing|pricing' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+grep -q 'riskDecisionStore|rateLimitStore|inventory' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_rate_limited_total' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'RFQReadinessDegraded' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_readiness_status{status="degraded"} == 1' infra/prometheus/rules/rfq-alerts.yml
@@ -2980,7 +2985,7 @@ grep -q 'readiness routing degraded' book/Volume5-BackendEngineering/Chapter01-A
 grep -q 'readiness pricing degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness risk degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness config fail-fast' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'readiness storage dependency degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'readiness rate-limit/store dependency degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'toxic-flow users' backend/test/api-risk.test.mjs
 grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/test/api-risk.test.mjs
@@ -3045,10 +3050,10 @@ grep -q 'Rate limit input.endpoint must be an own field' backend/test/rate-limit
 grep -q 'InMemoryRateLimiter rejects unsafe request inputs before writing buckets' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter rejects unsafe timestamps before writing buckets' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter evicts expired client buckets before checking' backend/test/rate-limit.test.mjs
-grep -q 'snapshots `RateLimitConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'Malformed rate limit config objects and inherited config fields are rejected before numeric field access' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'required own `endpoint` / `clientId` fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'evicts expired client buckets before checking' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q '配置在构造期 snapshot' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'Malformed config、dependency、script result、runtime input' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'Redis error 不会 fail open' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'x-ratelimit-remaining' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'unsafe rate limit configuration at startup' backend/test/api-gateway.test.mjs
 grep -q 'assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertBpsUpperBound(config.maxTotalAdjustmentBps, "maxTotalAdjustmentBps")' backend/src/modules/pricing/pricing.engine.ts

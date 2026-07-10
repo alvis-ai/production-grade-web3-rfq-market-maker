@@ -382,6 +382,7 @@ const readinessDependencyComponents: readonly ReadinessComponentName[] = [
   "signer",
   "quoteRepository",
   "riskDecisionStore",
+  "rateLimitStore",
   "inventory",
   "execution",
   "settlementEventStore",

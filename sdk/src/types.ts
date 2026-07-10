@@ -63,6 +63,7 @@ export type ReadinessComponentName =
   | "signer"
   | "quoteRepository"
   | "riskDecisionStore"
+  | "rateLimitStore"
   | "inventory"
   | "execution"
   | "settlementEventStore"
@@ -182,6 +183,7 @@ export const rfqErrorCodes = [
   "SETTLEMENT_UNAVAILABLE",
   "SETTLEMENT_REVERTED",
   "RATE_LIMITED",
+  "RATE_LIMIT_UNAVAILABLE",
   "INTERNAL_ERROR",
 ] as const;
 

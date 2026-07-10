@@ -23,6 +23,7 @@ export type RFQErrorCode =
   | "SETTLEMENT_UNAVAILABLE"
   | "SETTLEMENT_REVERTED"
   | "RATE_LIMITED"
+  | "RATE_LIMIT_UNAVAILABLE"
   | "INTERNAL_ERROR";
 
 export interface ErrorResponse {

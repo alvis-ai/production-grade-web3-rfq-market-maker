@@ -12,6 +12,7 @@ import type { MetricsService } from "../metrics/metrics.service.js";
 import type { PnlStore } from "../pnl/pnl.service.js";
 import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
 import type { QuoteRepository } from "../quote/quote.repository.js";
+import type { RateLimiter } from "../rate-limit/rate-limit.service.js";
 import type { RiskDecisionStore } from "../risk/risk-decision.repository.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
 import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
@@ -27,6 +28,7 @@ export type ReadinessComponentName =
   | "signer"
   | "quoteRepository"
   | "riskDecisionStore"
+  | "rateLimitStore"
   | "inventory"
   | "execution"
   | "settlementEventStore"
@@ -48,6 +50,7 @@ export interface ReadinessServiceDeps {
   signerService: SignerService;
   quoteRepository: QuoteRepository;
   riskDecisionStore: RiskDecisionStore;
+  rateLimiter: Pick<RateLimiter, "checkHealth">;
   inventoryService: IInventoryService;
   hedgeService: HedgeIntentService;
   settlementEventService: SettlementEventStore;
@@ -129,6 +132,7 @@ const readinessServiceDepsFields = [
   "signerService",
   "quoteRepository",
   "riskDecisionStore",
+  "rateLimiter",
   "inventoryService",
   "hedgeService",
   "settlementEventService",
@@ -185,6 +189,7 @@ export class ReadinessService {
     const signerStatus = await this.checkSigner();
     const quoteRepositoryStatus = await this.checkDependency(this.deps.quoteRepository);
     const riskDecisionStoreStatus = await this.checkDependency(this.deps.riskDecisionStore);
+    const rateLimitStoreStatus = await this.checkDependency(this.deps.rateLimiter);
     const inventoryStatus = await this.checkDependency(this.deps.inventoryService);
     const hedgeStatus = await this.checkDependency(this.deps.hedgeService);
     const settlementEventStoreStatus = await this.checkDependency(this.deps.settlementEventService);
@@ -199,6 +204,7 @@ export class ReadinessService {
       signer: signerStatus,
       quoteRepository: quoteRepositoryStatus,
       riskDecisionStore: riskDecisionStoreStatus,
+      rateLimitStore: rateLimitStoreStatus,
       inventory: inventoryStatus,
       // The current execution readiness probe is backed by the hedge intent store.
       execution: hedgeStatus,
@@ -325,6 +331,7 @@ function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
   assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "checkHealth");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "checkHealth");
   assertDependencyMethod(deps.riskDecisionStore, "riskDecisionStore", "checkHealth");
+  assertDependencyMethod(deps.rateLimiter, "rateLimiter", "checkHealth");
   assertDependencyMethod(deps.inventoryService, "inventoryService", "checkHealth");
   assertDependencyMethod(deps.hedgeService, "hedgeService", "checkHealth");
   assertDependencyMethod(deps.settlementEventService, "settlementEventService", "checkHealth");

@@ -146,6 +146,8 @@ Future admin APIs may support disabling quote signing, lowering limits, disablin
 | `RFQPnlThroughputStalled` | Compare `rfq_settlements_total` and `rfq_pnl_trades_total`, then inspect PnL store writes, market snapshot availability and best-effort attribution logs. | Run settlement-to-PnL reconciliation with `ReconciliationService.reconcileSettlementToPnl()` and keep quoting conservative until realized PnL attribution catches up; use `{ chainId, quoteHash }` for single-event recovery. | New settlements create PnL trade records and `/pnl` reflects the recovered attribution stream. |
 | `RFQRealizedPnlNegative` | Inspect `rfq_realized_pnl_token_out` by `chain_id` and `token`, then compare pricing version, market snapshot, spread policy and settlement records. | Widen spread or pause affected pairs, stop signing if pricing is stale, and reconcile PnL attribution before resuming normal quote size. | Realized PnL returns above zero for the affected token and new settlements use the corrected pricing and risk policy. |
 
+When `rfq_dependency_status{component="rateLimitStore",status="degraded"}` is active, confirm Redis endpoint, TLS, credentials, latency and keyspace health before restarting API pods. Keep affected pods out of readiness and preserve `RATE_LIMIT_UNAVAILABLE` fail-closed behavior; switching production replicas to process-local buckets would multiply the effective limit and is not an acceptable mitigation. Recovery is complete only after Redis `PING` succeeds, `/ready` reports `rateLimitStore=ok`, and a controlled multi-replica request test observes one shared quota.
+
 ### Signer Compromise
 
 1. Disable Signer Service.

@@ -106,7 +106,8 @@ Kubernetes config includes Deployment, Service, ConfigMap, Secret, ServiceAccoun
 The current runnable backend manifests use:
 
 - `rfq-backend-config` ConfigMap for non-secret runtime settings such as `HOST=0.0.0.0`, `PORT=3000` and `NODE_ENV=production`.
-- `rfq-backend-secrets` Secret for `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS`.
+- `rfq-backend-secrets` Secret for `RFQ_SIGNER_PRIVATE_KEY`、`RFQ_SETTLEMENT_ADDRESS` and `RFQ_REDIS_URL`.
+- `RFQ_RATE_LIMIT_BACKEND=redis` is mandatory in production. `RFQ_REDIS_URL` may contain credentials or TLS parameters, so Kubernetes and Helm inject it from the Secret; `/ready` verifies it through the `rateLimitStore` component.
 - Chainlink deployments set `RFQ_MARKET_DATA_PROVIDER=chainlink` in the ConfigMap and store the complete `RFQ_CHAINLINK_CONFIG_JSON` in `rfq-backend-secrets`, because RPC URLs commonly contain provider credentials. The Helm chart exposes this key only when `chainlinkConfigSecret.enabled=true`; static deployments do not mount a placeholder oracle config.
 - Production settlement sets `RFQ_ALLOW_SIMULATED_SETTLEMENT=false` and injects `RFQ_RECEIPT_CONFIG_JSON` from `rfq-backend-secrets`. Each chain entry fixes `rpcUrl`、`settlementAddress`、required confirmations and receipt timeout; its settlement address must equal the EIP-712 `RFQ_SETTLEMENT_ADDRESS`. Helm enables `receiptConfigSecret` by default, so the existing signer Secret must also contain this key before rollout.
 - Helm `signerSecret` values to reference the Secret name and key names without embedding private values into chart templates.
@@ -130,6 +131,7 @@ No public API changes. Ingress exposes only public endpoints.
 - Signer pod crashloop：disable quote signing and page operator.
 - Dependency unavailable：readiness fails.
 - Missing or malformed signer Secret：backend fails fast before serving traffic.
+- Missing or malformed Redis Secret：backend fails fast；runtime Redis loss returns 503 and removes the pod from readiness without bypassing global limits.
 - Pod termination during rollout：preStop delay lets endpoints drain, then SIGTERM triggers Fastify close; forced kill before grace period ends should be treated as a deployment incident.
 
 ## Security Considerations

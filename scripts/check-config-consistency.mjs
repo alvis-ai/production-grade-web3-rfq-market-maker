@@ -19,6 +19,7 @@ const localExpected = {
   RFQ_CORS_ALLOWED_ORIGINS: "http://localhost:5173",
   RFQ_ENABLE_HSTS: "false",
   RFQ_TRUST_PROXY: "false",
+  RFQ_RATE_LIMIT_BACKEND: "memory",
   VITE_RFQ_API_BASE_URL: "http://localhost:3000",
   VITE_RFQ_SETTLEMENT_ADDRESS: "0x0000000000000000000000000000000000000004",
   VITE_WALLETCONNECT_PROJECT_ID: "00000000000000000000000000000000",
@@ -35,6 +36,8 @@ const composeExpected = {
   RFQ_CORS_ALLOWED_ORIGINS: "http://localhost:5173",
   RFQ_ENABLE_HSTS: "false",
   RFQ_TRUST_PROXY: "false",
+  RFQ_RATE_LIMIT_BACKEND: "redis",
+  RFQ_REDIS_URL: "redis://redis:6379/0",
   RFQ_SIGNER_PRIVATE_KEY: localExpected.RFQ_SIGNER_PRIVATE_KEY,
   RFQ_SETTLEMENT_ADDRESS: localExpected.RFQ_SETTLEMENT_ADDRESS,
 };
@@ -49,6 +52,7 @@ const productionExpected = {
   RFQ_CORS_ALLOWED_ORIGINS: "https://app.example.com",
   RFQ_ENABLE_HSTS: "true",
   RFQ_TRUST_PROXY: "false",
+  RFQ_RATE_LIMIT_BACKEND: "redis",
 };
 
 const envExample = parseDotEnv(envExampleSource);
@@ -112,6 +116,11 @@ assert.ok(
 assert.ok(
   backendSource.includes("RFQ_TRUST_PROXY must be true or false"),
   "backend must enforce RFQ_TRUST_PROXY boolean parsing",
+);
+assert.ok(
+  backendSource.includes("RFQ_RATE_LIMIT_BACKEND must be memory or redis") &&
+    backendSource.includes("RFQ_REDIS_URL is required when RFQ_RATE_LIMIT_BACKEND=redis"),
+  "backend must enforce distributed rate limit configuration",
 );
 assert.ok(
   frontendConfigSource.includes("readOptionalConfigString") &&

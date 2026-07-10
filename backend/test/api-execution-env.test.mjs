@@ -12,6 +12,7 @@ test("RFQ API validates simulated and receipt-confirmed execution configuration"
     "RFQ_SETTLEMENT_ADDRESS",
     "RFQ_ALLOW_SIMULATED_SETTLEMENT",
     "RFQ_RECEIPT_CONFIG_JSON",
+    "RFQ_REDIS_URL",
   ]);
 
   try {
@@ -33,6 +34,7 @@ test("RFQ API validates simulated and receipt-confirmed execution configuration"
     process.env.RFQ_SETTLEMENT_ADDRESS = settlementAddress;
     delete process.env.RFQ_ALLOW_SIMULATED_SETTLEMENT;
     process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig(settlementAddress));
+    process.env.RFQ_REDIS_URL = "redis://127.0.0.1:6379/0";
     const server = buildServer({ logger: false });
     await server.ready();
     await server.close();

@@ -200,6 +200,8 @@ test("RFQ API reads startup environment only from own fields", async () => {
     RFQ_QUOTE_TTL_SECONDS: process.env.RFQ_QUOTE_TTL_SECONDS,
     RFQ_CORS_ALLOWED_ORIGINS: process.env.RFQ_CORS_ALLOWED_ORIGINS,
     RFQ_ENABLE_HSTS: process.env.RFQ_ENABLE_HSTS,
+    RFQ_RATE_LIMIT_BACKEND: process.env.RFQ_RATE_LIMIT_BACKEND,
+    RFQ_REDIS_URL: process.env.RFQ_REDIS_URL,
   };
   const originalEnvPrototype = Object.getPrototypeOf(process.env);
   const fixedNow = Date.now();
@@ -212,6 +214,8 @@ test("RFQ API reads startup environment only from own fields", async () => {
     delete process.env.RFQ_QUOTE_TTL_SECONDS;
     delete process.env.RFQ_CORS_ALLOWED_ORIGINS;
     delete process.env.RFQ_ENABLE_HSTS;
+    delete process.env.RFQ_RATE_LIMIT_BACKEND;
+    delete process.env.RFQ_REDIS_URL;
     Object.setPrototypeOf(process.env, {
       NODE_ENV: "production",
       RFQ_SIGNER_PRIVATE_KEY: "replace-with-production-signer-private-key",
@@ -219,6 +223,8 @@ test("RFQ API reads startup environment only from own fields", async () => {
       RFQ_QUOTE_TTL_SECONDS: "120",
       RFQ_CORS_ALLOWED_ORIGINS: "https://evil.example.com",
       RFQ_ENABLE_HSTS: "true",
+      RFQ_RATE_LIMIT_BACKEND: "redis",
+      RFQ_REDIS_URL: "redis://evil.example.com:6379/0",
     });
     Date.now = () => fixedNow;
 
@@ -249,6 +255,8 @@ test("RFQ API reads startup environment only from own fields", async () => {
     restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalEnv.RFQ_QUOTE_TTL_SECONDS);
     restoreEnv("RFQ_CORS_ALLOWED_ORIGINS", originalEnv.RFQ_CORS_ALLOWED_ORIGINS);
     restoreEnv("RFQ_ENABLE_HSTS", originalEnv.RFQ_ENABLE_HSTS);
+    restoreEnv("RFQ_RATE_LIMIT_BACKEND", originalEnv.RFQ_RATE_LIMIT_BACKEND);
+    restoreEnv("RFQ_REDIS_URL", originalEnv.RFQ_REDIS_URL);
   }
 });
 

@@ -23,6 +23,7 @@ const readinessComponents = {
   signer: "ok",
   quoteRepository: "ok",
   riskDecisionStore: "ok",
+  rateLimitStore: "ok",
   inventory: "ok",
   execution: "ok",
   settlementEventStore: "ok",

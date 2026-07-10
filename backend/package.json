@@ -12,6 +12,7 @@
   "dependencies": {
     "@rfq-market-maker/sdk": "workspace:*",
     "fastify": "^4.28.1",
+    "ioredis": "^5.4.2",
     "pg": "^8.13.0",
     "viem": "^2.21.0"
   },

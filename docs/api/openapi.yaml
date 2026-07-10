@@ -88,7 +88,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: Market data unavailable, stale, too far in the future, invalid, routing unavailable, quote store unavailable, signer unavailable, or another quote dependency unavailable
+          description: Rate limit store unavailable, market data unavailable, stale, too far in the future, invalid, routing unavailable, quote store unavailable, signer unavailable, or another quote dependency unavailable
           headers:
             x-trace-id:
               $ref: "#/components/headers/TraceId"
@@ -184,7 +184,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: Settlement verifier, chain RPC, or another settlement dependency is unavailable before settlement is applied
+          description: Rate limit store, settlement verifier, chain RPC, or another settlement dependency is unavailable before settlement is applied
           headers:
             x-trace-id:
               $ref: "#/components/headers/TraceId"
@@ -241,7 +241,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: Quote status store unavailable
+          description: Rate limit store or quote status store unavailable
           headers:
             x-trace-id:
               $ref: "#/components/headers/TraceId"
@@ -305,7 +305,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: Hedge status store unavailable
+          description: Rate limit store or hedge status store unavailable
           headers:
             x-trace-id:
               $ref: "#/components/headers/TraceId"
@@ -370,7 +370,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: Settlement event store unavailable
+          description: Rate limit store or settlement event store unavailable
           headers:
             x-trace-id:
               $ref: "#/components/headers/TraceId"
@@ -412,7 +412,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: PnL store unavailable
+          description: Rate limit store or PnL store unavailable
           headers:
             x-trace-id:
               $ref: "#/components/headers/TraceId"
@@ -440,7 +440,7 @@ paths:
     get:
       operationId: getReadiness
       summary: Readiness check
-      description: Checks market data freshness, signer sign/verify capability, and lightweight state dependency probes before the instance is considered routable.
+      description: Checks market data freshness, signer sign/verify capability, Redis rate-limit availability, and lightweight state dependency probes before the instance is considered routable.
       tags:
         - System
       responses:
@@ -940,6 +940,7 @@ components:
             - signer
             - quoteRepository
             - riskDecisionStore
+            - rateLimitStore
             - inventory
             - execution
             - settlementEventStore
@@ -961,6 +962,8 @@ components:
             quoteRepository:
               $ref: "#/components/schemas/ReadinessComponentStatus"
             riskDecisionStore:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            rateLimitStore:
               $ref: "#/components/schemas/ReadinessComponentStatus"
             inventory:
               $ref: "#/components/schemas/ReadinessComponentStatus"
@@ -1012,6 +1015,7 @@ components:
             - SETTLEMENT_UNAVAILABLE
             - SETTLEMENT_REVERTED
             - RATE_LIMITED
+            - RATE_LIMIT_UNAVAILABLE
             - INTERNAL_ERROR
         message:
           type: string

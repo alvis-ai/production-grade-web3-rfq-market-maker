@@ -1,0 +1,214 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { buildServer } from "../dist/main.js";
+
+const quoteRequest = {
+  chainId: 1,
+  user: "0x0000000000000000000000000000000000000001",
+  tokenIn: "0x0000000000000000000000000000000000000002",
+  tokenOut: "0x0000000000000000000000000000000000000003",
+  amountIn: "1000000000",
+  slippageBps: 50,
+};
+const signerKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const settlementAddress = "0x0000000000000000000000000000000000000004";
+
+test("RFQ API awaits injected distributed rate limit decisions", async () => {
+  let checks = 0;
+  const server = buildServer({
+    logger: false,
+    rateLimiter: {
+      async check() {
+        checks += 1;
+        return checks === 1
+          ? { allowed: true, remaining: 0, retryAfterSeconds: 60 }
+          : { allowed: false, remaining: 0, retryAfterSeconds: 59 };
+      },
+      checkHealth() {},
+    },
+  });
+  await server.ready();
+
+  try {
+    const first = await injectJson(server, "POST", "/quote", quoteRequest);
+    const second = await injectJson(server, "POST", "/quote", quoteRequest);
+
+    assert.equal(first.statusCode, 200);
+    assert.equal(first.headers["x-ratelimit-remaining"], "0");
+    assert.equal(second.statusCode, 429);
+    assert.equal(second.body.code, "RATE_LIMITED");
+    assert.equal(second.headers["retry-after"], "59");
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API fails closed when the distributed rate limit store is unavailable", async () => {
+  const server = buildServer({
+    logger: false,
+    rateLimiter: {
+      async check() {
+        throw new Error("redis offline");
+      },
+      checkHealth() {},
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", quoteRequest);
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "RATE_LIMIT_UNAVAILABLE");
+    assert.equal(response.body.message, "Rate limit store unavailable");
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API fails closed on malformed distributed rate limit decisions", async () => {
+  const server = buildServer({
+    logger: false,
+    rateLimiter: {
+      async check() {
+        return { allowed: "yes", remaining: -1, retryAfterSeconds: 0, internal: true };
+      },
+      checkHealth() {},
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", quoteRequest);
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "RATE_LIMIT_UNAVAILABLE");
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API readiness and shutdown include the rate limit store", async () => {
+  let closes = 0;
+  const server = buildServer({
+    logger: false,
+    rateLimiter: {
+      async check() {
+        return { allowed: true, remaining: 1, retryAfterSeconds: 60 };
+      },
+      async checkHealth() {
+        throw new Error("redis offline");
+      },
+      async close() {
+        closes += 1;
+      },
+    },
+  });
+  await server.ready();
+
+  const response = await injectJson(server, "GET", "/ready");
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.body.components.rateLimitStore, "degraded");
+
+  const metrics = await server.inject({ method: "GET", url: "/metrics" });
+  assert.match(metrics.payload, /rfq_dependency_status\{component="rateLimitStore",status="degraded"\} 1/);
+
+  await server.close();
+  assert.equal(closes, 1);
+});
+
+test("RFQ API validates Redis rate limit runtime configuration", async () => {
+  const names = [
+    "NODE_ENV",
+    "RFQ_SIGNER_PRIVATE_KEY",
+    "RFQ_SETTLEMENT_ADDRESS",
+    "RFQ_RECEIPT_CONFIG_JSON",
+    "RFQ_RATE_LIMIT_BACKEND",
+    "RFQ_REDIS_URL",
+  ];
+  const original = saveEnv(names);
+
+  try {
+    delete process.env.NODE_ENV;
+    process.env.RFQ_RATE_LIMIT_BACKEND = "cluster";
+    assert.throws(() => buildServer({ logger: false }), /must be memory or redis/);
+
+    process.env.RFQ_RATE_LIMIT_BACKEND = "redis";
+    delete process.env.RFQ_REDIS_URL;
+    assert.throws(() => buildServer({ logger: false }), /RFQ_REDIS_URL is required/);
+
+    process.env.RFQ_REDIS_URL = "http://localhost:6379";
+    assert.throws(() => buildServer({ logger: false }), /redis:\/\/ or rediss:\/\//);
+
+    process.env.NODE_ENV = "production";
+    process.env.RFQ_SIGNER_PRIVATE_KEY = signerKey;
+    process.env.RFQ_SETTLEMENT_ADDRESS = settlementAddress;
+    process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig());
+    process.env.RFQ_RATE_LIMIT_BACKEND = "memory";
+    assert.throws(() => buildServer({ logger: false }), /must be redis when NODE_ENV=production/);
+
+    delete process.env.RFQ_RATE_LIMIT_BACKEND;
+    delete process.env.RFQ_REDIS_URL;
+    assert.throws(() => buildServer({ logger: false }), /RFQ_REDIS_URL is required/);
+
+    process.env.RFQ_REDIS_URL = "redis://127.0.0.1:6379/0";
+    const server = buildServer({ logger: false });
+    await server.ready();
+    await server.close();
+  } finally {
+    restoreEnv(original);
+  }
+});
+
+test("RFQ API rejects conflicting or malformed injected rate limiters", () => {
+  const limiter = {
+    check() {
+      return { allowed: true, remaining: 1, retryAfterSeconds: 60 };
+    },
+    checkHealth() {},
+  };
+  assert.throws(
+    () => buildServer({ logger: false, rateLimit: false, rateLimiter: limiter }),
+    /cannot both be provided/,
+  );
+  assert.throws(
+    () => buildServer({ logger: false, rateLimiter: { check() {} } }),
+    /rateLimiter.checkHealth must be a function/,
+  );
+});
+
+function receiptConfig() {
+  return {
+    chains: [{
+      chainId: 1,
+      rpcUrl: "http://127.0.0.1:8545",
+      settlementAddress,
+      confirmations: 2,
+      receiptTimeoutMs: 120_000,
+    }],
+  };
+}
+
+async function injectJson(server, method, url, payload) {
+  const response = await server.inject({
+    method,
+    url,
+    headers: payload ? { "content-type": "application/json" } : undefined,
+    payload: payload ? JSON.stringify(payload) : undefined,
+  });
+  return {
+    statusCode: response.statusCode,
+    headers: response.headers,
+    body: response.payload ? JSON.parse(response.payload) : undefined,
+  };
+}
+
+function saveEnv(names) {
+  return Object.fromEntries(names.map((name) => [name, process.env[name]]));
+}
+
+function restoreEnv(values) {
+  for (const [name, value] of Object.entries(values)) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+}

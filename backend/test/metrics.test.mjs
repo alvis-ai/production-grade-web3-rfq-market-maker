@@ -34,6 +34,7 @@ const readinessResponse = {
     signer: "degraded",
     quoteRepository: "ok",
     riskDecisionStore: "ok",
+    rateLimitStore: "ok",
     inventory: "ok",
     execution: "ok",
     settlementEventStore: "ok",
@@ -54,6 +55,7 @@ test("MetricsService renders fixed readiness and dependency labels", () => {
   assert.match(output, /rfq_dependency_status\{component="marketData",status="ok"\} 1/);
   assert.match(output, /rfq_dependency_status\{component="marketSnapshotStore",status="ok"\} 1/);
   assert.match(output, /rfq_dependency_status\{component="riskDecisionStore",status="ok"\} 1/);
+  assert.match(output, /rfq_dependency_status\{component="rateLimitStore",status="ok"\} 1/);
   assert.match(output, /rfq_dependency_status\{component="settlementEventStore",status="ok"\} 1/);
 });
 test("MetricsService sanitizes reason labels and renders core settlement metrics", () => {

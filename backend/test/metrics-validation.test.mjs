@@ -13,6 +13,7 @@ const readinessResponse = {
     signer: "degraded",
     quoteRepository: "ok",
     riskDecisionStore: "ok",
+    rateLimitStore: "ok",
     inventory: "ok",
     execution: "ok",
     settlementEventStore: "ok",
