@@ -35,8 +35,9 @@ export interface OrderBookPairConfig {
   chainId: number;
   tokenIn: `0x${string}`;
   tokenOut: `0x${string}`;
-  /** Trading pair symbol on the CEX, e.g. "BTCUSDT" */
-  cexSymbol: string;
+  exchange: "binance" | "coinbase";
+  /** Exchange-native symbol, e.g. BTCUSDT or BTC-USD. */
+  symbol: string;
 }
 
 // ─── OrderBook ─────────────────────────────────────────────────────
@@ -58,6 +59,7 @@ export class OrderBook {
   readonly asks = new Map<string, string>();
 
   private lastMetrics: OrderBookMetrics | undefined;
+  private lastMetricsDepthRangeBps: number | undefined;
 
   // ── state mutations ──
 
@@ -67,10 +69,10 @@ export class OrderBook {
     this.asks.clear();
 
     for (const [price, qty] of snapshot.bids) {
-      if (!isZeroQty(qty)) this.bids.set(price, qty);
+      if (isValidLevel(price, qty) && !isZeroQty(qty)) this.bids.set(price, qty);
     }
     for (const [price, qty] of snapshot.asks) {
-      if (!isZeroQty(qty)) this.asks.set(price, qty);
+      if (isValidLevel(price, qty) && !isZeroQty(qty)) this.asks.set(price, qty);
     }
 
     this.invalidate();
@@ -83,14 +85,22 @@ export class OrderBook {
    */
   applyDelta(delta: OrderBookDelta): void {
     for (const [price, qty] of delta.bids) {
+      if (!isValidLevel(price, qty)) continue;
       if (isZeroQty(qty)) this.bids.delete(price);
       else this.bids.set(price, qty);
     }
     for (const [price, qty] of delta.asks) {
+      if (!isValidLevel(price, qty)) continue;
       if (isZeroQty(qty)) this.asks.delete(price);
       else this.asks.set(price, qty);
     }
 
+    this.invalidate();
+  }
+
+  clear(): void {
+    this.bids.clear();
+    this.asks.clear();
     this.invalidate();
   }
 
@@ -103,20 +113,24 @@ export class OrderBook {
    *                        Default 50 = 0.5% on each side.
    */
   getMetrics(depthRangeBps = 50): OrderBookMetrics {
-    if (this.lastMetrics) return this.lastMetrics;
+    if (!Number.isSafeInteger(depthRangeBps) || depthRangeBps < 1 || depthRangeBps > 10_000) {
+      throw new Error("Order book depthRangeBps must be an integer between 1 and 10000");
+    }
+    if (this.lastMetrics && this.lastMetricsDepthRangeBps === depthRangeBps) return this.lastMetrics;
 
     const bestBidNum = this.bestBid();
     const bestAskNum = this.bestAsk();
 
-    const bestBid = bestBidNum !== undefined ? bestBidNum.toString() : "0";
-    const bestAsk = bestAskNum !== undefined ? bestAskNum.toString() : "0";
-    const midPriceNum = bestBidNum !== undefined && bestAskNum !== undefined
+    const validSpread = bestBidNum !== undefined && bestAskNum !== undefined && bestAskNum > bestBidNum;
+    const bestBid = bestBidNum !== undefined ? formatDecimal(bestBidNum) : "0";
+    const bestAsk = bestAskNum !== undefined ? formatDecimal(bestAskNum) : "0";
+    const midPriceNum = validSpread
       ? (bestBidNum + bestAskNum) / 2
       : 0;
-    const midPrice = midPriceNum.toString();
+    const midPrice = formatDecimal(midPriceNum);
 
     // Spread in bps
-    const spreadBps = bestBidNum !== undefined && bestAskNum !== undefined && bestBidNum > 0
+    const spreadBps = validSpread && bestBidNum > 0
       ? Math.round(((bestAskNum - bestBidNum) / bestBidNum) * 10_000)
       : 0;
 
@@ -128,12 +142,13 @@ export class OrderBook {
       bestBid,
       bestAsk,
       spreadBps,
-      liquidityUsd: liquidityUsd.toString(),
+      liquidityUsd: Math.max(0, Math.floor(liquidityUsd)).toString(),
       bidLevels: this.bids.size,
       askLevels: this.asks.size,
     };
 
     this.lastMetrics = entry;
+    this.lastMetricsDepthRangeBps = depthRangeBps;
     return entry;
   }
 
@@ -168,6 +183,7 @@ export class OrderBook {
 
   private invalidate(): void {
     this.lastMetrics = undefined;
+    this.lastMetricsDepthRangeBps = undefined;
   }
 
   /** Highest-priced bid (the best bid). */
@@ -229,5 +245,21 @@ function parseDecimal(s: string): number {
 }
 
 function isZeroQty(qty: string): boolean {
-  return qty === "0" || qty === "0.00000000" || qty === "0.0" || qty === "0.00";
+  return /^0(?:\.0+)?$/.test(qty);
+}
+
+function isValidLevel(price: string, quantity: string): boolean {
+  if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(price) || !/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(quantity)) {
+    return false;
+  }
+
+  const priceNumber = Number(price);
+  const quantityNumber = Number(quantity);
+  return Number.isFinite(priceNumber) && priceNumber > 0 && Number.isFinite(quantityNumber) && quantityNumber >= 0;
+}
+
+function formatDecimal(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "0";
+  const fixed = value.toFixed(18).replace(/0+$/, "").replace(/\.$/, "");
+  return fixed === "" ? "0" : fixed;
 }

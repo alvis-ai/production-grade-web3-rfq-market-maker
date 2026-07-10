@@ -69,6 +69,8 @@ export class CoinbaseConnector {
   /** Graceful shutdown. */
   stop(): void {
     this.stopped = true;
+    this.snapshotReceived = false;
+    this.book.clear();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -84,10 +86,16 @@ export class CoinbaseConnector {
     return this.book;
   }
 
+  isReady(): boolean {
+    return this.snapshotReceived && this.ws?.readyState === WebSocket.OPEN;
+  }
+
   // ── connection lifecycle ──
 
   private connect(): void {
     if (this.stopped) return;
+    this.snapshotReceived = false;
+    this.book.clear();
 
     try {
       this.ws = new WebSocket(WS_URL);
@@ -102,26 +110,30 @@ export class CoinbaseConnector {
 
       this.ws.onmessage = (event: MessageEvent) => {
         try {
-          const msg: CoinbaseMessage = JSON.parse(event.data as string);
+          const msg = JSON.parse(event.data as string) as CoinbaseMessage;
 
-          if (msg.type === "snapshot" && "bids" in msg) {
-            this.handleSnapshot(msg as CoinbaseSnapshotMessage);
-          } else if (msg.type === "l2update" && "changes" in msg) {
-            this.handleUpdate(msg as CoinbaseL2UpdateMessage);
+          if (msg.type === "snapshot" && "bids" in msg && msg.product_id === this.productId) {
+            this.handleSnapshot(msg);
+          } else if (msg.type === "l2update" && "changes" in msg && msg.product_id === this.productId) {
+            this.handleUpdate(msg);
           }
-        } catch {
-          // Parse error — skip malformed message
+        } catch (error) {
+          this.reportError(error, "Coinbase message parsing failed");
         }
       };
 
       this.ws.onclose = () => {
+        this.ws = null;
+        this.snapshotReceived = false;
+        this.book.clear();
         this.scheduleReconnect();
       };
 
       this.ws.onerror = () => {
-        // onclose fires after onerror, triggering reconnect
+        this.reportError(new Error("Coinbase WebSocket error"));
       };
-    } catch {
+    } catch (error) {
+      this.reportError(error, "Coinbase WebSocket setup failed");
       this.scheduleReconnect();
     }
   }
@@ -162,6 +174,8 @@ export class CoinbaseConnector {
   private scheduleReconnect(): void {
     if (this.stopped) return;
     this.snapshotReceived = false;
+    this.book.clear();
+    if (this.reconnectTimer) return;
 
     const delay = Math.min(
       INITIAL_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempt),
@@ -170,8 +184,15 @@ export class CoinbaseConnector {
     this.reconnectAttempt += 1;
 
     this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
       this.connect();
     }, delay);
+    this.reconnectTimer.unref();
+  }
+
+  private reportError(error: unknown, fallback?: string): void {
+    const normalized = error instanceof Error ? error : new Error(fallback ?? String(error));
+    this.onError?.(normalized);
   }
 }
 

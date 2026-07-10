@@ -150,6 +150,23 @@ test("RFQ API rejects invalid RFQ_TRUST_PROXY at startup", () => {
   }
 });
 
+test("RFQ API rejects malformed RFQ_CEX_PAIRS before starting market data workers", () => {
+  const originalPairs = process.env.RFQ_CEX_PAIRS;
+
+  try {
+    for (const pairs of [
+      "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:ETHUSDT",
+      "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:kraken:ETHUSD",
+      "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:!!",
+    ]) {
+      process.env.RFQ_CEX_PAIRS = pairs;
+      assert.throws(() => buildServer({ logger: false }), /Invalid RFQ_CEX_PAIRS entry/);
+    }
+  } finally {
+    restoreEnv("RFQ_CEX_PAIRS", originalPairs);
+  }
+});
+
 test("RFQ API reads startup environment only from own fields", async () => {
   assert.deepEqual(readServerListenConfig({ env: Object.create({ HOST: "0.0.0.0", PORT: "8080" }) }), {
     host: "127.0.0.1",

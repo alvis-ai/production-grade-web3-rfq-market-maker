@@ -137,11 +137,15 @@ RFQ_TRUST_PROXY=false
 VITE_RFQ_API_BASE_URL=http://localhost:3000
 VITE_RFQ_SETTLEMENT_ADDRESS=0x...
 VITE_WALLETCONNECT_PROJECT_ID=00000000000000000000000000000000
+# RFQ_MARKET_PAIRS=1:0xTokenIn:0xTokenOut
+# RFQ_CEX_PAIRS=1:0xTokenIn:0xTokenOut:binance:ETHUSDT,1:0xTokenIn:0xTokenOut:coinbase:ETH-USDT
 RFQ_SIGNER_PRIVATE_KEY=0x...
 RFQ_SETTLEMENT_ADDRESS=0x...
 ```
 
 The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract. The default settlement verifier derives its trusted signer address and verifying contract from the same `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` startup config, then recovers the EIP-712 signer during `/submit` before simulated settlement. `HOST` defaults to `127.0.0.1` and must not contain whitespace; `PORT` defaults to `3000` and must be a base-10 integer from 1 to 65535. Backend startup reads only own environment fields, so prototype-backed `HOST`, `PORT`, `RFQ_QUOTE_TTL_SECONDS`, signer, CORS, HSTS or proxy values are treated as unset. `RFQ_QUOTE_TTL_SECONDS` controls the signed quote lifetime and must be a base-10 integer from 1 to 3600; keep it short enough to limit stale price execution. `RFQ_BODY_LIMIT_BYTES` controls the maximum JSON request body size and must be a base-10 integer from 1024 to 1048576. `RFQ_CORS_ALLOWED_ORIGINS` is a comma-separated allowlist of HTTP(S) URL origins that may call the API; startup rejects entries with paths, query strings, fragments, credentials, or wildcards, then normalizes each accepted origin with `URL.origin`. `RFQ_ENABLE_HSTS` must only be enabled when the public API is served through HTTPS. `RFQ_TRUST_PROXY` defaults to `false`; only enable it when a trusted reverse proxy or ingress strips untrusted `x-forwarded-for` input and writes the client IP. `VITE_RFQ_API_BASE_URL` configures the browser API endpoint and must be an absolute HTTP(S) URL with an optional path prefix, no credentials, no wildcard host, and no query string or fragment. `VITE_RFQ_SETTLEMENT_ADDRESS` configures the browser-side `RFQSettlement.submitQuote` target. `VITE_WALLETCONNECT_PROJECT_ID` configures RainbowKit wallet connection and must be a 128-character-or-shorter safe string containing only letters, numbers, underscore, or hyphen.
+
+`RFQ_MARKET_PAIRS` controls background snapshot prefetch. `RFQ_CEX_PAIRS` adds exchange-specific Level-2 sources using `chainId:tokenIn:tokenOut:exchange:symbol`; configure Binance and Coinbase separately because their symbols differ. For a shared token pair, synchronized source prices are aggregated by median and near-mid liquidity is summed. A disconnected or sequence-gapped source is removed from aggregation until its full snapshot and buffered updates are synchronized again.
 
 `make smoke-api-local` starts the built backend, requests a quote, cryptographically recovers the EIP-712 signer from the returned signature using `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS`, submits the quote, verifies replay rejection, and checks settlement, hedge, PnL and Prometheus metrics.
 

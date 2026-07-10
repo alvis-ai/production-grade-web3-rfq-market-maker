@@ -234,6 +234,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   // Start background price updater for managed pairs (only when using default service)
   const priceUpdaterPairs = readMarketDataPairs();
+  const cexPairs = readCexOrderBookPairs();
   const priceUpdater = !options.marketDataService && priceCache && priceUpdaterPairs.length > 0
     ? new BackgroundPriceUpdater(rawMarketDataService, priceCache, {
         pairs: priceUpdaterPairs,
@@ -241,19 +242,17 @@ export function buildServer(options: BuildServerOptions = {}) {
         maxAgeMs: 5_000,
       })
     : undefined;
-  priceUpdater?.start();
 
   // Start CEX order book monitor (only when using default service)
-  const cexPairs = readCexOrderBookPairs();
   const cexMonitor = !options.marketDataService && priceCache && cexPairs.length > 0
     ? new CEXOrderBookMonitor(priceCache, {
         pairs: cexPairs,
-        exchanges: ["binance", "coinbase"],
         depthRangeBps: 50,
         flushIntervalMs: 100,
         volatilitySampleSize: 10,
       })
     : undefined;
+  priceUpdater?.start();
   cexMonitor?.start();
   if (priceUpdater || cexMonitor) {
     server.addHook("onClose", async () => {
@@ -1279,8 +1278,8 @@ function readMarketDataPairs(): Array<{ chainId: number; tokenIn: `0x${string}`;
 
 /**
  * Reads CEX order book pairs from environment.
- * Format: RFQ_CEX_PAIRS=chainId:tokenIn:tokenOut:cexSymbol,...
- * Example: RFQ_CEX_PAIRS=1:0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2:0xdAC17F958D2ee523a2206206994597C13D831ec7:ETHUSDT
+ * Format: RFQ_CEX_PAIRS=chainId:tokenIn:tokenOut:exchange:symbol,...
+ * Example: RFQ_CEX_PAIRS=1:0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2:0xdAC17F958D2ee523a2206206994597C13D831ec7:binance:ETHUSDT
  */
 function readCexOrderBookPairs(): OrderBookPairConfig[] {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
@@ -1292,25 +1291,30 @@ function readCexOrderBookPairs(): OrderBookPairConfig[] {
 
   return configured.split(",").map((pairStr) => {
     const parts = pairStr.trim().split(":");
-    if (parts.length !== 4) {
+    if (parts.length !== 5) {
       throw new Error(
-        `Invalid RFQ_CEX_PAIRS entry: ${pairStr}. Expected format: chainId:tokenIn:tokenOut:cexSymbol`,
+        `Invalid RFQ_CEX_PAIRS entry: ${pairStr}. Expected format: chainId:tokenIn:tokenOut:exchange:symbol`,
       );
     }
     const chainId = readPairChainId(parts[0], "RFQ_CEX_PAIRS", pairStr);
     const tokenIn = readPairAddress(parts[1], "RFQ_CEX_PAIRS", pairStr);
     const tokenOut = readPairAddress(parts[2], "RFQ_CEX_PAIRS", pairStr);
     assertPairDistinctTokens(tokenIn, tokenOut, "RFQ_CEX_PAIRS", pairStr);
-    const cexSymbol = parts[3].trim().toUpperCase();
-    if (!/^[A-Z0-9._-]{3,32}$/.test(cexSymbol)) {
-      throw new Error(`Invalid RFQ_CEX_PAIRS entry: ${pairStr}. cexSymbol must be 3-32 exchange symbol characters`);
+    const exchange = parts[3].trim().toLowerCase();
+    if (exchange !== "binance" && exchange !== "coinbase") {
+      throw new Error(`Invalid RFQ_CEX_PAIRS entry: ${pairStr}. exchange must be binance or coinbase`);
+    }
+    const symbol = parts[4].trim().toUpperCase();
+    if (!/^[A-Z0-9._-]{3,32}$/.test(symbol)) {
+      throw new Error(`Invalid RFQ_CEX_PAIRS entry: ${pairStr}. symbol must be 3-32 exchange symbol characters`);
     }
 
     return {
       chainId,
       tokenIn,
       tokenOut,
-      cexSymbol,
+      exchange,
+      symbol,
     };
   });
 }
