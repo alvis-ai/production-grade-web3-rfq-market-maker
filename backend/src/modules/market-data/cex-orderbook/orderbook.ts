@@ -1,4 +1,5 @@
 import type { MarketSnapshot } from "../../../shared/types/rfq.js";
+import { tagMarketDataSnapshot } from "../market-data.service.js";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -163,7 +164,7 @@ export class OrderBook {
     const metrics = this.getMetrics();
     const observedAtMs = Date.now();
 
-    return {
+    return tagMarketDataSnapshot({
       snapshotId: [
         "snapshot",
         chainId.toString(),
@@ -176,7 +177,7 @@ export class OrderBook {
       liquidityUsd: metrics.liquidityUsd,
       volatilityBps,
       observedAt: new Date(observedAtMs).toISOString(),
-    };
+    }, source);
   }
 
   // ── private helpers ──

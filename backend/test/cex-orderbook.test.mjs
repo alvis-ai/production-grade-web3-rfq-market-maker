@@ -3,6 +3,7 @@ import test from "node:test";
 import { CEXOrderBookMonitor } from "../dist/modules/market-data/cex-orderbook/cex-orderbook-monitor.js";
 import { BinanceConnector } from "../dist/modules/market-data/cex-orderbook/binance-connector.js";
 import { OrderBook } from "../dist/modules/market-data/cex-orderbook/orderbook.js";
+import { getMarketDataSnapshotSource } from "../dist/modules/market-data/market-data.service.js";
 import { SharedPriceCache, pairKey } from "../dist/modules/market-data/price-cache.js";
 
 const tokenIn = "0x0000000000000000000000000000000000000002";
@@ -55,6 +56,7 @@ test("CEXOrderBookMonitor aggregates synchronized exchange sources by pair", () 
     assert.equal(snapshot.midPrice, "102");
     assert.equal(snapshot.liquidityUsd, "616");
     assert.equal(snapshot.volatilityBps, 10);
+    assert.equal(getMarketDataSnapshotSource(snapshot), "cex:binance+coinbase");
     assert.match(snapshot.snapshotId, /_cex$/);
 
     connectors.get("coinbase:ETH-USDT").ready = false;

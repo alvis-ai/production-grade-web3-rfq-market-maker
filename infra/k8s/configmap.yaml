@@ -13,3 +13,4 @@ data:
   RFQ_CORS_ALLOWED_ORIGINS: "https://app.example.com"
   RFQ_ENABLE_HSTS: "true"
   RFQ_TRUST_PROXY: "false"
+  RFQ_MARKET_DATA_PROVIDER: static

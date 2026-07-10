@@ -37,6 +37,13 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.signerSecret.name }}
                   key: {{ .Values.signerSecret.settlementAddressKey }}
+            {{- if .Values.chainlinkConfigSecret.enabled }}
+            - name: RFQ_CHAINLINK_CONFIG_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.chainlinkConfigSecret.name }}
+                  key: {{ .Values.chainlinkConfigSecret.key }}
+            {{- end }}
           lifecycle:
             preStop:
               exec:

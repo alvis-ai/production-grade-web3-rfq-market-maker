@@ -1,4 +1,5 @@
 import type { MarketSnapshot } from "../../../shared/types/rfq.js";
+import { tagMarketDataSnapshot } from "../market-data.service.js";
 import { SharedPriceCache, pairKey } from "../price-cache.js";
 import { type OrderBook, type OrderBookMetrics, type OrderBookPairConfig } from "./orderbook.js";
 import { BinanceConnector } from "./binance-connector.js";
@@ -34,6 +35,7 @@ const defaultConfig: CexOrderBookConfig = {
 
 interface SourceMetrics {
   metrics: OrderBookMetrics;
+  source: OrderBookPairConfig["exchange"];
 }
 
 export class CEXOrderBookMonitor {
@@ -105,7 +107,7 @@ export class CEXOrderBookMonitor {
       if (!connector?.isReady()) continue;
       const metrics = connector.getOrderBook().getMetrics(this.config.depthRangeBps);
       if (!isUsableMetrics(metrics)) continue;
-      sources.push({ metrics });
+      sources.push({ metrics, source: pair.exchange });
     }
     return sources;
   }
@@ -122,7 +124,7 @@ export class CEXOrderBookMonitor {
     this.snapshotSequence += 1;
     const observedAtMs = Date.now();
 
-    return {
+    return tagMarketDataSnapshot({
       snapshotId: [
         "snapshot",
         pair.chainId.toString(),
@@ -136,7 +138,7 @@ export class CEXOrderBookMonitor {
       liquidityUsd: (liquidity > 0n ? liquidity : 1n).toString(),
       volatilityBps: this.estimateVolatility(cacheKey),
       observedAt: new Date(observedAtMs).toISOString(),
-    };
+    }, `cex:${Array.from(new Set(sources.map(({ source }) => source))).sort().join("+")}`);
   }
 
   private recordPrice(key: string, price: number): void {

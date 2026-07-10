@@ -3,7 +3,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { SkeletonExecutionService } from "./modules/execution/execution.service.js";
 import { getPool, endPool } from "./db/pool.js";
 import { HedgeService, type HedgeIntentService } from "./modules/hedge/hedge.service.js";
-import { ReadinessService } from "./modules/health/readiness.service.js";
+import { defaultReadinessServiceConfig, ReadinessService } from "./modules/health/readiness.service.js";
 import { InventoryService } from "./modules/inventory/inventory.service.js";
 import { StaticMarketDataService, type MarketDataService } from "./modules/market-data/market-data.service.js";
 import { InMemoryMarketSnapshotRepository, type MarketSnapshotStore } from "./modules/market-data/market-snapshot.repository.js";
@@ -13,6 +13,12 @@ import { SharedPriceCache } from "./modules/market-data/price-cache.js";
 import { BackgroundPriceUpdater } from "./modules/market-data/price-updater.js";
 import { CEXOrderBookMonitor } from "./modules/market-data/cex-orderbook/cex-orderbook-monitor.js";
 import type { OrderBookPairConfig } from "./modules/market-data/cex-orderbook/orderbook.js";
+import { ChainlinkMarketDataService } from "./modules/market-data/chainlink-market-data.service.js";
+import {
+  chainlinkConfiguredPairs,
+  parseChainlinkMarketDataConfig,
+  type ChainlinkMarketDataConfig,
+} from "./modules/market-data/chainlink-config.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { PnlService, type PnlStore, type RecordPnlInput } from "./modules/pnl/pnl.service.js";
 import { FormulaPricingEngine, type PricingEngine } from "./modules/pricing/pricing.engine.js";
@@ -136,6 +142,12 @@ export interface BuildServerOptions {
   trustProxy?: boolean;
 }
 
+interface DefaultMarketDataRuntime {
+  service: MarketDataService;
+  defaultPairs: ReturnType<typeof chainlinkConfiguredPairs>;
+  maxSnapshotAgeMs: number;
+}
+
 export function buildServer(options: BuildServerOptions = {}) {
   assertBuildServerOptions(options);
   const logger = options.logger === undefined
@@ -175,13 +187,19 @@ export function buildServer(options: BuildServerOptions = {}) {
 
   const hedgeService = options.hedgeService ?? new HedgeService();
   const metricsService = new MetricsService();
-  const rawMarketDataService = options.marketDataService ?? new StaticMarketDataService();
-  const defaultPriceCache = options.marketDataService ? undefined : new SharedPriceCache();
-  // Only wrap with cache when using the default service (not a test mock)
-  const [marketDataService, priceCache] = options.marketDataService
-    ? [rawMarketDataService, undefined as SharedPriceCache | undefined]
-    : [new CachedMarketDataService(rawMarketDataService, defaultPriceCache!, metricsService) as MarketDataService,
-       defaultPriceCache];
+  const defaultMarketData = options.marketDataService ? undefined : readDefaultMarketDataRuntime();
+  const rawMarketDataService = options.marketDataService ?? defaultMarketData!.service;
+  const cexPairs = defaultMarketData ? readCexOrderBookPairs() : [];
+  const basePriceCache = defaultMarketData ? new SharedPriceCache(5_000) : undefined;
+  const cexPriceCache = cexPairs.length > 0 ? new SharedPriceCache(2_000) : undefined;
+  const marketDataService = defaultMarketData && basePriceCache
+    ? new CachedMarketDataService(
+        rawMarketDataService,
+        cexPriceCache ? [cexPriceCache, basePriceCache] : [basePriceCache],
+        metricsService,
+      )
+    : rawMarketDataService;
+  const maxSnapshotAgeMs = defaultMarketData?.maxSnapshotAgeMs ?? defaultQuoteServiceConfig.maxSnapshotAgeMs;
   const postgresPool = shouldUsePostgresPersistence(options) ? getPool() : undefined;
   const marketSnapshotStore = options.marketSnapshotStore ?? (
     postgresPool ? new PostgresMarketSnapshotStore(postgresPool) : new InMemoryMarketSnapshotRepository()
@@ -230,13 +248,13 @@ export function buildServer(options: BuildServerOptions = {}) {
     signerService: new ObservedSignerService(signerService, metricsService),
   }, {
     ...defaultQuoteServiceConfig,
+    maxSnapshotAgeMs,
     quoteTtlSeconds,
   });
   // Start background price updater for managed pairs (only when using default service)
-  const priceUpdaterPairs = readMarketDataPairs();
-  const cexPairs = readCexOrderBookPairs();
-  const priceUpdater = !options.marketDataService && priceCache && priceUpdaterPairs.length > 0
-    ? new BackgroundPriceUpdater(rawMarketDataService, priceCache, {
+  const priceUpdaterPairs = defaultMarketData ? readMarketDataPairs(defaultMarketData.defaultPairs) : [];
+  const priceUpdater = defaultMarketData && basePriceCache && priceUpdaterPairs.length > 0
+    ? new BackgroundPriceUpdater(rawMarketDataService, basePriceCache, {
         pairs: priceUpdaterPairs,
         intervalMs: 250,
         maxAgeMs: 5_000,
@@ -244,8 +262,8 @@ export function buildServer(options: BuildServerOptions = {}) {
     : undefined;
 
   // Start CEX order book monitor (only when using default service)
-  const cexMonitor = !options.marketDataService && priceCache && cexPairs.length > 0
-    ? new CEXOrderBookMonitor(priceCache, {
+  const cexMonitor = defaultMarketData && cexPriceCache && cexPairs.length > 0
+    ? new CEXOrderBookMonitor(cexPriceCache, {
         pairs: cexPairs,
         depthRangeBps: 50,
         flushIntervalMs: 100,
@@ -280,7 +298,11 @@ export function buildServer(options: BuildServerOptions = {}) {
     routingEngine,
     settlementEventService,
     signerService,
-  });
+  }, defaultMarketData && priceUpdaterPairs[0] ? {
+    ...defaultReadinessServiceConfig,
+    maxSnapshotAgeMs,
+    probeRequest: priceUpdaterPairs[0],
+  } : defaultReadinessServiceConfig);
 
   server.get("/health", async () => ({ status: "ok" }));
   server.options("/*", async (request, reply) => {
@@ -1233,12 +1255,43 @@ function runtimeProcess(): RuntimeProcess | undefined {
   return (globalThis as { process?: RuntimeProcess }).process;
 }
 
+function readDefaultMarketDataRuntime(): DefaultMarketDataRuntime {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const configuredProvider = readOwnEnvValue(env, "RFQ_MARKET_DATA_PROVIDER");
+  const provider = configuredProvider?.trim() || "static";
+  if (provider === "static") {
+    return {
+      service: new StaticMarketDataService(),
+      defaultPairs: defaultStaticMarketDataConfig.supportedPairs.map((pair) => ({
+        ...pair,
+        user: "0x0000000000000000000000000000000000000001" as const,
+        amountIn: "1",
+        slippageBps: 50,
+      })),
+      maxSnapshotAgeMs: defaultQuoteServiceConfig.maxSnapshotAgeMs,
+    };
+  }
+  if (provider !== "chainlink") {
+    throw new Error("RFQ_MARKET_DATA_PROVIDER must be static or chainlink");
+  }
+
+  const serializedConfig = readOwnEnvValue(env, "RFQ_CHAINLINK_CONFIG_JSON");
+  if (!serializedConfig) throw new Error("RFQ_CHAINLINK_CONFIG_JSON is required when RFQ_MARKET_DATA_PROVIDER=chainlink");
+  const config: ChainlinkMarketDataConfig = parseChainlinkMarketDataConfig(serializedConfig);
+  return {
+    service: new ChainlinkMarketDataService(config),
+    defaultPairs: chainlinkConfiguredPairs(config),
+    maxSnapshotAgeMs: config.maxPriceAgeMs,
+  };
+}
+
 /**
- * Returns default market data pairs for background price pre-fetching.
- * Reads from RFQ_MARKET_PAIRS env var (format: chainId:tokenIn:tokenOut,chainId:tokenIn:tokenOut)
- * or falls back to the static market data config.
+ * Returns market data pairs for background price pre-fetching.
+ * Reads RFQ_MARKET_PAIRS or falls back to the selected provider's configured pairs.
  */
-function readMarketDataPairs(): Array<{ chainId: number; tokenIn: `0x${string}`; tokenOut: `0x${string}`; user: `0x${string}`; amountIn: string; slippageBps: number }> {
+function readMarketDataPairs(
+  defaultPairs: DefaultMarketDataRuntime["defaultPairs"],
+): DefaultMarketDataRuntime["defaultPairs"] {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
   const configured = env && Object.prototype.hasOwnProperty.call(env, "RFQ_MARKET_PAIRS")
     ? env.RFQ_MARKET_PAIRS
@@ -1265,15 +1318,7 @@ function readMarketDataPairs(): Array<{ chainId: number; tokenIn: `0x${string}`;
     });
   }
 
-  // Fall back to default static pairs
-  return defaultStaticMarketDataConfig.supportedPairs.map((pair) => ({
-    chainId: pair.chainId,
-    tokenIn: pair.tokenIn,
-    tokenOut: pair.tokenOut,
-    user: "0x0000000000000000000000000000000000000001" as `0x${string}`,
-    amountIn: "1",
-    slippageBps: 50,
-  }));
+  return defaultPairs.map((pair) => ({ ...pair }));
 }
 
 /**

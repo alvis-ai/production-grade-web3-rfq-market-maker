@@ -14,29 +14,38 @@ export class CachedMarketDataService implements MarketDataService {
 
   constructor(
     private readonly inner: MarketDataService,
-    private readonly cache: SharedPriceCache,
+    cache: SharedPriceCache | readonly SharedPriceCache[],
     private readonly metricsService?: MetricsService,
-  ) {}
+  ) {
+    this.caches = Array.isArray(cache) ? [...cache] : [cache as SharedPriceCache];
+    if (this.caches.length === 0 || this.caches.some((entry) => !(entry instanceof SharedPriceCache))) {
+      throw new Error("Cached market data service requires at least one SharedPriceCache");
+    }
+  }
+
+  private readonly caches: SharedPriceCache[];
 
   async getSnapshot(request: QuoteRequest): Promise<MarketSnapshot> {
     const key = pairKey(request.chainId, request.tokenIn, request.tokenOut);
-    const cached = this.cache.get(key);
-    if (cached) {
-      this.hits += 1;
-      this.metricsService?.recordMarketDataCacheHit();
-      return cached;
+    for (const cache of this.caches) {
+      const cached = cache.get(key);
+      if (cached) {
+        this.hits += 1;
+        this.metricsService?.recordMarketDataCacheHit();
+        return cached;
+      }
     }
 
     this.misses += 1;
     this.metricsService?.recordMarketDataCacheMiss();
     const snapshot = await this.inner.getSnapshot(request);
-    this.cache.set(key, snapshot);
+    this.caches[this.caches.length - 1].set(key, snapshot);
     return snapshot;
   }
 
   /** Expose cache for background updater injection and diagnostics */
   getCache(): SharedPriceCache {
-    return this.cache;
+    return this.caches[0];
   }
 
   /** Hit rate for telemetry */

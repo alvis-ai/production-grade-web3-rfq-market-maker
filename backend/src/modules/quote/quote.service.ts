@@ -14,6 +14,7 @@ import { validateSubmitQuoteRequest } from "../../shared/validation/submit-reque
 import type { InventoryProjection, InventoryService } from "../inventory/inventory.service.js";
 import {
   defaultMaxSnapshotFutureSkewMs,
+  getMarketDataSnapshotSource,
   getMarketSnapshotIssue,
   type MarketDataService,
 } from "../market-data/market-data.service.js";
@@ -125,9 +126,11 @@ export class QuoteService {
   async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
     const validatedRequest = validateQuoteRequest(request);
     const snapshot = await this.getUsableSnapshot(validatedRequest);
+    const snapshotSource = getMarketDataSnapshotSource(snapshot);
     await this.saveMarketSnapshot({
       request: validatedRequest,
       snapshot,
+      ...(snapshotSource ? { source: snapshotSource } : {}),
     });
 
     const identity = this.identityGenerator.next();

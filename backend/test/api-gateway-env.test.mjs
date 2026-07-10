@@ -167,6 +167,26 @@ test("RFQ API rejects malformed RFQ_CEX_PAIRS before starting market data worker
   }
 });
 
+test("RFQ API rejects invalid or incomplete Chainlink provider configuration", () => {
+  const originalProvider = process.env.RFQ_MARKET_DATA_PROVIDER;
+  const originalConfig = process.env.RFQ_CHAINLINK_CONFIG_JSON;
+
+  try {
+    process.env.RFQ_MARKET_DATA_PROVIDER = "oracle";
+    assert.throws(() => buildServer({ logger: false }), /must be static or chainlink/);
+
+    process.env.RFQ_MARKET_DATA_PROVIDER = "chainlink";
+    delete process.env.RFQ_CHAINLINK_CONFIG_JSON;
+    assert.throws(() => buildServer({ logger: false }), /is required/);
+
+    process.env.RFQ_CHAINLINK_CONFIG_JSON = "{";
+    assert.throws(() => buildServer({ logger: false }), /must contain valid JSON/);
+  } finally {
+    restoreEnv("RFQ_MARKET_DATA_PROVIDER", originalProvider);
+    restoreEnv("RFQ_CHAINLINK_CONFIG_JSON", originalConfig);
+  }
+});
+
 test("RFQ API reads startup environment only from own fields", async () => {
   assert.deepEqual(readServerListenConfig({ env: Object.create({ HOST: "0.0.0.0", PORT: "8080" }) }), {
     host: "127.0.0.1",

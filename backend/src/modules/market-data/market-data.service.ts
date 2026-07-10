@@ -5,6 +5,28 @@ export interface MarketDataService {
   getSnapshot(request: QuoteRequest): Promise<MarketSnapshot>;
 }
 
+const marketDataSourceSymbol = Symbol("rfq.marketDataSource");
+type SourcedMarketSnapshot = MarketSnapshot & { [marketDataSourceSymbol]?: string };
+
+export function tagMarketDataSnapshot(snapshot: MarketSnapshot, source: string): MarketSnapshot {
+  if (typeof source !== "string" || !/^[A-Za-z0-9._:+-]{1,128}$/.test(source)) {
+    throw new Error("Market data source must be a bounded safe identifier");
+  }
+  Object.defineProperty(snapshot, marketDataSourceSymbol, {
+    configurable: false,
+    enumerable: false,
+    value: source,
+    writable: false,
+  });
+  return snapshot;
+}
+
+export function getMarketDataSnapshotSource(snapshot: MarketSnapshot): string | undefined {
+  if (typeof snapshot !== "object" || snapshot === null) return undefined;
+  const source = (snapshot as SourcedMarketSnapshot)[marketDataSourceSymbol];
+  return typeof source === "string" ? source : undefined;
+}
+
 export interface StaticMarketDataPair {
   chainId: number;
   tokenIn: `0x${string}`;
@@ -53,7 +75,7 @@ export class StaticMarketDataService implements MarketDataService {
     const observedAtMs = Date.now();
     this.snapshotSequence += 1;
 
-    return {
+    return tagMarketDataSnapshot({
       snapshotId: [
         "snapshot",
         request.chainId.toString(),
@@ -66,7 +88,7 @@ export class StaticMarketDataService implements MarketDataService {
       liquidityUsd: "10000000000000",
       volatilityBps: 25,
       observedAt: new Date(observedAtMs).toISOString(),
-    };
+    }, "static-market-data-v1");
   }
 }
 
