@@ -142,6 +142,10 @@ VITE_RFQ_SETTLEMENT_ADDRESS=0x...
 VITE_WALLETCONNECT_PROJECT_ID=00000000000000000000000000000000
 # RFQ_MARKET_PAIRS=1:0xTokenIn:0xTokenOut
 # RFQ_CEX_PAIRS=1:0xTokenIn:0xTokenOut:binance:ETHUSDT,1:0xTokenIn:0xTokenOut:coinbase:ETH-USDT
+RFQ_CEX_MAX_SOURCE_AGE_MS=2000
+RFQ_CEX_MIN_SOURCES=1
+RFQ_CEX_MAX_SOURCE_DEVIATION_BPS=100
+RFQ_CEX_MAX_SPREAD_BPS=100
 # RFQ_HEDGE_ROUTES_JSON={"routes":[...]}
 # RFQ_MARKET_DATA_PROVIDER=chainlink
 # RFQ_CHAINLINK_CONFIG_JSON={...}
@@ -180,9 +184,18 @@ RFQ_ANALYTICS_INTEGRATION_CONFIRM=yes \
 make analytics-integration-check
 ```
 
-`RFQ_MARKET_PAIRS` controls background snapshot prefetch. `RFQ_CEX_PAIRS` adds exchange-specific Level-2 sources using `chainId:tokenIn:tokenOut:exchange:symbol`; configure Binance and Coinbase separately because their symbols differ. For a shared token pair, synchronized source prices are aggregated by median and near-mid liquidity is summed. A disconnected or sequence-gapped source is removed from aggregation until its full snapshot and buffered updates are synchronized again.
+`RFQ_MARKET_PAIRS` controls background snapshot prefetch. `RFQ_CEX_PAIRS` adds exchange-specific Level-2 sources using `chainId:tokenIn:tokenOut:exchange:symbol`; configure Binance and Coinbase separately because their symbols differ. Prices and quantities use exact 18-decimal fixed-point arithmetic. A source participates only after full-book synchronization and while its exchange event time, two-sided spread and payload remain valid. Cross-venue outliers beyond `RFQ_CEX_MAX_SOURCE_DEVIATION_BPS` are removed before the median; if fewer than `RFQ_CEX_MIN_SOURCES` remain, the CEX cache entry is deleted immediately. Non-local environments default to two sources per pair, while local development defaults to one. Unchanged books do not receive synthetic observation times, and stale, malformed or sequence-gapped sources must obtain a new full snapshot before becoming ready again.
 
 The base provider defaults to `static`. Set `RFQ_MARKET_DATA_PROVIDER=chainlink` with `RFQ_CHAINLINK_CONFIG_JSON` to read configured AggregatorV3 feeds. Every network declares `networkType` as `l1` or `l2`; L2 configurations must provide both a Sequencer Uptime Feed and recovery grace period, while L1 configurations reject sequencer fields. The backend rejects non-positive, future-dated, stale, malformed, or decimals-mismatched rounds and uses the oracle `updatedAt` as the snapshot observation time. CEX snapshots live in a separate higher-priority cache, so the fallback provider cannot overwrite a synchronized order book merely because its updater ran later.
+
+The opt-in live check opens a public market-data stream without credentials and verifies full-book synchronization, event freshness, a non-crossed spread and positive near-mid depth:
+
+```sh
+RFQ_CEX_INTEGRATION_CONFIRM=yes \
+RFQ_CEX_INTEGRATION_EXCHANGE=coinbase \
+RFQ_CEX_INTEGRATION_SYMBOL=ETH-USD \
+make cex-orderbook-integration-check
+```
 
 `make smoke-api-local` starts the built backend, requests a quote, cryptographically recovers the EIP-712 signer from the returned signature using `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS`, submits the quote, verifies replay rejection, and checks settlement, hedge, PnL and Prometheus metrics.
 

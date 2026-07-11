@@ -107,3 +107,43 @@ test("MetricsService snapshots inventory positions before storing gauges", () =>
   assert.match(output, /rfq_inventory_balance\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} -998400000/);
   assert.doesNotMatch(output, /rfq_inventory_balance\{chain_id="2",token="0x0000000000000000000000000000000000000004"\} 123/);
 });
+
+test("MetricsService exposes bounded CEX order book health", () => {
+  const metrics = new MetricsService();
+  metrics.recordCexOrderBookCycle({
+    configuredSources: 3,
+    readySources: 1,
+    staleSources: 1,
+    unavailableSources: 1,
+    usablePairs: 1,
+    blockedPairs: 2,
+    deviationRejectedSources: 1,
+    maxUpdateAgeSeconds: 2.5,
+  });
+  metrics.recordCexOrderBookConnectorError("binance");
+
+  const output = metrics.renderPrometheus();
+  assert.match(output, /rfq_cex_order_book_sources\{state="ready"\} 1/);
+  assert.match(output, /rfq_cex_order_book_sources\{state="stale"\} 1/);
+  assert.match(output, /rfq_cex_order_book_sources\{state="unavailable"\} 1/);
+  assert.match(output, /rfq_cex_order_book_pairs\{state="blocked"\} 2/);
+  assert.match(output, /rfq_cex_order_book_deviation_rejected_sources 1/);
+  assert.match(output, /rfq_cex_order_book_max_update_age_seconds 2.5/);
+  assert.match(output, /rfq_cex_order_book_connector_errors_total\{exchange="binance"\} 1/);
+  assert.match(output, /rfq_cex_order_book_connector_errors_total\{exchange="coinbase"\} 0/);
+
+  assert.throws(
+    () => metrics.recordCexOrderBookCycle({
+      configuredSources: 2,
+      readySources: 1,
+      staleSources: 0,
+      unavailableSources: 0,
+      usablePairs: 1,
+      blockedPairs: 0,
+      deviationRejectedSources: 0,
+      maxUpdateAgeSeconds: 0,
+    }),
+    /must sum to configuredSources/,
+  );
+  assert.throws(() => metrics.recordCexOrderBookConnectorError("kraken"), /binance or coinbase/);
+});

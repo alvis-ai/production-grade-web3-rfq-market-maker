@@ -127,6 +127,33 @@ groups:
           summary: RFQ market data cache is not producing quote-path hits
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQCexOrderBookUnavailable
+        expr: (sum(rfq_cex_order_book_sources) > 0 and sum(rfq_cex_order_book_sources{state="ready"}) == 0) or max(rfq_cex_order_book_max_update_age_seconds) > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ CEX order-book sources are unavailable or stale
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQCexOrderBookPairBlocked
+        expr: sum(rfq_cex_order_book_pairs{state="blocked"}) > 0 or max(rfq_cex_order_book_deviation_rejected_sources) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ CEX order-book quorum or deviation guard is blocking pairs
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQCexOrderBookConnectorErrors
+        expr: sum(increase(rfq_cex_order_book_connector_errors_total[10m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ CEX order-book connectors are repeatedly resynchronizing
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQReadinessDegraded
         expr: rfq_readiness_status{status="degraded"} == 1
         for: 2m

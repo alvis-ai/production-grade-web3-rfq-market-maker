@@ -167,6 +167,58 @@ test("RFQ API rejects malformed RFQ_CEX_PAIRS before starting market data worker
   }
 });
 
+test("RFQ API rejects unsafe CEX order book runtime bounds", () => {
+  const originalPairs = process.env.RFQ_CEX_PAIRS;
+  const originalAge = process.env.RFQ_CEX_MAX_SOURCE_AGE_MS;
+  try {
+    process.env.RFQ_CEX_PAIRS =
+      "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT";
+    for (const age of ["99", "1e3", "60001"]) {
+      process.env.RFQ_CEX_MAX_SOURCE_AGE_MS = age;
+      assert.throws(() => buildServer({ logger: false }), /RFQ_CEX_MAX_SOURCE_AGE_MS/);
+    }
+  } finally {
+    restoreEnv("RFQ_CEX_PAIRS", originalPairs);
+    restoreEnv("RFQ_CEX_MAX_SOURCE_AGE_MS", originalAge);
+  }
+});
+
+test("production RFQ API requires two CEX sources per configured pair by default", () => {
+  const names = [
+    "NODE_ENV",
+    "RFQ_SIGNER_PRIVATE_KEY",
+    "RFQ_SETTLEMENT_ADDRESS",
+    "RFQ_ALLOW_SIMULATED_SETTLEMENT",
+    "RFQ_CEX_PAIRS",
+    "RFQ_CEX_MIN_SOURCES",
+  ];
+  const original = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  try {
+    process.env.NODE_ENV = "production";
+    process.env.RFQ_SIGNER_PRIVATE_KEY =
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+    process.env.RFQ_SETTLEMENT_ADDRESS = "0x0000000000000000000000000000000000000004";
+    process.env.RFQ_ALLOW_SIMULATED_SETTLEMENT = "true";
+    process.env.RFQ_CEX_PAIRS =
+      "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT";
+    delete process.env.RFQ_CEX_MIN_SOURCES;
+
+    assert.throws(
+      () => buildServer({
+        logger: false,
+        databasePool: { connect() { throw new Error("unused"); } },
+        rateLimiter: {
+          check() { return { allowed: true, remaining: 1, retryAfterSeconds: 1 }; },
+          checkHealth() {},
+        },
+      }),
+      /each pair must configure at least minSources distinct sources/,
+    );
+  } finally {
+    for (const name of names) restoreEnv(name, original[name]);
+  }
+});
+
 test("RFQ API rejects invalid or incomplete Chainlink provider configuration", () => {
   const originalProvider = process.env.RFQ_MARKET_DATA_PROVIDER;
   const originalConfig = process.env.RFQ_CHAINLINK_CONFIG_JSON;

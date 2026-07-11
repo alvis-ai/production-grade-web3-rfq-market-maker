@@ -119,6 +119,7 @@ No public API changes. Compose exposes backend API on `localhost:3000`, frontend
 - Redis uses `redis-cli ping` and ClickHouse uses `clickhouse-client --query 'SELECT 1'` for local dependency health checks.
 - Prometheus and Grafana included from the first deployment docs stage.
 - Prometheus scrapes the compose `backend:3000` service directly.
+- Compose forwards the bounded `RFQ_CEX_*` freshness, quorum, spread and deviation controls into the backend. Because the container runs with `NODE_ENV=production`, a configured CEX pair defaults to two distinct sources; a one-source local experiment must explicitly set `RFQ_CEX_MIN_SOURCES=1` and must not be treated as a production topology.
 - The credential-isolated `hedge-worker` service is behind the explicit `hedge` Compose profile. It exposes health/readiness/metrics on container port 3001, claims PostgreSQL jobs with leases, and should use Binance Spot Testnet credentials for local integration.
 - The `reconciliation-worker` service is behind the explicit `reconciliation` profile. It exposes health/readiness/metrics on port 3003, claims quote-scoped desired revisions with expiring leases, and repairs post-settlement quote, hedge, and PnL projections without signer, RPC, or venue credentials.
 - Frontend image builds static Vite assets and serves them with Nginx; `VITE_RFQ_API_BASE_URL` is injected as a Docker build arg and defaults to `http://localhost:3000`.

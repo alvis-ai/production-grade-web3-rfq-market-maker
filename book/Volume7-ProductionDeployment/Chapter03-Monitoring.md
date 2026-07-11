@@ -114,6 +114,11 @@ Key metrics include:
 - `rfq_signer_latency_seconds`
 - `rfq_market_data_cache_hits_total`
 - `rfq_market_data_cache_misses_total`
+- `rfq_cex_order_book_sources`
+- `rfq_cex_order_book_pairs`
+- `rfq_cex_order_book_deviation_rejected_sources`
+- `rfq_cex_order_book_max_update_age_seconds`
+- `rfq_cex_order_book_connector_errors_total`
 - `rfq_readiness_status`
 - `rfq_dependency_status`
 - `rfq_settlements_total`
@@ -158,6 +163,7 @@ Key metrics include:
 - Submit latency alerting should inspect verification, settlement event persistence, inventory, hedge and PnL work before lowering quote availability.
 - Signer throughput alerting should compare quote demand with `sign` operations; safe quote flow must never bypass the signer.
 - Market-data cache alerting should compare `rfq_market_data_cache_hits_total` and `rfq_market_data_cache_misses_total` before increasing quote limits; a cold cache points to disabled prefetch, stale CEX order book streams or unsupported pair configuration.
+- CEX order-book alerting uses fixed source/pair states, latest-cycle maximum event age, latest-cycle deviation rejections and connector error rates. A synchronized socket alone is not healthy: `ready` requires a valid two-sided book whose exchange event timestamp is within `RFQ_CEX_MAX_SOURCE_AGE_MS`; blocked pairs must remain on the lower-priority provider or fail closed until quorum and deviation checks recover.
 - Hedge worker alerting correlates newly created intents with terminal/retry outcomes and last processed time. Repeated retries or iteration errors require checking PostgreSQL leases and querying Binance by persisted client order id before any manual action.
 - Rate-limit alerting should inspect `endpoint` first, then separate abuse, broken client retries and real demand before changing global limits.
 - Settlement throughput alerting should compare accepted submits with new settlement events to distinguish true settlement stalls from duplicate replay traffic.
@@ -180,6 +186,8 @@ Key metrics include:
 - Dependency component degraded：route by the fixed `component` label and apply the matching store, signer, market data, pricing or risk mitigation.
 - Quote latency p95 spikes：check market data, pricing, risk and signer dependency latency.
 - Quote error spike：separate invalid requests, rate limits, risk rejection, stale market data, pricing failures and signer failures.
+- CEX order book unavailable：keep affected CEX cache entries invalidated, verify exchange event time and full-snapshot synchronization, and do not refresh `observedAt` from a polling timer.
+- CEX source divergence：pause or fall back for the whole pair until the bad source is identified; never average two mutually inconsistent venues into a signed quote.
 - Quote response stall：compare signed responses with quote errors, risk rejections and signer health before reopening traffic.
 - Risk reject spike：check market volatility, inventory limits, token allowlist and toxic flow signals.
 - Signer sign throughput stalls：check signer routing, dependency readiness and fail-closed behavior before resuming quote traffic.

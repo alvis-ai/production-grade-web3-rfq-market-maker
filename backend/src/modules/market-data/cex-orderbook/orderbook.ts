@@ -1,5 +1,9 @@
-import type { MarketSnapshot } from "../../../shared/types/rfq.js";
-import { tagMarketDataSnapshot } from "../market-data.service.js";
+import {
+  cexDecimalScale,
+  formatCexDecimal,
+  normalizeCexDecimal,
+  parseCexDecimal,
+} from "./decimal.js";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -46,9 +50,8 @@ export interface OrderBookPairConfig {
 /**
  * In-memory Level-2 order book.
  *
- * Maintains bid and ask levels as Map<priceString, quantityString>.
- * Prices are decimal strings as received from the exchange (e.g. "42123.45").
- * Numeric comparison uses float parse — sufficient for order-book precision.
+ * Maintains canonical price and quantity strings backed by 18-decimal fixed-point
+ * arithmetic. A malformed message is rejected before any level is mutated.
  *
  * Metrics (mid, spread, depth) are computed lazily and cached until the
  * next snapshot or delta is applied.
@@ -66,15 +69,13 @@ export class OrderBook {
 
   /** Replace the full book (used after connecting or on reconnect). */
   applySnapshot(snapshot: OrderBookSnapshot): void {
+    const bids = normalizeLevels(snapshot?.bids, "Order book snapshot bid", 5_000);
+    const asks = normalizeLevels(snapshot?.asks, "Order book snapshot ask", 5_000);
     this.bids.clear();
     this.asks.clear();
 
-    for (const [price, qty] of snapshot.bids) {
-      if (isValidLevel(price, qty) && !isZeroQty(qty)) this.bids.set(price, qty);
-    }
-    for (const [price, qty] of snapshot.asks) {
-      if (isValidLevel(price, qty) && !isZeroQty(qty)) this.asks.set(price, qty);
-    }
+    for (const [price, qty] of bids) if (qty !== "0") this.bids.set(price, qty);
+    for (const [price, qty] of asks) if (qty !== "0") this.asks.set(price, qty);
 
     this.invalidate();
   }
@@ -85,14 +86,14 @@ export class OrderBook {
    * Quantity "0" or "0.00000000" means remove the level.
    */
   applyDelta(delta: OrderBookDelta): void {
-    for (const [price, qty] of delta.bids) {
-      if (!isValidLevel(price, qty)) continue;
-      if (isZeroQty(qty)) this.bids.delete(price);
+    const bids = normalizeLevels(delta?.bids, "Order book delta bid", 10_000);
+    const asks = normalizeLevels(delta?.asks, "Order book delta ask", 10_000);
+    for (const [price, qty] of bids) {
+      if (qty === "0") this.bids.delete(price);
       else this.bids.set(price, qty);
     }
-    for (const [price, qty] of delta.asks) {
-      if (!isValidLevel(price, qty)) continue;
-      if (isZeroQty(qty)) this.asks.delete(price);
+    for (const [price, qty] of asks) {
+      if (qty === "0") this.asks.delete(price);
       else this.asks.set(price, qty);
     }
 
@@ -119,31 +120,31 @@ export class OrderBook {
     }
     if (this.lastMetrics && this.lastMetricsDepthRangeBps === depthRangeBps) return this.lastMetrics;
 
-    const bestBidNum = this.bestBid();
-    const bestAskNum = this.bestAsk();
+    const bestBidValue = this.bestBid();
+    const bestAskValue = this.bestAsk();
 
-    const validSpread = bestBidNum !== undefined && bestAskNum !== undefined && bestAskNum > bestBidNum;
-    const bestBid = bestBidNum !== undefined ? formatDecimal(bestBidNum) : "0";
-    const bestAsk = bestAskNum !== undefined ? formatDecimal(bestAskNum) : "0";
-    const midPriceNum = validSpread
-      ? (bestBidNum + bestAskNum) / 2
-      : 0;
-    const midPrice = formatDecimal(midPriceNum);
+    const validSpread = bestBidValue !== undefined && bestAskValue !== undefined && bestAskValue > bestBidValue;
+    const bestBid = bestBidValue !== undefined ? formatCexDecimal(bestBidValue) : "0";
+    const bestAsk = bestAskValue !== undefined ? formatCexDecimal(bestAskValue) : "0";
+    const midPriceValue = validSpread ? (bestBidValue + bestAskValue) / 2n : 0n;
+    const midPrice = formatCexDecimal(midPriceValue);
 
-    // Spread in bps
-    const spreadBps = validSpread && bestBidNum > 0
-      ? Math.round(((bestAskNum - bestBidNum) / bestBidNum) * 10_000)
-      : 0;
+    const spreadValue = validSpread
+      ? ((bestAskValue - bestBidValue) * 10_000n + bestBidValue / 2n) / bestBidValue
+      : 0n;
+    const spreadBps = spreadValue > BigInt(Number.MAX_SAFE_INTEGER)
+      ? Number.MAX_SAFE_INTEGER
+      : Number(spreadValue);
 
     // Cumulative liquidity within depthRangeBps of mid
-    const liquidityUsd = this.computeDepth(midPriceNum, depthRangeBps);
+    const liquidityUsd = this.computeDepth(midPriceValue, depthRangeBps);
 
     const entry: OrderBookMetrics = {
       midPrice,
       bestBid,
       bestAsk,
       spreadBps,
-      liquidityUsd: Math.max(0, Math.floor(liquidityUsd)).toString(),
+      liquidityUsd: liquidityUsd.toString(),
       bidLevels: this.bids.size,
       askLevels: this.asks.size,
     };
@@ -151,33 +152,6 @@ export class OrderBook {
     this.lastMetrics = entry;
     this.lastMetricsDepthRangeBps = depthRangeBps;
     return entry;
-  }
-
-  /** Build a MarketSnapshot from the current order book state. */
-  toMarketSnapshot(
-    chainId: number,
-    tokenIn: `0x${string}`,
-    tokenOut: `0x${string}`,
-    volatilityBps: number,
-    source: string,
-  ): MarketSnapshot {
-    const metrics = this.getMetrics();
-    const observedAtMs = Date.now();
-
-    return tagMarketDataSnapshot({
-      snapshotId: [
-        "snapshot",
-        chainId.toString(),
-        tokenIn.slice(2, 10).toLowerCase(),
-        tokenOut.slice(2, 10).toLowerCase(),
-        observedAtMs.toString(36),
-        "cex",
-      ].join("_"),
-      midPrice: metrics.midPrice,
-      liquidityUsd: metrics.liquidityUsd,
-      volatilityBps,
-      observedAt: new Date(observedAtMs).toISOString(),
-    }, source);
   }
 
   // ── private helpers ──
@@ -188,21 +162,21 @@ export class OrderBook {
   }
 
   /** Highest-priced bid (the best bid). */
-  private bestBid(): number | undefined {
-    let best: number | undefined;
+  private bestBid(): bigint | undefined {
+    let best: bigint | undefined;
     for (const price of this.bids.keys()) {
-      const n = parseDecimal(price);
-      if (best === undefined || n > best) best = n;
+      const value = parseCexDecimal(price, "Order book bid price", false);
+      if (best === undefined || value > best) best = value;
     }
     return best;
   }
 
   /** Lowest-priced ask (the best ask). */
-  private bestAsk(): number | undefined {
-    let best: number | undefined;
+  private bestAsk(): bigint | undefined {
+    let best: bigint | undefined;
     for (const price of this.asks.keys()) {
-      const n = parseDecimal(price);
-      if (best === undefined || n < best) best = n;
+      const value = parseCexDecimal(price, "Order book ask price", false);
+      if (best === undefined || value < best) best = value;
     }
     return best;
   }
@@ -211,56 +185,44 @@ export class OrderBook {
    * Compute total notional value (price × quantity) of all levels
    * within depthRangeBps of the mid price.
    */
-  private computeDepth(mid: number, depthRangeBps: number): number {
-    if (mid <= 0) return 0;
+  private computeDepth(mid: bigint, depthRangeBps: number): bigint {
+    if (mid <= 0n) return 0n;
 
-    const rangeFraction = depthRangeBps / 10_000;
-    const lower = mid * (1 - rangeFraction);
-    const upper = mid * (1 + rangeFraction);
+    const lower = mid * BigInt(10_000 - depthRangeBps) / 10_000n;
+    const upper = mid * BigInt(10_000 + depthRangeBps) / 10_000n;
 
-    let total = 0;
+    let totalScaled = 0n;
 
     for (const [price, qty] of this.bids) {
-      const p = parseDecimal(price);
-      if (p >= lower && p <= upper) {
-        total += p * parseDecimal(qty);
+      const priceValue = parseCexDecimal(price, "Order book bid price", false);
+      if (priceValue >= lower && priceValue <= upper) {
+        totalScaled += priceValue * parseCexDecimal(qty, "Order book bid quantity", false) / cexDecimalScale;
       }
     }
     for (const [price, qty] of this.asks) {
-      const p = parseDecimal(price);
-      if (p >= lower && p <= upper) {
-        total += p * parseDecimal(qty);
+      const priceValue = parseCexDecimal(price, "Order book ask price", false);
+      if (priceValue >= lower && priceValue <= upper) {
+        totalScaled += priceValue * parseCexDecimal(qty, "Order book ask quantity", false) / cexDecimalScale;
       }
     }
 
-    return total;
+    return totalScaled / cexDecimalScale;
   }
 }
 
 // ─── helpers ───────────────────────────────────────────────────────
 
-function parseDecimal(s: string): number {
-  const n = Number(s);
-  if (!Number.isFinite(n)) return 0;
-  return n;
-}
-
-function isZeroQty(qty: string): boolean {
-  return /^0(?:\.0+)?$/.test(qty);
-}
-
-function isValidLevel(price: string, quantity: string): boolean {
-  if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(price) || !/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(quantity)) {
-    return false;
+function normalizeLevels(value: unknown, field: string, maxLevels: number): PriceLevel[] {
+  if (!Array.isArray(value) || value.length > maxLevels) {
+    throw new Error(`${field}s must be an array with at most ${maxLevels} levels`);
   }
-
-  const priceNumber = Number(price);
-  const quantityNumber = Number(quantity);
-  return Number.isFinite(priceNumber) && priceNumber > 0 && Number.isFinite(quantityNumber) && quantityNumber >= 0;
-}
-
-function formatDecimal(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return "0";
-  const fixed = value.toFixed(18).replace(/0+$/, "").replace(/\.$/, "");
-  return fixed === "" ? "0" : fixed;
+  return value.map((level, index) => {
+    if (!Array.isArray(level) || level.length !== 2) {
+      throw new Error(`${field} ${index} must contain price and quantity`);
+    }
+    return [
+      normalizeCexDecimal(level[0], `${field} ${index} price`, false),
+      normalizeCexDecimal(level[1], `${field} ${index} quantity`, true),
+    ] as const;
+  });
 }

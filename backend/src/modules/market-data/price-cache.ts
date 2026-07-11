@@ -37,6 +37,10 @@ export class SharedPriceCache {
     return entry.snapshot;
   }
 
+  delete(pairKey: string): boolean {
+    return this.entries.delete(pairKey);
+  }
+
   /** Number of cached entries (for metrics) */
   get size(): number {
     return this.entries.size;

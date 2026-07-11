@@ -256,6 +256,19 @@
         { "expr": "time() - max(rfq_reconciliation_last_processed_timestamp_seconds)", "legendFormat": "seconds since progress", "refId": "D" },
         { "expr": "sum(rate(rfq_reconciliation_iteration_errors_total[5m]))", "legendFormat": "iteration errors/s", "refId": "E" }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "CEX Order Book Health",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 45, "w": 24, "h": 7 },
+      "targets": [
+        { "expr": "sum by (state) (rfq_cex_order_book_sources)", "legendFormat": "sources {{state}}", "refId": "A" },
+        { "expr": "sum by (state) (rfq_cex_order_book_pairs)", "legendFormat": "pairs {{state}}", "refId": "B" },
+        { "expr": "max(rfq_cex_order_book_max_update_age_seconds)", "legendFormat": "max event age seconds", "refId": "C" },
+        { "expr": "max(rfq_cex_order_book_deviation_rejected_sources)", "legendFormat": "deviation rejections", "refId": "D" },
+        { "expr": "sum by (exchange) (rate(rfq_cex_order_book_connector_errors_total[5m]))", "legendFormat": "{{exchange}} errors/s", "refId": "E" }
+      ]
     }
   ]
 }

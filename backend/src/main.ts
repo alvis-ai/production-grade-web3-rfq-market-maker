@@ -221,8 +221,9 @@ export function buildServer(options: BuildServerOptions = {}) {
   const defaultMarketData = options.marketDataService ? undefined : readDefaultMarketDataRuntime();
   const rawMarketDataService = options.marketDataService ?? defaultMarketData!.service;
   const cexPairs = defaultMarketData ? readCexOrderBookPairs() : [];
+  const cexConfig = cexPairs.length > 0 ? readCexOrderBookConfig(cexPairs) : undefined;
   const basePriceCache = defaultMarketData ? new SharedPriceCache(5_000) : undefined;
-  const cexPriceCache = cexPairs.length > 0 ? new SharedPriceCache(2_000) : undefined;
+  const cexPriceCache = cexConfig ? new SharedPriceCache(cexConfig.maxSourceAgeMs) : undefined;
   const marketDataService = defaultMarketData && basePriceCache
     ? new CachedMarketDataService(
         rawMarketDataService,
@@ -302,13 +303,8 @@ export function buildServer(options: BuildServerOptions = {}) {
     : undefined;
 
   // Start CEX order book monitor (only when using default service)
-  const cexMonitor = defaultMarketData && cexPriceCache && cexPairs.length > 0
-    ? new CEXOrderBookMonitor(cexPriceCache, {
-        pairs: cexPairs,
-        depthRangeBps: 50,
-        flushIntervalMs: 100,
-        volatilitySampleSize: 10,
-      })
+  const cexMonitor = defaultMarketData && cexPriceCache && cexConfig
+    ? new CEXOrderBookMonitor(cexPriceCache, cexConfig, metricsService)
     : undefined;
   priceUpdater?.start();
   cexMonitor?.start();
@@ -1537,6 +1533,62 @@ function readCexOrderBookPairs(): OrderBookPairConfig[] {
       symbol,
     };
   });
+}
+
+function readCexOrderBookConfig(pairs: OrderBookPairConfig[]) {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
+  return {
+    pairs,
+    depthRangeBps: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_DEPTH_RANGE_BPS"), {
+      defaultValue: 50,
+      min: 1,
+      max: 10_000,
+      name: "RFQ_CEX_DEPTH_RANGE_BPS",
+    }),
+    flushIntervalMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_FLUSH_INTERVAL_MS"), {
+      defaultValue: 100,
+      min: 50,
+      max: 60_000,
+      name: "RFQ_CEX_FLUSH_INTERVAL_MS",
+    }),
+    volatilitySampleSize: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_VOLATILITY_SAMPLE_SIZE"), {
+      defaultValue: 10,
+      min: 3,
+      max: 10_000,
+      name: "RFQ_CEX_VOLATILITY_SAMPLE_SIZE",
+    }),
+    maxSourceAgeMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_SOURCE_AGE_MS"), {
+      defaultValue: 2_000,
+      min: 100,
+      max: 60_000,
+      name: "RFQ_CEX_MAX_SOURCE_AGE_MS",
+    }),
+    maxFutureSkewMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_FUTURE_SKEW_MS"), {
+      defaultValue: 1_000,
+      min: 0,
+      max: 60_000,
+      name: "RFQ_CEX_MAX_FUTURE_SKEW_MS",
+    }),
+    minSources: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MIN_SOURCES"), {
+      defaultValue: requiresExplicitSignerConfig(nodeEnv) ? 2 : 1,
+      min: 1,
+      max: 10,
+      name: "RFQ_CEX_MIN_SOURCES",
+    }),
+    maxSourceDeviationBps: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_SOURCE_DEVIATION_BPS"), {
+      defaultValue: 100,
+      min: 1,
+      max: 10_000,
+      name: "RFQ_CEX_MAX_SOURCE_DEVIATION_BPS",
+    }),
+    maxSpreadBps: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_SPREAD_BPS"), {
+      defaultValue: 100,
+      min: 1,
+      max: 10_000,
+      name: "RFQ_CEX_MAX_SPREAD_BPS",
+    }),
+  };
 }
 
 function readPairChainId(value: string, envName: "RFQ_MARKET_PAIRS" | "RFQ_CEX_PAIRS", entry: string): number {

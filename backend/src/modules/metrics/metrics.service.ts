@@ -3,6 +3,10 @@ import { simulatedPnlModelDescription } from "../../shared/types/rfq.js";
 import type { Address, PnlTradeRecord } from "../../shared/types/rfq.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 import type { RateLimitedEndpoint } from "../rate-limit/rate-limit.service.js";
+import type {
+  CexOrderBookCycleObservation,
+} from "../market-data/cex-orderbook/cex-orderbook-monitor.js";
+import type { OrderBookPairConfig } from "../market-data/cex-orderbook/orderbook.js";
 
 export interface InventoryMetricPosition {
   chainId: number;
@@ -13,6 +17,8 @@ export interface InventoryMetricPosition {
 export type SignerMetricOperation = "sign" | "verify";
 type ReadinessMetricStatus = ReadinessResponse["status"];
 type DependencyMetricStatus = "ok" | "degraded";
+type CexSourceMetricState = "ready" | "stale" | "unavailable";
+type CexPairMetricState = "usable" | "blocked";
 
 const latencyBucketsSeconds = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
 const maxSafeIdentifierLength = 128;
@@ -71,6 +77,17 @@ export class MetricsService {
   private readonly realizedPnl = new Map<string, bigint>();
   private priceCacheHits = 0;
   private priceCacheMisses = 0;
+  private cexOrderBookCycle: CexOrderBookCycleObservation = {
+    configuredSources: 0,
+    readySources: 0,
+    staleSources: 0,
+    unavailableSources: 0,
+    usablePairs: 0,
+    blockedPairs: 0,
+    deviationRejectedSources: 0,
+    maxUpdateAgeSeconds: 0,
+  };
+  private readonly cexOrderBookConnectorErrors = new Map<OrderBookPairConfig["exchange"], number>();
 
   recordMarketDataCacheHit(): void {
     this.priceCacheHits += 1;
@@ -78,6 +95,18 @@ export class MetricsService {
 
   recordMarketDataCacheMiss(): void {
     this.priceCacheMisses += 1;
+  }
+
+  recordCexOrderBookCycle(observation: CexOrderBookCycleObservation): void {
+    assertCexOrderBookCycleObservation(observation);
+    this.cexOrderBookCycle = { ...observation };
+  }
+
+  recordCexOrderBookConnectorError(exchange: OrderBookPairConfig["exchange"]): void {
+    if (!cexOrderBookExchanges.includes(exchange)) {
+      throw new Error("Metrics CEX order book exchange must be binance or coinbase");
+    }
+    this.cexOrderBookConnectorErrors.set(exchange, (this.cexOrderBookConnectorErrors.get(exchange) ?? 0) + 1);
   }
 
   checkHealth(): void {
@@ -271,6 +300,21 @@ export class MetricsService {
       "# HELP rfq_market_data_cache_misses_total Total cache misses for market data snapshots.",
       "# TYPE rfq_market_data_cache_misses_total counter",
       `rfq_market_data_cache_misses_total ${this.priceCacheMisses}`,
+      "# HELP rfq_cex_order_book_sources Current configured CEX order-book sources by bounded health state.",
+      "# TYPE rfq_cex_order_book_sources gauge",
+      ...this.renderCexOrderBookSources(),
+      "# HELP rfq_cex_order_book_pairs Current configured CEX-backed token pairs by usability state.",
+      "# TYPE rfq_cex_order_book_pairs gauge",
+      ...this.renderCexOrderBookPairs(),
+      "# HELP rfq_cex_order_book_deviation_rejected_sources Sources rejected by the cross-venue deviation guard in the latest cycle.",
+      "# TYPE rfq_cex_order_book_deviation_rejected_sources gauge",
+      `rfq_cex_order_book_deviation_rejected_sources ${this.cexOrderBookCycle.deviationRejectedSources}`,
+      "# HELP rfq_cex_order_book_max_update_age_seconds Maximum observed source-event age in the latest monitor cycle.",
+      "# TYPE rfq_cex_order_book_max_update_age_seconds gauge",
+      `rfq_cex_order_book_max_update_age_seconds ${this.cexOrderBookCycle.maxUpdateAgeSeconds}`,
+      "# HELP rfq_cex_order_book_connector_errors_total CEX order-book connector failures by bounded exchange.",
+      "# TYPE rfq_cex_order_book_connector_errors_total counter",
+      ...this.renderCexOrderBookConnectorErrors(),
       "",
     ];
 
@@ -326,6 +370,29 @@ export class MetricsService {
       .map(([reason, count]) => `rfq_pnl_record_errors_total{reason="${reason}"} ${count}`);
   }
 
+  private renderCexOrderBookSources(): string[] {
+    const values: Record<CexSourceMetricState, number> = {
+      ready: this.cexOrderBookCycle.readySources,
+      stale: this.cexOrderBookCycle.staleSources,
+      unavailable: this.cexOrderBookCycle.unavailableSources,
+    };
+    return cexSourceMetricStates.map((state) => `rfq_cex_order_book_sources{state="${state}"} ${values[state]}`);
+  }
+
+  private renderCexOrderBookPairs(): string[] {
+    const values: Record<CexPairMetricState, number> = {
+      usable: this.cexOrderBookCycle.usablePairs,
+      blocked: this.cexOrderBookCycle.blockedPairs,
+    };
+    return cexPairMetricStates.map((state) => `rfq_cex_order_book_pairs{state="${state}"} ${values[state]}`);
+  }
+
+  private renderCexOrderBookConnectorErrors(): string[] {
+    return cexOrderBookExchanges.map((exchange) => {
+      return `rfq_cex_order_book_connector_errors_total{exchange="${exchange}"} ${this.cexOrderBookConnectorErrors.get(exchange) ?? 0}`;
+    });
+  }
+
   private renderSignerCounter(name: string, counter: ReadonlyMap<SignerMetricOperation, number>): string[] {
     return signerMetricOperations.map((operation) => {
       return `${name}{operation="${operation}"} ${counter.get(operation) ?? 0}`;
@@ -373,6 +440,9 @@ const signerMetricOperations: readonly SignerMetricOperation[] = ["sign", "verif
 const rateLimitedEndpoints: readonly RateLimitedEndpoint[] = ["quote", "submit", "status"];
 const readinessMetricStatuses: readonly ReadinessMetricStatus[] = ["ready", "degraded"];
 const dependencyMetricStatuses: readonly DependencyMetricStatus[] = ["ok", "degraded"];
+const cexSourceMetricStates: readonly CexSourceMetricState[] = ["ready", "stale", "unavailable"];
+const cexPairMetricStates: readonly CexPairMetricState[] = ["usable", "blocked"];
+const cexOrderBookExchanges: readonly OrderBookPairConfig["exchange"][] = ["binance", "coinbase"];
 const readinessDependencyComponents: readonly ReadinessComponentName[] = [
   "marketData",
   "marketSnapshotStore",
@@ -396,6 +466,39 @@ function createHistogramState(): HistogramState {
     count: 0,
     buckets: latencyBucketsSeconds.map(() => 0),
   };
+}
+
+function assertCexOrderBookCycleObservation(value: unknown): asserts value is CexOrderBookCycleObservation {
+  if (!isRecord(value)) throw new Error("Metrics CEX order book cycle must be an object");
+  const observation = value as Record<string, unknown>;
+  const integerFields = [
+    "configuredSources",
+    "readySources",
+    "staleSources",
+    "unavailableSources",
+    "usablePairs",
+    "blockedPairs",
+    "deviationRejectedSources",
+  ] as const;
+  for (const field of [...integerFields, "maxUpdateAgeSeconds"] as const) {
+    if (!Object.prototype.hasOwnProperty.call(observation, field)) {
+      throw new Error(`Metrics CEX order book cycle.${field} must be an own field`);
+    }
+  }
+  for (const field of integerFields) {
+    if (!Number.isSafeInteger(observation[field]) || (observation[field] as number) < 0) {
+      throw new Error(`Metrics CEX order book cycle.${field} must be a non-negative safe integer`);
+    }
+  }
+  if (typeof observation.maxUpdateAgeSeconds !== "number" || !Number.isFinite(observation.maxUpdateAgeSeconds) ||
+      observation.maxUpdateAgeSeconds < 0) {
+    throw new Error("Metrics CEX order book cycle.maxUpdateAgeSeconds must be non-negative and finite");
+  }
+  if ((observation.configuredSources as number) !==
+      (observation.readySources as number) + (observation.staleSources as number) +
+      (observation.unavailableSources as number)) {
+    throw new Error("Metrics CEX order book source states must sum to configuredSources");
+  }
 }
 
 function cloneInventoryMetricPosition(position: InventoryMetricPosition): InventoryMetricPosition {

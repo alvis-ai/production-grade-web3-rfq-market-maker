@@ -1,6 +1,12 @@
 import type { MarketSnapshot } from "../../../shared/types/rfq.js";
 import { tagMarketDataSnapshot } from "../market-data.service.js";
 import { SharedPriceCache, pairKey } from "../price-cache.js";
+import {
+  cexDeviationBps,
+  formatCexDecimal,
+  medianCexDecimal,
+  parseCexDecimal,
+} from "./decimal.js";
 import { type OrderBook, type OrderBookMetrics, type OrderBookPairConfig } from "./orderbook.js";
 import { BinanceConnector } from "./binance-connector.js";
 import { CoinbaseConnector } from "./coinbase-connector.js";
@@ -10,13 +16,20 @@ export interface CexOrderBookConfig {
   depthRangeBps: number;
   flushIntervalMs: number;
   volatilitySampleSize: number;
+  maxSourceAgeMs: number;
+  maxFutureSkewMs: number;
+  minSources: number;
+  maxSourceDeviationBps: number;
+  maxSpreadBps: number;
 }
 
 export interface ExchangeConnector {
   readonly name: string;
   start(): void;
   stop(): void;
+  restart(): void;
   getOrderBook(): OrderBook;
+  getLastUpdateAtMs(): number | undefined;
   isReady(): boolean;
 }
 
@@ -26,34 +39,84 @@ export type ExchangeConnectorFactory = (
   onError: (error: Error) => void,
 ) => ExchangeConnector;
 
+export interface CexOrderBookCycleObservation {
+  configuredSources: number;
+  readySources: number;
+  staleSources: number;
+  unavailableSources: number;
+  usablePairs: number;
+  blockedPairs: number;
+  deviationRejectedSources: number;
+  maxUpdateAgeSeconds: number;
+}
+
+export interface CexOrderBookObserver {
+  recordCexOrderBookCycle(observation: CexOrderBookCycleObservation): void;
+  recordCexOrderBookConnectorError(exchange: OrderBookPairConfig["exchange"]): void;
+}
+
 const defaultConfig: CexOrderBookConfig = {
   pairs: [],
   depthRangeBps: 50,
   flushIntervalMs: 100,
   volatilitySampleSize: 10,
+  maxSourceAgeMs: 2_000,
+  maxFutureSkewMs: 1_000,
+  minSources: 1,
+  maxSourceDeviationBps: 100,
+  maxSpreadBps: 100,
+};
+
+const noopObserver: CexOrderBookObserver = {
+  recordCexOrderBookCycle() {},
+  recordCexOrderBookConnectorError() {},
 };
 
 interface SourceMetrics {
+  connectorKey: string;
   metrics: OrderBookMetrics;
+  midPriceValue: bigint;
+  observedAtMs: number;
   source: OrderBookPairConfig["exchange"];
+}
+
+type SourceState = "ready" | "stale" | "unavailable";
+
+interface InspectedSource {
+  state: SourceState;
+  metrics?: OrderBookMetrics;
+  midPriceValue?: bigint;
+  observedAtMs?: number;
+  ageMs?: number;
 }
 
 export class CEXOrderBookMonitor {
   private readonly config: CexOrderBookConfig;
   private readonly cache: SharedPriceCache;
+  private readonly observer: CexOrderBookObserver;
   private readonly connectorFactory: ExchangeConnectorFactory;
   private readonly connectors = new Map<string, ExchangeConnector>();
   private readonly priceHistory = new Map<string, number[]>();
+  private readonly lastPublishedFingerprint = new Map<string, string>();
   private flushTimer: ReturnType<typeof setInterval> | undefined;
   private snapshotSequence = 0;
 
   constructor(
     cache: SharedPriceCache,
     config: Partial<CexOrderBookConfig> = {},
+    observer: CexOrderBookObserver = noopObserver,
     connectorFactory: ExchangeConnectorFactory = createConnector,
   ) {
+    if (!(cache instanceof SharedPriceCache)) {
+      throw new Error("CEX order book monitor cache must be a SharedPriceCache");
+    }
+    assertObserver(observer);
+    if (typeof connectorFactory !== "function") {
+      throw new Error("CEX order book connectorFactory must be a function");
+    }
     this.cache = cache;
     this.config = normalizeConfig(config);
+    this.observer = observer;
     this.connectorFactory = connectorFactory;
   }
 
@@ -71,43 +134,125 @@ export class CEXOrderBookMonitor {
     }
     for (const connector of this.connectors.values()) connector.stop();
     this.connectors.clear();
+    for (const key of groupPairs(this.config.pairs).keys()) this.cache.delete(key);
+    this.lastPublishedFingerprint.clear();
+    this.priceHistory.clear();
   }
 
   getOrderBook(exchange: string, symbol: string): OrderBook | undefined {
     return this.connectors.get(connectorKey(exchange, symbol))?.getOrderBook();
   }
 
-  flushOnce(): void {
+  flushOnce(nowMs = Date.now()): void {
+    assertTimestamp(nowMs, "flush timestamp");
+    const inspected = this.inspectSources(nowMs);
     const groupedPairs = groupPairs(this.config.pairs);
-    for (const pairs of groupedPairs.values()) {
-      const sources = this.readSources(pairs);
-      if (sources.length === 0) continue;
+    let usablePairs = 0;
+    let blockedPairs = 0;
+    let deviationRejectedSources = 0;
 
-      const representative = pairs[0];
-      const cacheKey = pairKey(representative.chainId, representative.tokenIn, representative.tokenOut);
-      const snapshot = this.aggregateSnapshot(representative, cacheKey, sources);
+    for (const [cacheKey, pairs] of groupedPairs) {
+      const sources = this.readSources(pairs, inspected);
+      if (sources.length < this.config.minSources) {
+        this.invalidatePair(cacheKey);
+        blockedPairs += 1;
+        continue;
+      }
+
+      const median = medianCexDecimal(sources.map(({ midPriceValue }) => midPriceValue));
+      const accepted = sources.filter(({ midPriceValue }) => {
+        return cexDeviationBps(midPriceValue, median) <= this.config.maxSourceDeviationBps;
+      });
+      deviationRejectedSources += sources.length - accepted.length;
+      if (accepted.length < this.config.minSources) {
+        this.invalidatePair(cacheKey);
+        blockedPairs += 1;
+        continue;
+      }
+
+      usablePairs += 1;
+      const fingerprint = sourceFingerprint(accepted);
+      if (this.lastPublishedFingerprint.get(cacheKey) === fingerprint) continue;
+      const snapshot = this.aggregateSnapshot(pairs[0], cacheKey, accepted);
       this.cache.set(cacheKey, snapshot);
+      this.lastPublishedFingerprint.set(cacheKey, fingerprint);
     }
+
+    const states = [...inspected.values()];
+    this.observer.recordCexOrderBookCycle({
+      configuredSources: states.length,
+      readySources: states.filter(({ state }) => state === "ready").length,
+      staleSources: states.filter(({ state }) => state === "stale").length,
+      unavailableSources: states.filter(({ state }) => state === "unavailable").length,
+      usablePairs,
+      blockedPairs,
+      deviationRejectedSources,
+      maxUpdateAgeSeconds: Math.max(0, ...states.map(({ ageMs }) => ageMs === undefined ? 0 : ageMs / 1_000)),
+    });
   }
 
   private startConnector(pair: OrderBookPairConfig): void {
     const key = connectorKey(pair.exchange, pair.symbol);
     if (this.connectors.has(key)) return;
     const connector = this.connectorFactory(pair.exchange, pair.symbol, (error) => {
+      this.observer.recordCexOrderBookConnectorError(pair.exchange);
       console.warn(`[CEX-${pair.exchange}] ${pair.symbol}: ${error.message}`);
     });
+    assertConnector(connector);
     connector.start();
     this.connectors.set(key, connector);
   }
 
-  private readSources(pairs: readonly OrderBookPairConfig[]): SourceMetrics[] {
+  private inspectSources(nowMs: number): Map<string, InspectedSource> {
+    const result = new Map<string, InspectedSource>();
+    for (const [key, connector] of this.connectors) {
+      if (!connector.isReady()) {
+        result.set(key, { state: "unavailable" });
+        continue;
+      }
+
+      const observedAtMs = connector.getLastUpdateAtMs();
+      if (!Number.isSafeInteger(observedAtMs) || (observedAtMs as number) <= 0) {
+        result.set(key, { state: "stale" });
+        connector.restart();
+        continue;
+      }
+      const ageMs = nowMs - (observedAtMs as number);
+      if (ageMs > this.config.maxSourceAgeMs || ageMs < -this.config.maxFutureSkewMs) {
+        result.set(key, { state: "stale", observedAtMs, ageMs: Math.max(0, ageMs) });
+        connector.restart();
+        continue;
+      }
+
+      try {
+        const metrics = connector.getOrderBook().getMetrics(this.config.depthRangeBps);
+        const midPriceValue = usableMidPrice(metrics, this.config.maxSpreadBps);
+        result.set(key, { state: "ready", metrics, midPriceValue, observedAtMs, ageMs: Math.max(0, ageMs) });
+      } catch {
+        result.set(key, { state: "unavailable", observedAtMs, ageMs: Math.max(0, ageMs) });
+        connector.restart();
+      }
+    }
+    return result;
+  }
+
+  private readSources(
+    pairs: readonly OrderBookPairConfig[],
+    inspected: ReadonlyMap<string, InspectedSource>,
+  ): SourceMetrics[] {
     const sources: SourceMetrics[] = [];
     for (const pair of pairs) {
-      const connector = this.connectors.get(connectorKey(pair.exchange, pair.symbol));
-      if (!connector?.isReady()) continue;
-      const metrics = connector.getOrderBook().getMetrics(this.config.depthRangeBps);
-      if (!isUsableMetrics(metrics)) continue;
-      sources.push({ metrics, source: pair.exchange });
+      const key = connectorKey(pair.exchange, pair.symbol);
+      const source = inspected.get(key);
+      if (source?.state !== "ready" || !source.metrics ||
+          source.midPriceValue === undefined || source.observedAtMs === undefined) continue;
+      sources.push({
+        connectorKey: key,
+        metrics: source.metrics,
+        midPriceValue: source.midPriceValue,
+        observedAtMs: source.observedAtMs,
+        source: pair.exchange,
+      });
     }
     return sources;
   }
@@ -117,12 +262,12 @@ export class CEXOrderBookMonitor {
     cacheKey: string,
     sources: readonly SourceMetrics[],
   ): MarketSnapshot {
-    const prices = sources.map(({ metrics }) => Number(metrics.midPrice)).sort((a, b) => a - b);
-    const midPrice = median(prices);
+    const midPriceValue = medianCexDecimal(sources.map(({ midPriceValue }) => midPriceValue));
+    const midPrice = formatCexDecimal(midPriceValue);
     const liquidity = sources.reduce((total, { metrics }) => total + BigInt(metrics.liquidityUsd), 0n);
-    this.recordPrice(cacheKey, midPrice);
+    const observedAtMs = Math.min(...sources.map(({ observedAtMs }) => observedAtMs));
+    this.recordPrice(cacheKey, Number(midPrice));
     this.snapshotSequence += 1;
-    const observedAtMs = Date.now();
 
     return tagMarketDataSnapshot({
       snapshotId: [
@@ -134,14 +279,15 @@ export class CEXOrderBookMonitor {
         this.snapshotSequence.toString(36),
         "cex",
       ].join("_"),
-      midPrice: formatDecimal(midPrice),
-      liquidityUsd: (liquidity > 0n ? liquidity : 1n).toString(),
+      midPrice,
+      liquidityUsd: liquidity.toString(),
       volatilityBps: this.estimateVolatility(cacheKey),
       observedAt: new Date(observedAtMs).toISOString(),
     }, `cex:${Array.from(new Set(sources.map(({ source }) => source))).sort().join("+")}`);
   }
 
   private recordPrice(key: string, price: number): void {
+    if (!Number.isFinite(price) || price <= 0) throw new Error("CEX aggregate price is outside numeric volatility range");
     const history = this.priceHistory.get(key) ?? [];
     history.push(price);
     while (history.length > this.config.volatilitySampleSize) history.shift();
@@ -159,6 +305,11 @@ export class CEXOrderBookMonitor {
     const variance = returns.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (returns.length - 1);
     return Math.min(Math.max(Math.round(Math.sqrt(variance) * 10_000), 1), 10_000);
   }
+
+  private invalidatePair(cacheKey: string): void {
+    this.cache.delete(cacheKey);
+    this.lastPublishedFingerprint.delete(cacheKey);
+  }
 }
 
 function createConnector(
@@ -167,8 +318,8 @@ function createConnector(
   onError: (error: Error) => void,
 ): ExchangeConnector {
   return exchange === "binance"
-    ? new BinanceConnector(symbol, () => {}, onError)
-    : new CoinbaseConnector(symbol, () => {}, onError);
+    ? new BinanceConnector(symbol, undefined, onError)
+    : new CoinbaseConnector(symbol, undefined, onError);
 }
 
 function groupPairs(pairs: readonly OrderBookPairConfig[]): Map<string, OrderBookPairConfig[]> {
@@ -189,6 +340,11 @@ function assertConfig(config: CexOrderBookConfig): void {
   assertInteger(config.depthRangeBps, 1, 10_000, "depthRangeBps");
   assertInteger(config.flushIntervalMs, 50, 60_000, "flushIntervalMs");
   assertInteger(config.volatilitySampleSize, 3, 10_000, "volatilitySampleSize");
+  assertInteger(config.maxSourceAgeMs, 100, 60_000, "maxSourceAgeMs");
+  assertInteger(config.maxFutureSkewMs, 0, 60_000, "maxFutureSkewMs");
+  assertInteger(config.minSources, 1, 10, "minSources");
+  assertInteger(config.maxSourceDeviationBps, 1, 10_000, "maxSourceDeviationBps");
+  assertInteger(config.maxSpreadBps, 1, 10_000, "maxSpreadBps");
 
   const seenSources = new Set<string>();
   for (const pair of config.pairs) {
@@ -205,11 +361,27 @@ function assertConfig(config: CexOrderBookConfig): void {
     if (seenSources.has(sourceKey)) throw new Error("CEX order book pairs must not contain duplicate sources");
     seenSources.add(sourceKey);
   }
+
+  for (const pairs of groupPairs(config.pairs).values()) {
+    if (pairs.length < config.minSources) {
+      throw new Error("CEX order book each pair must configure at least minSources distinct sources");
+    }
+  }
 }
 
 function normalizeConfig(config: unknown): CexOrderBookConfig {
   if (!isRecord(config)) throw new Error("CEX order book config must be an object");
-  assertKnownFields(config, ["pairs", "depthRangeBps", "flushIntervalMs", "volatilitySampleSize"], "CEX order book config");
+  assertKnownFields(config, [
+    "pairs",
+    "depthRangeBps",
+    "flushIntervalMs",
+    "volatilitySampleSize",
+    "maxSourceAgeMs",
+    "maxFutureSkewMs",
+    "minSources",
+    "maxSourceDeviationBps",
+    "maxSpreadBps",
+  ], "CEX order book config");
   if (config.pairs !== undefined && !Array.isArray(config.pairs)) {
     throw new Error("CEX order book pairs must be an array");
   }
@@ -218,9 +390,37 @@ function normalizeConfig(config: unknown): CexOrderBookConfig {
     depthRangeBps: config.depthRangeBps ?? defaultConfig.depthRangeBps,
     flushIntervalMs: config.flushIntervalMs ?? defaultConfig.flushIntervalMs,
     volatilitySampleSize: config.volatilitySampleSize ?? defaultConfig.volatilitySampleSize,
+    maxSourceAgeMs: config.maxSourceAgeMs ?? defaultConfig.maxSourceAgeMs,
+    maxFutureSkewMs: config.maxFutureSkewMs ?? defaultConfig.maxFutureSkewMs,
+    minSources: config.minSources ?? defaultConfig.minSources,
+    maxSourceDeviationBps: config.maxSourceDeviationBps ?? defaultConfig.maxSourceDeviationBps,
+    maxSpreadBps: config.maxSpreadBps ?? defaultConfig.maxSpreadBps,
   } as CexOrderBookConfig;
   assertConfig(normalized);
   return normalized;
+}
+
+function usableMidPrice(metrics: OrderBookMetrics, maxSpreadBps: number): bigint {
+  if (!isRecord(metrics) || !Number.isSafeInteger(metrics.spreadBps) || metrics.spreadBps < 0 ||
+      metrics.spreadBps > maxSpreadBps || !Number.isSafeInteger(metrics.bidLevels) || metrics.bidLevels <= 0 ||
+      !Number.isSafeInteger(metrics.askLevels) || metrics.askLevels <= 0 ||
+      typeof metrics.liquidityUsd !== "string" || !/^[1-9][0-9]*$/.test(metrics.liquidityUsd)) {
+    throw new Error("CEX order book metrics are unusable");
+  }
+  const bid = parseCexDecimal(metrics.bestBid, "CEX best bid", false);
+  const ask = parseCexDecimal(metrics.bestAsk, "CEX best ask", false);
+  const mid = parseCexDecimal(metrics.midPrice, "CEX mid price", false);
+  if (ask <= bid || mid < bid || mid > ask) throw new Error("CEX order book spread is invalid");
+  return mid;
+}
+
+function sourceFingerprint(sources: readonly SourceMetrics[]): string {
+  return [...sources]
+    .sort((left, right) => left.connectorKey.localeCompare(right.connectorKey))
+    .map(({ connectorKey: key, metrics, observedAtMs }) => {
+      return `${key}:${observedAtMs}:${metrics.midPrice}:${metrics.liquidityUsd}:${metrics.spreadBps}`;
+    })
+    .join("|");
 }
 
 function assertInteger(value: number, min: number, max: number, field: string): void {
@@ -229,22 +429,29 @@ function assertInteger(value: number, min: number, max: number, field: string): 
   }
 }
 
-function isUsableMetrics(metrics: OrderBookMetrics): boolean {
-  const midPrice = Number(metrics.midPrice);
-  return Number.isFinite(midPrice) && midPrice > 0 && /^[1-9][0-9]*$/.test(metrics.liquidityUsd);
+function assertTimestamp(value: number, field: string): void {
+  if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`CEX order book ${field} must be a positive safe integer`);
 }
 
 function connectorKey(exchange: string, symbol: string): string {
   return `${exchange.toLowerCase()}:${symbol.toLowerCase()}`;
 }
 
-function median(sorted: readonly number[]): number {
-  const midpoint = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? sorted[midpoint] : (sorted[midpoint - 1] + sorted[midpoint]) / 2;
+function assertConnector(value: unknown): asserts value is ExchangeConnector {
+  if (!isRecord(value)) throw new Error("CEX order book connector must be an object");
+  for (const method of ["start", "stop", "restart", "getOrderBook", "getLastUpdateAtMs", "isReady"] as const) {
+    if (typeof value[method] !== "function") throw new Error(`CEX order book connector.${method} must be a function`);
+  }
+  if (typeof value.name !== "string" || value.name.length === 0 || value.name.length > 128) {
+    throw new Error("CEX order book connector.name must be a bounded string");
+  }
 }
 
-function formatDecimal(value: number): string {
-  return value.toFixed(18).replace(/0+$/, "").replace(/\.$/, "");
+function assertObserver(value: unknown): asserts value is CexOrderBookObserver {
+  if (!isRecord(value)) throw new Error("CEX order book observer must be an object");
+  for (const method of ["recordCexOrderBookCycle", "recordCexOrderBookConnectorError"] as const) {
+    if (typeof value[method] !== "function") throw new Error(`CEX order book observer.${method} must be a function`);
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -8,6 +8,8 @@ interface BinanceDepthSnapshot {
 
 interface BinanceDepthUpdate {
   e: "depthUpdate";
+  E: number;
+  s: string;
   U: number;
   u: number;
   b: [string, string][];
@@ -35,12 +37,22 @@ export class BinanceConnector {
   private stopped = false;
   private synchronized = false;
   private snapshotGeneration = 0;
+  private lastUpdateAtMs: number | undefined;
 
   constructor(
     symbol: string,
-    private readonly onOrderBook: OrderBookEventHandler,
+    private readonly onOrderBook?: OrderBookEventHandler,
     private readonly onError?: (error: Error) => void,
   ) {
+    if (typeof symbol !== "string" || !/^[A-Za-z0-9._-]{3,32}$/.test(symbol)) {
+      throw new Error("Binance symbol must contain 3-32 exchange symbol characters");
+    }
+    if (onOrderBook !== undefined && typeof onOrderBook !== "function") {
+      throw new Error("Binance onOrderBook must be a function when provided");
+    }
+    if (onError !== undefined && typeof onError !== "function") {
+      throw new Error("Binance onError must be a function when provided");
+    }
     this.symbol = symbol.toLowerCase();
   }
 
@@ -67,6 +79,15 @@ export class BinanceConnector {
     return this.book;
   }
 
+  getLastUpdateAtMs(): number | undefined {
+    return this.lastUpdateAtMs;
+  }
+
+  restart(): void {
+    if (this.stopped) return;
+    this.reconnectNow();
+  }
+
   isReady(): boolean {
     return this.synchronized && this.ws?.readyState === WebSocket.OPEN;
   }
@@ -79,12 +100,12 @@ export class BinanceConnector {
       const ws = new WebSocket(`${WS_BASE}/${this.symbol}@depth@100ms`);
       this.ws = ws;
       ws.onopen = () => {
-        this.reconnectAttempt = 0;
         void this.fetchAndApplySnapshot();
       };
       ws.onmessage = (event: MessageEvent) => this.handleMessage(event.data);
       ws.onclose = () => {
-        if (this.ws === ws) this.ws = null;
+        if (this.ws !== ws) return;
+        this.ws = null;
         this.snapshotGeneration += 1;
         this.resetState();
         this.scheduleReconnect();
@@ -100,6 +121,9 @@ export class BinanceConnector {
   private handleMessage(raw: unknown): void {
     try {
       const update = parseDepthUpdate(raw);
+      if (update.s.toLowerCase() !== this.symbol) {
+        throw new Error("Binance depth update symbol does not match subscription");
+      }
       if (!this.synchronized) {
         this.pendingUpdates.push(update);
         if (this.pendingUpdates.length > MAX_BUFFERED_UPDATES) {
@@ -123,6 +147,7 @@ export class BinanceConnector {
       this.flushOrderBook();
     } catch (error) {
       this.reportError(error, "Binance message parsing failed");
+      this.reconnectNow();
     }
   }
 
@@ -146,6 +171,7 @@ export class BinanceConnector {
         asks: snapshot.asks.map(toPriceLevel),
       });
       this.lastUpdateId = snapshot.lastUpdateId;
+      this.lastUpdateAtMs = Date.now();
       this.applyBufferedUpdates();
     } catch (error) {
       if (generation !== this.snapshotGeneration || this.stopped) return;
@@ -173,6 +199,7 @@ export class BinanceConnector {
     }
 
     this.synchronized = true;
+    this.reconnectAttempt = 0;
     this.flushOrderBook();
   }
 
@@ -182,10 +209,11 @@ export class BinanceConnector {
       asks: update.a.map(toPriceLevel),
     });
     this.lastUpdateId = update.u;
+    this.lastUpdateAtMs = update.E;
   }
 
   private flushOrderBook(): void {
-    this.onOrderBook({
+    this.onOrderBook?.({
       bids: [...this.book.bids.entries()].map(([price, quantity]) => [price, quantity] as PriceLevel),
       asks: [...this.book.asks.entries()].map(([price, quantity]) => [price, quantity] as PriceLevel),
     });
@@ -214,6 +242,7 @@ export class BinanceConnector {
   private resetState(): void {
     this.synchronized = false;
     this.lastUpdateId = 0;
+    this.lastUpdateAtMs = undefined;
     this.pendingUpdates = [];
     this.book.clear();
   }
@@ -236,7 +265,10 @@ function parseDepthSnapshot(value: unknown): BinanceDepthSnapshot {
 
 function parseDepthUpdate(raw: unknown): BinanceDepthUpdate {
   const value = JSON.parse(String(raw)) as unknown;
-  if (!isRecord(value) || value.e !== "depthUpdate" || !Number.isSafeInteger(value.U) || !Number.isSafeInteger(value.u)) {
+  if (!isRecord(value) || value.e !== "depthUpdate" ||
+      !Number.isSafeInteger(value.E) || Number(value.E) <= 0 ||
+      typeof value.s !== "string" || !/^[A-Z0-9._-]{3,32}$/.test(value.s) ||
+      !Number.isSafeInteger(value.U) || !Number.isSafeInteger(value.u)) {
     throw new Error("Binance depth update has invalid sequence fields");
   }
   const firstUpdateId = Number(value.U);
@@ -244,6 +276,8 @@ function parseDepthUpdate(raw: unknown): BinanceDepthUpdate {
   if (firstUpdateId <= 0 || finalUpdateId < firstUpdateId) throw new Error("Binance depth update sequence is invalid");
   return {
     e: "depthUpdate",
+    E: Number(value.E),
+    s: value.s,
     U: firstUpdateId,
     u: finalUpdateId,
     b: parseLevels(value.b, "update bids"),
@@ -252,7 +286,9 @@ function parseDepthUpdate(raw: unknown): BinanceDepthUpdate {
 }
 
 function parseLevels(value: unknown, field: string): [string, string][] {
-  if (!Array.isArray(value)) throw new Error(`Binance ${field} must be an array`);
+  if (!Array.isArray(value) || value.length > 5_000) {
+    throw new Error(`Binance ${field} must be an array with at most 5000 levels`);
+  }
   return value.map((level) => {
     if (!Array.isArray(level) || level.length !== 2 || typeof level[0] !== "string" || typeof level[1] !== "string") {
       throw new Error(`Binance ${field} contains an invalid level`);
