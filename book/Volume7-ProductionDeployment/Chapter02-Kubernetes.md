@@ -106,7 +106,8 @@ Kubernetes config includes Deployment, Service, ConfigMap, Secret, ServiceAccoun
 The current runnable backend manifests use:
 
 - `rfq-backend-config` ConfigMap for non-secret runtime settings such as `HOST=0.0.0.0`, `PORT=3000` and `NODE_ENV=production`.
-- `rfq-backend-secrets` Secret for `RFQ_SIGNER_PRIVATE_KEY`、`RFQ_SETTLEMENT_ADDRESS` and `RFQ_REDIS_URL`.
+- `rfq-backend-secrets` Secret for `DATABASE_URL`、`RFQ_SIGNER_PRIVATE_KEY`、`RFQ_SETTLEMENT_ADDRESS` and `RFQ_REDIS_URL`.
+- Any non-local `NODE_ENV` requires `DATABASE_URL`. The API does not allow pod-local quote, settlement, inventory, hedge or PnL stores in production; Helm injects the URL through `databaseSecret`.
 - `RFQ_RATE_LIMIT_BACKEND=redis` is mandatory in production. `RFQ_REDIS_URL` may contain credentials or TLS parameters, so Kubernetes and Helm inject it from the Secret; `/ready` verifies it through the `rateLimitStore` component.
 - Chainlink deployments set `RFQ_MARKET_DATA_PROVIDER=chainlink` in the ConfigMap and store the complete `RFQ_CHAINLINK_CONFIG_JSON` in `rfq-backend-secrets`, because RPC URLs commonly contain provider credentials. The Helm chart exposes this key only when `chainlinkConfigSecret.enabled=true`; static deployments do not mount a placeholder oracle config.
 - Production settlement sets `RFQ_ALLOW_SIMULATED_SETTLEMENT=false` and injects `RFQ_RECEIPT_CONFIG_JSON` from `rfq-backend-secrets`. Each chain entry fixes `rpcUrl`、`settlementAddress`、required confirmations and receipt timeout; its settlement address must equal the EIP-712 `RFQ_SETTLEMENT_ADDRESS`. Helm enables `receiptConfigSecret` by default, so the existing signer Secret must also contain this key before rollout.

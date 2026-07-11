@@ -104,7 +104,7 @@ stateDiagram-v2
 
 ## Data Model
 
-Docker volumes store PostgreSQL, ClickHouse and Grafana data. These volumes are local development data, not production backups. Compose mounts `docs/database/schema.sql` into `/docker-entrypoint-initdb.d/001-schema.sql`, so a fresh `postgres-data` volume starts with the documented RFQ operational schema.
+Docker volumes store PostgreSQL, ClickHouse and Grafana data. These volumes are local development data, not production backups. Compose mounts `docs/database/schema.sql` into `/docker-entrypoint-initdb.d/001-schema.sql`, so a fresh `postgres-data` volume starts with the documented RFQ operational schema. Existing application databases apply `002-settlement-canonical.sql` through the migration runner before deploying the transactional post-trade runtime.
 
 ## API Design
 

@@ -209,6 +209,7 @@ grep -q 'validates `quoteId` as an own primitive-string `SafeIdentifier` and val
 grep -q 'Risk Engine dependency failure or malformed `RiskDecision` output' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 test -s backend/src/modules/execution/execution.service.ts
 test -s backend/src/modules/inventory/inventory.service.ts
+test -s backend/src/modules/inventory/postgres-inventory.service.ts
 grep -q 'checkHealth' backend/src/modules/inventory/inventory.service.ts
 grep -q 'InventoryService calculates bounded quote skew by inventory direction' backend/test/inventory.test.mjs
 grep -q 'assertObject(config, "config")' backend/src/modules/inventory/inventory.service.ts
@@ -256,13 +257,17 @@ grep -q 'required settlement delta, projection and skew fields must be own field
 grep -q 'canonical decimal form without leading zeros' book/Volume3-RiskEngine/Chapter01-Inventory.md
 grep -q 'Malformed inventory config, settlement delta and skew root payloads are rejected before field access, balance mutation or replay clearing' book/Volume3-RiskEngine/Chapter01-Inventory.md
 test -s backend/src/modules/hedge/hedge.service.ts
+test -s backend/src/modules/hedge/postgres-hedge.service.ts
 grep -q 'checkHealth' backend/src/modules/hedge/hedge.service.ts
 test -s backend/src/modules/metrics/metrics.service.ts
 grep -q 'checkHealth' backend/src/modules/metrics/metrics.service.ts
 grep -q 'MetricsService sanitizes reason labels and renders core settlement metrics' backend/test/metrics.test.mjs
 test -s backend/src/modules/pnl/pnl.service.ts
+test -s backend/src/modules/pnl/postgres-pnl.store.ts
 grep -q 'checkHealth' backend/src/modules/pnl/pnl.service.ts
 test -s backend/src/modules/settlement/settlement-event.service.ts
+test -s backend/src/modules/settlement/postgres-settlement-event.store.ts
+test -s backend/src/db/migrations/002-settlement-canonical.sql
 grep -q 'checkHealth' backend/src/modules/settlement/settlement-event.service.ts
 test -s backend/src/modules/settlement/settlement-verifier.service.ts
 test -s backend/src/modules/market-data/market-data.service.ts
@@ -1505,8 +1510,8 @@ grep -q 'Settlement event ${path}.${field} must be an own field when provided' b
 grep -q 'eventIdsByQuoteId' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'txHash.slice(2)}_${logIndex}' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'eventKey' backend/src/modules/settlement/settlement-event.service.ts
-grep -q 'matchesExistingEvent' backend/src/modules/settlement/settlement-event.service.ts
-grep -q 'event.nonce === input.quote.nonce' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'settlementEventsMatch' backend/src/modules/settlement/settlement-event.service.ts
+grep -q 'left.nonce === right.nonce' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'nonce: input.quote.nonce' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'cloneSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/settlement/settlement-event.service.ts
@@ -1547,7 +1552,7 @@ grep -q 'Malformed settlement event dependency, apply input, reorg input and quo
 grep -q '`txHash` as a runtime string and a 32-byte hex string' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Settlement event ingestion validates `quoteId` as an own primitive-string `SafeIdentifier`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rejects inherited optional `blockNumber` / `logIndex`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'Settlement status lookups also validate `settlementEventId` before reading the in-memory store' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'Settlement status lookups also validate `settlementEventId` before reading either store implementation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'persists the signed `nonce` alongside `quoteHash`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'quoteHash` and `nonce` emitted by `RFQSettlement.QuoteSettled`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'removes reorged events and rebuilds inventory from canonical events' backend/test/settlement-event-reorg.test.mjs

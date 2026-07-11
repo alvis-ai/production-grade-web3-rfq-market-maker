@@ -46,15 +46,15 @@ export interface HedgeRiskInput {
 }
 
 export interface HedgeIntentService {
-  checkHealth?(): void;
-  createHedgeIntent(intent: HedgeIntent): HedgeResult;
-  getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined;
-  getHedgeIntentBySettlementEvent(settlementEventId: string): HedgeIntentStatusResponse | undefined;
-  removeHedgeIntentBySettlementEvent(settlementEventId: string): RemoveHedgeIntentResult;
-  markHedgeIntentFilled?(input: MarkHedgeIntentFilledInput): UpdateHedgeIntentResult;
-  markHedgeIntentFailed?(hedgeOrderId: string): UpdateHedgeIntentResult;
-  recordHedgeFailure?(intent: HedgeIntent, reasonCode: HedgeFailureReasonCode): void;
-  quoteRiskPenaltyBps?(input: HedgeRiskInput): number;
+  checkHealth?(): void | Promise<void>;
+  createHedgeIntent(intent: HedgeIntent): HedgeResult | Promise<HedgeResult>;
+  getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined | Promise<HedgeIntentStatusResponse | undefined>;
+  getHedgeIntentBySettlementEvent(settlementEventId: string): HedgeIntentStatusResponse | undefined | Promise<HedgeIntentStatusResponse | undefined>;
+  removeHedgeIntentBySettlementEvent(settlementEventId: string): RemoveHedgeIntentResult | Promise<RemoveHedgeIntentResult>;
+  markHedgeIntentFilled?(input: MarkHedgeIntentFilledInput): UpdateHedgeIntentResult | Promise<UpdateHedgeIntentResult>;
+  markHedgeIntentFailed?(hedgeOrderId: string): UpdateHedgeIntentResult | Promise<UpdateHedgeIntentResult>;
+  recordHedgeFailure?(intent: HedgeIntent, reasonCode: HedgeFailureReasonCode): void | Promise<void>;
+  quoteRiskPenaltyBps?(input: HedgeRiskInput): number | Promise<number>;
 }
 
 export interface HedgeServiceConfig {
@@ -75,14 +75,7 @@ export class HedgeService implements HedgeIntentService {
   private sequence = 0;
 
   constructor(config: HedgeServiceConfig = defaultHedgeServiceConfig) {
-    assertObject(config, "config");
-    assertOwnFields(config, hedgeServiceConfigFields, "config");
-    assertPositiveBps(config.failurePenaltyBps, "failurePenaltyBps");
-    assertPositiveBps(config.maxFailurePenaltyBps, "maxFailurePenaltyBps");
-
-    if (config.failurePenaltyBps > config.maxFailurePenaltyBps) {
-      throw new Error("Hedge failurePenaltyBps must be less than or equal to maxFailurePenaltyBps");
-    }
+    assertHedgeServiceConfig(config);
 
     this.config = cloneHedgeServiceConfig(config);
   }
@@ -252,15 +245,25 @@ export class HedgeService implements HedgeIntentService {
   }
 }
 
-function cloneHedgeIntentStatus(intent: HedgeIntentStatusResponse): HedgeIntentStatusResponse {
+export function cloneHedgeIntentStatus(intent: HedgeIntentStatusResponse): HedgeIntentStatusResponse {
   return { ...intent };
 }
 
-function cloneHedgeServiceConfig(config: HedgeServiceConfig): HedgeServiceConfig {
+export function cloneHedgeServiceConfig(config: HedgeServiceConfig): HedgeServiceConfig {
   return { ...config };
 }
 
-function matchesHedgeIntent(record: HedgeIntentStatusResponse, intent: HedgeIntent): boolean {
+export function assertHedgeServiceConfig(config: HedgeServiceConfig): void {
+  assertObject(config, "config");
+  assertOwnFields(config, hedgeServiceConfigFields, "config");
+  assertPositiveBps(config.failurePenaltyBps, "failurePenaltyBps");
+  assertPositiveBps(config.maxFailurePenaltyBps, "maxFailurePenaltyBps");
+  if (config.failurePenaltyBps > config.maxFailurePenaltyBps) {
+    throw new Error("Hedge failurePenaltyBps must be less than or equal to maxFailurePenaltyBps");
+  }
+}
+
+export function matchesHedgeIntent(record: HedgeIntentStatusResponse, intent: HedgeIntent): boolean {
   return (
     record.settlementEventId === intent.settlementEventId &&
     record.quoteId === intent.quoteId &&
@@ -282,7 +285,7 @@ function assertPositiveBps(value: number, field: keyof HedgeServiceConfig): void
   }
 }
 
-function assertHedgeIntent(intent: HedgeIntent): void {
+export function assertHedgeIntent(intent: HedgeIntent): void {
   assertObject(intent, "intent");
   assertOwnFields(intent, hedgeIntentFields, "intent");
   assertSafeIdentifier(intent.settlementEventId, "settlementEventId");
@@ -297,7 +300,7 @@ function assertHedgeIntent(intent: HedgeIntent): void {
   }
 }
 
-function assertHedgeRiskInput(input: HedgeRiskInput): void {
+export function assertHedgeRiskInput(input: HedgeRiskInput): void {
   assertObject(input, "risk input");
   assertOwnFields(input, hedgeRiskInputFields, "risk input");
   if (!Number.isSafeInteger(input.chainId) || input.chainId <= 0) {
@@ -338,7 +341,7 @@ function assertOwnFields(value: object, fields: readonly string[], path: string)
   }
 }
 
-function assertSafeIdentifier(
+export function assertSafeIdentifier(
   value: unknown,
   field: keyof Pick<HedgeIntent, "settlementEventId" | "quoteId"> | "hedgeOrderId",
 ): void {

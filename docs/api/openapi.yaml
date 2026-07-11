@@ -256,10 +256,9 @@ paths:
       description: >
         Returns the hedge intent created after a submit request updates
         inventory, including its current queued, filled, or failed lifecycle
-        status and terminal venue reconciliation metadata when available. The
-        reference implementation records hedge intent metadata in memory;
-        production deployments should back this endpoint with a durable
-        execution store.
+        status and terminal venue reconciliation metadata when available.
+        Non-local deployments persist this state in PostgreSQL using one
+        idempotent hedge intent per settlement event.
       tags:
         - Hedge
       parameters:

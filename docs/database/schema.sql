@@ -268,6 +268,8 @@ CREATE TABLE settlement_events (
   amount_in NUMERIC(78, 0) NOT NULL,
   amount_out NUMERIC(78, 0) NOT NULL,
   nonce NUMERIC(78, 0) NOT NULL,
+  canonical BOOLEAN NOT NULL DEFAULT TRUE,
+  removed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (chain_id, tx_hash, log_index),
   CONSTRAINT chk_settlement_events_id_safe CHECK (
@@ -292,11 +294,17 @@ CREATE TABLE settlement_events (
     AND nonce > 0
     AND log_index BETWEEN 0 AND 9007199254740991
     AND block_number BETWEEN 0 AND 9007199254740991
+  ),
+  CONSTRAINT chk_settlement_events_canonical_state CHECK (
+    (canonical = TRUE AND removed_at IS NULL)
+    OR (canonical = FALSE AND removed_at IS NOT NULL)
   )
 );
 
 CREATE UNIQUE INDEX uq_settlement_events_quote_id ON settlement_events (quote_id);
 CREATE INDEX idx_settlement_events_chain_quote_hash ON settlement_events (chain_id, quote_hash);
+CREATE INDEX idx_settlement_events_canonical_block ON settlement_events (block_number, log_index)
+  WHERE canonical = TRUE;
 
 CREATE TABLE inventory_positions (
   id TEXT PRIMARY KEY,

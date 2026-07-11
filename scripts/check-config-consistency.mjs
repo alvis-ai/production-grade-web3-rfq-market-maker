@@ -123,6 +123,11 @@ assert.ok(
   "backend must enforce distributed rate limit configuration",
 );
 assert.ok(
+  backendSource.includes("DATABASE_URL is required when NODE_ENV=") &&
+    backendSource.includes("resolvePostgresPool(options)"),
+  "backend must require PostgreSQL persistence outside local environments",
+);
+assert.ok(
   frontendConfigSource.includes("readOptionalConfigString") &&
     frontendConfigSource.includes("must be a primitive string"),
   "frontend must reject non-primitive env configuration values before trimming",

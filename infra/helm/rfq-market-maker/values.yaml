@@ -48,6 +48,10 @@ redisSecret:
   name: rfq-backend-secrets
   urlKey: RFQ_REDIS_URL
 
+databaseSecret:
+  name: rfq-backend-secrets
+  urlKey: DATABASE_URL
+
 resources:
   requests:
     cpu: 100m

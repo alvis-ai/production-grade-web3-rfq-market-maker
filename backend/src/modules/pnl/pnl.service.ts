@@ -1,5 +1,6 @@
 import { simulatedPnlModelDescription } from "../../shared/types/rfq.js";
 import type { IntString, PnlSummaryResponse, PnlTradeRecord, SignedQuote } from "../../shared/types/rfq.js";
+import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 
 const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 const MIN_SAFE_INTEGER_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
@@ -36,10 +37,10 @@ export interface RemovePnlRecordResult {
 }
 
 export interface PnlStore {
-  checkHealth?(): void;
-  recordSettlement(input: RecordPnlInput): PnlTradeRecord;
-  removePnlRecord(input: RemovePnlRecordInput): RemovePnlRecordResult;
-  summary(): PnlSummaryResponse;
+  checkHealth?(): void | Promise<void>;
+  recordSettlement(input: RecordPnlInput): PnlTradeRecord | Promise<PnlTradeRecord>;
+  removePnlRecord(input: RemovePnlRecordInput): RemovePnlRecordResult | Promise<RemovePnlRecordResult>;
+  summary(): PnlSummaryResponse | Promise<PnlSummaryResponse>;
 }
 
 export class PnlService implements PnlStore {
@@ -68,25 +69,7 @@ export class PnlService implements PnlStore {
       return clonePnlTradeRecord(existingRecord);
     }
 
-    const grossPnl = calculateGrossPnl(input.quote.amountIn, input.quote.amountOut);
-    const record: PnlTradeRecord = {
-      pnlId,
-      quoteId: input.quoteId,
-      chainId: input.quote.chainId,
-      user: input.quote.user,
-      tokenIn: input.quote.tokenIn,
-      tokenOut: input.quote.tokenOut,
-      amountIn: input.quote.amountIn,
-      amountOut: input.quote.amountOut,
-      minAmountOut: input.quote.minAmountOut,
-      nonce: input.quote.nonce,
-      deadline: input.quote.deadline,
-      grossPnlTokenOut: grossPnl.toString() as IntString,
-      grossPnlBps: calculateGrossPnlBps(input.quote.amountIn, grossPnl),
-      model,
-      modelDescription: simulatedPnlModelDescription,
-      realizedAt: new Date().toISOString(),
-    };
+    const record = buildPnlTradeRecord(input);
 
     this.trades.set(record.pnlId, record);
     this.pnlIdsByQuoteModel.set(this.quoteModelKey(input.quoteId, record.model), record.pnlId);
@@ -138,17 +121,46 @@ function calculateGrossPnl(amountIn: string, amountOut: string): bigint {
   return BigInt(amountIn) - BigInt(amountOut);
 }
 
-function clonePnlTradeRecord(record: PnlTradeRecord): PnlTradeRecord {
+export function clonePnlTradeRecord(record: PnlTradeRecord): PnlTradeRecord {
   return { ...record };
 }
 
-function buildPnlId(quoteId: string): string {
+export function buildPnlId(quoteId: string): string {
   const pnlId = `pnl_${quoteId}`;
   assertSafeIdentifier(pnlId, "pnlId");
   return pnlId;
 }
 
-function matchesPnlInput(record: PnlTradeRecord, input: RecordPnlInput): boolean {
+export function buildPnlTradeRecord(
+  input: RecordPnlInput,
+  realizedAt = new Date().toISOString(),
+): PnlTradeRecord {
+  assertPnlInput(input);
+  if (!isCanonicalUtcIsoTimestamp(realizedAt)) {
+    throw new Error("Pnl realizedAt must be a canonical UTC ISO timestamp");
+  }
+  const grossPnl = calculateGrossPnl(input.quote.amountIn, input.quote.amountOut);
+  return {
+    pnlId: buildPnlId(input.quoteId),
+    quoteId: input.quoteId,
+    chainId: input.quote.chainId,
+    user: input.quote.user,
+    tokenIn: input.quote.tokenIn,
+    tokenOut: input.quote.tokenOut,
+    amountIn: input.quote.amountIn,
+    amountOut: input.quote.amountOut,
+    minAmountOut: input.quote.minAmountOut,
+    nonce: input.quote.nonce,
+    deadline: input.quote.deadline,
+    grossPnlTokenOut: grossPnl.toString() as IntString,
+    grossPnlBps: calculateGrossPnlBps(input.quote.amountIn, grossPnl),
+    model: "simulated_mid_price_v1",
+    modelDescription: simulatedPnlModelDescription,
+    realizedAt,
+  };
+}
+
+export function matchesPnlInput(record: PnlTradeRecord, input: RecordPnlInput): boolean {
   return (
     record.quoteId === input.quoteId &&
     record.chainId === input.quote.chainId &&
@@ -177,7 +189,7 @@ function calculateGrossPnlBps(amountIn: string, grossPnl: bigint): number {
   return Number(grossPnlBps);
 }
 
-function assertPnlInput(input: RecordPnlInput): void {
+export function assertPnlInput(input: RecordPnlInput): void {
   assertObject(input, "input");
   assertObject(input.quote, "quote");
   assertOwnFields(input, pnlInputFields, "input");
@@ -203,7 +215,7 @@ function assertPnlInput(input: RecordPnlInput): void {
   }
 }
 
-function normalizeRemovePnlRecordInput(input: RemovePnlRecordInput): Required<RemovePnlRecordInput> {
+export function normalizeRemovePnlRecordInput(input: RemovePnlRecordInput): Required<RemovePnlRecordInput> {
   assertObject(input, "remove input");
   assertOwnFields(input, removePnlRecordInputFields, "remove input");
   assertOwnOptionalFields(input, removePnlRecordOptionalFields, "remove input");

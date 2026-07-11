@@ -35,7 +35,7 @@ test("RFQ API validates simulated and receipt-confirmed execution configuration"
     delete process.env.RFQ_ALLOW_SIMULATED_SETTLEMENT;
     process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig(settlementAddress));
     process.env.RFQ_REDIS_URL = "redis://127.0.0.1:6379/0";
-    const server = buildServer({ logger: false });
+    const server = buildServer({ logger: false, databasePool: fakeDatabasePool() });
     await server.ready();
     await server.close();
   } finally {
@@ -52,6 +52,20 @@ function receiptConfig(address) {
       confirmations: 2,
       receiptTimeoutMs: 120_000,
     }],
+  };
+}
+
+function fakeDatabasePool() {
+  const client = {
+    async query() {
+      return { rows: [], rowCount: 0 };
+    },
+    release() {},
+  };
+  return {
+    async connect() {
+      return client;
+    },
   };
 }
 

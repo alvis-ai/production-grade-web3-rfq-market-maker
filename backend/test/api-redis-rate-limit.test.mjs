@@ -144,14 +144,20 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
     process.env.RFQ_SETTLEMENT_ADDRESS = settlementAddress;
     process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig());
     process.env.RFQ_RATE_LIMIT_BACKEND = "memory";
-    assert.throws(() => buildServer({ logger: false }), /must be redis when NODE_ENV=production/);
+    assert.throws(
+      () => buildServer({ logger: false, databasePool: fakeDatabasePool() }),
+      /must be redis when NODE_ENV=production/,
+    );
 
     delete process.env.RFQ_RATE_LIMIT_BACKEND;
     delete process.env.RFQ_REDIS_URL;
-    assert.throws(() => buildServer({ logger: false }), /RFQ_REDIS_URL is required/);
+    assert.throws(
+      () => buildServer({ logger: false, databasePool: fakeDatabasePool() }),
+      /RFQ_REDIS_URL is required/,
+    );
 
     process.env.RFQ_REDIS_URL = "redis://127.0.0.1:6379/0";
-    const server = buildServer({ logger: false });
+    const server = buildServer({ logger: false, databasePool: fakeDatabasePool() });
     await server.ready();
     await server.close();
   } finally {
@@ -185,6 +191,20 @@ function receiptConfig() {
       confirmations: 2,
       receiptTimeoutMs: 120_000,
     }],
+  };
+}
+
+function fakeDatabasePool() {
+  const client = {
+    async query() {
+      return { rows: [], rowCount: 0 };
+    },
+    release() {},
+  };
+  return {
+    async connect() {
+      return client;
+    },
   };
 }
 

@@ -153,6 +153,8 @@ The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK 
 
 Local development permits synthetic settlement only when `RFQ_ALLOW_SIMULATED_SETTLEMENT=true`. In receipt-confirmed mode the wallet broadcasts `RFQSettlement.submitQuote`, then sends the resulting `txHash` to `POST /submit`. The backend treats that hash only as an RPC lookup key: it waits for configured confirmations, verifies transaction `from`, `to`, and decoded `submitQuote` calldata against the stored quote/signature, requires a successful receipt, and requires exactly one matching `QuoteSettled` event before inventory, hedge, PnL, or quote-status side effects.
 
+When `DATABASE_URL` is configured, quote audit records and the complete post-trade path use PostgreSQL. Settlement event insertion and both inventory token deltas commit in one transaction; duplicate `(chain_id, tx_hash, log_index)` or `quote_id` events cannot apply inventory twice. Inventory pricing reads the shared `inventory_positions` projection on every request, so horizontally scaled replicas use one exposure state. Hedge intents and PnL records are durable idempotent projections keyed by settlement event and quote/model. Startup takes a transaction-scoped advisory lock and repairs inventory from canonical settlement events before readiness. Reorg removal marks an event non-canonical instead of deleting audit history, rebuilds inventory in the same transaction, and leaves quote, hedge and PnL cleanup to reconciliation.
+
 `RFQ_MARKET_PAIRS` controls background snapshot prefetch. `RFQ_CEX_PAIRS` adds exchange-specific Level-2 sources using `chainId:tokenIn:tokenOut:exchange:symbol`; configure Binance and Coinbase separately because their symbols differ. For a shared token pair, synchronized source prices are aggregated by median and near-mid liquidity is summed. A disconnected or sequence-gapped source is removed from aggregation until its full snapshot and buffered updates are synchronized again.
 
 The base provider defaults to `static`. Set `RFQ_MARKET_DATA_PROVIDER=chainlink` with `RFQ_CHAINLINK_CONFIG_JSON` to read configured AggregatorV3 feeds. Every network declares `networkType` as `l1` or `l2`; L2 configurations must provide both a Sequencer Uptime Feed and recovery grace period, while L1 configurations reject sequencer fields. The backend rejects non-positive, future-dated, stale, malformed, or decimals-mismatched rounds and uses the oracle `updatedAt` as the snapshot observation time. CEX snapshots live in a separate higher-priority cache, so the fallback provider cannot overwrite a synchronized order book merely because its updater ran later.
@@ -180,7 +182,7 @@ Local ports:
 
 ## Production Configuration
 
-When `NODE_ENV` is set to any non-local environment such as `production` or `staging`, the backend refuses to start unless `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` are explicitly configured. It also defaults `RFQ_ALLOW_SIMULATED_SETTLEMENT` to `false`, requires at least one valid chain in `RFQ_RECEIPT_CONFIG_JSON`, forces `RFQ_RATE_LIMIT_BACKEND=redis`, and requires a valid `RFQ_REDIS_URL`. The signer private key must be a 32-byte hex string and the settlement contract must be a 20-byte hex address; every receipt chain settlement address must match the EIP-712 settlement address. The built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`; the synthetic settlement and process-local rate-limit fallbacks have the same local-only boundary.
+When `NODE_ENV` is set to any non-local environment such as `production` or `staging`, the backend refuses to start unless `RFQ_SIGNER_PRIVATE_KEY`, `RFQ_SETTLEMENT_ADDRESS`, and `DATABASE_URL` are explicitly configured. It also defaults `RFQ_ALLOW_SIMULATED_SETTLEMENT` to `false`, requires at least one valid chain in `RFQ_RECEIPT_CONFIG_JSON`, forces `RFQ_RATE_LIMIT_BACKEND=redis`, and requires a valid `RFQ_REDIS_URL`. The signer private key must be a 32-byte hex string and the settlement contract must be a 20-byte hex address; every receipt chain settlement address must match the EIP-712 settlement address. The built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`; synthetic settlement, process-local rate limits, and in-memory operational stores have the same local-only boundary.
 
 Leave `RFQ_TRUST_PROXY=false` unless the public API is behind a trusted load balancer or ingress that removes incoming spoofed `x-forwarded-for` headers and sets the canonical client address. When enabled, the rate limiter keys by the first `x-forwarded-for` entry after enforcing the 128 character limit and `[A-Za-z0-9_.:-]` character set; otherwise it uses the direct socket IP. Redis uses one atomic Lua operation for counter, TTL and limit decisions across replicas. Redis errors return `RATE_LIMIT_UNAVAILABLE`/503 and degrade `rateLimitStore` readiness; the gateway never silently fails open.
 
@@ -188,12 +190,13 @@ Kubernetes deployments load these values from `rfq-backend-secrets`. Replace the
 
 ```sh
 kubectl -n rfq-market-maker create secret generic rfq-backend-secrets \
+  --from-literal=DATABASE_URL=postgres://user:password@postgres.example.com:5432/rfq_market_maker \
   --from-literal=RFQ_SIGNER_PRIVATE_KEY=0x... \
   --from-literal=RFQ_SETTLEMENT_ADDRESS=0x... \
   --from-literal=RFQ_REDIS_URL=rediss://user:password@redis.example.com:6380/0
 ```
 
-The Helm chart expects signer keys through `signerSecret` and the Redis URL through `redisSecret.name` / `redisSecret.urlKey`.
+The Helm chart expects signer keys through `signerSecret`, the Redis URL through `redisSecret`, and the PostgreSQL URL through `databaseSecret.name` / `databaseSecret.urlKey`.
 
 Local API smoke path:
 

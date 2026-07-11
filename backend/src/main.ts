@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
+import type pg from "pg";
 import { privateKeyToAccount } from "viem/accounts";
 import {
   SkeletonExecutionService,
@@ -10,8 +11,10 @@ import {
 } from "./modules/execution/receipt-settlement-evidence.provider.js";
 import { getPool, endPool } from "./db/pool.js";
 import { HedgeService, type HedgeIntentService } from "./modules/hedge/hedge.service.js";
+import { PostgresHedgeService } from "./modules/hedge/postgres-hedge.service.js";
 import { defaultReadinessServiceConfig, ReadinessService } from "./modules/health/readiness.service.js";
-import { InventoryService } from "./modules/inventory/inventory.service.js";
+import { InventoryService, type IInventoryService } from "./modules/inventory/inventory.service.js";
+import { PostgresInventoryService } from "./modules/inventory/postgres-inventory.service.js";
 import { StaticMarketDataService, type MarketDataService } from "./modules/market-data/market-data.service.js";
 import { InMemoryMarketSnapshotRepository, type MarketSnapshotStore } from "./modules/market-data/market-snapshot.repository.js";
 import { PostgresMarketSnapshotStore } from "./modules/market-data/postgres-market-snapshot.repository.js";
@@ -28,6 +31,7 @@ import {
 } from "./modules/market-data/chainlink-config.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { PnlService, type PnlStore, type RecordPnlInput } from "./modules/pnl/pnl.service.js";
+import { PostgresPnlStore } from "./modules/pnl/postgres-pnl.store.js";
 import { FormulaPricingEngine, type PricingEngine } from "./modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository, type QuoteRepository } from "./modules/quote/quote.repository.js";
 import { PostgresQuoteRepository } from "./modules/quote/postgres-quote.repository.js";
@@ -49,6 +53,7 @@ import { PostgresRiskDecisionStore } from "./modules/risk/postgres-risk-decision
 import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine, type RoutingEngine } from "./modules/routing/routing.engine.js";
 import { SettlementEventService, type SettlementEventStore } from "./modules/settlement/settlement-event.service.js";
+import { PostgresSettlementEventStore } from "./modules/settlement/postgres-settlement-event.store.js";
 import {
   defaultLocalSettlementVerifierPolicy,
   LocalSettlementVerifier,
@@ -91,6 +96,7 @@ const retryableSettlementEvidenceReasonCodes = new Set([
 const buildServerOptionFields = [
   "bodyLimitBytes",
   "corsAllowedOrigins",
+  "databasePool",
   "enableHsts",
   "hedgeService",
   "logger",
@@ -145,6 +151,7 @@ interface ShutdownLogger {
 
 export interface BuildServerOptions {
   logger?: boolean;
+  databasePool?: pg.Pool;
   marketDataService?: MarketDataService;
   marketSnapshotStore?: MarketSnapshotStore;
   pricingEngine?: PricingEngine;
@@ -210,7 +217,6 @@ export function buildServer(options: BuildServerOptions = {}) {
     return sendError(reply, requestTraceId(request), new APIError("INVALID_REQUEST", "Route not found", 404));
   });
 
-  const hedgeService = options.hedgeService ?? new HedgeService();
   const metricsService = new MetricsService();
   const defaultMarketData = options.marketDataService ? undefined : readDefaultMarketDataRuntime();
   const rawMarketDataService = options.marketDataService ?? defaultMarketData!.service;
@@ -225,16 +231,20 @@ export function buildServer(options: BuildServerOptions = {}) {
       )
     : rawMarketDataService;
   const maxSnapshotAgeMs = defaultMarketData?.maxSnapshotAgeMs ?? defaultQuoteServiceConfig.maxSnapshotAgeMs;
-  const postgresPool = shouldUsePostgresPersistence(options) ? getPool() : undefined;
-  const marketSnapshotStore = options.marketSnapshotStore ?? (
-    postgresPool ? new PostgresMarketSnapshotStore(postgresPool) : new InMemoryMarketSnapshotRepository()
-  );
   let localSignerConfig: LocalEIP712SignerConfig | undefined;
   const getLocalSignerConfig = () => {
     localSignerConfig ??= readSignerConfig();
     return localSignerConfig;
   };
   const signerService = options.signerService ?? new LocalEIP712SignerService(getLocalSignerConfig());
+  const postgresPool = resolvePostgresPool(options);
+  const ownsPostgresPool = postgresPool !== undefined && options.databasePool === undefined;
+  const hedgeService = options.hedgeService ?? (
+    postgresPool ? new PostgresHedgeService(postgresPool) : new HedgeService()
+  );
+  const marketSnapshotStore = options.marketSnapshotStore ?? (
+    postgresPool ? new PostgresMarketSnapshotStore(postgresPool) : new InMemoryMarketSnapshotRepository()
+  );
   const quoteRepository = options.quoteRepository ?? (
     postgresPool ? new PostgresQuoteRepository(postgresPool) : new InMemoryQuoteRepository()
   );
@@ -244,8 +254,14 @@ export function buildServer(options: BuildServerOptions = {}) {
   const routingEngine = options.routingEngine ?? new InternalInventoryRoutingEngine();
   const pricingEngine = options.pricingEngine ?? new FormulaPricingEngine();
   const riskEngine = options.riskEngine ?? new BasicRiskEngine();
-  const inventoryService = new InventoryService();
-  const settlementEventService = options.settlementEventService ?? new SettlementEventService(inventoryService);
+  const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
+  const inMemoryInventoryService = postgresPool ? undefined : new InventoryService();
+  const inventoryService: IInventoryService = postgresInventoryService ?? inMemoryInventoryService!;
+  const postgresSettlementEventStore = postgresPool && options.settlementEventService === undefined
+    ? new PostgresSettlementEventStore(postgresPool, postgresInventoryService!)
+    : undefined;
+  const settlementEventService = options.settlementEventService ??
+    postgresSettlementEventStore ?? new SettlementEventService(inMemoryInventoryService!);
   const executionService = new SkeletonExecutionService({
     hedgeService,
     inventoryService,
@@ -254,7 +270,9 @@ export function buildServer(options: BuildServerOptions = {}) {
       buildDefaultSettlementVerifierPolicy(getLocalSignerConfig()),
     ),
   }, options.settlementEvidenceProvider ?? buildRuntimeSettlementEvidenceProvider(getLocalSignerConfig()));
-  const pnlService = options.pnlService ?? new PnlService();
+  const pnlService = options.pnlService ?? (
+    postgresPool ? new PostgresPnlStore(postgresPool) : new PnlService()
+  );
   const rateLimiter = resolveRateLimiter(options);
   const inFlightSubmitQuoteIds = new Set<string>();
   const quoteService = new QuoteService({
@@ -300,9 +318,14 @@ export function buildServer(options: BuildServerOptions = {}) {
       cexMonitor?.stop();
     });
   }
-  if (postgresPool) {
+  if (ownsPostgresPool) {
     server.addHook("onClose", async () => {
       await endPool();
+    });
+  }
+  if (postgresSettlementEventStore) {
+    server.addHook("onReady", async () => {
+      await postgresSettlementEventStore.initialize();
     });
   }
   if (rateLimiter?.close) {
@@ -363,7 +386,7 @@ export function buildServer(options: BuildServerOptions = {}) {
         return rateLimitResult.response;
       }
 
-      return pnlService.summary();
+      return await pnlService.summary();
     } catch (error) {
       return sendError(reply, requestTraceId(request), pnlStoreFailure(error));
     }
@@ -377,7 +400,7 @@ export function buildServer(options: BuildServerOptions = {}) {
 
       const { settlementEventId } = request.params as { settlementEventId: string };
       assertStatusIdentifier(settlementEventId, "settlementEventId");
-      const status = settlementEventService.getSettlementEvent(settlementEventId);
+      const status = await settlementEventService.getSettlementEvent(settlementEventId);
       if (!status) {
         return sendError(
           reply,
@@ -419,7 +442,7 @@ export function buildServer(options: BuildServerOptions = {}) {
 
       const { hedgeOrderId } = request.params as { hedgeOrderId: string };
       assertStatusIdentifier(hedgeOrderId, "hedgeOrderId");
-      const status = hedgeService.getHedgeIntent(hedgeOrderId);
+      const status = await hedgeService.getHedgeIntent(hedgeOrderId);
       if (!status) {
         return sendError(reply, requestTraceId(request), new APIError("HEDGE_NOT_FOUND", "Hedge intent not found", 404));
       }
@@ -477,7 +500,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       const result = await executionService.submitQuote(submitRequest, { quoteId });
       const pnlRecord = result.settlementEventResult.duplicate
         ? undefined
-        : recordPnlSettlementBestEffort(pnlService, metricsService, { quoteId, quote: submitRequest.quote });
+        : await recordPnlSettlementBestEffort(pnlService, metricsService, { quoteId, quote: submitRequest.quote });
       metricsService.recordSubmitAccepted();
       if (!result.settlementEventResult.duplicate) {
         metricsService.recordSettlement();
@@ -706,13 +729,13 @@ function pnlStoreFailure(error: unknown): APIError {
   return new APIError("PNL_STORE_UNAVAILABLE", "PnL store unavailable", 503);
 }
 
-function recordPnlSettlementBestEffort(
+async function recordPnlSettlementBestEffort(
   pnlService: PnlStore,
   metricsService: MetricsService,
   input: RecordPnlInput,
-): PnlTradeRecord | undefined {
+): Promise<PnlTradeRecord | undefined> {
   try {
-    const pnlRecord = pnlService.recordSettlement(input);
+    const pnlRecord = await pnlService.recordSettlement(input);
     assertPnlRecordResult(pnlRecord, input);
     return pnlRecord;
   } catch {
@@ -1109,18 +1132,25 @@ function assertBuildServerOptions(options: unknown): asserts options is BuildSer
   assertOptionalOwnFields(options, buildServerOptionFields, "options");
 }
 
-function shouldUsePostgresPersistence(options: BuildServerOptions): boolean {
-  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const databaseUrl = readOwnEnvValue(env, "DATABASE_URL");
-  if (!databaseUrl || databaseUrl.trim().length === 0) {
-    return false;
+function resolvePostgresPool(options: BuildServerOptions): pg.Pool | undefined {
+  if (options.databasePool !== undefined) {
+    if (!isRecord(options.databasePool) || typeof options.databasePool.connect !== "function") {
+      throw new Error("buildServer databasePool.connect must be a function");
+    }
+    return options.databasePool;
   }
 
-  return (
-    options.marketSnapshotStore === undefined ||
-    options.quoteRepository === undefined ||
-    options.riskDecisionStore === undefined
-  );
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
+  const databaseUrl = readOwnEnvValue(env, "DATABASE_URL");
+  if (!databaseUrl || databaseUrl.trim().length === 0) {
+    if (requiresExplicitSignerConfig(nodeEnv)) {
+      throw new Error(`DATABASE_URL is required when NODE_ENV=${nodeEnv}`);
+    }
+    return undefined;
+  }
+
+  return getPool();
 }
 
 function resolveRateLimiter(options: BuildServerOptions): RateLimiter | undefined {

@@ -15,7 +15,6 @@ const txHash = `0x${"ab".repeat(32)}`;
 
 test("RFQ API applies receipt-confirmed settlement evidence from a wallet txHash", async () => {
   const originalDateNow = Date.now;
-  const quotedAt = originalDateNow();
   const calls = [];
   const settlementEvidenceProvider = {
     async resolve(request, context) {
@@ -40,7 +39,7 @@ test("RFQ API applies receipt-confirmed settlement evidence from a wallet txHash
       deadline: quoteResponse.body.deadline,
       chainId: quoteRequest.chainId,
     };
-    Date.now = () => quotedAt + 31_000;
+    Date.now = () => (signedQuote.deadline + 1) * 1_000;
     assert.ok(signedQuote.deadline < Math.floor(Date.now() / 1_000));
     const submit = await injectJson(server, "POST", "/submit", {
       quote: signedQuote,

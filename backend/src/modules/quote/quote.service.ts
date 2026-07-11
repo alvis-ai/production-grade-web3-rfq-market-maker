@@ -11,7 +11,7 @@ import type {
 import { APIError } from "../../shared/errors/api-error.js";
 import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "../../shared/validation/submit-request.js";
-import type { InventoryProjection, InventoryService } from "../inventory/inventory.service.js";
+import type { InventoryProjection, IInventoryService } from "../inventory/inventory.service.js";
 import {
   defaultMaxSnapshotFutureSkewMs,
   getMarketDataSnapshotSource,
@@ -36,7 +36,7 @@ import type { SignerService } from "../signer/signer.service.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
 
 export interface QuoteServiceDeps {
-  inventoryService: InventoryService;
+  inventoryService: IInventoryService;
   marketDataService: MarketDataService;
   marketSnapshotStore: MarketSnapshotStore;
   pricingEngine: PricingEngine;
@@ -153,13 +153,13 @@ export class QuoteService {
     }
     let pricingAdjustmentBps: number;
     try {
-      const inventorySkewResult = this.deps.inventoryService.calculateQuoteSkewBps({
+      const inventorySkewResult = await this.deps.inventoryService.calculateQuoteSkewBps({
         chainId: validatedRequest.chainId,
         token: validatedRequest.tokenOut,
       });
       assertInventorySkewBps(inventorySkewResult);
       const hedgeRiskPenaltyResult = this.deps.hedgeService?.quoteRiskPenaltyBps
-        ? this.deps.hedgeService.quoteRiskPenaltyBps({
+        ? await this.deps.hedgeService.quoteRiskPenaltyBps({
             chainId: validatedRequest.chainId,
             token: validatedRequest.tokenOut,
           })
@@ -190,7 +190,7 @@ export class QuoteService {
     }
     let risk: RiskDecision;
     try {
-      const projectionResult = this.deps.inventoryService.projectSettlement({
+      const projectionResult = await this.deps.inventoryService.projectSettlement({
         chainId: validatedRequest.chainId,
         tokenIn: validatedRequest.tokenIn,
         tokenOut: validatedRequest.tokenOut,

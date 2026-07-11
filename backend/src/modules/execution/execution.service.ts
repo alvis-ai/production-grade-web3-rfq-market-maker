@@ -10,7 +10,7 @@ import { validateSubmitQuoteRequest } from "../../shared/validation/submit-reque
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 import type { HedgeIntent, HedgeResult } from "../hedge/hedge.service.js";
 import type { HedgeIntentService, HedgeFailureReasonCode } from "../hedge/hedge.service.js";
-import type { InventoryPosition, InventoryService } from "../inventory/inventory.service.js";
+import type { InventoryPosition, IInventoryService } from "../inventory/inventory.service.js";
 import {
   hashSettlementQuote,
   type ApplySettlementEventInput,
@@ -68,7 +68,7 @@ export interface ExecutionService {
 
 export interface ExecutionServiceDeps {
   hedgeService: HedgeIntentService;
-  inventoryService: InventoryService;
+  inventoryService: IInventoryService;
   settlementEventService: SettlementEventStore;
   settlementVerifier: SettlementVerifier;
 }
@@ -129,7 +129,7 @@ export class SkeletonExecutionService implements ExecutionService {
     const validatedRequest = validateSubmitQuoteRequest(request);
     const settlementVerification = await this.verifySettlement(validatedRequest, context);
     const evidence = await this.resolveSettlementEvidence(validatedRequest, context);
-    const settlementEventResult = this.applySettlementEvent({
+    const settlementEventResult = await this.applySettlementEvent({
       quoteId: context.quoteId,
       quote: validatedRequest.quote,
       txHash: evidence.txHash,
@@ -137,10 +137,10 @@ export class SkeletonExecutionService implements ExecutionService {
       logIndex: evidence.logIndex,
     });
 
-    const inventoryPositions = this.readInventoryPositions(validatedRequest);
+    const inventoryPositions = await this.readInventoryPositions(validatedRequest);
     const { hedgeResult, hedgeFailure, hedgeLagSeconds } = settlementEventResult.duplicate
       ? { hedgeResult: undefined, hedgeFailure: undefined, hedgeLagSeconds: undefined }
-      : this.createHedgeIntent(validatedRequest, context, settlementEventResult.event.settlementEventId);
+      : await this.createHedgeIntent(validatedRequest, context, settlementEventResult.event.settlementEventId);
 
     return {
       response: {
@@ -172,9 +172,9 @@ export class SkeletonExecutionService implements ExecutionService {
     }
   }
 
-  private applySettlementEvent(input: ApplySettlementEventInput): ApplySettlementEventResult {
+  private async applySettlementEvent(input: ApplySettlementEventInput): Promise<ApplySettlementEventResult> {
     try {
-      const settlementEventResult = this.deps.settlementEventService.applySettlementEvent(input);
+      const settlementEventResult = await this.deps.settlementEventService.applySettlementEvent(input);
       assertApplySettlementEventResult(settlementEventResult, input);
       return settlementEventResult;
     } catch (error) {
@@ -182,12 +182,14 @@ export class SkeletonExecutionService implements ExecutionService {
     }
   }
 
-  private readInventoryPositions(
+  private async readInventoryPositions(
     request: SubmitQuoteRequest,
-  ): ExecutionResult["inventoryPositions"] {
+  ): Promise<ExecutionResult["inventoryPositions"]> {
     try {
-      const tokenIn = this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenIn);
-      const tokenOut = this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut);
+      const [tokenIn, tokenOut] = await Promise.all([
+        this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenIn),
+        this.deps.inventoryService.getPosition(request.quote.chainId, request.quote.tokenOut),
+      ]);
       assertInventoryPositionResult(tokenIn, request.quote.chainId, request.quote.tokenIn, "tokenIn");
       assertInventoryPositionResult(tokenOut, request.quote.chainId, request.quote.tokenOut, "tokenOut");
       return { tokenIn, tokenOut };
@@ -196,11 +198,11 @@ export class SkeletonExecutionService implements ExecutionService {
     }
   }
 
-  private createHedgeIntent(
+  private async createHedgeIntent(
     request: SubmitQuoteRequest,
     context: ExecutionContext,
     settlementEventId: string,
-  ): CreateHedgeIntentResult {
+  ): Promise<CreateHedgeIntentResult> {
     const intent: HedgeIntent = {
       settlementEventId,
       quoteId: context.quoteId,
@@ -213,14 +215,16 @@ export class SkeletonExecutionService implements ExecutionService {
     const startedAt = Date.now();
 
     try {
-      const hedgeResult = this.deps.hedgeService.createHedgeIntent(intent);
+      const hedgeResult = await this.deps.hedgeService.createHedgeIntent(intent);
       assertHedgeResult(hedgeResult, intent);
       return {
         hedgeResult,
         hedgeLagSeconds: elapsedSeconds(startedAt),
       };
     } catch {
-      this.deps.hedgeService.recordHedgeFailure?.(intent, "HEDGE_INTENT_FAILED");
+      try {
+        await this.deps.hedgeService.recordHedgeFailure?.(intent, "HEDGE_INTENT_FAILED");
+      } catch {}
       return {
         hedgeFailure: {
           reasonCode: "HEDGE_INTENT_FAILED",

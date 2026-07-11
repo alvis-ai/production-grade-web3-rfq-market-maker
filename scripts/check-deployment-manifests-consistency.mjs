@@ -71,6 +71,7 @@ assertContains(k8sSecret, [
   "RFQ_SIGNER_PRIVATE_KEY: replace-with-production-signer-private-key",
   "RFQ_SETTLEMENT_ADDRESS: replace-with-rfq-settlement-address",
   "RFQ_REDIS_URL: redis://replace-with-redis-service:6379/0",
+  "DATABASE_URL: postgres://rfq-user:replace-with-password@postgres.example.com:5432/rfq_market_maker",
 ], "infra/k8s/backend-secret.yaml");
 
 assertContains(k8sNetworkPolicy, [
@@ -99,6 +100,8 @@ assertContains(helmValues, [
   "settlementAddressKey: RFQ_SETTLEMENT_ADDRESS",
   "redisSecret:",
   "urlKey: RFQ_REDIS_URL",
+  "databaseSecret:",
+  "urlKey: DATABASE_URL",
   "cpu: 100m",
   "memory: 128Mi",
   "cpu: 500m",
@@ -116,6 +119,8 @@ assertContains(helmDeployment, [
   "key: {{ .Values.signerSecret.settlementAddressKey }}",
   "name: RFQ_REDIS_URL",
   "key: {{ .Values.redisSecret.urlKey }}",
+  "name: DATABASE_URL",
+  "key: {{ .Values.databaseSecret.urlKey }}",
   "toYaml .Values.resources",
 ], "infra/helm/rfq-market-maker/templates/deployment.yaml");
 
@@ -135,6 +140,7 @@ assertContains(kubernetesChapter, [
   "`RFQ_SIGNER_PRIVATE_KEY`",
   "`RFQ_SETTLEMENT_ADDRESS`",
   "`RFQ_REDIS_URL`",
+  "`DATABASE_URL`",
   "`rateLimitStore`",
   "Resource request/limit",
   "NetworkPolicy",

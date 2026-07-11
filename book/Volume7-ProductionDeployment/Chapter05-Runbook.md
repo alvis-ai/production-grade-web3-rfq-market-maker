@@ -148,6 +148,8 @@ Future admin APIs may support disabling quote signing, lowering limits, disablin
 
 When `rfq_dependency_status{component="rateLimitStore",status="degraded"}` is active, confirm Redis endpoint, TLS, credentials, latency and keyspace health before restarting API pods. Keep affected pods out of readiness and preserve `RATE_LIMIT_UNAVAILABLE` fail-closed behavior; switching production replicas to process-local buckets would multiply the effective limit and is not an acceptable mitigation. Recovery is complete only after Redis `PING` succeeds, `/ready` reports `rateLimitStore=ok`, and a controlled multi-replica request test observes one shared quota.
 
+For a confirmed chain reorg, call the settlement removal path with exact `chainId`、`txHash`、`blockNumber` and `logIndex`. Verify the database transaction changed the event to `canonical=false`, populated `removed_at`, and rebuilt `inventory_positions` before running removed-settlement reconciliation for hedge, PnL, and quote pointers. Never delete the settlement audit row manually. Recovery requires canonical chain-order queries to exclude the event and shared inventory reads from two API replicas to return the same repaired balances.
+
 ### Signer Compromise
 
 1. Disable Signer Service.

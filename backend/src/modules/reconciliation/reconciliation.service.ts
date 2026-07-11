@@ -7,7 +7,7 @@ import type { SignedQuote } from "../../shared/types/rfq.js";
 const reconciliationServiceDepsFields = ["quoteRepository", "settlementEventService"] as const;
 const settlementReconciliationFilterFields = ["chainId", "quoteHash"] as const;
 
-type SettlementEventForReconciliation = ReturnType<SettlementEventStore["listSettlementEvents"]>[number];
+type SettlementEventForReconciliation = Awaited<ReturnType<SettlementEventStore["listSettlementEvents"]>>[number];
 
 export interface SettlementReconciliationFilter {
   chainId: number;
@@ -92,7 +92,7 @@ export class ReconciliationService {
   async reconcileSettlementToQuote(
     filter?: SettlementReconciliationFilter,
   ): Promise<SettlementToQuoteReconciliationReport> {
-    const events = this.listSettlementEventsForReconciliation(filter);
+    const events = await this.listSettlementEventsForReconciliation(filter);
     const report: SettlementToQuoteReconciliationReport = {
       scannedSettlementEvents: events.length,
       repairedQuoteStatuses: 0,
@@ -181,7 +181,7 @@ export class ReconciliationService {
       throw new Error("ReconciliationService pnlService is required for settlement-to-PnL reconciliation");
     }
 
-    const events = this.listSettlementEventsForReconciliation(filter);
+    const events = await this.listSettlementEventsForReconciliation(filter);
     const report: SettlementToPnlReconciliationReport = {
       scannedSettlementEvents: events.length,
       repairedPnlRecords: 0,
@@ -191,7 +191,7 @@ export class ReconciliationService {
 
     for (const event of events) {
       try {
-        const beforeCount = this.deps.pnlService.summary().totalTrades;
+        const beforeCount = (await this.deps.pnlService.summary()).totalTrades;
         const record = await this.deps.quoteRepository.findSignedQuoteByQuoteId(event.quoteId);
         if (!record) {
           report.errors.push({
@@ -202,12 +202,12 @@ export class ReconciliationService {
           continue;
         }
 
-        this.deps.pnlService.recordSettlement({
+        await this.deps.pnlService.recordSettlement({
           quoteId: event.quoteId,
           quote: signedQuoteFromRecord(record),
         });
 
-        const afterCount = this.deps.pnlService.summary().totalTrades;
+        const afterCount = (await this.deps.pnlService.summary()).totalTrades;
         if (afterCount === beforeCount) {
           report.skippedPnlRecords += 1;
         } else {
@@ -240,7 +240,7 @@ export class ReconciliationService {
     };
 
     try {
-      const result = this.deps.pnlService.removePnlRecord({ quoteId: event.quoteId });
+      const result = await this.deps.pnlService.removePnlRecord({ quoteId: event.quoteId });
       if (result.removed) {
         report.removedPnlRecords += 1;
       } else {
@@ -264,7 +264,7 @@ export class ReconciliationService {
       throw new Error("ReconciliationService hedgeService is required for settlement-to-hedge reconciliation");
     }
 
-    const events = this.listSettlementEventsForReconciliation(filter);
+    const events = await this.listSettlementEventsForReconciliation(filter);
     const report: SettlementToHedgeReconciliationReport = {
       scannedSettlementEvents: events.length,
       repairedHedgeIntents: 0,
@@ -274,9 +274,9 @@ export class ReconciliationService {
 
     for (const event of events) {
       try {
-        const existingIntent = this.deps.hedgeService.getHedgeIntentBySettlementEvent(event.settlementEventId);
+        const existingIntent = await this.deps.hedgeService.getHedgeIntentBySettlementEvent(event.settlementEventId);
         const hedgeIntent = hedgeIntentFromSettlementEvent(event);
-        this.deps.hedgeService.createHedgeIntent(hedgeIntent);
+        await this.deps.hedgeService.createHedgeIntent(hedgeIntent);
 
         if (existingIntent) {
           report.skippedHedgeIntents += 1;
@@ -311,7 +311,7 @@ export class ReconciliationService {
     };
 
     try {
-      const result = this.deps.hedgeService.removeHedgeIntentBySettlementEvent(event.settlementEventId);
+      const result = await this.deps.hedgeService.removeHedgeIntentBySettlementEvent(event.settlementEventId);
       if (result.removed) {
         report.removedHedgeIntents += 1;
       } else {
@@ -328,9 +328,9 @@ export class ReconciliationService {
     return report;
   }
 
-  private listSettlementEventsForReconciliation(
+  private async listSettlementEventsForReconciliation(
     filter: SettlementReconciliationFilter | undefined,
-  ): SettlementEventForReconciliation[] {
+  ): Promise<SettlementEventForReconciliation[]> {
     if (filter === undefined) {
       return this.deps.settlementEventService.listSettlementEvents();
     }

@@ -42,6 +42,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.redisSecret.name }}
                   key: {{ .Values.redisSecret.urlKey }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databaseSecret.name }}
+                  key: {{ .Values.databaseSecret.urlKey }}
             {{- if .Values.chainlinkConfigSecret.enabled }}
             - name: RFQ_CHAINLINK_CONFIG_JSON
               valueFrom:

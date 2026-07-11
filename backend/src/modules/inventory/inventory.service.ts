@@ -49,12 +49,12 @@ export const defaultInventoryServiceConfig: InventoryServiceConfig = {
 };
 
 export interface IInventoryService {
-  checkHealth(): void;
-  applySettlement(delta: SettlementDelta): void;
-  rebuildFromSettlements(deltas: readonly SettlementDelta[]): void;
-  projectSettlement(input: InventoryProjectionInput): InventoryProjection;
-  calculateQuoteSkewBps(input: InventorySkewInput): number;
-  getPosition(chainId: number, token: Address): InventoryPosition;
+  checkHealth(): void | Promise<void>;
+  applySettlement(delta: SettlementDelta): void | Promise<void>;
+  rebuildFromSettlements(deltas: readonly SettlementDelta[]): void | Promise<void>;
+  projectSettlement(input: InventoryProjectionInput): InventoryProjection | Promise<InventoryProjection>;
+  calculateQuoteSkewBps(input: InventorySkewInput): number | Promise<number>;
+  getPosition(chainId: number, token: Address): InventoryPosition | Promise<InventoryPosition>;
 }
 
 export class InventoryService implements IInventoryService {
@@ -62,11 +62,7 @@ export class InventoryService implements IInventoryService {
   private readonly balances = new Map<string, bigint>();
 
   constructor(config: InventoryServiceConfig = defaultInventoryServiceConfig) {
-    assertObject(config, "config");
-    assertOwnFields(config, inventoryServiceConfigFields, "config");
-    assertPositiveBigInt(config.skewUnit, "skewUnit");
-    assertBpsUpperBound(config.maxPositiveSkewBps, "maxPositiveSkewBps");
-    assertBpsUpperBound(config.maxNegativeSkewBps, "maxNegativeSkewBps");
+    assertInventoryServiceConfig(config);
 
     this.config = cloneInventoryServiceConfig(config);
   }
@@ -117,21 +113,11 @@ export class InventoryService implements IInventoryService {
   calculateQuoteSkewBps(input: InventorySkewInput): number {
     assertInventorySkewInput(input);
     const balance = this.getPosition(input.chainId, input.token).balance;
-    if (balance === 0n) {
-      return 0;
-    }
-
-    const skew = Number(abs(balance) / this.config.skewUnit);
-    if (balance < 0n) {
-      return Math.min(skew, this.config.maxPositiveSkewBps);
-    }
-
-    return -Math.min(skew, this.config.maxNegativeSkewBps);
+    return calculateInventorySkewBps(balance, this.config);
   }
 
   getPosition(chainId: number, token: Address): InventoryPosition {
-    assertPositiveSafeInteger(chainId, "chainId");
-    assertAddress(token, "token");
+    assertInventoryPositionKey(chainId, token);
     return {
       chainId,
       token,
@@ -149,12 +135,37 @@ export class InventoryService implements IInventoryService {
   }
 }
 
+export function calculateInventorySkewBps(balance: bigint, config: InventoryServiceConfig): number {
+  if (typeof balance !== "bigint") {
+    throw new Error("Inventory balance must be a bigint");
+  }
+  assertInventoryServiceConfig(config);
+  if (balance === 0n) {
+    return 0;
+  }
+
+  const skew = Number(abs(balance) / config.skewUnit);
+  if (balance < 0n) {
+    return Math.min(skew, config.maxPositiveSkewBps);
+  }
+
+  return -Math.min(skew, config.maxNegativeSkewBps);
+}
+
 function abs(value: bigint): bigint {
   return value < 0n ? -value : value;
 }
 
-function cloneInventoryServiceConfig(config: InventoryServiceConfig): InventoryServiceConfig {
+export function cloneInventoryServiceConfig(config: InventoryServiceConfig): InventoryServiceConfig {
   return { ...config };
+}
+
+export function assertInventoryServiceConfig(config: InventoryServiceConfig): void {
+  assertObject(config, "config");
+  assertOwnFields(config, inventoryServiceConfigFields, "config");
+  assertPositiveBigInt(config.skewUnit, "skewUnit");
+  assertBpsUpperBound(config.maxPositiveSkewBps, "maxPositiveSkewBps");
+  assertBpsUpperBound(config.maxNegativeSkewBps, "maxNegativeSkewBps");
 }
 
 function assertPositiveBigInt(value: bigint, field: keyof InventoryServiceConfig): void {
@@ -173,7 +184,7 @@ function assertBpsUpperBound(value: number, field: keyof InventoryServiceConfig)
   }
 }
 
-function assertSettlementDelta(input: SettlementDelta | InventoryProjectionInput): void {
+export function assertSettlementDelta(input: SettlementDelta | InventoryProjectionInput): void {
   assertObject(input, "settlement delta");
   assertOwnFields(input, settlementDeltaFields, "settlement delta");
   assertPositiveSafeInteger(input.chainId, "chainId");
@@ -186,7 +197,7 @@ function assertSettlementDelta(input: SettlementDelta | InventoryProjectionInput
   assertPositiveUIntString(input.amountOut, "amountOut");
 }
 
-function assertInventorySkewInput(input: InventorySkewInput): void {
+export function assertInventorySkewInput(input: InventorySkewInput): void {
   assertObject(input, "skew input");
   assertOwnFields(input, inventorySkewInputFields, "skew input");
   assertPositiveSafeInteger(input.chainId, "chainId");
@@ -211,6 +222,11 @@ function assertPositiveSafeInteger(value: number, field: string): void {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`Inventory ${field} must be a positive safe integer`);
   }
+}
+
+export function assertInventoryPositionKey(chainId: number, token: Address): void {
+  assertPositiveSafeInteger(chainId, "chainId");
+  assertAddress(token, "token");
 }
 
 function assertAddress(value: string, field: string): void {

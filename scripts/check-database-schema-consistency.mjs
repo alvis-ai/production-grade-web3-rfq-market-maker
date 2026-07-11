@@ -13,6 +13,12 @@ const settlementEventServiceSource = await readFile(
   "backend/src/modules/settlement/settlement-event.service.ts",
   "utf8",
 );
+const settlementMigrationSource = await readFile("backend/src/db/migrations/002-settlement-canonical.sql", "utf8");
+const postgresSettlementSource = await readFile("backend/src/modules/settlement/postgres-settlement-event.store.ts", "utf8");
+const postgresInventorySource = await readFile("backend/src/modules/inventory/postgres-inventory.service.ts", "utf8");
+const postgresHedgeSource = await readFile("backend/src/modules/hedge/postgres-hedge.service.ts", "utf8");
+const postgresPnlSource = await readFile("backend/src/modules/pnl/postgres-pnl.store.ts", "utf8");
+const backendMainSource = await readFile("backend/src/main.ts", "utf8");
 const maxSafeInteger = "9007199254740991";
 const secp256k1HalfOrder = "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0";
 const safeIdentifierPattern = "^[A-Za-z0-9_:-]+$";
@@ -71,6 +77,8 @@ const requiredTables = {
     "amount_in",
     "amount_out",
     "nonce",
+    "canonical",
+    "removed_at",
   ],
   inventory_positions: ["id", "chain_id", "token_address", "balance", "target_balance", "max_exposure"],
   hedge_orders: [
@@ -205,6 +213,7 @@ const requiredCheckConstraints = {
     ["chk_settlement_events_addresses_hex", "settlement_events must constrain address-shaped fields"],
     ["chk_settlement_events_distinct_tokens", "settlement_events must constrain token pair addresses to be distinct"],
     ["chk_settlement_events_amounts_positive", "settlement_events must constrain positive settlement fields"],
+    ["chk_settlement_events_canonical_state", "settlement_events must constrain canonical reorg state"],
   ],
   inventory_positions: [
     ["chk_inventory_positions_id_safe", "inventory_positions must constrain primary ids to safe identifiers"],
@@ -559,6 +568,7 @@ for (const indexName of [
   "idx_risk_decisions_quote_id",
   "uq_settlement_events_quote_id",
   "idx_settlement_events_chain_quote_hash",
+  "idx_settlement_events_canonical_block",
   "uq_hedge_orders_settlement_event",
   "idx_pnl_records_realized_at",
   "idx_pnl_records_chain_pair_realized_at",
@@ -775,6 +785,49 @@ assert.ok(
 assert.ok(
   erDiagramSource.includes("状态指针不能悬空"),
   "ER diagram notes must document non-dangling quote status pointers",
+);
+
+assert.ok(
+  /ADD\s+COLUMN\s+canonical\s+BOOLEAN\s+NOT\s+NULL\s+DEFAULT\s+TRUE/i.test(settlementMigrationSource) &&
+    /ADD\s+COLUMN\s+removed_at\s+TIMESTAMPTZ/i.test(settlementMigrationSource) &&
+    settlementMigrationSource.includes("chk_settlement_events_canonical_state") &&
+    /WHERE\s+canonical\s*=\s*TRUE/i.test(settlementMigrationSource),
+  "settlement migration must persist and index canonical reorg state",
+);
+assert.ok(
+  postgresSettlementSource.includes('client.query("BEGIN")') &&
+    postgresSettlementSource.includes('client.query("COMMIT")') &&
+    postgresSettlementSource.includes('client.query("ROLLBACK")') &&
+    postgresSettlementSource.includes("ON CONFLICT DO NOTHING") &&
+    postgresSettlementSource.includes("FOR UPDATE") &&
+    postgresSettlementSource.includes("SET canonical = FALSE, removed_at = now()"),
+  "Postgres settlement store must use transactional idempotency and retain removed events",
+);
+assert.ok(
+  postgresSettlementSource.includes("pg_advisory_xact_lock") &&
+    postgresSettlementSource.includes("applySettlementWithClient") &&
+    postgresSettlementSource.includes("rebuildFromCanonicalSettlementEvents"),
+  "Postgres settlement store must coordinate inventory projection updates and startup repair",
+);
+assert.ok(
+  postgresInventorySource.includes('client.query("BEGIN")') &&
+    postgresInventorySource.includes('client.query("ROLLBACK")') &&
+    postgresInventorySource.includes(".sort((left, right) => left.token.localeCompare(right.token))") &&
+    postgresInventorySource.includes("rebuildFromCanonicalSettlementEvents"),
+  "Postgres inventory service must update deterministically and rebuild from canonical events",
+);
+assert.ok(
+  postgresHedgeSource.includes("ON CONFLICT (settlement_event_id) DO UPDATE SET") &&
+    postgresPnlSource.includes("ON CONFLICT (quote_id, model) DO NOTHING"),
+  "hedge and PnL projections must be durable and idempotent",
+);
+assert.ok(
+  backendMainSource.includes("new PostgresSettlementEventStore") &&
+    backendMainSource.includes("new PostgresInventoryService") &&
+    backendMainSource.includes("new PostgresHedgeService") &&
+    backendMainSource.includes("new PostgresPnlStore") &&
+    backendMainSource.includes("DATABASE_URL is required when NODE_ENV="),
+  "non-local runtime must wire durable post-trade stores and require PostgreSQL",
 );
 
 console.log(`Database schema consistency check passed (${tables.size} tables)`);
