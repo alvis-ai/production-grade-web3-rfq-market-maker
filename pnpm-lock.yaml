@@ -10,6 +10,9 @@ importers:
 
   backend:
     dependencies:
+      '@clickhouse/client':
+        specifier: ^1.23.1
+        version: 1.23.1
       '@rfq-market-maker/sdk':
         specifier: workspace:*
         version: link:../sdk
@@ -19,6 +22,9 @@ importers:
       ioredis:
         specifier: ^5.4.2
         version: 5.11.1
+      kafkajs:
+        specifier: ^2.2.4
+        version: 2.2.4
       pg:
         specifier: ^8.13.0
         version: 8.22.0
@@ -180,6 +186,10 @@ packages:
 
   '@base-org/account@2.4.0':
     resolution: {integrity: sha512-A4Umpi8B9/pqR78D1Yoze4xHyQaujioVRqqO3d6xuDFw9VRtjg6tK3bPlwE0aW+nVH/ntllCpPa2PbI8Rnjcug==}
+
+  '@clickhouse/client@1.23.1':
+    resolution: {integrity: sha512-vs3/Zc1dHvT171btW5nMoPsPCJ6QVJ5pp7obxzO5sjqwFx/jjz9wwCAqcFOdc2DhprugDBaVn+4dVY8hG3A9nw==}
+    engines: {node: '>=20'}
 
   '@coinbase/cdp-sdk@1.51.2':
     resolution: {integrity: sha512-o4IEwXbyAjfhPQWoFBuqnV1JQGLk4NlUVMzH/ur4voPSjYZvlYFVuOoE/eEcsoPFN28xaWTBvqebwncQL8h8fQ==}
@@ -1937,6 +1947,10 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
+  kafkajs@2.2.4:
+    resolution: {integrity: sha512-j/YeapB1vfPT2iOIUn/vxdyKEuhuY2PxMBvf5JWux6iSaukAccrMtXEY/Lb7OvavDhOWME589bpLrEdnVHjfjA==}
+    engines: {node: '>=14.0.0'}
+
   keccak@3.0.4:
     resolution: {integrity: sha512-3vKuW0jV8J3XNTzvfyicFR5qvxrSAGl7KIhvgOu5cmWwM7tZRj3fMbj/pfIf4be7aznbc+prBWGjywox/g2Y6Q==}
     engines: {node: '>=10.0.0'}
@@ -3043,6 +3057,8 @@ snapshots:
       - use-sync-external-store
       - utf-8-validate
       - zod
+
+  '@clickhouse/client@1.23.1': {}
 
   '@coinbase/cdp-sdk@1.51.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)':
     dependencies:
@@ -5658,6 +5674,8 @@ snapshots:
   json-schema-traverse@1.0.0: {}
 
   json5@2.2.3: {}
+
+  kafkajs@2.2.4: {}
 
   keccak@3.0.4:
     dependencies:

@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check analytics-integration-check benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -28,6 +28,7 @@ help:
 	@echo "  api-route-check  Verify backend, SDK, OpenAPI, and smoke routes match"
 	@echo "  database-schema-check  Verify database schema matches API state surfaces"
 	@echo "  reconciliation-check  Verify settlement-to-quote and settlement-to-PnL repair flows"
+	@echo "  analytics-integration-check  Verify PostgreSQL -> Redpanda -> ClickHouse against running dependencies"
 	@echo "  benchmark-quote  Run a local POST /quote latency benchmark"
 	@echo "  benchmark-submit Run a local POST /submit latency benchmark"
 	@echo "  backend-build  Build backend package"
@@ -122,6 +123,9 @@ database-schema-check:
 
 reconciliation-check: backend-build
 	@node scripts/reconciliation-check.mjs
+
+analytics-integration-check: backend-build
+	@node scripts/analytics-integration-check.mjs
 
 benchmark-quote: backend-build
 	@node benchmark/quote-benchmark.mjs

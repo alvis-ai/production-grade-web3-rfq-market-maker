@@ -34,6 +34,7 @@ for (const heading of [
   "### Indexer Lag",
   "### Hedge Failure",
   "### Post-Settlement Persistence Drift",
+  "### Analytics Pipeline Backlog",
   "### Pod Termination Or Rollout Drain",
 ]) {
   assert.ok(runbookSource.includes(heading), `Runbook must include scenario heading ${heading}`);

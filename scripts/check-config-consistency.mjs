@@ -9,6 +9,7 @@ const k8sConfigSource = await readFile("infra/k8s/configmap.yaml", "utf8");
 const helmValuesSource = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
 const backendSource = await readFile("backend/src/main.ts", "utf8");
 const hedgeWorkerSource = await readFile("backend/src/hedge-worker-main.ts", "utf8");
+const analyticsWorkerSource = await readFile("backend/src/analytics-worker-main.ts", "utf8");
 const frontendConfigSource = await readFile("frontend/src/lib/config.ts", "utf8");
 const readmeSource = await readFile("README.md", "utf8");
 
@@ -142,6 +143,29 @@ assert.ok(
     k8sConfigSource.includes('RFQ_HEDGE_LEASE_MS: "30000"') &&
     k8sConfigSource.includes('RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000"'),
   "Kubernetes config must define non-secret hedge worker routing and timing controls",
+);
+assert.ok(
+  analyticsWorkerSource.includes('readCsv(env, "RFQ_ANALYTICS_KAFKA_BROKERS")') &&
+    analyticsWorkerSource.includes('readRequired(env, "RFQ_CLICKHOUSE_URL")') &&
+    analyticsWorkerSource.includes("must exceed batch size times Kafka request timeout") &&
+    analyticsWorkerSource.includes("placeholder must be replaced") &&
+    analyticsWorkerSource.includes('configuredTopic !== analyticsTopic'),
+  "analytics worker must require durable endpoints, a fixed topic, isolated secrets, and a safe lease window",
+);
+assert.ok(
+  k8sConfigSource.includes('RFQ_ANALYTICS_KAFKA_TOPIC: "rfq.analytics.v1"') &&
+    k8sConfigSource.includes('RFQ_ANALYTICS_LEASE_MS: "120000"') &&
+    k8sConfigSource.includes('RFQ_CLICKHOUSE_ANALYTICS_TABLE: "rfq_analytics_events"') &&
+    helmValuesSource.includes("analyticsWorker:") &&
+    helmValuesSource.includes('RFQ_ANALYTICS_KAFKA_SSL: "true"'),
+  "Kubernetes and Helm config must define non-secret analytics pipeline controls",
+);
+assert.ok(
+  composeSource.includes("internal://redpanda:9092") &&
+    composeSource.includes("external://localhost:19092") &&
+    composeSource.includes("redpanda-topic-init:") &&
+    composeSource.includes('RFQ_ANALYTICS_KAFKA_BROKERS: redpanda:9092'),
+  "Compose must expose distinct Redpanda listeners and initialize the analytics topic",
 );
 assert.ok(
   frontendConfigSource.includes("readOptionalConfigString") &&

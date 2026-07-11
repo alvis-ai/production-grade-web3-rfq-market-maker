@@ -32,6 +32,41 @@ test -s infra/k8s/hedge-worker-network-policy.yaml
 test -s infra/helm/rfq-market-maker/templates/hedge-worker-deployment.yaml
 test -s infra/helm/rfq-market-maker/templates/hedge-worker-service.yaml
 test -s infra/helm/rfq-market-maker/templates/hedge-worker-network-policy.yaml
+test -s backend/src/analytics-worker-main.ts
+test -s scripts/analytics-integration-check.mjs
+test -s backend/src/db/migrations/004-analytics-outbox.sql
+test -s backend/src/modules/analytics/analytics-event.ts
+test -s backend/src/modules/analytics/analytics-outbox.publisher.ts
+test -s backend/src/modules/analytics/analytics-worker.metrics.ts
+test -s backend/src/modules/analytics/clickhouse-analytics.sink.ts
+test -s backend/src/modules/analytics/kafka-analytics.consumer.ts
+test -s backend/src/modules/analytics/kafka-analytics.producer.ts
+test -s backend/src/modules/analytics/postgres-analytics-outbox.store.ts
+test -s backend/test/analytics-event.test.mjs
+test -s backend/test/analytics-outbox-publisher.test.mjs
+test -s backend/test/analytics-worker-metrics.test.mjs
+test -s backend/test/analytics-worker-runtime.test.mjs
+test -s backend/test/clickhouse-analytics-sink.test.mjs
+test -s backend/test/kafka-analytics-consumer.test.mjs
+test -s backend/test/kafka-analytics-producer.test.mjs
+test -s backend/test/postgres-analytics-outbox-store.test.mjs
+test -s infra/k8s/analytics-worker-deployment.yaml
+test -s infra/k8s/analytics-worker-service.yaml
+test -s infra/k8s/analytics-worker-secret.yaml
+test -s infra/k8s/analytics-worker-network-policy.yaml
+test -s infra/helm/rfq-market-maker/templates/analytics-worker-deployment.yaml
+test -s infra/helm/rfq-market-maker/templates/analytics-worker-service.yaml
+test -s infra/helm/rfq-market-maker/templates/analytics-worker-network-policy.yaml
+grep -q 'CREATE TABLE analytics_outbox' backend/src/db/migrations/004-analytics-outbox.sql
+grep -q 'enqueue_rfq_analytics_event' backend/src/db/migrations/004-analytics-outbox.sql
+grep -q 'FOR UPDATE SKIP LOCKED' backend/src/modules/analytics/postgres-analytics-outbox.store.ts
+grep -q 'idempotent: true' backend/src/modules/analytics/kafka-analytics.producer.ts
+grep -q 'await this.sink.insertBatch(rows.slice' backend/src/modules/analytics/kafka-analytics.consumer.ts
+grep -q 'ReplacingMergeTree(ingested_at)' backend/src/modules/analytics/clickhouse-analytics.sink.ts
+grep -q 'rfq_analytics_outbox_pending' backend/src/modules/analytics/analytics-worker.metrics.ts
+grep -q 'rfq-analytics-worker' infra/prometheus/prometheus.yml
+grep -q 'analytics-integration-check: backend-build' Makefile
+grep -q 'scripts/analytics-integration-check.mjs' Makefile
 grep -q 'FOR UPDATE SKIP LOCKED' backend/src/modules/hedge/postgres-hedge-job.store.ts
 grep -q 'adapter.queryOrder' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'adapter.submitMarketOrder' backend/src/modules/hedge/hedge-worker.ts
@@ -520,7 +555,11 @@ test -s infra/docker/frontend.Dockerfile
 grep -q 'ENV HOST=0.0.0.0' infra/docker/backend.Dockerfile
 grep -q 'ENV PORT=3000' infra/docker/backend.Dockerfile
 grep -q 'COPY package.json pnpm-lock.yaml pnpm-workspace.yaml' infra/docker/backend.Dockerfile
+grep -q 'COPY sdk/package.json sdk/package.json' infra/docker/backend.Dockerfile
+grep -q 'COPY sdk/src sdk/src' infra/docker/backend.Dockerfile
+grep -q '@rfq-market-maker/backend\.\.\.' infra/docker/backend.Dockerfile
 grep -q -- '--frozen-lockfile' infra/docker/backend.Dockerfile
+grep -q -- '--no-optional' infra/docker/backend.Dockerfile
 grep -q 'HEALTHCHECK' infra/docker/backend.Dockerfile
 grep -q 'http://127.0.0.1:3000/health' infra/docker/backend.Dockerfile
 grep -q 'FROM nginx:1.27-alpine AS runtime' infra/docker/frontend.Dockerfile

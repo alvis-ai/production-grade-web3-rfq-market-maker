@@ -37,6 +37,9 @@
 - [x] Inventory updates are replayable.
 - [x] Hedge actions are linked to settlement events.
 - [x] ClickHouse analytics do not become operational source of truth.
+- [x] Transactional outbox events commit with operational state and preserve 78-digit amounts as strings.
+- [x] Kafka offsets commit only after ClickHouse insertion and duplicate event ids remain query-idempotent.
+- [x] Analytics credentials are isolated from API, signer and hedge venue credentials.
 
 ## Operations
 

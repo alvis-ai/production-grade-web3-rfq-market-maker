@@ -208,6 +208,41 @@
           "refId": "C"
         }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Analytics Outbox Backlog",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 31, "w": 8, "h": 7 },
+      "targets": [
+        { "expr": "max(rfq_analytics_outbox_pending)", "legendFormat": "pending events", "refId": "A" },
+        { "expr": "max(rfq_analytics_outbox_oldest_age_seconds)", "legendFormat": "oldest age seconds", "refId": "B" },
+        { "expr": "time() - max(rfq_analytics_last_published_timestamp_seconds)", "legendFormat": "seconds since publish", "refId": "C" },
+        { "expr": "max(rfq_analytics_outbox_cleanup_eligible)", "legendFormat": "cleanup eligible", "refId": "D" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Analytics Pipeline Throughput",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 8, "y": 31, "w": 8, "h": 7 },
+      "targets": [
+        { "expr": "sum(rate(rfq_analytics_outbox_published_total[5m]))", "legendFormat": "published/s", "refId": "A" },
+        { "expr": "sum(rate(rfq_analytics_clickhouse_events_total[5m]))", "legendFormat": "projected/s", "refId": "B" },
+        { "expr": "sum(rate(rfq_analytics_outbox_deleted_total[5m]))", "legendFormat": "retention deletes/s", "refId": "C" },
+        { "expr": "time() - max(rfq_analytics_last_consumed_timestamp_seconds)", "legendFormat": "seconds since projection", "refId": "D" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Analytics Pipeline Errors",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 16, "y": 31, "w": 8, "h": 7 },
+      "targets": [
+        { "expr": "sum(rate(rfq_analytics_outbox_retries_total[5m]))", "legendFormat": "publish retries/s", "refId": "A" },
+        { "expr": "sum(rate(rfq_analytics_publisher_iteration_errors_total[5m]))", "legendFormat": "publisher errors/s", "refId": "B" },
+        { "expr": "sum(rate(rfq_analytics_consumer_errors_total[5m]))", "legendFormat": "consumer errors/s", "refId": "C" }
+      ]
     }
   ]
 }

@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 
 const metricsSource = await readFile("backend/src/modules/metrics/metrics.service.ts", "utf8");
 const hedgeWorkerMetricsSource = await readFile("backend/src/modules/hedge/hedge-worker.ts", "utf8");
+const analyticsWorkerMetricsSource = await readFile("backend/src/modules/analytics/analytics-worker.metrics.ts", "utf8");
 const readinessSource = await readFile("backend/src/modules/health/readiness.service.ts", "utf8");
 const rateLimitSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const prometheusConfigSource = await readFile("infra/prometheus/prometheus.yml", "utf8");
@@ -12,7 +13,7 @@ const alertRulesSource = await readFile("infra/prometheus/rules/rfq-alerts.yml",
 const backendMetricsChapter = await readFile("book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md", "utf8");
 const monitoringChapter = await readFile("book/Volume7-ProductionDeployment/Chapter03-Monitoring.md", "utf8");
 
-const emittedMetrics = extractEmittedMetrics(`${metricsSource}\n${hedgeWorkerMetricsSource}`);
+const emittedMetrics = extractEmittedMetrics(`${metricsSource}\n${hedgeWorkerMetricsSource}\n${analyticsWorkerMetricsSource}`);
 const alertMetrics = extractAlertMetrics(alertRulesSource);
 const backendDocMetrics = extractDocumentedMetrics(backendMetricsChapter);
 const monitoringDocMetrics = extractDocumentedMetrics(monitoringChapter);
@@ -63,6 +64,7 @@ for (const alertName of alertNames) {
 
 assert.ok(prometheusConfigSource.includes("job_name: rfq-backend"), "Prometheus must scrape the backend job");
 assert.ok(prometheusConfigSource.includes("job_name: rfq-hedge-worker"), "Prometheus must scrape the hedge worker job");
+assert.ok(prometheusConfigSource.includes("job_name: rfq-analytics-worker"), "Prometheus must scrape the analytics worker job");
 assert.ok(prometheusConfigSource.includes("metrics_path: /metrics"), "Prometheus backend job must scrape /metrics");
 assert.ok(
   prometheusConfigSource.includes("/etc/prometheus/rules/rfq-alerts.yml"),

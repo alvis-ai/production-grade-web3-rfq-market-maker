@@ -1,0 +1,81 @@
+{{- if .Values.analyticsWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-analytics-worker
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analytics-worker
+spec:
+  replicas: {{ .Values.analyticsWorker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: analytics-worker
+  template:
+    metadata:
+      labels:
+        {{- include "rfq-market-maker.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: analytics-worker
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      initContainers:
+        - name: database-migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "backend/dist/db/migrate.js"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.migrationSecret.name }}
+                  key: {{ .Values.migrationSecret.urlKey }}
+      containers:
+        - name: analytics-worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "backend/dist/analytics-worker-main.js"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.analyticsWorker.port }}
+          env:
+            {{- range $key, $value := .Values.analyticsWorker.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.analyticsWorker.secret.name }}
+                  key: {{ .Values.analyticsWorker.secret.databaseUrlKey }}
+            - name: RFQ_ANALYTICS_KAFKA_SASL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.analyticsWorker.secret.name }}
+                  key: {{ .Values.analyticsWorker.secret.kafkaUsernameKey }}
+            - name: RFQ_ANALYTICS_KAFKA_SASL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.analyticsWorker.secret.name }}
+                  key: {{ .Values.analyticsWorker.secret.kafkaPasswordKey }}
+            - name: RFQ_CLICKHOUSE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.analyticsWorker.secret.name }}
+                  key: {{ .Values.analyticsWorker.secret.clickhouseUsernameKey }}
+            - name: RFQ_CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.analyticsWorker.secret.name }}
+                  key: {{ .Values.analyticsWorker.secret.clickhousePasswordKey }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            {{- toYaml .Values.analyticsWorker.resources | nindent 12 }}
+{{- end }}

@@ -12,6 +12,7 @@
 - Inventory positions
 - Settlement events
 - Hedge venue credentials
+- Kafka/ClickHouse analytics credentials and high-dimensional event data
 
 ## Trust Boundaries
 
@@ -39,6 +40,8 @@ flowchart LR
 | Event duplication | Inventory updated twice | idempotency key `(chainId, txHash, logIndex)` |
 | Chain reorg | Inventory reflects reverted event | confirmation depth and replayable indexer |
 | Hedge credential leak | External venue account loss | secret isolation, least privilege, withdrawal disabled |
+| Analytics credential leak | Event exfiltration, forged analytics or broker disruption | separate worker Secret, SASL/TLS, topic/table ACLs, no signer or venue credentials |
+| Event poisoning or offset skip | Analytics evidence becomes incomplete or misleading | closed envelope validation, 1 MiB bound, insert-before-offset commit, replay and event-id deduplication |
 
 ## Security Requirements
 

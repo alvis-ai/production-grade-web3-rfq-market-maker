@@ -1,0 +1,19 @@
+{{- if .Values.analyticsWorker.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-analytics-worker
+  annotations:
+    {{- with .Values.analyticsWorker.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "rfq-market-maker.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: analytics-worker
+  ports:
+    - name: http
+      port: {{ .Values.analyticsWorker.port }}
+      targetPort: http
+{{- end }}

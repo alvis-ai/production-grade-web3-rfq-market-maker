@@ -7,13 +7,16 @@
     "build": "tsc && mkdir -p dist/db/migrations && cp src/db/migrations/*.sql dist/db/migrations/",
     "start": "node dist/main.js",
     "start:hedge-worker": "node dist/hedge-worker-main.js",
+    "start:analytics-worker": "node dist/analytics-worker-main.js",
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
+    "@clickhouse/client": "^1.23.1",
     "@rfq-market-maker/sdk": "workspace:*",
     "fastify": "^4.28.1",
     "ioredis": "^5.4.2",
+    "kafkajs": "^2.2.4",
     "pg": "^8.13.0",
     "viem": "^2.21.0"
   },

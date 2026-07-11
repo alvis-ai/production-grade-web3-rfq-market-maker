@@ -9,6 +9,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "001", name: "base-schema", applied_at: "2026-07-11T00:00:00.000Z" },
         { version: "002", name: "settlement-canonical", applied_at: "2026-07-11T00:00:00.000Z" },
         { version: "003", name: "hedge-worker-queue", applied_at: "2026-07-11T00:00:00.000Z" },
+        { version: "004", name: "analytics-outbox", applied_at: "2026-07-11T00:00:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -75,6 +76,30 @@ test("migrateUpTo rejects an unknown target without applying migrations", async 
   await assert.rejects(migrateUpTo(pool, "999"), /Target migration does not exist/);
   assert.equal(client.queries.some(({ sql }) => sql === "BEGIN"), false);
   assert.match(client.queries.at(-1).sql, /pg_advisory_unlock/);
+});
+
+test("database migration runner applies analytics outbox after hedge queue", async () => {
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: [
+        { version: "001", name: "base-schema", applied_at: "2026-07-11T00:00:00.000Z" },
+        { version: "002", name: "settlement-canonical", applied_at: "2026-07-11T00:00:00.000Z" },
+        { version: "003", name: "hedge-worker-queue", applied_at: "2026-07-11T00:00:00.000Z" },
+      ] };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "004");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("CREATE TABLE analytics_outbox")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("enqueue_rfq_analytics_event")), true);
+  assert.equal(client.queries.some(({ sql, params }) => sql.includes("INSERT INTO _migrations") && params[0] === "004"), true);
 });
 
 function fakePool(handler) {

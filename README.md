@@ -34,6 +34,7 @@
 - **Inventory Service**: 记录成交后的库存变化，并向定价和对冲模块提供状态。
 - **Hedge Engine**: 根据库存敞口触发外部交易场所或链上路径的对冲动作。
 - **Observability**: 暴露 quote、submit、settlement、PnL 和风险状态相关指标。
+- **Analytics Pipeline**: 通过 PostgreSQL transactional outbox、Redpanda 和 ClickHouse 保存可重放的高维业务事件；outbox 与业务写入原子提交，Redpanda/ClickHouse 故障不进入交易请求事务。
 - **Frontend / SDK**: 提供交易表单、报价状态展示和 TypeScript 客户端封装。
 
 ## Repository Layout
@@ -158,6 +159,17 @@ When `DATABASE_URL` is configured, quote audit records and the complete post-tra
 
 The hedge worker is a separate process (`pnpm --dir backend start:hedge-worker`) with its own CEX credentials and health surface on port 3001. `RFQ_HEDGE_ROUTES_JSON` maps each `chainId/token` base asset to a Binance symbol, token decimals, and raw-unit step size. Multiple replicas claim due `hedge_orders` with `FOR UPDATE SKIP LOCKED` and expiring leases. Before every market order the worker persists a deterministic 36-character client order id and queries Binance by that id; it submits only when the order is absent. Network timeouts, rate limits, unknown responses, and pending orders remain queued because an externally accepted order must never be marked failed from local retry exhaustion. Only an explicit venue terminal status or deterministic route/quantity error produces `failed`.
 
+The analytics worker is another isolated process (`pnpm --dir backend start:analytics-worker`) with health and metrics on port 3002. PostgreSQL triggers append versioned quote, market snapshot, risk, settlement, inventory, hedge and PnL events to `analytics_outbox` in the same transaction as each operational state change. Replicas lease rows with `FOR UPDATE SKIP LOCKED`, publish keyed envelopes to the fixed `rfq.analytics.v1` Redpanda topic with all-replica acknowledgements, and mark rows published only after broker acknowledgement. A crash between broker acknowledgement and the PostgreSQL update can duplicate an event, so the ClickHouse projection uses `event_id` with `ReplacingMergeTree`; Kafka offsets are committed only after a successful ClickHouse batch insert. PostgreSQL remains the sole operational source of truth.
+
+The optional end-to-end check writes uniquely identified synthetic trades, waits for all seven event types, and then removes only its own PostgreSQL and ClickHouse fixtures. It refuses to run without an explicit acknowledgement and should still target disposable local dependencies:
+
+```sh
+DATABASE_URL=postgres://rfq:rfq@127.0.0.1:5432/rfq_market_maker \
+RFQ_CLICKHOUSE_URL=http://127.0.0.1:8123 \
+RFQ_ANALYTICS_INTEGRATION_CONFIRM=yes \
+make analytics-integration-check
+```
+
 `RFQ_MARKET_PAIRS` controls background snapshot prefetch. `RFQ_CEX_PAIRS` adds exchange-specific Level-2 sources using `chainId:tokenIn:tokenOut:exchange:symbol`; configure Binance and Coinbase separately because their symbols differ. For a shared token pair, synchronized source prices are aggregated by median and near-mid liquidity is summed. A disconnected or sequence-gapped source is removed from aggregation until its full snapshot and buffered updates are synchronized again.
 
 The base provider defaults to `static`. Set `RFQ_MARKET_DATA_PROVIDER=chainlink` with `RFQ_CHAINLINK_CONFIG_JSON` to read configured AggregatorV3 feeds. Every network declares `networkType` as `l1` or `l2`; L2 configurations must provide both a Sequencer Uptime Feed and recovery grace period, while L1 configurations reject sequencer fields. The backend rejects non-positive, future-dated, stale, malformed, or decimals-mismatched rounds and uses the oracle `updatedAt` as the snapshot observation time. CEX snapshots live in a separate higher-priority cache, so the fallback provider cannot overwrite a synchronized order book merely because its updater ran later.
@@ -183,12 +195,21 @@ RFQ_BINANCE_API_KEY=... RFQ_BINANCE_API_SECRET=... \
   docker compose --profile hedge up --build hedge-worker
 ```
 
+Start the local transactional analytics pipeline, including topic initialization:
+
+```sh
+docker compose --profile analytics up --build analytics-worker
+```
+
 Local ports:
 
 - Backend API: `http://localhost:3000`
 - Frontend console: `http://localhost:5173`
 - Prometheus: `http://localhost:9090`
 - Grafana: `http://localhost:3001`
+- Analytics worker metrics: `http://localhost:3002/metrics`
+- Redpanda external listener: `localhost:19092`
+- ClickHouse HTTP: `http://localhost:8123`
 
 ## Production Configuration
 
@@ -215,6 +236,17 @@ kubectl -n rfq-market-maker create secret generic rfq-hedge-worker-secrets \
   --from-literal=RFQ_BINANCE_API_SECRET=...
 ```
 
+Create a separate analytics Secret so API and hedge pods never receive Kafka or ClickHouse credentials:
+
+```sh
+kubectl -n rfq-market-maker create secret generic rfq-analytics-worker-secrets \
+  --from-literal=DATABASE_URL=postgres://analytics:password@postgres.example.com:5432/rfq_market_maker \
+  --from-literal=RFQ_ANALYTICS_KAFKA_SASL_USERNAME=... \
+  --from-literal=RFQ_ANALYTICS_KAFKA_SASL_PASSWORD=... \
+  --from-literal=RFQ_CLICKHOUSE_USERNAME=... \
+  --from-literal=RFQ_CLICKHOUSE_PASSWORD=...
+```
+
 Use a third, migration-only Secret for the init container's DDL-capable database role. Runtime API and worker roles should not own schema privileges:
 
 ```sh
@@ -222,9 +254,9 @@ kubectl -n rfq-market-maker create secret generic rfq-database-migration-secrets
   --from-literal=DATABASE_URL=postgres://migrator:password@postgres.example.com:5432/rfq_market_maker
 ```
 
-The Helm chart expects signer keys through `signerSecret`, the Redis URL through `redisSecret`, and the API PostgreSQL URL through `databaseSecret.name` / `databaseSecret.urlKey`. `hedgeWorker.secret` references the separate worker database and Binance credential keys; `hedgeWorker.env.RFQ_HEDGE_ROUTES_JSON` contains only non-secret routing metadata.
+The Helm chart expects signer keys through `signerSecret`, the Redis URL through `redisSecret`, and the API PostgreSQL URL through `databaseSecret.name` / `databaseSecret.urlKey`. `hedgeWorker.secret` references the separate worker database and Binance credential keys; `analyticsWorker.secret` references the analytics database, Kafka SASL and ClickHouse credentials. Routing and broker endpoint metadata stay in non-secret values.
 
-Both API and worker Kubernetes Deployments run the migration entrypoint in an init container using `migrationSecret`. Migration discovery and execution are serialized by a PostgreSQL session advisory lock, allowing multiple rollout pods to start safely while ensuring `003-hedge-worker-queue.sql` is committed before either process checks readiness. The DDL-capable migrator credential is not mounted into either runtime container.
+API, hedge and analytics Kubernetes Deployments run the migration entrypoint in an init container using `migrationSecret`. Migration discovery and execution are serialized by a PostgreSQL session advisory lock, allowing multiple rollout pods to start safely while ensuring `004-analytics-outbox.sql` is committed before any process checks readiness. The DDL-capable migrator credential is not mounted into runtime containers. Production operators must provision `rfq.analytics.v1` before starting analytics consumers; auto topic creation is intentionally disabled.
 
 Local API smoke path:
 

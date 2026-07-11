@@ -252,3 +252,57 @@ groups:
         annotations:
           summary: RFQ realized spread PnL is negative by output token
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQAnalyticsWorkerDown
+        expr: up{job="rfq-analytics-worker"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ analytics worker metrics endpoint is down
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQAnalyticsOutboxBacklog
+        expr: max(rfq_analytics_outbox_pending) > 100 or max(rfq_analytics_outbox_oldest_age_seconds) > 300 or (max(rfq_analytics_outbox_pending) > 0 and (time() - max(rfq_analytics_last_published_timestamp_seconds)) > 300)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ analytics outbox is accumulating unpublished events
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQAnalyticsPublishRetries
+        expr: sum(increase(rfq_analytics_outbox_retries_total[10m])) > 5 or sum(increase(rfq_analytics_publisher_iteration_errors_total[10m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ analytics publisher is repeatedly retrying Redpanda writes
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQAnalyticsConsumerErrors
+        expr: sum(increase(rfq_analytics_consumer_errors_total[10m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ analytics events cannot be projected into ClickHouse
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQAnalyticsProjectionStalled
+        expr: sum(increase(rfq_analytics_outbox_published_total[10m])) > 0 and sum(increase(rfq_analytics_clickhouse_events_total[10m])) == 0 and (time() - max(rfq_analytics_last_consumed_timestamp_seconds)) > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ analytics events are published but ClickHouse projection is stalled
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQAnalyticsOutboxCleanupStalled
+        expr: max(rfq_analytics_outbox_cleanup_eligible) > 0 and sum(increase(rfq_analytics_outbox_deleted_total[1h])) == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ published analytics outbox retention cleanup is not progressing
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md

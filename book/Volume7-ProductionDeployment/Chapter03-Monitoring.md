@@ -128,6 +128,17 @@ Key metrics include:
 - `rfq_pnl_trades_total`
 - `rfq_pnl_record_errors_total`
 - `rfq_realized_pnl_token_out`
+- `rfq_analytics_outbox_published_total`
+- `rfq_analytics_outbox_retries_total`
+- `rfq_analytics_outbox_deleted_total`
+- `rfq_analytics_publisher_iteration_errors_total`
+- `rfq_analytics_clickhouse_events_total`
+- `rfq_analytics_consumer_errors_total`
+- `rfq_analytics_last_published_timestamp_seconds`
+- `rfq_analytics_last_consumed_timestamp_seconds`
+- `rfq_analytics_outbox_pending`
+- `rfq_analytics_outbox_oldest_age_seconds`
+- `rfq_analytics_outbox_cleanup_eligible`
 
 ## API Design
 
@@ -155,6 +166,8 @@ Key metrics include:
 - Realized PnL alerting uses output-token units in the reference implementation; production dashboards should reconcile this with quote-level ClickHouse attribution and treasury accounting.
 - PnL throughput alerting should compare settlements with realized PnL trades because best-effort attribution must not fail silently.
 - Use ClickHouse for quote-level analysis.
+- Analytics gauges come from PostgreSQL outbox stats at scrape time; if that query fails, process counters remain scrapeable while `/ready` reports degraded. Alerts distinguish worker down, backlog age/size, broker retries and ClickHouse consumer failures.
+- ClickHouse event-id deduplication is eventual under `ReplacingMergeTree`; dashboards that count unique business events must use `FINAL` or `uniqExact(event_id)`/`argMax` according to query cost and freshness requirements.
 - ClickHouse dashboards may explain quote funnels, latency, PnL attribution and customer support questions, but they must never be used as the operational source of truth for quote status, settlement state, inventory, hedge execution, readiness or reconciliation decisions.
 - Every critical alert links to runbook.
 

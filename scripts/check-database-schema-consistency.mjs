@@ -15,12 +15,19 @@ const settlementEventServiceSource = await readFile(
 );
 const settlementMigrationSource = await readFile("backend/src/db/migrations/002-settlement-canonical.sql", "utf8");
 const hedgeWorkerMigrationSource = await readFile("backend/src/db/migrations/003-hedge-worker-queue.sql", "utf8");
+const analyticsOutboxMigrationSource = await readFile("backend/src/db/migrations/004-analytics-outbox.sql", "utf8");
 const postgresSettlementSource = await readFile("backend/src/modules/settlement/postgres-settlement-event.store.ts", "utf8");
 const postgresInventorySource = await readFile("backend/src/modules/inventory/postgres-inventory.service.ts", "utf8");
 const postgresHedgeSource = await readFile("backend/src/modules/hedge/postgres-hedge.service.ts", "utf8");
 const postgresHedgeJobSource = await readFile("backend/src/modules/hedge/postgres-hedge-job.store.ts", "utf8");
 const hedgeWorkerSource = await readFile("backend/src/modules/hedge/hedge-worker.ts", "utf8");
 const binanceAdapterSource = await readFile("backend/src/modules/hedge/binance-spot.adapter.ts", "utf8");
+const analyticsOutboxStoreSource = await readFile("backend/src/modules/analytics/postgres-analytics-outbox.store.ts", "utf8");
+const analyticsEventSource = await readFile("backend/src/modules/analytics/analytics-event.ts", "utf8");
+const analyticsPublisherSource = await readFile("backend/src/modules/analytics/analytics-outbox.publisher.ts", "utf8");
+const analyticsKafkaProducerSource = await readFile("backend/src/modules/analytics/kafka-analytics.producer.ts", "utf8");
+const analyticsKafkaConsumerSource = await readFile("backend/src/modules/analytics/kafka-analytics.consumer.ts", "utf8");
+const clickhouseAnalyticsSource = await readFile("backend/src/modules/analytics/clickhouse-analytics.sink.ts", "utf8");
 const postgresPnlSource = await readFile("backend/src/modules/pnl/postgres-pnl.store.ts", "utf8");
 const backendMainSource = await readFile("backend/src/main.ts", "utf8");
 const maxSafeInteger = "9007199254740991";
@@ -125,6 +132,24 @@ const requiredTables = {
     "model_description",
     "realized_at",
   ],
+  analytics_outbox: [
+    "id",
+    "topic",
+    "event_key",
+    "event_type",
+    "schema_version",
+    "aggregate_type",
+    "aggregate_id",
+    "payload",
+    "attempt_count",
+    "available_at",
+    "lease_owner",
+    "lease_expires_at",
+    "published_at",
+    "last_error_code",
+    "created_at",
+  ],
+  _migrations: ["version", "name", "applied_at"],
 };
 
 for (const [tableName, columns] of Object.entries(requiredTables)) {
@@ -267,6 +292,18 @@ const requiredCheckConstraints = {
     ["chk_pnl_records_amounts_positive", "pnl_records must constrain positive trade amounts"],
     ["chk_pnl_records_gross_pnl_bps_safe", "pnl_records must constrain gross PnL bps to JavaScript safe integer range"],
   ],
+  analytics_outbox: [
+    ["chk_analytics_outbox_topic", "analytics outbox must constrain Kafka topics"],
+    ["chk_analytics_outbox_event_key", "analytics outbox must constrain partition keys"],
+    ["chk_analytics_outbox_event_type", "analytics outbox must constrain event types"],
+    ["chk_analytics_outbox_schema_version", "analytics outbox must constrain schema versions"],
+    ["chk_analytics_outbox_aggregate", "analytics outbox must constrain aggregate identity"],
+    ["chk_analytics_outbox_payload", "analytics outbox must require JSON object payloads"],
+    ["chk_analytics_outbox_attempt_count", "analytics outbox must constrain attempt counts"],
+    ["chk_analytics_outbox_lease_state", "analytics outbox must constrain leases"],
+    ["chk_analytics_outbox_published_state", "analytics outbox must clear published leases"],
+    ["chk_analytics_outbox_last_error", "analytics outbox must constrain stable errors"],
+  ],
 };
 
 for (const [tableName, constraints] of Object.entries(requiredCheckConstraints)) {
@@ -279,7 +316,15 @@ for (const [tableName, constraints] of Object.entries(requiredCheckConstraints))
   }
 }
 
-for (const tableName of Object.keys(requiredTables)) {
+for (const tableName of [
+  "quotes",
+  "market_snapshots",
+  "risk_decisions",
+  "settlement_events",
+  "inventory_positions",
+  "hedge_orders",
+  "pnl_records",
+]) {
   assertSafeIdentifierPrimaryKey(tableName);
 }
 
@@ -784,6 +829,7 @@ for (const erNode of [
   "INVENTORY_POSITIONS",
   "HEDGE_ORDERS",
   "PNL_RECORDS",
+  "ANALYTICS_OUTBOX",
 ]) {
   assert.ok(new RegExp(`\\b${erNode}\\b`).test(erDiagramSource), `ER diagram must include ${erNode}`);
 }
@@ -811,6 +857,11 @@ assert.ok(
 assert.ok(
   erDiagramSource.includes("状态指针不能悬空"),
   "ER diagram notes must document non-dangling quote status pointers",
+);
+assert.ok(
+  erDiagramSource.includes("transactional outbox") && erDiagramSource.includes("at-least-once") &&
+    erDiagramSource.includes("ReplacingMergeTree"),
+  "ER diagram must document transactional outbox delivery and ClickHouse deduplication semantics",
 );
 
 assert.ok(
@@ -895,6 +946,40 @@ assert.ok(
     binanceAdapterSource.includes("origClientOrderId") &&
     binanceAdapterSource.includes("newClientOrderId"),
   "Binance adapter must use signed Spot order query and submission endpoints",
+);
+assert.ok(
+  analyticsOutboxMigrationSource.includes("CREATE TABLE analytics_outbox") &&
+    analyticsOutboxMigrationSource.includes("idx_analytics_outbox_pending") &&
+    analyticsOutboxMigrationSource.includes("enqueue_rfq_analytics_event") &&
+    analyticsOutboxMigrationSource.includes("source_row.amount_in::text") &&
+    analyticsOutboxMigrationSource.includes("SECURITY DEFINER") &&
+    analyticsOutboxMigrationSource.includes("SET search_path = pg_catalog, public") &&
+    analyticsOutboxMigrationSource.includes("INSERT INTO public.analytics_outbox") &&
+    analyticsOutboxMigrationSource.includes("trg_quotes_analytics_update") &&
+    analyticsOutboxMigrationSource.includes("trg_pnl_records_analytics_delete") &&
+    schemaSource.includes("('004', 'analytics-outbox')"),
+  "analytics migration and fresh schema must atomically emit versioned precision-safe events",
+);
+assert.ok(
+  analyticsOutboxStoreSource.includes("FOR UPDATE SKIP LOCKED") &&
+    analyticsOutboxStoreSource.includes("published_at = now()") &&
+    analyticsOutboxStoreSource.includes("lease_owner = $2") &&
+    analyticsOutboxStoreSource.includes("published_at IS NOT NULL AND published_at < $1") &&
+    analyticsPublisherSource.includes("retryBackoffMs") &&
+    !analyticsPublisherSource.includes("maxAttempts"),
+  "analytics outbox runtime must lease, retry without exhaustion, acknowledge, and retain published rows",
+);
+assert.ok(
+  analyticsEventSource.includes("maxSerializedEventBytes") &&
+    analyticsEventSource.includes("ao_${record.outboxId}") &&
+    analyticsKafkaProducerSource.includes("idempotent: true") &&
+    analyticsKafkaProducerSource.includes("maxInFlightRequests: 1") &&
+    analyticsKafkaProducerSource.includes("acks: -1") &&
+    analyticsKafkaConsumerSource.indexOf("await this.sink.insertBatch(rows.slice") <
+      analyticsKafkaConsumerSource.indexOf("await this.consumer.commitOffsets") &&
+    clickhouseAnalyticsSource.includes("ReplacingMergeTree(ingested_at)") &&
+    clickhouseAnalyticsSource.includes("ORDER BY event_id"),
+  "analytics delivery must use bounded envelopes, acknowledged Kafka writes, insert-before-offset commit, and event-id deduplication",
 );
 
 console.log(`Database schema consistency check passed (${tables.size} tables)`);

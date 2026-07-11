@@ -10,6 +10,13 @@ erDiagram
   QUOTES ||--o{ PNL_RECORDS : attributes
   MARKET_SNAPSHOTS ||--o{ QUOTES : prices
   INVENTORY_POSITIONS ||--o{ HEDGE_ORDERS : rebalances
+  QUOTES ||--o{ ANALYTICS_OUTBOX : emits
+  MARKET_SNAPSHOTS ||--o{ ANALYTICS_OUTBOX : emits
+  RISK_DECISIONS ||--o{ ANALYTICS_OUTBOX : emits
+  SETTLEMENT_EVENTS ||--o{ ANALYTICS_OUTBOX : emits
+  INVENTORY_POSITIONS ||--o{ ANALYTICS_OUTBOX : emits
+  HEDGE_ORDERS ||--o{ ANALYTICS_OUTBOX : emits
+  PNL_RECORDS ||--o{ ANALYTICS_OUTBOX : emits
 
   QUOTES {
     text id PK
@@ -117,6 +124,24 @@ erDiagram
     text model_description
     timestamptz realized_at
   }
+
+  ANALYTICS_OUTBOX {
+    bigint id PK
+    text topic
+    text event_key
+    text event_type
+    integer schema_version
+    text aggregate_type
+    text aggregate_id
+    jsonb payload
+    integer attempt_count
+    timestamptz available_at
+    text lease_owner
+    timestamptz lease_expires_at
+    timestamptz published_at
+    text last_error_code
+    timestamptz created_at
+  }
 ```
 
 ## Notes
@@ -157,3 +182,7 @@ erDiagram
 - `quotes`、`inventory_positions` 和 `hedge_orders` 使用共享 `set_updated_at()` trigger，在每次 `UPDATE` 时由数据库刷新 `updated_at`，避免应用层漏写导致状态页或运维排障看到陈旧更新时间。
 - `pnl_records` 使用 `(quote_id, model)` 防止同一归因模型对同一成交重复入账，并保存 `user_address`、amount、`min_amount_out`、`nonce`、safe-integer `deadline`、safe-integer signed `gross_pnl_bps` 和固定 `model_description` 作为 signed attribution snapshot；`model_description` 明确当前 `simulated_mid_price_v1` 是 same-decimal 模拟归因，不是跨资产会计 PnL；生产版可将明细同步到 ClickHouse 做高维分析。
 - `hedge_orders` 与 `pnl_records` 是 settlement event 之后的 durable idempotent projections。它们不与链上 event+inventory 强行放在同一长事务；若进程在步骤间崩溃，settlement event 作为 source of truth，由 reconciliation 补齐缺失 projection 和 quote pointers。
+- `analytics_outbox` 实现 transactional outbox，由数据库 trigger 在 quote、market snapshot、risk、settlement、inventory、hedge 和 PnL 行发生有效业务变化的同一事务中追加。它不对 `aggregate_id` 建立跨表外键，因为一个统一事件表承载多种 aggregate；事件 payload 只保存分析所需字段，78 位金额全部编码为十进制字符串。
+- `idx_analytics_outbox_pending` 支持多 publisher 使用 `FOR UPDATE SKIP LOCKED` 和 expiring lease 并发 claim。Kafka acknowledgement 成功后才写 `published_at`；失败只更新 `available_at` 和稳定 `last_error_code`。已发布行按 retention 分批删除，未发布行不会因重试次数耗尽而丢弃。
+- Outbox 到 Redpanda 是 at-least-once：publisher 可能在 broker 已确认但 `published_at` 尚未提交时崩溃。每条 envelope 使用稳定 `ao_<outbox_id>` event id，ClickHouse 以 `ReplacingMergeTree(ingested_at) ORDER BY event_id` 收敛重复；分析查询需要在要求即时去重时使用 `FINAL` 或 `argMax`。Kafka offset 只在 ClickHouse batch insert 成功后提交。
+- `enqueue_rfq_analytics_event()` 使用 migration owner 的 `SECURITY DEFINER` 权限并固定 `search_path = pg_catalog, public`，使低权限业务角色无需直接获得 outbox/identity sequence 写权限。函数体只接受 trigger row，不拼接动态 SQL。Analytics worker 使用独立数据库角色，权限限定为 outbox `SELECT/UPDATE/DELETE`；它不应拥有 quote、settlement、inventory 或 hedge 状态写权限。

@@ -13,12 +13,19 @@ const k8sHedgeService = await readFile("infra/k8s/hedge-worker-service.yaml", "u
 const k8sHedgeSecret = await readFile("infra/k8s/hedge-worker-secret.yaml", "utf8");
 const k8sHedgeNetworkPolicy = await readFile("infra/k8s/hedge-worker-network-policy.yaml", "utf8");
 const k8sMigrationSecret = await readFile("infra/k8s/database-migration-secret.yaml", "utf8");
+const k8sAnalyticsDeployment = await readFile("infra/k8s/analytics-worker-deployment.yaml", "utf8");
+const k8sAnalyticsService = await readFile("infra/k8s/analytics-worker-service.yaml", "utf8");
+const k8sAnalyticsSecret = await readFile("infra/k8s/analytics-worker-secret.yaml", "utf8");
+const k8sAnalyticsNetworkPolicy = await readFile("infra/k8s/analytics-worker-network-policy.yaml", "utf8");
 const helmValues = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
 const helmDeployment = await readFile("infra/helm/rfq-market-maker/templates/deployment.yaml", "utf8");
 const helmService = await readFile("infra/helm/rfq-market-maker/templates/service.yaml", "utf8");
 const helmHedgeDeployment = await readFile("infra/helm/rfq-market-maker/templates/hedge-worker-deployment.yaml", "utf8");
 const helmHedgeService = await readFile("infra/helm/rfq-market-maker/templates/hedge-worker-service.yaml", "utf8");
 const helmHedgeNetworkPolicy = await readFile("infra/helm/rfq-market-maker/templates/hedge-worker-network-policy.yaml", "utf8");
+const helmAnalyticsDeployment = await readFile("infra/helm/rfq-market-maker/templates/analytics-worker-deployment.yaml", "utf8");
+const helmAnalyticsService = await readFile("infra/helm/rfq-market-maker/templates/analytics-worker-service.yaml", "utf8");
+const helmAnalyticsNetworkPolicy = await readFile("infra/helm/rfq-market-maker/templates/analytics-worker-network-policy.yaml", "utf8");
 const kubernetesChapter = await readFile("book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md", "utf8");
 
 const expectedRuntime = {
@@ -137,6 +144,47 @@ assertContains(k8sHedgeNetworkPolicy, [
   "port: 443",
 ], "infra/k8s/hedge-worker-network-policy.yaml");
 
+assertContains(k8sAnalyticsDeployment, [
+  "kind: Deployment",
+  "name: rfq-analytics-worker",
+  "replicas: 2",
+  "initContainers:",
+  'command: ["node", "backend/dist/db/migrate.js"]',
+  "name: rfq-database-migration-secrets",
+  'command: ["node", "backend/dist/analytics-worker-main.js"]',
+  "containerPort: 3002",
+  "name: rfq-analytics-worker-secrets",
+  "path: /ready",
+  "path: /health",
+], "infra/k8s/analytics-worker-deployment.yaml");
+assertContains(k8sAnalyticsService, [
+  "kind: Service",
+  "name: rfq-analytics-worker",
+  'prometheus.io/scrape: "true"',
+  'prometheus.io/port: "3002"',
+  "port: 3002",
+], "infra/k8s/analytics-worker-service.yaml");
+assertContains(k8sAnalyticsSecret, [
+  "name: rfq-analytics-worker-secrets",
+  "DATABASE_URL:",
+  "RFQ_ANALYTICS_KAFKA_SASL_USERNAME:",
+  "RFQ_ANALYTICS_KAFKA_SASL_PASSWORD:",
+  "RFQ_CLICKHOUSE_USERNAME:",
+  "RFQ_CLICKHOUSE_PASSWORD:",
+], "infra/k8s/analytics-worker-secret.yaml");
+assert.ok(!k8sAnalyticsSecret.includes("RFQ_SIGNER_PRIVATE_KEY"), "analytics Secret must not contain signer credentials");
+assert.ok(!k8sAnalyticsSecret.includes("RFQ_BINANCE_API_KEY"), "analytics Secret must not contain venue credentials");
+assertContains(k8sAnalyticsNetworkPolicy, [
+  "kind: NetworkPolicy",
+  "app.kubernetes.io/name: rfq-analytics-worker",
+  "- Ingress",
+  "- Egress",
+  "port: 3002",
+  "port: 5432",
+  "port: 9093",
+  "port: 8443",
+], "infra/k8s/analytics-worker-network-policy.yaml");
+
 assertContains(helmValues, [
   `replicaCount: ${expectedRuntime.replicas}`,
   `terminationGracePeriodSeconds: ${expectedRuntime.terminationGracePeriodSeconds}`,
@@ -164,6 +212,11 @@ assertContains(helmValues, [
   "apiKeyKey: RFQ_BINANCE_API_KEY",
   "apiSecretKey: RFQ_BINANCE_API_SECRET",
   "networkPolicy:",
+  "analyticsWorker:",
+  "RFQ_ANALYTICS_KAFKA_BROKERS:",
+  "RFQ_CLICKHOUSE_URL:",
+  "kafkaUsernameKey: RFQ_ANALYTICS_KAFKA_SASL_USERNAME",
+  "clickhousePasswordKey: RFQ_CLICKHOUSE_PASSWORD",
   "cpu: 100m",
   "memory: 128Mi",
   "cpu: 500m",
@@ -228,6 +281,32 @@ assertContains(helmHedgeNetworkPolicy, [
   "port: 443",
 ], "infra/helm/rfq-market-maker/templates/hedge-worker-network-policy.yaml");
 
+assertContains(helmAnalyticsDeployment, [
+  "{{- if .Values.analyticsWorker.enabled }}",
+  "replicas: {{ .Values.analyticsWorker.replicaCount }}",
+  "initContainers:",
+  'command: ["node", "backend/dist/db/migrate.js"]',
+  "name: {{ .Values.migrationSecret.name }}",
+  'command: ["node", "backend/dist/analytics-worker-main.js"]',
+  "key: {{ .Values.analyticsWorker.secret.databaseUrlKey }}",
+  "key: {{ .Values.analyticsWorker.secret.kafkaUsernameKey }}",
+  "key: {{ .Values.analyticsWorker.secret.clickhousePasswordKey }}",
+  "path: /ready",
+  "path: /health",
+], "infra/helm/rfq-market-maker/templates/analytics-worker-deployment.yaml");
+assertContains(helmAnalyticsService, [
+  "{{- if .Values.analyticsWorker.enabled }}",
+  "with .Values.analyticsWorker.service.annotations",
+  "port: {{ .Values.analyticsWorker.port }}",
+], "infra/helm/rfq-market-maker/templates/analytics-worker-service.yaml");
+assertContains(helmAnalyticsNetworkPolicy, [
+  ".Values.analyticsWorker.networkPolicy.enabled",
+  "app.kubernetes.io/component: analytics-worker",
+  "port: 5432",
+  "port: 9093",
+  "port: 8443",
+], "infra/helm/rfq-market-maker/templates/analytics-worker-network-policy.yaml");
+
 assertContains(kubernetesChapter, [
   "`terminationGracePeriodSeconds=30`",
   "preStop` sleep of 5 seconds",
@@ -242,6 +321,9 @@ assertContains(kubernetesChapter, [
   "NetworkPolicy",
   "`rfq-hedge-worker-secrets`",
   "`FOR UPDATE SKIP LOCKED`",
+  "`rfq-analytics-worker-secrets`",
+  "`rfq.analytics.v1`",
+  "`004-analytics-outbox.sql`",
 ], "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md");
 
 console.log("Deployment manifests consistency check passed");
