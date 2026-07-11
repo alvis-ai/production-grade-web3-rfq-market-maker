@@ -8,6 +8,7 @@
     "start": "node dist/main.js",
     "start:hedge-worker": "node dist/hedge-worker-main.js",
     "start:analytics-worker": "node dist/analytics-worker-main.js",
+    "start:reconciliation-worker": "node dist/reconciliation-worker-main.js",
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.mjs"
   },

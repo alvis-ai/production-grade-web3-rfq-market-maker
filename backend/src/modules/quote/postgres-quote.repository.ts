@@ -349,26 +349,111 @@ export class PostgresQuoteRepository implements QuoteRepository {
     }
   }
 
-  async clearSettlementStatus(input: ClearSettlementStatusInput): Promise<ClearSettlementStatusResult> {
-    const quoteId = input.quoteId;
-    const txHash = input.txHash.toLowerCase();
-    const settlementEventId = input.settlementEventId;
-    const nowSeconds = input.nowSeconds ?? Math.floor(Date.now() / 1000);
-
+  async restoreSettlementStatus(quoteId: string, metadata: QuoteStatusMetadata): Promise<void> {
     const client = await this.pool.connect();
     try {
       const existing = await client.query(
-        "SELECT status, tx_hash, settlement_event_id, deadline FROM quotes WHERE id = $1",
+        "SELECT id, status, tx_hash, settlement_event_id, hedge_order_id, pnl_id FROM quotes WHERE id = $1",
         [quoteId],
       );
-      if (!existing.rowCount) {
-        return { cleared: false };
+      if (!existing.rowCount) return;
+      const row = existing.rows[0];
+      if (row.status !== "expired") {
+        assertStatusTransition(row.status, "settled");
       }
 
+      const normalized = normalizeMetadata(metadata);
+      assertMetadataDoesNotConflict(row, normalized);
+      assertSettlementStatusFields(row, "settled", normalized);
+
+      const updates: string[] = ["status = 'settled'", "updated_at = now()"];
+      const params: unknown[] = [quoteId];
+      let paramIndex = 2;
+      if (normalized?.txHash !== undefined) {
+        updates.push(`tx_hash = $${paramIndex++}`);
+        params.push(normalized.txHash.toLowerCase());
+      }
+      if (normalized?.settlementEventId !== undefined) {
+        updates.push(`settlement_event_id = $${paramIndex++}`);
+        params.push(normalized.settlementEventId);
+      }
+      if (normalized?.hedgeOrderId !== undefined) {
+        updates.push(`hedge_order_id = $${paramIndex++}`);
+        params.push(normalized.hedgeOrderId);
+      }
+      if (normalized?.pnlId !== undefined) {
+        updates.push(`pnl_id = $${paramIndex++}`);
+        params.push(normalized.pnlId);
+      }
+      const expectedStatusIndex = paramIndex;
+      params.push(row.status);
+      const expectedTxHashIndex = ++paramIndex;
+      params.push(row.tx_hash ?? null);
+      const expectedSettlementEventIdIndex = ++paramIndex;
+      params.push(row.settlement_event_id ?? null);
+      const expectedHedgeOrderIdIndex = ++paramIndex;
+      params.push(row.hedge_order_id ?? null);
+      const expectedPnlIdIndex = ++paramIndex;
+      params.push(row.pnl_id ?? null);
+
+      const result = await client.query(
+        `UPDATE quotes SET ${updates.join(", ")}
+         WHERE id = $1
+           AND status = $${expectedStatusIndex}
+           AND tx_hash IS NOT DISTINCT FROM $${expectedTxHashIndex}
+           AND settlement_event_id IS NOT DISTINCT FROM $${expectedSettlementEventIdIndex}
+           AND hedge_order_id IS NOT DISTINCT FROM $${expectedHedgeOrderIdIndex}
+           AND pnl_id IS NOT DISTINCT FROM $${expectedPnlIdIndex}`,
+        params,
+      );
+      if (result.rowCount !== 1) {
+        throw new Error(`Quote ${quoteId} canonical settlement restoration conflict`);
+      }
+    } finally {
+      client.release();
+    }
+  }
+
+  async clearSettlementStatus(input: ClearSettlementStatusInput): Promise<ClearSettlementStatusResult> {
+    const quoteId = assertSafeIdentifier(input.quoteId, "quoteId");
+    const txHash = assertHash(input.txHash, "txHash");
+    const settlementEventId = assertSafeIdentifier(input.settlementEventId, "settlementEventId");
+    const nowSeconds = input.nowSeconds === undefined
+      ? Math.floor(Date.now() / 1000)
+      : assertPositiveSafeInteger(input.nowSeconds, "nowSeconds");
+
+    const client = await this.pool.connect();
+    try {
+      const cleared = await client.query(
+        `UPDATE quotes
+         SET status = CASE WHEN deadline <= $4 THEN 'expired' ELSE 'signed' END,
+             tx_hash = NULL,
+             settlement_event_id = NULL,
+             hedge_order_id = NULL,
+             pnl_id = NULL,
+             updated_at = now()
+         WHERE id = $1
+           AND status IN ('submitted', 'settled')
+           AND lower(tx_hash) = $2
+           AND settlement_event_id = $3
+         RETURNING ${quoteSelectColumns}`,
+        [quoteId, txHash, settlementEventId, nowSeconds],
+      );
+      if (cleared.rowCount === 1) {
+        return { status: quoteStatusResponseFromRow(cleared.rows[0]), cleared: true };
+      }
+      if (cleared.rowCount !== 0) {
+        throw new Error(`Quote ${quoteId} settlement status removal updated multiple rows`);
+      }
+
+      const existing = await client.query(
+        `SELECT ${quoteSelectColumns} FROM quotes WHERE id = $1`,
+        [quoteId],
+      );
+      if (!existing.rowCount) return { cleared: false };
       const row = existing.rows[0];
       if (!row.tx_hash && !row.settlement_event_id) {
-        const status = await this.findStatus(quoteId);
-        return { status, cleared: false };
+        return { status: quoteStatusResponseFromRow(row), cleared: false };
       }
 
       if (row.status !== "submitted" && row.status !== "settled") {
@@ -377,18 +462,7 @@ export class PostgresQuoteRepository implements QuoteRepository {
       if (row.tx_hash?.toLowerCase() !== txHash || row.settlement_event_id !== settlementEventId) {
         throw new Error(`Quote ${quoteId} settlement status removal conflict`);
       }
-
-      const newStatus = row.deadline && row.deadline <= nowSeconds ? "expired" : "signed";
-
-      await client.query(
-        `UPDATE quotes SET status = $2, tx_hash = NULL, settlement_event_id = NULL,
-          hedge_order_id = NULL, pnl_id = NULL, updated_at = now()
-         WHERE id = $1`,
-        [quoteId, newStatus],
-      );
-
-      const status = await this.findStatus(quoteId);
-      return { status, cleared: true };
+      throw new Error(`Quote ${quoteId} settlement status removal conflict`);
     } finally {
       client.release();
     }
@@ -727,6 +801,21 @@ function assertNonEmptyString(value: unknown, field: string): string {
     throw new Error(`Postgres quote ${field} must be a non-empty string`);
   }
   return value.trim();
+}
+
+function assertSafeIdentifier(value: unknown, field: string): string {
+  const identifier = assertNonEmptyString(value, field);
+  if (identifier.length > maxSafeIdentifierLength || !safeIdentifierPattern.test(identifier)) {
+    throw new Error(`Postgres quote ${field} must be a safe identifier`);
+  }
+  return identifier;
+}
+
+function assertHash(value: unknown, field: string): `0x${string}` {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error(`Postgres quote ${field} must be a 32-byte hex string`);
+  }
+  return value.toLowerCase() as `0x${string}`;
 }
 
 function assertAddress(value: unknown, field: string): `0x${string}` {

@@ -198,9 +198,29 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
     /cannot transition from terminal status expired to submitted/,
   );
   await assert.rejects(
+    quoteRepository.markStatus("q_expired", "settled", {
+      txHash: `0x${"bb".repeat(32)}`,
+      settlementEventId: "se_expired",
+    }),
+    /cannot transition from terminal status expired to settled/,
+  );
+  await assert.rejects(
     quoteRepository.markFailed("q_expired", "QUOTE_EXPIRED"),
     /cannot transition from expired to failed/,
   );
+
+  await quoteRepository.restoreSettlementStatus("q_expired", {
+    txHash: `0x${"bb".repeat(32)}`,
+    settlementEventId: "se_expired",
+    hedgeOrderId: "h_expired",
+    pnlId: "pnl_expired",
+  });
+  const restored = await quoteRepository.findStatus("q_expired");
+  assert.equal(restored.status, "settled");
+  assert.equal(restored.txHash, `0x${"bb".repeat(32)}`);
+  assert.equal(restored.settlementEventId, "se_expired");
+  assert.equal(restored.hedgeOrderId, "h_expired");
+  assert.equal(restored.pnlId, "pnl_expired");
 });
 
 test("InMemoryQuoteRepository rejects saveSigned lifecycle regressions", async () => {

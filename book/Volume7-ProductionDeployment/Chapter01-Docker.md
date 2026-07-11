@@ -104,13 +104,13 @@ stateDiagram-v2
 
 ## Data Model
 
-Docker volumes store PostgreSQL, ClickHouse and Grafana data. These volumes are local development data, not production backups. Compose mounts `docs/database/schema.sql` into `/docker-entrypoint-initdb.d/001-schema.sql`, so a fresh `postgres-data` volume starts with the documented RFQ operational schema and seeded migration history. A one-shot `database-migrate` service serializes pending migrations before backend startup; existing databases apply through `004-analytics-outbox.sql` before the analytics worker checks readiness.
+Docker volumes store PostgreSQL, ClickHouse and Grafana data. These volumes are local development data, not production backups. Compose mounts `docs/database/schema.sql` into `/docker-entrypoint-initdb.d/001-schema.sql`, so a fresh `postgres-data` volume starts with the documented RFQ operational schema and seeded migration history. A one-shot `database-migrate` service serializes pending migrations before backend startup; existing databases apply through `005-post-trade-reconciliation.sql` before any post-trade worker checks readiness.
 
 The analytics profile uses separate Redpanda internal (`redpanda:9092`) and host (`localhost:19092`) advertised listeners, then an idempotent `redpanda-topic-init` service creates `rfq.analytics.v1` with six local partitions. `analytics-worker` publishes PostgreSQL outbox rows and projects consumed batches into the local ClickHouse `rfq_analytics_events` table. This one-node broker and empty ClickHouse password are development defaults only.
 
 ## API Design
 
-No public API changes. Compose exposes backend API on `localhost:3000`, frontend console on `localhost:5173`, Prometheus on `localhost:9090` and Grafana on `localhost:3001`.
+No public API changes. Compose exposes backend API on `localhost:3000`, frontend console on `localhost:5173`, Prometheus on `localhost:9090`, Grafana on `localhost:3001`, analytics metrics on `localhost:3002`, and reconciliation metrics on `localhost:3003`.
 
 ## Engineering Decisions
 
@@ -120,6 +120,7 @@ No public API changes. Compose exposes backend API on `localhost:3000`, frontend
 - Prometheus and Grafana included from the first deployment docs stage.
 - Prometheus scrapes the compose `backend:3000` service directly.
 - The credential-isolated `hedge-worker` service is behind the explicit `hedge` Compose profile. It exposes health/readiness/metrics on container port 3001, claims PostgreSQL jobs with leases, and should use Binance Spot Testnet credentials for local integration.
+- The `reconciliation-worker` service is behind the explicit `reconciliation` profile. It exposes health/readiness/metrics on port 3003, claims quote-scoped desired revisions with expiring leases, and repairs post-settlement quote, hedge, and PnL projections without signer, RPC, or venue credentials.
 - Frontend image builds static Vite assets and serves them with Nginx; `VITE_RFQ_API_BASE_URL` is injected as a Docker build arg and defaults to `http://localhost:3000`.
 - Backend and frontend images define Docker health checks. Compose waits for the backend health check before starting frontend and Prometheus.
 - Docker builds copy `pnpm-lock.yaml` and use `pnpm install --frozen-lockfile` so image dependency resolution is reproducible.

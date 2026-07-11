@@ -59,12 +59,15 @@ test("PostgresPnlStore summarizes durable rows and removes reorged attribution",
     min_amount_out: "980",
   })];
   const { pool } = fakePool(async (sql) => {
+    if (sql.includes("WHERE quote_id = $1 AND model = $2")) return { rows: [rows[0]], rowCount: 1 };
     if (sql.startsWith("SELECT")) return { rows, rowCount: rows.length };
     if (sql.startsWith("DELETE")) return { rows: [rows[0]], rowCount: 1 };
     return { rows: [], rowCount: 0 };
   });
   const store = new PostgresPnlStore(pool);
 
+  const found = await store.getPnlRecordByQuoteId(input.quoteId);
+  assert.equal(found.pnlId, pnlRow().id);
   const summary = await store.summary();
   assert.equal(summary.totalTrades, 2);
   assert.equal(summary.grossPnlTokenOut, "5");

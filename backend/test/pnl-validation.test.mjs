@@ -251,6 +251,10 @@ test("PnlService rejects unsafe PnL removal inputs before state mutation", () =>
     /Pnl quoteId must be a primitive string/,
   );
   assert.throws(
+    () => pnl.getPnlRecordByQuoteId(new String("q_remove_unsafe")),
+    /Pnl quoteId must be a primitive string/,
+  );
+  assert.throws(
     () =>
       pnl.removePnlRecord({
         quoteId: "q_remove_unsafe",

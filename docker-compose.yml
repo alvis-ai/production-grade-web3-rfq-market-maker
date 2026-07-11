@@ -113,6 +113,33 @@ services:
     ports:
       - "3002:3002"
 
+  reconciliation-worker:
+    profiles: ["reconciliation"]
+    build:
+      context: .
+      dockerfile: infra/docker/backend.Dockerfile
+    command: ["node", "backend/dist/reconciliation-worker-main.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      database-migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://rfq:rfq@postgres:5432/rfq_market_maker
+      RFQ_RECONCILIATION_WORKER_HOST: 0.0.0.0
+      RFQ_RECONCILIATION_WORKER_PORT: 3003
+      RFQ_RECONCILIATION_LEASE_MS: 30000
+      RFQ_RECONCILIATION_POLL_INTERVAL_MS: 250
+      RFQ_RECONCILIATION_RETRY_DELAY_MS: 1000
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3003/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    ports:
+      - "3003:3003"
+
   frontend:
     build:
       context: .

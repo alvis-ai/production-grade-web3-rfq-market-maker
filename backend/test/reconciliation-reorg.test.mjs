@@ -146,7 +146,7 @@ test("ReconciliationService removes hedge and PnL records after a removed settle
   assert.equal(pnlService.summary().totalTrades, 0);
 });
 
-test("ReconciliationService reports removed settlement quote repair conflicts", async () => {
+test("ReconciliationService skips removed events when quote points at a replacement settlement", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   const settlementEventService = new SettlementEventService(new InventoryService());
   await saveSignedQuote(quoteRepository, "q_reorg_conflict", quote);
@@ -182,14 +182,8 @@ test("ReconciliationService reports removed settlement quote repair conflicts", 
   assert.deepEqual(conflictReport, {
     scannedRemovedSettlementEvents: 1,
     repairedQuoteStatuses: 0,
-    skippedQuoteStatuses: 0,
-    errors: [
-      {
-        settlementEventId: settlement.event.settlementEventId,
-        quoteId: "q_reorg_conflict",
-        reason: "Quote q_reorg_conflict settlement status removal conflict",
-      },
-    ],
+    skippedQuoteStatuses: 1,
+    errors: [],
   });
   assert.deepEqual(missingReport, {
     scannedRemovedSettlementEvents: 1,

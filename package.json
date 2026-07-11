@@ -24,6 +24,7 @@
     "api:route:check": "make api-route-check",
     "database:schema:check": "make database-schema-check",
     "reconciliation:check": "make reconciliation-check",
+    "reconciliation:integration:check": "make reconciliation-integration-check",
     "analytics:integration:check": "make analytics-integration-check",
     "benchmark:quote": "make benchmark-quote",
     "benchmark:submit": "make benchmark-submit",

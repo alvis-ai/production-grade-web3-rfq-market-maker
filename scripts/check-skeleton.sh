@@ -67,6 +67,31 @@ grep -q 'rfq_analytics_outbox_pending' backend/src/modules/analytics/analytics-w
 grep -q 'rfq-analytics-worker' infra/prometheus/prometheus.yml
 grep -q 'analytics-integration-check: backend-build' Makefile
 grep -q 'scripts/analytics-integration-check.mjs' Makefile
+test -s backend/src/reconciliation-worker-main.ts
+test -s scripts/reconciliation-integration-check.mjs
+test -s backend/src/db/migrations/005-post-trade-reconciliation.sql
+test -s backend/src/modules/reconciliation/post-trade-reconciliation.metrics.ts
+test -s backend/src/modules/reconciliation/post-trade-reconciliation.worker.ts
+test -s backend/src/modules/reconciliation/postgres-post-trade-reconciliation.store.ts
+test -s backend/test/post-trade-reconciliation-metrics.test.mjs
+test -s backend/test/post-trade-reconciliation-worker.test.mjs
+test -s backend/test/postgres-post-trade-reconciliation-store.test.mjs
+test -s backend/test/reconciliation-worker-runtime.test.mjs
+test -s infra/k8s/reconciliation-worker-deployment.yaml
+test -s infra/k8s/reconciliation-worker-service.yaml
+test -s infra/k8s/reconciliation-worker-secret.yaml
+test -s infra/k8s/reconciliation-worker-network-policy.yaml
+test -s infra/helm/rfq-market-maker/templates/reconciliation-worker-deployment.yaml
+test -s infra/helm/rfq-market-maker/templates/reconciliation-worker-service.yaml
+test -s infra/helm/rfq-market-maker/templates/reconciliation-worker-network-policy.yaml
+grep -q 'CREATE TABLE post_trade_reconciliation_jobs' backend/src/db/migrations/005-post-trade-reconciliation.sql
+grep -q 'enqueue_post_trade_reconciliation_job' backend/src/db/migrations/005-post-trade-reconciliation.sql
+grep -q 'FOR UPDATE SKIP LOCKED' backend/src/modules/reconciliation/postgres-post-trade-reconciliation.store.ts
+grep -q 'stale_revision' backend/src/modules/reconciliation/post-trade-reconciliation.worker.ts
+grep -q 'rfq_reconciliation_pending_jobs' backend/src/modules/reconciliation/post-trade-reconciliation.metrics.ts
+grep -q 'rfq-reconciliation-worker' infra/prometheus/prometheus.yml
+grep -q 'reconciliation-integration-check: backend-build' Makefile
+grep -q 'scripts/reconciliation-integration-check.mjs' Makefile
 grep -q 'FOR UPDATE SKIP LOCKED' backend/src/modules/hedge/postgres-hedge-job.store.ts
 grep -q 'adapter.queryOrder' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'adapter.submitMarketOrder' backend/src/modules/hedge/hedge-worker.ts
@@ -1471,8 +1496,8 @@ grep -q 'unique index `(settlement_event_id)`' docs/database/er-diagram.md
 grep -q 'quote_id TEXT NOT NULL REFERENCES quotes(id)' docs/database/schema.sql
 grep -q 'settlement_events.quote_id must be a required quotes(id) foreign key' scripts/check-database-schema-consistency.mjs
 grep -q 'settlement_events.quote_id' docs/database/er-diagram.md
-grep -q 'uq_settlement_events_quote_id' docs/database/schema.sql
-grep -q 'settlement_events must keep one settlement event per quote' scripts/check-database-schema-consistency.mjs
+grep -q 'uq_settlement_events_canonical_quote_id' docs/database/schema.sql
+grep -q 'settlement_events must keep one canonical settlement event per quote' scripts/check-database-schema-consistency.mjs
 grep -q 'slippageBps: input.request.slippageBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'slippageBps: input.slippageBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'spreadBps: input.spreadBps' backend/src/modules/quote/quote.repository.ts
@@ -1492,7 +1517,7 @@ grep -q 'Signed quote spreadBps must be less than or equal to 10000 bps' backend
 grep -q 'Signed quote inventorySkewBps magnitude must be less than or equal to 10000 bps' backend/test/quote-repository-signed-validation.test.mjs
 grep -q 'slippageBps: 50' scripts/reconciliation-check.mjs
 grep -q 'spreadBps: 8' scripts/reconciliation-check.mjs
-grep -q 'unique index `(quote_id)`' docs/database/er-diagram.md
+grep -q 'partial unique index `(quote_id) WHERE canonical = TRUE`' docs/database/er-diagram.md
 grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts
 grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.service.ts
@@ -1658,7 +1683,7 @@ grep -q 'removePnlRecord' backend/src/modules/pnl/pnl.service.ts
 grep -q 'repairs quote status from settlement events' backend/test/reconciliation.test.mjs
 grep -q 'repairs quote status after a removed settlement event' backend/test/reconciliation-reorg.test.mjs
 grep -q 'removes hedge and PnL records after a removed settlement event' backend/test/reconciliation-reorg.test.mjs
-grep -q 'reports removed settlement quote repair conflicts' backend/test/reconciliation-reorg.test.mjs
+grep -q 'skips removed events when quote points at a replacement settlement' backend/test/reconciliation-reorg.test.mjs
 grep -q 'scopes repairs by chain-scoped settlement quote hash' backend/test/reconciliation.test.mjs
 grep -q 'rejects unsafe settlement quote hash filters before scanning' backend/test/reconciliation.test.mjs
 grep -q 'reports terminal quote conflicts without stopping later events' backend/test/reconciliation.test.mjs
@@ -2989,7 +3014,7 @@ grep -q 'settlement event store failures' backend/test/api-status.test.mjs
 grep -q 'settlement event write failures' backend/test/api-submit-settlement-dependencies.test.mjs
 grep -q 'Settlement event store write failure' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'A signed quote may bind to only one settlement event' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'A signed quote may bind to only one canonical settlement event at a time' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'errorCode, "TOKEN_NOT_WHITELISTED"' backend/test/api-submit-dependencies.test.mjs
 grep -q 'retry.body.code, "QUOTE_FAILED"' backend/test/api-submit-dependencies.test.mjs
 grep -q 'LocalSettlementVerifier accepts contract-shaped settlement quotes' backend/test/settlement-verifier.test.mjs

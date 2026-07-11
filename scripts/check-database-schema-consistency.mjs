@@ -16,6 +16,10 @@ const settlementEventServiceSource = await readFile(
 const settlementMigrationSource = await readFile("backend/src/db/migrations/002-settlement-canonical.sql", "utf8");
 const hedgeWorkerMigrationSource = await readFile("backend/src/db/migrations/003-hedge-worker-queue.sql", "utf8");
 const analyticsOutboxMigrationSource = await readFile("backend/src/db/migrations/004-analytics-outbox.sql", "utf8");
+const postTradeMigrationSource = await readFile(
+  "backend/src/db/migrations/005-post-trade-reconciliation.sql",
+  "utf8",
+);
 const postgresSettlementSource = await readFile("backend/src/modules/settlement/postgres-settlement-event.store.ts", "utf8");
 const postgresInventorySource = await readFile("backend/src/modules/inventory/postgres-inventory.service.ts", "utf8");
 const postgresHedgeSource = await readFile("backend/src/modules/hedge/postgres-hedge.service.ts", "utf8");
@@ -29,6 +33,14 @@ const analyticsKafkaProducerSource = await readFile("backend/src/modules/analyti
 const analyticsKafkaConsumerSource = await readFile("backend/src/modules/analytics/kafka-analytics.consumer.ts", "utf8");
 const clickhouseAnalyticsSource = await readFile("backend/src/modules/analytics/clickhouse-analytics.sink.ts", "utf8");
 const postgresPnlSource = await readFile("backend/src/modules/pnl/postgres-pnl.store.ts", "utf8");
+const postTradeStoreSource = await readFile(
+  "backend/src/modules/reconciliation/postgres-post-trade-reconciliation.store.ts",
+  "utf8",
+);
+const postTradeWorkerSource = await readFile(
+  "backend/src/modules/reconciliation/post-trade-reconciliation.worker.ts",
+  "utf8",
+);
 const backendMainSource = await readFile("backend/src/main.ts", "utf8");
 const maxSafeInteger = "9007199254740991";
 const secp256k1HalfOrder = "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0";
@@ -149,6 +161,18 @@ const requiredTables = {
     "last_error_code",
     "created_at",
   ],
+  post_trade_reconciliation_jobs: [
+    "quote_id",
+    "desired_settlement_event_id",
+    "desired_revision",
+    "processed_revision",
+    "attempt_count",
+    "requested_at",
+    "next_attempt_at",
+    "lease_owner",
+    "lease_expires_at",
+    "last_error_code",
+  ],
   _migrations: ["version", "name", "applied_at"],
 };
 
@@ -170,8 +194,8 @@ assert.ok(
   "settlement_events.quote_id must be a required quotes(id) foreign key",
 );
 assert.ok(
-  /CREATE\s+UNIQUE\s+INDEX\s+uq_settlement_events_quote_id\s+ON\s+settlement_events\s*\(\s*quote_id\s*\)\s*;/i.test(schemaSource),
-  "settlement_events must keep one settlement event per quote",
+  /CREATE\s+UNIQUE\s+INDEX\s+uq_settlement_events_canonical_quote_id\s+ON\s+settlement_events\s*\(\s*quote_id\s*\)\s*WHERE\s+canonical\s*=\s*TRUE\s*;/i.test(schemaSource),
+  "settlement_events must keep one canonical settlement event per quote",
 );
 assert.ok(
   /CREATE\s+UNIQUE\s+INDEX\s+uq_quotes_chain_user_nonce\s+ON\s+quotes\s*\(\s*chain_id\s*,\s*user_address\s*,\s*nonce\s*\)\s*WHERE\s+nonce\s+IS\s+NOT\s+NULL\s*;/i.test(schemaSource),
@@ -303,6 +327,13 @@ const requiredCheckConstraints = {
     ["chk_analytics_outbox_lease_state", "analytics outbox must constrain leases"],
     ["chk_analytics_outbox_published_state", "analytics outbox must clear published leases"],
     ["chk_analytics_outbox_last_error", "analytics outbox must constrain stable errors"],
+  ],
+  post_trade_reconciliation_jobs: [
+    ["chk_post_trade_jobs_quote_id_safe", "post-trade jobs must constrain quote identifiers"],
+    ["chk_post_trade_jobs_revisions", "post-trade jobs must constrain desired and processed revisions"],
+    ["chk_post_trade_jobs_attempt_count", "post-trade jobs must constrain worker attempts"],
+    ["chk_post_trade_jobs_lease_state", "post-trade jobs must constrain lease ownership"],
+    ["chk_post_trade_jobs_last_error", "post-trade jobs must constrain stable errors"],
   ],
 };
 
@@ -633,7 +664,7 @@ for (const indexName of [
   "idx_quotes_pnl_id",
   "idx_market_snapshots_pair_observed_at",
   "idx_risk_decisions_quote_id",
-  "uq_settlement_events_quote_id",
+  "uq_settlement_events_canonical_quote_id",
   "idx_settlement_events_chain_quote_hash",
   "idx_settlement_events_canonical_block",
   "uq_hedge_orders_settlement_event",
@@ -641,6 +672,7 @@ for (const indexName of [
   "uq_hedge_orders_venue_client_order",
   "idx_pnl_records_realized_at",
   "idx_pnl_records_chain_pair_realized_at",
+  "idx_post_trade_jobs_pending",
 ]) {
   assert.ok(
     new RegExp(`CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+${indexName}\\b`, "i").test(schemaSource),
@@ -830,6 +862,7 @@ for (const erNode of [
   "HEDGE_ORDERS",
   "PNL_RECORDS",
   "ANALYTICS_OUTBOX",
+  "POST_TRADE_RECONCILIATION_JOBS",
 ]) {
   assert.ok(new RegExp(`\\b${erNode}\\b`).test(erDiagramSource), `ER diagram must include ${erNode}`);
 }
@@ -843,8 +876,8 @@ assert.ok(
   "ER diagram notes must document required settlement-to-quote linkage",
 );
 assert.ok(
-  erDiagramSource.includes("unique index `(quote_id)`"),
-  "ER diagram notes must document one settlement event per signed quote",
+  erDiagramSource.includes("partial unique index `(quote_id) WHERE canonical = TRUE`"),
+  "ER diagram notes must document one canonical settlement event per signed quote",
 );
 assert.ok(
   erDiagramSource.includes("quote_hash"),
@@ -980,6 +1013,28 @@ assert.ok(
     clickhouseAnalyticsSource.includes("ReplacingMergeTree(ingested_at)") &&
     clickhouseAnalyticsSource.includes("ORDER BY event_id"),
   "analytics delivery must use bounded envelopes, acknowledged Kafka writes, insert-before-offset commit, and event-id deduplication",
+);
+assert.ok(
+  postTradeMigrationSource.includes("CREATE TABLE post_trade_reconciliation_jobs") &&
+    postTradeMigrationSource.includes("uq_settlement_events_canonical_quote_id") &&
+    postTradeMigrationSource.includes("enqueue_post_trade_reconciliation_job") &&
+    postTradeMigrationSource.includes("SECURITY DEFINER") &&
+    postTradeMigrationSource.includes("SET search_path = pg_catalog, public") &&
+    postTradeMigrationSource.includes("desired_revision = post_trade_reconciliation_jobs.desired_revision + 1") &&
+    postTradeMigrationSource.includes("attempt_count = 0") &&
+    schemaSource.includes("('005', 'post-trade-reconciliation')"),
+  "post-trade migration must enqueue revisioned convergence and permit canonical reorg replacement",
+);
+assert.ok(
+  postTradeStoreSource.includes("FOR UPDATE SKIP LOCKED") &&
+    postTradeStoreSource.includes("processed_revision = CASE") &&
+    postTradeStoreSource.includes("desired_revision = $3") &&
+    postTradeStoreSource.includes("lease_owner = $2") &&
+    postTradeWorkerSource.includes("reconcileSettlementEventToHedge") &&
+    postTradeWorkerSource.includes("reconcileSettlementEventToPnl") &&
+    postTradeWorkerSource.includes("reconcileSettlementEventToQuote") &&
+    postTradeWorkerSource.includes("stale_revision"),
+  "post-trade runtime must lease jobs, guard revisions, and converge all projections",
 );
 
 console.log(`Database schema consistency check passed (${tables.size} tables)`);

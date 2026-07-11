@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rfq-reconciliation-worker
+  namespace: rfq-market-maker
+  labels:
+    app.kubernetes.io/name: rfq-reconciliation-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rfq-reconciliation-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rfq-reconciliation-worker
+    spec:
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: database-migrate
+          image: ghcr.io/example/rfq-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "backend/dist/db/migrate.js"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-database-migration-secrets
+                  key: DATABASE_URL
+      containers:
+        - name: reconciliation-worker
+          image: ghcr.io/example/rfq-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "backend/dist/reconciliation-worker-main.js"]
+          ports:
+            - name: http
+              containerPort: 3003
+          envFrom:
+            - configMapRef:
+                name: rfq-backend-config
+            - secretRef:
+                name: rfq-reconciliation-worker-secrets
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi

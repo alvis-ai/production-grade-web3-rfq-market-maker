@@ -164,6 +164,8 @@ ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, st
 
 ## Engineering Decisions
 
+The standalone post-trade worker exports `rfq_reconciliation_jobs_total`, `rfq_reconciliation_iteration_errors_total`, `rfq_reconciliation_pending_jobs`, `rfq_reconciliation_oldest_pending_age_seconds`, and `rfq_reconciliation_last_processed_timestamp_seconds`. Job outcome is bounded to repaired, already consistent, retry scheduled, or stale revision; quote ids and settlement ids are never Prometheus labels.
+
 - No high-cardinality quoteId labels in Prometheus.
 - Use ClickHouse for quote-level analysis.
 - Metrics failures must not break quote path.

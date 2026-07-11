@@ -8,6 +8,8 @@ erDiagram
   QUOTES ||--o{ SETTLEMENT_EVENTS : settles
   SETTLEMENT_EVENTS ||--o{ HEDGE_ORDERS : triggers
   QUOTES ||--o{ PNL_RECORDS : attributes
+  QUOTES ||--o| POST_TRADE_RECONCILIATION_JOBS : converges
+  SETTLEMENT_EVENTS ||--o{ POST_TRADE_RECONCILIATION_JOBS : desires
   MARKET_SNAPSHOTS ||--o{ QUOTES : prices
   INVENTORY_POSITIONS ||--o{ HEDGE_ORDERS : rebalances
   QUOTES ||--o{ ANALYTICS_OUTBOX : emits
@@ -142,6 +144,19 @@ erDiagram
     text last_error_code
     timestamptz created_at
   }
+
+  POST_TRADE_RECONCILIATION_JOBS {
+    text quote_id PK
+    text desired_settlement_event_id FK
+    bigint desired_revision
+    bigint processed_revision
+    integer attempt_count
+    timestamptz requested_at
+    timestamptz next_attempt_at
+    text lease_owner
+    timestamptz lease_expires_at
+    text last_error_code
+  }
 ```
 
 ## Notes
@@ -149,7 +164,7 @@ erDiagram
 - `settlement_events` 使用 `(chain_id, tx_hash, log_index)` 作为幂等键，并持久化 `quote_hash` 以绑定链上 `QuoteSettled` 事件和链下 EIP-712 quote payload。
 - `settlement_events` 额外使用 `(chain_id, quote_hash)` 索引支持从 indexed `QuoteSettled.quoteHash` 回查本地成交事件，并与 `SettlementEventService.getSettlementEventsByQuoteHash` 保持同一访问路径，方便链上事件排障、reconciliation 和跨链环境下的 quote payload 证明。
 - `settlement_events.log_index` 和 `settlement_events.block_number` 使用 BIGINT 保存链上 event ordinal，但必须位于 JavaScript safe integer range `0..9007199254740991`，与 indexer、reorg removal 和运行时排序逻辑的 number 表示一致。
-- `settlement_events.quote_id` 是 `quotes.id` 的非空外键，并使用 unique index `(quote_id)` 保证一个 signed quote 只能绑定一个 settlement event；这同时保证 settlement-to-quote reconciliation 总能回到本地签发记录。
+- `settlement_events.quote_id` 是 `quotes.id` 的非空外键；partial unique index `(quote_id) WHERE canonical = TRUE` 保证一个 signed quote 同时最多绑定一个 canonical settlement，同时允许 reorg 后的新交易形成新的 canonical event，并保留旧事件审计历史。
 - `settlement_events.canonical` 与 `removed_at` 保留 reorg 审计历史：canonical event 必须没有 `removed_at`，removed event 必须有时间戳。正常查询和 reconciliation 只读取 canonical rows；同一精确事件重新成为 canonical 时可以幂等重激活，而不是插入第二条 event。
 - `idx_settlement_events_canonical_block` 为 canonical chain-order replay 提供 partial index。服务启动时使用 transaction-scoped advisory lock，在同一数据库事务内从 canonical events 重建 `inventory_positions`，避免多副本同时修复投影。
 - `quotes` 使用 partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`，保证 signed quote 的 `chainId:user:nonce` 本地查找键唯一，同时允许 requested / rejected quote 在签名前没有 nonce。
@@ -182,6 +197,8 @@ erDiagram
 - `quotes`、`inventory_positions` 和 `hedge_orders` 使用共享 `set_updated_at()` trigger，在每次 `UPDATE` 时由数据库刷新 `updated_at`，避免应用层漏写导致状态页或运维排障看到陈旧更新时间。
 - `pnl_records` 使用 `(quote_id, model)` 防止同一归因模型对同一成交重复入账，并保存 `user_address`、amount、`min_amount_out`、`nonce`、safe-integer `deadline`、safe-integer signed `gross_pnl_bps` 和固定 `model_description` 作为 signed attribution snapshot；`model_description` 明确当前 `simulated_mid_price_v1` 是 same-decimal 模拟归因，不是跨资产会计 PnL；生产版可将明细同步到 ClickHouse 做高维分析。
 - `hedge_orders` 与 `pnl_records` 是 settlement event 之后的 durable idempotent projections。它们不与链上 event+inventory 强行放在同一长事务；若进程在步骤间崩溃，settlement event 作为 source of truth，由 reconciliation 补齐缺失 projection 和 quote pointers。
+- `post_trade_reconciliation_jobs` 以 `quote_id` 为唯一收敛键。settlement insert 或 `canonical` 变化在同一事务中通过 trigger 更新 `desired_settlement_event_id` 与单调 `desired_revision`；多 worker 使用 `FOR UPDATE SKIP LOCKED` 和 expiring lease claim。worker 只有在 lease owner 与 revision 同时匹配时才推进 `processed_revision`，旧 revision 的副作用会由仍待处理的新 revision 再次收敛。
+- canonical job 按 hedge、PnL、quote pointer 顺序幂等补齐；没有 canonical event 的 job 清除可逆 quote/PnL projection，并只删除尚未向外部 venue 提交的 hedge。已 submission-attempted 或 terminal 的 CEX 证据保留，交由人工补偿而不是伪装成随链 reorg 消失。
 - `analytics_outbox` 实现 transactional outbox，由数据库 trigger 在 quote、market snapshot、risk、settlement、inventory、hedge 和 PnL 行发生有效业务变化的同一事务中追加。它不对 `aggregate_id` 建立跨表外键，因为一个统一事件表承载多种 aggregate；事件 payload 只保存分析所需字段，78 位金额全部编码为十进制字符串。
 - `idx_analytics_outbox_pending` 支持多 publisher 使用 `FOR UPDATE SKIP LOCKED` 和 expiring lease 并发 claim。Kafka acknowledgement 成功后才写 `published_at`；失败只更新 `available_at` 和稳定 `last_error_code`。已发布行按 retention 分批删除，未发布行不会因重试次数耗尽而丢弃。
 - Outbox 到 Redpanda 是 at-least-once：publisher 可能在 broker 已确认但 `published_at` 尚未提交时崩溃。每条 envelope 使用稳定 `ao_<outbox_id>` event id，ClickHouse 以 `ReplacingMergeTree(ingested_at) ORDER BY event_id` 收敛重复；分析查询需要在要求即时去重时使用 `FINAL` 或 `argMax`。Kafka offset 只在 ClickHouse batch insert 成功后提交。

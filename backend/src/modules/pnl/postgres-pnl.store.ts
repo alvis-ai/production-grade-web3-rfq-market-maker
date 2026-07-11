@@ -74,6 +74,21 @@ export class PostgresPnlStore implements PnlStore {
     }
   }
 
+  async getPnlRecordByQuoteId(quoteId: string): Promise<PnlTradeRecord | undefined> {
+    const normalized = normalizeRemovePnlRecordInput({ quoteId });
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT ${pnlColumns} FROM pnl_records WHERE quote_id = $1 AND model = $2`,
+        [normalized.quoteId, normalized.model],
+      );
+      if (result.rows.length > 1) throw new Error(`Postgres PnL lookup returned multiple rows for ${quoteId}`);
+      return result.rows[0] ? parsePnlRow(result.rows[0]) : undefined;
+    } finally {
+      client.release();
+    }
+  }
+
   async removePnlRecord(input: RemovePnlRecordInput): Promise<RemovePnlRecordResult> {
     const normalized = normalizeRemovePnlRecordInput(input);
     const client = await this.pool.connect();

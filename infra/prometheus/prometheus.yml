@@ -24,6 +24,12 @@ scrape_configs:
       - targets:
           - analytics-worker:3002
 
+  - job_name: rfq-reconciliation-worker
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - reconciliation-worker:3003
+
   - job_name: prometheus
     static_configs:
       - targets:

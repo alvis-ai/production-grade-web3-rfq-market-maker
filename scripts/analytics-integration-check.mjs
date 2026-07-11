@@ -148,7 +148,7 @@ try {
   assert.equal(typeof quotePayload.amountIn, "string");
 
   const migrations = await pool.query("SELECT version FROM _migrations ORDER BY version");
-  assert.deepEqual(migrations.rows.map((row) => row.version), ["001", "002", "003", "004"]);
+  assert.deepEqual(migrations.rows.map((row) => row.version), ["001", "002", "003", "004", "005"]);
 
   await cleanupOperationalFixtures();
   fixturesCommitted = false;
@@ -211,6 +211,7 @@ async function clickhouseRequest(query, expectsJson) {
 async function cleanupOperationalFixtures() {
   await client.query("BEGIN");
   try {
+    await client.query("DELETE FROM post_trade_reconciliation_jobs WHERE quote_id = $1", [quoteId]);
     await client.query("DELETE FROM hedge_orders WHERE id = $1", [hedgeOrderId]);
     await client.query("DELETE FROM pnl_records WHERE id = $1", [pnlId]);
     await client.query("DELETE FROM risk_decisions WHERE id = $1", [riskDecisionId]);

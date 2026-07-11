@@ -161,8 +161,8 @@ assert.deepEqual(hedgeReport, {
 });
 assert.deepEqual(quoteRetryReport, {
   scannedSettlementEvents: 1,
-  repairedQuoteStatuses: 0,
-  skippedQuoteStatuses: 1,
+  repairedQuoteStatuses: 1,
+  skippedQuoteStatuses: 0,
   errors: [],
 });
 assert.deepEqual(hedgeRetryReport, {
@@ -204,6 +204,8 @@ assert.deepEqual(unmatchedQuoteHashReport, {
 assert.equal(afterStatus.status, "settled");
 assert.equal(afterStatus.txHash, settlement.event.txHash);
 assert.equal(afterStatus.settlementEventId, settlement.event.settlementEventId);
+assert.equal(afterStatus.hedgeOrderId, hedge.hedgeOrderId);
+assert.equal(afterStatus.pnlId, pnlSummary.trades[0].pnlId);
 assert.equal(hedge.quoteId, "q_reconciliation_check");
 assert.equal(hedge.settlementEventId, settlement.event.settlementEventId);
 assert.equal(pnlSummary.totalTrades, 1);

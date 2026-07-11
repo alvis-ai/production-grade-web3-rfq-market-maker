@@ -134,6 +134,34 @@ analyticsWorker:
   networkPolicy:
     enabled: true
 
+reconciliationWorker:
+  enabled: true
+  replicaCount: 2
+  port: 3003
+  env:
+    RFQ_RECONCILIATION_WORKER_HOST: "0.0.0.0"
+    RFQ_RECONCILIATION_WORKER_PORT: "3003"
+    RFQ_RECONCILIATION_LEASE_MS: "30000"
+    RFQ_RECONCILIATION_POLL_INTERVAL_MS: "250"
+    RFQ_RECONCILIATION_RETRY_DELAY_MS: "1000"
+  secret:
+    name: rfq-reconciliation-worker-secrets
+    databaseUrlKey: DATABASE_URL
+  service:
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "3003"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  networkPolicy:
+    enabled: true
+
 resources:
   requests:
     cpu: 100m

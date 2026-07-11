@@ -1,0 +1,156 @@
+import { createHash } from "node:crypto";
+import { hostname } from "node:os";
+import Fastify from "fastify";
+import { checkPoolHealth, endPool, getPool } from "./db/pool.js";
+import { PostgresHedgeService } from "./modules/hedge/postgres-hedge.service.js";
+import { PostgresInventoryService } from "./modules/inventory/postgres-inventory.service.js";
+import { PostgresPnlStore } from "./modules/pnl/postgres-pnl.store.js";
+import { PostgresQuoteRepository } from "./modules/quote/postgres-quote.repository.js";
+import { PostTradeReconciliationMetrics } from "./modules/reconciliation/post-trade-reconciliation.metrics.js";
+import {
+  PostTradeReconciliationWorker,
+  type PostTradeReconciliationWorkerConfig,
+} from "./modules/reconciliation/post-trade-reconciliation.worker.js";
+import { PostgresPostTradeReconciliationStore } from "./modules/reconciliation/postgres-post-trade-reconciliation.store.js";
+import { ReconciliationService } from "./modules/reconciliation/reconciliation.service.js";
+import { PostgresSettlementEventStore } from "./modules/settlement/postgres-settlement-event.store.js";
+
+export interface ReconciliationWorkerRuntimeConfig {
+  worker: PostTradeReconciliationWorkerConfig;
+  listenHost: string;
+  listenPort: number;
+}
+
+export function readReconciliationWorkerRuntimeConfig(
+  env: Record<string, string | undefined> | undefined = process.env,
+): ReconciliationWorkerRuntimeConfig {
+  const databaseUrl = readRequired(env, "DATABASE_URL");
+  if (!/^postgres(?:ql)?:\/\//.test(databaseUrl)) {
+    throw new Error("DATABASE_URL must use postgres:// or postgresql:// protocol");
+  }
+  return {
+    worker: {
+      workerId: readOptional(env, "RFQ_RECONCILIATION_WORKER_ID") ?? defaultWorkerId(),
+      leaseMs: readInteger(env, "RFQ_RECONCILIATION_LEASE_MS", 30_000, 1_000, 300_000),
+      pollIntervalMs: readInteger(env, "RFQ_RECONCILIATION_POLL_INTERVAL_MS", 250, 10, 60_000),
+      retryDelayMs: readInteger(env, "RFQ_RECONCILIATION_RETRY_DELAY_MS", 1_000, 1, 3_600_000),
+    },
+    listenHost: readHost(env),
+    listenPort: readInteger(env, "RFQ_RECONCILIATION_WORKER_PORT", 3003, 1, 65_535),
+  };
+}
+
+export async function startReconciliationWorker(): Promise<void> {
+  const config = readReconciliationWorkerRuntimeConfig();
+  const pool = getPool();
+  const inventory = new PostgresInventoryService(pool);
+  const settlementEvents = new PostgresSettlementEventStore(pool, inventory);
+  const quoteRepository = new PostgresQuoteRepository(pool);
+  const hedgeService = new PostgresHedgeService(pool);
+  const pnlService = new PostgresPnlStore(pool);
+  const store = new PostgresPostTradeReconciliationStore(pool);
+  const reconciliation = new ReconciliationService({
+    quoteRepository,
+    settlementEventService: settlementEvents,
+    hedgeService,
+    pnlService,
+  });
+  const metrics = new PostTradeReconciliationMetrics();
+  const worker = new PostTradeReconciliationWorker(store, reconciliation, config.worker, metrics);
+  const server = Fastify({ logger: false });
+  server.get("/health", async () => ({ status: "ok" }));
+  server.get("/ready", async (_request, reply) => {
+    try {
+      await Promise.all([
+        store.checkHealth(),
+        quoteRepository.checkHealth(),
+        hedgeService.checkHealth(),
+        pnlService.checkHealth(),
+        settlementEvents.checkHealth(),
+      ]);
+      return { status: "ok" };
+    } catch {
+      return reply.code(503).send({ status: "degraded" });
+    }
+  });
+  server.get("/metrics", async (_request, reply) => {
+    let stats;
+    try {
+      stats = await store.stats();
+    } catch {}
+    return reply.type("text/plain").send(metrics.renderPrometheus(stats));
+  });
+
+  let signalHandlersRegistered = false;
+  const stop = () => worker.stop();
+  try {
+    await checkPoolHealth(pool);
+    await store.checkHealth();
+    await server.listen({ host: config.listenHost, port: config.listenPort });
+    process.once("SIGINT", stop);
+    process.once("SIGTERM", stop);
+    signalHandlersRegistered = true;
+    await worker.run();
+  } finally {
+    worker.stop();
+    if (signalHandlersRegistered) {
+      process.off("SIGINT", stop);
+      process.off("SIGTERM", stop);
+    }
+    await server.close();
+    await endPool();
+  }
+}
+
+function readRequired(env: Record<string, string | undefined> | undefined, name: string): string {
+  const value = readOptional(env, name);
+  if (!value) throw new Error(`${name} is required for the reconciliation worker`);
+  return value;
+}
+
+function readOptional(env: Record<string, string | undefined> | undefined, name: string): string | undefined {
+  if (!env || !Object.hasOwn(env, name)) return undefined;
+  const value = env[name];
+  if (value === undefined || value.trim().length === 0) return undefined;
+  return value.trim();
+}
+
+function readInteger(
+  env: Record<string, string | undefined> | undefined,
+  name: string,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const value = readOptional(env, name);
+  if (value === undefined) return fallback;
+  if (!/^(0|[1-9][0-9]*)$/.test(value)) {
+    throw new Error(`${name} must be an integer between ${min} and ${max}`);
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${name} must be an integer between ${min} and ${max}`);
+  }
+  return parsed;
+}
+
+function readHost(env: Record<string, string | undefined> | undefined): string {
+  const value = readOptional(env, "RFQ_RECONCILIATION_WORKER_HOST") ?? "0.0.0.0";
+  if (value.length > 255 || /\s/.test(value)) {
+    throw new Error("RFQ_RECONCILIATION_WORKER_HOST is invalid");
+  }
+  return value;
+}
+
+function defaultWorkerId(): string {
+  const digest = createHash("sha256").update(`${hostname()}:${process.pid}`).digest("hex").slice(0, 16);
+  return `reconciliation_worker_${digest}`;
+}
+
+const processLike = globalThis.process;
+if (processLike?.argv?.[1] && import.meta.url.endsWith(processLike.argv[1])) {
+  startReconciliationWorker().catch((error: unknown) => {
+    console.error(error);
+    processLike.exitCode = 1;
+  });
+}

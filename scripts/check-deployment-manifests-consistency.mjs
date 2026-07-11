@@ -17,6 +17,10 @@ const k8sAnalyticsDeployment = await readFile("infra/k8s/analytics-worker-deploy
 const k8sAnalyticsService = await readFile("infra/k8s/analytics-worker-service.yaml", "utf8");
 const k8sAnalyticsSecret = await readFile("infra/k8s/analytics-worker-secret.yaml", "utf8");
 const k8sAnalyticsNetworkPolicy = await readFile("infra/k8s/analytics-worker-network-policy.yaml", "utf8");
+const k8sReconciliationDeployment = await readFile("infra/k8s/reconciliation-worker-deployment.yaml", "utf8");
+const k8sReconciliationService = await readFile("infra/k8s/reconciliation-worker-service.yaml", "utf8");
+const k8sReconciliationSecret = await readFile("infra/k8s/reconciliation-worker-secret.yaml", "utf8");
+const k8sReconciliationNetworkPolicy = await readFile("infra/k8s/reconciliation-worker-network-policy.yaml", "utf8");
 const helmValues = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
 const helmDeployment = await readFile("infra/helm/rfq-market-maker/templates/deployment.yaml", "utf8");
 const helmService = await readFile("infra/helm/rfq-market-maker/templates/service.yaml", "utf8");
@@ -26,6 +30,18 @@ const helmHedgeNetworkPolicy = await readFile("infra/helm/rfq-market-maker/templ
 const helmAnalyticsDeployment = await readFile("infra/helm/rfq-market-maker/templates/analytics-worker-deployment.yaml", "utf8");
 const helmAnalyticsService = await readFile("infra/helm/rfq-market-maker/templates/analytics-worker-service.yaml", "utf8");
 const helmAnalyticsNetworkPolicy = await readFile("infra/helm/rfq-market-maker/templates/analytics-worker-network-policy.yaml", "utf8");
+const helmReconciliationDeployment = await readFile(
+  "infra/helm/rfq-market-maker/templates/reconciliation-worker-deployment.yaml",
+  "utf8",
+);
+const helmReconciliationService = await readFile(
+  "infra/helm/rfq-market-maker/templates/reconciliation-worker-service.yaml",
+  "utf8",
+);
+const helmReconciliationNetworkPolicy = await readFile(
+  "infra/helm/rfq-market-maker/templates/reconciliation-worker-network-policy.yaml",
+  "utf8",
+);
 const kubernetesChapter = await readFile("book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md", "utf8");
 
 const expectedRuntime = {
@@ -185,6 +201,41 @@ assertContains(k8sAnalyticsNetworkPolicy, [
   "port: 8443",
 ], "infra/k8s/analytics-worker-network-policy.yaml");
 
+assertContains(k8sReconciliationDeployment, [
+  "kind: Deployment",
+  "name: rfq-reconciliation-worker",
+  "replicas: 2",
+  "initContainers:",
+  'command: ["node", "backend/dist/db/migrate.js"]',
+  'command: ["node", "backend/dist/reconciliation-worker-main.js"]',
+  "containerPort: 3003",
+  "name: rfq-reconciliation-worker-secrets",
+  "path: /ready",
+  "path: /health",
+], "infra/k8s/reconciliation-worker-deployment.yaml");
+assertContains(k8sReconciliationService, [
+  "kind: Service",
+  "name: rfq-reconciliation-worker",
+  'prometheus.io/scrape: "true"',
+  'prometheus.io/port: "3003"',
+  "port: 3003",
+], "infra/k8s/reconciliation-worker-service.yaml");
+assertContains(k8sReconciliationSecret, [
+  "name: rfq-reconciliation-worker-secrets",
+  "DATABASE_URL:",
+], "infra/k8s/reconciliation-worker-secret.yaml");
+for (const forbidden of ["RFQ_SIGNER_PRIVATE_KEY", "RFQ_BINANCE_API_KEY", "RFQ_ANALYTICS_KAFKA_SASL_USERNAME"]) {
+  assert.ok(!k8sReconciliationSecret.includes(forbidden), `reconciliation Secret must not contain ${forbidden}`);
+}
+assertContains(k8sReconciliationNetworkPolicy, [
+  "kind: NetworkPolicy",
+  "app.kubernetes.io/name: rfq-reconciliation-worker",
+  "- Ingress",
+  "- Egress",
+  "port: 3003",
+  "port: 5432",
+], "infra/k8s/reconciliation-worker-network-policy.yaml");
+
 assertContains(helmValues, [
   `replicaCount: ${expectedRuntime.replicas}`,
   `terminationGracePeriodSeconds: ${expectedRuntime.terminationGracePeriodSeconds}`,
@@ -217,6 +268,9 @@ assertContains(helmValues, [
   "RFQ_CLICKHOUSE_URL:",
   "kafkaUsernameKey: RFQ_ANALYTICS_KAFKA_SASL_USERNAME",
   "clickhousePasswordKey: RFQ_CLICKHOUSE_PASSWORD",
+  "reconciliationWorker:",
+  "RFQ_RECONCILIATION_LEASE_MS:",
+  "name: rfq-reconciliation-worker-secrets",
   "cpu: 100m",
   "memory: 128Mi",
   "cpu: 500m",
@@ -307,6 +361,27 @@ assertContains(helmAnalyticsNetworkPolicy, [
   "port: 8443",
 ], "infra/helm/rfq-market-maker/templates/analytics-worker-network-policy.yaml");
 
+assertContains(helmReconciliationDeployment, [
+  "{{- if .Values.reconciliationWorker.enabled }}",
+  "replicas: {{ .Values.reconciliationWorker.replicaCount }}",
+  "initContainers:",
+  'command: ["node", "backend/dist/db/migrate.js"]',
+  'command: ["node", "backend/dist/reconciliation-worker-main.js"]',
+  "key: {{ .Values.reconciliationWorker.secret.databaseUrlKey }}",
+  "path: /ready",
+  "path: /health",
+], "infra/helm/rfq-market-maker/templates/reconciliation-worker-deployment.yaml");
+assertContains(helmReconciliationService, [
+  "{{- if .Values.reconciliationWorker.enabled }}",
+  "with .Values.reconciliationWorker.service.annotations",
+  "port: {{ .Values.reconciliationWorker.port }}",
+], "infra/helm/rfq-market-maker/templates/reconciliation-worker-service.yaml");
+assertContains(helmReconciliationNetworkPolicy, [
+  ".Values.reconciliationWorker.networkPolicy.enabled",
+  "app.kubernetes.io/component: reconciliation-worker",
+  "port: 5432",
+], "infra/helm/rfq-market-maker/templates/reconciliation-worker-network-policy.yaml");
+
 assertContains(kubernetesChapter, [
   "`terminationGracePeriodSeconds=30`",
   "preStop` sleep of 5 seconds",
@@ -323,7 +398,9 @@ assertContains(kubernetesChapter, [
   "`FOR UPDATE SKIP LOCKED`",
   "`rfq-analytics-worker-secrets`",
   "`rfq.analytics.v1`",
-  "`004-analytics-outbox.sql`",
+  "`005-post-trade-reconciliation.sql`",
+  "`rfq-reconciliation-worker`",
+  "Migration 005",
 ], "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md");
 
 console.log("Deployment manifests consistency check passed");

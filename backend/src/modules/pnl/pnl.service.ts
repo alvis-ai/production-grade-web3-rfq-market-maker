@@ -39,6 +39,7 @@ export interface RemovePnlRecordResult {
 export interface PnlStore {
   checkHealth?(): void | Promise<void>;
   recordSettlement(input: RecordPnlInput): PnlTradeRecord | Promise<PnlTradeRecord>;
+  getPnlRecordByQuoteId(quoteId: string): PnlTradeRecord | undefined | Promise<PnlTradeRecord | undefined>;
   removePnlRecord(input: RemovePnlRecordInput): RemovePnlRecordResult | Promise<RemovePnlRecordResult>;
   summary(): PnlSummaryResponse | Promise<PnlSummaryResponse>;
 }
@@ -73,6 +74,15 @@ export class PnlService implements PnlStore {
 
     this.trades.set(record.pnlId, record);
     this.pnlIdsByQuoteModel.set(this.quoteModelKey(input.quoteId, record.model), record.pnlId);
+    return clonePnlTradeRecord(record);
+  }
+
+  getPnlRecordByQuoteId(quoteId: string): PnlTradeRecord | undefined {
+    const normalized = normalizeRemovePnlRecordInput({ quoteId });
+    const pnlId = this.pnlIdsByQuoteModel.get(this.quoteModelKey(normalized.quoteId, normalized.model));
+    if (!pnlId) return undefined;
+    const record = this.trades.get(pnlId);
+    if (!record) throw new Error(`PnL record index is inconsistent for ${pnlId}`);
     return clonePnlTradeRecord(record);
   }
 

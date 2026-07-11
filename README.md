@@ -155,7 +155,17 @@ The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK 
 
 Local development permits synthetic settlement only when `RFQ_ALLOW_SIMULATED_SETTLEMENT=true`. In receipt-confirmed mode the wallet broadcasts `RFQSettlement.submitQuote`, then sends the resulting `txHash` to `POST /submit`. The backend treats that hash only as an RPC lookup key: it waits for configured confirmations, verifies transaction `from`, `to`, and decoded `submitQuote` calldata against the stored quote/signature, requires a successful receipt, and requires exactly one matching `QuoteSettled` event before inventory, hedge, PnL, or quote-status side effects.
 
-When `DATABASE_URL` is configured, quote audit records and the complete post-trade path use PostgreSQL. Settlement event insertion and both inventory token deltas commit in one transaction; duplicate `(chain_id, tx_hash, log_index)` or `quote_id` events cannot apply inventory twice. Inventory pricing reads the shared `inventory_positions` projection on every request, so horizontally scaled replicas use one exposure state. Hedge intents and PnL records are durable idempotent projections keyed by settlement event and quote/model. Startup takes a transaction-scoped advisory lock and repairs inventory from canonical settlement events plus every externally executed hedge fill before readiness. Reorg removal marks an event non-canonical instead of deleting audit history and rebuilds inventory in the same transaction. Quote/PnL reconciliation removes chain-derived pointers, while submission-attempted or terminal CEX hedge evidence remains because a chain reorg cannot undo a potentially accepted external trade.
+When `DATABASE_URL` is configured, quote audit records and the complete post-trade path use PostgreSQL. Settlement event insertion, both inventory token deltas, and a durable reconciliation revision commit in one transaction; duplicate `(chain_id, tx_hash, log_index)` events cannot apply inventory twice, while a partial unique index permits only one canonical settlement per quote and still allows a replacement after reorg. Inventory pricing reads the shared `inventory_positions` projection on every request, so horizontally scaled replicas use one exposure state. Hedge intents and PnL records are durable idempotent projections keyed by settlement event and quote/model. Startup takes a transaction-scoped advisory lock and repairs inventory from canonical settlement events plus every externally executed hedge fill before readiness. Reorg removal marks an event non-canonical instead of deleting audit history and rebuilds inventory in the same transaction. Quote/PnL reconciliation removes chain-derived pointers, while submission-attempted or terminal CEX hedge evidence remains because a chain reorg cannot undo a potentially accepted external trade.
+
+The reconciliation worker (`pnpm --dir backend start:reconciliation-worker`) continuously converges those post-trade projections and exposes health and metrics on port 3003. Multiple replicas lease quote-scoped desired revisions with `FOR UPDATE SKIP LOCKED`; a canonical revision restores hedge, PnL, and complete quote pointers, while a no-canonical revision removes only reversible projections. A canonical state change increments the desired revision without stealing an active lease, so an old worker cannot mark newer chain state processed. Exponential retries retain stable low-cardinality error codes and no job is discarded because of retry count.
+
+The destructive integration check requires an explicit acknowledgement and a disposable PostgreSQL database. It verifies initial convergence, reorg cleanup, and a replacement canonical transaction for the same quote, then removes its uniquely named fixtures:
+
+```sh
+DATABASE_URL=postgres://rfq:rfq@127.0.0.1:5432/rfq_market_maker \
+RFQ_RECONCILIATION_INTEGRATION_CONFIRM=yes \
+make reconciliation-integration-check
+```
 
 The hedge worker is a separate process (`pnpm --dir backend start:hedge-worker`) with its own CEX credentials and health surface on port 3001. `RFQ_HEDGE_ROUTES_JSON` maps each `chainId/token` base asset to a Binance symbol, token decimals, and raw-unit step size. Multiple replicas claim due `hedge_orders` with `FOR UPDATE SKIP LOCKED` and expiring leases. Before every market order the worker persists a deterministic 36-character client order id and queries Binance by that id; it submits only when the order is absent. Network timeouts, rate limits, unknown responses, and pending orders remain queued because an externally accepted order must never be marked failed from local retry exhaustion. Only an explicit venue terminal status or deterministic route/quantity error produces `failed`.
 
@@ -201,6 +211,12 @@ Start the local transactional analytics pipeline, including topic initialization
 docker compose --profile analytics up --build analytics-worker
 ```
 
+Start durable post-trade convergence independently of the API process:
+
+```sh
+docker compose --profile reconciliation up --build reconciliation-worker
+```
+
 Local ports:
 
 - Backend API: `http://localhost:3000`
@@ -208,6 +224,7 @@ Local ports:
 - Prometheus: `http://localhost:9090`
 - Grafana: `http://localhost:3001`
 - Analytics worker metrics: `http://localhost:3002/metrics`
+- Reconciliation worker metrics: `http://localhost:3003/metrics`
 - Redpanda external listener: `localhost:19092`
 - ClickHouse HTTP: `http://localhost:8123`
 
@@ -247,6 +264,13 @@ kubectl -n rfq-market-maker create secret generic rfq-analytics-worker-secrets \
   --from-literal=RFQ_CLICKHOUSE_PASSWORD=...
 ```
 
+Create a reconciliation-only database Secret. This role needs read access to quotes and settlements plus bounded write access to quote status, hedge, PnL, and reconciliation job tables, but no DDL privileges:
+
+```sh
+kubectl -n rfq-market-maker create secret generic rfq-reconciliation-worker-secrets \
+  --from-literal=DATABASE_URL=postgres://reconciliation:password@postgres.example.com:5432/rfq_market_maker
+```
+
 Use a third, migration-only Secret for the init container's DDL-capable database role. Runtime API and worker roles should not own schema privileges:
 
 ```sh
@@ -256,7 +280,7 @@ kubectl -n rfq-market-maker create secret generic rfq-database-migration-secrets
 
 The Helm chart expects signer keys through `signerSecret`, the Redis URL through `redisSecret`, and the API PostgreSQL URL through `databaseSecret.name` / `databaseSecret.urlKey`. `hedgeWorker.secret` references the separate worker database and Binance credential keys; `analyticsWorker.secret` references the analytics database, Kafka SASL and ClickHouse credentials. Routing and broker endpoint metadata stay in non-secret values.
 
-API, hedge and analytics Kubernetes Deployments run the migration entrypoint in an init container using `migrationSecret`. Migration discovery and execution are serialized by a PostgreSQL session advisory lock, allowing multiple rollout pods to start safely while ensuring `004-analytics-outbox.sql` is committed before any process checks readiness. The DDL-capable migrator credential is not mounted into runtime containers. Production operators must provision `rfq.analytics.v1` before starting analytics consumers; auto topic creation is intentionally disabled.
+API, hedge, analytics, and reconciliation Kubernetes Deployments run the migration entrypoint in an init container using `migrationSecret`. Migration discovery and execution are serialized by a PostgreSQL session advisory lock, allowing multiple rollout pods to start safely while ensuring `005-post-trade-reconciliation.sql` and all earlier migrations are committed before any process checks readiness. The DDL-capable migrator credential is not mounted into runtime containers. Production operators must provision `rfq.analytics.v1` before starting analytics consumers; auto topic creation is intentionally disabled.
 
 Local API smoke path:
 

@@ -94,6 +94,7 @@ export interface QuoteRepository {
   findStatus(quoteId: string): Promise<QuoteStatusResponse | undefined>;
   markFailed(quoteId: string, errorCode: string): Promise<void>;
   markStatus(quoteId: string, status: QuoteLifecycleStatus, metadata?: QuoteStatusMetadata): Promise<void>;
+  restoreSettlementStatus(quoteId: string, metadata: QuoteStatusMetadata): Promise<void>;
   clearSettlementStatus(input: ClearSettlementStatusInput): Promise<ClearSettlementStatusResult>;
   findSignedQuoteByQuoteId(quoteId: string): Promise<QuoteRecord | undefined>;
   findQuoteIdByChainUserNonce(chainId: number, user: Address, nonce: UIntString): Promise<string | undefined>;
@@ -268,6 +269,25 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       ...current,
       status,
       ...statusMetadata,
+    });
+  }
+
+  async restoreSettlementStatus(quoteId: string, metadata: QuoteStatusMetadata): Promise<void> {
+    const current = this.records.get(quoteId);
+    if (!current) return;
+    if (current.status !== "expired") {
+      await this.markStatus(quoteId, "settled", metadata);
+      return;
+    }
+
+    assertQuoteStatusMetadata(metadata);
+    const normalizedMetadata = normalizeQuoteStatusMetadata(metadata);
+    assertQuoteStatusMetadataDoesNotConflict(current, normalizedMetadata);
+    assertSettlementStatusMetadata(current, "settled", normalizedMetadata);
+    this.records.set(quoteId, {
+      ...current,
+      status: "settled",
+      ...mergeQuoteStatusMetadata(current, normalizedMetadata),
     });
   }
 

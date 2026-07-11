@@ -1,0 +1,61 @@
+{{- if .Values.reconciliationWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-reconciliation-worker
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciliation-worker
+spec:
+  replicas: {{ .Values.reconciliationWorker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: reconciliation-worker
+  template:
+    metadata:
+      labels:
+        {{- include "rfq-market-maker.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: reconciliation-worker
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      initContainers:
+        - name: database-migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "backend/dist/db/migrate.js"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.migrationSecret.name }}
+                  key: {{ .Values.migrationSecret.urlKey }}
+      containers:
+        - name: reconciliation-worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "backend/dist/reconciliation-worker-main.js"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.reconciliationWorker.port }}
+          env:
+            {{- range $key, $value := .Values.reconciliationWorker.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.reconciliationWorker.secret.name }}
+                  key: {{ .Values.reconciliationWorker.secret.databaseUrlKey }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            {{- toYaml .Values.reconciliationWorker.resources | nindent 12 }}
+{{- end }}

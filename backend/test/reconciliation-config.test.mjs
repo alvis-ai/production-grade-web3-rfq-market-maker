@@ -145,9 +145,23 @@ test("ReconciliationService rejects unsafe dependency configuration at construct
             return undefined;
           },
           async markStatus() {},
+          async restoreSettlementStatus() {},
         },
       }),
     /ReconciliationService quoteRepository.clearSettlementStatus must be a function/,
+  );
+  assert.throws(
+    () =>
+      new ReconciliationService({
+        ...deps,
+        quoteRepository: {
+          async findStatus() {
+            return undefined;
+          },
+          async markStatus() {},
+        },
+      }),
+    /ReconciliationService quoteRepository.restoreSettlementStatus must be a function/,
   );
   assert.throws(
     () =>
@@ -187,6 +201,9 @@ test("ReconciliationService rejects unsafe dependency configuration at construct
           },
           recordSettlement() {
             throw new Error("unused");
+          },
+          getPnlRecordByQuoteId() {
+            return undefined;
           },
         },
       }),

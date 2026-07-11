@@ -13,6 +13,8 @@ sequenceDiagram
   participant TokenOut as ERC20 tokenOut
   participant RPC as Chain RPC
   participant Inventory as Inventory Service
+  participant Jobs as Reconciliation Jobs
+  participant Worker as Reconciliation Worker
   participant Hedge as Hedge Engine
   participant Metrics as Metrics / PnL
 
@@ -31,9 +33,15 @@ sequenceDiagram
   API->>API: verify from, to, submitQuote calldata and success
   API->>API: decode exactly one matching QuoteSettled
   API->>Inventory: idempotent inventory update
+  Inventory->>Jobs: enqueue desired revision in settlement transaction
   Inventory->>Hedge: create hedge intent
   Inventory->>Metrics: record exposure and realized trade
   API-->>User: 202 accepted with settlement pointers
+  Worker->>Jobs: claim due revision with lease
+  Worker->>Hedge: idempotently repair hedge projection
+  Worker->>Metrics: idempotently repair PnL projection
+  Worker->>API: repair complete quote pointers
+  Worker->>Jobs: mark exact revision processed
 ```
 
 ## Invariants
@@ -43,3 +51,4 @@ sequenceDiagram
 - 非本地环境默认禁止 synthetic settlement，无真实匹配事件时不得更新库存。
 - 事件消费必须使用 `chainId + txHash + logIndex` 幂等，并保存 `quoteHash` 和 `blockNumber` 作为链上 `QuoteSettled` 与链下 quote payload 的一致性锚点和 reorg 排查依据。
 - Hedge failure 不能回滚已经确认的 settlement，但必须进入风险和告警闭环。
+- API 在 settlement 后任意一步崩溃不能丢失 post-trade projection；durable desired revision 必须由独立 worker 最终收敛，旧 revision 不能覆盖 reorg 后的新 canonical 状态。

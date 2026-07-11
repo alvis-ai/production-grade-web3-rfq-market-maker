@@ -1,0 +1,31 @@
+{{- if and .Values.reconciliationWorker.enabled .Values.reconciliationWorker.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-reconciliation-worker
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: reconciliation-worker
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.reconciliationWorker.port }}
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - ports:
+        - protocol: TCP
+          port: 5432
+{{- end }}

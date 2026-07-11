@@ -2,7 +2,7 @@
   "title": "RFQ Market Maker Overview",
   "uid": "rfq-market-maker-overview",
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "refresh": "15s",
   "panels": [
     {
@@ -242,6 +242,19 @@
         { "expr": "sum(rate(rfq_analytics_outbox_retries_total[5m]))", "legendFormat": "publish retries/s", "refId": "A" },
         { "expr": "sum(rate(rfq_analytics_publisher_iteration_errors_total[5m]))", "legendFormat": "publisher errors/s", "refId": "B" },
         { "expr": "sum(rate(rfq_analytics_consumer_errors_total[5m]))", "legendFormat": "consumer errors/s", "refId": "C" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Post-Trade Reconciliation",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 38, "w": 24, "h": 7 },
+      "targets": [
+        { "expr": "max(rfq_reconciliation_pending_jobs)", "legendFormat": "pending jobs", "refId": "A" },
+        { "expr": "max(rfq_reconciliation_oldest_pending_age_seconds)", "legendFormat": "oldest age seconds", "refId": "B" },
+        { "expr": "sum by (outcome) (rate(rfq_reconciliation_jobs_total[5m]))", "legendFormat": "{{outcome}}/s", "refId": "C" },
+        { "expr": "time() - max(rfq_reconciliation_last_processed_timestamp_seconds)", "legendFormat": "seconds since progress", "refId": "D" },
+        { "expr": "sum(rate(rfq_reconciliation_iteration_errors_total[5m]))", "legendFormat": "iteration errors/s", "refId": "E" }
       ]
     }
   ]

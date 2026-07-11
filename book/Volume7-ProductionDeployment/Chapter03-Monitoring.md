@@ -169,6 +169,8 @@ Key metrics include:
 - Analytics gauges come from PostgreSQL outbox stats at scrape time; if that query fails, process counters remain scrapeable while `/ready` reports degraded. Alerts distinguish worker down, backlog age/size, broker retries and ClickHouse consumer failures.
 - ClickHouse event-id deduplication is eventual under `ReplacingMergeTree`; dashboards that count unique business events must use `FINAL` or `uniqExact(event_id)`/`argMax` according to query cost and freshness requirements.
 - ClickHouse dashboards may explain quote funnels, latency, PnL attribution and customer support questions, but they must never be used as the operational source of truth for quote status, settlement state, inventory, hedge execution, readiness or reconciliation decisions.
+- Post-trade convergence exposes `rfq_reconciliation_jobs_total` with an `outcome` label, `rfq_reconciliation_iteration_errors_total`, `rfq_reconciliation_pending_jobs`, `rfq_reconciliation_oldest_pending_age_seconds`, and `rfq_reconciliation_last_processed_timestamp_seconds`. Outcome is a closed enum (`repaired`, `already_consistent`, `retry_scheduled`, `stale_revision`); quote or settlement identifiers never become metric labels.
+- Alert on reconciliation worker availability, pending count or age, repeated retries, and pending work without last-processed progress. A stale revision is normal during a reorg or rapid canonical replacement and should be interpreted with backlog convergence rather than paged on by itself.
 - Every critical alert links to runbook.
 
 ## Failure Scenarios

@@ -58,6 +58,67 @@ test("ReconciliationService repairs quote status from settlement events", async 
   });
 });
 
+test("ReconciliationService restores hedge and PnL pointers after projection recovery", async () => {
+  const hedgeService = new HedgeService();
+  const pnlService = new PnlService();
+  const quoteRepository = new InMemoryQuoteRepository();
+  const settlementEventService = new SettlementEventService(new InventoryService());
+  await saveSignedQuote(quoteRepository, "q_reconcile_pointers", quote);
+  const settlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_reconcile_pointers",
+    quote,
+    txHash: `0x${"16".repeat(32)}`,
+    blockNumber: 199,
+    logIndex: 0,
+  });
+  const reconciliation = new ReconciliationService({
+    hedgeService,
+    pnlService,
+    quoteRepository,
+    settlementEventService,
+  });
+
+  await reconciliation.reconcileSettlementEventToHedge(settlement.event);
+  await reconciliation.reconcileSettlementEventToPnl(settlement.event);
+  const report = await reconciliation.reconcileSettlementEventToQuote(settlement.event);
+
+  const status = await quoteRepository.findStatus("q_reconcile_pointers");
+  const hedge = hedgeService.getHedgeIntentBySettlementEvent(settlement.event.settlementEventId);
+  assert.equal(report.repairedQuoteStatuses, 1);
+  assert.equal(status.hedgeOrderId, hedge.hedgeOrderId);
+  assert.equal(status.pnlId, "pnl_q_reconcile_pointers");
+});
+
+test("ReconciliationService restores an expired quote from a canonical settlement", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const settlementEventService = new SettlementEventService(new InventoryService());
+  await saveSignedQuote(quoteRepository, "q_reconcile_expired", quote);
+  await quoteRepository.markStatus("q_reconcile_expired", "expired");
+  const settlement = settlementEventService.applySettlementEvent({
+    quoteId: "q_reconcile_expired",
+    quote,
+    txHash: `0x${"15".repeat(32)}`,
+    blockNumber: 198,
+    logIndex: 0,
+  });
+
+  const report = await new ReconciliationService({
+    quoteRepository,
+    settlementEventService,
+  }).reconcileSettlementEventToQuote(settlement.event);
+
+  assert.deepEqual(report, {
+    scannedSettlementEvents: 1,
+    repairedQuoteStatuses: 1,
+    skippedQuoteStatuses: 0,
+    errors: [],
+  });
+  const status = await quoteRepository.findStatus("q_reconcile_expired");
+  assert.equal(status.status, "settled");
+  assert.equal(status.txHash, settlement.event.txHash);
+  assert.equal(status.settlementEventId, settlement.event.settlementEventId);
+});
+
 test("ReconciliationService scopes repairs by chain-scoped settlement quote hash", async () => {
   const hedgeService = new HedgeService();
   const pnlService = new PnlService();

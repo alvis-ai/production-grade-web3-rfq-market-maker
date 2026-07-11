@@ -89,6 +89,11 @@ test("PnlService returns defensive copies of PnL trade records", () => {
   assert.equal(retry.grossPnlTokenOut, "10");
   assert.equal(retry.amountOut, baseQuote.amountOut);
 
+  const found = pnl.getPnlRecordByQuoteId("q_copy");
+  found.amountOut = "2";
+  assert.equal(pnl.getPnlRecordByQuoteId("q_copy").amountOut, baseQuote.amountOut);
+  assert.equal(pnl.getPnlRecordByQuoteId("q_missing"), undefined);
+
   const summary = pnl.summary();
   summary.trades[0].grossPnlTokenOut = "888888";
 
