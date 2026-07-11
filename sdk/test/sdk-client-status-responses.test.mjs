@@ -191,6 +191,14 @@ test("RFQClient rejects malformed hedge status responses", async () => {
       message: "RFQ hedge status response returned malformed externalOrderId",
     },
     {
+      payload: { ...hedgeResponse, filledAmount: "0" },
+      message: "RFQ hedge status response returned malformed filledAmount",
+    },
+    {
+      payload: { ...hedgeResponse, failureCode: "bad failure" },
+      message: "RFQ hedge status response returned malformed failureCode",
+    },
+    {
       payload: { ...hedgeResponse, updatedAt: "not-a-date" },
       message: "RFQ hedge status response returned malformed updatedAt",
     },
@@ -232,6 +240,7 @@ test("RFQClient accepts terminal hedge status responses", async () => {
       reason: "inventory_rebalance",
       createdAt: "2026-06-27T00:00:00.000Z",
       externalOrderId: "cex_order_1",
+      filledAmount: quote.amountOut,
       updatedAt: "2026-06-27T00:00:01.000Z",
     },
     {
@@ -245,6 +254,7 @@ test("RFQClient accepts terminal hedge status responses", async () => {
       amount: quote.amountOut,
       reason: "risk_reduction",
       createdAt: "2026-06-27T00:00:00.000Z",
+      failureCode: "BINANCE_ORDER_REJECTED",
       updatedAt: "2026-06-27T00:00:02.000Z",
     },
   ];

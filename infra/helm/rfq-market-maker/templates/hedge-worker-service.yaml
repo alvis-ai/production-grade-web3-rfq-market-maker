@@ -1,0 +1,19 @@
+{{- if .Values.hedgeWorker.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-hedge-worker
+  annotations:
+    {{- with .Values.hedgeWorker.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "rfq-market-maker.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: hedge-worker
+  ports:
+    - name: http
+      port: {{ .Values.hedgeWorker.port }}
+      targetPort: http
+{{- end }}

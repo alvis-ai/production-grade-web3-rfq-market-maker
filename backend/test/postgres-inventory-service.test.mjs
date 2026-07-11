@@ -77,7 +77,7 @@ test("PostgresInventoryService reads shared balances for projection and skew", a
   assert.equal(await service.calculateQuoteSkewBps({ chainId: 1, token: tokenB }), 2);
 });
 
-test("PostgresInventoryService rebuilds only canonical settlement projection", async () => {
+test("PostgresInventoryService rebuilds canonical settlement and terminal hedge projection", async () => {
   const { pool, client } = fakePool(async () => ({ rows: [], rowCount: 1 }));
   const service = new PostgresInventoryService(pool);
 
@@ -86,6 +86,8 @@ test("PostgresInventoryService rebuilds only canonical settlement projection", a
   assert.equal(client.queries[0].sql, "LOCK TABLE inventory_positions IN EXCLUSIVE MODE");
   assert.equal(client.queries[1].sql, "DELETE FROM inventory_positions");
   assert.match(client.queries[2].sql, /WHERE canonical = TRUE/);
+  assert.match(client.queries[2].sql, /FROM hedge_orders AS hedge/);
+  assert.match(client.queries[2].sql, /WHERE hedge\.filled_amount IS NOT NULL/);
   assert.match(client.queries[2].sql, /SUM\(delta\)/);
 });
 

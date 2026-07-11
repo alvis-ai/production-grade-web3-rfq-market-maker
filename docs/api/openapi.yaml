@@ -258,7 +258,9 @@ paths:
         inventory, including its current queued, filled, or failed lifecycle
         status and terminal venue reconciliation metadata when available.
         Non-local deployments persist this state in PostgreSQL using one
-        idempotent hedge intent per settlement event.
+        idempotent hedge intent per settlement event. A separate lease-based worker
+        queries the configured CEX by deterministic client order id before submission
+        and persists only explicit terminal venue outcomes.
       tags:
         - Hedge
       parameters:
@@ -744,7 +746,16 @@ components:
         externalOrderId:
           type: string
           minLength: 1
-          description: External venue order reference once a queued hedge is filled.
+          description: External venue order reference once the worker observes an accepted or terminal venue order.
+        filledAmount:
+          $ref: "#/components/schemas/PositiveUIntString"
+          description: Raw token units confirmed executed by the venue at a terminal hedge outcome.
+        failureCode:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^[A-Z0-9_:-]+$"
+          description: Stable low-cardinality worker or venue error code when available.
         updatedAt:
           type: string
           format: date-time

@@ -123,7 +123,7 @@ export class PostgresSettlementEventStore implements SettlementEventStore {
         throw new Error(`Postgres settlement reactivation conflict for ${candidate.settlementEventId}`);
       }
       const stored = parseStoredSettlementEvent(reactivated.rows[0]);
-      await this.inventoryService.applySettlementWithClient(client, settlementDelta(stored.event));
+      await this.inventoryService.rebuildFromCanonicalSettlementEvents(client);
       await client.query("COMMIT");
       return { event: cloneSettlementEvent(stored.event), duplicate: false };
     } catch (error) {

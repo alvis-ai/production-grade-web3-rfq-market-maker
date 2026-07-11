@@ -158,6 +158,12 @@ export class HedgeService implements HedgeIntentService {
     if (!intent) {
       throw new Error(`Hedge intent index is inconsistent for ${hedgeOrderId}`);
     }
+    if (intent.status !== "queued" || intent.externalOrderId !== undefined) {
+      return {
+        record: cloneHedgeIntentStatus(intent),
+        removed: false,
+      };
+    }
 
     this.intents.delete(hedgeOrderId);
     this.hedgeOrderIdsBySettlementEvent.delete(settlementEventId);

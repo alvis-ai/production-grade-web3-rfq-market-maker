@@ -12,6 +12,33 @@ test -s .github/workflows/backend-ci.yml
 test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
+test -s backend/src/hedge-worker-main.ts
+test -s backend/src/db/migrations/003-hedge-worker-queue.sql
+test -s backend/src/modules/hedge/binance-spot.adapter.ts
+test -s backend/src/modules/hedge/hedge-route.ts
+test -s backend/src/modules/hedge/hedge-worker.ts
+test -s backend/src/modules/hedge/postgres-hedge-job.store.ts
+test -s backend/test/binance-spot-adapter.test.mjs
+test -s backend/test/database-migrate.test.mjs
+test -s backend/test/hedge-route.test.mjs
+test -s backend/test/hedge-worker.test.mjs
+test -s backend/test/hedge-worker-runtime.test.mjs
+test -s backend/test/postgres-hedge-job-store.test.mjs
+test -s infra/k8s/hedge-worker-deployment.yaml
+test -s infra/k8s/database-migration-secret.yaml
+test -s infra/k8s/hedge-worker-service.yaml
+test -s infra/k8s/hedge-worker-secret.yaml
+test -s infra/k8s/hedge-worker-network-policy.yaml
+test -s infra/helm/rfq-market-maker/templates/hedge-worker-deployment.yaml
+test -s infra/helm/rfq-market-maker/templates/hedge-worker-service.yaml
+test -s infra/helm/rfq-market-maker/templates/hedge-worker-network-policy.yaml
+grep -q 'FOR UPDATE SKIP LOCKED' backend/src/modules/hedge/postgres-hedge-job.store.ts
+grep -q 'adapter.queryOrder' backend/src/modules/hedge/hedge-worker.ts
+grep -q 'adapter.submitMarketOrder' backend/src/modules/hedge/hedge-worker.ts
+grep -q 'createHmac("sha256"' backend/src/modules/hedge/binance-spot.adapter.ts
+grep -q 'origClientOrderId' backend/src/modules/hedge/binance-spot.adapter.ts
+grep -q 'newClientOrderId' backend/src/modules/hedge/binance-spot.adapter.ts
+grep -q 'rfq_hedge_worker_jobs_total' backend/src/modules/hedge/hedge-worker.ts
 test -s backend/test/api-error.test.mjs
 test -s backend/test/api-gateway-env.test.mjs
 test -s backend/test/api-gateway-signer-env.test.mjs

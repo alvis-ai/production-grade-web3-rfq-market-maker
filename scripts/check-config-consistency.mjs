@@ -8,6 +8,7 @@ const composeSource = await readFile("docker-compose.yml", "utf8");
 const k8sConfigSource = await readFile("infra/k8s/configmap.yaml", "utf8");
 const helmValuesSource = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
 const backendSource = await readFile("backend/src/main.ts", "utf8");
+const hedgeWorkerSource = await readFile("backend/src/hedge-worker-main.ts", "utf8");
 const frontendConfigSource = await readFile("frontend/src/lib/config.ts", "utf8");
 const readmeSource = await readFile("README.md", "utf8");
 
@@ -126,6 +127,21 @@ assert.ok(
   backendSource.includes("DATABASE_URL is required when NODE_ENV=") &&
     backendSource.includes("resolvePostgresPool(options)"),
   "backend must require PostgreSQL persistence outside local environments",
+);
+assert.ok(
+  hedgeWorkerSource.includes('readRequired(env, "DATABASE_URL")') &&
+    hedgeWorkerSource.includes('readRequired(env, "RFQ_HEDGE_ROUTES_JSON")') &&
+    hedgeWorkerSource.includes('readCredential(env, "RFQ_BINANCE_API_KEY")') &&
+    hedgeWorkerSource.includes('readCredential(env, "RFQ_BINANCE_API_SECRET")') &&
+    hedgeWorkerSource.includes("placeholder must be replaced") &&
+    hedgeWorkerSource.includes("must exceed two RFQ_BINANCE_REQUEST_TIMEOUT_MS windows"),
+  "hedge worker must require durable queue, isolated venue credentials, and a safe lease window",
+);
+assert.ok(
+  k8sConfigSource.includes("RFQ_HEDGE_ROUTES_JSON:") &&
+    k8sConfigSource.includes('RFQ_HEDGE_LEASE_MS: "30000"') &&
+    k8sConfigSource.includes('RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000"'),
+  "Kubernetes config must define non-secret hedge worker routing and timing controls",
 );
 assert.ok(
   frontendConfigSource.includes("readOptionalConfigString") &&

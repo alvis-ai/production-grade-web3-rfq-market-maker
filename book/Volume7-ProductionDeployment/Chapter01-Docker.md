@@ -104,7 +104,7 @@ stateDiagram-v2
 
 ## Data Model
 
-Docker volumes store PostgreSQL, ClickHouse and Grafana data. These volumes are local development data, not production backups. Compose mounts `docs/database/schema.sql` into `/docker-entrypoint-initdb.d/001-schema.sql`, so a fresh `postgres-data` volume starts with the documented RFQ operational schema. Existing application databases apply `002-settlement-canonical.sql` through the migration runner before deploying the transactional post-trade runtime.
+Docker volumes store PostgreSQL, ClickHouse and Grafana data. These volumes are local development data, not production backups. Compose mounts `docs/database/schema.sql` into `/docker-entrypoint-initdb.d/001-schema.sql`, so a fresh `postgres-data` volume starts with the documented RFQ operational schema. Existing application databases apply `002-settlement-canonical.sql` and `003-hedge-worker-queue.sql` through the migration runner before deploying the transactional post-trade runtime and hedge worker.
 
 ## API Design
 
@@ -117,6 +117,7 @@ No public API changes. Compose exposes backend API on `localhost:3000`, frontend
 - Redis uses `redis-cli ping` and ClickHouse uses `clickhouse-client --query 'SELECT 1'` for local dependency health checks.
 - Prometheus and Grafana included from the first deployment docs stage.
 - Prometheus scrapes the compose `backend:3000` service directly.
+- The credential-isolated `hedge-worker` service is behind the explicit `hedge` Compose profile. It exposes health/readiness/metrics on container port 3001, claims PostgreSQL jobs with leases, and should use Binance Spot Testnet credentials for local integration.
 - Frontend image builds static Vite assets and serves them with Nginx; `VITE_RFQ_API_BASE_URL` is injected as a Docker build arg and defaults to `http://localhost:3000`.
 - Backend and frontend images define Docker health checks. Compose waits for the backend health check before starting frontend and Prometheus.
 - Docker builds copy `pnpm-lock.yaml` and use `pnpm install --frozen-lockfile` so image dependency resolution is reproducible.

@@ -181,6 +181,33 @@ groups:
           summary: RFQ hedge p95 lag is above 2 seconds
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQHedgeWorkerIterationErrors
+        expr: increase(rfq_hedge_worker_iteration_errors_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ hedge worker cannot complete polling iterations
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQHedgeWorkerRetries
+        expr: sum(increase(rfq_hedge_worker_jobs_total{status="retry_scheduled"}[10m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ hedge worker is repeatedly rescheduling CEX execution
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQHedgeWorkerProcessingStalled
+        expr: increase(rfq_hedge_intents_total[10m]) > 0 and (time() - max(rfq_hedge_worker_last_processed_timestamp_seconds)) > 300
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ hedge intents are arriving without worker progress
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQInventoryExposureHigh
         expr: max by (chain_id, token) (abs(rfq_inventory_balance)) > 1000000000000000000000000
         for: 5m

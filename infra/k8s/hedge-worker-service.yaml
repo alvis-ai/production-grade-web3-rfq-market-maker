@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rfq-hedge-worker
+  namespace: rfq-market-maker
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /metrics
+    prometheus.io/port: "3001"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: rfq-hedge-worker
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http

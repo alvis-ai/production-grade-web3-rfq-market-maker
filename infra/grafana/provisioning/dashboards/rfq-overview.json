@@ -2,7 +2,7 @@
   "title": "RFQ Market Maker Overview",
   "uid": "rfq-market-maker-overview",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "15s",
   "panels": [
     {
@@ -184,6 +184,29 @@
       "targets": [
         { "expr": "rate(rfq_market_data_cache_hits_total[5m])", "legendFormat": "cache hits/s", "refId": "A" },
         { "expr": "rate(rfq_market_data_cache_misses_total[5m])", "legendFormat": "cache misses/s", "refId": "B" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Hedge Worker Execution",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 8, "y": 24, "w": 16, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(rfq_hedge_worker_jobs_total[5m]))",
+          "legendFormat": "{{status}}/s",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(rfq_hedge_worker_iteration_errors_total[5m])",
+          "legendFormat": "iteration errors/s",
+          "refId": "B"
+        },
+        {
+          "expr": "time() - max(rfq_hedge_worker_last_processed_timestamp_seconds)",
+          "legendFormat": "seconds since progress",
+          "refId": "C"
+        }
       ]
     }
   ]

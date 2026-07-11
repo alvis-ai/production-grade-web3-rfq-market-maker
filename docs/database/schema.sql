@@ -340,6 +340,15 @@ CREATE TABLE hedge_orders (
   status TEXT NOT NULL,
   reason TEXT NOT NULL,
   external_order_id TEXT,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  lease_owner TEXT,
+  lease_expires_at TIMESTAMPTZ,
+  venue_symbol TEXT,
+  client_order_id TEXT,
+  submission_attempted_at TIMESTAMPTZ,
+  filled_amount NUMERIC(78, 0),
+  last_error_code TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_hedge_orders_id_safe CHECK (
@@ -355,11 +364,56 @@ CREATE TABLE hedge_orders (
   CONSTRAINT chk_hedge_orders_external_order_id_non_empty CHECK (
     external_order_id IS NULL OR btrim(external_order_id) <> ''
   ),
+  CONSTRAINT chk_hedge_orders_attempt_count CHECK (attempt_count BETWEEN 0 AND 1000000),
+  CONSTRAINT chk_hedge_orders_lease_state CHECK (
+    (lease_owner IS NULL AND lease_expires_at IS NULL)
+    OR (
+      status = 'queued'
+      AND lease_owner IS NOT NULL
+      AND lease_expires_at IS NOT NULL
+      AND btrim(lease_owner) <> ''
+      AND char_length(lease_owner) <= 128
+      AND lease_owner ~ '^[A-Za-z0-9_:-]+$'
+    )
+  ),
+  CONSTRAINT chk_hedge_orders_venue_symbol CHECK (
+    venue_symbol IS NULL
+    OR (char_length(venue_symbol) BETWEEN 3 AND 32 AND venue_symbol ~ '^[A-Z0-9._-]+$')
+  ),
+  CONSTRAINT chk_hedge_orders_client_order_id CHECK (
+    client_order_id IS NULL
+    OR (char_length(client_order_id) BETWEEN 1 AND 36 AND client_order_id ~ '^[A-Za-z0-9._-]+$')
+  ),
+  CONSTRAINT chk_hedge_orders_submission_attempt CHECK (
+    submission_attempted_at IS NULL
+    OR (venue <> 'internal' AND venue_symbol IS NOT NULL AND client_order_id IS NOT NULL)
+  ),
+  CONSTRAINT chk_hedge_orders_last_error_code CHECK (
+    last_error_code IS NULL
+    OR (char_length(last_error_code) BETWEEN 1 AND 128 AND last_error_code ~ '^[A-Z0-9_:-]+$')
+  ),
+  CONSTRAINT chk_hedge_orders_filled_amount CHECK (
+    filled_amount IS NULL OR (filled_amount > 0 AND filled_amount <= amount)
+  ),
+  CONSTRAINT chk_hedge_orders_terminal_state CHECK (
+    status = 'queued'
+    OR (
+      lease_owner IS NULL
+      AND lease_expires_at IS NULL
+      AND (status <> 'filled' OR (external_order_id IS NOT NULL AND filled_amount IS NOT NULL))
+    )
+  ),
   CONSTRAINT chk_hedge_orders_token_hex CHECK (token_address ~ '^0x[0-9a-fA-F]{40}$'),
   CONSTRAINT chk_hedge_orders_amount_positive CHECK (amount > 0)
 );
 
 CREATE UNIQUE INDEX uq_hedge_orders_settlement_event ON hedge_orders (settlement_event_id);
+CREATE INDEX idx_hedge_orders_queued_claim
+  ON hedge_orders (next_attempt_at, created_at, id)
+  WHERE status = 'queued';
+CREATE UNIQUE INDEX uq_hedge_orders_venue_client_order
+  ON hedge_orders (venue, client_order_id)
+  WHERE client_order_id IS NOT NULL;
 
 CREATE TABLE pnl_records (
   id TEXT PRIMARY KEY,

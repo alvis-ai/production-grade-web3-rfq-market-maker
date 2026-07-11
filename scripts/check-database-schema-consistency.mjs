@@ -14,9 +14,13 @@ const settlementEventServiceSource = await readFile(
   "utf8",
 );
 const settlementMigrationSource = await readFile("backend/src/db/migrations/002-settlement-canonical.sql", "utf8");
+const hedgeWorkerMigrationSource = await readFile("backend/src/db/migrations/003-hedge-worker-queue.sql", "utf8");
 const postgresSettlementSource = await readFile("backend/src/modules/settlement/postgres-settlement-event.store.ts", "utf8");
 const postgresInventorySource = await readFile("backend/src/modules/inventory/postgres-inventory.service.ts", "utf8");
 const postgresHedgeSource = await readFile("backend/src/modules/hedge/postgres-hedge.service.ts", "utf8");
+const postgresHedgeJobSource = await readFile("backend/src/modules/hedge/postgres-hedge-job.store.ts", "utf8");
+const hedgeWorkerSource = await readFile("backend/src/modules/hedge/hedge-worker.ts", "utf8");
+const binanceAdapterSource = await readFile("backend/src/modules/hedge/binance-spot.adapter.ts", "utf8");
 const postgresPnlSource = await readFile("backend/src/modules/pnl/postgres-pnl.store.ts", "utf8");
 const backendMainSource = await readFile("backend/src/main.ts", "utf8");
 const maxSafeInteger = "9007199254740991";
@@ -92,6 +96,16 @@ const requiredTables = {
     "venue",
     "status",
     "reason",
+    "external_order_id",
+    "attempt_count",
+    "next_attempt_at",
+    "lease_owner",
+    "lease_expires_at",
+    "venue_symbol",
+    "client_order_id",
+    "submission_attempted_at",
+    "filled_amount",
+    "last_error_code",
   ],
   pnl_records: [
     "id",
@@ -234,6 +248,14 @@ const requiredCheckConstraints = {
     ],
     ["chk_hedge_orders_token_hex", "hedge_orders must constrain token address shape"],
     ["chk_hedge_orders_amount_positive", "hedge_orders must constrain positive hedge amounts"],
+    ["chk_hedge_orders_attempt_count", "hedge_orders must constrain worker attempt counts"],
+    ["chk_hedge_orders_lease_state", "hedge_orders must constrain queue lease state"],
+    ["chk_hedge_orders_venue_symbol", "hedge_orders must constrain venue symbols"],
+    ["chk_hedge_orders_client_order_id", "hedge_orders must constrain client order ids"],
+    ["chk_hedge_orders_submission_attempt", "hedge_orders must constrain external submission evidence"],
+    ["chk_hedge_orders_last_error_code", "hedge_orders must constrain worker error codes"],
+    ["chk_hedge_orders_filled_amount", "hedge_orders must constrain terminal filled amounts"],
+    ["chk_hedge_orders_terminal_state", "hedge_orders must clear terminal leases and require fill evidence"],
   ],
   pnl_records: [
     ["chk_pnl_records_id_safe", "pnl_records must constrain primary ids to safe identifiers"],
@@ -570,6 +592,8 @@ for (const indexName of [
   "idx_settlement_events_chain_quote_hash",
   "idx_settlement_events_canonical_block",
   "uq_hedge_orders_settlement_event",
+  "idx_hedge_orders_queued_claim",
+  "uq_hedge_orders_venue_client_order",
   "idx_pnl_records_realized_at",
   "idx_pnl_records_chain_pair_realized_at",
 ]) {
@@ -740,6 +764,8 @@ const hedgeColumnMapping = {
   reason: "reason",
   createdAt: "created_at",
   externalOrderId: "external_order_id",
+  filledAmount: "filled_amount",
+  failureCode: "last_error_code",
   updatedAt: "updated_at",
 };
 for (const field of hedgeFields) {
@@ -813,8 +839,10 @@ assert.ok(
   postgresInventorySource.includes('client.query("BEGIN")') &&
     postgresInventorySource.includes('client.query("ROLLBACK")') &&
     postgresInventorySource.includes(".sort((left, right) => left.token.localeCompare(right.token))") &&
-    postgresInventorySource.includes("rebuildFromCanonicalSettlementEvents"),
-  "Postgres inventory service must update deterministically and rebuild from canonical events",
+    postgresInventorySource.includes("rebuildFromCanonicalSettlementEvents") &&
+    postgresInventorySource.includes("FROM hedge_orders AS hedge") &&
+    postgresInventorySource.includes("hedge.filled_amount IS NOT NULL"),
+  "Postgres inventory service must update deterministically and rebuild canonical settlement plus hedge fills",
 );
 assert.ok(
   postgresHedgeSource.includes("ON CONFLICT (settlement_event_id) DO UPDATE SET") &&
@@ -828,6 +856,45 @@ assert.ok(
     backendMainSource.includes("new PostgresPnlStore") &&
     backendMainSource.includes("DATABASE_URL is required when NODE_ENV="),
   "non-local runtime must wire durable post-trade stores and require PostgreSQL",
+);
+assert.ok(
+  hedgeWorkerMigrationSource.includes("attempt_count INTEGER NOT NULL DEFAULT 0") &&
+    hedgeWorkerMigrationSource.includes("chk_hedge_orders_lease_state") &&
+    hedgeWorkerMigrationSource.includes("idx_hedge_orders_queued_claim") &&
+    hedgeWorkerMigrationSource.includes("uq_hedge_orders_venue_client_order"),
+  "hedge worker migration must add durable lease queue state and idempotency indexes",
+);
+assert.ok(
+  postgresHedgeJobSource.includes("FOR UPDATE SKIP LOCKED") &&
+    postgresHedgeJobSource.includes("FOR UPDATE OF settlement") &&
+    postgresHedgeJobSource.includes("lease_owner = $1") &&
+    postgresHedgeJobSource.includes("status = 'queued' AND lease_owner = $2") &&
+    postgresHedgeJobSource.includes("submission_attempted_at = COALESCE") &&
+    postgresHedgeJobSource.includes("HEDGE_SETTLEMENT_NON_CANONICAL") &&
+    postgresHedgeJobSource.includes("next_attempt_at = now()") &&
+    postgresHedgeJobSource.includes("INSERT INTO inventory_positions") &&
+    postgresHedgeJobSource.includes("filled_amount = COALESCE($5, filled_amount)") &&
+    postgresHedgeJobSource.includes("recordExecutionProgress") &&
+    postgresHedgeJobSource.includes("BigInt(filledAmount) - BigInt(previous"),
+  "Postgres hedge job store must claim due rows, guard mutations by lease owner, and atomically apply fill deltas",
+);
+assert.ok(
+  hedgeWorkerSource.includes("adapter.queryOrder") &&
+    hedgeWorkerSource.includes("adapter.submitMarketOrder") &&
+    hedgeWorkerSource.indexOf("adapter.queryOrder") < hedgeWorkerSource.indexOf("adapter.submitMarketOrder") &&
+    hedgeWorkerSource.includes("HEDGE_ORDER_PENDING") &&
+    hedgeWorkerSource.includes("HEDGE_SUBMISSION_UNCONFIRMED") &&
+    hedgeWorkerSource.includes("recordExecutionProgress") &&
+    hedgeWorkerSource.includes("retryBackoffMs") &&
+    !hedgeWorkerSource.includes("maxAttempts"),
+  "hedge worker must reconcile before submit, persist partial fills, back off, and keep unknown states retryable",
+);
+assert.ok(
+  binanceAdapterSource.includes('createHmac("sha256"') &&
+    binanceAdapterSource.includes('"/api/v3/order"') &&
+    binanceAdapterSource.includes("origClientOrderId") &&
+    binanceAdapterSource.includes("newClientOrderId"),
+  "Binance adapter must use signed Spot order query and submission endpoints",
 );
 
 console.log(`Database schema consistency check passed (${tables.size} tables)`);

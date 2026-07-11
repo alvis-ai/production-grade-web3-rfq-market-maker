@@ -77,7 +77,8 @@ test("PostgresSettlementEventStore reactivates exact non-canonical events", asyn
 
   assert.equal(result.duplicate, false);
   assert.equal(client.queries.some(({ sql }) => sql.includes("SET canonical = TRUE")), true);
-  assert.equal(client.queries.filter(({ sql }) => sql.includes("INSERT INTO inventory_positions")).length, 2);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("LOCK TABLE inventory_positions")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("FROM hedge_orders AS hedge")), true);
 });
 
 test("PostgresSettlementEventStore rolls back conflicting duplicate payloads", async () => {

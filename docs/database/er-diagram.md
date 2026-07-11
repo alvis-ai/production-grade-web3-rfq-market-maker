@@ -86,6 +86,15 @@ erDiagram
     text status
     text reason
     text external_order_id
+    int attempt_count
+    timestamptz next_attempt_at
+    text lease_owner
+    timestamptz lease_expires_at
+    text venue_symbol
+    text client_order_id
+    timestamptz submission_attempted_at
+    numeric filled_amount
+    text last_error_code
     timestamptz created_at
     timestamptz updated_at
   }
@@ -133,6 +142,10 @@ erDiagram
 - runtime `MarketSnapshotStore` 必须镜像 `market_snapshots` 表的核心契约：同一 `snapshot_id` 只能对应同一 chain/token pair、price、liquidity、volatility、source 和 observedAt；完全相同写入可幂等重放，任何字段改写都必须失败，避免 quote 回放时一个 `snapshotId` 指向多个价格输入。
 - `quotes.settlement_event_id`、`quotes.hedge_order_id`、`quotes.pnl_id` 是分别指向 `settlement_events.id`、`hedge_orders.id`、`pnl_records.id` 的 nullable foreign keys，保证 `GET /quote/:id` 状态指针不能悬空；权威成交、对冲和 PnL 明细仍分别位于这些下游表。
 - `hedge_orders.status` 使用 `queued`、`filled`、`failed` 表达内部 intent 生命周期；`external_order_id` 可以在内部 queued intent 阶段为 NULL，但一旦外部 venue 返回引用就必须是非空字符串，`updated_at` 记录 filled/failed 状态转换时间。
+- `hedge_orders.attempt_count`、`next_attempt_at`、`lease_owner` 和 `lease_expires_at` 构成多 worker 共享的 durable queue。lease 字段必须同时为空或同时存在，只有 queued row 可以持有 lease，终态转换必须清除 lease。`idx_hedge_orders_queued_claim` 支持按 due time 使用 `FOR UPDATE SKIP LOCKED` claim。
+- `venue_symbol` 和 `client_order_id` 在外部调用前持久化；`uq_hedge_orders_venue_client_order` 防止同一 venue client id 指向多个本地 hedge。Binance client id 由 hedge id 确定性派生，worker 每次先查询再决定是否提交，避免 timeout 后重复对冲。
+- `submission_attempted_at` 在 POST 前经 canonical settlement row lock 授权写入，或在 query-first 发现已有外部订单时写入。Reorg 后 worker 不再 claim 从未尝试提交的 intent，但会继续追踪 submission-attempted job 直到明确终态，避免遗忘可能已被 CEX 接受的订单。
+- `last_error_code` 只保存低基数稳定错误码，不保存可能包含凭据或高基数 venue message。retryable/unknown/pending 状态保持 queued，只有确定失败才进入 failed；filled row 必须有 `external_order_id` 和正数 `filled_amount`。每次观察到更大的累计成交量时，`filled_amount` 与新增 token inventory delta 在同一数据库事务中提交；重复查询只应用差额，pending partial fill 也会立即进入风险敞口。
 - `quotes.snapshot_id` 使用索引支持报价回放；nullable status pointers 使用 partial indexes，只索引非空的 `settlement_event_id`、`hedge_order_id` 和 `pnl_id`，支持审计 join 和 reconciliation 查询，同时避免大量未成交 quote 的空指针污染索引。
 - 所有带 `chain_id` 的操作表都使用 CHECK constraint 限制为 JavaScript safe integer range `1..9007199254740991`，与后端、SDK 和 OpenAPI 的 `chainId` 契约一致，避免数据库保存无法被运行时代码安全表示的链 ID。
 - `quotes.tx_hash` 是状态查询冗余字段，用于快速展示链上交易哈希；权威成交事件仍由 `settlement_events` 和 `quote_hash` 绑定。

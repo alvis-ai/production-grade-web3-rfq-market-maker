@@ -64,7 +64,7 @@ const hedgeStatusRequiredFields = [
   "reason",
   "createdAt",
 ] as const;
-const hedgeStatusOptionalFields = ["externalOrderId", "updatedAt"] as const;
+const hedgeStatusOptionalFields = ["externalOrderId", "filledAmount", "failureCode", "updatedAt"] as const;
 const settlementEventStatusFields = [
   "settlementEventId",
   "status",
@@ -688,6 +688,13 @@ function assertHedgeIntentStatus(payload: unknown, status: number): asserts payl
   }
   if (payload.externalOrderId !== undefined && !isNonEmptyString(payload.externalOrderId)) {
     throw malformedFieldError(status, label, "externalOrderId");
+  }
+  if (payload.filledAmount !== undefined && !isPositiveUIntString(payload.filledAmount)) {
+    throw malformedFieldError(status, label, "filledAmount");
+  }
+  if (payload.failureCode !== undefined &&
+      (typeof payload.failureCode !== "string" || !/^[A-Z0-9_:-]{1,128}$/.test(payload.failureCode))) {
+    throw malformedFieldError(status, label, "failureCode");
   }
   if (payload.updatedAt !== undefined && !isIsoUtcTimestampString(payload.updatedAt)) {
     throw malformedFieldError(status, label, "updatedAt");

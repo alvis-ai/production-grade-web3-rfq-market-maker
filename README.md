@@ -141,6 +141,7 @@ VITE_RFQ_SETTLEMENT_ADDRESS=0x...
 VITE_WALLETCONNECT_PROJECT_ID=00000000000000000000000000000000
 # RFQ_MARKET_PAIRS=1:0xTokenIn:0xTokenOut
 # RFQ_CEX_PAIRS=1:0xTokenIn:0xTokenOut:binance:ETHUSDT,1:0xTokenIn:0xTokenOut:coinbase:ETH-USDT
+# RFQ_HEDGE_ROUTES_JSON={"routes":[...]}
 # RFQ_MARKET_DATA_PROVIDER=chainlink
 # RFQ_CHAINLINK_CONFIG_JSON={...}
 RFQ_ALLOW_SIMULATED_SETTLEMENT=true
@@ -153,7 +154,9 @@ The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK 
 
 Local development permits synthetic settlement only when `RFQ_ALLOW_SIMULATED_SETTLEMENT=true`. In receipt-confirmed mode the wallet broadcasts `RFQSettlement.submitQuote`, then sends the resulting `txHash` to `POST /submit`. The backend treats that hash only as an RPC lookup key: it waits for configured confirmations, verifies transaction `from`, `to`, and decoded `submitQuote` calldata against the stored quote/signature, requires a successful receipt, and requires exactly one matching `QuoteSettled` event before inventory, hedge, PnL, or quote-status side effects.
 
-When `DATABASE_URL` is configured, quote audit records and the complete post-trade path use PostgreSQL. Settlement event insertion and both inventory token deltas commit in one transaction; duplicate `(chain_id, tx_hash, log_index)` or `quote_id` events cannot apply inventory twice. Inventory pricing reads the shared `inventory_positions` projection on every request, so horizontally scaled replicas use one exposure state. Hedge intents and PnL records are durable idempotent projections keyed by settlement event and quote/model. Startup takes a transaction-scoped advisory lock and repairs inventory from canonical settlement events before readiness. Reorg removal marks an event non-canonical instead of deleting audit history, rebuilds inventory in the same transaction, and leaves quote, hedge and PnL cleanup to reconciliation.
+When `DATABASE_URL` is configured, quote audit records and the complete post-trade path use PostgreSQL. Settlement event insertion and both inventory token deltas commit in one transaction; duplicate `(chain_id, tx_hash, log_index)` or `quote_id` events cannot apply inventory twice. Inventory pricing reads the shared `inventory_positions` projection on every request, so horizontally scaled replicas use one exposure state. Hedge intents and PnL records are durable idempotent projections keyed by settlement event and quote/model. Startup takes a transaction-scoped advisory lock and repairs inventory from canonical settlement events plus every externally executed hedge fill before readiness. Reorg removal marks an event non-canonical instead of deleting audit history and rebuilds inventory in the same transaction. Quote/PnL reconciliation removes chain-derived pointers, while submission-attempted or terminal CEX hedge evidence remains because a chain reorg cannot undo a potentially accepted external trade.
+
+The hedge worker is a separate process (`pnpm --dir backend start:hedge-worker`) with its own CEX credentials and health surface on port 3001. `RFQ_HEDGE_ROUTES_JSON` maps each `chainId/token` base asset to a Binance symbol, token decimals, and raw-unit step size. Multiple replicas claim due `hedge_orders` with `FOR UPDATE SKIP LOCKED` and expiring leases. Before every market order the worker persists a deterministic 36-character client order id and queries Binance by that id; it submits only when the order is absent. Network timeouts, rate limits, unknown responses, and pending orders remain queued because an externally accepted order must never be marked failed from local retry exhaustion. Only an explicit venue terminal status or deterministic route/quantity error produces `failed`.
 
 `RFQ_MARKET_PAIRS` controls background snapshot prefetch. `RFQ_CEX_PAIRS` adds exchange-specific Level-2 sources using `chainId:tokenIn:tokenOut:exchange:symbol`; configure Binance and Coinbase separately because their symbols differ. For a shared token pair, synchronized source prices are aggregated by median and near-mid liquidity is summed. A disconnected or sequence-gapped source is removed from aggregation until its full snapshot and buffered updates are synchronized again.
 
@@ -171,6 +174,13 @@ The local compose stack can run the reference backend, static frontend, Promethe
 
 ```sh
 docker compose up --build
+```
+
+Start the credential-isolated Binance hedge worker only after supplying trade-only testnet credentials:
+
+```sh
+RFQ_BINANCE_API_KEY=... RFQ_BINANCE_API_SECRET=... \
+  docker compose --profile hedge up --build hedge-worker
 ```
 
 Local ports:
@@ -196,7 +206,25 @@ kubectl -n rfq-market-maker create secret generic rfq-backend-secrets \
   --from-literal=RFQ_REDIS_URL=rediss://user:password@redis.example.com:6380/0
 ```
 
-The Helm chart expects signer keys through `signerSecret`, the Redis URL through `redisSecret`, and the PostgreSQL URL through `databaseSecret.name` / `databaseSecret.urlKey`.
+Create a separate worker Secret so API pods never receive venue credentials. The Binance key should permit spot trading only, use an IP allowlist, and have withdrawals disabled:
+
+```sh
+kubectl -n rfq-market-maker create secret generic rfq-hedge-worker-secrets \
+  --from-literal=DATABASE_URL=postgres://worker:password@postgres.example.com:5432/rfq_market_maker \
+  --from-literal=RFQ_BINANCE_API_KEY=... \
+  --from-literal=RFQ_BINANCE_API_SECRET=...
+```
+
+Use a third, migration-only Secret for the init container's DDL-capable database role. Runtime API and worker roles should not own schema privileges:
+
+```sh
+kubectl -n rfq-market-maker create secret generic rfq-database-migration-secrets \
+  --from-literal=DATABASE_URL=postgres://migrator:password@postgres.example.com:5432/rfq_market_maker
+```
+
+The Helm chart expects signer keys through `signerSecret`, the Redis URL through `redisSecret`, and the API PostgreSQL URL through `databaseSecret.name` / `databaseSecret.urlKey`. `hedgeWorker.secret` references the separate worker database and Binance credential keys; `hedgeWorker.env.RFQ_HEDGE_ROUTES_JSON` contains only non-secret routing metadata.
+
+Both API and worker Kubernetes Deployments run the migration entrypoint in an init container using `migrationSecret`. Migration discovery and execution are serialized by a PostgreSQL session advisory lock, allowing multiple rollout pods to start safely while ensuring `003-hedge-worker-queue.sql` is committed before either process checks readiness. The DDL-capable migrator credential is not mounted into either runtime container.
 
 Local API smoke path:
 

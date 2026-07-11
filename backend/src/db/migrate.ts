@@ -13,79 +13,80 @@ interface MigrationRecord {
   applied_at: string;
 }
 
+const migrationLockId = 1_384_717_920;
+
 export async function migrate(pool?: pg.Pool): Promise<void> {
   const p = pool ?? getPool();
-  await ensureMigrationsTable(p);
-  const applied = await getAppliedMigrations(p);
-  const available = await getAvailableMigrations();
+  const client = await p.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock($1)", [migrationLockId]);
+    await ensureMigrationsTable(client);
+    const applied = await getAppliedMigrations(client);
+    const available = await getAvailableMigrations();
 
-  for (const migration of available) {
-    if (applied.has(migration.version)) {
-      continue;
+    for (const migration of available) {
+      if (applied.has(migration.version)) continue;
+      const filePath = path.join(migrationsDir, migration.fileName);
+      const sql = fs.readFileSync(filePath, "utf-8");
+      try {
+        await client.query("BEGIN");
+        await client.query(sql);
+        await client.query(
+          `INSERT INTO _migrations (version, name) VALUES ($1, $2)`,
+          [migration.version, migration.name],
+        );
+        await client.query("COMMIT");
+        console.log(`Migration applied: ${migration.version}_${migration.name}`);
+      } catch (error) {
+        await rollbackBestEffort(client);
+        console.error(`Migration failed: ${migration.version}_${migration.name}:`, error);
+        throw error;
+      }
     }
-
-    const filePath = path.join(migrationsDir, migration.fileName);
-    const sql = fs.readFileSync(filePath, "utf-8");
-
-    const client = await p.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(sql);
-      await client.query(
-        `INSERT INTO _migrations (version, name) VALUES ($1, $2)`,
-        [migration.version, migration.name],
-      );
-      await client.query("COMMIT");
-      console.log(`Migration applied: ${migration.version}_${migration.name}`);
-    } catch (error) {
-      await client.query("ROLLBACK");
-      console.error(`Migration failed: ${migration.version}_${migration.name}:`, error);
-      throw error;
-    } finally {
-      client.release();
-    }
+  } finally {
+    await unlockBestEffort(client);
+    client.release();
   }
 }
 
 export async function migrateUpTo(pool: pg.Pool, targetVersion: string): Promise<void> {
-  await ensureMigrationsTable(pool);
-  const applied = await getAppliedMigrations(pool);
-  const available = await getAvailableMigrations();
+  const client = await pool.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock($1)", [migrationLockId]);
+    await ensureMigrationsTable(client);
+    const applied = await getAppliedMigrations(client);
+    const available = await getAvailableMigrations();
 
-  for (const migration of available) {
-    if (applied.has(migration.version)) {
-      continue;
+    assertTargetMigrationExists(available, targetVersion);
+
+    for (const migration of available) {
+      if (migration.version.localeCompare(targetVersion) > 0) break;
+      if (applied.has(migration.version)) continue;
+      const filePath = path.join(migrationsDir, migration.fileName);
+      const sql = fs.readFileSync(filePath, "utf-8");
+      try {
+        await client.query("BEGIN");
+        await client.query(sql);
+        await client.query(
+          `INSERT INTO _migrations (version, name) VALUES ($1, $2)`,
+          [migration.version, migration.name],
+        );
+        await client.query("COMMIT");
+        console.log(`Migration applied: ${migration.version}_${migration.name}`);
+      } catch (error) {
+        await rollbackBestEffort(client);
+        console.error(`Migration failed: ${migration.version}_${migration.name}:`, error);
+        throw error;
+      }
     }
-
-    const filePath = path.join(migrationsDir, migration.fileName);
-    const sql = fs.readFileSync(filePath, "utf-8");
-
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(sql);
-      await client.query(
-        `INSERT INTO _migrations (version, name) VALUES ($1, $2)`,
-        [migration.version, migration.name],
-      );
-      await client.query("COMMIT");
-      console.log(`Migration applied: ${migration.version}_${migration.name}`);
-    } catch (error) {
-      await client.query("ROLLBACK");
-      console.error(`Migration failed: ${migration.version}_${migration.name}:`, error);
-      throw error;
-    } finally {
-      client.release();
-    }
-
-    if (migration.version === targetVersion) {
-      break;
-    }
+  } finally {
+    await unlockBestEffort(client);
+    client.release();
   }
 }
 
-async function ensureMigrationsTable(pool: pg.Pool): Promise<void> {
-  await pool.query(`
+async function ensureMigrationsTable(client: pg.PoolClient): Promise<void> {
+  await client.query(`
     CREATE TABLE IF NOT EXISTS _migrations (
       version TEXT NOT NULL,
       name TEXT NOT NULL,
@@ -95,8 +96,8 @@ async function ensureMigrationsTable(pool: pg.Pool): Promise<void> {
   `);
 }
 
-async function getAppliedMigrations(pool: pg.Pool): Promise<Map<string, MigrationRecord>> {
-  const result = await pool.query<MigrationRecord>(
+async function getAppliedMigrations(client: pg.PoolClient): Promise<Map<string, MigrationRecord>> {
+  const result = await client.query<MigrationRecord>(
     "SELECT version, name, applied_at FROM _migrations ORDER BY version ASC",
   );
   const map = new Map<string, MigrationRecord>();
@@ -106,10 +107,28 @@ async function getAppliedMigrations(pool: pg.Pool): Promise<Map<string, Migratio
   return map;
 }
 
+async function rollbackBestEffort(client: pg.PoolClient): Promise<void> {
+  try {
+    await client.query("ROLLBACK");
+  } catch {}
+}
+
+async function unlockBestEffort(client: pg.PoolClient): Promise<void> {
+  try {
+    await client.query("SELECT pg_advisory_unlock($1)", [migrationLockId]);
+  } catch {}
+}
+
 interface AvailableMigration {
   version: string;
   name: string;
   fileName: string;
+}
+
+function assertTargetMigrationExists(available: AvailableMigration[], targetVersion: string): void {
+  if (!available.some((migration) => migration.version === targetVersion)) {
+    throw new Error(`Target migration does not exist: ${targetVersion}`);
+  }
 }
 
 async function getAvailableMigrations(): Promise<AvailableMigration[]> {

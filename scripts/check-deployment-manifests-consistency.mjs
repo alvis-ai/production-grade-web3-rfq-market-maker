@@ -8,9 +8,17 @@ const k8sService = await readFile("infra/k8s/backend-service.yaml", "utf8");
 const k8sConfig = await readFile("infra/k8s/configmap.yaml", "utf8");
 const k8sSecret = await readFile("infra/k8s/backend-secret.yaml", "utf8");
 const k8sNetworkPolicy = await readFile("infra/k8s/network-policy.yaml", "utf8");
+const k8sHedgeDeployment = await readFile("infra/k8s/hedge-worker-deployment.yaml", "utf8");
+const k8sHedgeService = await readFile("infra/k8s/hedge-worker-service.yaml", "utf8");
+const k8sHedgeSecret = await readFile("infra/k8s/hedge-worker-secret.yaml", "utf8");
+const k8sHedgeNetworkPolicy = await readFile("infra/k8s/hedge-worker-network-policy.yaml", "utf8");
+const k8sMigrationSecret = await readFile("infra/k8s/database-migration-secret.yaml", "utf8");
 const helmValues = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
 const helmDeployment = await readFile("infra/helm/rfq-market-maker/templates/deployment.yaml", "utf8");
 const helmService = await readFile("infra/helm/rfq-market-maker/templates/service.yaml", "utf8");
+const helmHedgeDeployment = await readFile("infra/helm/rfq-market-maker/templates/hedge-worker-deployment.yaml", "utf8");
+const helmHedgeService = await readFile("infra/helm/rfq-market-maker/templates/hedge-worker-service.yaml", "utf8");
+const helmHedgeNetworkPolicy = await readFile("infra/helm/rfq-market-maker/templates/hedge-worker-network-policy.yaml", "utf8");
 const kubernetesChapter = await readFile("book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md", "utf8");
 
 const expectedRuntime = {
@@ -32,6 +40,9 @@ assertContains(k8sDeployment, [
   `app.kubernetes.io/name: ${expectedRuntime.appName}`,
   `replicas: ${expectedRuntime.replicas}`,
   `terminationGracePeriodSeconds: ${expectedRuntime.terminationGracePeriodSeconds}`,
+  "initContainers:",
+  'command: ["node", "backend/dist/db/migrate.js"]',
+  "name: rfq-database-migration-secrets",
   'command: ["sh", "-c", "sleep 5"]',
   "path: /ready",
   "path: /health",
@@ -83,6 +94,49 @@ assertContains(k8sNetworkPolicy, [
   "port: 3000",
 ], "infra/k8s/network-policy.yaml");
 
+assertContains(k8sHedgeDeployment, [
+  "kind: Deployment",
+  "name: rfq-hedge-worker",
+  "replicas: 2",
+  "initContainers:",
+  'command: ["node", "backend/dist/db/migrate.js"]',
+  "name: rfq-database-migration-secrets",
+  'command: ["node", "backend/dist/hedge-worker-main.js"]',
+  "containerPort: 3001",
+  "name: rfq-hedge-worker-secrets",
+  "path: /ready",
+  "path: /health",
+], "infra/k8s/hedge-worker-deployment.yaml");
+
+assertContains(k8sHedgeService, [
+  "kind: Service",
+  "name: rfq-hedge-worker",
+  'prometheus.io/scrape: "true"',
+  'prometheus.io/port: "3001"',
+  "port: 3001",
+], "infra/k8s/hedge-worker-service.yaml");
+
+assertContains(k8sHedgeSecret, [
+  "name: rfq-hedge-worker-secrets",
+  "DATABASE_URL:",
+  "RFQ_BINANCE_API_KEY:",
+  "RFQ_BINANCE_API_SECRET:",
+], "infra/k8s/hedge-worker-secret.yaml");
+assert.ok(!k8sHedgeSecret.includes("RFQ_SIGNER_PRIVATE_KEY"), "hedge worker Secret must not contain signer credentials");
+assertContains(k8sMigrationSecret, [
+  "name: rfq-database-migration-secrets",
+  "DATABASE_URL: postgres://rfq-migrator:",
+], "infra/k8s/database-migration-secret.yaml");
+assertContains(k8sHedgeNetworkPolicy, [
+  "kind: NetworkPolicy",
+  "app.kubernetes.io/name: rfq-hedge-worker",
+  "- Ingress",
+  "- Egress",
+  "port: 3001",
+  "port: 5432",
+  "port: 443",
+], "infra/k8s/hedge-worker-network-policy.yaml");
+
 assertContains(helmValues, [
   `replicaCount: ${expectedRuntime.replicas}`,
   `terminationGracePeriodSeconds: ${expectedRuntime.terminationGracePeriodSeconds}`,
@@ -102,6 +156,14 @@ assertContains(helmValues, [
   "urlKey: RFQ_REDIS_URL",
   "databaseSecret:",
   "urlKey: DATABASE_URL",
+  "migrationSecret:",
+  "name: rfq-database-migration-secrets",
+  "hedgeWorker:",
+  "RFQ_HEDGE_ROUTES_JSON:",
+  "RFQ_BINANCE_REQUEST_TIMEOUT_MS:",
+  "apiKeyKey: RFQ_BINANCE_API_KEY",
+  "apiSecretKey: RFQ_BINANCE_API_SECRET",
+  "networkPolicy:",
   "cpu: 100m",
   "memory: 128Mi",
   "cpu: 500m",
@@ -111,6 +173,10 @@ assertContains(helmValues, [
 assertContains(helmDeployment, [
   "replicas: {{ .Values.replicaCount }}",
   "terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}",
+  "initContainers:",
+  'command: ["node", "backend/dist/db/migrate.js"]',
+  "name: {{ .Values.migrationSecret.name }}",
+  "key: {{ .Values.migrationSecret.urlKey }}",
   'command: ["sh", "-c", "sleep {{ .Values.preStopSleepSeconds }}"]',
   "path: /ready",
   "path: /health",
@@ -132,6 +198,36 @@ assertContains(helmService, [
   "targetPort: http",
 ], "infra/helm/rfq-market-maker/templates/service.yaml");
 
+assertContains(helmHedgeDeployment, [
+  "{{- if .Values.hedgeWorker.enabled }}",
+  "replicas: {{ .Values.hedgeWorker.replicaCount }}",
+  "initContainers:",
+  'command: ["node", "backend/dist/db/migrate.js"]',
+  "name: {{ .Values.migrationSecret.name }}",
+  "key: {{ .Values.migrationSecret.urlKey }}",
+  'command: ["node", "backend/dist/hedge-worker-main.js"]',
+  "key: {{ .Values.hedgeWorker.secret.databaseUrlKey }}",
+  "key: {{ .Values.hedgeWorker.secret.apiKeyKey }}",
+  "key: {{ .Values.hedgeWorker.secret.apiSecretKey }}",
+  "path: /ready",
+  "path: /health",
+], "infra/helm/rfq-market-maker/templates/hedge-worker-deployment.yaml");
+
+assertContains(helmHedgeService, [
+  "{{- if .Values.hedgeWorker.enabled }}",
+  "with .Values.hedgeWorker.service.annotations",
+  "toYaml .",
+  "port: {{ .Values.hedgeWorker.port }}",
+], "infra/helm/rfq-market-maker/templates/hedge-worker-service.yaml");
+
+assertContains(helmHedgeNetworkPolicy, [
+  ".Values.hedgeWorker.networkPolicy.enabled",
+  "kind: NetworkPolicy",
+  "app.kubernetes.io/component: hedge-worker",
+  "port: 5432",
+  "port: 443",
+], "infra/helm/rfq-market-maker/templates/hedge-worker-network-policy.yaml");
+
 assertContains(kubernetesChapter, [
   "`terminationGracePeriodSeconds=30`",
   "preStop` sleep of 5 seconds",
@@ -144,6 +240,8 @@ assertContains(kubernetesChapter, [
   "`rateLimitStore`",
   "Resource request/limit",
   "NetworkPolicy",
+  "`rfq-hedge-worker-secrets`",
+  "`FOR UPDATE SKIP LOCKED`",
 ], "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md");
 
 console.log("Deployment manifests consistency check passed");

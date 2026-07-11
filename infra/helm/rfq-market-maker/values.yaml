@@ -52,6 +52,44 @@ databaseSecret:
   name: rfq-backend-secrets
   urlKey: DATABASE_URL
 
+migrationSecret:
+  name: rfq-database-migration-secrets
+  urlKey: DATABASE_URL
+
+hedgeWorker:
+  enabled: true
+  replicaCount: 2
+  port: 3001
+  env:
+    RFQ_HEDGE_WORKER_HOST: "0.0.0.0"
+    RFQ_HEDGE_WORKER_PORT: "3001"
+    RFQ_HEDGE_LEASE_MS: "30000"
+    RFQ_HEDGE_POLL_INTERVAL_MS: "250"
+    RFQ_HEDGE_RETRY_DELAY_MS: "1000"
+    RFQ_HEDGE_ROUTES_JSON: '{"routes":[{"chainId":1,"token":"0x0000000000000000000000000000000000000003","venue":"binance","symbol":"ETHUSDT","tokenDecimals":18,"stepSizeRaw":"100000000000000"}]}'
+    RFQ_BINANCE_BASE_URL: "https://api.binance.com"
+    RFQ_BINANCE_RECV_WINDOW_MS: "5000"
+    RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000"
+  secret:
+    name: rfq-hedge-worker-secrets
+    databaseUrlKey: DATABASE_URL
+    apiKeyKey: RFQ_BINANCE_API_KEY
+    apiSecretKey: RFQ_BINANCE_API_SECRET
+  service:
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "3001"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  networkPolicy:
+    enabled: true
+
 resources:
   requests:
     cpu: 100m

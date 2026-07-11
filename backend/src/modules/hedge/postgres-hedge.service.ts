@@ -24,7 +24,8 @@ import {
 
 const hedgeColumns = `
   id, settlement_event_id, quote_id, chain_id, token_address, side, amount,
-  status, reason, external_order_id, created_at, updated_at
+  status, reason, external_order_id, filled_amount, last_error_code,
+  created_at, updated_at
 `;
 
 export class PostgresHedgeService implements HedgeIntentService {
@@ -109,10 +110,21 @@ export class PostgresHedgeService implements HedgeIntentService {
     const client = await this.pool.connect();
     try {
       const result = await client.query(
-        `DELETE FROM hedge_orders WHERE settlement_event_id = $1 RETURNING ${hedgeColumns}`,
+        `DELETE FROM hedge_orders
+         WHERE settlement_event_id = $1 AND status = 'queued'
+           AND submission_attempted_at IS NULL AND filled_amount IS NULL
+           AND lease_owner IS NULL
+         RETURNING ${hedgeColumns}`,
         [settlementEventId],
       );
-      if (result.rows.length === 0) return { removed: false };
+      if (result.rows.length === 0) {
+        const existing = await client.query(
+          `SELECT ${hedgeColumns} FROM hedge_orders WHERE settlement_event_id = $1`,
+          [settlementEventId],
+        );
+        if (existing.rows.length > 1) throw new Error("Postgres hedge reorg lookup returned multiple rows");
+        return { ...(existing.rows[0] ? { record: parseHedgeRow(existing.rows[0]) } : {}), removed: false };
+      }
       if (result.rows.length !== 1) throw new Error("Postgres hedge removal returned multiple rows");
       return { record: parseHedgeRow(result.rows[0]), removed: true };
     } finally {
@@ -140,10 +152,14 @@ export class PostgresHedgeService implements HedgeIntentService {
       const result = await client.query(
         `INSERT INTO hedge_orders (
            id, settlement_event_id, quote_id, chain_id, token_address,
-           side, amount, venue, status, reason
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'internal', 'failed', $8)
+           side, amount, venue, status, reason, last_error_code
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'internal', 'failed', $8, 'HEDGE_INTENT_FAILED')
          ON CONFLICT (settlement_event_id) DO UPDATE SET
            status = CASE WHEN hedge_orders.status = 'filled' THEN 'filled' ELSE 'failed' END,
+           last_error_code = CASE
+             WHEN hedge_orders.status = 'filled' THEN hedge_orders.last_error_code
+             ELSE EXCLUDED.last_error_code
+           END,
            updated_at = now()
          WHERE hedge_orders.id = EXCLUDED.id
            AND hedge_orders.quote_id = EXCLUDED.quote_id
@@ -211,18 +227,32 @@ export class PostgresHedgeService implements HedgeIntentService {
   ): Promise<UpdateHedgeIntentResult> {
     const client = await this.pool.connect();
     try {
-      const result = await client.query(
-        `UPDATE hedge_orders
-         SET status = $2, external_order_id = COALESCE($3, external_order_id), updated_at = now()
-         WHERE id = $1 AND status = 'queued'
-         RETURNING ${hedgeColumns}`,
-        [hedgeOrderId, status, externalOrderId ?? null],
+      await client.query("BEGIN");
+      const settlement = await client.query(
+        `SELECT settlement.id, settlement.canonical
+         FROM settlement_events AS settlement
+         INNER JOIN hedge_orders AS hedge ON hedge.settlement_event_id = settlement.id
+         WHERE hedge.id = $1
+         FOR UPDATE OF settlement`,
+        [hedgeOrderId],
       );
-      if (result.rows.length === 1) return { record: parseHedgeRow(result.rows[0]), updated: true };
-      if (result.rows.length > 1) throw new Error("Postgres hedge status update returned multiple rows");
-      const selected = await client.query(`SELECT ${hedgeColumns} FROM hedge_orders WHERE id = $1`, [hedgeOrderId]);
+      if (settlement.rows.length === 0) {
+        await client.query("COMMIT");
+        return { updated: false };
+      }
+      if (settlement.rows.length !== 1 || typeof settlement.rows[0]?.canonical !== "boolean") {
+        throw new Error(`Postgres hedge settlement is unavailable for ${hedgeOrderId}`);
+      }
+      const selected = await client.query(
+        `SELECT ${hedgeColumns}, lease_owner FROM hedge_orders WHERE id = $1 FOR UPDATE`,
+        [hedgeOrderId],
+      );
       if (selected.rows.length > 1) throw new Error("Postgres hedge status lookup returned multiple rows");
-      const existing = selected.rows[0] ? parseHedgeRow(selected.rows[0]) : undefined;
+      if (selected.rows.length === 0) {
+        await client.query("COMMIT");
+        return { updated: false };
+      }
+      const existing = parseHedgeRow(selected.rows[0]);
       if (existing && status === "filled") {
         if (existing.status === "failed") {
           throw new Error(`Hedge intent ${hedgeOrderId} cannot transition from failed to filled`);
@@ -234,7 +264,46 @@ export class PostgresHedgeService implements HedgeIntentService {
       if (existing?.status === "filled" && status === "failed") {
         throw new Error(`Hedge intent ${hedgeOrderId} cannot transition from filled to failed`);
       }
-      return { ...(existing ? { record: existing } : {}), updated: false };
+      if (existing.status === status) {
+        await client.query("COMMIT");
+        return { record: existing, updated: false };
+      }
+      if ((selected.rows[0] as Record<string, unknown>).lease_owner !== null &&
+          (selected.rows[0] as Record<string, unknown>).lease_owner !== undefined) {
+        throw new Error(`Hedge intent ${hedgeOrderId} is leased by a worker`);
+      }
+      const result = await client.query(
+        `UPDATE hedge_orders
+         SET status = $2,
+             external_order_id = CASE WHEN $2 = 'filled' THEN $3 ELSE external_order_id END,
+             filled_amount = CASE WHEN $2 = 'filled' THEN amount ELSE filled_amount END,
+             last_error_code = CASE
+               WHEN $2 = 'failed' THEN COALESCE(last_error_code, 'HEDGE_MANUAL_FAILURE')
+               ELSE NULL
+             END,
+             updated_at = now()
+         WHERE id = $1 AND status = 'queued' AND lease_owner IS NULL
+         RETURNING ${hedgeColumns}`,
+        [hedgeOrderId, status, externalOrderId ?? null],
+      );
+      if (result.rows.length !== 1) throw new Error(`Postgres hedge status conflict for ${hedgeOrderId}`);
+      const record = parseHedgeRow(result.rows[0]);
+      if (status === "filled") {
+        const delta = record.side === "buy" ? record.amount : `-${record.amount}`;
+        await client.query(
+          `INSERT INTO inventory_positions (id, chain_id, token_address, balance, updated_at)
+           VALUES ($1, $2, $3, $4, now())
+           ON CONFLICT (chain_id, token_address) DO UPDATE SET
+             balance = inventory_positions.balance + EXCLUDED.balance,
+             updated_at = now()`,
+          [inventoryPositionId(record.chainId, record.token), record.chainId, record.token.toLowerCase(), delta],
+        );
+      }
+      await client.query("COMMIT");
+      return { record, updated: true };
+    } catch (error) {
+      await rollbackBestEffort(client);
+      throw error;
     } finally {
       client.release();
     }
@@ -244,6 +313,10 @@ export class PostgresHedgeService implements HedgeIntentService {
 function buildPostgresHedgeOrderId(settlementEventId: string): string {
   const digest = createHash("sha256").update(settlementEventId).digest("hex").slice(0, 32);
   return `h_${digest}`;
+}
+
+function inventoryPositionId(chainId: number, token: Address): string {
+  return `ip_${chainId}_${token.slice(2).toLowerCase()}`;
 }
 
 function parseHedgeRow(row: unknown): HedgeIntentStatusResponse {
@@ -266,6 +339,16 @@ function parseHedgeRow(row: unknown): HedgeIntentStatusResponse {
       (typeof externalOrderId !== "string" || externalOrderId.trim().length === 0)) {
     throw new Error("Postgres hedge row external_order_id is invalid");
   }
+  const filledAmount = value.filled_amount;
+  if (filledAmount !== null && filledAmount !== undefined &&
+      (typeof filledAmount !== "string" || !/^[1-9][0-9]*$/.test(filledAmount))) {
+    throw new Error("Postgres hedge row filled_amount is invalid");
+  }
+  const failureCode = value.last_error_code;
+  if (failureCode !== null && failureCode !== undefined &&
+      (typeof failureCode !== "string" || !/^[A-Z0-9_:-]{1,128}$/.test(failureCode))) {
+    throw new Error("Postgres hedge row last_error_code is invalid");
+  }
   const record: HedgeIntentStatusResponse = {
     hedgeOrderId: parseIdentifier(value.id, "id"),
     status,
@@ -278,8 +361,13 @@ function parseHedgeRow(row: unknown): HedgeIntentStatusResponse {
     reason,
     createdAt: parseTimestamp(value.created_at, "created_at"),
     ...(externalOrderId ? { externalOrderId } : {}),
+    ...(filledAmount ? { filledAmount } : {}),
+    ...(failureCode ? { failureCode } : {}),
     ...(value.updated_at ? { updatedAt: parseTimestamp(value.updated_at, "updated_at") } : {}),
   };
+  if (status === "filled" && (!record.externalOrderId || !record.filledAmount)) {
+    throw new Error("Postgres hedge filled row requires external order and filled amount");
+  }
   return record;
 }
 
@@ -348,4 +436,10 @@ function assertPool(pool: unknown): asserts pool is pg.Pool {
       typeof (pool as Record<string, unknown>).connect !== "function") {
     throw new Error("Postgres hedge pool.connect must be a function");
   }
+}
+
+async function rollbackBestEffort(client: pg.PoolClient): Promise<void> {
+  try {
+    await client.query("ROLLBACK");
+  } catch {}
 }

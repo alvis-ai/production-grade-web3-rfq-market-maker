@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Hedge Service 负责成交后风险再平衡。RFQSettlement 确认成交后，Inventory Service 计算 exposure delta。如果库存偏离目标，Hedge Service 选择 venue 和 route，提交对冲订单，并把结果反馈到库存、PnL 和后续风险。当前参考实现会在 `/submit` 模拟结算后立即创建 hedge intent，用于验证 post-trade path。
+Hedge Service 负责成交后风险再平衡。RFQSettlement 确认成交后，Inventory Service 计算 exposure delta。如果库存偏离目标，Hedge Service 选择 venue 和 route，提交对冲订单，并把结果反馈到库存、PnL 和后续风险。API 在 `/submit` 后只持久化 queued hedge intent；独立 worker 使用 PostgreSQL lease claim，并通过 Binance Spot signed REST API 执行真实 market order。
 
 ## Learning Objectives
 
@@ -125,14 +125,24 @@ Hedge Service uses internal event APIs. It does not expose public user API.
 - Hedge intent and risk feedback inputs are validated before writing hedge state: required config, intent and risk fields must be own fields; `settlementEventId` and `quoteId` must be own primitive-string `SafeIdentifier` values with 1-128 characters matching `[A-Za-z0-9_:-]`, `chainId` must be an own positive safe integer, `token` must be an own runtime string and a 20-byte address, `amount` must be an own canonical positive uint string without leading zeros, and `side` / `reason` must match the supported enum values. Direct service callers cannot pass `String` wrapper objects or inherited object properties and rely on JavaScript `RegExp.test()` coercion before hedge state or risk pressure mutation.
 - Hedge status lookups validate `hedgeOrderId` and `settlementEventId` as primitive-string `SafeIdentifier` values before reading local or PostgreSQL indexes, so internal callers cannot bypass the API gateway and query with blank, unsafe, boxed `String` or overlong resource identifiers.
 - Non-local runtime uses `PostgresHedgeService`: one unique `hedge_orders` row per settlement event, deterministic cross-replica hedge ids, DB timestamps, durable queued/filled/failed transitions, and idempotent conflict validation. Failed rows provide shared bounded quote-risk pressure instead of pod-local failure counters.
-- Hedge persistence is intentionally after the atomic settlement+inventory transaction. Failure cannot roll back a confirmed settlement; reconciliation recreates a missing intent from the canonical event, while reorg reconciliation deletes the projection before clearing quote pointers.
+- `PostgresHedgeJobStore` uses a short transaction with `FOR UPDATE SKIP LOCKED` to claim one due queued row, increments `attempt_count`, and writes an expiring `(lease_owner, lease_expires_at)` pair. Terminal and retry updates require the same lease owner, so a stale worker cannot overwrite a row reclaimed by another replica.
+- `RFQ_HEDGE_ROUTES_JSON` maps `chainId/token` to a Binance base-asset symbol, token decimals and raw-unit step size. The worker rounds amount down to that step before decimal formatting; zero-after-rounding is a deterministic `HEDGE_AMOUNT_BELOW_STEP_SIZE` failure rather than an invalid venue request.
+- Every hedge id derives one stable `rfq_<sha256>` Binance client order id. The worker persists this id, queries `GET /api/v3/order` first, and calls `POST /api/v3/order` only when Binance explicitly reports the order absent. This query-before-submit rule repairs a lost HTTP response without duplicate exposure.
+- Route persistence is write-once/idempotent for a queued job: a retry may repeat the exact venue, symbol and client id, but a deployment cannot overwrite them. Route changes require draining or explicitly reconciling old jobs by their persisted symbol/client id before rollout.
+- Immediately before a new POST, `authorizeSubmission` locks the source settlement row, requires it to remain canonical, and persists `submission_attempted_at`. Reorged, never-submitted jobs stop being claimable; jobs with an attempted submission continue query-only recovery after reorg because Binance may already have accepted them.
+- Retryable transport failures, HTTP 418/429/5xx, timestamp errors, malformed responses and `NEW` / `PARTIALLY_FILLED` venue states remain queued. Retries use attempt-based exponential backoff capped at 60 seconds and honor a longer valid `Retry-After`; local retry count is observability data, not evidence that an external order failed. Only explicit terminal rejection/cancel/expiry, missing route, or below-step amount enters `failed`.
+- HTTP 418/429 handling honors canonical Binance `Retry-After` delay-seconds up to seven days and takes the maximum of venue delay and local backoff, avoiding repeated rate-limit violations or IP-ban escalation.
+- Binance `executedQty` is converted back to raw token units and checked against token decimals, venue step size, and the requested hedge amount. Every observed cumulative partial fill atomically updates `filled_amount`, the external reference, and only the newly filled token delta in `inventory_positions`; terminal completion applies the remaining difference in the same PostgreSQL transaction. Repeated observations therefore cannot double-count exposure, while pending real fills are visible to quote risk immediately.
+- The worker requires its lease to exceed two configured HTTP timeout windows plus one second, covering the worst-case query-then-submit iteration. Deterministic client ids remain the second line of defense if a process stalls beyond its lease.
+- Binance credentials live only in the worker Secret. Use a trade-only, IP-restricted API key with withdrawals disabled; API and signer pods must not mount it.
+- Hedge persistence is intentionally after the atomic settlement+inventory transaction. Failure cannot roll back a confirmed settlement; reconciliation recreates a missing intent from the canonical event. Reorg reconciliation may delete only an unsubmitted, unleased queued intent. Once `submission_attempted_at` or a terminal venue result exists, the row is retained because external execution cannot be reversed by deleting a chain-derived projection.
 - Malformed hedge config, intent and risk feedback root payloads are rejected before field access or state mutation, so post-trade hedge failures cannot turn into unclassified `TypeError` paths or partial failure-pressure updates.
 - Persistent hedge rows keep `externalOrderId` nullable while an intent is only queued internally, but any non-null external order reference must be non-empty so venue reconciliation can trace it. `updatedAt` records the latest filled/failed transition while `createdAt` remains the original intent time.
 - Hedge credentials isolated from Quote Service.
 
 ## Failure Scenarios
 
-- Venue unavailable：retry or route elsewhere。
+- Venue unavailable：保留 queued、按确定性 client id 查询后重试，不把未知外部状态误标为 failed。
 - Partial fill：update residual exposure。
 - Hedge cost too high：risk limit tightened。
 - Credential failure：alert and disable venue。
@@ -149,7 +159,7 @@ Hedge lag is key metric. The service should prioritize high exposure intents.
 
 ## Testing Strategy
 
-测试 hedge skipped、route selected、venue reject、partial fill、idempotent retry、hedge intent creation failed does not rollback settlement、follow-up quote risk penalty、failure penalty config fail-fast、hedge status store unavailable 和 metrics emission。
+测试 hedge skipped、route selected、step-size rounding、HMAC signing、query-before-submit、venue reject、partial fill/pending retry、ambiguous timeout recovery、lease conflict、idempotent retry、hedge intent creation failed does not rollback settlement、follow-up quote risk penalty、failure penalty config fail-fast、hedge status store unavailable 和 worker metrics emission。
 
 ## Interview Notes
 

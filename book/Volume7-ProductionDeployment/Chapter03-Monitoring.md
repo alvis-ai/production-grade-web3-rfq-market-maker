@@ -120,6 +120,9 @@ Key metrics include:
 - `rfq_hedge_intents_total`
 - `rfq_hedge_intent_errors_total`
 - `rfq_hedge_lag_seconds`
+- `rfq_hedge_worker_jobs_total`
+- `rfq_hedge_worker_iteration_errors_total`
+- `rfq_hedge_worker_last_processed_timestamp_seconds`
 - `rfq_quote_status_update_errors_total`
 - `rfq_inventory_balance`
 - `rfq_pnl_trades_total`
@@ -144,6 +147,7 @@ Key metrics include:
 - Submit latency alerting should inspect verification, settlement event persistence, inventory, hedge and PnL work before lowering quote availability.
 - Signer throughput alerting should compare quote demand with `sign` operations; safe quote flow must never bypass the signer.
 - Market-data cache alerting should compare `rfq_market_data_cache_hits_total` and `rfq_market_data_cache_misses_total` before increasing quote limits; a cold cache points to disabled prefetch, stale CEX order book streams or unsupported pair configuration.
+- Hedge worker alerting correlates newly created intents with terminal/retry outcomes and last processed time. Repeated retries or iteration errors require checking PostgreSQL leases and querying Binance by persisted client order id before any manual action.
 - Rate-limit alerting should inspect `endpoint` first, then separate abuse, broken client retries and real demand before changing global limits.
 - Settlement throughput alerting should compare accepted submits with new settlement events to distinguish true settlement stalls from duplicate replay traffic.
 - Hedge intent throughput alerting should compare settlements with hedge intents because hedge lag histograms are silent when no intent is created.

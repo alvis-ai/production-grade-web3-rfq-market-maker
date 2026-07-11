@@ -43,7 +43,7 @@ const hedgeIntentStatusRequiredFields = [
   "reason",
   "createdAt",
 ] as const;
-const hedgeIntentStatusOptionalFields = ["externalOrderId", "updatedAt"] as const;
+const hedgeIntentStatusOptionalFields = ["externalOrderId", "filledAmount", "failureCode", "updatedAt"] as const;
 const settlementEventFields = [
   "settlementEventId",
   "status",
@@ -436,6 +436,13 @@ function assertHedgeIntentStatusResponse(
   if (hedgeRecord.externalOrderId !== undefined && !isNonEmptyString(hedgeRecord.externalOrderId)) {
     throw new Error("Execution service hedge result.record externalOrderId must be a non-empty string");
   }
+  if (hedgeRecord.filledAmount !== undefined) {
+    assertExecutionAmount(hedgeRecord.filledAmount, "filledAmount", "hedge result.record");
+  }
+  if (hedgeRecord.failureCode !== undefined &&
+      (typeof hedgeRecord.failureCode !== "string" || !/^[A-Z0-9_:-]{1,128}$/.test(hedgeRecord.failureCode))) {
+    throw new Error("Execution service hedge result.record failureCode must be a stable error code");
+  }
   if (hedgeRecord.updatedAt !== undefined && !isCanonicalUtcIsoTimestamp(hedgeRecord.updatedAt)) {
     throw new Error("Execution service hedge result.record updatedAt must be a canonical UTC ISO timestamp");
   }
@@ -631,7 +638,7 @@ function assertExecutionAddress(
 
 function assertExecutionAmount(
   value: unknown,
-  field: "amountIn" | "amountOut" | "amount" | "nonce",
+  field: "amountIn" | "amountOut" | "amount" | "filledAmount" | "nonce",
   path: string,
 ): asserts value is string {
   if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {

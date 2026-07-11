@@ -111,6 +111,8 @@ export interface HedgeIntentStatus {
   reason: "inventory_rebalance" | "risk_reduction";
   createdAt: string;
   externalOrderId?: string;
+  filledAmount?: UIntString;
+  failureCode?: string;
   updatedAt?: string;
 }
 

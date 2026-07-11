@@ -33,6 +33,11 @@ const canonicalInventoryProjectionSql = `
     SELECT chain_id, lower(token_out) AS token_address, -amount_out AS delta
     FROM settlement_events
     WHERE canonical = TRUE
+    UNION ALL
+    SELECT hedge.chain_id, lower(hedge.token_address) AS token_address,
+      CASE WHEN hedge.side = 'buy' THEN hedge.filled_amount ELSE -hedge.filled_amount END AS delta
+    FROM hedge_orders AS hedge
+    WHERE hedge.filled_amount IS NOT NULL
   ) AS inventory_deltas
   GROUP BY chain_id, token_address
 `;
