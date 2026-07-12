@@ -419,6 +419,8 @@ CREATE UNIQUE INDEX uq_hedge_orders_venue_client_order
 CREATE TABLE pnl_records (
   id TEXT PRIMARY KEY,
   quote_id TEXT NOT NULL REFERENCES quotes(id),
+  settlement_event_id TEXT NOT NULL REFERENCES settlement_events(id),
+  snapshot_id TEXT NOT NULL REFERENCES market_snapshots(id),
   chain_id BIGINT NOT NULL,
   user_address TEXT NOT NULL,
   token_in TEXT NOT NULL,
@@ -428,6 +430,11 @@ CREATE TABLE pnl_records (
   min_amount_out NUMERIC(78, 0) NOT NULL,
   nonce NUMERIC(78, 0) NOT NULL,
   deadline BIGINT NOT NULL,
+  mid_price NUMERIC(38, 18) NOT NULL,
+  token_in_decimals SMALLINT NOT NULL,
+  token_out_decimals SMALLINT NOT NULL,
+  fair_amount_out NUMERIC(78, 0) NOT NULL,
+  valuation_observed_at TIMESTAMPTZ NOT NULL,
   gross_pnl_token_out NUMERIC(78, 0) NOT NULL,
   gross_pnl_bps BIGINT NOT NULL,
   model TEXT NOT NULL,
@@ -440,9 +447,9 @@ CREATE TABLE pnl_records (
     AND char_length(id) <= 128
     AND id ~ '^[A-Za-z0-9_:-]+$'
   ),
-  CONSTRAINT chk_pnl_records_model CHECK (model IN ('simulated_mid_price_v1')),
+  CONSTRAINT chk_pnl_records_model CHECK (model IN ('quote_snapshot_edge_v1')),
   CONSTRAINT chk_pnl_records_model_description CHECK (
-    model_description = 'Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL'
+    model_description = 'Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution'
   ),
   CONSTRAINT chk_pnl_records_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_pnl_records_addresses_hex CHECK (
@@ -451,6 +458,14 @@ CREATE TABLE pnl_records (
     AND token_out ~ '^0x[0-9a-fA-F]{40}$'
   ),
   CONSTRAINT chk_pnl_records_distinct_tokens CHECK (lower(token_in) <> lower(token_out)),
+  CONSTRAINT chk_pnl_records_reference_ids_safe CHECK (
+    btrim(settlement_event_id) <> ''
+    AND char_length(settlement_event_id) <= 128
+    AND settlement_event_id ~ '^[A-Za-z0-9_:-]+$'
+    AND btrim(snapshot_id) <> ''
+    AND char_length(snapshot_id) <= 128
+    AND snapshot_id ~ '^[A-Za-z0-9_:-]+$'
+  ),
   CONSTRAINT chk_pnl_records_amounts_positive CHECK (
     amount_in > 0
     AND amount_out > 0
@@ -458,6 +473,12 @@ CREATE TABLE pnl_records (
     AND amount_out >= min_amount_out
     AND nonce > 0
     AND deadline BETWEEN 1 AND 9007199254740991
+  ),
+  CONSTRAINT chk_pnl_records_valuation CHECK (
+    mid_price > 0
+    AND token_in_decimals BETWEEN 0 AND 36
+    AND token_out_decimals BETWEEN 0 AND 36
+    AND fair_amount_out > 0
   ),
   CONSTRAINT chk_pnl_records_gross_pnl_bps_safe CHECK (
     gross_pnl_bps BETWEEN -9007199254740991 AND 9007199254740991
@@ -471,6 +492,9 @@ CREATE INDEX idx_pnl_records_chain_pair_realized_at ON pnl_records (
   token_out,
   realized_at DESC
 );
+CREATE UNIQUE INDEX uq_pnl_records_settlement_model
+  ON pnl_records (settlement_event_id, model);
+CREATE INDEX idx_pnl_records_snapshot_id ON pnl_records (snapshot_id);
 
 ALTER TABLE quotes
   ADD CONSTRAINT fk_quotes_snapshot_id
@@ -723,13 +747,15 @@ BEGIN
         'updatedAt', source_row.updated_at
       );
     WHEN 'pnl_records' THEN
-      event_name := 'pnl.attribution.v1';
+      event_name := 'pnl.attribution.v2';
       aggregate_name := 'pnl';
       aggregate_key := source_row.id;
       event_payload := jsonb_build_object(
         'operation', lower(TG_OP),
         'pnlId', source_row.id,
         'quoteId', source_row.quote_id,
+        'settlementEventId', source_row.settlement_event_id,
+        'snapshotId', source_row.snapshot_id,
         'chainId', source_row.chain_id,
         'user', lower(source_row.user_address),
         'tokenIn', lower(source_row.token_in),
@@ -739,6 +765,11 @@ BEGIN
         'minAmountOut', source_row.min_amount_out::text,
         'nonce', source_row.nonce::text,
         'deadline', source_row.deadline,
+        'midPrice', source_row.mid_price::text,
+        'tokenInDecimals', source_row.token_in_decimals,
+        'tokenOutDecimals', source_row.token_out_decimals,
+        'fairAmountOut', source_row.fair_amount_out::text,
+        'valuationObservedAt', source_row.valuation_observed_at,
         'grossPnlTokenOut', source_row.gross_pnl_token_out::text,
         'grossPnlBps', source_row.gross_pnl_bps,
         'model', source_row.model,
@@ -753,7 +784,9 @@ BEGIN
   INSERT INTO public.analytics_outbox (
     topic, event_key, event_type, schema_version, aggregate_type, aggregate_id, payload
   ) VALUES (
-    'rfq.analytics.v1', aggregate_key, event_name, 1, aggregate_name, aggregate_key, event_payload
+    'rfq.analytics.v1', aggregate_key, event_name,
+    CASE WHEN event_name = 'pnl.attribution.v2' THEN 2 ELSE 1 END,
+    aggregate_name, aggregate_key, event_payload
   );
 
   IF TG_OP = 'DELETE' THEN
@@ -988,4 +1021,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('002', 'settlement-canonical'),
   ('003', 'hedge-worker-queue'),
   ('004', 'analytics-outbox'),
-  ('005', 'post-trade-reconciliation');
+  ('005', 'post-trade-reconciliation'),
+  ('006', 'quote-snapshot-pnl');

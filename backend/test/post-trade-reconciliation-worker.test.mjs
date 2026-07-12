@@ -7,6 +7,7 @@ import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.
 import { PostTradeReconciliationWorker } from "../dist/modules/reconciliation/post-trade-reconciliation.worker.js";
 import { ReconciliationService } from "../dist/modules/reconciliation/reconciliation.service.js";
 import { SettlementEventService } from "../dist/modules/settlement/settlement-event.service.js";
+import { createTestPnlValuationProvider } from "./helpers/pnl-fixtures.mjs";
 
 const quote = {
   user: "0x0000000000000000000000000000000000000001",
@@ -72,7 +73,13 @@ test("PostTradeReconciliationWorker removes reversible projections for a non-can
     amount: quote.amountOut,
     reason: "inventory_rebalance",
   });
-  const pnl = deps.pnlService.recordSettlement({ quoteId: deps.quoteId, quote });
+  const pnl = await deps.pnlService.recordSettlement({
+    quoteId: deps.quoteId,
+    settlementEventId: settlement.event.settlementEventId,
+    snapshotId: `snapshot_${deps.quoteId}`,
+    realizedAt: settlement.event.observedAt,
+    quote,
+  });
   await deps.quoteRepository.markStatus(deps.quoteId, "settled", {
     txHash: settlement.event.txHash,
     settlementEventId: settlement.event.settlementEventId,
@@ -171,7 +178,7 @@ async function scenario(quoteId) {
   });
   const settlementEvents = new SettlementEventService(new InventoryService());
   const hedgeService = new HedgeService();
-  const pnlService = new PnlService();
+  const pnlService = new PnlService(createTestPnlValuationProvider());
   return {
     quoteId,
     quoteRepository,

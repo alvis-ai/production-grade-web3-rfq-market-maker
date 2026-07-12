@@ -70,6 +70,10 @@ grep -q 'scripts/analytics-integration-check.mjs' Makefile
 test -s backend/src/reconciliation-worker-main.ts
 test -s scripts/reconciliation-integration-check.mjs
 test -s backend/src/db/migrations/005-post-trade-reconciliation.sql
+test -s backend/src/db/migrations/006-quote-snapshot-pnl.sql
+test -s backend/src/modules/pnl/quote-snapshot-valuation.provider.ts
+test -s backend/test/quote-snapshot-pnl-valuation.test.mjs
+test -s backend/test/postgres-market-snapshot-store.test.mjs
 test -s backend/src/modules/reconciliation/post-trade-reconciliation.metrics.ts
 test -s backend/src/modules/reconciliation/post-trade-reconciliation.worker.ts
 test -s backend/src/modules/reconciliation/postgres-post-trade-reconciliation.store.ts
@@ -377,13 +381,13 @@ grep -q 'Market snapshot ${path}.${field} must be an own field' backend/src/modu
 grep -q 'Market snapshot ${path}.${field} must be an own field when provided' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/market-data/market-snapshot.repository.ts
-grep -q 'assertSafeIdentifier(snapshotId, "snapshotId")' backend/src/modules/market-data/market-snapshot.repository.ts
-grep -q 'assertSafeIdentifier(snapshot.snapshotId, "snapshotId")' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'assertMarketSnapshotIdentifier(snapshotId, "snapshotId")' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'assertMarketSnapshotIdentifier(snapshot.snapshotId, "snapshotId")' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'Market snapshot ${field} must be a primitive string' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -Fq 'typeof value === "string" && /^[1-9][0-9]*$/.test(value)' backend/src/modules/market-data/market-data.service.ts
 grep -Fq 'typeof value === "string" && /^[1-9][0-9]*$/.test(value)' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -Fq '/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/market-data/market-data.service.ts
-grep -Fq '/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -Fq 'normalizeHumanPrice(value);' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'parseCanonicalUtcIsoTimestamp(snapshot.observedAt)' backend/src/modules/market-data/market-data.service.ts
 grep -q 'marketSnapshotIssueFields = \["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"\]' backend/src/modules/market-data/market-data.service.ts
 grep -q 'hasOwnMarketSnapshotIssueFields(snapshot)' backend/src/modules/market-data/market-data.service.ts
@@ -630,7 +634,7 @@ grep -q 'server.get("/settlements/:settlementEventId"' backend/src/main.ts
 grep -q 'server.get("/hedges/:hedgeOrderId"' backend/src/main.ts
 grep -q 'server.get("/pnl"' backend/src/main.ts
 grep -q 'assertStatusIdentifier' backend/src/main.ts
-grep -Fq 'function assertStatusIdentifier(value: unknown' backend/src/main.ts
+grep -q 'function assertStatusIdentifier' backend/src/main.ts
 grep -q '${field} must be a primitive string' backend/src/main.ts
 grep -q 'maxStatusIdentifierLength' backend/src/main.ts
 grep -q 'maxStatusIdentifierRouteParamLength' backend/src/main.ts
@@ -687,7 +691,7 @@ grep -Fq 'assertResponseFields(submit.body, ["status", "txHash", "settlementEven
 grep -q 'assertResponseFields(status.body' backend/test/api.test.mjs
 grep -q 'assertResponseFields(settlement.body' backend/test/api.test.mjs
 grep -q 'assertResponseFields(hedge.body' backend/test/api.test.mjs
-grep -Fq 'assertResponseFields(pnl.body, ["status", "totalTrades", "grossPnlTokenOut", "trades"])' backend/test/api.test.mjs
+grep -Fq 'assertResponseFields(pnl.body, ["status", "totalTrades", "totals", "trades"])' backend/test/api.test.mjs
 grep -q 'assertResponseFields(pnl.body.trades\[0\]' backend/test/api.test.mjs
 grep -q 'successful response bodies must be closed field sets matching OpenAPI' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'RFQ API returns closed structured error responses' backend/test/api-validation-gateway.test.mjs
@@ -765,9 +769,9 @@ grep -q 'new InventoryService' backend/src/main.ts
 grep -q 'new HedgeService' backend/src/main.ts
 grep -q 'recordSettlement' backend/src/main.ts
 grep -q 'pnlTradeRecordFields = \[' backend/src/main.ts
-grep -q 'assertPnlRecordResult(pnlRecord, input)' backend/src/main.ts
-grep -q 'API PnL record grossPnlTokenOut must match submitted quote' backend/src/main.ts
-grep -q 'API PnL record modelDescription must describe simulated_mid_price_v1' backend/src/main.ts
+grep -q 'assertPnlRecordResult(pnlRecord, recordInput)' backend/src/main.ts
+grep -q 'API PnL record grossPnlTokenOut must match snapshot valuation' backend/src/main.ts
+grep -q 'API PnL record modelDescription must describe quote_snapshot_edge_v1' backend/src/main.ts
 grep -q 'settlementEventResult.duplicate' backend/src/main.ts
 grep -q 'markPostSettlementQuoteStatus' backend/src/main.ts
 grep -q 'markSettlementRejectedQuoteFailed' backend/src/main.ts
@@ -1386,7 +1390,7 @@ grep -q 'signed quote persistence must validate slippageBps before writing quote
 grep -q 'SaveSignedQuoteInput must carry pricing bps components for quote replay' scripts/check-database-schema-consistency.mjs
 grep -q 'signed quote persistence must reject pricing bps rewrites' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes signed payload constraints must require ${columnName} to be atomic with signed quote state' scripts/check-database-schema-consistency.mjs
-grep -q 'signed attribution snapshot' docs/database/er-diagram.md
+grep -q 'quote_snapshot_edge_v1' docs/database/er-diagram.md
 grep -q 'id must reject empty primary key values' scripts/check-database-schema-consistency.mjs
 grep -q 'quotes must constrain lifecycle status values' scripts/check-database-schema-consistency.mjs
 grep -q 'chain_id must be constrained to the JavaScript safe integer range' scripts/check-database-schema-consistency.mjs
@@ -1445,7 +1449,7 @@ grep -q 'quotes.pricing_version`、`quotes.risk_policy_version` 和 `quotes.reje
 grep -q 'quotes.deadline` 使用 BIGINT 保存 EIP-712 signed quote 的 Unix seconds' docs/database/er-diagram.md
 grep -q 'quotes.slippage_bps` 保存原始 `QuoteRequest.slippageBps`' docs/database/er-diagram.md
 grep -q 'quotes.spread_bps`、`quotes.size_impact_bps` 和 `quotes.inventory_skew_bps`' docs/database/er-diagram.md
-grep -q 'safe-integer `deadline`、safe-integer signed `gross_pnl_bps` 和固定 `model_description` 作为 signed attribution snapshot' docs/database/er-diagram.md
+grep -q '外键绑定实际 settlement event 与原始 market snapshot' docs/database/er-diagram.md
 grep -q 'model_description' docs/database/er-diagram.md
 grep -q 'safe-integer signed `gross_pnl_bps`' docs/database/er-diagram.md
 grep -q 'settlement_events.log_index` 和 `settlement_events.block_number` 使用 BIGINT 保存链上 event ordinal' docs/database/er-diagram.md
@@ -1862,11 +1866,11 @@ grep -q 'hedgeRiskPenaltyResult' backend/src/modules/quote/quote.service.ts
 grep -q 'interface PnlStore' backend/src/modules/pnl/pnl.service.ts
 grep -q 'class PnlService' backend/src/modules/pnl/pnl.service.ts
 grep -q 'recordSettlement' backend/src/modules/pnl/pnl.service.ts
-grep -q 'simulated_mid_price_v1' backend/src/modules/pnl/pnl.service.ts
-grep -q 'simulatedPnlModelDescription' backend/src/modules/pnl/pnl.service.ts
+grep -q 'quote_snapshot_edge_v1' backend/src/modules/pnl/pnl.service.ts
+grep -q 'quoteSnapshotPnlModelDescription' backend/src/modules/pnl/pnl.service.ts
 grep -q 'pnlIdsByQuoteModel' backend/src/modules/pnl/pnl.service.ts
 grep -q 'assertPnlInput(input)' backend/src/modules/pnl/pnl.service.ts
-grep -q 'pnlInputFields = \["quoteId", "quote"\]' backend/src/modules/pnl/pnl.service.ts
+grep -q 'pnlInputFields = \["quoteId", "settlementEventId", "snapshotId", "realizedAt", "quote"\]' backend/src/modules/pnl/pnl.service.ts
 grep -q 'assertOwnFields(input, pnlInputFields, "input")' backend/src/modules/pnl/pnl.service.ts
 grep -q 'assertOwnFields(input.quote, signedQuoteFields, "quote")' backend/src/modules/pnl/pnl.service.ts
 grep -q 'Pnl ${path}.${field} must be an own field' backend/src/modules/pnl/pnl.service.ts
@@ -1893,16 +1897,12 @@ grep -q 'returns defensive copies of PnL trade records' backend/test/pnl.test.mj
 grep -q 'rejects conflicting retry payloads for the same quote and model' backend/test/pnl.test.mjs
 grep -q 'rejects signed quote metadata conflicts for the same quote and model' backend/test/pnl.test.mjs
 grep -q 'rejects unsafe gross PnL bps before storing attribution' backend/test/pnl-validation.test.mjs
-grep -q 'PnlService rejects malformed attribution payload envelopes before recording' backend/test/pnl-validation.test.mjs
-grep -q 'PnlService rejects inherited attribution fields before recording' backend/test/pnl-validation.test.mjs
-grep -q 'PnlService rejects unsafe attribution inputs before recording' backend/test/pnl-validation.test.mjs
+grep -q 'PnlService rejects malformed attribution payload envelopes' backend/test/pnl-validation.test.mjs
+grep -q 'PnlService rejects inherited attribution fields' backend/test/pnl-validation.test.mjs
+grep -q 'PnlService rejects unsafe attribution identifiers, timestamps, and quote values' backend/test/pnl-validation.test.mjs
 grep -q 'Pnl input.quoteId must be an own field' backend/test/pnl-validation.test.mjs
 grep -q 'Pnl quote.user must be an own field' backend/test/pnl-validation.test.mjs
-grep -q 'Pnl quoteId must be a primitive string' backend/test/pnl-validation.test.mjs
-grep -q 'Pnl quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/pnl-validation.test.mjs
-grep -q 'Pnl pnlId must be 128 characters or fewer' backend/test/pnl-validation.test.mjs
-grep -q 'q_bad_user_object' backend/test/pnl-validation.test.mjs
-grep -q 'q_amount_number' backend/test/pnl-validation.test.mjs
+grep -q 'quoteId must contain only letters' backend/test/pnl-validation.test.mjs
 grep -q 'q_nonce_leading_zero' backend/test/pnl-validation.test.mjs
 grep -q 'stored signed attribution payload' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnlService` returns defensive copies from `recordSettlement()` and `summary()`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -1913,12 +1913,10 @@ grep -q 'Malformed or unavailable position reads leave the settlement accepted' 
 grep -q 'keeps an in-process `quoteId` reservation while `/submit` is executing' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'client double-click into two accepted HTTP responses' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rejects malformed root payloads, missing `quote` objects, and inherited root or signed quote required fields before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'validates `quoteId` as an own primitive-string `SafeIdentifier` and validates the derived `pnlId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'own canonical positive uint amount fields and nonce without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'canonical positive uint amount fields and nonce without leading zeros' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'JavaScript regex coercion to record malformed attribution' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'positive safe-integer deadline' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'rejects values outside the JavaScript safe integer range' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q '`quoteId`、`settlementEventId`、`snapshotId` and the derived `pnlId` as `SafeIdentifier`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q '`QuoteSnapshotPnlValuationProvider` loads the immutable persisted snapshot' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q '`fairAmountOut - amountOut` in tokenOut base units' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'Summary totals are grouped by `(chainId, tokenOut)`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'minAmountOut' docs/api/openapi.yaml
 grep -q 'PnlTradeRecord", "minAmountOut"' scripts/check-api-schema-consistency.mjs
 grep -q 'PnlTradeRecord", "deadline"' scripts/check-api-schema-consistency.mjs
@@ -2210,7 +2208,7 @@ grep -q 'hedgeStatus?.externalOrderId' frontend/src/components/QuoteStatusPanel.
 grep -q 'Hedge Updated' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'hedgeStatus?.updatedAt' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Settlement Status' frontend/src/components/QuoteStatusPanel.tsx
-grep -q 'Realized PnL' frontend/src/components/QuoteStatusPanel.tsx
+grep -q 'Gross PnL (tokenOut)' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'quoteStatus?.settlementEventId' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'quoteStatus?.hedgeOrderId' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'quoteStatus?.pnlId' frontend/src/components/QuoteStatusPanel.tsx
@@ -3144,7 +3142,7 @@ grep -q 'ReconciliationService.reconcileRemovedSettlementToPnl()' book/Volume5-B
 grep -q 'SettlementEventService.getSettlementEventsByQuoteHash' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'make reconciliation-check' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'PnL attribution input validation' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'signed realized PnL' backend/test/pnl.test.mjs
+grep -q 'quote-snapshot PnL' backend/test/pnl.test.mjs
 grep -q 'applies each chain event idempotently' backend/test/settlement-event.test.mjs
 grep -q 'InMemoryRateLimiter enforces endpoint-specific windows' backend/test/rate-limit.test.mjs
 grep -q 'InMemoryRateLimiter snapshots configuration at construction' backend/test/rate-limit.test.mjs

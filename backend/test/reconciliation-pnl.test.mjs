@@ -5,6 +5,7 @@ import { PnlService } from "../dist/modules/pnl/pnl.service.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
 import { ReconciliationService } from "../dist/modules/reconciliation/reconciliation.service.js";
 import { SettlementEventService } from "../dist/modules/settlement/settlement-event.service.js";
+import { createTestPnlValuationProvider } from "./helpers/pnl-fixtures.mjs";
 
 const quote = {
   user: "0x0000000000000000000000000000000000000001",
@@ -20,7 +21,7 @@ const quote = {
 
 test("ReconciliationService repairs PnL records from settlement events and signed quotes", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
-  const pnlService = new PnlService();
+  const pnlService = new PnlService(createTestPnlValuationProvider());
   const settlementEventService = new SettlementEventService(new InventoryService());
   await saveSignedQuote(quoteRepository, "q_pnl", quote);
   const settlement = settlementEventService.applySettlementEvent({
@@ -65,7 +66,7 @@ test("ReconciliationService reports PnL reconciliation events whose signed quote
   });
 
   const report = await new ReconciliationService({
-    pnlService: new PnlService(),
+    pnlService: new PnlService(createTestPnlValuationProvider()),
     quoteRepository: new InMemoryQuoteRepository(),
     settlementEventService,
   }).reconcileSettlementToPnl();
@@ -86,17 +87,12 @@ test("ReconciliationService reports PnL reconciliation events whose signed quote
 
 test("ReconciliationService reports PnL conflicts without stopping later events", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
-  const pnlService = new PnlService();
+  const pnlService = new PnlService(createTestPnlValuationProvider());
   const settlementEventService = new SettlementEventService(new InventoryService());
   const conflictingQuote = { ...quote, amountOut: "985" };
   const laterQuote = { ...quote, amountOut: "970", minAmountOut: "960", nonce: "3" };
   await saveSignedQuote(quoteRepository, "q_pnl_conflict", quote);
   await saveSignedQuote(quoteRepository, "q_pnl_after_conflict", laterQuote);
-  pnlService.recordSettlement({
-    quoteId: "q_pnl_conflict",
-    quote: conflictingQuote,
-  });
-
   const conflictSettlement = settlementEventService.applySettlementEvent({
     quoteId: "q_pnl_conflict",
     quote,
@@ -106,6 +102,13 @@ test("ReconciliationService reports PnL conflicts without stopping later events"
     quoteId: "q_pnl_after_conflict",
     quote: laterQuote,
     txHash: `0x${"14".repeat(32)}`,
+  });
+  await pnlService.recordSettlement({
+    quoteId: "q_pnl_conflict",
+    settlementEventId: conflictSettlement.event.settlementEventId,
+    snapshotId: "snapshot_q_pnl_conflict",
+    realizedAt: conflictSettlement.event.observedAt,
+    quote: conflictingQuote,
   });
 
   const report = await new ReconciliationService({

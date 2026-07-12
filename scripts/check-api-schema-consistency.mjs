@@ -19,6 +19,7 @@ const schemaMappings = [
   ["HedgeIntentStatusResponse", "HedgeIntentStatus", "HedgeIntentStatus"],
   ["SettlementEventStatusResponse", "SettlementEventStatus", "SettlementEventStatus"],
   ["PnlTradeRecord", "PnlTradeRecord", "PnlTradeRecord"],
+  ["PnlTokenTotal", "PnlTokenTotal", "PnlTokenTotal"],
   ["PnlSummaryResponse", "PnlSummary", "PnlSummary"],
 ];
 const closedOpenApiSchemas = [
@@ -31,6 +32,7 @@ const closedOpenApiSchemas = [
   "HedgeIntentStatus",
   "SettlementEventStatus",
   "PnlTradeRecord",
+  "PnlTokenTotal",
   "PnlSummary",
   "HealthResponse",
   "ReadinessResponse",
@@ -256,6 +258,8 @@ for (const [schemaName, propertyName] of [
   ["SettlementEventStatus", "quoteId"],
   ["PnlTradeRecord", "pnlId"],
   ["PnlTradeRecord", "quoteId"],
+  ["PnlTradeRecord", "settlementEventId"],
+  ["PnlTradeRecord", "snapshotId"],
 ]) {
   assert.equal(
     extractOpenApiPropertyRef(openapiSource, schemaName, propertyName),
@@ -287,6 +291,7 @@ for (const [schemaName, propertyName] of [
   ["PnlTradeRecord", "amountOut"],
   ["PnlTradeRecord", "minAmountOut"],
   ["PnlTradeRecord", "nonce"],
+  ["PnlTradeRecord", "fairAmountOut"],
 ]) {
   assert.equal(
     extractOpenApiPropertyRef(openapiSource, schemaName, propertyName),
@@ -307,6 +312,8 @@ for (const [schemaName, propertyName] of [
   ["PnlTradeRecord", "chainId"],
   ["PnlTradeRecord", "deadline"],
   ["PnlTradeRecord", "grossPnlBps"],
+  ["PnlTokenTotal", "chainId"],
+  ["PnlTokenTotal", "totalTrades"],
 ]) {
   assert.equal(
     extractOpenApiPropertyNumericBound(openapiSource, schemaName, propertyName, "maximum"),
@@ -317,7 +324,7 @@ for (const [schemaName, propertyName] of [
 
 for (const [schemaName, propertyName] of [
   ["PnlTradeRecord", "grossPnlTokenOut"],
-  ["PnlSummary", "grossPnlTokenOut"],
+  ["PnlTokenTotal", "grossPnlTokenOut"],
 ]) {
   assert.equal(
     extractOpenApiPropertyRef(openapiSource, schemaName, propertyName),
@@ -334,6 +341,8 @@ for (const [schemaName, propertyName] of [
   ["SettlementEventStatus", "chainId"],
   ["PnlTradeRecord", "chainId"],
   ["PnlTradeRecord", "deadline"],
+  ["PnlTokenTotal", "chainId"],
+  ["PnlTokenTotal", "totalTrades"],
 ]) {
   assert.equal(
     extractOpenApiPropertyNumericBound(openapiSource, schemaName, propertyName, "minimum"),
@@ -344,6 +353,8 @@ for (const [schemaName, propertyName] of [
 for (const [schemaName, propertyName] of [
   ["SettlementEventStatus", "blockNumber"],
   ["SettlementEventStatus", "logIndex"],
+  ["PnlTradeRecord", "tokenInDecimals"],
+  ["PnlTradeRecord", "tokenOutDecimals"],
 ]) {
   assert.equal(
     extractOpenApiPropertyNumericBound(openapiSource, schemaName, propertyName, "minimum"),
@@ -351,6 +362,18 @@ for (const [schemaName, propertyName] of [
     `${schemaName}.${propertyName} must document the non-negative safe integer minimum`,
   );
 }
+for (const propertyName of ["tokenInDecimals", "tokenOutDecimals"]) {
+  assert.equal(
+    extractOpenApiPropertyNumericBound(openapiSource, "PnlTradeRecord", propertyName, "maximum"),
+    "36",
+    `PnlTradeRecord.${propertyName} must document the supported token decimals maximum`,
+  );
+}
+assert.equal(
+  extractOpenApiPropertyRef(openapiSource, "PnlTradeRecord", "midPrice"),
+  "#/components/schemas/PositiveDecimalString",
+  "PnlTradeRecord.midPrice must use the shared positive decimal schema",
+);
 assert.equal(
   extractOpenApiPropertyNumericBound(openapiSource, "PnlTradeRecord", "grossPnlBps", "minimum"),
   "-9007199254740991",

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readReconciliationWorkerRuntimeConfig } from "../dist/reconciliation-worker-main.js";
+import {
+  readReconciliationTokenRegistry,
+  readReconciliationWorkerRuntimeConfig,
+} from "../dist/reconciliation-worker-main.js";
 
 const baseEnv = {
   DATABASE_URL: "postgres://rfq:rfq@postgres:5432/rfq_market_maker",
@@ -41,4 +44,30 @@ test("reconciliation worker runtime rejects missing or unsafe configuration", ()
     () => readReconciliationWorkerRuntimeConfig({ ...baseEnv, RFQ_RECONCILIATION_WORKER_HOST: "bad host" }),
     /HOST is invalid/,
   );
+});
+
+test("reconciliation worker loads the same strict token registry used for PnL valuation", () => {
+  const token = "0x0000000000000000000000000000000000000010";
+  const registry = readReconciliationTokenRegistry({
+    RFQ_TOKEN_REGISTRY_JSON: JSON.stringify({
+      tokens: [{
+        chainId: 10,
+        tokenAddress: token,
+        symbol: "TOKEN10",
+        decimals: 6,
+        isWhitelisted: true,
+        riskTier: "low",
+        usdReference: true,
+      }],
+    }),
+  });
+  assert.equal(registry.getToken(10, token).decimals, 6);
+  assert.throws(
+    () => readReconciliationTokenRegistry({ RFQ_TOKEN_REGISTRY_JSON: "{" }),
+    /must contain valid JSON/,
+  );
+
+  const inherited = Object.create({ RFQ_TOKEN_REGISTRY_JSON: "{" });
+  const defaultRegistry = readReconciliationTokenRegistry(inherited);
+  assert.equal(defaultRegistry.getToken(1, "0x0000000000000000000000000000000000000002").decimals, 18);
 });

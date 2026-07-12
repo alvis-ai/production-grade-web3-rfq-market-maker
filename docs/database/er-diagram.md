@@ -8,6 +8,8 @@ erDiagram
   QUOTES ||--o{ SETTLEMENT_EVENTS : settles
   SETTLEMENT_EVENTS ||--o{ HEDGE_ORDERS : triggers
   QUOTES ||--o{ PNL_RECORDS : attributes
+  SETTLEMENT_EVENTS ||--o{ PNL_RECORDS : realizes
+  MARKET_SNAPSHOTS ||--o{ PNL_RECORDS : values
   QUOTES ||--o| POST_TRADE_RECONCILIATION_JOBS : converges
   SETTLEMENT_EVENTS ||--o{ POST_TRADE_RECONCILIATION_JOBS : desires
   MARKET_SNAPSHOTS ||--o{ QUOTES : prices
@@ -111,6 +113,8 @@ erDiagram
   PNL_RECORDS {
     text id PK
     text quote_id FK
+    text settlement_event_id FK
+    text snapshot_id FK
     bigint chain_id
     text user_address
     text token_in
@@ -120,6 +124,11 @@ erDiagram
     numeric min_amount_out
     numeric nonce
     bigint deadline
+    numeric mid_price
+    smallint token_in_decimals
+    smallint token_out_decimals
+    numeric fair_amount_out
+    timestamptz valuation_observed_at
     numeric gross_pnl_token_out
     bigint gross_pnl_bps
     text model
@@ -195,7 +204,8 @@ erDiagram
 - 生产 Quote Service 直接读取共享 `inventory_positions` 计算 skew 和 projected exposure，不依赖 pod-local inventory cache；因此多副本风险决策看到同一个已提交敞口。
 - `hedge_orders.settlement_event_id` 是 `settlement_events.id` 的非空外键，并使用 unique index `(settlement_event_id)` 防止同一 settlement event 重复创建 hedge intent；`quote_id` 是 `quotes.id` 的非空外键，保证 `/hedges/:id` 返回的 `quoteId` 可直接回到本地 quote；`reason` 必须匹配 Hedge Service 支持的 intent reason；`venue` 必须是非空字符串，用于保留对冲路由、交易场所或内部库存通道；`external_order_id` 可以在内部 queued intent 阶段为 NULL，但一旦写入必须是非空字符串。
 - `quotes`、`inventory_positions` 和 `hedge_orders` 使用共享 `set_updated_at()` trigger，在每次 `UPDATE` 时由数据库刷新 `updated_at`，避免应用层漏写导致状态页或运维排障看到陈旧更新时间。
-- `pnl_records` 使用 `(quote_id, model)` 防止同一归因模型对同一成交重复入账，并保存 `user_address`、amount、`min_amount_out`、`nonce`、safe-integer `deadline`、safe-integer signed `gross_pnl_bps` 和固定 `model_description` 作为 signed attribution snapshot；`model_description` 明确当前 `simulated_mid_price_v1` 是 same-decimal 模拟归因，不是跨资产会计 PnL；生产版可将明细同步到 ClickHouse 做高维分析。
+- `pnl_records` 使用 `(quote_id, model)` 和 `(settlement_event_id, model)` 双重幂等约束，并通过外键绑定实际 settlement event 与原始 market snapshot。`quote_snapshot_edge_v1` 使用持久化 `mid_price`、可信 token decimals 和 `amount_in` 计算 `fair_amount_out`，再以 `fair_amount_out - amount_out` 得到 tokenOut base units 口径的 gross PnL；`gross_pnl_bps` 保持 safe-integer signed `gross_pnl_bps` 约束。该模型明确排除 fee、gas 和 hedge execution，不能替代完整会计 PnL。
+- migration `006-quote-snapshot-pnl` 不会伪造旧数据的 token decimals。旧 `simulated_mid_price_v1` 记录先进入 `pnl_records_legacy_simulated_v1` 审计归档，相关 quote pointer 被清空，再由 reconciliation 从 canonical settlement、不可变 snapshot 和运行时 token registry 重建新模型。
 - `hedge_orders` 与 `pnl_records` 是 settlement event 之后的 durable idempotent projections。它们不与链上 event+inventory 强行放在同一长事务；若进程在步骤间崩溃，settlement event 作为 source of truth，由 reconciliation 补齐缺失 projection 和 quote pointers。
 - `post_trade_reconciliation_jobs` 以 `quote_id` 为唯一收敛键。settlement insert 或 `canonical` 变化在同一事务中通过 trigger 更新 `desired_settlement_event_id` 与单调 `desired_revision`；多 worker 使用 `FOR UPDATE SKIP LOCKED` 和 expiring lease claim。worker 只有在 lease owner 与 revision 同时匹配时才推进 `processed_revision`，旧 revision 的副作用会由仍待处理的新 revision 再次收敛。
 - canonical job 按 hedge、PnL、quote pointer 顺序幂等补齐；没有 canonical event 的 job 清除可逆 quote/PnL projection，并只删除尚未向外部 venue 提交的 hedge。已 submission-attempted 或 terminal 的 CEX 证据保留，交由人工补偿而不是伪装成随链 reorg 消失。

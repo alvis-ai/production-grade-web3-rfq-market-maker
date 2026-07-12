@@ -6,6 +6,7 @@ import { PnlService } from "../dist/modules/pnl/pnl.service.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
 import { ReconciliationService } from "../dist/modules/reconciliation/reconciliation.service.js";
 import { SettlementEventService } from "../dist/modules/settlement/settlement-event.service.js";
+import { createTestPnlValuationProvider } from "./helpers/pnl-fixtures.mjs";
 
 const quote = {
   user: "0x0000000000000000000000000000000000000001",
@@ -77,7 +78,7 @@ test("ReconciliationService repairs quote status after a removed settlement even
 
 test("ReconciliationService removes hedge and PnL records after a removed settlement event", async () => {
   const hedgeService = new HedgeService();
-  const pnlService = new PnlService();
+  const pnlService = new PnlService(createTestPnlValuationProvider());
   const settlementEventService = new SettlementEventService(new InventoryService());
   const settlement = settlementEventService.applySettlementEvent({
     quoteId: "q_reorg_post_trade",
@@ -95,8 +96,11 @@ test("ReconciliationService removes hedge and PnL records after a removed settle
     amount: settlement.event.amountOut,
     reason: "inventory_rebalance",
   });
-  pnlService.recordSettlement({
+  await pnlService.recordSettlement({
     quoteId: settlement.event.quoteId,
+    settlementEventId: settlement.event.settlementEventId,
+    snapshotId: "snapshot_q_reorg_post_trade",
+    realizedAt: settlement.event.observedAt,
     quote,
   });
   const removed = settlementEventService.removeSettlementEvent({

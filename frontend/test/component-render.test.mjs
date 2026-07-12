@@ -282,7 +282,10 @@ test("QuoteStatusPanel component renders post-trade state and wires actions", as
       updatedAt: "2026-07-04T00:00:01.000Z",
     },
     pnlSummary: {
-      grossPnlTokenOut: "123456",
+      trades: [{
+        pnlId: "pnl_component",
+        grossPnlTokenOut: "123456",
+      }],
     },
     submitResult: {
       status: "accepted",

@@ -1,7 +1,8 @@
 import type { ReadinessComponentName, ReadinessResponse } from "../health/readiness.service.js";
-import { simulatedPnlModelDescription } from "../../shared/types/rfq.js";
+import { quoteSnapshotPnlModelDescription } from "../../shared/types/rfq.js";
 import type { Address, PnlTradeRecord } from "../../shared/types/rfq.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
+import { normalizeHumanPrice } from "../pricing/price-normalization.js";
 import type { RateLimitedEndpoint } from "../rate-limit/rate-limit.service.js";
 import type {
   CexOrderBookCycleObservation,
@@ -28,6 +29,8 @@ const inventoryMetricPositionFields = ["chainId", "token", "balance"] as const;
 const pnlTradeMetricRecordFields = [
   "pnlId",
   "quoteId",
+  "settlementEventId",
+  "snapshotId",
   "chainId",
   "user",
   "tokenIn",
@@ -37,6 +40,11 @@ const pnlTradeMetricRecordFields = [
   "minAmountOut",
   "nonce",
   "deadline",
+  "midPrice",
+  "tokenInDecimals",
+  "tokenOutDecimals",
+  "fairAmountOut",
+  "valuationObservedAt",
   "grossPnlTokenOut",
   "grossPnlBps",
   "model",
@@ -285,13 +293,13 @@ export class MetricsService {
       "# HELP rfq_inventory_balance Current simulated inventory balance by chain and token.",
       "# TYPE rfq_inventory_balance gauge",
       ...this.renderInventoryBalances(),
-      "# HELP rfq_pnl_trades_total Total realized PnL trade records produced by the skeleton API.",
+      "# HELP rfq_pnl_trades_total Total quote-snapshot PnL trade records produced after settlement.",
       "# TYPE rfq_pnl_trades_total counter",
       `rfq_pnl_trades_total ${this.pnlTrades}`,
-      "# HELP rfq_pnl_record_errors_total Total realized PnL record errors after settlement by stable reason.",
+      "# HELP rfq_pnl_record_errors_total Total quote-snapshot PnL record errors after settlement by stable reason.",
       "# TYPE rfq_pnl_record_errors_total counter",
       ...this.renderPnlRecordErrors(),
-      "# HELP rfq_realized_pnl_token_out Total realized spread PnL by chain and output token.",
+      "# HELP rfq_realized_pnl_token_out Gross settlement PnL versus quote-time mid price by chain and output token.",
       "# TYPE rfq_realized_pnl_token_out gauge",
       ...this.renderRealizedPnl(),
       "# HELP rfq_market_data_cache_hits_total Total cache hits for market data snapshots.",
@@ -562,6 +570,8 @@ function assertPnlTradeMetricRecord(record: PnlTradeRecord): void {
 
   assertSafeIdentifier(record.pnlId, "PnL trade pnlId");
   assertSafeIdentifier(record.quoteId, "PnL trade quoteId");
+  assertSafeIdentifier(record.settlementEventId, "PnL trade settlementEventId");
+  assertSafeIdentifier(record.snapshotId, "PnL trade snapshotId");
   assertPositiveSafeInteger(record.chainId, "PnL trade chainId");
   assertAddress(record.user, "PnL trade user");
   assertAddress(record.tokenIn, "PnL trade tokenIn");
@@ -581,14 +591,25 @@ function assertPnlTradeMetricRecord(record: PnlTradeRecord): void {
     throw new Error("Metrics PnL trade amountOut must be greater than or equal to minAmountOut");
   }
 
+  try {
+    normalizeHumanPrice(record.midPrice);
+  } catch {
+    throw new Error("Metrics PnL trade midPrice must be a positive canonical decimal");
+  }
+  assertTokenDecimals(record.tokenInDecimals, "PnL trade tokenInDecimals");
+  assertTokenDecimals(record.tokenOutDecimals, "PnL trade tokenOutDecimals");
+  assertPositiveUIntString(record.fairAmountOut, "PnL trade fairAmountOut");
+  if (!isCanonicalUtcIsoTimestamp(record.valuationObservedAt)) {
+    throw new Error("Metrics PnL trade valuationObservedAt must be a canonical UTC ISO timestamp");
+  }
   assertIntString(record.grossPnlTokenOut, "PnL trade grossPnlTokenOut");
   assertSafeInteger(record.grossPnlBps, "PnL trade grossPnlBps");
 
-  if (record.model !== "simulated_mid_price_v1") {
-    throw new Error("Metrics PnL trade model must be simulated_mid_price_v1");
+  if (record.model !== "quote_snapshot_edge_v1") {
+    throw new Error("Metrics PnL trade model must be quote_snapshot_edge_v1");
   }
-  if (record.modelDescription !== simulatedPnlModelDescription) {
-    throw new Error("Metrics PnL trade modelDescription must describe simulated_mid_price_v1");
+  if (record.modelDescription !== quoteSnapshotPnlModelDescription) {
+    throw new Error("Metrics PnL trade modelDescription must describe quote_snapshot_edge_v1");
   }
   if (!isCanonicalUtcIsoTimestamp(record.realizedAt)) {
     throw new Error("Metrics PnL trade realizedAt must be a canonical UTC ISO timestamp");
@@ -604,6 +625,12 @@ function assertPositiveSafeInteger(value: number, field: string): void {
 function assertSafeInteger(value: number, field: string): void {
   if (!Number.isSafeInteger(value)) {
     throw new Error(`Metrics ${field} must be a safe integer`);
+  }
+}
+
+function assertTokenDecimals(value: number, field: string): void {
+  if (!Number.isSafeInteger(value) || value < 0 || value > 36) {
+    throw new Error(`Metrics ${field} must be an integer between 0 and 36`);
   }
 }
 

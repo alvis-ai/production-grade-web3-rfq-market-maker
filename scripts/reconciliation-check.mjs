@@ -19,11 +19,22 @@ const quote = {
   deadline: 1893456000,
   chainId: 1,
 };
+const pnlValuationProvider = {
+  resolve(input) {
+    return {
+      snapshotId: input.snapshotId,
+      midPrice: "1",
+      tokenInDecimals: 18,
+      tokenOutDecimals: 18,
+      observedAt: "2026-07-11T00:00:00.000Z",
+    };
+  },
+};
 
 const quoteRepository = new InMemoryQuoteRepository();
 const settlementEventService = new SettlementEventService(new InventoryService());
 const hedgeService = new HedgeService();
-const pnlService = new PnlService();
+const pnlService = new PnlService(pnlValuationProvider);
 
 await quoteRepository.saveSigned({
   quoteId: "q_reconciliation_check",
@@ -80,7 +91,7 @@ const hedge = hedgeService.getHedgeIntentBySettlementEvent(settlement.event.sett
 const pnlSummary = pnlService.summary();
 
 const reorgHedgeService = new HedgeService();
-const reorgPnlService = new PnlService();
+const reorgPnlService = new PnlService(pnlValuationProvider);
 const reorgQuoteRepository = new InMemoryQuoteRepository();
 const reorgSettlementEventService = new SettlementEventService(new InventoryService());
 await reorgQuoteRepository.saveSigned({
@@ -115,8 +126,11 @@ const reorgHedge = reorgHedgeService.createHedgeIntent({
   amount: reorgSettlement.event.amountOut,
   reason: "inventory_rebalance",
 });
-reorgPnlService.recordSettlement({
+await reorgPnlService.recordSettlement({
   quoteId: reorgSettlement.event.quoteId,
+  settlementEventId: reorgSettlement.event.settlementEventId,
+  snapshotId: "snapshot_reconciliation_reorg_check",
+  realizedAt: reorgSettlement.event.observedAt,
   quote,
 });
 const removedSettlement = reorgSettlementEventService.removeSettlementEvent({

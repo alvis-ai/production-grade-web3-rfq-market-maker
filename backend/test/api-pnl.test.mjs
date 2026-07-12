@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer } from "../dist/main.js";
-import { simulatedPnlModelDescription } from "../dist/shared/types/rfq.js";
+import { quoteSnapshotPnlModelDescription } from "../dist/shared/types/rfq.js";
 
 const baseQuoteRequest = {
   chainId: 1,
@@ -24,7 +24,7 @@ test("RFQ API keeps settlement accepted when PnL record creation fails", async (
         return {
           status: "ok",
           totalTrades: 0,
-          grossPnlTokenOut: "0",
+          totals: [],
           trades: [],
         };
       },
@@ -100,6 +100,8 @@ test("RFQ API treats malformed PnL store results as post-settlement PnL failures
           const validRecord = {
             pnlId: `pnl_${input.quoteId}`,
             quoteId: input.quoteId,
+            settlementEventId: input.settlementEventId,
+            snapshotId: input.snapshotId,
             chainId: input.quote.chainId,
             user: input.quote.user,
             tokenIn: input.quote.tokenIn,
@@ -109,11 +111,16 @@ test("RFQ API treats malformed PnL store results as post-settlement PnL failures
             minAmountOut: input.quote.minAmountOut,
             nonce: input.quote.nonce,
             deadline: input.quote.deadline,
+            midPrice: "1",
+            tokenInDecimals: 18,
+            tokenOutDecimals: 18,
+            fairAmountOut: input.quote.amountIn,
+            valuationObservedAt: "2026-01-01T00:00:00.000Z",
             grossPnlTokenOut: grossPnl.toString(),
             grossPnlBps: Number((grossPnl * 10_000n) / BigInt(input.quote.amountIn)),
-            model: "simulated_mid_price_v1",
-            modelDescription: simulatedPnlModelDescription,
-            realizedAt: "2026-01-01T00:00:00.000Z",
+            model: "quote_snapshot_edge_v1",
+            modelDescription: quoteSnapshotPnlModelDescription,
+            realizedAt: input.realizedAt,
           };
 
           return buildMalformedPnlRecord(validRecord);
@@ -122,7 +129,7 @@ test("RFQ API treats malformed PnL store results as post-settlement PnL failures
           return {
             status: "ok",
             totalTrades: 0,
-            grossPnlTokenOut: "0",
+            totals: [],
             trades: [],
           };
         },

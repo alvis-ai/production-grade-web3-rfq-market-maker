@@ -10,8 +10,8 @@ const baseQuoteRequest = {
   amountIn: "1000000000",
   slippageBps: 50,
 };
-const simulatedPnlModelDescription =
-  "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL";
+const quoteSnapshotPnlModelDescription =
+  "Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution";
 
 test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
   const server = buildServer({ logger: false });
@@ -179,14 +179,21 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     const pnl = await injectJson(server, "GET", "/pnl");
     assert.equal(pnl.statusCode, 200);
     assertTraceHeader(pnl);
-    assertResponseFields(pnl.body, ["status", "totalTrades", "grossPnlTokenOut", "trades"]);
+    assertResponseFields(pnl.body, ["status", "totalTrades", "totals", "trades"]);
     assert.equal(pnl.body.status, "ok");
     assert.equal(pnl.body.totalTrades, 1);
-    assert.equal(pnl.body.grossPnlTokenOut, "1600000");
+    assert.deepEqual(pnl.body.totals, [{
+      chainId: baseQuoteRequest.chainId,
+      tokenOut: baseQuoteRequest.tokenOut,
+      totalTrades: 1,
+      grossPnlTokenOut: "1600000",
+    }]);
     assert.equal(pnl.body.trades.length, 1);
     assertResponseFields(pnl.body.trades[0], [
       "pnlId",
       "quoteId",
+      "settlementEventId",
+      "snapshotId",
       "chainId",
       "user",
       "tokenIn",
@@ -196,6 +203,11 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
       "minAmountOut",
       "nonce",
       "deadline",
+      "midPrice",
+      "tokenInDecimals",
+      "tokenOutDecimals",
+      "fairAmountOut",
+      "valuationObservedAt",
       "grossPnlTokenOut",
       "grossPnlBps",
       "model",
@@ -204,12 +216,19 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     ]);
     assert.equal(pnl.body.trades[0].pnlId, submit.body.pnlId);
     assert.equal(pnl.body.trades[0].quoteId, quote.body.quoteId);
+    assert.equal(pnl.body.trades[0].settlementEventId, submit.body.settlementEventId);
+    assert.equal(pnl.body.trades[0].snapshotId, quote.body.snapshotId);
     assert.equal(pnl.body.trades[0].amountIn, baseQuoteRequest.amountIn);
     assert.equal(pnl.body.trades[0].amountOut, quote.body.amountOut);
+    assert.equal(pnl.body.trades[0].midPrice, "1");
+    assert.equal(pnl.body.trades[0].tokenInDecimals, 18);
+    assert.equal(pnl.body.trades[0].tokenOutDecimals, 18);
+    assert.equal(pnl.body.trades[0].fairAmountOut, baseQuoteRequest.amountIn);
     assert.equal(pnl.body.trades[0].grossPnlTokenOut, "1600000");
     assert.equal(pnl.body.trades[0].grossPnlBps, 16);
-    assert.equal(pnl.body.trades[0].model, "simulated_mid_price_v1");
-    assert.equal(pnl.body.trades[0].modelDescription, simulatedPnlModelDescription);
+    assert.equal(pnl.body.trades[0].model, "quote_snapshot_edge_v1");
+    assert.equal(pnl.body.trades[0].modelDescription, quoteSnapshotPnlModelDescription);
+    assert.match(pnl.body.trades[0].valuationObservedAt, /^\d{4}-\d{2}-\d{2}T/);
     assert.match(pnl.body.trades[0].realizedAt, /^\d{4}-\d{2}-\d{2}T/);
 
     const metrics = await server.inject({ method: "GET", url: "/metrics" });

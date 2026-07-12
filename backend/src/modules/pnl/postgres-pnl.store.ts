@@ -1,32 +1,44 @@
 import pg from "pg";
 import {
-  simulatedPnlModelDescription,
+  quoteSnapshotPnlModelDescription,
   type Address,
   type IntString,
   type PnlSummaryResponse,
   type PnlTradeRecord,
+  type UIntString,
 } from "../../shared/types/rfq.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
+import { normalizeHumanPrice } from "../pricing/price-normalization.js";
 import {
+  buildPnlSummary,
   buildPnlTradeRecord,
   clonePnlTradeRecord,
   matchesPnlInput,
   normalizeRemovePnlRecordInput,
   type PnlStore,
+  type PnlValuationProvider,
   type RecordPnlInput,
   type RemovePnlRecordInput,
   type RemovePnlRecordResult,
 } from "./pnl.service.js";
 
 const pnlColumns = `
-  id, quote_id, chain_id, user_address, token_in, token_out,
+  id, quote_id, settlement_event_id, snapshot_id, chain_id, user_address, token_in, token_out,
   amount_in, amount_out, min_amount_out, nonce, deadline,
+  mid_price, token_in_decimals, token_out_decimals, fair_amount_out, valuation_observed_at,
   gross_pnl_token_out, gross_pnl_bps, model, model_description, realized_at
 `;
 
 export class PostgresPnlStore implements PnlStore {
-  constructor(private readonly pool: pg.Pool) {
+  private readonly valuationProvider: PnlValuationProvider;
+
+  constructor(
+    private readonly pool: pg.Pool,
+    valuationProvider: PnlValuationProvider,
+  ) {
     assertPool(pool);
+    assertValuationProvider(valuationProvider);
+    this.valuationProvider = { resolve: valuationProvider.resolve.bind(valuationProvider) };
   }
 
   async checkHealth(): Promise<void> {
@@ -39,15 +51,19 @@ export class PostgresPnlStore implements PnlStore {
   }
 
   async recordSettlement(input: RecordPnlInput): Promise<PnlTradeRecord> {
-    const expected = buildPnlTradeRecord(input);
+    const expected = buildPnlTradeRecord(input, await this.valuationProvider.resolve(input));
     const client = await this.pool.connect();
     try {
       const inserted = await client.query(
         `INSERT INTO pnl_records (
-           id, quote_id, chain_id, user_address, token_in, token_out,
+           id, quote_id, settlement_event_id, snapshot_id, chain_id, user_address, token_in, token_out,
            amount_in, amount_out, min_amount_out, nonce, deadline,
+           mid_price, token_in_decimals, token_out_decimals, fair_amount_out, valuation_observed_at,
            gross_pnl_token_out, gross_pnl_bps, model, model_description, realized_at
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         ) VALUES (
+           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+           $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
+         )
          ON CONFLICT (quote_id, model) DO NOTHING
          RETURNING ${pnlColumns}`,
         pnlParams(expected),
@@ -111,14 +127,7 @@ export class PostgresPnlStore implements PnlStore {
       const result = await client.query(
         `SELECT ${pnlColumns} FROM pnl_records ORDER BY realized_at ASC, id ASC`,
       );
-      const trades = result.rows.map(parsePnlRow);
-      const grossPnl = trades.reduce((total, trade) => total + BigInt(trade.grossPnlTokenOut), 0n);
-      return {
-        status: "ok",
-        totalTrades: trades.length,
-        grossPnlTokenOut: grossPnl.toString() as IntString,
-        trades: trades.map(clonePnlTradeRecord),
-      };
+      return buildPnlSummary(result.rows.map(parsePnlRow));
     } finally {
       client.release();
     }
@@ -129,6 +138,8 @@ function pnlParams(record: PnlTradeRecord): unknown[] {
   return [
     record.pnlId,
     record.quoteId,
+    record.settlementEventId,
+    record.snapshotId,
     record.chainId,
     record.user,
     record.tokenIn,
@@ -138,6 +149,11 @@ function pnlParams(record: PnlTradeRecord): unknown[] {
     record.minAmountOut,
     record.nonce,
     record.deadline,
+    record.midPrice,
+    record.tokenInDecimals,
+    record.tokenOutDecimals,
+    record.fairAmountOut,
+    record.valuationObservedAt,
     record.grossPnlTokenOut,
     record.grossPnlBps,
     record.model,
@@ -148,10 +164,18 @@ function pnlParams(record: PnlTradeRecord): unknown[] {
 
 function pnlAttributionMatches(left: PnlTradeRecord, right: PnlTradeRecord): boolean {
   return left.pnlId === right.pnlId &&
+    left.settlementEventId === right.settlementEventId &&
+    left.snapshotId === right.snapshotId &&
+    left.midPrice === right.midPrice &&
+    left.tokenInDecimals === right.tokenInDecimals &&
+    left.tokenOutDecimals === right.tokenOutDecimals &&
+    left.fairAmountOut === right.fairAmountOut &&
+    left.valuationObservedAt === right.valuationObservedAt &&
     left.grossPnlTokenOut === right.grossPnlTokenOut &&
     left.grossPnlBps === right.grossPnlBps &&
     left.model === right.model &&
-    left.modelDescription === right.modelDescription;
+    left.modelDescription === right.modelDescription &&
+    left.realizedAt === right.realizedAt;
 }
 
 function parsePnlRow(row: unknown): PnlTradeRecord {
@@ -159,15 +183,17 @@ function parsePnlRow(row: unknown): PnlTradeRecord {
     throw new Error("Postgres PnL row must be an object");
   }
   const value = row as Record<string, unknown>;
-  if (value.model !== "simulated_mid_price_v1") {
+  if (value.model !== "quote_snapshot_edge_v1") {
     throw new Error("Postgres PnL row model is invalid");
   }
-  if (value.model_description !== simulatedPnlModelDescription) {
+  if (value.model_description !== quoteSnapshotPnlModelDescription) {
     throw new Error("Postgres PnL row model_description is invalid");
   }
   const record: PnlTradeRecord = {
     pnlId: parseIdentifier(value.id, "id"),
     quoteId: parseIdentifier(value.quote_id, "quote_id"),
+    settlementEventId: parseIdentifier(value.settlement_event_id, "settlement_event_id"),
+    snapshotId: parseIdentifier(value.snapshot_id, "snapshot_id"),
     chainId: parsePositiveSafeInteger(value.chain_id, "chain_id"),
     user: parseAddress(value.user_address, "user_address"),
     tokenIn: parseAddress(value.token_in, "token_in"),
@@ -177,6 +203,11 @@ function parsePnlRow(row: unknown): PnlTradeRecord {
     minAmountOut: parsePositiveUInt(value.min_amount_out, "min_amount_out"),
     nonce: parsePositiveUInt(value.nonce, "nonce"),
     deadline: parsePositiveSafeInteger(value.deadline, "deadline"),
+    midPrice: parsePositiveDecimal(value.mid_price, "mid_price"),
+    tokenInDecimals: parseTokenDecimals(value.token_in_decimals, "token_in_decimals"),
+    tokenOutDecimals: parseTokenDecimals(value.token_out_decimals, "token_out_decimals"),
+    fairAmountOut: parsePositiveUInt(value.fair_amount_out, "fair_amount_out"),
+    valuationObservedAt: parseTimestamp(value.valuation_observed_at, "valuation_observed_at"),
     grossPnlTokenOut: parseIntString(value.gross_pnl_token_out, "gross_pnl_token_out"),
     grossPnlBps: parseSafeInteger(value.gross_pnl_bps, "gross_pnl_bps"),
     model: value.model,
@@ -185,6 +216,9 @@ function parsePnlRow(row: unknown): PnlTradeRecord {
   };
   const expected = buildPnlTradeRecord({
     quoteId: record.quoteId,
+    settlementEventId: record.settlementEventId,
+    snapshotId: record.snapshotId,
+    realizedAt: record.realizedAt,
     quote: {
       user: record.user,
       tokenIn: record.tokenIn,
@@ -196,7 +230,13 @@ function parsePnlRow(row: unknown): PnlTradeRecord {
       deadline: record.deadline,
       chainId: record.chainId,
     },
-  }, record.realizedAt);
+  }, {
+    snapshotId: record.snapshotId,
+    midPrice: record.midPrice,
+    tokenInDecimals: record.tokenInDecimals,
+    tokenOutDecimals: record.tokenOutDecimals,
+    observedAt: record.valuationObservedAt,
+  });
   if (!pnlAttributionMatches(record, expected)) {
     throw new Error("Postgres PnL row attribution is inconsistent");
   }
@@ -217,9 +257,21 @@ function parseAddress(value: unknown, field: string): Address {
   return value as Address;
 }
 
-function parsePositiveUInt(value: unknown, field: string): string {
+function parsePositiveUInt(value: unknown, field: string): UIntString {
   if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
     throw new Error(`Postgres PnL row ${field} must be a canonical positive uint string`);
+  }
+  return value as UIntString;
+}
+
+function parsePositiveDecimal(value: unknown, field: string): string {
+  if (typeof value !== "string") {
+    throw new Error(`Postgres PnL row ${field} must be a positive canonical decimal`);
+  }
+  try {
+    normalizeHumanPrice(value);
+  } catch {
+    throw new Error(`Postgres PnL row ${field} must be a positive canonical decimal`);
   }
   return value;
 }
@@ -234,6 +286,14 @@ function parseIntString(value: unknown, field: string): IntString {
 function parsePositiveSafeInteger(value: unknown, field: string): number {
   const parsed = parseSafeInteger(value, field);
   if (parsed <= 0) throw new Error(`Postgres PnL row ${field} must be positive`);
+  return parsed;
+}
+
+function parseTokenDecimals(value: unknown, field: string): number {
+  const parsed = parseSafeInteger(value, field);
+  if (parsed < 0 || parsed > 36) {
+    throw new Error(`Postgres PnL row ${field} must be between 0 and 36`);
+  }
   return parsed;
 }
 
@@ -256,5 +316,12 @@ function assertPool(pool: unknown): asserts pool is pg.Pool {
   if (typeof pool !== "object" || pool === null || Array.isArray(pool) ||
       typeof (pool as Record<string, unknown>).connect !== "function") {
     throw new Error("Postgres PnL pool.connect must be a function");
+  }
+}
+
+function assertValuationProvider(value: unknown): asserts value is PnlValuationProvider {
+  if (typeof value !== "object" || value === null || Array.isArray(value) ||
+      typeof (value as Record<string, unknown>).resolve !== "function") {
+    throw new Error("Postgres PnL valuationProvider.resolve must be a function");
   }
 }

@@ -20,6 +20,10 @@ const postTradeMigrationSource = await readFile(
   "backend/src/db/migrations/005-post-trade-reconciliation.sql",
   "utf8",
 );
+const quoteSnapshotPnlMigrationSource = await readFile(
+  "backend/src/db/migrations/006-quote-snapshot-pnl.sql",
+  "utf8",
+);
 const postgresSettlementSource = await readFile("backend/src/modules/settlement/postgres-settlement-event.store.ts", "utf8");
 const postgresInventorySource = await readFile("backend/src/modules/inventory/postgres-inventory.service.ts", "utf8");
 const postgresHedgeSource = await readFile("backend/src/modules/hedge/postgres-hedge.service.ts", "utf8");
@@ -129,6 +133,8 @@ const requiredTables = {
   pnl_records: [
     "id",
     "quote_id",
+    "settlement_event_id",
+    "snapshot_id",
     "chain_id",
     "user_address",
     "token_in",
@@ -138,6 +144,11 @@ const requiredTables = {
     "min_amount_out",
     "nonce",
     "deadline",
+    "mid_price",
+    "token_in_decimals",
+    "token_out_decimals",
+    "fair_amount_out",
+    "valuation_observed_at",
     "gross_pnl_token_out",
     "gross_pnl_bps",
     "model",
@@ -216,6 +227,18 @@ assert.ok(
 assert.ok(
   /UNIQUE\s*\(\s*quote_id\s*,\s*model\s*\)/i.test(tables.get("pnl_records").body),
   "pnl_records must keep one attribution record per quote and model",
+);
+assert.ok(
+  /\bsettlement_event_id\s+TEXT\s+NOT\s+NULL\s+REFERENCES\s+settlement_events\s*\(\s*id\s*\)/i.test(
+    tables.get("pnl_records").body,
+  ),
+  "pnl_records.settlement_event_id must reference the realized settlement event",
+);
+assert.ok(
+  /\bsnapshot_id\s+TEXT\s+NOT\s+NULL\s+REFERENCES\s+market_snapshots\s*\(\s*id\s*\)/i.test(
+    tables.get("pnl_records").body,
+  ),
+  "pnl_records.snapshot_id must reference the quote-time valuation snapshot",
 );
 assert.ok(
   hasAlterTableForeignKey("quotes", "fk_quotes_snapshot_id", "snapshot_id", "market_snapshots", "id"),
@@ -313,7 +336,9 @@ const requiredCheckConstraints = {
     ["chk_pnl_records_chain_id_safe", "pnl_records must constrain chain_id to JavaScript safe integer range"],
     ["chk_pnl_records_addresses_hex", "pnl_records must constrain token address shape"],
     ["chk_pnl_records_distinct_tokens", "pnl_records must constrain token pair addresses to be distinct"],
+    ["chk_pnl_records_reference_ids_safe", "pnl_records must constrain settlement and snapshot identifiers"],
     ["chk_pnl_records_amounts_positive", "pnl_records must constrain positive trade amounts"],
+    ["chk_pnl_records_valuation", "pnl_records must constrain quote-snapshot valuation inputs"],
     ["chk_pnl_records_gross_pnl_bps_safe", "pnl_records must constrain gross PnL bps to JavaScript safe integer range"],
   ],
   analytics_outbox: [
@@ -630,11 +655,11 @@ assert.ok(
   "hedge_orders must reject empty external_order_id values when present",
 );
 assert.ok(
-  /model\s+IN\s*\(\s*'simulated_mid_price_v1'\s*\)/i.test(tables.get("pnl_records").body),
+  /model\s+IN\s*\(\s*'quote_snapshot_edge_v1'\s*\)/i.test(tables.get("pnl_records").body),
   "pnl model constraint must match backend PnlTradeRecord model values",
 );
 assert.ok(
-  /model_description\s*=\s*'Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL'/i.test(
+  /model_description\s*=\s*'Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution'/i.test(
     tables.get("pnl_records").body,
   ),
   "pnl model_description constraint must match backend PnlTradeRecord modelDescription value",
@@ -672,6 +697,8 @@ for (const indexName of [
   "uq_hedge_orders_venue_client_order",
   "idx_pnl_records_realized_at",
   "idx_pnl_records_chain_pair_realized_at",
+  "uq_pnl_records_settlement_model",
+  "idx_pnl_records_snapshot_id",
   "idx_post_trade_jobs_pending",
 ]) {
   assert.ok(
@@ -743,6 +770,8 @@ assert.deepEqual(
 const pnlColumnMapping = {
   pnlId: "id",
   quoteId: "quote_id",
+  settlementEventId: "settlement_event_id",
+  snapshotId: "snapshot_id",
   chainId: "chain_id",
   user: "user_address",
   tokenIn: "token_in",
@@ -752,6 +781,11 @@ const pnlColumnMapping = {
   minAmountOut: "min_amount_out",
   nonce: "nonce",
   deadline: "deadline",
+  midPrice: "mid_price",
+  tokenInDecimals: "token_in_decimals",
+  tokenOutDecimals: "token_out_decimals",
+  fairAmountOut: "fair_amount_out",
+  valuationObservedAt: "valuation_observed_at",
   grossPnlTokenOut: "gross_pnl_token_out",
   grossPnlBps: "gross_pnl_bps",
   model: "model",
@@ -1024,6 +1058,14 @@ assert.ok(
     postTradeMigrationSource.includes("attempt_count = 0") &&
     schemaSource.includes("('005', 'post-trade-reconciliation')"),
   "post-trade migration must enqueue revisioned convergence and permit canonical reorg replacement",
+);
+assert.ok(
+  quoteSnapshotPnlMigrationSource.includes("CREATE TABLE pnl_records_legacy_simulated_v1") &&
+    quoteSnapshotPnlMigrationSource.includes("quote_snapshot_edge_v1") &&
+    quoteSnapshotPnlMigrationSource.includes("pnl.attribution.v2") &&
+    quoteSnapshotPnlMigrationSource.includes("enqueue_pnl_snapshot_analytics_event") &&
+    schemaSource.includes("('006', 'quote-snapshot-pnl')"),
+  "quote-snapshot PnL migration must archive legacy attribution and emit versioned valuation events",
 );
 assert.ok(
   postTradeStoreSource.includes("FOR UPDATE SKIP LOCKED") &&

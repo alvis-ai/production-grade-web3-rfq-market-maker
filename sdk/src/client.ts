@@ -4,6 +4,7 @@ import type {
   HedgeIntentStatus,
   HealthResponse,
   PnlSummary,
+  PnlTokenTotal,
   PnlTradeRecord,
   QuoteRequest,
   QuoteResponse,
@@ -82,10 +83,13 @@ const settlementEventStatusFields = [
   "nonce",
   "observedAt",
 ] as const;
-const pnlSummaryFields = ["status", "totalTrades", "grossPnlTokenOut", "trades"] as const;
+const pnlSummaryFields = ["status", "totalTrades", "totals", "trades"] as const;
+const pnlTokenTotalFields = ["chainId", "tokenOut", "totalTrades", "grossPnlTokenOut"] as const;
 const pnlTradeRecordFields = [
   "pnlId",
   "quoteId",
+  "settlementEventId",
+  "snapshotId",
   "chainId",
   "user",
   "tokenIn",
@@ -95,6 +99,11 @@ const pnlTradeRecordFields = [
   "minAmountOut",
   "nonce",
   "deadline",
+  "midPrice",
+  "tokenInDecimals",
+  "tokenOutDecimals",
+  "fairAmountOut",
+  "valuationObservedAt",
   "grossPnlTokenOut",
   "grossPnlBps",
   "model",
@@ -758,8 +767,8 @@ function assertPnlSummary(payload: unknown, status: number): asserts payload is 
   if (!isNonNegativeSafeInteger(payload.totalTrades)) {
     throw malformedFieldError(status, label, "totalTrades");
   }
-  if (!isIntString(payload.grossPnlTokenOut)) {
-    throw malformedFieldError(status, label, "grossPnlTokenOut");
+  if (!Array.isArray(payload.totals)) {
+    throw malformedFieldError(status, label, "totals");
   }
   if (!Array.isArray(payload.trades)) {
     throw malformedFieldError(status, label, "trades");
@@ -768,15 +777,44 @@ function assertPnlSummary(payload: unknown, status: number): asserts payload is 
     throw malformedFieldError(status, label, "totalTrades");
   }
 
-  let grossPnl = 0n;
+  const expectedTotals = new Map<string, { totalTrades: number; grossPnl: bigint }>();
   for (const trade of payload.trades) {
     assertPnlTradeRecord(trade, status);
-    grossPnl += BigInt(trade.grossPnlTokenOut);
+    const key = pnlTokenKey(trade.chainId, trade.tokenOut);
+    const current = expectedTotals.get(key) ?? { totalTrades: 0, grossPnl: 0n };
+    current.totalTrades += 1;
+    current.grossPnl += BigInt(trade.grossPnlTokenOut);
+    expectedTotals.set(key, current);
   }
 
-  if (BigInt(payload.grossPnlTokenOut) !== grossPnl) {
-    throw malformedFieldError(status, label, "grossPnlTokenOut");
+  if (payload.totals.length !== expectedTotals.size) {
+    throw malformedFieldError(status, label, "totals");
   }
+  const seenTotals = new Set<string>();
+  for (const total of payload.totals) {
+    assertPnlTokenTotal(total, status);
+    const key = pnlTokenKey(total.chainId, total.tokenOut);
+    if (seenTotals.has(key)) throw malformedFieldError(status, label, "totals");
+    seenTotals.add(key);
+    const expected = expectedTotals.get(key);
+    if (
+      !expected ||
+      total.totalTrades !== expected.totalTrades ||
+      BigInt(total.grossPnlTokenOut) !== expected.grossPnl
+    ) {
+      throw malformedFieldError(status, label, "totals");
+    }
+  }
+}
+
+function assertPnlTokenTotal(payload: unknown, status: number): asserts payload is PnlTokenTotal {
+  const label = "RFQ PnL summary response total";
+  if (!isRecord(payload)) throw malformedFieldError(status, label, "chainId");
+  assertOwnResponseFields(payload, pnlTokenTotalFields, [], status, label);
+  if (!isPositiveSafeInteger(payload.chainId)) throw malformedFieldError(status, label, "chainId");
+  if (!isAddressHex(payload.tokenOut)) throw malformedFieldError(status, label, "tokenOut");
+  if (!isPositiveSafeInteger(payload.totalTrades)) throw malformedFieldError(status, label, "totalTrades");
+  if (!isIntString(payload.grossPnlTokenOut)) throw malformedFieldError(status, label, "grossPnlTokenOut");
 }
 
 function assertPnlTradeRecord(payload: unknown, status: number): asserts payload is PnlTradeRecord {
@@ -786,7 +824,7 @@ function assertPnlTradeRecord(payload: unknown, status: number): asserts payload
   }
   assertOwnResponseFields(payload, pnlTradeRecordFields, [], status, label);
 
-  for (const field of ["pnlId", "quoteId"] as const) {
+  for (const field of ["pnlId", "quoteId", "settlementEventId", "snapshotId"] as const) {
     if (!isSafeIdentifier(payload[field])) {
       throw malformedFieldError(status, label, field);
     }
@@ -830,21 +868,87 @@ function assertPnlTradeRecord(payload: unknown, status: number): asserts payload
   if (!isPositiveSafeInteger(payload.deadline)) {
     throw malformedFieldError(status, label, "deadline");
   }
+  if (!isPositiveDecimalString(payload.midPrice)) {
+    throw malformedFieldError(status, label, "midPrice");
+  }
+  if (!isTokenDecimals(payload.tokenInDecimals)) {
+    throw malformedFieldError(status, label, "tokenInDecimals");
+  }
+  if (!isTokenDecimals(payload.tokenOutDecimals)) {
+    throw malformedFieldError(status, label, "tokenOutDecimals");
+  }
+  if (!isPositiveUIntString(payload.fairAmountOut)) {
+    throw malformedFieldError(status, label, "fairAmountOut");
+  }
+  if (!isIsoUtcTimestampString(payload.valuationObservedAt)) {
+    throw malformedFieldError(status, label, "valuationObservedAt");
+  }
   if (!isIntString(payload.grossPnlTokenOut)) {
     throw malformedFieldError(status, label, "grossPnlTokenOut");
   }
   if (!isSafeInteger(payload.grossPnlBps)) {
     throw malformedFieldError(status, label, "grossPnlBps");
   }
-  if (payload.model !== "simulated_mid_price_v1") {
+  const amountIn = payload.amountIn;
+  const fairAmountOut = payload.fairAmountOut;
+  const grossPnlTokenOut = payload.grossPnlTokenOut;
+  if (
+    !isPositiveUIntString(amountIn) ||
+    !isPositiveUIntString(fairAmountOut) ||
+    !isIntString(grossPnlTokenOut) ||
+    !isPositiveDecimalString(payload.midPrice) ||
+    !isTokenDecimals(payload.tokenInDecimals) ||
+    !isTokenDecimals(payload.tokenOutDecimals)
+  ) {
+    throw malformedFieldError(status, label, "fairAmountOut");
+  }
+  const expectedFairAmountOut = calculateFairAmountOut(
+    BigInt(amountIn),
+    payload.midPrice,
+    payload.tokenInDecimals,
+    payload.tokenOutDecimals,
+  );
+  if (BigInt(fairAmountOut) !== expectedFairAmountOut) {
+    throw malformedFieldError(status, label, "fairAmountOut");
+  }
+  const expectedGrossPnl = expectedFairAmountOut - BigInt(amountOut);
+  if (BigInt(grossPnlTokenOut) !== expectedGrossPnl) {
+    throw malformedFieldError(status, label, "grossPnlTokenOut");
+  }
+  const expectedGrossPnlBps = (expectedGrossPnl * 10_000n) / expectedFairAmountOut;
+  if (
+    expectedGrossPnlBps < BigInt(Number.MIN_SAFE_INTEGER) ||
+    expectedGrossPnlBps > BigInt(Number.MAX_SAFE_INTEGER) ||
+    payload.grossPnlBps !== Number(expectedGrossPnlBps)
+  ) {
+    throw malformedFieldError(status, label, "grossPnlBps");
+  }
+  if (payload.model !== "quote_snapshot_edge_v1") {
     throw malformedFieldError(status, label, "model");
   }
   if (
     payload.modelDescription !==
-      "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL"
+      "Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution"
   ) {
     throw malformedFieldError(status, label, "modelDescription");
   }
+}
+
+function pnlTokenKey(chainId: number, tokenOut: string): string {
+  return `${chainId}:${tokenOut.toLowerCase()}`;
+}
+
+function calculateFairAmountOut(
+  amountIn: bigint,
+  midPrice: string,
+  tokenInDecimals: number,
+  tokenOutDecimals: number,
+): bigint {
+  const [whole, fraction = ""] = midPrice.split(".");
+  const denominator = 10n ** BigInt(fraction.length);
+  const numerator = BigInt(whole) * denominator + BigInt(fraction || "0");
+  return (amountIn * numerator * 10n ** BigInt(tokenOutDecimals)) /
+    (denominator * 10n ** BigInt(tokenInDecimals));
 }
 
 function malformedFieldError(status: number, label: string, field: string): RFQClientError {
@@ -945,6 +1049,14 @@ function isPositiveUIntString(value: unknown): value is string {
   return typeof value === "string" && /^[1-9][0-9]*$/.test(value);
 }
 
+function isPositiveDecimalString(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 96 || !/^(0|[1-9][0-9]*)(\.[0-9]{1,18})?$/.test(value)) {
+    return false;
+  }
+  const digits = value.replace(".", "");
+  return BigInt(digits) > 0n;
+}
+
 function isIntString(value: unknown): value is string {
   return typeof value === "string" && /^(0|-?[1-9][0-9]*)$/.test(value);
 }
@@ -959,6 +1071,10 @@ function isPositiveSafeInteger(value: unknown): value is number {
 
 function isNonNegativeSafeInteger(value: unknown): value is number {
   return isSafeInteger(value) && value >= 0;
+}
+
+function isTokenDecimals(value: unknown): value is number {
+  return isSafeInteger(value) && value >= 0 && value <= 36;
 }
 
 function retryAfterSeconds(response: Response): number | undefined {

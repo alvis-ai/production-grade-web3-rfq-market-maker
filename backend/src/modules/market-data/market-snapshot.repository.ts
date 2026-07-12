@@ -1,4 +1,5 @@
 import type { Address, MarketSnapshot, QuoteRequest } from "../../shared/types/rfq.js";
+import { normalizeHumanPrice } from "../pricing/price-normalization.js";
 import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 
@@ -57,17 +58,20 @@ export class InMemoryMarketSnapshotRepository implements MarketSnapshotStore {
   }
 
   async findBySnapshotId(snapshotId: string): Promise<MarketSnapshotRecord | undefined> {
-    assertSafeIdentifier(snapshotId, "snapshotId");
+    assertMarketSnapshotIdentifier(snapshotId, "snapshotId");
     const record = this.recordsBySnapshotId.get(snapshotId);
     return record ? cloneMarketSnapshotRecord(record) : undefined;
   }
 }
 
-function toMarketSnapshotRecord(input: SaveMarketSnapshotInput): MarketSnapshotRecord {
+export function toMarketSnapshotRecord(
+  input: SaveMarketSnapshotInput,
+  defaultSource = defaultMarketSnapshotSource,
+): MarketSnapshotRecord {
   assertSaveMarketSnapshotInput(input);
   const request = validateQuoteRequest(input.request);
   assertMarketSnapshot(input.snapshot);
-  const source = input.source ?? defaultMarketSnapshotSource;
+  const source = input.source ?? defaultSource;
   assertNonEmptyString(source, "source");
 
   return {
@@ -94,7 +98,7 @@ function assertSaveMarketSnapshotInput(input: SaveMarketSnapshotInput): void {
 
 function assertMarketSnapshot(snapshot: MarketSnapshot): void {
   assertOwnFields(snapshot, marketSnapshotFields, "snapshot");
-  assertSafeIdentifier(snapshot.snapshotId, "snapshotId");
+  assertMarketSnapshotIdentifier(snapshot.snapshotId, "snapshotId");
   if (!isPositiveDecimal(snapshot.midPrice)) {
     throw new Error("Market snapshot midPrice must be a positive decimal");
   }
@@ -137,7 +141,7 @@ function assertNonEmptyString(value: string, field: string): void {
   }
 }
 
-function assertSafeIdentifier(value: unknown, field: string): void {
+export function assertMarketSnapshotIdentifier(value: unknown, field: string): asserts value is string {
   if (typeof value !== "string") {
     throw new Error(`Market snapshot ${field} must be a primitive string`);
   }
@@ -157,17 +161,15 @@ function isPositiveIntegerString(value: string): boolean {
 }
 
 function isPositiveDecimal(value: string): boolean {
-  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)) {
+  if (typeof value !== "string") {
     return false;
   }
-
-  return parseDecimalToScaledBigInt(value) > 0n;
-}
-
-function parseDecimalToScaledBigInt(value: string): bigint {
-  const [whole, fraction = ""] = value.split(".");
-  const scaledFraction = `${fraction.slice(0, 18)}${"0".repeat(Math.max(0, 18 - fraction.length))}`;
-  return BigInt(whole) * 1_000_000_000_000_000_000n + BigInt(scaledFraction);
+  try {
+    normalizeHumanPrice(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function isSameMarketSnapshot(left: MarketSnapshotRecord, right: MarketSnapshotRecord): boolean {

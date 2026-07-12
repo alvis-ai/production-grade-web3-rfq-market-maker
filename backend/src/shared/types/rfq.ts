@@ -1,8 +1,8 @@
 export type Address = `0x${string}`;
 export type UIntString = string;
 export type IntString = string;
-export const simulatedPnlModelDescription =
-  "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL" as const;
+export const quoteSnapshotPnlModelDescription =
+  "Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution" as const;
 
 export interface QuoteRequest {
   chainId: number;
@@ -118,6 +118,8 @@ export interface SettlementEventStatusResponse {
 export interface PnlTradeRecord {
   pnlId: string;
   quoteId: string;
+  settlementEventId: string;
+  snapshotId: string;
   chainId: number;
   user: Address;
   tokenIn: Address;
@@ -127,16 +129,28 @@ export interface PnlTradeRecord {
   minAmountOut: UIntString;
   nonce: UIntString;
   deadline: number;
+  midPrice: string;
+  tokenInDecimals: number;
+  tokenOutDecimals: number;
+  fairAmountOut: UIntString;
+  valuationObservedAt: string;
   grossPnlTokenOut: IntString;
   grossPnlBps: number;
-  model: "simulated_mid_price_v1";
-  modelDescription: "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL";
+  model: "quote_snapshot_edge_v1";
+  modelDescription: "Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution";
   realizedAt: string;
+}
+
+export interface PnlTokenTotal {
+  chainId: number;
+  tokenOut: Address;
+  totalTrades: number;
+  grossPnlTokenOut: IntString;
 }
 
 export interface PnlSummaryResponse {
   status: "ok";
   totalTrades: number;
-  grossPnlTokenOut: IntString;
+  totals: PnlTokenTotal[];
   trades: PnlTradeRecord[];
 }

@@ -36,6 +36,7 @@ import {
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { PnlService, type PnlStore, type RecordPnlInput } from "./modules/pnl/pnl.service.js";
 import { PostgresPnlStore } from "./modules/pnl/postgres-pnl.store.js";
+import { QuoteSnapshotPnlValuationProvider } from "./modules/pnl/quote-snapshot-valuation.provider.js";
 import {
   defaultFormulaPricingConfig,
   FormulaPricingEngine,
@@ -48,6 +49,7 @@ import {
   requireTokenMetadata,
   type TokenRegistry,
 } from "./modules/pricing/token-registry.js";
+import { convertBaseUnitAmount, normalizeHumanPrice } from "./modules/pricing/price-normalization.js";
 import { InMemoryQuoteRepository, type QuoteRepository } from "./modules/quote/quote.repository.js";
 import { PostgresQuoteRepository } from "./modules/quote/postgres-quote.repository.js";
 import { defaultQuoteServiceConfig, QuoteService } from "./modules/quote/quote.service.js";
@@ -92,7 +94,7 @@ import { validateQuoteRequest } from "./shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.js";
 import { isCanonicalUtcIsoTimestamp } from "./shared/validation/timestamp.js";
 import { defaultStaticMarketDataConfig } from "./modules/market-data/market-data.service.js";
-import { simulatedPnlModelDescription } from "./shared/types/rfq.js";
+import { quoteSnapshotPnlModelDescription } from "./shared/types/rfq.js";
 import type { PnlTradeRecord } from "./shared/types/rfq.js";
 
 const defaultBodyLimitBytes = 32_768;
@@ -144,6 +146,8 @@ const rateLimitDecisionFields = ["allowed", "remaining", "retryAfterSeconds"] as
 const pnlTradeRecordFields = [
   "pnlId",
   "quoteId",
+  "settlementEventId",
+  "snapshotId",
   "chainId",
   "user",
   "tokenIn",
@@ -153,6 +157,11 @@ const pnlTradeRecordFields = [
   "minAmountOut",
   "nonce",
   "deadline",
+  "midPrice",
+  "tokenInDecimals",
+  "tokenOutDecimals",
+  "fairAmountOut",
+  "valuationObservedAt",
   "grossPnlTokenOut",
   "grossPnlBps",
   "model",
@@ -290,8 +299,9 @@ export function buildServer(options: BuildServerOptions = {}) {
     cexPairs,
   );
   const pricingEngine = pricingRuntime.engine;
+  const runtimeTokenRegistry = options.tokenRegistry ?? pricingRuntime.tokenRegistry ?? readTokenRegistry();
   const riskEngine = options.riskEngine ?? buildDefaultRiskEngine(
-    options.tokenRegistry ?? pricingRuntime.tokenRegistry ?? readTokenRegistry(),
+    runtimeTokenRegistry,
     managedRiskPairs,
   );
   const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
@@ -310,8 +320,11 @@ export function buildServer(options: BuildServerOptions = {}) {
       buildDefaultSettlementVerifierPolicy(getLocalSignerConfig()),
     ),
   }, options.settlementEvidenceProvider ?? buildRuntimeSettlementEvidenceProvider(getLocalSignerConfig()));
+  const pnlValuationProvider = new QuoteSnapshotPnlValuationProvider(marketSnapshotStore, runtimeTokenRegistry);
   const pnlService = options.pnlService ?? (
-    postgresPool ? new PostgresPnlStore(postgresPool) : new PnlService()
+    postgresPool
+      ? new PostgresPnlStore(postgresPool, pnlValuationProvider)
+      : new PnlService(pnlValuationProvider)
   );
   const rateLimiter = resolveRateLimiter(options);
   const inFlightSubmitQuoteIds = new Set<string>();
@@ -384,7 +397,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     settlementEventService,
     signerService,
   }, defaultMarketData && priceUpdaterPairs[0]
-    ? buildMarketReadinessConfig(priceUpdaterPairs[0], pricingRuntime.tokenRegistry, maxSnapshotAgeMs)
+    ? buildMarketReadinessConfig(priceUpdaterPairs[0], runtimeTokenRegistry, maxSnapshotAgeMs)
     : defaultReadinessServiceConfig);
 
   server.get("/health", async () => ({ status: "ok" }));
@@ -532,7 +545,12 @@ export function buildServer(options: BuildServerOptions = {}) {
       const result = await executionService.submitQuote(submitRequest, { quoteId });
       const pnlRecord = result.settlementEventResult.duplicate
         ? undefined
-        : await recordPnlSettlementBestEffort(pnlService, metricsService, { quoteId, quote: submitRequest.quote });
+        : await recordPnlSettlementBestEffort(pnlService, metricsService, quoteRepository, {
+            quoteId,
+            settlementEventId: result.settlementEventResult.event.settlementEventId,
+            realizedAt: result.settlementEventResult.event.observedAt,
+            quote: submitRequest.quote,
+          });
       metricsService.recordSubmitAccepted();
       if (!result.settlementEventResult.duplicate) {
         metricsService.recordSettlement();
@@ -654,7 +672,10 @@ function reserveSubmitQuoteId(inFlightSubmitQuoteIds: Set<string>, quoteId: stri
   };
 }
 
-function assertStatusIdentifier(value: unknown, field: "quoteId" | "hedgeOrderId" | "settlementEventId" | "pnlId"): void {
+function assertStatusIdentifier(
+  value: unknown,
+  field: "quoteId" | "hedgeOrderId" | "settlementEventId" | "pnlId" | "snapshotId",
+): void {
   if (typeof value !== "string") {
     throw new APIError("INVALID_REQUEST", `${field} must be a primitive string`, 400);
   }
@@ -764,11 +785,20 @@ function pnlStoreFailure(error: unknown): APIError {
 async function recordPnlSettlementBestEffort(
   pnlService: PnlStore,
   metricsService: MetricsService,
-  input: RecordPnlInput,
+  quoteRepository: QuoteRepository,
+  input: Omit<RecordPnlInput, "snapshotId">,
 ): Promise<PnlTradeRecord | undefined> {
   try {
-    const pnlRecord = await pnlService.recordSettlement(input);
-    assertPnlRecordResult(pnlRecord, input);
+    const storedQuote = await quoteRepository.findSignedQuoteByQuoteId(input.quoteId);
+    if (!storedQuote?.snapshotId) {
+      throw new Error(`PnL quote ${input.quoteId} is missing its market snapshot`);
+    }
+    const recordInput: RecordPnlInput = {
+      ...input,
+      snapshotId: storedQuote.snapshotId,
+    };
+    const pnlRecord = await pnlService.recordSettlement(recordInput);
+    assertPnlRecordResult(pnlRecord, recordInput);
     return pnlRecord;
   } catch {
     metricsService.recordPnlRecordError("PNL_RECORD_FAILED");
@@ -795,8 +825,13 @@ function assertPnlRecordResult(record: unknown, input: RecordPnlInput): asserts 
   assertExactOwnFields(record, pnlTradeRecordFields, "PnL record result");
   assertStatusIdentifier(record.pnlId, "pnlId");
   assertStatusIdentifier(record.quoteId, "quoteId");
+  assertStatusIdentifier(record.settlementEventId, "settlementEventId");
+  assertStatusIdentifier(record.snapshotId, "snapshotId");
   if (record.pnlId !== `pnl_${input.quoteId}` || record.quoteId !== input.quoteId) {
     throw new Error("API PnL record identifiers must match submitted quote");
+  }
+  if (record.settlementEventId !== input.settlementEventId || record.snapshotId !== input.snapshotId) {
+    throw new Error("API PnL record settlement and snapshot identifiers must match attribution input");
   }
   if (
     typeof record.chainId !== "number" ||
@@ -840,22 +875,50 @@ function assertPnlRecordResult(record: unknown, input: RecordPnlInput): asserts 
     throw new Error("API PnL record deadline must match submitted quote");
   }
 
+  if (typeof record.midPrice !== "string") {
+    throw new Error("API PnL record midPrice must be a primitive string");
+  }
+  let normalizedMidPrice;
+  try {
+    normalizedMidPrice = normalizeHumanPrice(record.midPrice);
+  } catch {
+    throw new Error("API PnL record midPrice must be a positive canonical decimal");
+  }
+  for (const field of ["tokenInDecimals", "tokenOutDecimals"] as const) {
+    if (!Number.isSafeInteger(record[field]) || (record[field] as number) < 0 || (record[field] as number) > 36) {
+      throw new Error(`API PnL record ${field} must be an integer between 0 and 36`);
+    }
+  }
+  assertPositiveUIntString(record.fairAmountOut, "PnL record fairAmountOut");
+  const expectedFairAmountOut = convertBaseUnitAmount(
+    BigInt(input.quote.amountIn),
+    normalizedMidPrice,
+    record.tokenInDecimals as number,
+    record.tokenOutDecimals as number,
+  );
+  if (record.fairAmountOut !== expectedFairAmountOut.toString()) {
+    throw new Error("API PnL record fairAmountOut must match snapshot valuation");
+  }
+  if (!isCanonicalUtcIsoTimestamp(record.valuationObservedAt)) {
+    throw new Error("API PnL record valuationObservedAt must be a canonical UTC ISO timestamp");
+  }
+
   assertIntString(record.grossPnlTokenOut, "PnL record grossPnlTokenOut");
-  const expectedGrossPnl = BigInt(input.quote.amountIn) - BigInt(input.quote.amountOut);
+  const expectedGrossPnl = expectedFairAmountOut - BigInt(input.quote.amountOut);
   if (record.grossPnlTokenOut !== expectedGrossPnl.toString()) {
-    throw new Error("API PnL record grossPnlTokenOut must match submitted quote");
+    throw new Error("API PnL record grossPnlTokenOut must match snapshot valuation");
   }
-  if (!Number.isSafeInteger(record.grossPnlBps) || record.grossPnlBps !== calculateGrossPnlBps(input.quote.amountIn, expectedGrossPnl)) {
-    throw new Error("API PnL record grossPnlBps must match submitted quote");
+  if (!Number.isSafeInteger(record.grossPnlBps) || record.grossPnlBps !== calculateGrossPnlBps(expectedFairAmountOut, expectedGrossPnl)) {
+    throw new Error("API PnL record grossPnlBps must match snapshot valuation");
   }
-  if (record.model !== "simulated_mid_price_v1") {
-    throw new Error("API PnL record model must be simulated_mid_price_v1");
+  if (record.model !== "quote_snapshot_edge_v1") {
+    throw new Error("API PnL record model must be quote_snapshot_edge_v1");
   }
-  if (record.modelDescription !== simulatedPnlModelDescription) {
-    throw new Error("API PnL record modelDescription must describe simulated_mid_price_v1");
+  if (record.modelDescription !== quoteSnapshotPnlModelDescription) {
+    throw new Error("API PnL record modelDescription must describe quote_snapshot_edge_v1");
   }
-  if (!isCanonicalUtcIsoTimestamp(record.realizedAt)) {
-    throw new Error("API PnL record realizedAt must be a canonical UTC ISO timestamp");
+  if (!isCanonicalUtcIsoTimestamp(record.realizedAt) || record.realizedAt !== input.realizedAt) {
+    throw new Error("API PnL record realizedAt must match the settlement observation time");
   }
 }
 
@@ -892,13 +955,8 @@ function assertAddress(value: unknown, field: string): asserts value is `0x${str
   }
 }
 
-function calculateGrossPnlBps(amountIn: string, grossPnl: bigint): number {
-  const notional = BigInt(amountIn);
-  if (notional <= 0n) {
-    return 0;
-  }
-
-  const grossPnlBps = (grossPnl * 10_000n) / notional;
+function calculateGrossPnlBps(fairAmountOut: bigint, grossPnl: bigint): number {
+  const grossPnlBps = (grossPnl * 10_000n) / fairAmountOut;
   if (grossPnlBps < BigInt(Number.MIN_SAFE_INTEGER) || grossPnlBps > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new Error("API PnL record grossPnlBps must be a safe integer");
   }

@@ -371,6 +371,8 @@ assertContains(helmReconciliationDeployment, [
   "initContainers:",
   'command: ["node", "backend/dist/db/migrate.js"]',
   'command: ["node", "backend/dist/reconciliation-worker-main.js"]',
+  "RFQ_TOKEN_REGISTRY_JSON",
+  "env.RFQ_TOKEN_REGISTRY_JSON is required for reconciliation PnL",
   "key: {{ .Values.reconciliationWorker.secret.databaseUrlKey }}",
   "path: /ready",
   "path: /health",
@@ -405,8 +407,10 @@ assertContains(kubernetesChapter, [
   "`rfq-analytics-worker-secrets`",
   "`rfq.analytics.v1`",
   "`005-post-trade-reconciliation.sql`",
+  "`006-quote-snapshot-pnl.sql`",
   "`rfq-reconciliation-worker`",
   "Migration 005",
+  "Migration 006",
 ], "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md");
 
 console.log("Deployment manifests consistency check passed");

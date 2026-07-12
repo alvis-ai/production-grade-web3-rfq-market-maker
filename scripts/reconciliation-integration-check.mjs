@@ -3,7 +3,10 @@ import { randomBytes } from "node:crypto";
 import { endPool, getPool } from "../backend/dist/db/pool.js";
 import { PostgresHedgeService } from "../backend/dist/modules/hedge/postgres-hedge.service.js";
 import { PostgresInventoryService } from "../backend/dist/modules/inventory/postgres-inventory.service.js";
+import { PostgresMarketSnapshotStore } from "../backend/dist/modules/market-data/postgres-market-snapshot.repository.js";
 import { PostgresPnlStore } from "../backend/dist/modules/pnl/postgres-pnl.store.js";
+import { QuoteSnapshotPnlValuationProvider } from "../backend/dist/modules/pnl/quote-snapshot-valuation.provider.js";
+import { ConfiguredTokenRegistry } from "../backend/dist/modules/pricing/token-registry.js";
 import { PostgresQuoteRepository } from "../backend/dist/modules/quote/postgres-quote.repository.js";
 import { PostTradeReconciliationMetrics } from "../backend/dist/modules/reconciliation/post-trade-reconciliation.metrics.js";
 import { PostTradeReconciliationWorker } from "../backend/dist/modules/reconciliation/post-trade-reconciliation.worker.js";
@@ -41,7 +44,17 @@ const inventory = new PostgresInventoryService(pool);
 const settlementEvents = new PostgresSettlementEventStore(pool, inventory);
 const quoteRepository = new PostgresQuoteRepository(pool);
 const hedgeService = new PostgresHedgeService(pool);
-const pnlService = new PostgresPnlStore(pool);
+const marketSnapshots = new PostgresMarketSnapshotStore(pool);
+const tokenRegistry = new ConfiguredTokenRegistry({
+  tokens: [
+    { chainId: 1, tokenAddress: tokenIn, symbol: "TOKEN_IN", decimals: 18, isWhitelisted: true, riskTier: "low", usdReference: true },
+    { chainId: 1, tokenAddress: tokenOut, symbol: "TOKEN_OUT", decimals: 18, isWhitelisted: true, riskTier: "low", usdReference: false },
+  ],
+});
+const pnlService = new PostgresPnlStore(
+  pool,
+  new QuoteSnapshotPnlValuationProvider(marketSnapshots, tokenRegistry),
+);
 const jobStore = new PostgresPostTradeReconciliationStore(pool);
 const reconciliation = new ReconciliationService({
   quoteRepository,
@@ -60,7 +73,7 @@ let fixturesCreated = false;
 
 try {
   const migrations = await pool.query("SELECT version FROM _migrations ORDER BY version");
-  assert.equal(migrations.rows.some((row) => row.version === "005"), true, "migration 005 must be applied");
+  assert.equal(migrations.rows.some((row) => row.version === "006"), true, "migration 006 must be applied");
   await pool.query(
     `INSERT INTO market_snapshots (
        id, chain_id, token_in, token_out, mid_price, bid_price, ask_price,

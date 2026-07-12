@@ -4,7 +4,15 @@ import Fastify from "fastify";
 import { checkPoolHealth, endPool, getPool } from "./db/pool.js";
 import { PostgresHedgeService } from "./modules/hedge/postgres-hedge.service.js";
 import { PostgresInventoryService } from "./modules/inventory/postgres-inventory.service.js";
+import { PostgresMarketSnapshotStore } from "./modules/market-data/postgres-market-snapshot.repository.js";
 import { PostgresPnlStore } from "./modules/pnl/postgres-pnl.store.js";
+import { QuoteSnapshotPnlValuationProvider } from "./modules/pnl/quote-snapshot-valuation.provider.js";
+import {
+  ConfiguredTokenRegistry,
+  defaultTokenRegistryConfig,
+  parseTokenRegistryConfig,
+  type TokenRegistry,
+} from "./modules/pricing/token-registry.js";
 import { PostgresQuoteRepository } from "./modules/quote/postgres-quote.repository.js";
 import { PostTradeReconciliationMetrics } from "./modules/reconciliation/post-trade-reconciliation.metrics.js";
 import {
@@ -40,6 +48,15 @@ export function readReconciliationWorkerRuntimeConfig(
   };
 }
 
+export function readReconciliationTokenRegistry(
+  env: Record<string, string | undefined> | undefined = process.env,
+): TokenRegistry {
+  const serialized = readOptional(env, "RFQ_TOKEN_REGISTRY_JSON");
+  return new ConfiguredTokenRegistry(
+    serialized === undefined ? defaultTokenRegistryConfig : parseTokenRegistryConfig(serialized),
+  );
+}
+
 export async function startReconciliationWorker(): Promise<void> {
   const config = readReconciliationWorkerRuntimeConfig();
   const pool = getPool();
@@ -47,7 +64,12 @@ export async function startReconciliationWorker(): Promise<void> {
   const settlementEvents = new PostgresSettlementEventStore(pool, inventory);
   const quoteRepository = new PostgresQuoteRepository(pool);
   const hedgeService = new PostgresHedgeService(pool);
-  const pnlService = new PostgresPnlStore(pool);
+  const marketSnapshots = new PostgresMarketSnapshotStore(pool);
+  const pnlValuationProvider = new QuoteSnapshotPnlValuationProvider(
+    marketSnapshots,
+    readReconciliationTokenRegistry(),
+  );
+  const pnlService = new PostgresPnlStore(pool, pnlValuationProvider);
   const store = new PostgresPostTradeReconciliationStore(pool);
   const reconciliation = new ReconciliationService({
     quoteRepository,
@@ -65,6 +87,7 @@ export async function startReconciliationWorker(): Promise<void> {
         store.checkHealth(),
         quoteRepository.checkHealth(),
         hedgeService.checkHealth(),
+        marketSnapshots.checkHealth(),
         pnlService.checkHealth(),
         settlementEvents.checkHealth(),
       ]);

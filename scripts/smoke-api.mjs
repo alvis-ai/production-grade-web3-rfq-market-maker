@@ -13,8 +13,8 @@ const localSignerPrivateKey =
   process.env.RFQ_SIGNER_PRIVATE_KEY ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const settlementAddress = process.env.RFQ_SETTLEMENT_ADDRESS ?? "0x0000000000000000000000000000000000000004";
 const expectedSignerAddress = privateKeyToAccount(localSignerPrivateKey).address;
-const simulatedPnlModelDescription =
-  "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL";
+const quoteSnapshotPnlModelDescription =
+  "Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution";
 const quoteRequest = JSON.parse(await readFile("examples/quote-request.json", "utf8"));
 const quoteTypes = {
   Quote: [
@@ -105,10 +105,16 @@ assertEqual(hedgeStatus.amount, quoteResponse.amountOut, "hedge amount");
 const pnl = await request("GET", "/pnl");
 assertEqual(pnl.status, "ok", "pnl status");
 assertEqual(pnl.totalTrades, 1, "pnl trade count");
-assertEqual(pnl.grossPnlTokenOut, "1600000", "gross pnl");
+assertEqual(pnl.totals.length, 1, "pnl total group count");
+assertEqual(pnl.totals[0].chainId, quoteRequest.chainId, "pnl total chain");
+assertEqual(pnl.totals[0].tokenOut, quoteRequest.tokenOut.toLowerCase(), "pnl total token");
+assertEqual(pnl.totals[0].grossPnlTokenOut, "1600000", "gross pnl");
 assertEqual(pnl.trades[0].pnlId, submitResponse.pnlId, "pnl trade id");
 assertEqual(pnl.trades[0].quoteId, quoteResponse.quoteId, "pnl quote id");
-assertEqual(pnl.trades[0].modelDescription, simulatedPnlModelDescription, "pnl model description");
+assertEqual(pnl.trades[0].settlementEventId, submitResponse.settlementEventId, "pnl settlement event id");
+assertEqual(pnl.trades[0].snapshotId, quoteResponse.snapshotId, "pnl snapshot id");
+assertEqual(pnl.trades[0].fairAmountOut, quoteRequest.amountIn, "pnl fair amount out");
+assertEqual(pnl.trades[0].modelDescription, quoteSnapshotPnlModelDescription, "pnl model description");
 
 const metrics = await requestText("GET", "/metrics");
 assertIncludes(metrics, "rfq_quote_requests_total 1", "quote request metric");
@@ -153,7 +159,7 @@ console.log(
       hedgeOrderId: submitResponse.hedgeOrderId,
       hedgeStatus: hedgeStatus.status,
       pnlId: submitResponse.pnlId,
-      grossPnlTokenOut: pnl.grossPnlTokenOut,
+      grossPnlTokenOut: pnl.totals[0].grossPnlTokenOut,
       readiness: readiness.status,
       replayTraceId: replayError.payload.traceId,
       recoveredSigner,

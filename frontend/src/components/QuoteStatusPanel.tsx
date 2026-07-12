@@ -49,6 +49,7 @@ export function QuoteStatusPanel({
   const settlementEventId = quoteStatus?.settlementEventId ?? submitResult?.settlementEventId;
   const hedgeOrderId = quoteStatus?.hedgeOrderId ?? submitResult?.hedgeOrderId;
   const pnlId = quoteStatus?.pnlId ?? submitResult?.pnlId;
+  const pnlTrade = pnlSummary?.trades.find((trade) => trade.pnlId === pnlId);
 
   return (
     <aside className="panel">
@@ -127,8 +128,8 @@ export function QuoteStatusPanel({
           <dd>{pnlId ?? "-"}</dd>
         </div>
         <div>
-          <dt>Realized PnL</dt>
-          <dd>{pnlSummary?.grossPnlTokenOut ?? "-"}</dd>
+          <dt>Gross PnL (tokenOut)</dt>
+          <dd>{pnlTrade?.grossPnlTokenOut ?? "-"}</dd>
         </div>
         <div>
           <dt>Wallet</dt>

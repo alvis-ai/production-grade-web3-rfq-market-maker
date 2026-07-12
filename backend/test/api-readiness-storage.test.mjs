@@ -65,13 +65,13 @@ test("RFQ API degrades readiness when storage dependency probes fail", async () 
       recordSettlement() {
         throw new Error("unused");
       },
-      summary() {
-        return {
-          status: "ok",
-          totalTrades: 0,
-          grossPnlTokenOut: "0",
-          trades: [],
-        };
+        summary() {
+          return {
+            status: "ok",
+            totalTrades: 0,
+            totals: [],
+            trades: [],
+          };
       },
     },
   });

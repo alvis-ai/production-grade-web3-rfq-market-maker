@@ -244,9 +244,15 @@ export class ReconciliationService {
           });
           continue;
         }
+        if (!record.snapshotId) {
+          throw new Error(`Quote ${record.quoteId} is missing its market snapshot`);
+        }
 
         await pnlService.recordSettlement({
           quoteId: event.quoteId,
+          settlementEventId: event.settlementEventId,
+          snapshotId: record.snapshotId,
+          realizedAt: event.observedAt,
           quote: signedQuoteFromRecord(record),
         });
 

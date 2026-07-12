@@ -384,9 +384,10 @@ paths:
       operationId: getPnlSummary
       summary: Get realized PnL summary
       description: >
-        Returns realized spread PnL records generated after accepted settlements.
-        The current reference model assumes normalized same-decimal example assets
-        and records gross spread PnL in tokenOut base units.
+        Returns gross settlement PnL records valued against each quote's persisted
+        market snapshot. The model normalizes token decimals, reports tokenOut base
+        units, groups totals by chain and output token, and excludes fees, gas, and
+        hedge execution.
       tags:
         - PnL
       responses:
@@ -500,6 +501,11 @@ components:
       type: string
       pattern: "^(0|-?[1-9][0-9]*)$"
       description: Canonical signed integer string without leading zeros; zero is encoded as "0".
+    PositiveDecimalString:
+      type: string
+      maxLength: 96
+      pattern: "^(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$"
+      description: Canonical positive decimal string with at most 18 fractional digits; runtime validation rejects zero.
     SafeIdentifier:
       type: string
       minLength: 1
@@ -831,6 +837,8 @@ components:
       required:
         - pnlId
         - quoteId
+        - settlementEventId
+        - snapshotId
         - chainId
         - user
         - tokenIn
@@ -840,6 +848,11 @@ components:
         - minAmountOut
         - nonce
         - deadline
+        - midPrice
+        - tokenInDecimals
+        - tokenOutDecimals
+        - fairAmountOut
+        - valuationObservedAt
         - grossPnlTokenOut
         - grossPnlBps
         - model
@@ -849,6 +862,10 @@ components:
         pnlId:
           $ref: "#/components/schemas/SafeIdentifier"
         quoteId:
+          $ref: "#/components/schemas/SafeIdentifier"
+        settlementEventId:
+          $ref: "#/components/schemas/SafeIdentifier"
+        snapshotId:
           $ref: "#/components/schemas/SafeIdentifier"
         chainId:
           type: integer
@@ -874,6 +891,22 @@ components:
           minimum: 1
           maximum: 9007199254740991
           description: Positive JavaScript safe integer Unix timestamp.
+        midPrice:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        tokenInDecimals:
+          type: integer
+          minimum: 0
+          maximum: 36
+        tokenOutDecimals:
+          type: integer
+          minimum: 0
+          maximum: 36
+        fairAmountOut:
+          $ref: "#/components/schemas/PositiveUIntString"
+        valuationObservedAt:
+          type: string
+          format: date-time
+          description: Observation time of the persisted quote-time market snapshot.
         grossPnlTokenOut:
           $ref: "#/components/schemas/IntString"
         grossPnlBps:
@@ -884,23 +917,44 @@ components:
         model:
           type: string
           enum:
-            - simulated_mid_price_v1
+            - quote_snapshot_edge_v1
         modelDescription:
           type: string
           enum:
-            - Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL
+            - Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution
           description: Machine-readable description of the reference PnL model boundary.
         realizedAt:
           type: string
           format: date-time
-          description: Canonical UTC ISO timestamp generated with Date.prototype.toISOString().
+          description: Canonical UTC ISO timestamp of the observed settlement event.
+    PnlTokenTotal:
+      type: object
+      additionalProperties: false
+      required:
+        - chainId
+        - tokenOut
+        - totalTrades
+        - grossPnlTokenOut
+      properties:
+        chainId:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        tokenOut:
+          $ref: "#/components/schemas/Address"
+        totalTrades:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        grossPnlTokenOut:
+          $ref: "#/components/schemas/IntString"
     PnlSummary:
       type: object
       additionalProperties: false
       required:
         - status
         - totalTrades
-        - grossPnlTokenOut
+        - totals
         - trades
       properties:
         status:
@@ -910,8 +964,10 @@ components:
         totalTrades:
           type: integer
           minimum: 0
-        grossPnlTokenOut:
-          $ref: "#/components/schemas/IntString"
+        totals:
+          type: array
+          items:
+            $ref: "#/components/schemas/PnlTokenTotal"
         trades:
           type: array
           items:

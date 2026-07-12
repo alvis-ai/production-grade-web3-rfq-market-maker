@@ -1,5 +1,14 @@
 import pg from "pg";
-import type { MarketSnapshotRecord, SaveMarketSnapshotInput, MarketSnapshotStore } from "./market-snapshot.repository.js";
+import {
+  assertMarketSnapshotIdentifier,
+  toMarketSnapshotRecord,
+  type MarketSnapshotRecord,
+  type SaveMarketSnapshotInput,
+  type MarketSnapshotStore,
+} from "./market-snapshot.repository.js";
+import { normalizeHumanPrice } from "../pricing/price-normalization.js";
+
+const postgresMarketSnapshotSource = "postgres-market-data-v1";
 
 export class PostgresMarketSnapshotStore implements MarketSnapshotStore {
   private readonly pool: pg.Pool;
@@ -18,15 +27,7 @@ export class PostgresMarketSnapshotStore implements MarketSnapshotStore {
   }
 
   async saveSnapshot(input: SaveMarketSnapshotInput): Promise<MarketSnapshotRecord> {
-    const snapshotId = assertNonEmptyString(input.snapshot.snapshotId, "snapshotId");
-    const chainId = input.request.chainId;
-    const tokenIn = input.request.tokenIn.toLowerCase();
-    const tokenOut = input.request.tokenOut.toLowerCase();
-    const midPrice = input.snapshot.midPrice;
-    const liquidityUsd = input.snapshot.liquidityUsd;
-    const volatilityBps = input.snapshot.volatilityBps;
-    const source = input.source ?? "postgres-market-data-v1";
-    const observedAt = input.snapshot.observedAt;
+    const expected = toMarketSnapshotRecord(input, postgresMarketSnapshotSource);
 
     const client = await this.pool.connect();
     try {
@@ -34,27 +35,45 @@ export class PostgresMarketSnapshotStore implements MarketSnapshotStore {
         `INSERT INTO market_snapshots (id, chain_id, token_in, token_out, mid_price,
           liquidity_usd, volatility_bps, source, observed_at, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
-         ON CONFLICT (id) DO UPDATE SET
-           chain_id = EXCLUDED.chain_id,
-           token_in = EXCLUDED.token_in,
-           token_out = EXCLUDED.token_out,
-           mid_price = EXCLUDED.mid_price,
-           liquidity_usd = EXCLUDED.liquidity_usd,
-           volatility_bps = EXCLUDED.volatility_bps,
-           source = EXCLUDED.source,
-           observed_at = EXCLUDED.observed_at
+         ON CONFLICT (id) DO NOTHING
          RETURNING id, chain_id, token_in, token_out, mid_price, liquidity_usd,
            volatility_bps, source, observed_at, created_at`,
-        [snapshotId, chainId, tokenIn, tokenOut, midPrice, liquidityUsd, volatilityBps, source, observedAt],
+        [
+          expected.snapshotId,
+          expected.chainId,
+          expected.tokenIn.toLowerCase(),
+          expected.tokenOut.toLowerCase(),
+          expected.midPrice,
+          expected.liquidityUsd,
+          expected.volatilityBps,
+          expected.source,
+          expected.observedAt,
+        ],
       );
+      if (result.rows.length === 1) return rowToRecord(result.rows[0]);
+      if (result.rows.length !== 0) throw new Error("Postgres market snapshot insert returned multiple rows");
 
-      return rowToRecord(result.rows[0]);
+      const existingResult = await client.query(
+        `SELECT id, chain_id, token_in, token_out, mid_price, liquidity_usd,
+          volatility_bps, source, observed_at, created_at
+         FROM market_snapshots WHERE id = $1`,
+        [expected.snapshotId],
+      );
+      if (existingResult.rows.length !== 1) {
+        throw new Error(`Postgres market snapshot conflict lookup failed for ${expected.snapshotId}`);
+      }
+      const existing = rowToRecord(existingResult.rows[0]);
+      if (!matchesSnapshotRecord(existing, expected)) {
+        throw new Error(`Postgres market snapshot conflict for ${expected.snapshotId}`);
+      }
+      return existing;
     } finally {
       client.release();
     }
   }
 
   async findBySnapshotId(snapshotId: string): Promise<MarketSnapshotRecord | undefined> {
+    assertMarketSnapshotIdentifier(snapshotId, "snapshotId");
     const client = await this.pool.connect();
     try {
       const result = await client.query(
@@ -87,9 +106,23 @@ function rowToRecord(row: Record<string, unknown>): MarketSnapshotRecord {
   };
 }
 
-function assertNonEmptyString(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`Postgres market snapshot ${field} must be a non-empty string`);
-  }
-  return value.trim();
+function matchesSnapshotRecord(
+  record: MarketSnapshotRecord,
+  expected: MarketSnapshotRecord,
+): boolean {
+  return record.snapshotId === expected.snapshotId &&
+    record.chainId === expected.chainId &&
+    record.tokenIn.toLowerCase() === expected.tokenIn.toLowerCase() &&
+    record.tokenOut.toLowerCase() === expected.tokenOut.toLowerCase() &&
+    equalDecimal(record.midPrice, expected.midPrice) &&
+    record.liquidityUsd === expected.liquidityUsd &&
+    record.volatilityBps === expected.volatilityBps &&
+    record.source === expected.source &&
+    record.observedAt === expected.observedAt;
+}
+
+function equalDecimal(left: string, right: string): boolean {
+  const leftPrice = normalizeHumanPrice(left);
+  const rightPrice = normalizeHumanPrice(right);
+  return leftPrice.numerator * rightPrice.denominator === rightPrice.numerator * leftPrice.denominator;
 }

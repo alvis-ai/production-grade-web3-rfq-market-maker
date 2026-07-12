@@ -3,11 +3,13 @@ import test from "node:test";
 import { MetricsService } from "../dist/modules/metrics/metrics.service.js";
 
 const token = "0x0000000000000000000000000000000000000003";
-const simulatedPnlModelDescription =
-  "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL";
+const quoteSnapshotPnlModelDescription =
+  "Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution";
 const pnlTradeRecord = {
   pnlId: "pnl_q_1",
   quoteId: "q_1",
+  settlementEventId: "se_q_1",
+  snapshotId: "snapshot_q_1",
   chainId: 1,
   user: "0x0000000000000000000000000000000000000001",
   tokenIn: "0x0000000000000000000000000000000000000002",
@@ -17,10 +19,15 @@ const pnlTradeRecord = {
   minAmountOut: "995000000",
   nonce: "1",
   deadline: 1893456000,
+  midPrice: "1",
+  tokenInDecimals: 18,
+  tokenOutDecimals: 18,
+  fairAmountOut: "1000000000",
+  valuationObservedAt: "2026-06-28T23:59:59.000Z",
   grossPnlTokenOut: "1600000",
   grossPnlBps: 16,
-  model: "simulated_mid_price_v1",
-  modelDescription: simulatedPnlModelDescription,
+  model: "quote_snapshot_edge_v1",
+  modelDescription: quoteSnapshotPnlModelDescription,
   realizedAt: "2026-06-29T00:00:00.000Z",
 };
 
@@ -186,7 +193,7 @@ test("MetricsService validates inventory and PnL metric inputs before mutating s
         ...pnlTradeRecord,
         modelDescription: "unsupported PnL model",
       }),
-    /Metrics PnL trade modelDescription must describe simulated_mid_price_v1/,
+    /Metrics PnL trade modelDescription must describe quote_snapshot_edge_v1/,
   );
   assert.throws(
     () =>

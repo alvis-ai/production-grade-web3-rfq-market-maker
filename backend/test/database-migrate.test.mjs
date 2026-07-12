@@ -11,6 +11,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "003", name: "hedge-worker-queue", applied_at: "2026-07-11T00:00:00.000Z" },
         { version: "004", name: "analytics-outbox", applied_at: "2026-07-11T00:00:00.000Z" },
         { version: "005", name: "post-trade-reconciliation", applied_at: "2026-07-11T00:00:00.000Z" },
+        { version: "006", name: "quote-snapshot-pnl", applied_at: "2026-07-11T00:00:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -127,6 +128,33 @@ test("database migration runner applies durable post-trade reconciliation after 
   assert.equal(client.queries.some(({ sql }) => sql.includes("enqueue_post_trade_reconciliation_job")), true);
   assert.equal(client.queries.some(({ sql }) => sql.includes("WHERE canonical = TRUE")), true);
   assert.equal(client.queries.some(({ sql, params }) => sql.includes("INSERT INTO _migrations") && params[0] === "005"), true);
+});
+
+test("database migration runner applies quote-snapshot PnL after reconciliation", async () => {
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: [
+        { version: "001", name: "base-schema", applied_at: "2026-07-11T00:00:00.000Z" },
+        { version: "002", name: "settlement-canonical", applied_at: "2026-07-11T00:00:00.000Z" },
+        { version: "003", name: "hedge-worker-queue", applied_at: "2026-07-11T00:00:00.000Z" },
+        { version: "004", name: "analytics-outbox", applied_at: "2026-07-11T00:00:00.000Z" },
+        { version: "005", name: "post-trade-reconciliation", applied_at: "2026-07-11T00:00:00.000Z" },
+      ] };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "006");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("pnl_records_legacy_simulated_v1")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("quote_snapshot_edge_v1")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("pnl.attribution.v2")), true);
+  assert.equal(client.queries.some(({ sql, params }) => sql.includes("INSERT INTO _migrations") && params[0] === "006"), true);
 });
 
 function fakePool(handler) {

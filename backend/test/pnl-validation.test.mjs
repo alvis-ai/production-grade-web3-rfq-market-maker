@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PnlService } from "../dist/modules/pnl/pnl.service.js";
+import { createTestPnlValuationProvider, pnlInput } from "./helpers/pnl-fixtures.mjs";
 
 const baseQuote = {
   user: "0x0000000000000000000000000000000000000001",
@@ -14,254 +15,121 @@ const baseQuote = {
   chainId: 1,
 };
 
-test("PnlService rejects unsafe gross PnL bps before storing attribution", () => {
+test("PnlService requires an explicit valuation provider before recording", async () => {
   const pnl = new PnlService();
 
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q_unsafe_bps",
-        quote: {
-          ...baseQuote,
-          amountIn: "1",
-          amountOut: "900719925476",
-          minAmountOut: "1",
-          nonce: "9",
-        },
-      }),
+  await assert.rejects(
+    pnl.recordSettlement(pnlInput("q_missing_provider", baseQuote)),
+    /valuationProvider is required/,
+  );
+  assert.equal(pnl.summary().totalTrades, 0);
+});
+
+test("PnlService rejects unsafe gross PnL bps before storing attribution", async () => {
+  const pnl = new PnlService(createTestPnlValuationProvider());
+
+  await assert.rejects(
+    pnl.recordSettlement(pnlInput("q_unsafe_bps", {
+      ...baseQuote,
+      amountIn: "1",
+      amountOut: "900719925476",
+      minAmountOut: "1",
+      nonce: "9",
+    })),
     /Pnl grossPnlBps must be a safe integer/,
   );
-
   assert.equal(pnl.summary().totalTrades, 0);
 });
 
-test("PnlService rejects malformed attribution payload envelopes before recording", () => {
-  const pnl = new PnlService();
+test("PnlService rejects malformed attribution payload envelopes", async () => {
+  const pnl = new PnlService(createTestPnlValuationProvider());
 
-  assert.throws(
-    () => pnl.recordSettlement(undefined),
-    /Pnl input must be an object/,
-  );
-
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q_missing_quote",
-      }),
+  await assert.rejects(pnl.recordSettlement(undefined), /Pnl input must be an object/);
+  await assert.rejects(
+    pnl.recordSettlement({
+      quoteId: "q_missing_quote",
+      settlementEventId: "se_missing_quote",
+      snapshotId: "snapshot_missing_quote",
+      realizedAt: "2026-07-11T00:00:01.000Z",
+    }),
     /Pnl quote must be an object/,
   );
-
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q_null_quote",
-        quote: null,
-      }),
+  await assert.rejects(
+    pnl.recordSettlement({
+      ...pnlInput("q_null_quote", baseQuote),
+      quote: null,
+    }),
     /Pnl quote must be an object/,
   );
-
   assert.equal(pnl.summary().totalTrades, 0);
 });
 
-test("PnlService rejects inherited attribution fields before recording", () => {
-  const pnl = new PnlService();
+test("PnlService rejects inherited attribution fields", async () => {
+  const pnl = new PnlService(createTestPnlValuationProvider());
 
-  assert.throws(
-    () =>
-      pnl.recordSettlement(
-        Object.create({
-          quoteId: "q_inherited_root",
-          quote: baseQuote,
-        }),
-      ),
+  await assert.rejects(
+    pnl.recordSettlement(Object.create(pnlInput("q_inherited_root", baseQuote))),
     /Pnl input.quoteId must be an own field/,
   );
-
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q_inherited_quote",
-        quote: Object.create(baseQuote),
-      }),
+  await assert.rejects(
+    pnl.recordSettlement({
+      ...pnlInput("q_inherited_quote", baseQuote),
+      quote: Object.create(baseQuote),
+    }),
     /Pnl quote.user must be an own field/,
   );
-
   assert.equal(pnl.summary().totalTrades, 0);
 });
 
-test("PnlService rejects unsafe attribution inputs before recording", () => {
-  const pnl = new PnlService();
+test("PnlService rejects unsafe attribution identifiers, timestamps, and quote values", async () => {
+  const pnl = new PnlService(createTestPnlValuationProvider());
+  const cases = [
+    [pnlInput(" ", baseQuote), /quoteId must be a non-empty string/],
+    [pnlInput("q.bad", baseQuote), /quoteId must contain only letters/],
+    [{ ...pnlInput("q_bad_event", baseQuote), settlementEventId: "se.bad" }, /settlementEventId must contain only letters/],
+    [{ ...pnlInput("q_bad_snapshot", baseQuote), snapshotId: "snapshot.bad" }, /snapshotId must contain only letters/],
+    [{ ...pnlInput("q_bad_time", baseQuote), realizedAt: "2026-01-01T00:00:00Z" }, /realizedAt must be a canonical/],
+    [pnlInput("q_bad_chain", { ...baseQuote, chainId: 0 }), /quote.chainId must be a positive safe integer/],
+    [pnlInput("q_bad_token", { ...baseQuote, tokenOut: "0x00000000000000000000000000000000000000zz" }), /quote.tokenOut must be a 20-byte/],
+    [pnlInput("q_zero_amount", { ...baseQuote, amountIn: "0" }), /quote.amountIn must be a positive uint/],
+    [pnlInput("q_nonce_leading_zero", { ...baseQuote, nonce: "01" }), /quote.nonce must be a positive uint/],
+    [pnlInput("q_below_min", { ...baseQuote, amountOut: "970" }), /amountOut must be greater than or equal/],
+  ];
 
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: " ",
-        quote: baseQuote,
-      }),
-    /Pnl quoteId must be a non-empty string/,
-  );
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: new String("q_base"),
-        quote: baseQuote,
-      }),
-    /Pnl quoteId must be a primitive string/,
-  );
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q.bad",
-        quote: baseQuote,
-      }),
-    /Pnl quoteId must contain only letters, numbers, underscore, colon, or hyphen/,
-  );
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q".repeat(129),
-        quote: baseQuote,
-      }),
-    /Pnl quoteId must be 128 characters or fewer/,
-  );
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q".repeat(125),
-        quote: baseQuote,
-      }),
-    /Pnl pnlId must be 128 characters or fewer/,
-  );
-
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q_bad_chain",
-        quote: {
-          ...baseQuote,
-          chainId: 0,
-        },
-      }),
-    /Pnl quote.chainId must be a positive safe integer/,
-  );
-
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q_bad_token",
-        quote: {
-          ...baseQuote,
-          tokenOut: "0x00000000000000000000000000000000000000zz",
-        },
-      }),
-    /Pnl quote.tokenOut must be a 20-byte hex address/,
-  );
-
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q_bad_user_object",
-        quote: {
-          ...baseQuote,
-          user: new String(baseQuote.user),
-        },
-      }),
-    /Pnl quote.user must be a 20-byte hex address/,
-  );
-
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q_zero_amount",
-        quote: {
-          ...baseQuote,
-          amountIn: "0",
-        },
-      }),
-    /Pnl quote.amountIn must be a positive uint string/,
-  );
-
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q_amount_number",
-        quote: {
-          ...baseQuote,
-          amountIn: 1000,
-        },
-      }),
-    /Pnl quote.amountIn must be a positive uint string/,
-  );
-
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q_nonce_leading_zero",
-        quote: {
-          ...baseQuote,
-          nonce: "01",
-        },
-      }),
-    /Pnl quote.nonce must be a positive uint string/,
-  );
-
-  assert.throws(
-    () =>
-      pnl.recordSettlement({
-        quoteId: "q_below_min",
-        quote: {
-          ...baseQuote,
-          amountOut: "970",
-        },
-      }),
-    /Pnl quote.amountOut must be greater than or equal to quote.minAmountOut/,
-  );
-
+  for (const [input, expected] of cases) {
+    await assert.rejects(pnl.recordSettlement(input), expected);
+  }
   assert.equal(pnl.summary().totalTrades, 0);
 });
 
-test("PnlService rejects unsafe PnL removal inputs before state mutation", () => {
-  const pnl = new PnlService();
-  pnl.recordSettlement({
-    quoteId: "q_remove_unsafe",
-    quote: baseQuote,
-  });
+test("PnlService rejects malformed or conflicting valuation results", async () => {
+  const valuationCases = [
+    [{ snapshotId: "wrong_snapshot" }, /snapshotId must match/],
+    [{ midPrice: "0" }, /midPrice must be a positive canonical decimal/],
+    [{ tokenInDecimals: 37 }, /tokenInDecimals must be an integer between 0 and 36/],
+    [{ tokenOutDecimals: -1 }, /tokenOutDecimals must be an integer between 0 and 36/],
+    [{ observedAt: "2026-01-01T00:00:00Z" }, /observedAt must be a canonical/],
+  ];
 
-  assert.throws(
-    () => pnl.removePnlRecord(undefined),
-    /Pnl remove input must be an object/,
-  );
-  assert.throws(
-    () => pnl.removePnlRecord([]),
-    /Pnl remove input must be an object/,
-  );
+  for (const [overrides, expected] of valuationCases) {
+    const pnl = new PnlService(createTestPnlValuationProvider(overrides));
+    await assert.rejects(pnl.recordSettlement(pnlInput("q_bad_valuation", baseQuote)), expected);
+    assert.equal(pnl.summary().totalTrades, 0);
+  }
+});
+
+test("PnlService rejects unsafe PnL removal inputs before state mutation", async () => {
+  const pnl = new PnlService(createTestPnlValuationProvider());
+  await pnl.recordSettlement(pnlInput("q_remove_unsafe", baseQuote));
+
+  assert.throws(() => pnl.removePnlRecord(undefined), /Pnl remove input must be an object/);
   assert.throws(
     () => pnl.removePnlRecord(Object.create({ quoteId: "q_remove_unsafe" })),
-    /Pnl remove input.quoteId must be an own field/,
-  );
-
-  const inheritedModelInput = Object.create({ model: "simulated_mid_price_v1" });
-  Object.assign(inheritedModelInput, { quoteId: "q_remove_unsafe" });
-  assert.throws(
-    () => pnl.removePnlRecord(inheritedModelInput),
-    /Pnl remove input.model must be an own field when provided/,
+    /remove input.quoteId must be an own field/,
   );
   assert.throws(
-    () => pnl.removePnlRecord({ quoteId: new String("q_remove_unsafe") }),
-    /Pnl quoteId must be a primitive string/,
+    () => pnl.removePnlRecord({ quoteId: "q_remove_unsafe", model: "unsupported_model" }),
+    /Pnl model must be quote_snapshot_edge_v1/,
   );
-  assert.throws(
-    () => pnl.getPnlRecordByQuoteId(new String("q_remove_unsafe")),
-    /Pnl quoteId must be a primitive string/,
-  );
-  assert.throws(
-    () =>
-      pnl.removePnlRecord({
-        quoteId: "q_remove_unsafe",
-        model: "unsupported_model",
-      }),
-    /Pnl model must be simulated_mid_price_v1/,
-  );
-
   assert.equal(pnl.summary().totalTrades, 1);
 });

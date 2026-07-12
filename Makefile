@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check price-normalization-check risk-policy-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check analytics-integration-check cex-orderbook-integration-check benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check price-normalization-check risk-policy-check pnl-valuation-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check analytics-integration-check cex-orderbook-integration-check benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -23,6 +23,7 @@ help:
 	@echo "  cex-orderbook-check  Verify CEX freshness, quorum, metrics, and deployment controls"
 	@echo "  price-normalization-check  Verify token decimals and USD-notional pricing controls"
 	@echo "  risk-policy-check  Verify chain-scoped token limits and runtime policy controls"
+	@echo "  pnl-valuation-check Verify snapshot-bound cross-decimal PnL controls"
 	@echo "  eip712-check  Verify backend, SDK, and contract EIP-712 schemas match"
 	@echo "  contract-abi-check  Verify SDK contract ABIs match Solidity integration surfaces"
 	@echo "  rate-limit-check  Verify API rate limit defaults and HTTP contract"
@@ -113,6 +114,9 @@ price-normalization-check:
 
 risk-policy-check:
 	@node scripts/check-risk-policy-consistency.mjs
+
+pnl-valuation-check:
+	@node scripts/check-pnl-valuation-consistency.mjs
 
 eip712-check:
 	@node scripts/check-eip712-consistency.mjs

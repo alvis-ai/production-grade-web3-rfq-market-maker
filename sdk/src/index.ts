@@ -1,6 +1,6 @@
 export { rfqSettlementAbi, treasuryAbi } from "./abi.js";
 export { RFQClient, RFQClientError } from "./client.js";
-export { rfqErrorCodes, simulatedPnlModelDescription } from "./types.js";
+export { quoteSnapshotPnlModelDescription, rfqErrorCodes } from "./types.js";
 export {
   RFQ_EIP712_DOMAIN_NAME,
   RFQ_EIP712_DOMAIN_VERSION,
@@ -31,6 +31,7 @@ export type {
   HealthResponse,
   IntString,
   PnlSummary,
+  PnlTokenTotal,
   PnlTradeRecord,
   Quote,
   QuoteLifecycleStatus,

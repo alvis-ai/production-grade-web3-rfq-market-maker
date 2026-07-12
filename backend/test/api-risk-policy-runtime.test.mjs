@@ -51,6 +51,43 @@ test("RFQ API applies configured chain/token limits to a cross-decimals quote", 
     const decision = await riskDecisionStore.findByQuoteId(quote.quoteId);
     assert.equal(decision.decision, "approved");
     assert.equal(decision.policyVersion, "weth-usdc-risk-v1");
+
+    const submit = await server.inject({
+      method: "POST",
+      url: "/submit",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({
+        quote: {
+          user,
+          tokenIn: weth,
+          tokenOut: usdc,
+          amountIn: "1000000000000000000",
+          amountOut: quote.amountOut,
+          minAmountOut: quote.minAmountOut,
+          nonce: quote.nonce,
+          deadline: quote.deadline,
+          chainId: 1,
+        },
+        signature: quote.signature,
+      }),
+    });
+    assert.equal(submit.statusCode, 202, submit.payload);
+
+    const pnlResponse = await server.inject({ method: "GET", url: "/pnl" });
+    assert.equal(pnlResponse.statusCode, 200, pnlResponse.payload);
+    const pnl = JSON.parse(pnlResponse.payload);
+    assert.equal(pnl.totalTrades, 1);
+    assert.equal(pnl.trades[0].fairAmountOut, "2000000000");
+    assert.equal(pnl.trades[0].grossPnlTokenOut, "3200000");
+    assert.equal(pnl.trades[0].grossPnlBps, 16);
+    assert.equal(pnl.trades[0].tokenInDecimals, 18);
+    assert.equal(pnl.trades[0].tokenOutDecimals, 6);
+    assert.deepEqual(pnl.totals, [{
+      chainId: 1,
+      tokenOut: usdc,
+      totalTrades: 1,
+      grossPnlTokenOut: "3200000",
+    }]);
   } finally {
     await server.close();
     restoreEnv("RFQ_TOKEN_REGISTRY_JSON", originalRegistry);

@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { RFQClient, RFQClientError, simulatedPnlModelDescription } from "../dist/index.js";
+import { RFQClient, RFQClientError, quoteSnapshotPnlModelDescription } from "../dist/index.js";
 
 const quote = {
   user: "0x0000000000000000000000000000000000000001",
   tokenIn: "0x0000000000000000000000000000000000000002",
   tokenOut: "0x0000000000000000000000000000000000000003",
   amountIn: "1000000000",
-  amountOut: "1000000000",
+  amountOut: "998400000",
   minAmountOut: "995000000",
   nonce: "42",
   deadline: 1893456000,
@@ -142,11 +142,18 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
   const basePnlResponse = {
     status: "ok",
     totalTrades: 1,
-    grossPnlTokenOut: "1600000",
+    totals: [{
+      chainId: quote.chainId,
+      tokenOut: quote.tokenOut,
+      totalTrades: 1,
+      grossPnlTokenOut: "1600000",
+    }],
     trades: [
       {
         pnlId: "pnl_q_test",
         quoteId: "q_test",
+        settlementEventId: "se_q_test",
+        snapshotId: "snapshot_q_test",
         chainId: quote.chainId,
         user: quote.user,
         tokenIn: quote.tokenIn,
@@ -156,10 +163,15 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
         minAmountOut: quote.minAmountOut,
         nonce: quote.nonce,
         deadline: quote.deadline,
+        midPrice: "1",
+        tokenInDecimals: 18,
+        tokenOutDecimals: 18,
+        fairAmountOut: "1000000000",
+        valuationObservedAt: "2026-06-26T23:59:59.000Z",
         grossPnlTokenOut: "1600000",
         grossPnlBps: 16,
-        model: "simulated_mid_price_v1",
-        modelDescription: simulatedPnlModelDescription,
+        model: "quote_snapshot_edge_v1",
+        modelDescription: quoteSnapshotPnlModelDescription,
         realizedAt: "2026-06-27T00:00:00.000Z",
       },
     ],
@@ -183,16 +195,25 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
       message: "RFQ PnL summary response returned malformed totalTrades",
     },
     {
-      payload: { ...basePnlResponse, grossPnlTokenOut: "1599999" },
-      message: "RFQ PnL summary response returned malformed grossPnlTokenOut",
+      payload: {
+        ...basePnlResponse,
+        totals: [{ ...basePnlResponse.totals[0], grossPnlTokenOut: "1599999" }],
+      },
+      message: "RFQ PnL summary response returned malformed totals",
     },
     {
-      payload: { ...basePnlResponse, grossPnlTokenOut: "01600000" },
-      message: "RFQ PnL summary response returned malformed grossPnlTokenOut",
+      payload: {
+        ...basePnlResponse,
+        totals: [{ ...basePnlResponse.totals[0], grossPnlTokenOut: "01600000" }],
+      },
+      message: "RFQ PnL summary response total returned malformed grossPnlTokenOut",
     },
     {
-      payload: { ...basePnlResponse, grossPnlTokenOut: "-0" },
-      message: "RFQ PnL summary response returned malformed grossPnlTokenOut",
+      payload: {
+        ...basePnlResponse,
+        totals: [{ ...basePnlResponse.totals[0], grossPnlTokenOut: "-0" }],
+      },
+      message: "RFQ PnL summary response total returned malformed grossPnlTokenOut",
     },
     {
       payload: {
@@ -207,6 +228,20 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
         trades: [{ ...basePnlResponse.trades[0], quoteId: "q".repeat(129) }],
       },
       message: "RFQ PnL summary response trade returned malformed quoteId",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], settlementEventId: "se.bad" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed settlementEventId",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], snapshotId: "snapshot.bad" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed snapshotId",
     },
     {
       payload: {
@@ -263,6 +298,34 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
         trades: [{ ...basePnlResponse.trades[0], deadline: "1893456000" }],
       },
       message: "RFQ PnL summary response trade returned malformed deadline",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], midPrice: "0" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed midPrice",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], tokenOutDecimals: 37 }],
+      },
+      message: "RFQ PnL summary response trade returned malformed tokenOutDecimals",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], fairAmountOut: "0" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed fairAmountOut",
+    },
+    {
+      payload: {
+        ...basePnlResponse,
+        trades: [{ ...basePnlResponse.trades[0], valuationObservedAt: "not-a-date" }],
+      },
+      message: "RFQ PnL summary response trade returned malformed valuationObservedAt",
     },
     {
       payload: {

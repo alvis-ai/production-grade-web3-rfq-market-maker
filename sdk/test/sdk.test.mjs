@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   RFQClient,
-  simulatedPnlModelDescription,
+  quoteSnapshotPnlModelDescription,
 } from "../dist/index.js";
 
 const quote = {
@@ -10,7 +10,7 @@ const quote = {
   tokenIn: "0x0000000000000000000000000000000000000002",
   tokenOut: "0x0000000000000000000000000000000000000003",
   amountIn: "1000000000",
-  amountOut: "1000000000",
+  amountOut: "998400000",
   minAmountOut: "995000000",
   nonce: "42",
   deadline: 1893456000,
@@ -40,7 +40,7 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
   const quoteResponse = {
     quoteId: "q_test",
     snapshotId: "s_test",
-    amountOut: "1000000000",
+    amountOut: "998400000",
     minAmountOut: "995000000",
     deadline: 1893456000,
     nonce: "42",
@@ -93,11 +93,18 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
   const pnlResponse = {
     status: "ok",
     totalTrades: 1,
-    grossPnlTokenOut: "1600000",
+    totals: [{
+      chainId: quote.chainId,
+      tokenOut: quote.tokenOut,
+      totalTrades: 1,
+      grossPnlTokenOut: "1600000",
+    }],
     trades: [
       {
         pnlId: submitResponse.pnlId,
         quoteId: "q_test",
+        settlementEventId: submitResponse.settlementEventId,
+        snapshotId: quoteResponse.snapshotId,
         chainId: quote.chainId,
         user: quote.user,
         tokenIn: quote.tokenIn,
@@ -107,10 +114,15 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
         minAmountOut: quote.minAmountOut,
         nonce: quote.nonce,
         deadline: quote.deadline,
+        midPrice: "1",
+        tokenInDecimals: 18,
+        tokenOutDecimals: 18,
+        fairAmountOut: "1000000000",
+        valuationObservedAt: "2026-06-26T23:59:59.000Z",
         grossPnlTokenOut: "1600000",
         grossPnlBps: 16,
-        model: "simulated_mid_price_v1",
-        modelDescription: simulatedPnlModelDescription,
+        model: "quote_snapshot_edge_v1",
+        modelDescription: quoteSnapshotPnlModelDescription,
         realizedAt: "2026-06-27T00:00:00.000Z",
       },
     ],

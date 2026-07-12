@@ -31,12 +31,12 @@ const tokenOut = `0x${randomBytes(20).toString("hex")}`;
 const txHash = `0x${randomBytes(32).toString("hex")}`;
 const quoteHash = `0x${randomBytes(32).toString("hex")}`;
 const signature = `0x${"11".repeat(64)}1b`;
-const modelDescription = "Simulated same-decimal quote attribution where grossPnlTokenOut equals amountIn minus amountOut and is not cross-token accounting PnL";
+const modelDescription = "Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution";
 const expectedTypes = [
   "hedge.lifecycle.v1",
   "inventory.position.v1",
   "market.snapshot.v1",
-  "pnl.attribution.v1",
+  "pnl.attribution.v2",
   "quote.lifecycle.v1",
   "risk.decision.v1",
   "settlement.lifecycle.v1",
@@ -101,13 +101,16 @@ try {
   );
   await client.query(
     `INSERT INTO pnl_records (
-       id, quote_id, chain_id, user_address, token_in, token_out, amount_in,
+       id, quote_id, settlement_event_id, snapshot_id, chain_id,
+       user_address, token_in, token_out, amount_in,
        amount_out, min_amount_out, nonce, deadline, gross_pnl_token_out,
-       gross_pnl_bps, model, model_description, realized_at
-     ) VALUES ($1, $2, 1, $3, $4, $5, 1000000000000000000,
+       gross_pnl_bps, model, model_description, realized_at, mid_price,
+       token_in_decimals, token_out_decimals, fair_amount_out, valuation_observed_at
+     ) VALUES ($1, $2, $3, $4, 1, $5, $6, $7, 1000000000000000000,
        990000000000000000, 980000000000000000, 1, 4102444800,
-       10000000000000000, 100, 'simulated_mid_price_v1', $6, now())`,
-    [pnlId, quoteId, user, tokenIn, tokenOut, modelDescription],
+       10000000000000000, 100, 'quote_snapshot_edge_v1', $8, now(),
+       1.000000000000000000, 18, 18, 1000000000000000000, now())`,
+    [pnlId, quoteId, settlementEventId, snapshotId, user, tokenIn, tokenOut, modelDescription],
   );
   await client.query("COMMIT");
   fixturesCommitted = true;
@@ -148,7 +151,7 @@ try {
   assert.equal(typeof quotePayload.amountIn, "string");
 
   const migrations = await pool.query("SELECT version FROM _migrations ORDER BY version");
-  assert.deepEqual(migrations.rows.map((row) => row.version), ["001", "002", "003", "004", "005"]);
+  assert.deepEqual(migrations.rows.map((row) => row.version), ["001", "002", "003", "004", "005", "006"]);
 
   await cleanupOperationalFixtures();
   fixturesCommitted = false;
