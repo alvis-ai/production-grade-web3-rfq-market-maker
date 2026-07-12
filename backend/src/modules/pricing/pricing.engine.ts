@@ -1,5 +1,17 @@
 import type { MarketSnapshot, QuoteRequest, UIntString } from "../../shared/types/rfq.js";
 import type { RoutePlan } from "../routing/routing.engine.js";
+import {
+  calculateUsdNotional,
+  convertBaseUnitAmount,
+  normalizeHumanPrice,
+  type RationalUsdNotional,
+} from "./price-normalization.js";
+import {
+  assertTokenRegistry,
+  ConfiguredTokenRegistry,
+  requireTokenMetadata,
+  type TokenRegistry,
+} from "./token-registry.js";
 
 export interface PricingInput {
   request: QuoteRequest;
@@ -37,8 +49,8 @@ export const defaultFormulaPricingConfig: FormulaPricingConfig = {
   maxTotalAdjustmentBps: 2500,
 };
 
-const WAD = 1_000_000_000_000_000_000n;
 const BPS = 10_000n;
+const MAX_UINT256 = (1n << 256n) - 1n;
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const formulaPricingConfigFields = [
@@ -55,8 +67,12 @@ const routePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiq
 
 export class FormulaPricingEngine implements PricingEngine {
   private readonly config: FormulaPricingConfig;
+  private readonly tokenRegistry: TokenRegistry;
 
-  constructor(config: FormulaPricingConfig = defaultFormulaPricingConfig) {
+  constructor(
+    config: FormulaPricingConfig = defaultFormulaPricingConfig,
+    tokenRegistry: TokenRegistry = new ConfiguredTokenRegistry(),
+  ) {
     assertObject(config, "config");
     assertOwnFields(config, formulaPricingConfigFields, "config");
     assertNonNegativeSafeInteger(config.baseSpreadBps, "baseSpreadBps");
@@ -70,14 +86,36 @@ export class FormulaPricingEngine implements PricingEngine {
     }
 
     this.config = cloneFormulaPricingConfig(config);
+    assertTokenRegistry(tokenRegistry);
+    this.tokenRegistry = tokenRegistry;
   }
 
   async price(input: PricingInput): Promise<PricingResult> {
     assertPricingInput(input);
     const amountIn = BigInt(input.request.amountIn);
-    const midPrice = parseDecimalToWad(input.snapshot.midPrice);
-    const rawAmountOut = (amountIn * midPrice) / WAD;
-    const sizeImpactBps = calculateSizeImpactBps(amountIn, BigInt(input.routePlan.expectedLiquidityUsd), this.config);
+    if (amountIn > MAX_UINT256) throw new Error("Formula pricing request.amountIn must fit uint256");
+    const tokenIn = requireTokenMetadata(
+      this.tokenRegistry,
+      input.request.chainId,
+      input.request.tokenIn,
+      "Formula pricing tokenIn",
+    );
+    const tokenOut = requireTokenMetadata(
+      this.tokenRegistry,
+      input.request.chainId,
+      input.request.tokenOut,
+      "Formula pricing tokenOut",
+    );
+    const midPrice = normalizeHumanPrice(input.snapshot.midPrice);
+    const rawAmountOut = convertBaseUnitAmount(amountIn, midPrice, tokenIn.decimals, tokenOut.decimals);
+    if (rawAmountOut <= 0n) throw new Error("Formula pricing amountOut rounds to zero after decimals normalization");
+    if (rawAmountOut > MAX_UINT256) throw new Error("Formula pricing amountOut must fit uint256");
+    const usdNotional = calculateUsdNotional(amountIn, midPrice, tokenIn, tokenOut);
+    const sizeImpactBps = calculateSizeImpactBps(
+      usdNotional,
+      BigInt(input.routePlan.expectedLiquidityUsd),
+      this.config,
+    );
     const volatilityPremiumBps = Math.ceil(input.snapshot.volatilityBps / this.config.volatilityDivisor);
     const routeBufferBps = input.routePlan.venue === "internal_inventory" ? this.config.internalInventoryBufferBps : 0;
     const quotedSpreadBps = clampBps(
@@ -86,7 +124,9 @@ export class FormulaPricingEngine implements PricingEngine {
       this.config.maxTotalAdjustmentBps,
     );
     const amountOut = applyBps(rawAmountOut, BPS - BigInt(quotedSpreadBps));
+    if (amountOut <= 0n) throw new Error("Formula pricing amountOut is zero after quote adjustments");
     const minAmountOut = applyBps(amountOut, BPS - BigInt(input.request.slippageBps));
+    if (minAmountOut <= 0n) throw new Error("Formula pricing minAmountOut is zero after slippage adjustment");
 
     return {
       amountOut: amountOut.toString() as UIntString,
@@ -94,32 +134,26 @@ export class FormulaPricingEngine implements PricingEngine {
       spreadBps: quotedSpreadBps,
       sizeImpactBps,
       inventorySkewBps: input.inventorySkewBps,
-      pricingVersion: `formula-v1:${input.routePlan.venue}`,
+      pricingVersion: `formula-v2:${input.routePlan.venue}`,
     };
   }
-}
-
-function parseDecimalToWad(value: string): bigint {
-  if (!/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)) {
-    throw new Error(`Invalid decimal value: ${value}`);
-  }
-
-  const [whole, fraction = ""] = value.split(".");
-  const paddedFraction = `${fraction.slice(0, 18)}${"0".repeat(Math.max(0, 18 - fraction.length))}`;
-  return BigInt(whole) * WAD + BigInt(paddedFraction);
 }
 
 function cloneFormulaPricingConfig(config: FormulaPricingConfig): FormulaPricingConfig {
   return { ...config };
 }
 
-function calculateSizeImpactBps(amountIn: bigint, liquidity: bigint, config: FormulaPricingConfig): number {
+function calculateSizeImpactBps(
+  notionalUsd: RationalUsdNotional,
+  liquidity: bigint,
+  config: FormulaPricingConfig,
+): number {
   if (liquidity <= 0n) {
     return config.maxSizeImpactBps;
   }
 
-  const impact = ceilDiv(amountIn * BPS, liquidity);
-  return Math.min(Number(impact), config.maxSizeImpactBps);
+  const impact = ceilDiv(notionalUsd.numerator * BPS, notionalUsd.denominator * liquidity);
+  return impact >= BigInt(config.maxSizeImpactBps) ? config.maxSizeImpactBps : Number(impact);
 }
 
 function applyBps(value: bigint, multiplierBps: bigint): bigint {
@@ -236,7 +270,9 @@ function assertPositiveUIntString(value: string, field: string): void {
 }
 
 function assertPositiveDecimalString(value: string, field: string): void {
-  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value) || parseDecimalToWad(value) <= 0n) {
+  try {
+    normalizeHumanPrice(value);
+  } catch {
     throw new Error(`Formula pricing ${field} must be a positive decimal string`);
   }
 }

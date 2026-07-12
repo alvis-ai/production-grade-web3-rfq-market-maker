@@ -12,7 +12,11 @@ import {
 import { getPool, endPool } from "./db/pool.js";
 import { HedgeService, type HedgeIntentService } from "./modules/hedge/hedge.service.js";
 import { PostgresHedgeService } from "./modules/hedge/postgres-hedge.service.js";
-import { defaultReadinessServiceConfig, ReadinessService } from "./modules/health/readiness.service.js";
+import {
+  defaultReadinessServiceConfig,
+  ReadinessService,
+  type ReadinessServiceConfig,
+} from "./modules/health/readiness.service.js";
 import { InventoryService, type IInventoryService } from "./modules/inventory/inventory.service.js";
 import { PostgresInventoryService } from "./modules/inventory/postgres-inventory.service.js";
 import { StaticMarketDataService, type MarketDataService } from "./modules/market-data/market-data.service.js";
@@ -32,7 +36,18 @@ import {
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { PnlService, type PnlStore, type RecordPnlInput } from "./modules/pnl/pnl.service.js";
 import { PostgresPnlStore } from "./modules/pnl/postgres-pnl.store.js";
-import { FormulaPricingEngine, type PricingEngine } from "./modules/pricing/pricing.engine.js";
+import {
+  defaultFormulaPricingConfig,
+  FormulaPricingEngine,
+  type PricingEngine,
+} from "./modules/pricing/pricing.engine.js";
+import {
+  ConfiguredTokenRegistry,
+  defaultTokenRegistryConfig,
+  parseTokenRegistryConfig,
+  requireTokenMetadata,
+  type TokenRegistry,
+} from "./modules/pricing/token-registry.js";
 import { InMemoryQuoteRepository, type QuoteRepository } from "./modules/quote/quote.repository.js";
 import { PostgresQuoteRepository } from "./modules/quote/postgres-quote.repository.js";
 import { defaultQuoteServiceConfig, QuoteService } from "./modules/quote/quote.service.js";
@@ -115,6 +130,7 @@ const buildServerOptionFields = [
   "settlementEventService",
   "settlementVerifier",
   "signerService",
+  "tokenRegistry",
   "trustProxy",
 ] as const;
 const rateLimitOptionFields = ["windowMs", "maxQuoteRequests", "maxSubmitRequests", "maxStatusRequests"] as const;
@@ -165,6 +181,7 @@ export interface BuildServerOptions {
   settlementEventService?: SettlementEventStore;
   settlementVerifier?: SettlementVerifier;
   signerService?: SignerService;
+  tokenRegistry?: TokenRegistry;
   rateLimit?: Partial<RateLimitConfig> | false;
   rateLimiter?: RateLimiter;
   quoteTtlSeconds?: number;
@@ -178,6 +195,11 @@ interface DefaultMarketDataRuntime {
   service: MarketDataService;
   defaultPairs: ReturnType<typeof chainlinkConfiguredPairs>;
   maxSnapshotAgeMs: number;
+}
+
+interface PricingRuntime {
+  engine: PricingEngine;
+  tokenRegistry?: TokenRegistry;
 }
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -222,6 +244,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const rawMarketDataService = options.marketDataService ?? defaultMarketData!.service;
   const cexPairs = defaultMarketData ? readCexOrderBookPairs() : [];
   const cexConfig = cexPairs.length > 0 ? readCexOrderBookConfig(cexPairs) : undefined;
+  const priceUpdaterPairs = defaultMarketData ? readMarketDataPairs(defaultMarketData.defaultPairs) : [];
   const basePriceCache = defaultMarketData ? new SharedPriceCache(5_000) : undefined;
   const cexPriceCache = cexConfig ? new SharedPriceCache(cexConfig.maxSourceAgeMs) : undefined;
   const marketDataService = defaultMarketData && basePriceCache
@@ -253,7 +276,13 @@ export function buildServer(options: BuildServerOptions = {}) {
     postgresPool ? new PostgresRiskDecisionStore(postgresPool) : new InMemoryRiskDecisionRepository()
   );
   const routingEngine = options.routingEngine ?? new InternalInventoryRoutingEngine();
-  const pricingEngine = options.pricingEngine ?? new FormulaPricingEngine();
+  const pricingRuntime = resolvePricingRuntime(
+    options.pricingEngine,
+    options.tokenRegistry,
+    [...(defaultMarketData?.defaultPairs ?? []), ...priceUpdaterPairs],
+    cexPairs,
+  );
+  const pricingEngine = pricingRuntime.engine;
   const riskEngine = options.riskEngine ?? new BasicRiskEngine();
   const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
   const inMemoryInventoryService = postgresPool ? undefined : new InventoryService();
@@ -293,7 +322,6 @@ export function buildServer(options: BuildServerOptions = {}) {
     quoteTtlSeconds,
   });
   // Start background price updater for managed pairs (only when using default service)
-  const priceUpdaterPairs = defaultMarketData ? readMarketDataPairs(defaultMarketData.defaultPairs) : [];
   const priceUpdater = defaultMarketData && basePriceCache && priceUpdaterPairs.length > 0
     ? new BackgroundPriceUpdater(rawMarketDataService, basePriceCache, {
         pairs: priceUpdaterPairs,
@@ -345,11 +373,9 @@ export function buildServer(options: BuildServerOptions = {}) {
     routingEngine,
     settlementEventService,
     signerService,
-  }, defaultMarketData && priceUpdaterPairs[0] ? {
-    ...defaultReadinessServiceConfig,
-    maxSnapshotAgeMs,
-    probeRequest: priceUpdaterPairs[0],
-  } : defaultReadinessServiceConfig);
+  }, defaultMarketData && priceUpdaterPairs[0]
+    ? buildMarketReadinessConfig(priceUpdaterPairs[0], pricingRuntime.tokenRegistry, maxSnapshotAgeMs)
+    : defaultReadinessServiceConfig);
 
   server.get("/health", async () => ({ status: "ok" }));
   server.options("/*", async (request, reply) => {
@@ -1454,6 +1480,96 @@ function readDefaultMarketDataRuntime(): DefaultMarketDataRuntime {
     defaultPairs: chainlinkConfiguredPairs(config),
     maxSnapshotAgeMs: config.maxPriceAgeMs,
   };
+}
+
+function readTokenRegistry(): TokenRegistry {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const serializedConfig = readOwnEnvValue(env, "RFQ_TOKEN_REGISTRY_JSON");
+  return new ConfiguredTokenRegistry(
+    serializedConfig === undefined ? defaultTokenRegistryConfig : parseTokenRegistryConfig(serializedConfig),
+  );
+}
+
+function resolvePricingRuntime(
+  configuredPricingEngine: PricingEngine | undefined,
+  configuredTokenRegistry: TokenRegistry | undefined,
+  pricingPairs: readonly { chainId: number; tokenIn: `0x${string}`; tokenOut: `0x${string}` }[],
+  cexPairs: readonly OrderBookPairConfig[],
+): PricingRuntime {
+  if (configuredPricingEngine !== undefined && cexPairs.length === 0) return { engine: configuredPricingEngine };
+  const tokenRegistry = configuredTokenRegistry ?? readTokenRegistry();
+  assertCexPairsSupported(tokenRegistry, cexPairs);
+  if (configuredPricingEngine !== undefined) {
+    return { engine: configuredPricingEngine, tokenRegistry };
+  }
+  assertPricingPairsSupported(tokenRegistry, pricingPairs);
+  return {
+    engine: new FormulaPricingEngine(defaultFormulaPricingConfig, tokenRegistry),
+    tokenRegistry,
+  };
+}
+
+function buildMarketReadinessConfig(
+  pair: { chainId: number; tokenIn: `0x${string}`; tokenOut: `0x${string}`; user: `0x${string}` },
+  tokenRegistry: TokenRegistry | undefined,
+  maxSnapshotAgeMs: number,
+): ReadinessServiceConfig {
+  const amountIn = tokenRegistry
+    ? (100n * 10n ** BigInt(
+        requireTokenMetadata(tokenRegistry, pair.chainId, pair.tokenIn, "Readiness tokenIn").decimals,
+      )).toString()
+    : defaultReadinessServiceConfig.probeRequest.amountIn;
+  return {
+    ...defaultReadinessServiceConfig,
+    maxSnapshotAgeMs,
+    probeRequest: {
+      chainId: pair.chainId,
+      user: pair.user,
+      tokenIn: pair.tokenIn,
+      tokenOut: pair.tokenOut,
+      amountIn,
+      slippageBps: defaultReadinessServiceConfig.probeRequest.slippageBps,
+    },
+    probeRoutePlan: {
+      ...defaultReadinessServiceConfig.probeRoutePlan,
+      routeId: "readiness_route_runtime",
+      tokenIn: pair.tokenIn,
+      tokenOut: pair.tokenOut,
+    },
+  };
+}
+
+function assertPricingPairsSupported(
+  tokenRegistry: TokenRegistry,
+  pricingPairs: readonly { chainId: number; tokenIn: `0x${string}`; tokenOut: `0x${string}` }[],
+): void {
+  const inspected = new Set<string>();
+  for (const pair of pricingPairs) {
+    const key = `${pair.chainId}:${pair.tokenIn.toLowerCase()}:${pair.tokenOut.toLowerCase()}`;
+    if (inspected.has(key)) continue;
+    inspected.add(key);
+    const tokenIn = requireTokenMetadata(tokenRegistry, pair.chainId, pair.tokenIn, "Pricing tokenIn");
+    const tokenOut = requireTokenMetadata(tokenRegistry, pair.chainId, pair.tokenOut, "Pricing tokenOut");
+    if (!tokenIn.usdReference && !tokenOut.usdReference) {
+      throw new Error(`Pricing pair ${key} requires at least one approved USD reference token`);
+    }
+  }
+}
+
+function assertCexPairsSupported(
+  tokenRegistry: TokenRegistry,
+  cexPairs: readonly OrderBookPairConfig[],
+): void {
+  for (const pair of cexPairs) {
+    requireTokenMetadata(tokenRegistry, pair.chainId, pair.tokenIn, "CEX tokenIn");
+    const tokenOut = requireTokenMetadata(tokenRegistry, pair.chainId, pair.tokenOut, "CEX tokenOut");
+    if (!tokenOut.usdReference) {
+      throw new Error(
+        `CEX pair ${pair.chainId}:${pair.tokenIn.toLowerCase()}:${pair.tokenOut.toLowerCase()} ` +
+          "requires tokenOut to be an approved USD reference token because order-book depth is expressed in USD",
+      );
+    }
+  }
 }
 
 /**

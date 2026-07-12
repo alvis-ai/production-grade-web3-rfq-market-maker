@@ -12,6 +12,7 @@ const hedgeWorkerSource = await readFile("backend/src/hedge-worker-main.ts", "ut
 const analyticsWorkerSource = await readFile("backend/src/analytics-worker-main.ts", "utf8");
 const frontendConfigSource = await readFile("frontend/src/lib/config.ts", "utf8");
 const readmeSource = await readFile("README.md", "utf8");
+const tokenRegistryJson = '{"tokens":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","symbol":"TOKEN2","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","symbol":"TOKEN3","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true}]}';
 
 const localExpected = {
   HOST: "127.0.0.1",
@@ -22,6 +23,7 @@ const localExpected = {
   RFQ_ENABLE_HSTS: "false",
   RFQ_TRUST_PROXY: "false",
   RFQ_RATE_LIMIT_BACKEND: "memory",
+  RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   VITE_RFQ_API_BASE_URL: "http://localhost:3000",
   VITE_RFQ_SETTLEMENT_ADDRESS: "0x0000000000000000000000000000000000000004",
   VITE_WALLETCONNECT_PROJECT_ID: "00000000000000000000000000000000",
@@ -40,6 +42,7 @@ const composeExpected = {
   RFQ_TRUST_PROXY: "false",
   RFQ_RATE_LIMIT_BACKEND: "redis",
   RFQ_REDIS_URL: "redis://redis:6379/0",
+  RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_SIGNER_PRIVATE_KEY: localExpected.RFQ_SIGNER_PRIVATE_KEY,
   RFQ_SETTLEMENT_ADDRESS: localExpected.RFQ_SETTLEMENT_ADDRESS,
 };
@@ -55,6 +58,7 @@ const productionExpected = {
   RFQ_ENABLE_HSTS: "true",
   RFQ_TRUST_PROXY: "false",
   RFQ_RATE_LIMIT_BACKEND: "redis",
+  RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
 };
 
 const envExample = parseDotEnv(envExampleSource);

@@ -33,6 +33,7 @@ services:
       RFQ_TRUST_PROXY: "false"
       RFQ_RATE_LIMIT_BACKEND: redis
       RFQ_REDIS_URL: redis://redis:6379/0
+      RFQ_TOKEN_REGISTRY_JSON: '{"tokens":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","symbol":"TOKEN2","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","symbol":"TOKEN3","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true}]}'
       RFQ_CEX_PAIRS: ${RFQ_CEX_PAIRS:-}
       RFQ_CEX_DEPTH_RANGE_BPS: ${RFQ_CEX_DEPTH_RANGE_BPS:-50}
       RFQ_CEX_FLUSH_INTERVAL_MS: ${RFQ_CEX_FLUSH_INTERVAL_MS:-100}

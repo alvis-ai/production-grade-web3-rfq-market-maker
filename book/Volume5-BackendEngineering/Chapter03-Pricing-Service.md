@@ -94,7 +94,7 @@ stateDiagram-v2
 
 `PricingResult` includes amount fields and component bps fields. It should match backend `pricing.engine.ts` and later extend with volatility and hedge cost.
 
-当前实现返回 `amountOut`、`minAmountOut`、`spreadBps`、`sizeImpactBps`、`inventorySkewBps` 和 `pricingVersion`。其中 `spreadBps` 表示已经聚合后的总报价调整，包括 base spread、internal inventory buffer、volatility premium、size impact、inventory skew，以及 Hedge Service 在 post-trade hedge failure 后提供的 quote risk penalty。
+当前 `formula-v2` 返回 `amountOut`、`minAmountOut`、`spreadBps`、`sizeImpactBps`、`inventorySkewBps` 和 `pricingVersion`。其中 `spreadBps` 表示已经聚合后的总报价调整，包括 base spread、internal inventory buffer、volatility premium、USD-normalized size impact、inventory skew，以及 Hedge Service 在 post-trade hedge failure 后提供的 quote risk penalty。`amountOut` 和 `minAmountOut` 始终是 tokenOut base units。
 
 ## API Design
 
@@ -113,6 +113,8 @@ price(input: PricingInput): Promise<PricingResult>
 - Routing input is validated before route-plan creation: malformed root payloads and missing required own top-level `request` / `snapshot` fields fail before nested field access, then request and routing snapshot required fields must be own fields before request chain id、user/token addresses、distinct token pair、canonical positive `amountIn` without leading zeros、bounded `slippageBps`, `snapshot.snapshotId` as a primitive-string `SafeIdentifier` with 1-128 characters, and snapshot mid price / canonical liquidity / volatility are checked. Direct routing callers cannot pass inherited object properties or boxed `String` wrappers and rely on JavaScript regex coercion before route-plan creation.
 - Pricing input is validated before formula execution: malformed root payloads and missing required own top-level `request` / `snapshot` / `routePlan` / `inventorySkewBps` fields fail before nested field access, then request, snapshot and route-plan required fields must be own fields before request addresses and amounts, `snapshot.snapshotId` and `routePlan.routeId` as primitive-string `SafeIdentifier` values with 1-128 characters, market fields, route venue/liquidity, route token pair alignment, slippage bps and inventory skew bounds are checked. Snapshot mid price must be a canonical positive decimal string without leading zeros, and request amount plus liquidity fields must be real strings in canonical decimal form without leading zeros, so internal callers cannot bypass `/quote` validation with inherited object properties, boxed `String` wrappers, JavaScript regex coercion or alternate numeric encodings before pricing math runs.
 - `FormulaPricingEngine` rejects malformed pricing config objects and inherited config fields before reading numeric fields, then snapshots `FormulaPricingConfig` at construction after validation. External callers must not be able to mutate base spread, inventory buffer, volatility divisor or adjustment caps after construction and silently change quote economics.
+- `ConfiguredTokenRegistry` 在启动时 exact-field 校验 `chainId/tokenAddress/symbol/decimals/isWhitelisted/riskTier/usdReference`，拒绝 chain/address 重复项并复制配置。Pricing Engine 对每个请求重新按 chain/address 解析两侧 metadata，缺失、禁用、返回错 token 或 malformed custom registry output 都 fail closed。
+- `formula-v2` 把 human tokenOut-per-tokenIn price 转为 tokenOut base units，最多接受 18 位价格小数且不静默截断。size impact 使用 rational USD notional；两侧均非 USD reference 的 pair 在具备独立 USD valuation feed 前不报价。
 
 ## Failure Scenarios
 

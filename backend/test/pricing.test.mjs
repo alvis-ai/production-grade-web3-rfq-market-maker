@@ -36,7 +36,7 @@ test("FormulaPricingEngine applies mid price, spread, size impact, volatility, a
   assert.equal(pricing.spreadBps, 16);
   assert.equal(pricing.sizeImpactBps, 1);
   assert.equal(pricing.inventorySkewBps, 0);
-  assert.equal(pricing.pricingVersion, "formula-v1:internal_inventory");
+  assert.equal(pricing.pricingVersion, "formula-v2:internal_inventory");
 });
 
 test("FormulaPricingEngine clamps toxic size impact and inventory skew into total adjustment bounds", async () => {
@@ -45,6 +45,10 @@ test("FormulaPricingEngine clamps toxic size impact and inventory skew into tota
     request: {
       ...baseInput.request,
       amountIn: "1000000000000000000",
+    },
+    routePlan: {
+      ...baseInput.routePlan,
+      expectedLiquidityUsd: "1",
     },
     inventorySkewBps: 3000,
   });

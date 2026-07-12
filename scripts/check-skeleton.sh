@@ -3151,6 +3151,12 @@ grep -q 'Malformed config、dependency、script result、runtime input' book/Vol
 grep -q 'Redis error 不会 fail open' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'x-ratelimit-remaining' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'unsafe rate limit configuration at startup' backend/test/api-gateway.test.mjs
+test -s backend/src/modules/pricing/price-normalization.ts
+test -s backend/src/modules/pricing/token-registry.ts
+test -s backend/test/api-token-registry-runtime.test.mjs
+test -s backend/test/price-normalization.test.mjs
+test -s backend/test/token-registry.test.mjs
+test -s scripts/check-price-normalization-consistency.mjs
 grep -q 'assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertBpsUpperBound(config.maxTotalAdjustmentBps, "maxTotalAdjustmentBps")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'cloneFormulaPricingConfig' backend/src/modules/pricing/pricing.engine.ts
@@ -3178,7 +3184,14 @@ grep -q 'Formula pricing ${field} must be a primitive string' backend/src/module
 grep -q 'routePlan token pair must match request token pair' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'maxSizeImpactBps must be less than or equal to maxTotalAdjustmentBps' backend/src/modules/pricing/pricing.engine.ts
 grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/pricing/pricing.engine.ts
-grep -Fq '/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'normalizeHumanPrice(input.snapshot.midPrice)' backend/src/modules/pricing/pricing.engine.ts
+grep -Fq '!/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/pricing/price-normalization.ts
+grep -q 'convertBaseUnitAmount(amountIn, midPrice, tokenIn.decimals, tokenOut.decimals)' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'calculateUsdNotional(amountIn, midPrice, tokenIn, tokenOut)' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'pricingVersion: `formula-v2:${input.routePlan.venue}`' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'RFQ_TOKEN_REGISTRY_JSON' backend/src/main.ts
+grep -q 'decimals-aware readiness pricing probe' backend/test/api-token-registry-runtime.test.mjs
+grep -q 'WETH 18 decimals to USDC 6 decimals' backend/test/price-normalization.test.mjs
 grep -q 'FormulaPricingEngine snapshots pricing configuration at construction' backend/test/pricing.test.mjs
 grep -q 'FormulaPricingEngine rejects unsafe pricing configuration at construction' backend/test/pricing-config-validation.test.mjs
 grep -q 'FormulaPricingEngine rejects malformed pricing payload envelopes before quoting' backend/test/pricing-input-shape-validation.test.mjs

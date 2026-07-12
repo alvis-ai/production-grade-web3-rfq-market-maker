@@ -20,6 +20,7 @@ run_step make deployment-check
 run_step make ci-check
 run_step make compose-check
 run_step make cex-orderbook-check
+run_step make price-normalization-check
 run_step make eip712-check
 run_step make contract-abi-check
 run_step make rate-limit-check
