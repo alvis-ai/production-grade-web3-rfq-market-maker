@@ -24,6 +24,8 @@
 - [x] Startup cross-checks risk-policy tokens against the trusted token registry and active market pairs.
 - [x] Signer Service cannot be called directly from public API.
 - [x] Signer verification rejects non-canonical high-s ECDSA signatures before submit settlement.
+- [x] Non-local standalone runtime requires AWS KMS and rejects raw signer private keys.
+- [x] KMS signatures are strictly DER-decoded and accepted only when recovery matches the configured trusted signer.
 - [x] Quote persistence includes snapshotId and riskPolicyVersion.
 - [x] Rejected quotes are logged without returning signatures.
 - [x] Rate limits protect public trading endpoints.

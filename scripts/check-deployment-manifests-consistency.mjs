@@ -7,6 +7,7 @@ const k8sDeployment = await readFile("infra/k8s/backend-deployment.yaml", "utf8"
 const k8sService = await readFile("infra/k8s/backend-service.yaml", "utf8");
 const k8sConfig = await readFile("infra/k8s/configmap.yaml", "utf8");
 const k8sSecret = await readFile("infra/k8s/backend-secret.yaml", "utf8");
+const k8sServiceAccount = await readFile("infra/k8s/backend-service-account.yaml", "utf8");
 const k8sNetworkPolicy = await readFile("infra/k8s/network-policy.yaml", "utf8");
 const k8sHedgeDeployment = await readFile("infra/k8s/hedge-worker-deployment.yaml", "utf8");
 const k8sHedgeService = await readFile("infra/k8s/hedge-worker-service.yaml", "utf8");
@@ -23,6 +24,7 @@ const k8sReconciliationSecret = await readFile("infra/k8s/reconciliation-worker-
 const k8sReconciliationNetworkPolicy = await readFile("infra/k8s/reconciliation-worker-network-policy.yaml", "utf8");
 const helmValues = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
 const helmDeployment = await readFile("infra/helm/rfq-market-maker/templates/deployment.yaml", "utf8");
+const helmServiceAccount = await readFile("infra/helm/rfq-market-maker/templates/service-account.yaml", "utf8");
 const helmService = await readFile("infra/helm/rfq-market-maker/templates/service.yaml", "utf8");
 const helmHedgeDeployment = await readFile("infra/helm/rfq-market-maker/templates/hedge-worker-deployment.yaml", "utf8");
 const helmHedgeService = await readFile("infra/helm/rfq-market-maker/templates/hedge-worker-service.yaml", "utf8");
@@ -63,6 +65,7 @@ assertContains(k8sDeployment, [
   `app.kubernetes.io/name: ${expectedRuntime.appName}`,
   `replicas: ${expectedRuntime.replicas}`,
   `terminationGracePeriodSeconds: ${expectedRuntime.terminationGracePeriodSeconds}`,
+  "serviceAccountName: rfq-backend-kms",
   "initContainers:",
   'command: ["node", "backend/dist/db/migrate.js"]',
   "name: rfq-database-migration-secrets",
@@ -76,6 +79,13 @@ assertContains(k8sDeployment, [
   "cpu: 500m",
   "memory: 512Mi",
 ], "infra/k8s/backend-deployment.yaml");
+
+assertContains(k8sServiceAccount, [
+  "kind: ServiceAccount",
+  "name: rfq-backend-kms",
+  `namespace: ${expectedRuntime.namespace}`,
+  "eks.amazonaws.com/role-arn: replace-with-kms-signing-role-arn",
+], "infra/k8s/backend-service-account.yaml");
 
 assertContains(k8sService, [
   "kind: Service",
@@ -96,6 +106,9 @@ assertContains(k8sConfig, [
   'RFQ_ENABLE_HSTS: "true"',
   'RFQ_TRUST_PROXY: "false"',
   "RFQ_RATE_LIMIT_BACKEND: redis",
+  "RFQ_SIGNER_MODE: aws-kms",
+  "RFQ_AWS_KMS_REGION: us-east-1",
+  'RFQ_AWS_KMS_MAX_ATTEMPTS: "3"',
   "RFQ_TOKEN_REGISTRY_JSON:",
   "RFQ_RISK_POLICY_JSON:",
 ], "infra/k8s/configmap.yaml");
@@ -104,11 +117,13 @@ assertContains(k8sSecret, [
   "kind: Secret",
   `namespace: ${expectedRuntime.namespace}`,
   "type: Opaque",
-  "RFQ_SIGNER_PRIVATE_KEY: replace-with-production-signer-private-key",
+  "RFQ_AWS_KMS_KEY_ID: alias/replace-with-production-kms-key",
+  "RFQ_TRUSTED_SIGNER_ADDRESS: replace-with-kms-signer-address",
   "RFQ_SETTLEMENT_ADDRESS: replace-with-rfq-settlement-address",
   "RFQ_REDIS_URL: redis://replace-with-redis-service:6379/0",
   "DATABASE_URL: postgres://rfq-user:replace-with-password@postgres.example.com:5432/rfq_market_maker",
 ], "infra/k8s/backend-secret.yaml");
+assert.ok(!k8sSecret.includes("RFQ_SIGNER_PRIVATE_KEY"), "backend Secret must not contain raw signer private keys");
 
 assertContains(k8sNetworkPolicy, [
   "kind: NetworkPolicy",
@@ -147,7 +162,9 @@ assertContains(k8sHedgeSecret, [
   "RFQ_BINANCE_API_KEY:",
   "RFQ_BINANCE_API_SECRET:",
 ], "infra/k8s/hedge-worker-secret.yaml");
-assert.ok(!k8sHedgeSecret.includes("RFQ_SIGNER_PRIVATE_KEY"), "hedge worker Secret must not contain signer credentials");
+for (const forbidden of ["RFQ_SIGNER_PRIVATE_KEY", "RFQ_AWS_KMS_KEY_ID"]) {
+  assert.ok(!k8sHedgeSecret.includes(forbidden), `hedge worker Secret must not contain ${forbidden}`);
+}
 assertContains(k8sMigrationSecret, [
   "name: rfq-database-migration-secrets",
   "DATABASE_URL: postgres://rfq-migrator:",
@@ -190,7 +207,9 @@ assertContains(k8sAnalyticsSecret, [
   "RFQ_CLICKHOUSE_USERNAME:",
   "RFQ_CLICKHOUSE_PASSWORD:",
 ], "infra/k8s/analytics-worker-secret.yaml");
-assert.ok(!k8sAnalyticsSecret.includes("RFQ_SIGNER_PRIVATE_KEY"), "analytics Secret must not contain signer credentials");
+for (const forbidden of ["RFQ_SIGNER_PRIVATE_KEY", "RFQ_AWS_KMS_KEY_ID"]) {
+  assert.ok(!k8sAnalyticsSecret.includes(forbidden), `analytics Secret must not contain ${forbidden}`);
+}
 assert.ok(!k8sAnalyticsSecret.includes("RFQ_BINANCE_API_KEY"), "analytics Secret must not contain venue credentials");
 assertContains(k8sAnalyticsNetworkPolicy, [
   "kind: NetworkPolicy",
@@ -226,7 +245,12 @@ assertContains(k8sReconciliationSecret, [
   "name: rfq-reconciliation-worker-secrets",
   "DATABASE_URL:",
 ], "infra/k8s/reconciliation-worker-secret.yaml");
-for (const forbidden of ["RFQ_SIGNER_PRIVATE_KEY", "RFQ_BINANCE_API_KEY", "RFQ_ANALYTICS_KAFKA_SASL_USERNAME"]) {
+for (const forbidden of [
+  "RFQ_SIGNER_PRIVATE_KEY",
+  "RFQ_AWS_KMS_KEY_ID",
+  "RFQ_BINANCE_API_KEY",
+  "RFQ_ANALYTICS_KAFKA_SASL_USERNAME",
+]) {
   assert.ok(!k8sReconciliationSecret.includes(forbidden), `reconciliation Secret must not contain ${forbidden}`);
 }
 assertContains(k8sReconciliationNetworkPolicy, [
@@ -250,11 +274,18 @@ assertContains(helmValues, [
   'prometheus.io/port: "3000"',
   'RFQ_TRUST_PROXY: "false"',
   "RFQ_RATE_LIMIT_BACKEND: redis",
+  "RFQ_SIGNER_MODE: aws-kms",
+  "RFQ_AWS_KMS_REGION: us-east-1",
+  'RFQ_AWS_KMS_MAX_ATTEMPTS: "3"',
   "RFQ_TOKEN_REGISTRY_JSON:",
   "RFQ_RISK_POLICY_JSON:",
   "name: rfq-backend-secrets",
-  "privateKeyKey: RFQ_SIGNER_PRIVATE_KEY",
+  "kmsKeyIdKey: RFQ_AWS_KMS_KEY_ID",
+  "trustedSignerAddressKey: RFQ_TRUSTED_SIGNER_ADDRESS",
   "settlementAddressKey: RFQ_SETTLEMENT_ADDRESS",
+  "serviceAccount:",
+  "name: rfq-backend-kms",
+  "eks.amazonaws.com/role-arn: replace-with-kms-signing-role-arn",
   "redisSecret:",
   "urlKey: RFQ_REDIS_URL",
   "databaseSecret:",
@@ -284,6 +315,7 @@ assertContains(helmValues, [
 assertContains(helmDeployment, [
   "replicas: {{ .Values.replicaCount }}",
   "terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}",
+  "serviceAccountName: {{ .Values.serviceAccount.name }}",
   "initContainers:",
   'command: ["node", "backend/dist/db/migrate.js"]',
   "name: {{ .Values.migrationSecret.name }}",
@@ -292,7 +324,8 @@ assertContains(helmDeployment, [
   "path: /ready",
   "path: /health",
   "secretKeyRef:",
-  "key: {{ .Values.signerSecret.privateKeyKey }}",
+  "key: {{ .Values.signerSecret.kmsKeyIdKey }}",
+  "key: {{ .Values.signerSecret.trustedSignerAddressKey }}",
   "key: {{ .Values.signerSecret.settlementAddressKey }}",
   "name: RFQ_REDIS_URL",
   "key: {{ .Values.redisSecret.urlKey }}",
@@ -300,6 +333,13 @@ assertContains(helmDeployment, [
   "key: {{ .Values.databaseSecret.urlKey }}",
   "toYaml .Values.resources",
 ], "infra/helm/rfq-market-maker/templates/deployment.yaml");
+
+assertContains(helmServiceAccount, [
+  ".Values.serviceAccount.create",
+  "kind: ServiceAccount",
+  "name: {{ .Values.serviceAccount.name }}",
+  "with .Values.serviceAccount.annotations",
+], "infra/helm/rfq-market-maker/templates/service-account.yaml");
 
 assertContains(helmService, [
   "type: {{ .Values.service.type }}",
@@ -393,7 +433,9 @@ assertContains(kubernetesChapter, [
   "preStop` sleep of 5 seconds",
   "Readiness 使用 `/ready`",
   "liveness 使用 `/health`",
-  "`RFQ_SIGNER_PRIVATE_KEY`",
+  "`RFQ_SIGNER_MODE=aws-kms`",
+  "`RFQ_AWS_KMS_KEY_ID`",
+  "`RFQ_TRUSTED_SIGNER_ADDRESS`",
   "`RFQ_SETTLEMENT_ADDRESS`",
   "`RFQ_REDIS_URL`",
   "`DATABASE_URL`",

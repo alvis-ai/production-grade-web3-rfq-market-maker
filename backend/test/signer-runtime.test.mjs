@@ -1,0 +1,135 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { privateKeyToAccount } from "viem/accounts";
+import {
+  createSignerRuntime,
+  readSignerRuntimeConfig,
+} from "../dist/modules/signer/signer-runtime.js";
+
+const privateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const settlementAddress = "0x0000000000000000000000000000000000000004";
+const trustedSignerAddress = privateKeyToAccount(privateKey).address;
+
+test("signer runtime keeps local defaults inside local environments only", async () => {
+  const config = readSignerRuntimeConfig({});
+  assert.equal(config.mode, "local");
+  assert.equal(config.privateKey, privateKey);
+  assert.equal(config.settlementAddress, settlementAddress);
+  assert.equal(config.trustedSignerAddress, trustedSignerAddress.toLowerCase());
+
+  const runtime = createSignerRuntime(config);
+  const quote = fixedQuote();
+  const signature = await runtime.service.signQuote({ quote, quoteId: "q_runtime", snapshotId: "snapshot_runtime" });
+  assert.equal(await runtime.service.verifyQuoteSignature(quote, signature), true);
+});
+
+test("signer runtime reads only own environment fields", () => {
+  const inherited = Object.create({
+    NODE_ENV: "production",
+    RFQ_SIGNER_MODE: "aws-kms",
+    RFQ_AWS_KMS_KEY_ID: "alias/inherited",
+  });
+  assert.equal(readSignerRuntimeConfig(inherited).mode, "local");
+});
+
+test("signer runtime requires AWS KMS or explicit injection outside local environments", () => {
+  assert.throws(
+    () => readSignerRuntimeConfig({ NODE_ENV: "production" }),
+    /RFQ_SIGNER_MODE must be local, aws-kms, or external/,
+  );
+  assert.throws(
+    () => readSignerRuntimeConfig({ NODE_ENV: "production", RFQ_SIGNER_MODE: "local" }),
+    /local is not allowed/,
+  );
+  assert.throws(
+    () => readSignerRuntimeConfig({
+      ...awsEnvironment(),
+      RFQ_SIGNER_PRIVATE_KEY: privateKey,
+    }),
+    /must not be configured/,
+  );
+});
+
+test("signer runtime parses complete AWS KMS configuration without private key material", () => {
+  const config = readSignerRuntimeConfig(awsEnvironment());
+  assert.deepEqual(config, {
+    mode: "aws-kms",
+    settlementAddress,
+    trustedSignerAddress: trustedSignerAddress.toLowerCase(),
+    keyId: "alias/rfq-production-signer",
+    region: "us-east-1",
+    maxAttempts: 4,
+  });
+  assert.equal(Object.hasOwn(config, "privateKey"), false);
+});
+
+test("signer runtime rejects incomplete, placeholder, and ambiguous AWS KMS configuration", () => {
+  const base = awsEnvironment();
+  for (const field of [
+    "RFQ_SETTLEMENT_ADDRESS",
+    "RFQ_TRUSTED_SIGNER_ADDRESS",
+    "RFQ_AWS_KMS_KEY_ID",
+    "RFQ_AWS_KMS_REGION",
+  ]) {
+    const value = { ...base };
+    delete value[field];
+    assert.throws(() => readSignerRuntimeConfig(value), new RegExp(field));
+  }
+  assert.throws(
+    () => readSignerRuntimeConfig({ ...base, RFQ_AWS_KMS_KEY_ID: "replace-with-key" }),
+    /RFQ_AWS_KMS_KEY_ID/,
+  );
+  assert.throws(
+    () => readSignerRuntimeConfig({ ...base, RFQ_AWS_KMS_MAX_ATTEMPTS: "01" }),
+    /base-10 integer/,
+  );
+  assert.throws(
+    () => readSignerRuntimeConfig({ ...base, RFQ_TRUSTED_SIGNER_ADDRESS: "0x0000000000000000000000000000000000000000" }),
+    /zero address/,
+  );
+});
+
+test("external signer mode requires injection and excludes conflicting KMS fields", () => {
+  const external = {
+    NODE_ENV: "production",
+    RFQ_SIGNER_MODE: "external",
+    RFQ_SETTLEMENT_ADDRESS: settlementAddress,
+    RFQ_TRUSTED_SIGNER_ADDRESS: trustedSignerAddress,
+  };
+  assert.throws(() => readSignerRuntimeConfig(external), /requires an injected signerService/);
+  assert.equal(readSignerRuntimeConfig(external, { allowExternal: true }).mode, "external");
+  assert.throws(
+    () => readSignerRuntimeConfig({ ...external, RFQ_AWS_KMS_KEY_ID: "alias/conflict" }, { allowExternal: true }),
+    /only allowed when RFQ_SIGNER_MODE=aws-kms/,
+  );
+  assert.throws(
+    () => createSignerRuntime(readSignerRuntimeConfig(external, { allowExternal: true })),
+    /must be supplied through buildServer/,
+  );
+});
+
+function awsEnvironment() {
+  return {
+    NODE_ENV: "production",
+    RFQ_SIGNER_MODE: "aws-kms",
+    RFQ_SETTLEMENT_ADDRESS: settlementAddress,
+    RFQ_TRUSTED_SIGNER_ADDRESS: trustedSignerAddress,
+    RFQ_AWS_KMS_KEY_ID: "alias/rfq-production-signer",
+    RFQ_AWS_KMS_REGION: "us-east-1",
+    RFQ_AWS_KMS_MAX_ATTEMPTS: "4",
+  };
+}
+
+function fixedQuote() {
+  return {
+    user: "0x0000000000000000000000000000000000000001",
+    tokenIn: "0x0000000000000000000000000000000000000002",
+    tokenOut: "0x0000000000000000000000000000000000000003",
+    amountIn: "1000",
+    amountOut: "998",
+    minAmountOut: "990",
+    nonce: "42",
+    deadline: 4_102_444_800,
+    chainId: 1,
+  };
+}

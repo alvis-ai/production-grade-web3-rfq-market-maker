@@ -1,6 +1,5 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import type pg from "pg";
-import { privateKeyToAccount } from "viem/accounts";
 import {
   SkeletonExecutionService,
   type SettlementEvidenceProvider,
@@ -84,11 +83,15 @@ import {
   type SettlementVerifier,
 } from "./modules/settlement/settlement-verifier.service.js";
 import {
-  LocalEIP712SignerService,
   ObservedSignerService,
-  type LocalEIP712SignerConfig,
   type SignerService,
 } from "./modules/signer/signer.service.js";
+import {
+  createSignerRuntime,
+  isLocalNodeEnvironment,
+  readSignerRuntimeConfig,
+  type SignerRuntimeConfig,
+} from "./modules/signer/signer-runtime.js";
 import { APIError, toAPIError } from "./shared/errors/api-error.js";
 import { validateQuoteRequest } from "./shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "./shared/validation/submit-request.js";
@@ -271,12 +274,13 @@ export function buildServer(options: BuildServerOptions = {}) {
       )
     : rawMarketDataService;
   const maxSnapshotAgeMs = defaultMarketData?.maxSnapshotAgeMs ?? defaultQuoteServiceConfig.maxSnapshotAgeMs;
-  let localSignerConfig: LocalEIP712SignerConfig | undefined;
-  const getLocalSignerConfig = () => {
-    localSignerConfig ??= readSignerConfig();
-    return localSignerConfig;
-  };
-  const signerService = options.signerService ?? new LocalEIP712SignerService(getLocalSignerConfig());
+  const signerRuntimeConfig = readSignerRuntimeConfig(undefined, {
+    allowExternal: options.signerService !== undefined,
+  });
+  const defaultSignerRuntime = options.signerService === undefined
+    ? createSignerRuntime(signerRuntimeConfig)
+    : undefined;
+  const signerService = options.signerService ?? defaultSignerRuntime!.service;
   const postgresPool = resolvePostgresPool(options);
   const ownsPostgresPool = postgresPool !== undefined && options.databasePool === undefined;
   const hedgeService = options.hedgeService ?? (
@@ -317,9 +321,9 @@ export function buildServer(options: BuildServerOptions = {}) {
     inventoryService,
     settlementEventService,
     settlementVerifier: options.settlementVerifier ?? new LocalSettlementVerifier(
-      buildDefaultSettlementVerifierPolicy(getLocalSignerConfig()),
+      buildDefaultSettlementVerifierPolicy(signerRuntimeConfig),
     ),
-  }, options.settlementEvidenceProvider ?? buildRuntimeSettlementEvidenceProvider(getLocalSignerConfig()));
+  }, options.settlementEvidenceProvider ?? buildRuntimeSettlementEvidenceProvider(signerRuntimeConfig.settlementAddress));
   const pnlValuationProvider = new QuoteSnapshotPnlValuationProvider(marketSnapshotStore, runtimeTokenRegistry);
   const pnlService = options.pnlService ?? (
     postgresPool
@@ -378,6 +382,11 @@ export function buildServer(options: BuildServerOptions = {}) {
   if (rateLimiter?.close) {
     server.addHook("onClose", async () => {
       await rateLimiter.close?.();
+    });
+  }
+  if (defaultSignerRuntime?.close) {
+    server.addHook("onClose", async () => {
+      await defaultSignerRuntime.close?.();
     });
   }
 
@@ -1071,34 +1080,18 @@ function assertGatewayRateLimitClientId(clientId: string): string {
   return normalized;
 }
 
-function readSignerConfig() {
-  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-  const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
-  const privateKey = readOwnEnvValue(env, "RFQ_SIGNER_PRIVATE_KEY");
-  const settlementAddress = readOwnEnvValue(env, "RFQ_SETTLEMENT_ADDRESS");
-  if (requiresExplicitSignerConfig(nodeEnv)) {
-    requireConfiguredPrivateKey(privateKey, nodeEnv);
-    requireConfiguredAddress(settlementAddress, "RFQ_SETTLEMENT_ADDRESS", nodeEnv);
-  }
-
-  return {
-    privateKey: (privateKey ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as `0x${string}`,
-    settlementAddress: (settlementAddress ?? "0x0000000000000000000000000000000000000004") as `0x${string}`,
-  };
-}
-
 function buildDefaultSettlementVerifierPolicy(
-  signerConfig: LocalEIP712SignerConfig,
+  signerConfig: SignerRuntimeConfig,
 ): LocalSettlementVerifierPolicy {
   return {
     ...defaultLocalSettlementVerifierPolicy,
     settlementAddress: signerConfig.settlementAddress,
-    trustedSignerAddress: privateKeyToAccount(signerConfig.privateKey).address,
+    trustedSignerAddress: signerConfig.trustedSignerAddress,
   };
 }
 
 function buildRuntimeSettlementEvidenceProvider(
-  signerConfig: LocalEIP712SignerConfig,
+  settlementAddress: `0x${string}`,
 ): RuntimeSettlementEvidenceProvider {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
   const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
@@ -1112,7 +1105,7 @@ function buildRuntimeSettlementEvidenceProvider(
     throw new Error("RFQ_RECEIPT_CONFIG_JSON must configure at least one chain when simulated settlement is disabled");
   }
   for (const chain of config.chains) {
-    if (chain.settlementAddress.toLowerCase() !== signerConfig.settlementAddress.toLowerCase()) {
+    if (chain.settlementAddress.toLowerCase() !== settlementAddress.toLowerCase()) {
       throw new Error("Receipt settlement address must match RFQ_SETTLEMENT_ADDRESS used for EIP-712 signing");
     }
   }
@@ -1128,29 +1121,7 @@ function readOptionalBoolean(value: string | undefined, defaultValue: boolean, n
 }
 
 function requiresExplicitSignerConfig(nodeEnv: string | undefined): boolean {
-  return nodeEnv !== undefined && !["development", "test"].includes(nodeEnv);
-}
-
-function requireConfiguredEnv(value: string | undefined, name: string, nodeEnv: string | undefined): string {
-  if (!value || value.trim().length === 0) {
-    throw new Error(`${name} is required when NODE_ENV=${nodeEnv}`);
-  }
-
-  return value;
-}
-
-function requireConfiguredPrivateKey(value: string | undefined, nodeEnv: string | undefined): void {
-  const privateKey = requireConfiguredEnv(value, "RFQ_SIGNER_PRIVATE_KEY", nodeEnv);
-  if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
-    throw new Error(`RFQ_SIGNER_PRIVATE_KEY must be a 32-byte hex string when NODE_ENV=${nodeEnv}`);
-  }
-}
-
-function requireConfiguredAddress(value: string | undefined, name: string, nodeEnv: string | undefined): void {
-  const address = requireConfiguredEnv(value, name, nodeEnv);
-  if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
-    throw new Error(`${name} must be a 20-byte hex address when NODE_ENV=${nodeEnv}`);
-  }
+  return !isLocalNodeEnvironment(nodeEnv);
 }
 
 function readQuoteTtlSeconds(): number {

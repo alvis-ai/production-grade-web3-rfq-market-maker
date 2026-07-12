@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer } from "../dist/main.js";
+import {
+  configureAwsSignerEnvironment,
+  localTestSignerService,
+  signerRuntimeEnvNames,
+  testSettlementAddress as settlementAddress,
+} from "./helpers/signer-runtime-fixtures.mjs";
 
 const quoteRequest = {
   chainId: 1,
@@ -10,8 +16,6 @@ const quoteRequest = {
   amountIn: "1000000000",
   slippageBps: 50,
 };
-const signerKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-const settlementAddress = "0x0000000000000000000000000000000000000004";
 
 test("RFQ API awaits injected distributed rate limit decisions", async () => {
   let checks = 0;
@@ -119,8 +123,7 @@ test("RFQ API readiness and shutdown include the rate limit store", async () => 
 test("RFQ API validates Redis rate limit runtime configuration", async () => {
   const names = [
     "NODE_ENV",
-    "RFQ_SIGNER_PRIVATE_KEY",
-    "RFQ_SETTLEMENT_ADDRESS",
+    ...signerRuntimeEnvNames,
     "RFQ_RECEIPT_CONFIG_JSON",
     "RFQ_RATE_LIMIT_BACKEND",
     "RFQ_REDIS_URL",
@@ -140,24 +143,35 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
     assert.throws(() => buildServer({ logger: false }), /redis:\/\/ or rediss:\/\//);
 
     process.env.NODE_ENV = "production";
-    process.env.RFQ_SIGNER_PRIVATE_KEY = signerKey;
-    process.env.RFQ_SETTLEMENT_ADDRESS = settlementAddress;
+    configureAwsSignerEnvironment();
     process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig());
     process.env.RFQ_RATE_LIMIT_BACKEND = "memory";
     assert.throws(
-      () => buildServer({ logger: false, databasePool: fakeDatabasePool() }),
+      () => buildServer({
+        logger: false,
+        databasePool: fakeDatabasePool(),
+        signerService: localTestSignerService(),
+      }),
       /must be redis when NODE_ENV=production/,
     );
 
     delete process.env.RFQ_RATE_LIMIT_BACKEND;
     delete process.env.RFQ_REDIS_URL;
     assert.throws(
-      () => buildServer({ logger: false, databasePool: fakeDatabasePool() }),
+      () => buildServer({
+        logger: false,
+        databasePool: fakeDatabasePool(),
+        signerService: localTestSignerService(),
+      }),
       /RFQ_REDIS_URL is required/,
     );
 
     process.env.RFQ_REDIS_URL = "redis://127.0.0.1:6379/0";
-    const server = buildServer({ logger: false, databasePool: fakeDatabasePool() });
+    const server = buildServer({
+      logger: false,
+      databasePool: fakeDatabasePool(),
+      signerService: localTestSignerService(),
+    });
     await server.ready();
     await server.close();
   } finally {

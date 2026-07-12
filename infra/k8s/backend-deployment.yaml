@@ -15,6 +15,7 @@ spec:
       labels:
         app.kubernetes.io/name: rfq-backend
     spec:
+      serviceAccountName: rfq-backend-kms
       terminationGracePeriodSeconds: 30
       initContainers:
         - name: database-migrate

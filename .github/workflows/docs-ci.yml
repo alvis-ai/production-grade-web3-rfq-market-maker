@@ -9,6 +9,7 @@ on:
       - "benchmark/**"
       - "backend/src/shared/types/rfq.ts"
       - "backend/src/modules/rate-limit/rate-limit.service.ts"
+      - "backend/src/modules/signer/**"
       - "backend/src/main.ts"
       - "sdk/src/client.ts"
       - "sdk/src/types.ts"
@@ -30,6 +31,7 @@ on:
       - "scripts/check-examples-consistency.mjs"
       - "scripts/check-grafana-dashboard-consistency.mjs"
       - "scripts/check-metrics-consistency.mjs"
+      - "scripts/check-kms-signer-consistency.mjs"
       - "scripts/check-runbook-consistency.mjs"
       - "scripts/check-rate-limit-consistency.mjs"
       - "scripts/check-security-docs-consistency.mjs"
@@ -64,6 +66,8 @@ jobs:
         run: make examples-check
       - name: Check runtime configuration consistency
         run: make config-check
+      - name: Check production KMS signer consistency
+        run: make kms-signer-check
       - name: Check API error code consistency
         run: make api-error-check
       - name: Check API rate limit consistency

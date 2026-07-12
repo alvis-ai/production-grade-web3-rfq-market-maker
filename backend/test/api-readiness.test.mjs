@@ -97,10 +97,12 @@ test("RFQ API degrades readiness when market data shape is invalid", async () =>
 });
 
 test("RFQ API degrades readiness when signer probe fails", async () => {
+  let signerCalls = 0;
   const server = buildServer({
     logger: false,
     signerService: {
       async signQuote() {
+        signerCalls += 1;
         throw new Error("signer readiness probe failed");
       },
       async verifyQuoteSignature() {
@@ -112,11 +114,14 @@ test("RFQ API degrades readiness when signer probe fails", async () => {
 
   try {
     const response = await injectJson(server, "GET", "/ready");
+    const cachedResponse = await injectJson(server, "GET", "/ready");
 
     assert.equal(response.statusCode, 503);
     assert.equal(response.body.status, "degraded");
     assert.equal(response.body.components.marketData, "ok");
     assert.equal(response.body.components.signer, "degraded");
+    assert.equal(cachedResponse.body.components.signer, "degraded");
+    assert.equal(signerCalls, 1);
 
     const metrics = await server.inject({ method: "GET", url: "/metrics" });
     assert.equal(metrics.statusCode, 200);
@@ -125,6 +130,77 @@ test("RFQ API degrades readiness when signer probe fails", async () => {
     assert.match(metrics.payload, /rfq_dependency_status\{component="marketData",status="ok"\} 1/);
     assert.match(metrics.payload, /rfq_dependency_status\{component="signer",status="degraded"\} 1/);
   } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API caches successful signer readiness probes", async () => {
+  let signerCalls = 0;
+  const server = buildServer({
+    logger: false,
+    signerService: {
+      async signQuote() {
+        signerCalls += 1;
+        return `0x${"11".repeat(64)}1b`;
+      },
+      async verifyQuoteSignature() {
+        return true;
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const first = await injectJson(server, "GET", "/ready");
+    const second = await injectJson(server, "GET", "/ready");
+
+    assert.equal(first.body.components.signer, "ok");
+    assert.equal(second.body.components.signer, "ok");
+    assert.equal(signerCalls, 1);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API coalesces concurrent signer readiness probes", async () => {
+  let signerCalls = 0;
+  let releaseSigner;
+  let reportSignerStarted;
+  const signerGate = new Promise((resolve) => {
+    releaseSigner = resolve;
+  });
+  const signerStarted = new Promise((resolve) => {
+    reportSignerStarted = resolve;
+  });
+  const server = buildServer({
+    logger: false,
+    signerService: {
+      async signQuote() {
+        signerCalls += 1;
+        reportSignerStarted();
+        await signerGate;
+        return `0x${"11".repeat(64)}1b`;
+      },
+      async verifyQuoteSignature() {
+        return true;
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const firstResponse = injectJson(server, "GET", "/ready");
+    const secondResponse = injectJson(server, "GET", "/ready");
+    await signerStarted;
+    assert.equal(signerCalls, 1);
+    releaseSigner();
+
+    const [first, second] = await Promise.all([firstResponse, secondResponse]);
+    assert.equal(first.body.components.signer, "ok");
+    assert.equal(second.body.components.signer, "ok");
+    assert.equal(signerCalls, 1);
+  } finally {
+    releaseSigner();
     await server.close();
   }
 });

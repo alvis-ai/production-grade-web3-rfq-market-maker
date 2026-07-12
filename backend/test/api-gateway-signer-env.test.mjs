@@ -1,103 +1,111 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer } from "../dist/main.js";
+import {
+  localTestSignerService,
+  signerRuntimeEnvNames,
+  testSettlementAddress,
+  testSignerPrivateKey,
+  testTrustedSignerAddress,
+} from "./helpers/signer-runtime-fixtures.mjs";
 
-test("production startup requires explicit signer configuration", () => {
-  const originalEnv = {
-    NODE_ENV: process.env.NODE_ENV,
-    RFQ_SIGNER_PRIVATE_KEY: process.env.RFQ_SIGNER_PRIVATE_KEY,
-    RFQ_SETTLEMENT_ADDRESS: process.env.RFQ_SETTLEMENT_ADDRESS,
-    RFQ_QUOTE_TTL_SECONDS: process.env.RFQ_QUOTE_TTL_SECONDS,
-    RFQ_BODY_LIMIT_BYTES: process.env.RFQ_BODY_LIMIT_BYTES,
-    RFQ_CORS_ALLOWED_ORIGINS: process.env.RFQ_CORS_ALLOWED_ORIGINS,
-    RFQ_ENABLE_HSTS: process.env.RFQ_ENABLE_HSTS,
-  };
-
+test("production startup requires explicit AWS KMS signer identity without private key material", () => {
+  const names = ["NODE_ENV", "DATABASE_URL", ...signerRuntimeEnvNames];
+  const original = saveEnv(names);
   try {
     process.env.NODE_ENV = "production";
-    delete process.env.RFQ_SIGNER_PRIVATE_KEY;
+    delete process.env.DATABASE_URL;
+    clearSignerEnvironment();
+
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_SIGNER_MODE must be local, aws-kms, or external/,
+    );
+
+    process.env.RFQ_SIGNER_MODE = "local";
+    process.env.RFQ_SIGNER_PRIVATE_KEY = testSignerPrivateKey;
+    process.env.RFQ_SETTLEMENT_ADDRESS = testSettlementAddress;
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /RFQ_SIGNER_MODE=local is not allowed when NODE_ENV=production/,
+    );
+
+    configureBaseAwsEnvironment();
     delete process.env.RFQ_SETTLEMENT_ADDRESS;
-    delete process.env.RFQ_QUOTE_TTL_SECONDS;
-    delete process.env.RFQ_BODY_LIMIT_BYTES;
-    delete process.env.RFQ_CORS_ALLOWED_ORIGINS;
-    delete process.env.RFQ_ENABLE_HSTS;
+    assert.throws(() => buildServer({ logger: false }), /RFQ_SETTLEMENT_ADDRESS/);
 
-    assert.throws(
-      () => buildServer({ logger: false }),
-      /RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=production/,
-    );
+    configureBaseAwsEnvironment();
+    delete process.env.RFQ_TRUSTED_SIGNER_ADDRESS;
+    assert.throws(() => buildServer({ logger: false }), /RFQ_TRUSTED_SIGNER_ADDRESS/);
 
-    process.env.RFQ_SIGNER_PRIVATE_KEY =
-      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+    configureBaseAwsEnvironment();
+    delete process.env.RFQ_AWS_KMS_KEY_ID;
+    assert.throws(() => buildServer({ logger: false }), /RFQ_AWS_KMS_KEY_ID/);
 
-    assert.throws(
-      () => buildServer({ logger: false }),
-      /RFQ_SETTLEMENT_ADDRESS is required when NODE_ENV=production/,
-    );
+    configureBaseAwsEnvironment();
+    delete process.env.RFQ_AWS_KMS_REGION;
+    assert.throws(() => buildServer({ logger: false }), /RFQ_AWS_KMS_REGION/);
 
-    process.env.RFQ_SIGNER_PRIVATE_KEY = "replace-with-production-signer-private-key";
-    process.env.RFQ_SETTLEMENT_ADDRESS = "0x0000000000000000000000000000000000000004";
+    configureBaseAwsEnvironment();
+    process.env.RFQ_SIGNER_PRIVATE_KEY = testSignerPrivateKey;
+    assert.throws(() => buildServer({ logger: false }), /RFQ_SIGNER_PRIVATE_KEY must not be configured/);
 
-    assert.throws(
-      () => buildServer({ logger: false }),
-      /RFQ_SIGNER_PRIVATE_KEY must be a 32-byte hex string when NODE_ENV=production/,
-    );
+    configureBaseAwsEnvironment();
+    process.env.RFQ_AWS_KMS_KEY_ID = "replace-with-production-kms-key";
+    assert.throws(() => buildServer({ logger: false }), /RFQ_AWS_KMS_KEY_ID/);
 
-    process.env.RFQ_SIGNER_PRIVATE_KEY =
-      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-    process.env.RFQ_SETTLEMENT_ADDRESS = "replace-with-rfq-settlement-address";
-
-    assert.throws(
-      () => buildServer({ logger: false }),
-      /RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address when NODE_ENV=production/,
-    );
+    configureBaseAwsEnvironment();
+    process.env.RFQ_TRUSTED_SIGNER_ADDRESS = "0x0000000000000000000000000000000000000000";
+    assert.throws(() => buildServer({ logger: false }), /must not be the zero address/);
   } finally {
-    restoreEnv("NODE_ENV", originalEnv.NODE_ENV);
-    restoreEnv("RFQ_SIGNER_PRIVATE_KEY", originalEnv.RFQ_SIGNER_PRIVATE_KEY);
-    restoreEnv("RFQ_SETTLEMENT_ADDRESS", originalEnv.RFQ_SETTLEMENT_ADDRESS);
-    restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalEnv.RFQ_QUOTE_TTL_SECONDS);
-    restoreEnv("RFQ_BODY_LIMIT_BYTES", originalEnv.RFQ_BODY_LIMIT_BYTES);
-    restoreEnv("RFQ_CORS_ALLOWED_ORIGINS", originalEnv.RFQ_CORS_ALLOWED_ORIGINS);
-    restoreEnv("RFQ_ENABLE_HSTS", originalEnv.RFQ_ENABLE_HSTS);
+    restoreEnv(original);
   }
 });
 
-test("non-local startup requires explicit signer configuration", () => {
-  const originalEnv = {
-    NODE_ENV: process.env.NODE_ENV,
-    RFQ_SIGNER_PRIVATE_KEY: process.env.RFQ_SIGNER_PRIVATE_KEY,
-    RFQ_SETTLEMENT_ADDRESS: process.env.RFQ_SETTLEMENT_ADDRESS,
-  };
-
+test("non-local external signer mode requires explicit injection and identity", () => {
+  const names = ["NODE_ENV", "DATABASE_URL", ...signerRuntimeEnvNames];
+  const original = saveEnv(names);
   try {
     process.env.NODE_ENV = "staging";
-    delete process.env.RFQ_SIGNER_PRIVATE_KEY;
-    delete process.env.RFQ_SETTLEMENT_ADDRESS;
+    delete process.env.DATABASE_URL;
+    clearSignerEnvironment();
+    process.env.RFQ_SIGNER_MODE = "external";
+    process.env.RFQ_SETTLEMENT_ADDRESS = testSettlementAddress;
+    process.env.RFQ_TRUSTED_SIGNER_ADDRESS = testTrustedSignerAddress;
 
     assert.throws(
       () => buildServer({ logger: false }),
-      /RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=staging/,
+      /RFQ_SIGNER_MODE=external requires an injected signerService/,
     );
-
-    process.env.RFQ_SIGNER_PRIVATE_KEY =
-      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-
     assert.throws(
-      () => buildServer({ logger: false }),
-      /RFQ_SETTLEMENT_ADDRESS is required when NODE_ENV=staging/,
+      () => buildServer({ logger: false, signerService: localTestSignerService() }),
+      /DATABASE_URL is required when NODE_ENV=staging/,
     );
   } finally {
-    restoreEnv("NODE_ENV", originalEnv.NODE_ENV);
-    restoreEnv("RFQ_SIGNER_PRIVATE_KEY", originalEnv.RFQ_SIGNER_PRIVATE_KEY);
-    restoreEnv("RFQ_SETTLEMENT_ADDRESS", originalEnv.RFQ_SETTLEMENT_ADDRESS);
+    restoreEnv(original);
   }
 });
 
-function restoreEnv(name, value) {
-  if (value === undefined) {
-    delete process.env[name];
-    return;
-  }
+function configureBaseAwsEnvironment() {
+  clearSignerEnvironment();
+  process.env.RFQ_SIGNER_MODE = "aws-kms";
+  process.env.RFQ_SETTLEMENT_ADDRESS = testSettlementAddress;
+  process.env.RFQ_TRUSTED_SIGNER_ADDRESS = testTrustedSignerAddress;
+  process.env.RFQ_AWS_KMS_KEY_ID = "alias/rfq-production-signer";
+  process.env.RFQ_AWS_KMS_REGION = "us-east-1";
+}
 
-  process.env[name] = value;
+function clearSignerEnvironment() {
+  for (const name of signerRuntimeEnvNames) delete process.env[name];
+}
+
+function saveEnv(names) {
+  return Object.fromEntries(names.map((name) => [name, process.env[name]]));
+}
+
+function restoreEnv(values) {
+  for (const [name, value] of Object.entries(values)) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
 }

@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer, readServerListenConfig } from "../dist/main.js";
+import {
+  configureAwsSignerEnvironment,
+  localTestSignerService,
+  signerRuntimeEnvNames,
+} from "./helpers/signer-runtime-fixtures.mjs";
 
 const baseQuoteRequest = {
   chainId: 1,
@@ -186,8 +191,7 @@ test("RFQ API rejects unsafe CEX order book runtime bounds", () => {
 test("production RFQ API requires two CEX sources per configured pair by default", () => {
   const names = [
     "NODE_ENV",
-    "RFQ_SIGNER_PRIVATE_KEY",
-    "RFQ_SETTLEMENT_ADDRESS",
+    ...signerRuntimeEnvNames,
     "RFQ_ALLOW_SIMULATED_SETTLEMENT",
     "RFQ_CEX_PAIRS",
     "RFQ_CEX_MIN_SOURCES",
@@ -195,9 +199,7 @@ test("production RFQ API requires two CEX sources per configured pair by default
   const original = Object.fromEntries(names.map((name) => [name, process.env[name]]));
   try {
     process.env.NODE_ENV = "production";
-    process.env.RFQ_SIGNER_PRIVATE_KEY =
-      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-    process.env.RFQ_SETTLEMENT_ADDRESS = "0x0000000000000000000000000000000000000004";
+    configureAwsSignerEnvironment();
     process.env.RFQ_ALLOW_SIMULATED_SETTLEMENT = "true";
     process.env.RFQ_CEX_PAIRS =
       "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT";
@@ -211,6 +213,7 @@ test("production RFQ API requires two CEX sources per configured pair by default
           check() { return { allowed: true, remaining: 1, retryAfterSeconds: 1 }; },
           checkHealth() {},
         },
+        signerService: localTestSignerService(),
       }),
       /each pair must configure at least minSources distinct sources/,
     );
@@ -247,8 +250,13 @@ test("RFQ API reads startup environment only from own fields", async () => {
 
   const originalEnv = {
     NODE_ENV: process.env.NODE_ENV,
+    RFQ_SIGNER_MODE: process.env.RFQ_SIGNER_MODE,
     RFQ_SIGNER_PRIVATE_KEY: process.env.RFQ_SIGNER_PRIVATE_KEY,
     RFQ_SETTLEMENT_ADDRESS: process.env.RFQ_SETTLEMENT_ADDRESS,
+    RFQ_TRUSTED_SIGNER_ADDRESS: process.env.RFQ_TRUSTED_SIGNER_ADDRESS,
+    RFQ_AWS_KMS_KEY_ID: process.env.RFQ_AWS_KMS_KEY_ID,
+    RFQ_AWS_KMS_REGION: process.env.RFQ_AWS_KMS_REGION,
+    RFQ_AWS_KMS_MAX_ATTEMPTS: process.env.RFQ_AWS_KMS_MAX_ATTEMPTS,
     RFQ_QUOTE_TTL_SECONDS: process.env.RFQ_QUOTE_TTL_SECONDS,
     RFQ_CORS_ALLOWED_ORIGINS: process.env.RFQ_CORS_ALLOWED_ORIGINS,
     RFQ_ENABLE_HSTS: process.env.RFQ_ENABLE_HSTS,
@@ -263,8 +271,13 @@ test("RFQ API reads startup environment only from own fields", async () => {
 
   try {
     delete process.env.NODE_ENV;
+    delete process.env.RFQ_SIGNER_MODE;
     delete process.env.RFQ_SIGNER_PRIVATE_KEY;
     delete process.env.RFQ_SETTLEMENT_ADDRESS;
+    delete process.env.RFQ_TRUSTED_SIGNER_ADDRESS;
+    delete process.env.RFQ_AWS_KMS_KEY_ID;
+    delete process.env.RFQ_AWS_KMS_REGION;
+    delete process.env.RFQ_AWS_KMS_MAX_ATTEMPTS;
     delete process.env.RFQ_QUOTE_TTL_SECONDS;
     delete process.env.RFQ_CORS_ALLOWED_ORIGINS;
     delete process.env.RFQ_ENABLE_HSTS;
@@ -274,8 +287,13 @@ test("RFQ API reads startup environment only from own fields", async () => {
     delete process.env.RFQ_RISK_POLICY_JSON;
     Object.setPrototypeOf(process.env, {
       NODE_ENV: "production",
+      RFQ_SIGNER_MODE: "aws-kms",
       RFQ_SIGNER_PRIVATE_KEY: "replace-with-production-signer-private-key",
       RFQ_SETTLEMENT_ADDRESS: "replace-with-rfq-settlement-address",
+      RFQ_TRUSTED_SIGNER_ADDRESS: "replace-with-kms-signer-address",
+      RFQ_AWS_KMS_KEY_ID: "alias/replace-with-production-kms-key",
+      RFQ_AWS_KMS_REGION: "us-east-1",
+      RFQ_AWS_KMS_MAX_ATTEMPTS: "9",
       RFQ_QUOTE_TTL_SECONDS: "120",
       RFQ_CORS_ALLOWED_ORIGINS: "https://evil.example.com",
       RFQ_ENABLE_HSTS: "true",
@@ -308,8 +326,13 @@ test("RFQ API reads startup environment only from own fields", async () => {
     Object.setPrototypeOf(process.env, originalEnvPrototype);
     Date.now = originalDateNow;
     restoreEnv("NODE_ENV", originalEnv.NODE_ENV);
+    restoreEnv("RFQ_SIGNER_MODE", originalEnv.RFQ_SIGNER_MODE);
     restoreEnv("RFQ_SIGNER_PRIVATE_KEY", originalEnv.RFQ_SIGNER_PRIVATE_KEY);
     restoreEnv("RFQ_SETTLEMENT_ADDRESS", originalEnv.RFQ_SETTLEMENT_ADDRESS);
+    restoreEnv("RFQ_TRUSTED_SIGNER_ADDRESS", originalEnv.RFQ_TRUSTED_SIGNER_ADDRESS);
+    restoreEnv("RFQ_AWS_KMS_KEY_ID", originalEnv.RFQ_AWS_KMS_KEY_ID);
+    restoreEnv("RFQ_AWS_KMS_REGION", originalEnv.RFQ_AWS_KMS_REGION);
+    restoreEnv("RFQ_AWS_KMS_MAX_ATTEMPTS", originalEnv.RFQ_AWS_KMS_MAX_ATTEMPTS);
     restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalEnv.RFQ_QUOTE_TTL_SECONDS);
     restoreEnv("RFQ_CORS_ALLOWED_ORIGINS", originalEnv.RFQ_CORS_ALLOWED_ORIGINS);
     restoreEnv("RFQ_ENABLE_HSTS", originalEnv.RFQ_ENABLE_HSTS);

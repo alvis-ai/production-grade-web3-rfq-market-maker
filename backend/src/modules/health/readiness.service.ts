@@ -161,10 +161,13 @@ const probeQuoteFields = [
   "deadline",
   "chainId",
 ] as const;
+const signerProbeCacheMs = 30_000;
 
 export class ReadinessService {
   private readonly deps: ReadinessServiceDeps;
   private readonly config: ReadinessServiceConfig;
+  private signerStatusCache: { status: ReadinessComponentStatus; expiresAtMs: number } | undefined;
+  private signerProbeInFlight: Promise<ReadinessComponentStatus> | undefined;
 
   constructor(
     deps: ReadinessServiceDeps,
@@ -235,6 +238,22 @@ export class ReadinessService {
   }
 
   private async checkSigner(): Promise<ReadinessComponentStatus> {
+    const cached = this.signerStatusCache;
+    if (cached && Date.now() < cached.expiresAtMs) return cached.status;
+    if (this.signerProbeInFlight) return this.signerProbeInFlight;
+
+    const probe = this.probeSigner();
+    this.signerProbeInFlight = probe;
+    try {
+      const status = await probe;
+      this.signerStatusCache = { status, expiresAtMs: Date.now() + signerProbeCacheMs };
+      return status;
+    } finally {
+      if (this.signerProbeInFlight === probe) this.signerProbeInFlight = undefined;
+    }
+  }
+
+  private async probeSigner(): Promise<ReadinessComponentStatus> {
     try {
       const signature = await this.deps.signerService.signQuote({
         quote: this.config.probeQuote,

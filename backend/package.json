@@ -13,6 +13,7 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "^3.1085.0",
     "@clickhouse/client": "^1.23.1",
     "@rfq-market-maker/sdk": "workspace:*",
     "fastify": "^4.28.1",

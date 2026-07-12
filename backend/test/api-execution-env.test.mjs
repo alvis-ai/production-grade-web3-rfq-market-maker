@@ -1,15 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer } from "../dist/main.js";
-
-const signerKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-const settlementAddress = "0x0000000000000000000000000000000000000004";
+import {
+  configureAwsSignerEnvironment,
+  localTestSignerService,
+  signerRuntimeEnvNames,
+  testSettlementAddress as settlementAddress,
+} from "./helpers/signer-runtime-fixtures.mjs";
 
 test("RFQ API validates simulated and receipt-confirmed execution configuration", async () => {
   const original = saveEnv([
     "NODE_ENV",
-    "RFQ_SIGNER_PRIVATE_KEY",
-    "RFQ_SETTLEMENT_ADDRESS",
+    ...signerRuntimeEnvNames,
     "RFQ_ALLOW_SIMULATED_SETTLEMENT",
     "RFQ_RECEIPT_CONFIG_JSON",
     "RFQ_REDIS_URL",
@@ -30,12 +32,15 @@ test("RFQ API validates simulated and receipt-confirmed execution configuration"
     assert.throws(() => buildServer({ logger: false }), /must match RFQ_SETTLEMENT_ADDRESS/);
 
     process.env.NODE_ENV = "production";
-    process.env.RFQ_SIGNER_PRIVATE_KEY = signerKey;
-    process.env.RFQ_SETTLEMENT_ADDRESS = settlementAddress;
+    configureAwsSignerEnvironment();
     delete process.env.RFQ_ALLOW_SIMULATED_SETTLEMENT;
     process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig(settlementAddress));
     process.env.RFQ_REDIS_URL = "redis://127.0.0.1:6379/0";
-    const server = buildServer({ logger: false, databasePool: fakeDatabasePool() });
+    const server = buildServer({
+      logger: false,
+      databasePool: fakeDatabasePool(),
+      signerService: localTestSignerService(),
+    });
     await server.ready();
     await server.close();
   } finally {

@@ -29,6 +29,7 @@ const localExpected = {
   VITE_RFQ_API_BASE_URL: "http://localhost:3000",
   VITE_RFQ_SETTLEMENT_ADDRESS: "0x0000000000000000000000000000000000000004",
   VITE_WALLETCONNECT_PROJECT_ID: "00000000000000000000000000000000",
+  RFQ_SIGNER_MODE: "local",
   RFQ_SIGNER_PRIVATE_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
   RFQ_SETTLEMENT_ADDRESS: "0x0000000000000000000000000000000000000004",
 };
@@ -36,7 +37,7 @@ const localExpected = {
 const composeExpected = {
   HOST: "0.0.0.0",
   PORT: "3000",
-  NODE_ENV: "production",
+  NODE_ENV: "development",
   RFQ_QUOTE_TTL_SECONDS: "30",
   RFQ_BODY_LIMIT_BYTES: "32768",
   RFQ_CORS_ALLOWED_ORIGINS: "http://localhost:5173",
@@ -46,6 +47,7 @@ const composeExpected = {
   RFQ_REDIS_URL: "redis://redis:6379/0",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
+  RFQ_SIGNER_MODE: "local",
   RFQ_SIGNER_PRIVATE_KEY: localExpected.RFQ_SIGNER_PRIVATE_KEY,
   RFQ_SETTLEMENT_ADDRESS: localExpected.RFQ_SETTLEMENT_ADDRESS,
 };
@@ -61,6 +63,9 @@ const productionExpected = {
   RFQ_ENABLE_HSTS: "true",
   RFQ_TRUST_PROXY: "false",
   RFQ_RATE_LIMIT_BACKEND: "redis",
+  RFQ_SIGNER_MODE: "aws-kms",
+  RFQ_AWS_KMS_REGION: "us-east-1",
+  RFQ_AWS_KMS_MAX_ATTEMPTS: "3",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
 };

@@ -1,0 +1,148 @@
+#!/usr/bin/env node
+
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+
+const paths = [
+  "backend/package.json",
+  "backend/src/main.ts",
+  "backend/src/modules/health/readiness.service.ts",
+  "backend/src/modules/signer/signer-runtime.ts",
+  "backend/src/modules/signer/kms-signer.service.ts",
+  "backend/src/modules/signer/aws-kms-signer.provider.ts",
+  "backend/test/kms-signer.test.mjs",
+  "backend/test/aws-kms-signer-provider.test.mjs",
+  "backend/test/api-readiness.test.mjs",
+  "backend/test/signer-runtime.test.mjs",
+  "docker-compose.yml",
+  "infra/k8s/configmap.yaml",
+  "infra/k8s/backend-secret.yaml",
+  "infra/k8s/backend-deployment.yaml",
+  "infra/k8s/backend-service-account.yaml",
+  "infra/helm/rfq-market-maker/values.yaml",
+  "infra/helm/rfq-market-maker/templates/deployment.yaml",
+  "infra/helm/rfq-market-maker/templates/service-account.yaml",
+  "docs/adr/ADR-0005-Use-KMS-For-Production-Signing.md",
+  "README.md",
+];
+const files = Object.fromEntries(await Promise.all(
+  paths.map(async (path) => [path, await readFile(path, "utf8")]),
+));
+const backendPackage = JSON.parse(files["backend/package.json"]);
+
+assert.equal(
+  typeof backendPackage.dependencies?.["@aws-sdk/client-kms"],
+  "string",
+  "backend must depend on the official AWS KMS SDK",
+);
+assertContains("backend/src/modules/signer/aws-kms-signer.provider.ts", [
+  "new SignCommand",
+  'MessageType: "DIGEST"',
+  'SigningAlgorithm: "ECDSA_SHA_256"',
+  "digest.length !== 32",
+  "output.Signature instanceof Uint8Array",
+]);
+assertContains("backend/src/modules/signer/kms-signer.service.ts", [
+  "decodeDERSignature",
+  "canonical short-form length",
+  "non-canonical padding",
+  "outside secp256k1 order",
+  "SECP256K1N - s",
+  "configured trusted signer",
+  "assertSignature(matchingSignature)",
+]);
+assert.ok(
+  !files["backend/src/modules/signer/kms-signer.service.ts"].includes("bootstrap") &&
+    !files["backend/src/modules/signer/kms-signer.service.ts"].includes("firstRecoverable"),
+  "KMS signer must never bootstrap trust from the first returned signature",
+);
+assertContains("backend/src/modules/signer/signer-runtime.ts", [
+  'RFQ_SIGNER_MODE=local is not allowed when NODE_ENV=',
+  'RFQ_SIGNER_PRIVATE_KEY must not be configured when RFQ_SIGNER_MODE=',
+  'RFQ_SIGNER_MODE=external requires an injected signerService',
+  'requireConfigured(keyIdValue, "RFQ_AWS_KMS_KEY_ID")',
+  'requireConfigured(trustedSignerValue, "RFQ_TRUSTED_SIGNER_ADDRESS")',
+]);
+assertContains("backend/src/main.ts", [
+  "readSignerRuntimeConfig",
+  "createSignerRuntime",
+  "buildDefaultSettlementVerifierPolicy(signerRuntimeConfig)",
+  "buildRuntimeSettlementEvidenceProvider(signerRuntimeConfig.settlementAddress)",
+  "defaultSignerRuntime.close",
+]);
+assertContains("backend/src/modules/health/readiness.service.ts", [
+  "signerProbeCacheMs = 30_000",
+  "signerProbeInFlight",
+  "this.signerStatusCache = { status, expiresAtMs:",
+]);
+assertContains("backend/test/kms-signer.test.mjs", [
+  "canonicalizes high-s DER signatures",
+  "fails closed when KMS signs with an unexpected key",
+  "rejects malformed DER",
+]);
+assertContains("backend/test/aws-kms-signer-provider.test.mjs", [
+  "fixed KMS signing parameters",
+  'assert.equal(commands[0].input.MessageType, "DIGEST")',
+]);
+assertContains("backend/test/api-readiness.test.mjs", [
+  "caches successful signer readiness probes",
+  "coalesces concurrent signer readiness probes",
+  "assert.equal(signerCalls, 1)",
+]);
+assertContains("backend/test/signer-runtime.test.mjs", [
+  "requires AWS KMS or explicit injection outside local environments",
+  "without private key material",
+]);
+assertContains("docker-compose.yml", [
+  "NODE_ENV: development",
+  "RFQ_SIGNER_MODE: local",
+]);
+assertContains("infra/k8s/configmap.yaml", [
+  "RFQ_SIGNER_MODE: aws-kms",
+  "RFQ_AWS_KMS_REGION: us-east-1",
+]);
+assertContains("infra/k8s/backend-secret.yaml", [
+  "RFQ_AWS_KMS_KEY_ID:",
+  "RFQ_TRUSTED_SIGNER_ADDRESS:",
+  "RFQ_SETTLEMENT_ADDRESS:",
+]);
+for (const path of [
+  "infra/k8s/backend-secret.yaml",
+  "infra/helm/rfq-market-maker/templates/deployment.yaml",
+]) {
+  assert.ok(!files[path].includes("RFQ_SIGNER_PRIVATE_KEY"), `${path} must not mount a raw signer key`);
+}
+assertContains("infra/k8s/backend-deployment.yaml", ["serviceAccountName: rfq-backend-kms"]);
+assertContains("infra/k8s/backend-service-account.yaml", [
+  "kind: ServiceAccount",
+  "eks.amazonaws.com/role-arn:",
+]);
+assertContains("infra/helm/rfq-market-maker/values.yaml", [
+  "RFQ_SIGNER_MODE: aws-kms",
+  "kmsKeyIdKey: RFQ_AWS_KMS_KEY_ID",
+  "trustedSignerAddressKey: RFQ_TRUSTED_SIGNER_ADDRESS",
+]);
+assertContains("infra/helm/rfq-market-maker/templates/service-account.yaml", [
+  ".Values.serviceAccount.annotations",
+]);
+assertContains("docs/adr/ADR-0005-Use-KMS-For-Production-Signing.md", [
+  "## Status",
+  "Accepted",
+  "ECC_SECG_P256K1",
+  "MessageType=DIGEST",
+  "RFQ_TRUSTED_SIGNER_ADDRESS",
+]);
+assertContains("README.md", [
+  "RFQ_SIGNER_MODE=aws-kms",
+  "do not mount static AWS access keys",
+  "strictly decodes the returned DER signature",
+  "caches both successful and degraded signer status for 30 seconds",
+]);
+
+console.log("KMS signer consistency check passed: explicit trust root and workload identity");
+
+function assertContains(path, needles) {
+  for (const needle of needles) {
+    assert.ok(files[path].includes(needle), `${path} must include ${needle}`);
+  }
+}

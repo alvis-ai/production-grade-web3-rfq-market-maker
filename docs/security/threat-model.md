@@ -30,7 +30,8 @@ flowchart LR
 
 | Threat | Impact | Mitigation |
 | --- | --- | --- |
-| Signer key compromise | Attacker can authorize malicious quotes | KMS/HSM, signer allowlist, notional limits, pause, key rotation |
+| Signer key compromise | Attacker can authorize malicious quotes | AWS KMS workload identity, key-scoped `kms:Sign`, explicit signer address, notional limits, pause, key rotation |
+| Wrong KMS key or malformed DER | Quotes are signed by an unintended key or parser ambiguity changes signature meaning | explicit trusted signer, strict DER integer/length validation, low-s normalization, address recovery |
 | Quote replay | Same quote executed multiple times | Nonce replay protection in contract |
 | Cross-chain replay | Quote valid on unintended chain | EIP-712 domain and Quote `chainId` |
 | Quote field tampering | User changes amount or token | EIP-712 typed data verification |
@@ -53,6 +54,5 @@ flowchart LR
 
 ## Open Questions
 
-- Which KMS/HSM provider will be used in production.
-- Whether user submits settlement directly or through a relay.
-- Which private transaction path is supported per chain.
+- Which private transaction path is supported per chain for the wallet-driven settlement transaction.
+- Whether a future multi-cloud deployment should replace AWS KMS through `external` signer mode.

@@ -1,32 +1,42 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer } from "../dist/main.js";
-
-const signerKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-const settlementAddress = "0x0000000000000000000000000000000000000004";
+import {
+  configureAwsSignerEnvironment,
+  localTestSignerService,
+  signerRuntimeEnvNames,
+  testSettlementAddress as settlementAddress,
+} from "./helpers/signer-runtime-fixtures.mjs";
 
 test("non-local RFQ API startup requires durable PostgreSQL persistence", async () => {
   const original = saveEnv([
     "NODE_ENV",
     "DATABASE_URL",
-    "RFQ_SIGNER_PRIVATE_KEY",
-    "RFQ_SETTLEMENT_ADDRESS",
+    ...signerRuntimeEnvNames,
     "RFQ_RECEIPT_CONFIG_JSON",
   ]);
   try {
     process.env.NODE_ENV = "production";
     delete process.env.DATABASE_URL;
-    process.env.RFQ_SIGNER_PRIVATE_KEY = signerKey;
-    process.env.RFQ_SETTLEMENT_ADDRESS = settlementAddress;
+    configureAwsSignerEnvironment();
     process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig());
 
     assert.throws(
-      () => buildServer({ logger: false, rateLimiter: allowAllRateLimiter() }),
+      () => buildServer({
+        logger: false,
+        rateLimiter: allowAllRateLimiter(),
+        signerService: localTestSignerService(),
+      }),
       /DATABASE_URL is required when NODE_ENV=production/,
     );
 
     const { pool, queries } = fakeDatabasePool();
-    const server = buildServer({ logger: false, databasePool: pool, rateLimiter: allowAllRateLimiter() });
+    const server = buildServer({
+      logger: false,
+      databasePool: pool,
+      rateLimiter: allowAllRateLimiter(),
+      signerService: localTestSignerService(),
+    });
     await server.ready();
     await server.close();
 

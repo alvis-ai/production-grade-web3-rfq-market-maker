@@ -185,6 +185,12 @@ test -s backend/test/settlement-verifier-policy-validation.test.mjs
 test -s backend/test/settlement-verifier-validation.test.mjs
 test -s backend/test/signer.test.mjs
 test -s backend/test/signer-validation.test.mjs
+test -s backend/test/kms-signer.test.mjs
+test -s backend/test/aws-kms-signer-provider.test.mjs
+test -s backend/test/signer-runtime.test.mjs
+test -s backend/src/modules/signer/kms-signer.service.ts
+test -s backend/src/modules/signer/aws-kms-signer.provider.ts
+test -s backend/src/modules/signer/signer-runtime.ts
 test -s backend/test/submit-concurrency.test.mjs
 test -s backend/test/submit-options-validation.test.mjs
 test -s backend/test/submit-schema-validation.test.mjs
@@ -577,6 +583,7 @@ test -s scripts/check-api-route-consistency.mjs
 test -s scripts/check-database-schema-consistency.mjs
 test -s scripts/reconciliation-check.mjs
 test -s scripts/verify.sh
+test -s scripts/check-kms-signer-consistency.mjs
 test -s scripts/smoke-api.mjs
 test -s scripts/smoke-api-local.sh
 test -s infra/docker/backend.Dockerfile
@@ -790,12 +797,12 @@ grep -q 'quoteRepository?: QuoteRepository' backend/src/main.ts
 grep -q 'routingEngine?: RoutingEngine' backend/src/main.ts
 grep -q 'InternalInventoryRoutingEngine' backend/src/main.ts
 grep -q 'TokenLimitRiskEngine' backend/src/main.ts
-grep -q 'LocalEIP712SignerService' backend/src/main.ts
+grep -q 'createSignerRuntime' backend/src/main.ts
 grep -q 'ObservedSignerService' backend/src/main.ts
-grep -q 'RFQ_SIGNER_PRIVATE_KEY' backend/src/main.ts
-grep -q 'RFQ_SETTLEMENT_ADDRESS' backend/src/main.ts
+grep -q 'readSignerRuntimeConfig' backend/src/main.ts
+grep -q 'trustedSignerAddress: signerConfig.trustedSignerAddress' backend/src/main.ts
 grep -q 'requiresExplicitSignerConfig' backend/src/main.ts
-grep -q '"development", "test"' backend/src/main.ts
+grep -q 'nodeEnv === "development" || nodeEnv === "test"' backend/src/modules/signer/signer-runtime.ts
 grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/src/main.ts
 grep -q 'readQuoteTtlSeconds' backend/src/main.ts
 grep -q 'RFQ_BODY_LIMIT_BYTES' backend/src/main.ts
@@ -847,9 +854,9 @@ grep -q 'FST_ERR_CTP_BODY_TOO_LARGE' backend/src/main.ts
 grep -q 'RFQ API ignores inherited framework error fields' backend/test/api-validation-gateway.test.mjs
 grep -q 'Object.create({ statusCode: 400, code: "FST_ERR_CTP_BODY_TOO_LARGE" })' backend/test/api-validation-gateway.test.mjs
 grep -q '框架错误映射只信任 error 对象自有的 `code` 和 `statusCode` 字段' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'requireConfiguredEnv' backend/src/main.ts
-grep -q 'requireConfiguredPrivateKey' backend/src/main.ts
-grep -q 'requireConfiguredAddress' backend/src/main.ts
+grep -q 'function requireConfigured' backend/src/modules/signer/signer-runtime.ts
+grep -q 'function parsePrivateKey' backend/src/modules/signer/signer-runtime.ts
+grep -q 'function parseAddress' backend/src/modules/signer/signer-runtime.ts
 grep -q 'NODE_ENV=${nodeEnv}' backend/src/main.ts
 grep -q 'HOST' backend/src/main.ts
 grep -q 'x-trace-id' backend/src/main.ts
@@ -2595,6 +2602,7 @@ grep -q 'make grafana-check' scripts/verify.sh
 grep -q 'make deployment-check' scripts/verify.sh
 grep -q 'make ci-check' scripts/verify.sh
 grep -q 'make compose-check' scripts/verify.sh
+grep -q 'make kms-signer-check' scripts/verify.sh
 grep -q 'make eip712-check' scripts/verify.sh
 grep -q 'make contract-abi-check' scripts/verify.sh
 grep -q 'make rate-limit-check' scripts/verify.sh
@@ -2914,8 +2922,8 @@ grep -q 'WalletConnect project id must be a safe string' .env.example
 grep -q 'HOST=127.0.0.1' .env.example
 grep -q 'Production Configuration' README.md
 grep -q 'rfq-backend-secrets' README.md
-grep -q '32-byte hex string' README.md
-grep -q '20-byte hex address' README.md
+grep -q 'asymmetric `ECC_SECG_P256K1` signing key' README.md
+grep -q '`RFQ_SIGNER_PRIVATE_KEY` is rejected outside local mode' README.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' README.md
 grep -q 'RFQ_BODY_LIMIT_BYTES' README.md
 grep -q 'must be a base-10 integer from 1 to 3600' README.md
@@ -2997,14 +3005,14 @@ grep -q 'Duplicate settlement events are idempotent' book/Volume5-BackendEnginee
 grep -q 'rfq_quote_status_update_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'quoteStatus.status' scripts/smoke-api.mjs
 grep -q 'buildServer' backend/test/api.test.mjs
-grep -q 'production startup requires explicit signer configuration' backend/test/api-gateway-signer-env.test.mjs
-grep -q 'non-local startup requires explicit signer configuration' backend/test/api-gateway-signer-env.test.mjs
-grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=staging' backend/test/api-gateway-signer-env.test.mjs
-grep -q 'RFQ_SIGNER_PRIVATE_KEY is required when NODE_ENV=production' backend/test/api-gateway-signer-env.test.mjs
-grep -q 'RFQ_SIGNER_PRIVATE_KEY must be a 32-byte hex string when NODE_ENV=production' backend/test/api-gateway-signer-env.test.mjs
-grep -q 'RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address when NODE_ENV=production' backend/test/api-gateway-signer-env.test.mjs
+grep -q 'production startup requires explicit AWS KMS signer identity without private key material' backend/test/api-gateway-signer-env.test.mjs
+grep -q 'non-local external signer mode requires explicit injection and identity' backend/test/api-gateway-signer-env.test.mjs
+grep -q 'RFQ_SIGNER_MODE=local is not allowed when NODE_ENV=production' backend/test/api-gateway-signer-env.test.mjs
+grep -q 'RFQ_SIGNER_PRIVATE_KEY must not be configured' backend/test/api-gateway-signer-env.test.mjs
+grep -q 'RFQ_AWS_KMS_KEY_ID' backend/test/api-gateway-signer-env.test.mjs
+grep -q 'RFQ_TRUSTED_SIGNER_ADDRESS' backend/test/api-gateway-signer-env.test.mjs
 grep -q 'built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`' README.md
-grep -q '默认 Anvil signer 只允许用于 unset `NODE_ENV`、`development` 或 `test`' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
+grep -q '默认 Anvil key 只允许用于 unset `NODE_ENV`、`development` 或 `test`' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'marks requested quotes as failed when signer is unavailable' backend/test/quote-service.test.mjs
 grep -q 'preserves signer errors when marking failed quotes fails' backend/test/quote-service.test.mjs
 grep -q 'signing is unavailable' backend/test/api-signer.test.mjs
@@ -3051,9 +3059,9 @@ grep -q 'q_bad_nonce_leading_zero' backend/test/settlement-verifier-validation.t
 grep -Fq 'typeof token !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(token)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'new String(tokenIn)' backend/test/settlement-verifier-policy-validation.test.mjs
 grep -q 'signature shape, canonical low-s/v checks' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'The default settlement verifier derives its trusted signer address and verifying contract from the same `RFQ_SIGNER_PRIVATE_KEY` and `RFQ_SETTLEMENT_ADDRESS` startup config' README.md
-grep -q 'buildDefaultSettlementVerifierPolicy(getLocalSignerConfig())' backend/src/main.ts
-grep -q 'trustedSignerAddress: privateKeyToAccount(signerConfig.privateKey).address' backend/src/main.ts
+grep -q 'The settlement verifier always recovers the signature against that explicit signer identity' README.md
+grep -q 'buildDefaultSettlementVerifierPolicy(signerRuntimeConfig)' backend/src/main.ts
+grep -q 'trustedSignerAddress: signerConfig.trustedSignerAddress' backend/src/main.ts
 grep -q 'export function buildQuoteTypedData' backend/src/modules/signer/signer.service.ts
 grep -q 'settlement verifier policy fail-fast' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'JavaScript regex coercion 进入 `/submit` 结算验证路径' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -3361,15 +3369,20 @@ grep -q 'removedHedgeRetryReport' scripts/reconciliation-check.mjs
 grep -q 'removedPnlRetryReport' scripts/reconciliation-check.mjs
 grep -q 'rfq-backend-secrets' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'Missing or malformed signer Secret' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
-grep -q '32-byte hex string' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
-grep -q '20-byte hex address' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
+grep -q 'asymmetric `ECC_SECG_P256K1` key' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
+grep -q '`RFQ_SIGNER_MODE=aws-kms`' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml
 grep -q 'path: /ready' infra/k8s/backend-deployment.yaml
 grep -q 'secretRef' infra/k8s/backend-deployment.yaml
 grep -q 'rfq-backend-secrets' infra/k8s/backend-deployment.yaml
 grep -q 'kind: Secret' infra/k8s/backend-secret.yaml
-grep -q 'RFQ_SIGNER_PRIVATE_KEY' infra/k8s/backend-secret.yaml
+grep -q 'RFQ_AWS_KMS_KEY_ID' infra/k8s/backend-secret.yaml
+grep -q 'RFQ_TRUSTED_SIGNER_ADDRESS' infra/k8s/backend-secret.yaml
+! grep -q 'RFQ_SIGNER_PRIVATE_KEY' infra/k8s/backend-secret.yaml
 grep -q 'RFQ_SETTLEMENT_ADDRESS' infra/k8s/backend-secret.yaml
+grep -q 'serviceAccountName: rfq-backend-kms' infra/k8s/backend-deployment.yaml
+grep -q 'kind: ServiceAccount' infra/k8s/backend-service-account.yaml
+grep -q 'eks.amazonaws.com/role-arn' infra/k8s/backend-service-account.yaml
 grep -q 'RFQ_QUOTE_TTL_SECONDS' infra/k8s/configmap.yaml
 grep -q 'RFQ_BODY_LIMIT_BYTES' infra/k8s/configmap.yaml
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' infra/k8s/configmap.yaml
@@ -3382,8 +3395,12 @@ grep -q 'prometheus.io/path' infra/k8s/backend-service.yaml
 grep -q '/metrics' infra/k8s/backend-service.yaml
 grep -q 'path: /ready' infra/helm/rfq-market-maker/templates/deployment.yaml
 grep -q 'secretKeyRef' infra/helm/rfq-market-maker/templates/deployment.yaml
-grep -q 'RFQ_SIGNER_PRIVATE_KEY' infra/helm/rfq-market-maker/templates/deployment.yaml
+grep -q 'RFQ_AWS_KMS_KEY_ID' infra/helm/rfq-market-maker/templates/deployment.yaml
+grep -q 'RFQ_TRUSTED_SIGNER_ADDRESS' infra/helm/rfq-market-maker/templates/deployment.yaml
+! grep -q 'RFQ_SIGNER_PRIVATE_KEY' infra/helm/rfq-market-maker/templates/deployment.yaml
 grep -q 'RFQ_SETTLEMENT_ADDRESS' infra/helm/rfq-market-maker/templates/deployment.yaml
+grep -q 'serviceAccountName: {{ .Values.serviceAccount.name }}' infra/helm/rfq-market-maker/templates/deployment.yaml
+grep -q 'kind: ServiceAccount' infra/helm/rfq-market-maker/templates/service-account.yaml
 grep -q 'RFQ_QUOTE_TTL_SECONDS' infra/helm/rfq-market-maker/values.yaml
 grep -q 'RFQ_BODY_LIMIT_BYTES' infra/helm/rfq-market-maker/values.yaml
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' infra/helm/rfq-market-maker/values.yaml
@@ -3428,7 +3445,7 @@ grep -q 'testAccessControlRevocationRemovesAdminCapability' contracts/test/RFQSe
 grep -q 'testCannotRevokeLastDefaultAdminRole' contracts/test/RFQSettlement.t.sol
 grep -q 'testDefaultAdminCanBeRevokedAfterGrantingReplacement' contracts/test/RFQSettlement.t.sol
 grep -q 'DEFAULT_ADMIN_ROLE` 使用成员计数防止最后一个默认管理员被撤销' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
-grep -q 'Run a canary signing check' docs/security/key-management.md
+grep -q 'Run a canary through the normal quote path' docs/security/key-management.md
 grep -q 'negative canary using the old signer' docs/security/key-management.md
 grep -q 'Emergency Pause Procedure' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQSettlement.setPaused(true)' book/Volume7-ProductionDeployment/Chapter05-Runbook.md

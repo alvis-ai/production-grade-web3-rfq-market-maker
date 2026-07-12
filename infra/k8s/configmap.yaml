@@ -14,6 +14,9 @@ data:
   RFQ_ENABLE_HSTS: "true"
   RFQ_TRUST_PROXY: "false"
   RFQ_RATE_LIMIT_BACKEND: redis
+  RFQ_SIGNER_MODE: aws-kms
+  RFQ_AWS_KMS_REGION: us-east-1
+  RFQ_AWS_KMS_MAX_ATTEMPTS: "3"
   RFQ_MARKET_DATA_PROVIDER: static
   RFQ_TOKEN_REGISTRY_JSON: '{"tokens":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","symbol":"TOKEN2","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","symbol":"TOKEN3","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true}]}'
   RFQ_RISK_POLICY_JSON: '{"policyVersion":"token-limit-risk-v1","enabledChainIds":[1],"tokenLimits":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","maxAmountIn":"1000000000000000000000","minAmountOut":"1","maxAbsoluteInventory":"10000000000000000000000"},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","maxAmountIn":"1000000000000000000000","minAmountOut":"1","maxAbsoluteInventory":"10000000000000000000000"}],"restrictedUsers":[],"toxicFlowScores":[],"maxToxicScoreBps":8000,"maxSlippageBps":500,"maxQuotedSpreadBps":1000}'

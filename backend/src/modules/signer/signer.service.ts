@@ -188,7 +188,7 @@ export function buildQuoteTypedData(quote: SignedQuote, settlementAddress: `0x${
     } as const;
 }
 
-function assertSignQuoteInput(input: SignQuoteInput): void {
+export function assertSignQuoteInput(input: SignQuoteInput): void {
   assertObject(input, "input");
   assertOwnFields(input, signQuoteInputFields, "input");
   assertSafeIdentifier(input.quoteId, "quoteId");
@@ -196,7 +196,7 @@ function assertSignQuoteInput(input: SignQuoteInput): void {
   assertSignedQuote(input.quote);
 }
 
-function assertSignedQuote(quote: SignedQuote): void {
+export function assertSignedQuote(quote: SignedQuote): void {
   assertObject(quote, "quote");
   assertOwnFields(quote, signedQuoteFields, "quote");
   assertPositiveSafeInteger(quote.chainId, "quote.chainId");
@@ -236,7 +236,7 @@ function assertPrivateKey(value: string): void {
   }
 }
 
-function assertSignature(value: string): void {
+export function assertSignature(value: string): void {
   if (typeof value !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(value)) {
     throw new Error("Signer signature must be a 65-byte hex string");
   }
