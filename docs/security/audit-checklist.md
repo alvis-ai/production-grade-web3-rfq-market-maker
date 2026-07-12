@@ -20,6 +20,8 @@
 
 - [x] `/quote` validates address format and amount strings.
 - [x] Risk Engine runs before Signer Service.
+- [x] Default token authorization and raw-unit limits are keyed by both chainId and token address.
+- [x] Startup cross-checks risk-policy tokens against the trusted token registry and active market pairs.
 - [x] Signer Service cannot be called directly from public API.
 - [x] Signer verification rejects non-canonical high-s ECDSA signatures before submit settlement.
 - [x] Quote persistence includes snapshotId and riskPolicyVersion.

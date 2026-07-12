@@ -275,7 +275,7 @@ function assertAddress(value: string, field: string): void {
   }
 }
 
-function assertRiskInput(input: RiskInput): void {
+export function assertRiskInput(input: RiskInput): void {
   assertObject(input, "input");
   assertOwnFields(input, riskInputFields, "input");
   assertOwnOptionalFields(input, riskInputOptionalFields, "input");

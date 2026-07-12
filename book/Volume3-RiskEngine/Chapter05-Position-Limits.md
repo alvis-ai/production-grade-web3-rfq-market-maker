@@ -101,7 +101,7 @@ stateDiagram-v2
 
 ## Data Model
 
-`RiskLimitPolicy` 包含 `policyVersion`、`chainId`、`tokenAddress`、`maxPosition`、`softPosition`、`maxNotionalUsd`、`maxUserNotionalUsd`、`maxQuotedSpreadBps`、`enabled`。当前后端 `BasicRiskPolicy` 已落地 `enabledChainIds`、`tokenAllowlist`、`maxAmountIn`、`minAmountOut`、`maxSlippageBps`、`maxQuotedSpreadBps` 和 `maxAbsoluteInventory`。Quote Service 会把本次 quote 的 projected tokenIn/tokenOut position 传给 Risk Engine；任一方向超过 hard limit 或 Pricing Engine 返回的最终 quoted spread 超过 policy 都会拒绝签名。后续再扩展为数据库驱动的多维限额。
+`RiskLimitPolicy` 的完整目标包含 `policyVersion`、`chainId`、`tokenAddress`、`maxPosition`、`softPosition`、`maxNotionalUsd`、`maxUserNotionalUsd`、`maxQuotedSpreadBps`、`enabled`。当前默认后端已落地 `TokenLimitRiskPolicy`：`enabledChainIds` 定义 chain gate，`tokenLimits` 以 `(chainId, tokenAddress)` 唯一键分别保存 canonical uint256 `maxAmountIn`、`minAmountOut` 和 `maxAbsoluteInventory`，公共字段保存 slippage/spread/toxic-flow 上限。Quote Service 把 projected tokenIn/tokenOut position 传给 Risk Engine；任一余额按对应 token raw-unit hard limit 超限，或最终 quoted spread 超过 policy，都会拒绝签名。后续再扩展数据库驱动的 USD notional、pair/user 和 portfolio 限额。
 
 ## API Design
 
@@ -112,6 +112,8 @@ stateDiagram-v2
 - hard limit 拒绝签名。
 - soft limit 可以触发更宽 spread 或更短 TTL。
 - policyVersion 必须写入 risk decision。
+- token address 必须与 chainId 共同构成授权键；不能因为同一地址在另一个 enabled chain 获准就跨链放行。
+- `RFQ_RISK_POLICY_JSON` 和 `RFQ_TOKEN_REGISTRY_JSON` 必须在启动时双向覆盖 active pair；raw-unit 限额不得跨 decimals token 复用。
 
 ## Failure Scenarios
 
@@ -129,7 +131,7 @@ Active policy 应缓存，但缓存必须有版本和失效机制。
 
 ## Testing Strategy
 
-测试 token limit、chain limit、user limit、portfolio limit、soft/hard 分支和 policy missing。
+测试 token limit、chain limit、同地址跨链隔离、USDC 6 decimals、WETH 18 decimals、每侧 inventory limit、user/portfolio limit、soft/hard 分支、policy missing 和 registry mismatch。
 
 ## Interview Notes
 

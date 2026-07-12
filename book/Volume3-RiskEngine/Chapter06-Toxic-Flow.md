@@ -104,7 +104,7 @@ Toxic flow 不通过公开 API 暴露。Risk Decision 可以记录内部 reason 
 - 第一版使用规则评分，不使用黑盒模型。
 - toxic score 可扩大 spread 或降低 limit。
 - 严重 toxic flow 可拒绝签名。
-- 当前后端 `BasicRiskEngine` 已支持 restricted user 和 per-user `toxicFlowScores`，当分数超过 `maxToxicScoreBps` 时返回 `TOXIC_FLOW_SCORE_EXCEEDED`，restricted user 返回 `TOXIC_FLOW_RESTRICTED_USER`。
+- 当前默认 `TokenLimitRiskEngine` 与保留的 `BasicRiskEngine` 都支持 restricted user 和 per-user `toxicFlowScores`；分数超过 `maxToxicScoreBps` 时返回 `TOXIC_FLOW_SCORE_EXCEEDED`，restricted user 返回 `TOXIC_FLOW_RESTRICTED_USER`。
 
 ## Failure Scenarios
 

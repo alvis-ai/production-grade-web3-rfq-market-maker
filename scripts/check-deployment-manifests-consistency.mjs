@@ -96,6 +96,8 @@ assertContains(k8sConfig, [
   'RFQ_ENABLE_HSTS: "true"',
   'RFQ_TRUST_PROXY: "false"',
   "RFQ_RATE_LIMIT_BACKEND: redis",
+  "RFQ_TOKEN_REGISTRY_JSON:",
+  "RFQ_RISK_POLICY_JSON:",
 ], "infra/k8s/configmap.yaml");
 
 assertContains(k8sSecret, [
@@ -248,6 +250,8 @@ assertContains(helmValues, [
   'prometheus.io/port: "3000"',
   'RFQ_TRUST_PROXY: "false"',
   "RFQ_RATE_LIMIT_BACKEND: redis",
+  "RFQ_TOKEN_REGISTRY_JSON:",
+  "RFQ_RISK_POLICY_JSON:",
   "name: rfq-backend-secrets",
   "privateKeyKey: RFQ_SIGNER_PRIVATE_KEY",
   "settlementAddressKey: RFQ_SETTLEMENT_ADDRESS",
@@ -391,6 +395,8 @@ assertContains(kubernetesChapter, [
   "`RFQ_SETTLEMENT_ADDRESS`",
   "`RFQ_REDIS_URL`",
   "`DATABASE_URL`",
+  "`RFQ_TOKEN_REGISTRY_JSON`",
+  "`RFQ_RISK_POLICY_JSON`",
   "`rateLimitStore`",
   "Resource request/limit",
   "NetworkPolicy",

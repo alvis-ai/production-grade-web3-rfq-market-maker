@@ -65,7 +65,13 @@ import {
 } from "./modules/rate-limit/redis-rate-limit.service.js";
 import { InMemoryRiskDecisionRepository, type RiskDecisionStore } from "./modules/risk/risk-decision.repository.js";
 import { PostgresRiskDecisionStore } from "./modules/risk/postgres-risk-decision.repository.js";
-import { BasicRiskEngine, type RiskEngine } from "./modules/risk/risk.engine.js";
+import type { RiskEngine } from "./modules/risk/risk.engine.js";
+import {
+  defaultTokenLimitRiskPolicy,
+  parseTokenLimitRiskPolicy,
+  TokenLimitRiskEngine,
+  type TokenLimitRiskPolicy,
+} from "./modules/risk/token-limit-risk.engine.js";
 import { InternalInventoryRoutingEngine, type RoutingEngine } from "./modules/routing/routing.engine.js";
 import { SettlementEventService, type SettlementEventStore } from "./modules/settlement/settlement-event.service.js";
 import { PostgresSettlementEventStore } from "./modules/settlement/postgres-settlement-event.store.js";
@@ -245,6 +251,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const cexPairs = defaultMarketData ? readCexOrderBookPairs() : [];
   const cexConfig = cexPairs.length > 0 ? readCexOrderBookConfig(cexPairs) : undefined;
   const priceUpdaterPairs = defaultMarketData ? readMarketDataPairs(defaultMarketData.defaultPairs) : [];
+  const managedRiskPairs = [...(defaultMarketData?.defaultPairs ?? []), ...priceUpdaterPairs, ...cexPairs];
   const basePriceCache = defaultMarketData ? new SharedPriceCache(5_000) : undefined;
   const cexPriceCache = cexConfig ? new SharedPriceCache(cexConfig.maxSourceAgeMs) : undefined;
   const marketDataService = defaultMarketData && basePriceCache
@@ -283,7 +290,10 @@ export function buildServer(options: BuildServerOptions = {}) {
     cexPairs,
   );
   const pricingEngine = pricingRuntime.engine;
-  const riskEngine = options.riskEngine ?? new BasicRiskEngine();
+  const riskEngine = options.riskEngine ?? buildDefaultRiskEngine(
+    options.tokenRegistry ?? pricingRuntime.tokenRegistry ?? readTokenRegistry(),
+    managedRiskPairs,
+  );
   const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
   const inMemoryInventoryService = postgresPool ? undefined : new InventoryService();
   const inventoryService: IInventoryService = postgresInventoryService ?? inMemoryInventoryService!;
@@ -1570,6 +1580,36 @@ function assertCexPairsSupported(
       );
     }
   }
+}
+
+function buildDefaultRiskEngine(
+  tokenRegistry: TokenRegistry,
+  managedPairs: readonly { chainId: number; tokenIn: `0x${string}`; tokenOut: `0x${string}` }[],
+): RiskEngine {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const serializedPolicy = readOwnEnvValue(env, "RFQ_RISK_POLICY_JSON");
+  const policy: TokenLimitRiskPolicy = serializedPolicy === undefined
+    ? defaultTokenLimitRiskPolicy
+    : parseTokenLimitRiskPolicy(serializedPolicy);
+
+  for (const limit of policy.tokenLimits) {
+    requireTokenMetadata(tokenRegistry, limit.chainId, limit.tokenAddress, "Risk policy");
+  }
+
+  const engine = new TokenLimitRiskEngine(policy);
+  const inspected = new Set<string>();
+  for (const pair of managedPairs) {
+    const key = `${pair.chainId}:${pair.tokenIn.toLowerCase()}:${pair.tokenOut.toLowerCase()}`;
+    if (inspected.has(key)) continue;
+    inspected.add(key);
+    if (!engine.getTokenLimit(pair.chainId, pair.tokenIn)) {
+      throw new Error(`Risk policy has no tokenIn limit for managed pair ${key}`);
+    }
+    if (!engine.getTokenLimit(pair.chainId, pair.tokenOut)) {
+      throw new Error(`Risk policy has no tokenOut limit for managed pair ${key}`);
+    }
+  }
+  return engine;
 }
 
 /**

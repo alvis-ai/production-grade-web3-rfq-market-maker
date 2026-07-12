@@ -255,6 +255,7 @@ test("RFQ API reads startup environment only from own fields", async () => {
     RFQ_RATE_LIMIT_BACKEND: process.env.RFQ_RATE_LIMIT_BACKEND,
     RFQ_REDIS_URL: process.env.RFQ_REDIS_URL,
     RFQ_TOKEN_REGISTRY_JSON: process.env.RFQ_TOKEN_REGISTRY_JSON,
+    RFQ_RISK_POLICY_JSON: process.env.RFQ_RISK_POLICY_JSON,
   };
   const originalEnvPrototype = Object.getPrototypeOf(process.env);
   const fixedNow = Date.now();
@@ -270,6 +271,7 @@ test("RFQ API reads startup environment only from own fields", async () => {
     delete process.env.RFQ_RATE_LIMIT_BACKEND;
     delete process.env.RFQ_REDIS_URL;
     delete process.env.RFQ_TOKEN_REGISTRY_JSON;
+    delete process.env.RFQ_RISK_POLICY_JSON;
     Object.setPrototypeOf(process.env, {
       NODE_ENV: "production",
       RFQ_SIGNER_PRIVATE_KEY: "replace-with-production-signer-private-key",
@@ -280,6 +282,7 @@ test("RFQ API reads startup environment only from own fields", async () => {
       RFQ_RATE_LIMIT_BACKEND: "redis",
       RFQ_REDIS_URL: "redis://evil.example.com:6379/0",
       RFQ_TOKEN_REGISTRY_JSON: "{",
+      RFQ_RISK_POLICY_JSON: "{",
     });
     Date.now = () => fixedNow;
 
@@ -313,6 +316,7 @@ test("RFQ API reads startup environment only from own fields", async () => {
     restoreEnv("RFQ_RATE_LIMIT_BACKEND", originalEnv.RFQ_RATE_LIMIT_BACKEND);
     restoreEnv("RFQ_REDIS_URL", originalEnv.RFQ_REDIS_URL);
     restoreEnv("RFQ_TOKEN_REGISTRY_JSON", originalEnv.RFQ_TOKEN_REGISTRY_JSON);
+    restoreEnv("RFQ_RISK_POLICY_JSON", originalEnv.RFQ_RISK_POLICY_JSON);
   }
 });
 

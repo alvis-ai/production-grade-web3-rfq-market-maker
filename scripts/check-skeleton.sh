@@ -785,7 +785,7 @@ grep -q 'pricingEngine?: PricingEngine' backend/src/main.ts
 grep -q 'quoteRepository?: QuoteRepository' backend/src/main.ts
 grep -q 'routingEngine?: RoutingEngine' backend/src/main.ts
 grep -q 'InternalInventoryRoutingEngine' backend/src/main.ts
-grep -q 'BasicRiskEngine' backend/src/main.ts
+grep -q 'TokenLimitRiskEngine' backend/src/main.ts
 grep -q 'LocalEIP712SignerService' backend/src/main.ts
 grep -q 'ObservedSignerService' backend/src/main.ts
 grep -q 'RFQ_SIGNER_PRIVATE_KEY' backend/src/main.ts
@@ -1060,7 +1060,17 @@ grep -q 'amountOut: "0998400000"' backend/test/risk-runtime-validation.test.mjs
 grep -q 'Basic risk tokenAllowlist must not contain duplicate addresses' backend/test/risk-validation.test.mjs
 grep -q 'Basic risk restrictedUsers must not contain duplicate addresses' backend/test/risk-validation.test.mjs
 grep -q 'Basic risk toxicFlowScores must not contain duplicate users' backend/test/risk-validation.test.mjs
-grep -q 'enabledChainIds` 和 `tokenAllowlist` 必须非空且不能包含重复项' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+test -s backend/src/modules/risk/token-limit-risk.engine.ts
+test -s backend/test/token-limit-risk.test.mjs
+test -s backend/test/api-risk-policy-runtime.test.mjs
+test -s scripts/check-risk-policy-consistency.mjs
+grep -q 'TokenLimitRiskPolicy` 使用 exact-field parser' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'cross-chain address isolation' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q 'RFQ_RISK_POLICY_JSON' backend/src/main.ts
+grep -q 'tokenLimitKey(input.request.chainId, input.request.tokenIn)' backend/src/modules/risk/token-limit-risk.engine.ts
+grep -q 'tokenLimitKey(input.request.chainId, input.request.tokenOut)' backend/src/modules/risk/token-limit-risk.engine.ts
+grep -q 'TokenLimitRiskEngine scopes token authorization by chain and address' backend/test/token-limit-risk.test.mjs
+grep -q 'configured chain/token limits to a cross-decimals quote' backend/test/api-risk-policy-runtime.test.mjs
 grep -q '覆盖 toxic-flow score' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'malformed `projectSettlement` output cannot be ignored by a custom risk engine' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'class LocalEIP712SignerService' backend/src/modules/signer/signer.service.ts

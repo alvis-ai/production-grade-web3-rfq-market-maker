@@ -3,6 +3,10 @@ import test from "node:test";
 import { buildServer } from "../dist/main.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
 import { BasicRiskEngine, defaultBasicRiskPolicy } from "../dist/modules/risk/risk.engine.js";
+import {
+  TokenLimitRiskEngine,
+  defaultTokenLimitRiskPolicy,
+} from "../dist/modules/risk/token-limit-risk.engine.js";
 
 const baseQuoteRequest = {
   chainId: 1,
@@ -198,7 +202,17 @@ test("RFQ API fails closed when risk engine is unavailable", async () => {
 });
 
 test("RFQ API rejects quotes that would exceed projected inventory limits", async () => {
-  const server = buildServer({ logger: false });
+  const server = buildServer({
+    logger: false,
+    riskEngine: new TokenLimitRiskEngine({
+      ...defaultTokenLimitRiskPolicy,
+      policyVersion: "api-inventory-limit-v1",
+      tokenLimits: defaultTokenLimitRiskPolicy.tokenLimits.map((limit) => ({
+        ...limit,
+        maxAbsoluteInventory: "2000000000",
+      })),
+    }),
+  });
   await server.ready();
 
   try {
