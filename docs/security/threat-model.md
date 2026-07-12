@@ -40,6 +40,8 @@ flowchart LR
 | Mempool MEV | User or hedge transaction exploited | short TTL, minAmountOut, private submission where possible |
 | Event duplication | Inventory updated twice | idempotency key `(chainId, txHash, logIndex)` |
 | Chain reorg | Inventory reflects reverted event | confirmation depth and replayable indexer |
+| Lost wallet callback | Contract settles but inventory, hedge and PnL never observe the trade | independent confirmed-log indexer, durable cursor, idempotent event application |
+| Malicious or inconsistent RPC history | Indexer skips events or removes valid inventory | bounded block-hash checkpoints, log-to-quote verification, deep-reorg fail-closed, independent-provider incident verification |
 | Hedge credential leak | External venue account loss | secret isolation, least privilege, withdrawal disabled |
 | Analytics credential leak | Event exfiltration, forged analytics or broker disruption | separate worker Secret, SASL/TLS, topic/table ACLs, no signer or venue credentials |
 | Event poisoning or offset skip | Analytics evidence becomes incomplete or misleading | closed envelope validation, 1 MiB bound, insert-before-offset commit, replay and event-id deduplication |

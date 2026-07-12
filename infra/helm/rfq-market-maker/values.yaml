@@ -181,6 +181,35 @@ reconciliationWorker:
   networkPolicy:
     enabled: true
 
+settlementIndexer:
+  enabled: true
+  replicaCount: 2
+  port: 3004
+  env:
+    RFQ_SETTLEMENT_INDEXER_HOST: "0.0.0.0"
+    RFQ_SETTLEMENT_INDEXER_PORT: "3004"
+    RFQ_SETTLEMENT_INDEXER_LEASE_MS: "30000"
+    RFQ_SETTLEMENT_INDEXER_POLL_INTERVAL_MS: "1000"
+    RFQ_SETTLEMENT_INDEXER_READINESS_STALE_MS: "60000"
+  secret:
+    name: rfq-settlement-indexer-secrets
+    databaseUrlKey: DATABASE_URL
+    configJsonKey: RFQ_SETTLEMENT_INDEXER_CONFIG_JSON
+  service:
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "3004"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  networkPolicy:
+    enabled: true
+
 resources:
   requests:
     cpu: 100m

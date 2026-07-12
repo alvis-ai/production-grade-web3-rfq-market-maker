@@ -12,6 +12,7 @@ erDiagram
   MARKET_SNAPSHOTS ||--o{ PNL_RECORDS : values
   QUOTES ||--o| POST_TRADE_RECONCILIATION_JOBS : converges
   SETTLEMENT_EVENTS ||--o{ POST_TRADE_RECONCILIATION_JOBS : desires
+  SETTLEMENT_INDEXER_CURSORS ||--o{ SETTLEMENT_INDEXER_CHECKPOINTS : checkpoints
   MARKET_SNAPSHOTS ||--o{ QUOTES : prices
   INVENTORY_POSITIONS ||--o{ HEDGE_ORDERS : rebalances
   QUOTES ||--o{ ANALYTICS_OUTBOX : emits
@@ -166,6 +167,24 @@ erDiagram
     timestamptz lease_expires_at
     text last_error_code
   }
+
+  SETTLEMENT_INDEXER_CURSORS {
+    bigint chain_id PK
+    text settlement_address
+    bigint start_block
+    bigint next_block
+    bigint revision
+    text lease_owner
+    timestamptz lease_expires_at
+    timestamptz updated_at
+  }
+
+  SETTLEMENT_INDEXER_CHECKPOINTS {
+    bigint chain_id PK,FK
+    bigint block_number PK
+    text block_hash
+    timestamptz created_at
+  }
 ```
 
 ## Notes
@@ -176,6 +195,9 @@ erDiagram
 - `settlement_events.quote_id` 是 `quotes.id` 的非空外键；partial unique index `(quote_id) WHERE canonical = TRUE` 保证一个 signed quote 同时最多绑定一个 canonical settlement，同时允许 reorg 后的新交易形成新的 canonical event，并保留旧事件审计历史。
 - `settlement_events.canonical` 与 `removed_at` 保留 reorg 审计历史：canonical event 必须没有 `removed_at`，removed event 必须有时间戳。正常查询和 reconciliation 只读取 canonical rows；同一精确事件重新成为 canonical 时可以幂等重激活，而不是插入第二条 event。
 - `idx_settlement_events_canonical_block` 为 canonical chain-order replay 提供 partial index。服务启动时使用 transaction-scoped advisory lock，在同一数据库事务内从 canonical events 重建 `inventory_positions`，避免多副本同时修复投影。
+- `settlement_indexer_cursors` 为每条链保存不可变 settlement address/start block、下一扫描块、单调 revision 和 expiring lease。worker 只有同时匹配 lease owner、revision 与 expected next block 才能提交游标，避免旧副本覆盖新进度。
+- `settlement_indexer_checkpoints` 保存已提交 range 末端的 block hash。每次扫描先比较最近 checkpoint；分叉时在 `reorgLookbackBlocks` 内寻找共同祖先，按 reverse chain order 标记 orphaned settlement events non-canonical，再回退 cursor。超出窗口时 fail closed 并等待人工确认。
+- `idx_settlement_events_canonical_chain_block` 支持 indexer 在 crash-before-cursor-commit 和 reorg 恢复时只读取受影响链与 block range，不对完整事件表做全量扫描。
 - `quotes` 使用 partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`，保证 signed quote 的 `chainId:user:nonce` 本地查找键唯一，同时允许 requested / rejected quote 在签名前没有 nonce。
 - 数据库层使用 CHECK constraints 固化应用层关键不变量：操作表 primary id 使用 SafeIdentifier 约束、quote lifecycle status、risk decision status / reason_code consistency、hedge side/status（`queued`、`filled`、`failed`）、hedge `venue` 非空、PnL attribution model / model description、20-byte address、distinct token pair、market snapshot `source` 非空、market snapshot `bid_price <= mid_price <= ask_price`、market snapshot `volatility_bps` 在 0..10000 bps、signed quote pricing bps component ranges、32-byte tx/quote hash、65-byte canonical low-s EIP-712 signature with `v` in 27/28、`amount_out >= min_amount_out`，以及正数 signed amount/nonce、settled amount/nonce 和 hedge amount。
 - `quotes`、`market_snapshots`、`risk_decisions`、`settlement_events`、`inventory_positions`、`hedge_orders` 和 `pnl_records` 的 primary id 都必须符合 SafeIdentifier：非空、不超过 128 个字符，并且只包含 letters、numbers、underscore、colon 或 hyphen，避免数据库保存 API/SDK 无法查询或展示的资源主键。

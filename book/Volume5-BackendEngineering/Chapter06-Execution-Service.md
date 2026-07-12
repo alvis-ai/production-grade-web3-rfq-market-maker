@@ -124,6 +124,9 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 ## Engineering Decisions
 
 - Settlement event is source of truth.
+- Production does not rely on the browser callback as the only ingestion path. `SettlementIndexerWorker` polls confirmed `QuoteSettled` logs from the configured contract, resolves the complete signed quote by `(chainId, user, nonce)`, recomputes `quoteHash`, compares all emitted fields, and then reuses `SettlementEventStore.applySettlementEvent()`. A valid on-chain trade therefore reaches inventory and reconciliation even when the wallet closes before `POST /submit`.
+- `settlement_indexer_cursors` advances only after every event in a confirmed range has been validated and applied. Expiring leases plus revision and expected-next-block CAS prevent stale replicas from overwriting progress. A crash after event application but before cursor commit is recovered by comparing canonical event references in the replayed range against current confirmed logs before advancing.
+- Range-end block-hash checkpoints detect reorgs. The indexer searches for a common checkpoint within `reorgLookbackBlocks`, marks orphaned events non-canonical in reverse chain order, and rolls the cursor back only after removals complete. The existing database trigger then creates reconciliation revisions for inventory-adjacent quote, hedge, and PnL convergence. A deeper reorg fails closed with `DEEP_REORG` and never guesses an ancestor.
 - `/submit` uses `LocalSettlementVerifier` to mirror RFQSettlement signature shape, canonical low-s/v checks, EIP-712 trusted signer recovery, chainId、deadline、token whitelist、token pair 和 amount shape checks before consuming settlement evidence. The verifier reuses the backend signer typed-data builder, so `ProductionGradeRFQ` domain name/version, quote fields, `chainId`, and `settlementAddress` stay aligned with signed quote creation.
 - `txHash` is an optional closed-schema field and is normalized to lowercase, but remains an untrusted lookup key. `ReceiptSettlementEvidenceProvider` waits for configured confirmations, requires transaction `from == quote.user` and `to == configured RFQSettlement`, decodes `submitQuote` calldata and matches every quote field plus signature, then requires receipt success and exactly one trusted-contract `QuoteSettled` whose `quoteHash`、user、tokens、amounts and nonce match the submitted signed quote. This independently proves the `quoteHash` and `nonce` emitted by `RFQSettlement.QuoteSettled` before any off-chain settlement side effect.
 - Receipt-confirmed requests may consume a quote whose wall-clock deadline has passed, because the contract already enforced deadline at transaction execution and the matching event proves settlement occurred. Requests without txHash still reject expired quotes before synthetic evidence or any side effect; a fake txHash only postpones the decision until RPC verification and cannot manufacture a settlement event.
@@ -207,6 +210,9 @@ Execution state includes `quoteId`, `txHash`, `hedgeOrderId`, `status`, `submitt
 - Duplicate settlement event：skip inventory/PnL/hedge side effects and return the existing settlement event id。
 - Reorg removed event：remove the canonical settlement event, rebuild inventory from remaining chain events plus irreversible hedge fills, run quote/hedge/PnL removed-event reconciliation, and explicitly compensate any retained external hedge before reopening normal quote size。
 - Event lag：status pending until indexed。
+- Browser loses the `/submit` callback after a successful wallet transaction: the independent settlement indexer discovers the confirmed event and drives the same idempotent post-trade path.
+- Indexer sees an unknown `(chainId, user, nonce)` or a mismatched `quoteHash`: do not advance that chain cursor; alert `QUOTE_NOT_FOUND` or `EVENT_MISMATCH` and restore the signed quote audit record before resuming.
+- Reorg exceeds `reorgLookbackBlocks`: stop automatic rollback for that chain, page operators, compare multiple RPC providers, and extend/reseed the cursor only through an audited recovery procedure.
 
 ## Security Considerations
 
@@ -220,7 +226,7 @@ Execution path can be asynchronous. RPC latency should not block quote generatio
 
 ## Testing Strategy
 
-测试 payload generation、relay failure、tx revert、settlement verifier unavailable、settlement verifier policy fail-fast、PnL attribution input validation、event confirmation、duplicate submit、duplicate settlement side-effect suppression、reorg removal inventory replay、post-settlement status persistence failure 和 quote expired。
+测试 payload generation、relay failure、tx revert、settlement verifier unavailable、settlement verifier policy fail-fast、PnL attribution input validation、event confirmation、duplicate submit、duplicate settlement side-effect suppression、indexer lost-callback recovery、crash-before-cursor-commit replay、block-hash reorg rollback、deep-reorg fail-closed、reorg removal inventory replay、post-settlement status persistence failure 和 quote expired。
 
 ## Interview Notes
 

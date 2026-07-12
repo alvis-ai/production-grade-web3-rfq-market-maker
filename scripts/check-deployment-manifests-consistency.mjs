@@ -22,6 +22,10 @@ const k8sReconciliationDeployment = await readFile("infra/k8s/reconciliation-wor
 const k8sReconciliationService = await readFile("infra/k8s/reconciliation-worker-service.yaml", "utf8");
 const k8sReconciliationSecret = await readFile("infra/k8s/reconciliation-worker-secret.yaml", "utf8");
 const k8sReconciliationNetworkPolicy = await readFile("infra/k8s/reconciliation-worker-network-policy.yaml", "utf8");
+const k8sIndexerDeployment = await readFile("infra/k8s/settlement-indexer-deployment.yaml", "utf8");
+const k8sIndexerService = await readFile("infra/k8s/settlement-indexer-service.yaml", "utf8");
+const k8sIndexerSecret = await readFile("infra/k8s/settlement-indexer-secret.yaml", "utf8");
+const k8sIndexerNetworkPolicy = await readFile("infra/k8s/settlement-indexer-network-policy.yaml", "utf8");
 const helmValues = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
 const helmDeployment = await readFile("infra/helm/rfq-market-maker/templates/deployment.yaml", "utf8");
 const helmServiceAccount = await readFile("infra/helm/rfq-market-maker/templates/service-account.yaml", "utf8");
@@ -42,6 +46,18 @@ const helmReconciliationService = await readFile(
 );
 const helmReconciliationNetworkPolicy = await readFile(
   "infra/helm/rfq-market-maker/templates/reconciliation-worker-network-policy.yaml",
+  "utf8",
+);
+const helmIndexerDeployment = await readFile(
+  "infra/helm/rfq-market-maker/templates/settlement-indexer-deployment.yaml",
+  "utf8",
+);
+const helmIndexerService = await readFile(
+  "infra/helm/rfq-market-maker/templates/settlement-indexer-service.yaml",
+  "utf8",
+);
+const helmIndexerNetworkPolicy = await readFile(
+  "infra/helm/rfq-market-maker/templates/settlement-indexer-network-policy.yaml",
   "utf8",
 );
 const kubernetesChapter = await readFile("book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md", "utf8");
@@ -262,6 +278,48 @@ assertContains(k8sReconciliationNetworkPolicy, [
   "port: 5432",
 ], "infra/k8s/reconciliation-worker-network-policy.yaml");
 
+assertContains(k8sIndexerDeployment, [
+  "kind: Deployment",
+  "name: rfq-settlement-indexer",
+  "replicas: 2",
+  "initContainers:",
+  'command: ["node", "backend/dist/db/migrate.js"]',
+  'command: ["node", "backend/dist/settlement-indexer-main.js"]',
+  "containerPort: 3004",
+  "name: rfq-settlement-indexer-secrets",
+  "path: /ready",
+  "path: /health",
+], "infra/k8s/settlement-indexer-deployment.yaml");
+assertContains(k8sIndexerService, [
+  "kind: Service",
+  "name: rfq-settlement-indexer",
+  'prometheus.io/scrape: "true"',
+  'prometheus.io/port: "3004"',
+  "port: 3004",
+], "infra/k8s/settlement-indexer-service.yaml");
+assertContains(k8sIndexerSecret, [
+  "name: rfq-settlement-indexer-secrets",
+  "DATABASE_URL:",
+  "RFQ_SETTLEMENT_INDEXER_CONFIG_JSON:",
+], "infra/k8s/settlement-indexer-secret.yaml");
+for (const forbidden of [
+  "RFQ_SIGNER_PRIVATE_KEY",
+  "RFQ_AWS_KMS_KEY_ID",
+  "RFQ_BINANCE_API_KEY",
+  "RFQ_ANALYTICS_KAFKA_SASL_USERNAME",
+]) {
+  assert.ok(!k8sIndexerSecret.includes(forbidden), `settlement indexer Secret must not contain ${forbidden}`);
+}
+assertContains(k8sIndexerNetworkPolicy, [
+  "kind: NetworkPolicy",
+  "app.kubernetes.io/name: rfq-settlement-indexer",
+  "- Ingress",
+  "- Egress",
+  "port: 3004",
+  "port: 5432",
+  "port: 443",
+], "infra/k8s/settlement-indexer-network-policy.yaml");
+
 assertContains(helmValues, [
   `replicaCount: ${expectedRuntime.replicas}`,
   `terminationGracePeriodSeconds: ${expectedRuntime.terminationGracePeriodSeconds}`,
@@ -306,6 +364,10 @@ assertContains(helmValues, [
   "reconciliationWorker:",
   "RFQ_RECONCILIATION_LEASE_MS:",
   "name: rfq-reconciliation-worker-secrets",
+  "settlementIndexer:",
+  "RFQ_SETTLEMENT_INDEXER_LEASE_MS:",
+  "name: rfq-settlement-indexer-secrets",
+  "configJsonKey: RFQ_SETTLEMENT_INDEXER_CONFIG_JSON",
   "cpu: 100m",
   "memory: 128Mi",
   "cpu: 500m",
@@ -428,6 +490,29 @@ assertContains(helmReconciliationNetworkPolicy, [
   "port: 5432",
 ], "infra/helm/rfq-market-maker/templates/reconciliation-worker-network-policy.yaml");
 
+assertContains(helmIndexerDeployment, [
+  "{{- if .Values.settlementIndexer.enabled }}",
+  "replicas: {{ .Values.settlementIndexer.replicaCount }}",
+  "initContainers:",
+  'command: ["node", "backend/dist/db/migrate.js"]',
+  'command: ["node", "backend/dist/settlement-indexer-main.js"]',
+  "key: {{ .Values.settlementIndexer.secret.databaseUrlKey }}",
+  "key: {{ .Values.settlementIndexer.secret.configJsonKey }}",
+  "path: /ready",
+  "path: /health",
+], "infra/helm/rfq-market-maker/templates/settlement-indexer-deployment.yaml");
+assertContains(helmIndexerService, [
+  "{{- if .Values.settlementIndexer.enabled }}",
+  "with .Values.settlementIndexer.service.annotations",
+  "port: {{ .Values.settlementIndexer.port }}",
+], "infra/helm/rfq-market-maker/templates/settlement-indexer-service.yaml");
+assertContains(helmIndexerNetworkPolicy, [
+  ".Values.settlementIndexer.networkPolicy.enabled",
+  "app.kubernetes.io/component: settlement-indexer",
+  "port: 5432",
+  "port: 443",
+], "infra/helm/rfq-market-maker/templates/settlement-indexer-network-policy.yaml");
+
 assertContains(kubernetesChapter, [
   "`terminationGracePeriodSeconds=30`",
   "preStop` sleep of 5 seconds",
@@ -450,6 +535,8 @@ assertContains(kubernetesChapter, [
   "`rfq.analytics.v1`",
   "`005-post-trade-reconciliation.sql`",
   "`006-quote-snapshot-pnl.sql`",
+  "`rfq-settlement-indexer`",
+  "Migration 007",
   "`rfq-reconciliation-worker`",
   "Migration 005",
   "Migration 006",

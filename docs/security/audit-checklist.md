@@ -38,6 +38,9 @@
 
 - [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.
 - [x] Indexer handles chain reorgs.
+- [x] Independent confirmed-log indexing recovers settlements when the wallet callback is lost.
+- [x] Indexer cursor advance is lease/revision/next-block guarded and occurs only after event application.
+- [x] Deep reorgs and unknown signed quotes fail closed without skipping economic evidence.
 - [x] Inventory updates are replayable.
 - [x] Hedge actions are linked to settlement events.
 - [x] ClickHouse analytics do not become operational source of truth.

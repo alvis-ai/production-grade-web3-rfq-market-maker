@@ -1,0 +1,19 @@
+{{- if .Values.settlementIndexer.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-settlement-indexer
+  annotations:
+    {{- with .Values.settlementIndexer.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "rfq-market-maker.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: settlement-indexer
+  ports:
+    - name: http
+      port: {{ .Values.settlementIndexer.port }}
+      targetPort: http
+{{- end }}

@@ -369,3 +369,66 @@ groups:
         annotations:
           summary: RFQ post-trade reconciliation has pending work without progress
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSettlementIndexerDown
+        expr: up{job="rfq-settlement-indexer"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ settlement indexer metrics endpoint is down
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSettlementIndexerLagHigh
+        expr: max(rfq_settlement_indexer_lag_blocks) > 50
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Confirmed QuoteSettled blocks are not being indexed
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSettlementIndexerErrors
+        expr: sum(increase(rfq_settlement_indexer_errors_total[10m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ settlement indexer is rejecting chain or storage input
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSettlementIndexerDeepReorg
+        expr: sum(increase(rfq_settlement_indexer_errors_total{code="DEEP_REORG"}[10m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ settlement chain reorg exceeds the automatic rollback window
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSettlementIndexerProgressStalled
+        expr: (max(rfq_settlement_indexer_safe_head - rfq_settlement_indexer_next_block + 1) > 0 and sum(increase(rfq_settlement_indexer_ranges_total[10m])) == 0) or (time() - max(rfq_settlement_indexer_last_poll_timestamp_seconds)) > 120 or max(rfq_settlement_indexer_cursor_update_age_seconds) > 120
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ settlement indexer cursor or polling progress is stale
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSettlementIndexerDuplicateStorm
+        expr: sum(increase(rfq_settlement_indexer_events_total{outcome="duplicate"}[10m])) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ settlement ingestion is receiving excessive duplicate evidence
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSettlementIndexerReorgDetected
+        expr: sum(increase(rfq_settlement_indexer_reorgs_total[10m])) > 0 or sum(increase(rfq_settlement_indexer_reorg_removed_events_total[10m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ settlement indexer rolled back confirmed history
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md

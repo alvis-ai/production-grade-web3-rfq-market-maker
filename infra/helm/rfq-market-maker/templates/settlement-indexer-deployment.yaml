@@ -1,0 +1,70 @@
+{{- if .Values.settlementIndexer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-settlement-indexer
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: settlement-indexer
+spec:
+  replicas: {{ .Values.settlementIndexer.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: settlement-indexer
+  template:
+    metadata:
+      labels:
+        {{- include "rfq-market-maker.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: settlement-indexer
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      initContainers:
+        - name: database-migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "backend/dist/db/migrate.js"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.migrationSecret.name }}
+                  key: {{ .Values.migrationSecret.urlKey }}
+      containers:
+        - name: settlement-indexer
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "backend/dist/settlement-indexer-main.js"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.settlementIndexer.port }}
+          env:
+            {{- range $key, $value := .Values.settlementIndexer.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.settlementIndexer.secret.name }}
+                  key: {{ .Values.settlementIndexer.secret.databaseUrlKey }}
+            - name: RFQ_SETTLEMENT_INDEXER_CONFIG_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.settlementIndexer.secret.name }}
+                  key: {{ .Values.settlementIndexer.secret.configJsonKey }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep {{ .Values.preStopSleepSeconds }}"]
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            {{- toYaml .Values.settlementIndexer.resources | nindent 12 }}
+{{- end }}

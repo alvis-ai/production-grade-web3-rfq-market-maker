@@ -24,6 +24,10 @@ const quoteSnapshotPnlMigrationSource = await readFile(
   "backend/src/db/migrations/006-quote-snapshot-pnl.sql",
   "utf8",
 );
+const settlementIndexerMigrationSource = await readFile(
+  "backend/src/db/migrations/007-settlement-indexer.sql",
+  "utf8",
+);
 const postgresSettlementSource = await readFile("backend/src/modules/settlement/postgres-settlement-event.store.ts", "utf8");
 const postgresInventorySource = await readFile("backend/src/modules/inventory/postgres-inventory.service.ts", "utf8");
 const postgresHedgeSource = await readFile("backend/src/modules/hedge/postgres-hedge.service.ts", "utf8");
@@ -43,6 +47,14 @@ const postTradeStoreSource = await readFile(
 );
 const postTradeWorkerSource = await readFile(
   "backend/src/modules/reconciliation/post-trade-reconciliation.worker.ts",
+  "utf8",
+);
+const settlementIndexerStoreSource = await readFile(
+  "backend/src/modules/indexer/postgres-settlement-indexer.store.ts",
+  "utf8",
+);
+const settlementIndexerWorkerSource = await readFile(
+  "backend/src/modules/indexer/settlement-indexer.worker.ts",
   "utf8",
 );
 const backendMainSource = await readFile("backend/src/main.ts", "utf8");
@@ -183,6 +195,22 @@ const requiredTables = {
     "lease_owner",
     "lease_expires_at",
     "last_error_code",
+  ],
+  settlement_indexer_cursors: [
+    "chain_id",
+    "settlement_address",
+    "start_block",
+    "next_block",
+    "revision",
+    "lease_owner",
+    "lease_expires_at",
+    "updated_at",
+  ],
+  settlement_indexer_checkpoints: [
+    "chain_id",
+    "block_number",
+    "block_hash",
+    "created_at",
   ],
   _migrations: ["version", "name", "applied_at"],
 };
@@ -359,6 +387,16 @@ const requiredCheckConstraints = {
     ["chk_post_trade_jobs_attempt_count", "post-trade jobs must constrain worker attempts"],
     ["chk_post_trade_jobs_lease_state", "post-trade jobs must constrain lease ownership"],
     ["chk_post_trade_jobs_last_error", "post-trade jobs must constrain stable errors"],
+  ],
+  settlement_indexer_cursors: [
+    ["chk_settlement_indexer_cursor_chain", "settlement indexer cursors must constrain chain ids"],
+    ["chk_settlement_indexer_cursor_address", "settlement indexer cursors must constrain contract addresses"],
+    ["chk_settlement_indexer_cursor_blocks", "settlement indexer cursors must constrain block progress"],
+    ["chk_settlement_indexer_cursor_lease", "settlement indexer cursors must constrain lease ownership"],
+  ],
+  settlement_indexer_checkpoints: [
+    ["chk_settlement_indexer_checkpoint_block", "settlement indexer checkpoints must constrain block numbers"],
+    ["chk_settlement_indexer_checkpoint_hash", "settlement indexer checkpoints must constrain block hashes"],
   ],
 };
 
@@ -1066,6 +1104,24 @@ assert.ok(
     quoteSnapshotPnlMigrationSource.includes("enqueue_pnl_snapshot_analytics_event") &&
     schemaSource.includes("('006', 'quote-snapshot-pnl')"),
   "quote-snapshot PnL migration must archive legacy attribution and emit versioned valuation events",
+);
+assert.ok(
+  settlementIndexerMigrationSource.includes("CREATE TABLE settlement_indexer_cursors") &&
+    settlementIndexerMigrationSource.includes("CREATE TABLE settlement_indexer_checkpoints") &&
+    settlementIndexerMigrationSource.includes("idx_settlement_events_canonical_chain_block") &&
+    schemaSource.includes("('007', 'settlement-indexer')"),
+  "settlement indexer migration must install durable cursor, checkpoint, and canonical range state",
+);
+assert.ok(
+  settlementIndexerStoreSource.includes("lease_expires_at > now()") &&
+    settlementIndexerStoreSource.includes("revision = $4") &&
+    settlementIndexerStoreSource.includes("next_block = $5") &&
+    settlementIndexerStoreSource.includes("DELETE FROM settlement_indexer_checkpoints") &&
+    settlementIndexerWorkerSource.includes("findSignedQuoteByChainUserNonce") &&
+    settlementIndexerWorkerSource.includes("hashSettlementQuote(quote)") &&
+    settlementIndexerWorkerSource.includes("removeOrphanedUncheckpointedEvents") &&
+    settlementIndexerWorkerSource.includes('SettlementIndexerError("DEEP_REORG")'),
+  "settlement indexer runtime must lease with CAS, verify quotes, recover crash windows, and fail closed on deep reorgs",
 );
 assert.ok(
   postTradeStoreSource.includes("FOR UPDATE SKIP LOCKED") &&

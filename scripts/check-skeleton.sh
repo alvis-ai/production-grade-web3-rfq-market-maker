@@ -3431,7 +3431,7 @@ grep -Fq -- '- [x] `submitQuote` uses SafeERC20 for transfers.' docs/security/au
 grep -Fq -- '- [x] AccessControl protects signer and token whitelist updates.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] DEFAULT_ADMIN_ROLE cannot be orphaned by revoking the last admin.' docs/security/audit-checklist.md
 grep -q 'SettlementEventService.removeSettlementEvent()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'removed/reorg logs' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'allow the worker to find the common ancestor' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q '本地 `SafeERC20` 库' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'SIGNER_ADMIN_ROLE' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'TOKEN_ADMIN_ROLE' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
@@ -3472,5 +3472,42 @@ grep -q 'name: rfq-market-maker' infra/helm/rfq-market-maker/Chart.yaml
 grep -q '/docker-entrypoint-initdb.d/001-schema.sql' book/Volume7-ProductionDeployment/Chapter01-Docker.md
 grep -q 'Redis uses `redis-cli ping`' book/Volume7-ProductionDeployment/Chapter01-Docker.md
 grep -q 'recovers the `/quote` EIP-712 signer from the returned signature before submit' book/Volume7-ProductionDeployment/Chapter01-Docker.md
+
+test -s backend/src/settlement-indexer-main.ts
+test -s backend/src/db/migrations/007-settlement-indexer.sql
+test -s backend/src/modules/indexer/settlement-indexer.reader.ts
+test -s backend/src/modules/indexer/settlement-indexer.store.ts
+test -s backend/src/modules/indexer/postgres-settlement-indexer.store.ts
+test -s backend/src/modules/indexer/settlement-indexer.worker.ts
+test -s backend/src/modules/indexer/settlement-indexer.metrics.ts
+test -s backend/test/settlement-indexer-reader.test.mjs
+test -s backend/test/settlement-indexer-runtime.test.mjs
+test -s backend/test/settlement-indexer-metrics.test.mjs
+test -s backend/test/postgres-settlement-indexer-store.test.mjs
+test -s backend/test/settlement-indexer.test.mjs
+test -s docs/adr/ADR-0006-Use-Independent-Settlement-Indexer.md
+test -s scripts/check-settlement-indexer-consistency.mjs
+test -s infra/k8s/settlement-indexer-deployment.yaml
+test -s infra/k8s/settlement-indexer-service.yaml
+test -s infra/k8s/settlement-indexer-secret.yaml
+test -s infra/k8s/settlement-indexer-network-policy.yaml
+test -s infra/helm/rfq-market-maker/templates/settlement-indexer-deployment.yaml
+test -s infra/helm/rfq-market-maker/templates/settlement-indexer-service.yaml
+test -s infra/helm/rfq-market-maker/templates/settlement-indexer-network-policy.yaml
+grep -q 'CREATE TABLE settlement_indexer_cursors' backend/src/db/migrations/007-settlement-indexer.sql
+grep -q 'CREATE TABLE settlement_indexer_checkpoints' backend/src/db/migrations/007-settlement-indexer.sql
+grep -q 'findSignedQuoteByChainUserNonce' backend/src/modules/indexer/settlement-indexer.worker.ts
+grep -q 'removeOrphanedUncheckpointedEvents' backend/src/modules/indexer/settlement-indexer.worker.ts
+grep -q 'SettlementIndexerError("DEEP_REORG")' backend/src/modules/indexer/settlement-indexer.worker.ts
+grep -q 'revision = \$4' backend/src/modules/indexer/postgres-settlement-indexer.store.ts
+grep -q 'next_block = \$5' backend/src/modules/indexer/postgres-settlement-indexer.store.ts
+grep -q 'rfq_settlement_indexer_lag_blocks' backend/src/modules/indexer/settlement-indexer.metrics.ts
+grep -q 'RFQSettlementIndexerDeepReorg' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'job_name: rfq-settlement-indexer' infra/prometheus/prometheus.yml
+grep -q 'backend/dist/settlement-indexer-main.js' infra/k8s/settlement-indexer-deployment.yaml
+grep -q 'RFQ_SETTLEMENT_INDEXER_CONFIG_JSON' infra/k8s/settlement-indexer-secret.yaml
+! grep -q 'RFQ_AWS_KMS_KEY_ID' infra/k8s/settlement-indexer-secret.yaml
+grep -q 'settlementIndexer:' infra/helm/rfq-market-maker/values.yaml
+grep -q 'make settlement-indexer-check' .github/workflows/docs-ci.yml
 
 echo "skeleton check passed"

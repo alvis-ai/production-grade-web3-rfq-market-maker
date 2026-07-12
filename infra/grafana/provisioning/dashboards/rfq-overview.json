@@ -269,6 +269,32 @@
         { "expr": "max(rfq_cex_order_book_deviation_rejected_sources)", "legendFormat": "deviation rejections", "refId": "D" },
         { "expr": "sum by (exchange) (rate(rfq_cex_order_book_connector_errors_total[5m]))", "legendFormat": "{{exchange}} errors/s", "refId": "E" }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Settlement Indexer Progress",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 52, "w": 12, "h": 7 },
+      "targets": [
+        { "expr": "max by (chain_id) (rfq_settlement_indexer_next_block)", "legendFormat": "{{chain_id}} next block", "refId": "A" },
+        { "expr": "max by (chain_id) (rfq_settlement_indexer_safe_head)", "legendFormat": "{{chain_id}} safe head", "refId": "B" },
+        { "expr": "max by (chain_id) (rfq_settlement_indexer_lag_blocks)", "legendFormat": "{{chain_id}} lag blocks", "refId": "C" },
+        { "expr": "time() - max by (chain_id) (rfq_settlement_indexer_last_poll_timestamp_seconds)", "legendFormat": "{{chain_id}} seconds since poll", "refId": "D" },
+        { "expr": "max by (chain_id) (rfq_settlement_indexer_cursor_update_age_seconds)", "legendFormat": "{{chain_id}} cursor age seconds", "refId": "E" },
+        { "expr": "sum by (chain_id) (rate(rfq_settlement_indexer_ranges_total[5m]))", "legendFormat": "{{chain_id}} ranges/s", "refId": "F" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Settlement Indexer Events And Reorgs",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 12, "y": 52, "w": 12, "h": 7 },
+      "targets": [
+        { "expr": "sum by (chain_id, outcome) (rate(rfq_settlement_indexer_events_total[5m]))", "legendFormat": "{{chain_id}} {{outcome}}/s", "refId": "A" },
+        { "expr": "sum by (chain_id, code) (rate(rfq_settlement_indexer_errors_total[5m]))", "legendFormat": "{{chain_id}} {{code}}/s", "refId": "B" },
+        { "expr": "sum by (chain_id) (increase(rfq_settlement_indexer_reorgs_total[10m]))", "legendFormat": "{{chain_id}} reorgs/10m", "refId": "C" },
+        { "expr": "sum by (chain_id) (increase(rfq_settlement_indexer_reorg_removed_events_total[10m]))", "legendFormat": "{{chain_id}} removed events/10m", "refId": "D" }
+      ]
     }
   ]
 }

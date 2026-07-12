@@ -160,6 +160,16 @@ Prometheus metrics:
 - `rfq_analytics_outbox_pending`
 - `rfq_analytics_outbox_oldest_age_seconds`
 - `rfq_analytics_outbox_cleanup_eligible`
+- `rfq_settlement_indexer_ranges_total`
+- `rfq_settlement_indexer_events_total`
+- `rfq_settlement_indexer_errors_total`
+- `rfq_settlement_indexer_reorgs_total`
+- `rfq_settlement_indexer_reorg_removed_events_total`
+- `rfq_settlement_indexer_next_block`
+- `rfq_settlement_indexer_safe_head`
+- `rfq_settlement_indexer_lag_blocks`
+- `rfq_settlement_indexer_last_poll_timestamp_seconds`
+- `rfq_settlement_indexer_cursor_update_age_seconds`
 
 ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, status and timestamps.
 
@@ -170,6 +180,8 @@ ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, st
 ## Engineering Decisions
 
 The standalone post-trade worker exports `rfq_reconciliation_jobs_total`, `rfq_reconciliation_iteration_errors_total`, `rfq_reconciliation_pending_jobs`, `rfq_reconciliation_oldest_pending_age_seconds`, and `rfq_reconciliation_last_processed_timestamp_seconds`. Job outcome is bounded to repaired, already consistent, retry scheduled, or stale revision; quote ids and settlement ids are never Prometheus labels.
+
+The settlement indexer exports durable cursor, safe-head, lag, range, event, bounded error, reorg, removed-event, last-poll, and cursor-age metrics. Labels are limited to configured `chain_id`, `outcome=applied|duplicate`, and the closed error-code enum; transaction hash, quote hash, user and RPC URL remain absent.
 
 - No high-cardinality quoteId labels in Prometheus.
 - Use ClickHouse for quote-level analysis.

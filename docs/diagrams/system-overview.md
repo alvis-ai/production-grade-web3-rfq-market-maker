@@ -25,6 +25,8 @@ flowchart TB
     Inventory["Inventory Service"]
     Hedge["Hedge Engine"]
     Routing["Routing Engine"]
+    Indexer["Settlement Indexer"]
+    Reconciliation["Reconciliation Worker"]
   end
 
   subgraph Data["Data and Observability"]
@@ -39,6 +41,7 @@ flowchart TB
   subgraph Chain["Blockchain Layer"]
     Settlement["RFQSettlement"]
     Tokens["ERC20 Tokens"]
+    RPC["Configured Chain RPC"]
   end
 
   Trader --> UI
@@ -54,16 +57,23 @@ flowchart TB
   Risk --> Signer
   Signer --> Gateway
 
-  SubmitAPI --> Settlement
+  UI --> Settlement
+  UI --> SubmitAPI
   Settlement --> Tokens
-  Settlement --> Inventory
-  Inventory --> Hedge
+  Settlement --> RPC
+  SubmitAPI --> RPC
+  Indexer --> RPC
+  SubmitAPI --> Postgres
+  Indexer --> Postgres
+  Postgres --> Inventory
+  Postgres --> Reconciliation
+  Reconciliation --> Hedge
   Hedge --> Routing
 
   Gateway --> Postgres
   Gateway --> Redis
   Inventory --> Redpanda
-  Settlement --> Redpanda
+  Postgres --> Redpanda
   Redpanda --> ClickHouse
   Gateway --> Prometheus
   Prometheus --> Grafana

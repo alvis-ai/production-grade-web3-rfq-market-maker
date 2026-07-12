@@ -168,6 +168,8 @@ PnL attribution uses the immutable quote-time market snapshot and trusted token 
 
 The reconciliation worker (`pnpm --dir backend start:reconciliation-worker`) continuously converges those post-trade projections and exposes health and metrics on port 3003. Multiple replicas lease quote-scoped desired revisions with `FOR UPDATE SKIP LOCKED`; a canonical revision restores hedge, PnL, and complete quote pointers, while a no-canonical revision removes only reversible projections. A canonical state change increments the desired revision without stealing an active lease, so an old worker cannot mark newer chain state processed. Exponential retries retain stable low-cardinality error codes and no job is discarded because of retry count.
 
+The settlement indexer (`pnpm --dir backend start:settlement-indexer`) independently discovers confirmed `QuoteSettled` logs, so post-trade state does not depend on the browser successfully calling `/submit` after wallet broadcast. `RFQ_SETTLEMENT_INDEXER_CONFIG_JSON` fixes each chain RPC, settlement address, deployment start block, confirmation depth, scan range, reorg window, and request timeout. For every log it resolves the complete signed quote by `(chainId, user, nonce)`, verifies the on-chain `quoteHash` and all emitted fields, and only then applies the existing idempotent settlement path. PostgreSQL leases and revision/next-block CAS support multiple replicas. Range-end block-hash checkpoints detect reorgs; orphan events are marked non-canonical before the cursor rolls back, causing inventory rebuild and durable quote/hedge/PnL reconciliation. An unknown quote or a reorg deeper than `reorgLookbackBlocks` stops that chain and alerts instead of silently skipping economic state.
+
 The destructive integration check requires an explicit acknowledgement and a disposable PostgreSQL database. It verifies initial convergence, reorg cleanup, and a replacement canonical transaction for the same quote, then removes its uniquely named fixtures:
 
 ```sh
@@ -235,6 +237,12 @@ Start durable post-trade convergence independently of the API process:
 docker compose --profile reconciliation up --build reconciliation-worker
 ```
 
+Start independent on-chain settlement discovery after an RPC endpoint and deployed contract are available:
+
+```sh
+docker compose --profile indexer up --build settlement-indexer
+```
+
 Local ports:
 
 - Backend API: `http://localhost:3000`
@@ -243,6 +251,7 @@ Local ports:
 - Grafana: `http://localhost:3001`
 - Analytics worker metrics: `http://localhost:3002/metrics`
 - Reconciliation worker metrics: `http://localhost:3003/metrics`
+- Settlement indexer metrics: `http://localhost:3004/metrics`
 - Redpanda external listener: `localhost:19092`
 - ClickHouse HTTP: `http://localhost:8123`
 
@@ -290,6 +299,14 @@ kubectl -n rfq-market-maker create secret generic rfq-reconciliation-worker-secr
   --from-literal=DATABASE_URL=postgres://reconciliation:password@postgres.example.com:5432/rfq_market_maker
 ```
 
+Create a settlement-indexer Secret with an indexer database role and the RPC-bearing chain configuration. Set `startBlock` to the actual `RFQSettlement` deployment block and keep the settlement address aligned with signer and receipt verification configuration:
+
+```sh
+kubectl -n rfq-market-maker create secret generic rfq-settlement-indexer-secrets \
+  --from-literal=DATABASE_URL=postgres://indexer:password@postgres.example.com:5432/rfq_market_maker \
+  --from-literal=RFQ_SETTLEMENT_INDEXER_CONFIG_JSON='{"chains":[{"chainId":1,"rpcUrl":"https://rpc.example.com","settlementAddress":"0x...","startBlock":20000000,"confirmations":12,"maxBlockRange":500,"reorgLookbackBlocks":5000,"requestTimeoutMs":10000}]}'
+```
+
 Use a third, migration-only Secret for the init container's DDL-capable database role. Runtime API and worker roles should not own schema privileges:
 
 ```sh
@@ -297,9 +314,9 @@ kubectl -n rfq-market-maker create secret generic rfq-database-migration-secrets
   --from-literal=DATABASE_URL=postgres://migrator:password@postgres.example.com:5432/rfq_market_maker
 ```
 
-The Helm chart expects the KMS key id, trusted signer address, and settlement address through `signerSecret`, the Redis URL through `redisSecret`, and the API PostgreSQL URL through `databaseSecret.name` / `databaseSecret.urlKey`. `serviceAccount.annotations` binds the backend Pod to a workload identity with only `kms:Sign` on the configured key. `hedgeWorker.secret` references the separate worker database and Binance credential keys; `analyticsWorker.secret` references the analytics database, Kafka SASL and ClickHouse credentials. Routing and broker endpoint metadata stay in non-secret values.
+The Helm chart expects the KMS key id, trusted signer address, and settlement address through `signerSecret`, the Redis URL through `redisSecret`, and the API PostgreSQL URL through `databaseSecret.name` / `databaseSecret.urlKey`. `serviceAccount.annotations` binds the backend Pod to a workload identity with only `kms:Sign` on the configured key. `hedgeWorker.secret` references the separate worker database and Binance credential keys; `analyticsWorker.secret` references the analytics database, Kafka SASL and ClickHouse credentials; `settlementIndexer.secret` references only its database URL and RPC-bearing chain JSON. Routing and broker endpoint metadata stay in non-secret values.
 
-API, hedge, analytics, and reconciliation Kubernetes Deployments run the migration entrypoint in an init container using `migrationSecret`. Migration discovery and execution are serialized by a PostgreSQL session advisory lock, allowing multiple rollout pods to start safely while ensuring `005-post-trade-reconciliation.sql` and all earlier migrations are committed before any process checks readiness. The DDL-capable migrator credential is not mounted into runtime containers. Production operators must provision `rfq.analytics.v1` before starting analytics consumers; auto topic creation is intentionally disabled.
+API, hedge, analytics, reconciliation, and settlement-indexer Kubernetes Deployments run the migration entrypoint in an init container using `migrationSecret`. Migration discovery and execution are serialized by a PostgreSQL session advisory lock, allowing multiple rollout pods to start safely while ensuring migrations through `007-settlement-indexer.sql` are committed before any process checks readiness. The DDL-capable migrator credential is not mounted into runtime containers. Production operators must provision `rfq.analytics.v1` before starting analytics consumers; auto topic creation is intentionally disabled.
 
 Local API smoke path:
 

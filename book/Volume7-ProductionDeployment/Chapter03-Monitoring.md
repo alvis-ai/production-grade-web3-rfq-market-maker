@@ -144,6 +144,16 @@ Key metrics include:
 - `rfq_analytics_outbox_pending`
 - `rfq_analytics_outbox_oldest_age_seconds`
 - `rfq_analytics_outbox_cleanup_eligible`
+- `rfq_settlement_indexer_ranges_total`
+- `rfq_settlement_indexer_events_total`
+- `rfq_settlement_indexer_errors_total`
+- `rfq_settlement_indexer_reorgs_total`
+- `rfq_settlement_indexer_reorg_removed_events_total`
+- `rfq_settlement_indexer_next_block`
+- `rfq_settlement_indexer_safe_head`
+- `rfq_settlement_indexer_lag_blocks`
+- `rfq_settlement_indexer_last_poll_timestamp_seconds`
+- `rfq_settlement_indexer_cursor_update_age_seconds`
 
 ## API Design
 
@@ -177,6 +187,8 @@ Key metrics include:
 - ClickHouse dashboards may explain quote funnels, latency, PnL attribution and customer support questions, but they must never be used as the operational source of truth for quote status, settlement state, inventory, hedge execution, readiness or reconciliation decisions.
 - Post-trade convergence exposes `rfq_reconciliation_jobs_total` with an `outcome` label, `rfq_reconciliation_iteration_errors_total`, `rfq_reconciliation_pending_jobs`, `rfq_reconciliation_oldest_pending_age_seconds`, and `rfq_reconciliation_last_processed_timestamp_seconds`. Outcome is a closed enum (`repaired`, `already_consistent`, `retry_scheduled`, `stale_revision`); quote or settlement identifiers never become metric labels.
 - Alert on reconciliation worker availability, pending count or age, repeated retries, and pending work without last-processed progress. A stale revision is normal during a reorg or rapid canonical replacement and should be interpreted with backlog convergence rather than paged on by itself.
+- Settlement indexer metrics use only configured `chain_id` plus closed `outcome` (`applied`, `duplicate`) and `code` enums. Transaction hashes, quote hashes, users, RPC URLs and provider errors must never become labels or log fields.
+- Alert on indexer process availability, confirmed-block lag, any bounded ingestion error, and `DEEP_REORG` separately. `QUOTE_NOT_FOUND` or `EVENT_MISMATCH` is an economic consistency incident: do not skip the log to make lag green. Compare the configured RPC with an independent provider and restore quote evidence first.
 - Every critical alert links to runbook.
 
 ## Failure Scenarios
@@ -201,6 +213,8 @@ Key metrics include:
 - Negative realized PnL：pause affected pairs if pricing, market snapshots or settlement attribution cannot explain the loss.
 - PnL throughput stalls：run settlement-to-PnL reconciliation and verify market snapshots are available for attribution.
 - Event lag grows：pause risky pairs.
+- Settlement indexer lag grows: stop increasing exposure on affected chains, verify `safe_head - next_block`, database lease ownership and RPC `eth_getLogs` health, then let the durable cursor catch up without manual jumps.
+- Settlement indexer deep reorg: page immediately, pause affected-chain quoting, compare block hashes across providers, and follow the audited cursor recovery procedure; never delete checkpoints just to clear the alert.
 - Hedge failure spike：widen spread and page operator.
 
 ## Security Considerations
