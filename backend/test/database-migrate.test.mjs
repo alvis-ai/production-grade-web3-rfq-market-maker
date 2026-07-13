@@ -17,6 +17,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "009", name: "risk-notional-reasons", applied_at: "2026-07-14T00:00:00.000Z" },
         { version: "010", name: "risk-market-regime-reasons", applied_at: "2026-07-14T00:01:00.000Z" },
         { version: "011", name: "open-quote-exposure", applied_at: "2026-07-14T00:02:00.000Z" },
+        { version: "012", name: "pricing-attribution", applied_at: "2026-07-14T00:03:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -308,6 +309,45 @@ test("database migration runner applies open quote exposure after market-regime 
   assert.equal(client.queries.some(({ sql }) => sql.includes("USER_OPEN_NOTIONAL_LIMIT_EXCEEDED")), true);
   assert.equal(client.queries.some(({ sql }) => sql.includes("PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED")), true);
   assert.equal(client.queries.some(({ sql, params }) => sql.includes("INSERT INTO _migrations") && params[0] === "011"), true);
+});
+
+test("database migration runner applies pricing attribution after open quote exposure", async () => {
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: [
+        { version: "001", name: "base-schema", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "002", name: "settlement-canonical", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "003", name: "hedge-worker-queue", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "004", name: "analytics-outbox", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "005", name: "post-trade-reconciliation", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "006", name: "quote-snapshot-pnl", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "007", name: "settlement-indexer", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "008", name: "submit-reservations", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "009", name: "risk-notional-reasons", applied_at: "2026-07-14T00:00:00.000Z" },
+        { version: "010", name: "risk-market-regime-reasons", applied_at: "2026-07-14T00:01:00.000Z" },
+        { version: "011", name: "open-quote-exposure", applied_at: "2026-07-14T00:02:00.000Z" },
+      ] };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "012");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("ADD COLUMN volatility_premium_bps")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("ADD COLUMN hedge_cost_bps")), true);
+  assert.equal(client.queries.some(({ sql }) => (
+    sql.includes("SET volatility_premium_bps = 0") &&
+    sql.includes("hedge_cost_bps = 0") &&
+    sql.includes("WHERE amount_out IS NOT NULL")
+  )), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("'volatilityPremiumBps'")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("'hedgeCostBps'")), true);
+  assert.equal(client.queries.some(({ sql, params }) => sql.includes("INSERT INTO _migrations") && params[0] === "012"), true);
 });
 
 function fakePool(handler) {

@@ -66,11 +66,12 @@ try {
     `INSERT INTO quotes (
        id, chain_id, user_address, token_in, token_out, amount_in, slippage_bps,
        amount_out, min_amount_out, nonce, deadline, snapshot_id, pricing_version,
-       spread_bps, size_impact_bps, inventory_skew_bps, risk_policy_version,
+       spread_bps, size_impact_bps, inventory_skew_bps, volatility_premium_bps,
+       hedge_cost_bps, risk_policy_version,
        status, signature
      ) VALUES ($1, 1, $2, $3, $4, 1000000000000000000, 50,
        990000000000000000, 980000000000000000, 1, 4102444800, $5,
-       'formula-v1', 20, 5, 0, 'risk-v1', 'signed', $6)`,
+       'formula-v3', 20, 5, 0, 5, 0, 'risk-v1', 'signed', $6)`,
     [quoteId, user, tokenIn, tokenOut, snapshotId, signature],
   );
   await client.query(

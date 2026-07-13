@@ -17,6 +17,8 @@ const basePricing = {
   spreadBps: 16,
   sizeImpactBps: 1,
   inventorySkewBps: 0,
+  volatilityPremiumBps: 0,
+  hedgeCostBps: 0,
   pricingVersion: "formula-v1:internal_inventory",
 };
 
@@ -258,6 +260,8 @@ test("BasicRiskEngine rejects unsafe runtime inputs before policy evaluation", a
       pricing: {
         ...basePricing,
         inventorySkewBps: 10_001,
+        volatilityPremiumBps: 0,
+        hedgeCostBps: 0,
       },
       snapshot: baseSnapshot,
     }),

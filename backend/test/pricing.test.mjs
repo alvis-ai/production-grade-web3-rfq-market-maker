@@ -26,6 +26,7 @@ const baseInput = {
     expectedLiquidityUsd: "10000000000000",
   },
   inventorySkewBps: 0,
+  hedgeCostBps: 0,
 };
 
 test("FormulaPricingEngine applies mid price, spread, size impact, volatility, and slippage", async () => {
@@ -36,7 +37,9 @@ test("FormulaPricingEngine applies mid price, spread, size impact, volatility, a
   assert.equal(pricing.spreadBps, 16);
   assert.equal(pricing.sizeImpactBps, 1);
   assert.equal(pricing.inventorySkewBps, 0);
-  assert.equal(pricing.pricingVersion, "formula-v2:internal_inventory");
+  assert.equal(pricing.volatilityPremiumBps, 5);
+  assert.equal(pricing.hedgeCostBps, 0);
+  assert.equal(pricing.pricingVersion, "formula-v3:internal_inventory");
 });
 
 test("FormulaPricingEngine clamps toxic size impact and inventory skew into total adjustment bounds", async () => {
@@ -51,11 +54,25 @@ test("FormulaPricingEngine clamps toxic size impact and inventory skew into tota
       expectedLiquidityUsd: "1",
     },
     inventorySkewBps: 3000,
+    hedgeCostBps: 0,
   });
 
   assert.equal(pricing.spreadBps, 2500);
   assert.equal(pricing.sizeImpactBps, 250);
   assert.equal(pricing.amountOut, "937500000000000000");
+});
+
+test("FormulaPricingEngine attributes hedge cost independently from inventory skew", async () => {
+  const pricing = await new FormulaPricingEngine().price({
+    ...baseInput,
+    inventorySkewBps: -3,
+    hedgeCostBps: 25,
+  });
+
+  assert.equal(pricing.inventorySkewBps, -3);
+  assert.equal(pricing.volatilityPremiumBps, 5);
+  assert.equal(pricing.hedgeCostBps, 25);
+  assert.equal(pricing.spreadBps, 38);
 });
 
 test("FormulaPricingEngine snapshots pricing configuration at construction", async () => {

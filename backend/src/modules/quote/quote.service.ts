@@ -86,6 +86,8 @@ const pricingResultFields = [
   "spreadBps",
   "sizeImpactBps",
   "inventorySkewBps",
+  "volatilityPremiumBps",
+  "hedgeCostBps",
   "pricingVersion",
 ] as const;
 const riskDecisionBaseFields = ["status", "policyVersion"] as const;
@@ -162,7 +164,8 @@ export class QuoteService {
       await this.markQuoteFailedBestEffort(quoteId, failure.code);
       throw failure;
     }
-    let pricingAdjustmentBps: number;
+    let inventorySkewBps: number;
+    let hedgeCostBps: number;
     try {
       const inventorySkewResult = await this.deps.inventoryService.calculateQuoteSkewBps({
         chainId: validatedRequest.chainId,
@@ -176,8 +179,9 @@ export class QuoteService {
           })
         : 0;
       assertHedgeRiskPenaltyBps(hedgeRiskPenaltyResult);
-      pricingAdjustmentBps = inventorySkewResult + hedgeRiskPenaltyResult;
-      assertPricingAdjustmentBps(pricingAdjustmentBps);
+      inventorySkewBps = inventorySkewResult;
+      hedgeCostBps = hedgeRiskPenaltyResult;
+      assertPricingAdjustmentBps(inventorySkewBps + hedgeCostBps);
     } catch (error) {
       const failure = pricingFailure(error);
       await this.markQuoteFailedBestEffort(quoteId, failure.code);
@@ -190,7 +194,8 @@ export class QuoteService {
         request: validatedRequest,
         snapshot,
         routePlan,
-        inventorySkewBps: pricingAdjustmentBps,
+        inventorySkewBps,
+        hedgeCostBps,
       });
       assertPricingResult(pricingResult);
       pricing = pricingResult;
@@ -300,6 +305,8 @@ export class QuoteService {
         spreadBps: pricing.spreadBps,
         sizeImpactBps: pricing.sizeImpactBps,
         inventorySkewBps: pricing.inventorySkewBps,
+        volatilityPremiumBps: pricing.volatilityPremiumBps,
+        hedgeCostBps: pricing.hedgeCostBps,
         riskPolicyVersion: risk.policyVersion,
         signature,
       });
@@ -818,6 +825,8 @@ function assertPricingResult(value: unknown): asserts value is PricingResult {
   assertNonNegativeBpsInteger(value.spreadBps, "spreadBps");
   assertNonNegativeBpsInteger(value.sizeImpactBps, "sizeImpactBps");
   assertBpsMagnitudeInteger(value.inventorySkewBps, "inventorySkewBps");
+  assertNonNegativeBpsInteger(value.volatilityPremiumBps, "volatilityPremiumBps");
+  assertNonNegativeBpsInteger(value.hedgeCostBps, "hedgeCostBps");
   assertPricingSafeIdentifier(value.pricingVersion);
 }
 
@@ -863,7 +872,10 @@ function assertPricingUIntString(value: unknown, field: "amountOut" | "minAmount
   }
 }
 
-function assertNonNegativeBpsInteger(value: unknown, field: "spreadBps" | "sizeImpactBps"): asserts value is number {
+function assertNonNegativeBpsInteger(
+  value: unknown,
+  field: "spreadBps" | "sizeImpactBps" | "volatilityPremiumBps" | "hedgeCostBps",
+): asserts value is number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > maxBps) {
     throw new Error(`Quote service pricing result.${field} must be a non-negative bps integer`);
   }

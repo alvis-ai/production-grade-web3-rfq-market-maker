@@ -103,6 +103,8 @@ export const defaultReadinessServiceConfig: ReadinessServiceConfig = {
     spreadBps: 16,
     sizeImpactBps: 1,
     inventorySkewBps: 0,
+    volatilityPremiumBps: 5,
+    hedgeCostBps: 0,
     pricingVersion: "readiness-pricing-v1",
   },
   probeQuote: {
@@ -153,6 +155,8 @@ const probePricingFields = [
   "spreadBps",
   "sizeImpactBps",
   "inventorySkewBps",
+  "volatilityPremiumBps",
+  "hedgeCostBps",
   "pricingVersion",
 ] as const;
 const probeQuoteFields = [
@@ -291,6 +295,7 @@ export class ReadinessService {
         snapshot: this.config.probeSnapshot,
         routePlan: this.config.probeRoutePlan,
         inventorySkewBps: 0,
+        hedgeCostBps: 0,
       });
       return "ok";
     } catch {

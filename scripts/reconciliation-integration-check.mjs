@@ -86,10 +86,11 @@ try {
     `INSERT INTO quotes (
        id, chain_id, user_address, token_in, token_out, amount_in, slippage_bps,
        amount_out, min_amount_out, nonce, deadline, snapshot_id, pricing_version,
-       spread_bps, size_impact_bps, inventory_skew_bps, risk_policy_version,
+       spread_bps, size_impact_bps, inventory_skew_bps, volatility_premium_bps,
+       hedge_cost_bps, risk_policy_version,
        status, signature
      ) VALUES ($1, 1, $2, $3, $4, $5, 50, $6, $7, $8, $9, $10,
-       'formula-v1', 20, 5, 0, 'risk-v1', 'signed', $11)`,
+       'formula-v3', 20, 5, 0, 5, 0, 'risk-v1', 'signed', $11)`,
     [
       quoteId,
       user,

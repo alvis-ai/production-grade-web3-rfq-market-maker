@@ -312,6 +312,8 @@ function riskInput({
       spreadBps,
       sizeImpactBps: 1,
       inventorySkewBps: 0,
+      volatilityPremiumBps: 0,
+      hedgeCostBps: 0,
       pricingVersion: "formula-v2:internal_inventory",
     },
     snapshot: {

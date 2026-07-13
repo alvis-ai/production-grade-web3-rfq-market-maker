@@ -166,7 +166,16 @@ export function normalizeQuoteExposureReservation(
   assertRecord(input.pricing, "Quote exposure reservation.pricing");
   assertExactFields(
     input.pricing,
-    ["amountOut", "minAmountOut", "spreadBps", "sizeImpactBps", "inventorySkewBps", "pricingVersion"],
+    [
+      "amountOut",
+      "minAmountOut",
+      "spreadBps",
+      "sizeImpactBps",
+      "inventorySkewBps",
+      "volatilityPremiumBps",
+      "hedgeCostBps",
+      "pricingVersion",
+    ],
     "Quote exposure reservation.pricing",
   );
   assertPositiveUintString(input.pricing.amountOut, "Quote exposure reservation.pricing.amountOut");

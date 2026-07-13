@@ -15,6 +15,8 @@ CREATE TABLE quotes (
   spread_bps INTEGER,
   size_impact_bps INTEGER,
   inventory_skew_bps INTEGER,
+  volatility_premium_bps INTEGER,
+  hedge_cost_bps INTEGER,
   risk_policy_version TEXT,
   status TEXT NOT NULL,
   signature TEXT,
@@ -39,6 +41,8 @@ CREATE TABLE quotes (
     (spread_bps IS NULL OR spread_bps BETWEEN 0 AND 10000)
     AND (size_impact_bps IS NULL OR size_impact_bps BETWEEN 0 AND 10000)
     AND (inventory_skew_bps IS NULL OR inventory_skew_bps BETWEEN -10000 AND 10000)
+    AND (volatility_premium_bps IS NULL OR volatility_premium_bps BETWEEN 0 AND 10000)
+    AND (hedge_cost_bps IS NULL OR hedge_cost_bps BETWEEN 0 AND 10000)
   ),
   CONSTRAINT chk_quotes_amounts_non_negative CHECK (
     amount_in > 0
@@ -94,6 +98,8 @@ CREATE TABLE quotes (
       AND spread_bps IS NULL
       AND size_impact_bps IS NULL
       AND inventory_skew_bps IS NULL
+      AND volatility_premium_bps IS NULL
+      AND hedge_cost_bps IS NULL
       AND signature IS NULL
     )
     OR (
@@ -105,6 +111,8 @@ CREATE TABLE quotes (
       AND spread_bps IS NOT NULL
       AND size_impact_bps IS NOT NULL
       AND inventory_skew_bps IS NOT NULL
+      AND volatility_premium_bps IS NOT NULL
+      AND hedge_cost_bps IS NOT NULL
       AND signature IS NOT NULL
     )
   ),
@@ -119,6 +127,8 @@ CREATE TABLE quotes (
       AND spread_bps IS NULL
       AND size_impact_bps IS NULL
       AND inventory_skew_bps IS NULL
+      AND volatility_premium_bps IS NULL
+      AND hedge_cost_bps IS NULL
       AND signature IS NULL
     )
   ),
@@ -133,6 +143,8 @@ CREATE TABLE quotes (
       AND spread_bps IS NOT NULL
       AND size_impact_bps IS NOT NULL
       AND inventory_skew_bps IS NOT NULL
+      AND volatility_premium_bps IS NOT NULL
+      AND hedge_cost_bps IS NOT NULL
       AND risk_policy_version IS NOT NULL
       AND signature IS NOT NULL
     )
@@ -686,6 +698,8 @@ BEGIN
         'spreadBps', source_row.spread_bps,
         'sizeImpactBps', source_row.size_impact_bps,
         'inventorySkewBps', source_row.inventory_skew_bps,
+        'volatilityPremiumBps', source_row.volatility_premium_bps,
+        'hedgeCostBps', source_row.hedge_cost_bps,
         'status', source_row.status,
         'rejectCode', source_row.reject_code,
         'txHash', lower(source_row.tx_hash),
@@ -1129,4 +1143,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('008', 'submit-reservations'),
   ('009', 'risk-notional-reasons'),
   ('010', 'risk-market-regime-reasons'),
-  ('011', 'open-quote-exposure');
+  ('011', 'open-quote-exposure'),
+  ('012', 'pricing-attribution');

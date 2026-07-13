@@ -140,6 +140,8 @@ function input(quoteId) {
       spreadBps: 10,
       sizeImpactBps: 1,
       inventorySkewBps: 0,
+      volatilityPremiumBps: 0,
+      hedgeCostBps: 0,
       pricingVersion: "exposure-test-v1",
     },
     deadline: now + 30,

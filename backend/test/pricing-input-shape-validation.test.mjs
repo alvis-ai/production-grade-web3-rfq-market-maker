@@ -26,6 +26,7 @@ const baseInput = {
     expectedLiquidityUsd: "10000000000000",
   },
   inventorySkewBps: 0,
+  hedgeCostBps: 0,
 };
 
 test("FormulaPricingEngine rejects malformed pricing payload envelopes before quoting", async () => {
@@ -41,6 +42,7 @@ test("FormulaPricingEngine rejects malformed pricing payload envelopes before qu
       snapshot: baseInput.snapshot,
       routePlan: baseInput.routePlan,
       inventorySkewBps: 0,
+      hedgeCostBps: 0,
     }),
     /Formula pricing input.request must be an own field/,
   );
@@ -75,10 +77,23 @@ test("FormulaPricingEngine rejects inherited pricing input fields before quoting
     request: baseInput.request,
     snapshot: baseInput.snapshot,
     routePlan: baseInput.routePlan,
+    hedgeCostBps: 0,
   });
   await assert.rejects(
     engine.price(inheritedSkewInput),
     /Formula pricing input.inventorySkewBps must be an own field/,
+  );
+
+  const inheritedHedgeCostInput = Object.create({ hedgeCostBps: 0 });
+  Object.assign(inheritedHedgeCostInput, {
+    request: baseInput.request,
+    snapshot: baseInput.snapshot,
+    routePlan: baseInput.routePlan,
+    inventorySkewBps: 0,
+  });
+  await assert.rejects(
+    engine.price(inheritedHedgeCostInput),
+    /Formula pricing input.hedgeCostBps must be an own field/,
   );
 
   await assert.rejects(

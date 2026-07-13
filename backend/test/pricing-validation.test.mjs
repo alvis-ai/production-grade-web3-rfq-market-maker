@@ -26,6 +26,7 @@ const baseInput = {
     expectedLiquidityUsd: "10000000000000",
   },
   inventorySkewBps: 0,
+  hedgeCostBps: 0,
 };
 
 test("FormulaPricingEngine rejects unsafe pricing inputs before quoting", async () => {
@@ -191,5 +192,13 @@ test("FormulaPricingEngine rejects unsafe pricing inputs before quoting", async 
       inventorySkewBps: 10_001,
     }),
     /Formula pricing inventorySkewBps magnitude must be less than or equal to 10000 bps/,
+  );
+
+  await assert.rejects(
+    engine.price({
+      ...baseInput,
+      hedgeCostBps: -1,
+    }),
+    /Formula pricing hedgeCostBps must be a non-negative safe integer/,
   );
 });

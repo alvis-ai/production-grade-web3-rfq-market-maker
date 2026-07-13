@@ -31,6 +31,8 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
     spreadBps: 8,
     sizeImpactBps: 0,
     inventorySkewBps: 0,
+    volatilityPremiumBps: 0,
+    hedgeCostBps: 0,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -89,6 +91,20 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
       inventorySkewBps: 10_001,
     }),
     /Signed quote inventorySkewBps magnitude must be less than or equal to 10000 bps/,
+  );
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      volatilityPremiumBps: -1,
+    }),
+    /Signed quote volatilityPremiumBps must be a non-negative safe integer/,
+  );
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      hedgeCostBps: 10_001,
+    }),
+    /Signed quote hedgeCostBps must be less than or equal to 10000 bps/,
   );
 
   await assert.rejects(

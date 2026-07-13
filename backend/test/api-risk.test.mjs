@@ -53,6 +53,8 @@ test("RFQ API rejects quotes when pricing spread exceeds risk guard before signi
           spreadBps: 1500,
           sizeImpactBps: 250,
           inventorySkewBps: 0,
+          volatilityPremiumBps: 0,
+          hedgeCostBps: 0,
           pricingVersion: "formula-v1:test-extreme-spread",
         };
       },

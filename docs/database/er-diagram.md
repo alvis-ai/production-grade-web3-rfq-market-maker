@@ -41,6 +41,8 @@ erDiagram
     integer spread_bps
     integer size_impact_bps
     integer inventory_skew_bps
+    integer volatility_premium_bps
+    integer hedge_cost_bps
     text status
     text tx_hash
     text settlement_event_id
@@ -227,7 +229,7 @@ erDiagram
 - `quotes.deadline` 使用 BIGINT 保存 EIP-712 signed quote 的 Unix seconds，而不是 timestamptz；它必须位于 JavaScript safe integer range `1..9007199254740991`，保证数据库值与 API、Signer、Settlement verifier 和链上 `uint256 deadline` 语义一致。
 - `quotes.snapshot_id` 是指向 `market_snapshots.id` 的必填 foreign key，用于报价回放；每条持久化 quote 都必须能回到用于定价的 market snapshot。
 - `quotes.slippage_bps` 保存原始 `QuoteRequest.slippageBps`，必须是 `0..10000` bps 内的整数。EIP-712 `SignedQuote` 只携带最终 `minAmountOut`，数据库单独保留请求滑点，才能在报价回放、风控审计和用户争议处理中解释 `min_amount_out` 如何由 `amount_out` 推导而来。
-- `quotes.spread_bps`、`quotes.size_impact_bps` 和 `quotes.inventory_skew_bps` 保存 signed quote 的定价组成。`spread_bps` 和 `size_impact_bps` 必须在 `0..10000` bps，`inventory_skew_bps` 必须在 `-10000..10000` bps；这些字段和 `pricing_version` 一起解释 `amount_out` 如何从 market snapshot、route liquidity、inventory skew 和 hedge risk penalty 推导而来。
+- `quotes.spread_bps`、`quotes.size_impact_bps`、`quotes.inventory_skew_bps`、`quotes.volatility_premium_bps` 和 `quotes.hedge_cost_bps` 保存 signed quote 的定价组成。除可正可负的 `inventory_skew_bps` 必须在 `-10000..10000` 外，其余 bps 字段必须在 `0..10000`；这些字段和 `pricing_version` 一起解释 `amount_out` 如何从 market snapshot、route liquidity、inventory skew、volatility premium 和 hedge failure pressure 推导而来。
 - `market_snapshots.source` 必须是非空字符串，用于保留行情来源、provider 或聚合管线版本，避免报价回放时无法解释价格输入。
 - `market_snapshots.liquidity_usd` 必须是非空正整数数值，匹配 Market Data、Routing 和 Pricing 对 `liquidityUsd` positive uint string 的运行时约束。
 - `market_snapshots.volatility_bps` 必须是 `0..10000` bps 内的整数，与 Market Data、Routing 和 Pricing 对 required `volatilityBps` / volatility premium 的输入契约一致。

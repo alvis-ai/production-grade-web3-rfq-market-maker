@@ -26,7 +26,7 @@ test("FormulaPricingEngine converts WETH 18 decimals to USDC 6 decimals", async 
 
   assert.equal(pricing.amountOut, "2000000000");
   assert.equal(pricing.minAmountOut, "2000000000");
-  assert.equal(pricing.pricingVersion, "formula-v2:internal_inventory");
+  assert.equal(pricing.pricingVersion, "formula-v3:internal_inventory");
 });
 
 test("FormulaPricingEngine converts the inverse USDC to WETH direction exactly", async () => {
@@ -167,5 +167,6 @@ function input({
       expectedLiquidityUsd: liquidityUsd,
     },
     inventorySkewBps: 0,
+    hedgeCostBps: 0,
   };
 }

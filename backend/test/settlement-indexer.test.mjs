@@ -280,6 +280,8 @@ function signedQuoteRecord() {
     spreadBps: 10,
     sizeImpactBps: 1,
     inventorySkewBps: 0,
+    volatilityPremiumBps: 0,
+    hedgeCostBps: 0,
     riskPolicyVersion: "risk-v1",
     status: "signed",
     signature: `0x${"11".repeat(64)}1b`,

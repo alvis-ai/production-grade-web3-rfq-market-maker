@@ -17,6 +17,8 @@ const basePricing = {
   spreadBps: 16,
   sizeImpactBps: 1,
   inventorySkewBps: 0,
+  volatilityPremiumBps: 0,
+  hedgeCostBps: 0,
   pricingVersion: "formula-v1:internal_inventory",
 };
 

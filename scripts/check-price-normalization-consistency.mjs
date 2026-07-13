@@ -44,7 +44,7 @@ assertContains("backend/src/main.ts", [
 assertContains("backend/src/modules/pricing/pricing.engine.ts", [
   "convertBaseUnitAmount",
   "calculateUsdNotional",
-  "formula-v2",
+  "formula-v3",
   "amountOut rounds to zero after decimals normalization",
 ]);
 assertContains("backend/src/modules/pricing/price-normalization.ts", [
@@ -76,18 +76,18 @@ assertContains("backend/test/api-token-registry-runtime.test.mjs", [
   "decimals-aware readiness pricing probe",
 ]);
 assertContains("book/Volume2-MarketData-And-Pricing/Chapter02-Price-Normalization.md", [
-  "`formula-v2`",
+  "`formula-v3`",
   "`usdReference`",
   "WETH/USDC",
   "USDC/WETH",
 ]);
 assertContains("book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md", [
-  "`formula-v2`",
+  "`formula-v3`",
   "USD notional",
   "tokenOut base units",
 ]);
 
-console.log("Price normalization consistency check passed: formula-v2 and 5 runtime config surfaces");
+console.log("Price normalization consistency check passed: formula-v3 and 5 runtime config surfaces");
 
 function assertContains(path, needles) {
   for (const needle of needles) {

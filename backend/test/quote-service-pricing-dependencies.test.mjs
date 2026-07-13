@@ -26,6 +26,8 @@ test("QuoteService rejects malformed pricing engine results before signing", asy
     spreadBps: 16,
     sizeImpactBps: 1,
     inventorySkewBps: 0,
+    volatilityPremiumBps: 5,
+    hedgeCostBps: 0,
     pricingVersion: "test-pricing",
   };
   const malformedPricingResults = [
@@ -37,6 +39,8 @@ test("QuoteService rejects malformed pricing engine results before signing", asy
     { ...validPricingResult, spreadBps: -1 },
     { ...validPricingResult, sizeImpactBps: 10001 },
     { ...validPricingResult, inventorySkewBps: 10001 },
+    { ...validPricingResult, volatilityPremiumBps: -1 },
+    { ...validPricingResult, hedgeCostBps: 10001 },
     { ...validPricingResult, pricingVersion: "pricing/v1" },
   ];
 
@@ -145,6 +149,8 @@ test("QuoteService fails closed on malformed inventory projections before signin
             spreadBps: 16,
             sizeImpactBps: 1,
             inventorySkewBps: 0,
+            volatilityPremiumBps: 5,
+            hedgeCostBps: 0,
             pricingVersion: "test-pricing",
           };
         },

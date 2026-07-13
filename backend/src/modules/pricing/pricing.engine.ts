@@ -18,6 +18,7 @@ export interface PricingInput {
   snapshot: MarketSnapshot;
   routePlan: RoutePlan;
   inventorySkewBps: number;
+  hedgeCostBps: number;
 }
 
 export interface PricingResult {
@@ -26,6 +27,8 @@ export interface PricingResult {
   spreadBps: number;
   sizeImpactBps: number;
   inventorySkewBps: number;
+  volatilityPremiumBps: number;
+  hedgeCostBps: number;
   pricingVersion: string;
 }
 
@@ -60,7 +63,7 @@ const formulaPricingConfigFields = [
   "maxSizeImpactBps",
   "maxTotalAdjustmentBps",
 ] as const;
-const pricingInputFields = ["request", "snapshot", "routePlan", "inventorySkewBps"] as const;
+const pricingInputFields = ["request", "snapshot", "routePlan", "inventorySkewBps", "hedgeCostBps"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const pricingSnapshotFields = ["snapshotId", "midPrice", "liquidityUsd", "volatilityBps"] as const;
 const routePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"] as const;
@@ -119,7 +122,8 @@ export class FormulaPricingEngine implements PricingEngine {
     const volatilityPremiumBps = Math.ceil(input.snapshot.volatilityBps / this.config.volatilityDivisor);
     const routeBufferBps = input.routePlan.venue === "internal_inventory" ? this.config.internalInventoryBufferBps : 0;
     const quotedSpreadBps = clampBps(
-      this.config.baseSpreadBps + routeBufferBps + volatilityPremiumBps + sizeImpactBps + input.inventorySkewBps,
+      this.config.baseSpreadBps + routeBufferBps + volatilityPremiumBps + sizeImpactBps +
+        input.inventorySkewBps + input.hedgeCostBps,
       0,
       this.config.maxTotalAdjustmentBps,
     );
@@ -134,7 +138,9 @@ export class FormulaPricingEngine implements PricingEngine {
       spreadBps: quotedSpreadBps,
       sizeImpactBps,
       inventorySkewBps: input.inventorySkewBps,
-      pricingVersion: `formula-v2:${input.routePlan.venue}`,
+      volatilityPremiumBps,
+      hedgeCostBps: input.hedgeCostBps,
+      pricingVersion: `formula-v3:${input.routePlan.venue}`,
     };
   }
 }
@@ -226,6 +232,7 @@ function assertPricingInput(input: PricingInput): void {
   }
   assertPositiveUIntString(input.routePlan.expectedLiquidityUsd, "routePlan.expectedLiquidityUsd");
   assertBpsMagnitude(input.inventorySkewBps, "inventorySkewBps");
+  assertBpsUpperBound(input.hedgeCostBps, "hedgeCostBps");
 }
 
 function assertObject(value: unknown, field: "config" | "input" | "request" | "snapshot" | "routePlan"): void {

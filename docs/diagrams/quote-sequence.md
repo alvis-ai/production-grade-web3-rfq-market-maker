@@ -18,7 +18,7 @@ sequenceDiagram
   API->>MD: Load market snapshot
   MD-->>API: snapshotId, midPrice, liquidity, volatility
   API->>Pricing: Calculate quote with snapshot and inventory context
-  Pricing-->>API: amountOut, spread, sizeImpact, inventorySkew
+  Pricing-->>API: amountOut, spread, sizeImpact, inventorySkew, volatilityPremium, hedgeCost
   API->>Risk: Check limits, inventory, toxicity, notional, chain policy
   alt Risk accepted
     Risk-->>API: approved risk decision

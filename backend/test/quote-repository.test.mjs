@@ -31,6 +31,8 @@ test("InMemoryQuoteRepository indexes signed quotes by chain, user, and nonce", 
     spreadBps: 8,
     sizeImpactBps: 0,
     inventorySkewBps: 0,
+    volatilityPremiumBps: 0,
+    hedgeCostBps: 0,
     quote: {
       ...baseSignedQuote,
       chainId: 1,
@@ -46,6 +48,8 @@ test("InMemoryQuoteRepository indexes signed quotes by chain, user, and nonce", 
     spreadBps: 8,
     sizeImpactBps: 0,
     inventorySkewBps: 0,
+    volatilityPremiumBps: 0,
+    hedgeCostBps: 0,
     quote: {
       ...baseSignedQuote,
       chainId: 137,
@@ -94,6 +98,8 @@ test("InMemoryQuoteRepository returns defensive copies of signed quote records",
     spreadBps: 8,
     sizeImpactBps: 0,
     inventorySkewBps: 0,
+    volatilityPremiumBps: 0,
+    hedgeCostBps: 0,
     quote: signedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -138,6 +144,8 @@ test("InMemoryQuoteRepository rejects signed quote nonce key conflicts", async (
     spreadBps: 8,
     sizeImpactBps: 0,
     inventorySkewBps: 0,
+    volatilityPremiumBps: 0,
+    hedgeCostBps: 0,
     quote: baseSignedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -152,6 +160,8 @@ test("InMemoryQuoteRepository rejects signed quote nonce key conflicts", async (
       spreadBps: 8,
       sizeImpactBps: 0,
       inventorySkewBps: 0,
+      volatilityPremiumBps: 0,
+      hedgeCostBps: 0,
       quote: {
         ...baseSignedQuote,
         amountOut: "997000000",
@@ -189,6 +199,8 @@ test("InMemoryQuoteRepository rejects signed quote identity rewrites", async () 
     spreadBps: 8,
     sizeImpactBps: 0,
     inventorySkewBps: 0,
+    volatilityPremiumBps: 0,
+    hedgeCostBps: 0,
     quote: baseSignedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -203,6 +215,8 @@ test("InMemoryQuoteRepository rejects signed quote identity rewrites", async () 
       spreadBps: 8,
       sizeImpactBps: 0,
       inventorySkewBps: 0,
+      volatilityPremiumBps: 0,
+      hedgeCostBps: 0,
       quote: {
         ...baseSignedQuote,
         nonce: "43",
@@ -239,6 +253,8 @@ test("InMemoryQuoteRepository rejects signed quote payload rewrites", async () =
     spreadBps: 8,
     sizeImpactBps: 0,
     inventorySkewBps: 0,
+    volatilityPremiumBps: 0,
+    hedgeCostBps: 0,
     quote: baseSignedQuote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
@@ -261,6 +277,20 @@ test("InMemoryQuoteRepository rejects signed quote payload rewrites", async () =
     quoteRepository.saveSigned({
       ...input,
       spreadBps: 9,
+    }),
+    /Signed quote payload cannot be changed/,
+  );
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      volatilityPremiumBps: 1,
+    }),
+    /Signed quote payload cannot be changed/,
+  );
+  await assert.rejects(
+    quoteRepository.saveSigned({
+      ...input,
+      hedgeCostBps: 1,
     }),
     /Signed quote payload cannot be changed/,
   );

@@ -180,6 +180,8 @@ test("InMemoryQuoteRepository rejects requested quote payload rewrites", async (
       spreadBps: 8,
       sizeImpactBps: 0,
       inventorySkewBps: 0,
+      volatilityPremiumBps: 0,
+      hedgeCostBps: 0,
       quote: {
         user: request.user,
         tokenIn: request.tokenIn,
@@ -205,6 +207,8 @@ test("InMemoryQuoteRepository rejects requested quote payload rewrites", async (
       spreadBps: 8,
       sizeImpactBps: 0,
       inventorySkewBps: 0,
+      volatilityPremiumBps: 0,
+      hedgeCostBps: 0,
       quote: {
         user: request.user,
         tokenIn: request.tokenIn,

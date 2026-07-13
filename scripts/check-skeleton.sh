@@ -803,6 +803,7 @@ test -s backend/src/db/migrations/008-submit-reservations.sql
 test -s backend/src/db/migrations/009-risk-notional-reasons.sql
 test -s backend/src/db/migrations/010-risk-market-regime-reasons.sql
 test -s backend/src/db/migrations/011-open-quote-exposure.sql
+test -s backend/src/db/migrations/012-pricing-attribution.sql
 test -s backend/src/modules/risk/quote-exposure.store.ts
 test -s backend/src/modules/risk/postgres-quote-exposure.store.ts
 test -s backend/test/quote-exposure-store.test.mjs
@@ -941,7 +942,7 @@ grep -q 'PRICING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'pricingFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'assertInventorySkewBps(inventorySkewResult)' backend/src/modules/quote/quote.service.ts
 grep -q 'assertHedgeRiskPenaltyBps(hedgeRiskPenaltyResult)' backend/src/modules/quote/quote.service.ts
-grep -q 'assertPricingAdjustmentBps(pricingAdjustmentBps)' backend/src/modules/quote/quote.service.ts
+grep -Fq 'assertPricingAdjustmentBps(inventorySkewBps + hedgeCostBps)' backend/src/modules/quote/quote.service.ts
 grep -q 'Quote service pricing adjustment bps must be a safe bps integer' backend/src/modules/quote/quote.service.ts
 grep -q 'pricingResultFields' backend/src/modules/quote/quote.service.ts
 grep -q 'assertPricingResult(pricingResult)' backend/src/modules/quote/quote.service.ts
@@ -1383,10 +1384,14 @@ grep -q 'slippage_bps BETWEEN 0 AND 10000' docs/database/schema.sql
 grep -q 'spread_bps INTEGER' docs/database/schema.sql
 grep -q 'size_impact_bps INTEGER' docs/database/schema.sql
 grep -q 'inventory_skew_bps INTEGER' docs/database/schema.sql
+grep -q 'volatility_premium_bps INTEGER' docs/database/schema.sql
+grep -q 'hedge_cost_bps INTEGER' docs/database/schema.sql
 grep -q 'chk_quotes_pricing_bps' docs/database/schema.sql
 grep -q 'spread_bps BETWEEN 0 AND 10000' docs/database/schema.sql
 grep -q 'size_impact_bps BETWEEN 0 AND 10000' docs/database/schema.sql
 grep -q 'inventory_skew_bps BETWEEN -10000 AND 10000' docs/database/schema.sql
+grep -q 'volatility_premium_bps BETWEEN 0 AND 10000' docs/database/schema.sql
+grep -q 'hedge_cost_bps BETWEEN 0 AND 10000' docs/database/schema.sql
 grep -q 'chk_settlement_events_hashes' docs/database/schema.sql
 grep -q 'AND nonce > 0' docs/database/schema.sql
 grep -q 'bid_price <= mid_price' docs/database/schema.sql
@@ -1480,7 +1485,7 @@ grep -q '只有 rejected/failed 状态可以携带非空 `reject_code`' docs/dat
 grep -q 'quotes.pricing_version`、`quotes.risk_policy_version` 和 `quotes.reject_code`' docs/database/er-diagram.md
 grep -q 'quotes.deadline` 使用 BIGINT 保存 EIP-712 signed quote 的 Unix seconds' docs/database/er-diagram.md
 grep -q 'quotes.slippage_bps` 保存原始 `QuoteRequest.slippageBps`' docs/database/er-diagram.md
-grep -q 'quotes.spread_bps`、`quotes.size_impact_bps` 和 `quotes.inventory_skew_bps`' docs/database/er-diagram.md
+grep -q 'quotes.volatility_premium_bps` 和 `quotes.hedge_cost_bps`' docs/database/er-diagram.md
 grep -q '外键绑定实际 settlement event 与原始 market snapshot' docs/database/er-diagram.md
 grep -q 'model_description' docs/database/er-diagram.md
 grep -q 'safe-integer signed `gross_pnl_bps`' docs/database/er-diagram.md
@@ -1496,7 +1501,7 @@ grep -q 'PostgreSQL schema mirrors these invariants with quote status payload co
 grep -q '`pricing_version` / `risk_policy_version` / `reject_code` must be non-empty whenever present' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'PostgreSQL stores `quotes.deadline` as BIGINT Unix seconds in the JavaScript safe integer range' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'PostgreSQL stores `quotes.slippage_bps` as the original `QuoteRequest.slippageBps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'PostgreSQL stores `quotes.spread_bps`, `quotes.size_impact_bps` and `quotes.inventory_skew_bps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'quotes.volatility_premium_bps` and `quotes.hedge_cost_bps`' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'signed payload fields and pricing bps components must be all present or all absent' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'PostgreSQL requires `quotes.snapshot_id` for every persisted quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'snapshot_id TEXT NOT NULL' docs/database/schema.sql
@@ -1549,14 +1554,20 @@ grep -q 'slippageBps: input.slippageBps' backend/src/modules/quote/quote.reposit
 grep -q 'spreadBps: input.spreadBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'sizeImpactBps: input.sizeImpactBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'inventorySkewBps: input.inventorySkewBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'volatilityPremiumBps: input.volatilityPremiumBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'hedgeCostBps: input.hedgeCostBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'spreadBps: pricing.spreadBps' backend/src/modules/quote/quote.service.ts
 grep -q 'sizeImpactBps: pricing.sizeImpactBps' backend/src/modules/quote/quote.service.ts
 grep -q 'inventorySkewBps: pricing.inventorySkewBps' backend/src/modules/quote/quote.service.ts
+grep -q 'volatilityPremiumBps: pricing.volatilityPremiumBps' backend/src/modules/quote/quote.service.ts
+grep -q 'hedgeCostBps: pricing.hedgeCostBps' backend/src/modules/quote/quote.service.ts
 grep -q 'record.slippageBps === input.request.slippageBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'record.slippageBps === input.slippageBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'record.spreadBps === input.spreadBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'record.sizeImpactBps === input.sizeImpactBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'record.inventorySkewBps === input.inventorySkewBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'record.volatilityPremiumBps === input.volatilityPremiumBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'record.hedgeCostBps === input.hedgeCostBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'slippageBps: request.slippageBps + 1' backend/test/quote-repository-lifecycle.test.mjs
 grep -q 'Signed quote slippageBps must be less than or equal to 10000 bps' backend/test/quote-repository-signed-validation.test.mjs
 grep -q 'Signed quote spreadBps must be less than or equal to 10000 bps' backend/test/quote-repository-signed-validation.test.mjs
@@ -3013,7 +3024,7 @@ grep -q 'rfq_hedge_lag_seconds_count 1' scripts/smoke-api.mjs
 grep -q 'rfq_inventory_balance' backend/test/api.test.mjs
 grep -q 'hedge intent creation fails' backend/test/api-hedge.test.mjs
 grep -q 'lastPenaltyRead' backend/test/api-hedge.test.mjs
-grep -q 'QuoteService includes hedge risk penalty in pricing input' backend/test/quote-service.test.mjs
+grep -q 'QuoteService keeps inventory skew and hedge risk premium separate in pricing input' backend/test/quote-service.test.mjs
 grep -q 'HedgeService accumulates bounded quote risk penalty after hedge failures' backend/test/hedge.test.mjs
 grep -q 'hedge status store failures' backend/test/api-hedge.test.mjs
 grep -q 'HEDGE_INTENT_FAILED' backend/test/api-hedge.test.mjs
@@ -3207,7 +3218,7 @@ grep -q 'assertObject(input.request, "request")' backend/src/modules/pricing/pri
 grep -q 'assertObject(input.snapshot, "snapshot")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertObject(input.routePlan, "routePlan")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'formulaPricingConfigFields = \[' backend/src/modules/pricing/pricing.engine.ts
-grep -q 'pricingInputFields = \["request", "snapshot", "routePlan", "inventorySkewBps"\]' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'pricingInputFields = \["request", "snapshot", "routePlan", "inventorySkewBps", "hedgeCostBps"\]' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'quoteRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'pricingSnapshotFields = \["snapshotId", "midPrice", "liquidityUsd", "volatilityBps"\]' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'routePlanFields = \["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"\]' backend/src/modules/pricing/pricing.engine.ts
@@ -3229,7 +3240,7 @@ grep -q 'normalizeHumanPrice(input.snapshot.midPrice)' backend/src/modules/prici
 grep -Fq '!/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/pricing/price-normalization.ts
 grep -q 'convertBaseUnitAmount(amountIn, midPrice, tokenIn.decimals, tokenOut.decimals)' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'calculateUsdNotional(amountIn, midPrice, tokenIn, tokenOut)' backend/src/modules/pricing/pricing.engine.ts
-grep -q 'pricingVersion: `formula-v2:${input.routePlan.venue}`' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'pricingVersion: `formula-v3:${input.routePlan.venue}`' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'RFQ_TOKEN_REGISTRY_JSON' $gateway_sources
 grep -q 'decimals-aware readiness pricing probe' backend/test/api-token-registry-runtime.test.mjs
 grep -q 'WETH 18 decimals to USDC 6 decimals' backend/test/price-normalization.test.mjs
@@ -3242,6 +3253,7 @@ grep -q 'Object.create(defaultFormulaPricingConfig)' backend/test/pricing-config
 grep -q 'Formula pricing config.baseSpreadBps must be an own field' backend/test/pricing-config-validation.test.mjs
 grep -q 'Formula pricing input.request must be an own field' backend/test/pricing-input-shape-validation.test.mjs
 grep -q 'Formula pricing input.inventorySkewBps must be an own field' backend/test/pricing-input-shape-validation.test.mjs
+grep -q 'Formula pricing input.hedgeCostBps must be an own field' backend/test/pricing-input-shape-validation.test.mjs
 grep -q 'Formula pricing request.chainId must be an own field' backend/test/pricing-input-shape-validation.test.mjs
 grep -q 'Formula pricing snapshot.snapshotId must be an own field' backend/test/pricing-input-shape-validation.test.mjs
 grep -q 'Formula pricing routePlan.routeId must be an own field' backend/test/pricing-input-shape-validation.test.mjs
@@ -3253,7 +3265,7 @@ grep -q 'Formula pricing snapshot.snapshotId must be a primitive string' backend
 grep -q 'Formula pricing snapshot.snapshotId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/pricing-validation.test.mjs
 grep -q 'Formula pricing routePlan.routeId must be a primitive string' backend/test/pricing-validation.test.mjs
 grep -q 'Formula pricing routePlan.routeId must be 128 characters or fewer' backend/test/pricing-validation.test.mjs
-grep -q 'missing required own top-level `request` / `snapshot` / `routePlan` / `inventorySkewBps` fields fail before nested field access' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
+grep -q 'missing required own top-level `request` / `snapshot` / `routePlan` / `inventorySkewBps` / `hedgeCostBps` fields fail before nested field access' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'request, snapshot and route-plan required fields must be own fields' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q '`snapshot.snapshotId` and `routePlan.routeId` as primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q 'malformed route plan 时，Quote Service 应在调用 Pricing Service 前返回 `ROUTING_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
@@ -3263,7 +3275,7 @@ grep -q 'rejects malformed pricing config objects and inherited config fields be
 grep -q 'snapshots `FormulaPricingConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter03-Pricing-Service.md
 grep -q '先拒绝 malformed pricing config object' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q '`FormulaPricingConfig` 的 required fields 都是 own fields' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
-grep -q '顶层 `request`、`snapshot`、`routePlan`、`inventorySkewBps` 必须是 own fields' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
+grep -q '顶层 `request`、`snapshot`、`routePlan`、`inventorySkewBps`、`hedgeCostBps` 必须是 own fields' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q '嵌套 request、snapshot 和 routePlan 的 required fields 也必须是 own fields' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q '`snapshot.snapshotId` 和 `routePlan.routeId`，都必须是 primitive string 形态的 1-128 字符 `SafeIdentifier`' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md
 grep -q '`midPrice`、`amountIn`、market liquidity 和 route liquidity 必须使用 canonical decimal form without leading zeros' book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md

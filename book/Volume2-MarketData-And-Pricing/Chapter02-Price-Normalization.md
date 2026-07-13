@@ -108,7 +108,7 @@ Token registry 包含 `chainId`、`tokenAddress`、`symbol`、`decimals`、`isWh
 - token decimals 来自 token registry，不从用户输入推断。
 - direction normalization 必须有单元测试。
 - `RFQ_TOKEN_REGISTRY_JSON` 在启动时进行 exact-field、重复地址、decimals、symbol、risk tier 和布尔字段校验；注册表实例复制配置，调用方后续修改原对象不会改变报价。
-- `formula-v2` 使用 `amountInBase * priceNumerator * 10^tokenOutDecimals / (priceDenominator * 10^tokenInDecimals)` 并向下取整，做市方不会因小数舍入多付 tokenOut。
+- `formula-v3` 继续使用 `amountInBase * priceNumerator * 10^tokenOutDecimals / (priceDenominator * 10^tokenInDecimals)` 并向下取整，做市方不会因小数舍入多付 tokenOut。
 - USD 名义规模优先使用 tokenIn 的 `usdReference`；否则在 tokenOut 是 USD reference 时使用方向化 mid price 换算。两侧都不是 USD reference 时拒绝报价，直到接入独立的 USD valuation feed。
 - CEX depth 当前由 `price * baseQuantity` 得到 quote notional，因此 CEX 配置要求 tokenOut 是 USD reference；否则 `liquidityUsd` 名称与单位不一致，启动直接失败。
 
@@ -139,7 +139,7 @@ token metadata 应缓存，避免每次 quote 查询链上 decimals。
 
 ## Summary
 
-价格归一化是资金安全问题，不是格式问题。当前 `formula-v2` 已把 token registry、方向、精度、base-unit 输出和 USD 名义规模连成一条 fail-closed 路径；后续扩展非 USD cross 时，应新增可审计的 USD valuation snapshot，而不是恢复隐式单位假设。
+价格归一化是资金安全问题，不是格式问题。当前 `formula-v3` 已把 token registry、方向、精度、base-unit 输出、USD 名义规模和独立定价归因连成一条 fail-closed 路径；后续扩展非 USD cross 时，应新增可审计的 USD valuation snapshot，而不是恢复隐式单位假设。
 
 ## References
 

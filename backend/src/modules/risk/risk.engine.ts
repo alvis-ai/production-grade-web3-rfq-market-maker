@@ -28,6 +28,8 @@ const pricingResultFields = [
   "spreadBps",
   "sizeImpactBps",
   "inventorySkewBps",
+  "volatilityPremiumBps",
+  "hedgeCostBps",
   "pricingVersion",
 ] as const;
 const inventoryProjectionFields = ["tokenIn", "tokenOut"] as const;
@@ -326,6 +328,8 @@ export function assertRiskInput(input: RiskInput): void {
   assertBpsUpperBound(input.pricing.spreadBps, "pricing.spreadBps");
   assertBpsUpperBound(input.pricing.sizeImpactBps, "pricing.sizeImpactBps");
   assertBpsMagnitude(input.pricing.inventorySkewBps, "pricing.inventorySkewBps");
+  assertBpsUpperBound(input.pricing.volatilityPremiumBps, "pricing.volatilityPremiumBps");
+  assertBpsUpperBound(input.pricing.hedgeCostBps, "pricing.hedgeCostBps");
   assertNonEmptyString(input.pricing.pricingVersion, "pricing.pricingVersion");
 
   if (input.inventoryProjection !== undefined) {

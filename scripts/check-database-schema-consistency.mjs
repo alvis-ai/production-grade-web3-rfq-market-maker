@@ -10,6 +10,7 @@ const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");
 const quoteRepositorySource = await readFile("backend/src/modules/quote/quote.repository.ts", "utf8");
 const riskEngineSource = await readFile("backend/src/modules/risk/risk.engine.ts", "utf8");
+const baseSchemaMigrationSource = await readFile("backend/src/db/migrations/001-base-schema.sql", "utf8");
 const settlementEventServiceSource = await readFile(
   "backend/src/modules/settlement/settlement-event.service.ts",
   "utf8",
@@ -43,6 +44,10 @@ const riskMarketRegimeMigrationSource = await readFile(
 );
 const quoteExposureMigrationSource = await readFile(
   "backend/src/db/migrations/011-open-quote-exposure.sql",
+  "utf8",
+);
+const pricingAttributionMigrationSource = await readFile(
+  "backend/src/db/migrations/012-pricing-attribution.sql",
   "utf8",
 );
 const postgresQuoteExposureSource = await readFile(
@@ -103,6 +108,8 @@ const requiredTables = {
     "spread_bps",
     "size_impact_bps",
     "inventory_skew_bps",
+    "volatility_premium_bps",
+    "hedge_cost_bps",
     "risk_policy_version",
     "status",
     "signature",
@@ -515,7 +522,13 @@ assert.ok(
   /record\.slippageBps\s*===\s*input\.slippageBps/i.test(quoteRepositorySource),
   "signed quote persistence must reject slippageBps rewrites",
 );
-for (const columnName of ["spread_bps", "size_impact_bps", "inventory_skew_bps"]) {
+for (const columnName of [
+  "spread_bps",
+  "size_impact_bps",
+  "inventory_skew_bps",
+  "volatility_premium_bps",
+  "hedge_cost_bps",
+]) {
   assert.ok(
     new RegExp(`\\b${columnName}\\s+INTEGER\\b`, "i").test(tables.get("quotes").body),
     `quotes.${columnName} must persist signed quote pricing bps components`,
@@ -537,8 +550,16 @@ assert.ok(
   ),
   "quotes must constrain inventory_skew_bps to the signed -10000..10000 bps range when present",
 );
+for (const columnName of ["volatility_premium_bps", "hedge_cost_bps"]) {
+  assert.ok(
+    new RegExp(`${columnName}\\s+IS\\s+NULL\\s+OR\\s+${columnName}\\s+BETWEEN\\s+0\\s+AND\\s+10000`, "i").test(
+      tables.get("quotes").body,
+    ),
+    `quotes must constrain ${columnName} to the 0..10000 bps range when present`,
+  );
+}
 assert.ok(
-  /export\s+interface\s+SaveSignedQuoteInput\s*\{[\s\S]*?spreadBps:\s*number;[\s\S]*?sizeImpactBps:\s*number;[\s\S]*?inventorySkewBps:\s*number;/i.test(
+  /export\s+interface\s+SaveSignedQuoteInput\s*\{[\s\S]*?spreadBps:\s*number;[\s\S]*?sizeImpactBps:\s*number;[\s\S]*?inventorySkewBps:\s*number;[\s\S]*?volatilityPremiumBps:\s*number;[\s\S]*?hedgeCostBps:\s*number;/i.test(
     quoteRepositorySource,
   ),
   "SaveSignedQuoteInput must carry pricing bps components for quote replay",
@@ -561,13 +582,27 @@ assert.ok(
   ),
   "signed quote persistence must validate inventorySkewBps before writing quote state",
 );
+for (const field of ["volatilityPremiumBps", "hedgeCostBps"]) {
+  assert.ok(
+    new RegExp(`assertNonNegativeBps\\s*\\(\\s*input\\.${field}\\s*,\\s*"${field}"\\s*,\\s*"Signed quote"\\s*\\)`, "i").test(
+      quoteRepositorySource,
+    ),
+    `signed quote persistence must validate ${field} before writing quote state`,
+  );
+}
 assert.ok(
-  /record\.spreadBps\s*===\s*input\.spreadBps[\s\S]*?record\.sizeImpactBps\s*===\s*input\.sizeImpactBps[\s\S]*?record\.inventorySkewBps\s*===\s*input\.inventorySkewBps/i.test(
+  /record\.spreadBps\s*===\s*input\.spreadBps[\s\S]*?record\.sizeImpactBps\s*===\s*input\.sizeImpactBps[\s\S]*?record\.inventorySkewBps\s*===\s*input\.inventorySkewBps[\s\S]*?record\.volatilityPremiumBps\s*===\s*input\.volatilityPremiumBps[\s\S]*?record\.hedgeCostBps\s*===\s*input\.hedgeCostBps/i.test(
     quoteRepositorySource,
   ),
   "signed quote persistence must reject pricing bps rewrites",
 );
-for (const columnName of ["spread_bps", "size_impact_bps", "inventory_skew_bps"]) {
+for (const columnName of [
+  "spread_bps",
+  "size_impact_bps",
+  "inventory_skew_bps",
+  "volatility_premium_bps",
+  "hedge_cost_bps",
+]) {
   assert.ok(
     new RegExp(`${columnName}\\s+IS\\s+NULL[\\s\\S]*?${columnName}\\s+IS\\s+NOT\\s+NULL`, "i").test(
       tables.get("quotes").body,
@@ -1181,6 +1216,21 @@ assert.ok(
     quoteExposureMigrationSource.includes("PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED") &&
     schemaSource.includes("('011', 'open-quote-exposure')"),
   "open quote exposure migration must install exact TTL-bound reservations and rejection reasons",
+);
+assert.ok(
+  pricingAttributionMigrationSource.includes("ADD COLUMN volatility_premium_bps") &&
+    pricingAttributionMigrationSource.includes("ADD COLUMN hedge_cost_bps") &&
+    pricingAttributionMigrationSource.includes("'volatilityPremiumBps'") &&
+    pricingAttributionMigrationSource.includes("'hedgeCostBps'") &&
+    schemaSource.includes("('012', 'pricing-attribution')"),
+  "pricing attribution migration must persist and publish independent quote components",
+);
+assert.ok(
+  !baseSchemaMigrationSource.includes("volatility_premium_bps") &&
+    !baseSchemaMigrationSource.includes("hedge_cost_bps") &&
+    !analyticsOutboxMigrationSource.includes("'volatilityPremiumBps'") &&
+    !analyticsOutboxMigrationSource.includes("'hedgeCostBps'"),
+  "pricing attribution must remain owned by migration 012 so a clean 001-012 chain does not duplicate columns",
 );
 assert.ok(
   postgresQuoteExposureSource.includes("pg_advisory_xact_lock") &&

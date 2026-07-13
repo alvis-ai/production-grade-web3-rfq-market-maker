@@ -25,6 +25,8 @@ const signedQuoteInputFields = [
   "spreadBps",
   "sizeImpactBps",
   "inventorySkewBps",
+  "volatilityPremiumBps",
+  "hedgeCostBps",
   "riskPolicyVersion",
   "signature",
 ] as const;
@@ -57,6 +59,8 @@ export interface QuoteRecord {
   spreadBps?: number;
   sizeImpactBps?: number;
   inventorySkewBps?: number;
+  volatilityPremiumBps?: number;
+  hedgeCostBps?: number;
   riskPolicyVersion?: string;
   status: QuoteLifecycleStatus;
   signature?: `0x${string}`;
@@ -124,6 +128,8 @@ export interface SaveSignedQuoteInput {
   spreadBps: number;
   sizeImpactBps: number;
   inventorySkewBps: number;
+  volatilityPremiumBps: number;
+  hedgeCostBps: number;
   riskPolicyVersion: string;
   signature: `0x${string}`;
 }
@@ -220,6 +226,8 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       spreadBps: input.spreadBps,
       sizeImpactBps: input.sizeImpactBps,
       inventorySkewBps: input.inventorySkewBps,
+      volatilityPremiumBps: input.volatilityPremiumBps,
+      hedgeCostBps: input.hedgeCostBps,
       riskPolicyVersion: input.riskPolicyVersion,
       status: "signed",
       signature: input.signature,
@@ -341,7 +349,9 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       !record.signature ||
       record.spreadBps === undefined ||
       record.sizeImpactBps === undefined ||
-      record.inventorySkewBps === undefined
+      record.inventorySkewBps === undefined ||
+      record.volatilityPremiumBps === undefined ||
+      record.hedgeCostBps === undefined
     ) {
       return undefined;
     }
@@ -463,6 +473,8 @@ function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertNonNegativeBps(input.spreadBps, "spreadBps", "Signed quote");
   assertNonNegativeBps(input.sizeImpactBps, "sizeImpactBps", "Signed quote");
   assertBpsMagnitude(input.inventorySkewBps, "inventorySkewBps", "Signed quote");
+  assertNonNegativeBps(input.volatilityPremiumBps, "volatilityPremiumBps", "Signed quote");
+  assertNonNegativeBps(input.hedgeCostBps, "hedgeCostBps", "Signed quote");
   assertSignature(input.signature);
   assertOwnFields(input.quote, signedQuoteFields, "quote", "Signed quote");
   assertPositiveSafeInteger(input.quote.chainId, "quote.chainId");
@@ -736,6 +748,8 @@ function isSameSignedQuotePayload(record: QuoteRecord, input: SaveSignedQuoteInp
     record.spreadBps === input.spreadBps &&
     record.sizeImpactBps === input.sizeImpactBps &&
     record.inventorySkewBps === input.inventorySkewBps &&
+    record.volatilityPremiumBps === input.volatilityPremiumBps &&
+    record.hedgeCostBps === input.hedgeCostBps &&
     record.riskPolicyVersion === input.riskPolicyVersion &&
     record.signature?.toLowerCase() === input.signature.toLowerCase()
   );

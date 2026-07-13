@@ -171,6 +171,8 @@ async function scenario(quoteId) {
     spreadBps: 8,
     sizeImpactBps: 0,
     inventorySkewBps: 0,
+    volatilityPremiumBps: 0,
+    hedgeCostBps: 0,
     quote,
     pricingVersion: "test-pricing",
     riskPolicyVersion: "test-risk",
