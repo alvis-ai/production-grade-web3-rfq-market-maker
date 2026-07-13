@@ -2,12 +2,13 @@
 
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
+import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
 
 const envExampleSource = await readFile(".env.example", "utf8");
 const composeSource = await readFile("docker-compose.yml", "utf8");
 const k8sConfigSource = await readFile("infra/k8s/configmap.yaml", "utf8");
 const helmValuesSource = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
-const backendSource = await readFile("backend/src/main.ts", "utf8");
+const backendSource = await readBackendGatewaySource();
 const apiKeyAuthSource = await readFile("backend/src/modules/auth/api-key-auth.service.ts", "utf8");
 const hedgeWorkerSource = await readFile("backend/src/hedge-worker-main.ts", "utf8");
 const analyticsWorkerSource = await readFile("backend/src/analytics-worker-main.ts", "utf8");

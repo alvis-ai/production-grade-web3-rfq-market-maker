@@ -2,6 +2,7 @@
 
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
+import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
 
 const schemaSource = await readFile("docs/database/schema.sql", "utf8");
 const erDiagramSource = await readFile("docs/database/er-diagram.md", "utf8");
@@ -61,7 +62,7 @@ const settlementIndexerWorkerSource = await readFile(
   "backend/src/modules/indexer/settlement-indexer.worker.ts",
   "utf8",
 );
-const backendMainSource = await readFile("backend/src/main.ts", "utf8");
+const backendMainSource = await readBackendGatewaySource();
 const maxSafeInteger = "9007199254740991";
 const secp256k1HalfOrder = "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0";
 const safeIdentifierPattern = "^[A-Za-z0-9_:-]+$";

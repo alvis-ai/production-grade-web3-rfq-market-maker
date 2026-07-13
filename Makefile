@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-auth-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check analytics-integration-check cex-orderbook-integration-check benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check api-auth-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check analytics-integration-check cex-orderbook-integration-check benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -27,6 +27,7 @@ help:
 	@echo "  kms-signer-check Verify production KMS signer and workload-identity controls"
 	@echo "  settlement-indexer-check Verify durable chain cursor and reorg recovery controls"
 	@echo "  submit-reservation-check Verify cross-replica submit ownership controls"
+	@echo "  api-composition-check Verify gateway composition-root responsibility boundaries"
 	@echo "  api-auth-check Verify scoped API-key auth across backend, SDK, docs, and deployment"
 	@echo "  eip712-check  Verify backend, SDK, and contract EIP-712 schemas match"
 	@echo "  contract-abi-check  Verify SDK contract ABIs match Solidity integration surfaces"
@@ -130,6 +131,9 @@ settlement-indexer-check:
 
 submit-reservation-check:
 	@node scripts/check-submit-reservation-consistency.mjs
+
+api-composition-check:
+	@node scripts/check-api-composition-consistency.mjs
 
 api-auth-check:
 	@node scripts/check-api-auth-consistency.mjs

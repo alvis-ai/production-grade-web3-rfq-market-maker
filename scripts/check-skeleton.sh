@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
+gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/server-process.ts"
+
 test -s package.json
 test -s pnpm-workspace.yaml
 test -s pnpm-lock.yaml
@@ -12,6 +14,14 @@ test -s .github/workflows/backend-ci.yml
 test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
+test -s backend/src/api/http-boundary.ts
+test -s backend/src/api/trading-routes.ts
+test -s backend/src/runtime/environment.ts
+test -s backend/src/runtime/gateway-runtime.ts
+test -s backend/src/runtime/market-runtime.ts
+test -s backend/src/runtime/server-process.ts
+test -s scripts/check-api-composition-consistency.mjs
+test -s scripts/lib/read-backend-gateway-source.mjs
 test -s backend/src/hedge-worker-main.ts
 test -s backend/src/db/migrations/003-hedge-worker-queue.sql
 test -s backend/src/modules/hedge/binance-spot.adapter.ts
@@ -633,30 +643,30 @@ test -s infra/k8s/backend-secret.yaml
 test -s infra/helm/rfq-market-maker/Chart.yaml
 test -s scripts/smoke-api.sh
 
-grep -q 'server.post("/quote"' backend/src/main.ts
-grep -q 'server.post("/submit"' backend/src/main.ts
-grep -q 'server.get("/quote/:quoteId"' backend/src/main.ts
-grep -q 'quoteService.getQuoteStatus' backend/src/main.ts
-grep -q 'server.get("/settlements/:settlementEventId"' backend/src/main.ts
-grep -q 'server.get("/hedges/:hedgeOrderId"' backend/src/main.ts
-grep -q 'server.get("/pnl"' backend/src/main.ts
-grep -q 'assertStatusIdentifier' backend/src/main.ts
-grep -q 'function assertStatusIdentifier' backend/src/main.ts
-grep -q '${field} must be a primitive string' backend/src/main.ts
-grep -q 'maxStatusIdentifierLength' backend/src/main.ts
-grep -q 'maxStatusIdentifierRouteParamLength' backend/src/main.ts
-grep -q 'maxParamLength: maxStatusIdentifierRouteParamLength' backend/src/main.ts
-grep -q 'statusIdentifierPattern' backend/src/main.ts
+grep -q 'server.post("/quote"' $gateway_sources
+grep -q 'server.post("/submit"' $gateway_sources
+grep -q 'server.get("/quote/:quoteId"' $gateway_sources
+grep -q 'quoteService.getQuoteStatus' $gateway_sources
+grep -q 'server.get("/settlements/:settlementEventId"' $gateway_sources
+grep -q 'server.get("/hedges/:hedgeOrderId"' $gateway_sources
+grep -q 'server.get("/pnl"' $gateway_sources
+grep -q 'assertStatusIdentifier' $gateway_sources
+grep -q 'function assertStatusIdentifier' $gateway_sources
+grep -q '${field} must be a primitive string' $gateway_sources
+grep -q 'maxStatusIdentifierLength' $gateway_sources
+grep -q 'maxStatusIdentifierRouteParamLength' $gateway_sources
+grep -q 'maxParamLength: maxStatusIdentifierRouteParamLength' $gateway_sources
+grep -q 'statusIdentifierPattern' $gateway_sources
 grep -q 'RFQ API rejects unsafe status path identifiers before store lookup' backend/test/api-status.test.mjs
 grep -q 'quoteId must be 128 characters or fewer' backend/test/api-status.test.mjs
 grep -q 'settlementEventId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/api-status.test.mjs
 grep -q 'primitive-string `SafeIdentifier` values with 1-128 characters' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Status endpoints reject unsafe dynamic identifiers before store lookup' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'server.get("/ready"' backend/src/main.ts
-grep -q 'readiness.status === "degraded"' backend/src/main.ts
-grep -q 'server.get("/metrics"' backend/src/main.ts
-grep -q 'validateQuoteRequest' backend/src/main.ts
-grep -q 'validateSubmitQuoteRequest' backend/src/main.ts
+grep -q 'server.get("/ready"' $gateway_sources
+grep -q 'readiness.status === "degraded"' $gateway_sources
+grep -q 'server.get("/metrics"' $gateway_sources
+grep -q 'validateQuoteRequest' $gateway_sources
+grep -q 'validateSubmitQuoteRequest' $gateway_sources
 grep -q 'must include field' backend/src/shared/validation/object-fields.ts
 grep -q 'hasOwnProperty.call(input, field)' backend/src/shared/validation/object-fields.ts
 grep -q 'positive safe integer' backend/src/shared/validation/quote-request.ts
@@ -756,9 +766,9 @@ grep -q 'extractOpenApiNestedObjectSchema' scripts/check-api-schema-consistency.
 grep -q 'QuoteResponse.signature must be a 65-byte canonical low-s EIP-712 signature' scripts/check-api-schema-consistency.mjs
 grep -q 'SubmitQuoteResponse", "QuoteStatus", "SettlementEventStatus' scripts/check-api-schema-consistency.mjs
 grep -q 'txHash must be a 32-byte transaction hash' scripts/check-api-schema-consistency.mjs
-grep -q 'InMemoryRateLimiter' backend/src/main.ts
-grep -q 'RATE_LIMITED' backend/src/main.ts
-grep -q 'retry-after' backend/src/main.ts
+grep -q 'InMemoryRateLimiter' $gateway_sources
+grep -q 'RATE_LIMITED' $gateway_sources
+grep -q 'retry-after' $gateway_sources
 grep -q 'signature must be 65 bytes' backend/src/shared/validation/submit-request.ts
 grep -q 'SECP256K1N_HALF' backend/src/shared/validation/submit-request.ts
 grep -q 'signature s value must be in the lower half order' backend/src/shared/validation/submit-request.ts
@@ -771,105 +781,105 @@ grep -q 'readPositiveUint' backend/src/shared/validation/submit-request.ts
 grep -q 'nonce: readPositiveUint(quote.nonce, "quote.nonce")' backend/src/shared/validation/submit-request.ts
 grep -q 'greater than or equal to quote.minAmountOut' backend/src/shared/validation/submit-request.ts
 grep -q 'QUOTE_EXPIRED' backend/src/shared/validation/submit-request.ts
-grep -q 'InMemoryQuoteRepository' backend/src/main.ts
-grep -q 'new InventoryService' backend/src/main.ts
-grep -q 'new HedgeService' backend/src/main.ts
-grep -q 'recordSettlement' backend/src/main.ts
-grep -q 'pnlTradeRecordFields = \[' backend/src/main.ts
-grep -q 'assertPnlRecordResult(pnlRecord, recordInput)' backend/src/main.ts
-grep -q 'API PnL record grossPnlTokenOut must match snapshot valuation' backend/src/main.ts
-grep -q 'API PnL record modelDescription must describe quote_snapshot_edge_v1' backend/src/main.ts
-grep -q 'settlementEventResult.duplicate' backend/src/main.ts
-grep -q 'markPostSettlementQuoteStatus' backend/src/main.ts
-grep -q 'markSettlementRejectedQuoteFailed' backend/src/main.ts
-grep -q 'recordInventoryPosition' backend/src/main.ts
-grep -q 'recordInventoryPositionBestEffort(metricsService, result.inventoryPositions.tokenIn)' backend/src/main.ts
-grep -q 'a malformed gauge sample must not change submit semantics' backend/src/main.ts
-grep -q 'acquireSubmitReservation(submitReservationStore, metricsService, quoteId)' backend/src/main.ts
-grep -q 'releaseSubmitReservationBestEffort(submitReservationStore, metricsService, submitReservation)' backend/src/main.ts
+grep -q 'InMemoryQuoteRepository' $gateway_sources
+grep -q 'new InventoryService' $gateway_sources
+grep -q 'new HedgeService' $gateway_sources
+grep -q 'recordSettlement' $gateway_sources
+grep -q 'pnlTradeRecordFields = \[' $gateway_sources
+grep -q 'assertPnlRecordResult(pnlRecord, recordInput)' $gateway_sources
+grep -q 'API PnL record grossPnlTokenOut must match snapshot valuation' $gateway_sources
+grep -q 'API PnL record modelDescription must describe quote_snapshot_edge_v1' $gateway_sources
+grep -q 'settlementEventResult.duplicate' $gateway_sources
+grep -q 'markPostSettlementQuoteStatus' $gateway_sources
+grep -q 'markSettlementRejectedQuoteFailed' $gateway_sources
+grep -q 'recordInventoryPosition' $gateway_sources
+grep -q 'recordInventoryPositionBestEffort(metricsService, result.inventoryPositions.tokenIn)' $gateway_sources
+grep -q 'a malformed gauge sample must not change submit semantics' $gateway_sources
+grep -q 'acquireSubmitReservation(submitReservationStore, metricsService, quoteId)' $gateway_sources
+grep -q 'releaseSubmitReservationBestEffort(submitReservationStore, metricsService, submitReservation)' $gateway_sources
 test -s backend/src/modules/execution/submit-reservation.store.ts
 test -s backend/src/modules/execution/postgres-submit-reservation.store.ts
 test -s backend/src/db/migrations/008-submit-reservations.sql
 test -s backend/test/submit-reservation-store.test.mjs
 test -s backend/test/postgres-submit-reservation-store.test.mjs
 test -s backend/test/api-submit-reservation.test.mjs
-grep -q 'throw new APIError("QUOTE_ALREADY_USED", "Quote already used", 409)' backend/src/main.ts
-grep -q 'reply.code(202)' backend/src/main.ts
-grep -q '"submitted"' backend/src/main.ts
-grep -q '"settled"' backend/src/main.ts
-grep -q 'StaticMarketDataService' backend/src/main.ts
-grep -q 'pricingEngine?: PricingEngine' backend/src/main.ts
-grep -q 'quoteRepository?: QuoteRepository' backend/src/main.ts
-grep -q 'routingEngine?: RoutingEngine' backend/src/main.ts
-grep -q 'InternalInventoryRoutingEngine' backend/src/main.ts
-grep -q 'TokenLimitRiskEngine' backend/src/main.ts
-grep -q 'createSignerRuntime' backend/src/main.ts
-grep -q 'ObservedSignerService' backend/src/main.ts
-grep -q 'readSignerRuntimeConfig' backend/src/main.ts
-grep -q 'trustedSignerAddress: signerConfig.trustedSignerAddress' backend/src/main.ts
-grep -q 'requiresExplicitSignerConfig' backend/src/main.ts
+grep -q 'throw new APIError("QUOTE_ALREADY_USED", "Quote already used", 409)' $gateway_sources
+grep -q 'reply.code(202)' $gateway_sources
+grep -q '"submitted"' $gateway_sources
+grep -q '"settled"' $gateway_sources
+grep -q 'StaticMarketDataService' $gateway_sources
+grep -q 'pricingEngine?: PricingEngine' $gateway_sources
+grep -q 'quoteRepository?: QuoteRepository' $gateway_sources
+grep -q 'routingEngine?: RoutingEngine' $gateway_sources
+grep -q 'InternalInventoryRoutingEngine' $gateway_sources
+grep -q 'TokenLimitRiskEngine' $gateway_sources
+grep -q 'createSignerRuntime' $gateway_sources
+grep -q 'ObservedSignerService' $gateway_sources
+grep -q 'readSignerRuntimeConfig' $gateway_sources
+grep -q 'trustedSignerAddress: signerConfig.trustedSignerAddress' $gateway_sources
+grep -q 'requiresExplicitRuntimeConfig' $gateway_sources
 grep -q 'nodeEnv === "development" || nodeEnv === "test"' backend/src/modules/signer/signer-runtime.ts
-grep -q 'RFQ_QUOTE_TTL_SECONDS' backend/src/main.ts
-grep -q 'readQuoteTtlSeconds' backend/src/main.ts
-grep -q 'RFQ_BODY_LIMIT_BYTES' backend/src/main.ts
-grep -q 'readBodyLimitBytes' backend/src/main.ts
-grep -q 'defaultBodyLimitBytes' backend/src/main.ts
-grep -q 'readDecimalIntegerConfig' backend/src/main.ts
-grep -q 'must be a base-10 integer between' backend/src/main.ts
-grep -q 'buildServerOptionFields' backend/src/main.ts
-grep -q 'rateLimitOptionFields = \["windowMs", "maxQuoteRequests", "maxSubmitRequests", "maxStatusRequests"\]' backend/src/main.ts
-grep -q 'assertBuildServerOptions(options)' backend/src/main.ts
-grep -q 'assertOptionalOwnFields(options, buildServerOptionFields, "options")' backend/src/main.ts
-grep -q 'normalizeRateLimitOption(options.rateLimit)' backend/src/main.ts
-grep -q 'assertOptionalOwnFields(rateLimit, rateLimitOptionFields, "rateLimit")' backend/src/main.ts
-grep -q 'assertIntegerOption(options.bodyLimitBytes, "bodyLimitBytes", 1024, 1_048_576)' backend/src/main.ts
-grep -q 'assertIntegerOption(options.quoteTtlSeconds, "quoteTtlSeconds", 1, 3600)' backend/src/main.ts
-grep -q 'assertBooleanOption(options.logger, "logger")' backend/src/main.ts
-grep -q 'assertBooleanOption(options.enableHsts, "enableHsts")' backend/src/main.ts
-grep -q 'assertBooleanOption(options.trustProxy, "trustProxy")' backend/src/main.ts
-grep -q 'RFQ_CORS_ALLOWED_ORIGINS' backend/src/main.ts
-grep -q 'readCorsAllowedOrigins' backend/src/main.ts
-grep -q 'defaultCorsAllowedOrigins' backend/src/main.ts
-grep -q 'applyCorsHeaders' backend/src/main.ts
-grep -q 'access-control-allow-origin' backend/src/main.ts
-grep -Fq 'server.options("/*"' backend/src/main.ts
-grep -q 'RFQ_ENABLE_HSTS' backend/src/main.ts
-grep -q 'readEnableHsts' backend/src/main.ts
-grep -q 'defaultEnableHsts' backend/src/main.ts
-grep -q 'RFQ_TRUST_PROXY' backend/src/main.ts
-grep -q 'readTrustProxy' backend/src/main.ts
-grep -q 'defaultTrustProxy' backend/src/main.ts
-grep -q 'trustProxy?: boolean' backend/src/main.ts
-grep -q 'clientIdForRateLimit(request, trustProxy, principal)' backend/src/main.ts
-grep -q 'if (!trustProxy)' backend/src/main.ts
-grep -q 'applySecurityHeaders' backend/src/main.ts
-grep -q 'cache-control' backend/src/main.ts
-grep -q 'x-content-type-options' backend/src/main.ts
-grep -q 'strict-transport-security' backend/src/main.ts
-grep -q 'installGracefulShutdown' backend/src/main.ts
-grep -q 'SIGTERM' backend/src/main.ts
-grep -q 'SIGINT' backend/src/main.ts
-grep -q 'server.close' backend/src/main.ts
-grep -q 'server.setNotFoundHandler' backend/src/main.ts
-grep -q 'Route not found' backend/src/main.ts
-grep -q 'server.setErrorHandler' backend/src/main.ts
-grep -q 'frameworkErrorToAPIError' backend/src/main.ts
-grep -q 'frameworkErrorField(error, "code")' backend/src/main.ts
-grep -q 'frameworkErrorField(error, "statusCode")' backend/src/main.ts
-grep -q 'FST_ERR_CTP_BODY_TOO_LARGE' backend/src/main.ts
+grep -q 'RFQ_QUOTE_TTL_SECONDS' $gateway_sources
+grep -q 'readQuoteTtlSeconds' $gateway_sources
+grep -q 'RFQ_BODY_LIMIT_BYTES' $gateway_sources
+grep -q 'readBodyLimitBytes' $gateway_sources
+grep -q 'defaultBodyLimitBytes' $gateway_sources
+grep -q 'readDecimalIntegerConfig' $gateway_sources
+grep -q 'must be a base-10 integer between' $gateway_sources
+grep -q 'buildServerOptionFields' $gateway_sources
+grep -q 'rateLimitOptionFields = \["windowMs", "maxQuoteRequests", "maxSubmitRequests", "maxStatusRequests"\]' $gateway_sources
+grep -q 'assertBuildServerOptions(options)' $gateway_sources
+grep -q 'assertOptionalOwnFields(options, buildServerOptionFields, "options")' $gateway_sources
+grep -q 'normalizeRateLimitOption(options.rateLimit)' $gateway_sources
+grep -q 'assertOptionalOwnFields(rateLimit, rateLimitOptionFields, "rateLimit")' $gateway_sources
+grep -q 'assertIntegerOption(options.bodyLimitBytes, "bodyLimitBytes", 1024, 1_048_576)' $gateway_sources
+grep -q 'assertIntegerOption(options.quoteTtlSeconds, "quoteTtlSeconds", 1, 3600)' $gateway_sources
+grep -q 'assertBooleanOption(options.logger, "logger")' $gateway_sources
+grep -q 'assertBooleanOption(options.enableHsts, "enableHsts")' $gateway_sources
+grep -q 'assertBooleanOption(options.trustProxy, "trustProxy")' $gateway_sources
+grep -q 'RFQ_CORS_ALLOWED_ORIGINS' $gateway_sources
+grep -q 'readCorsAllowedOrigins' $gateway_sources
+grep -q 'defaultCorsAllowedOrigins' $gateway_sources
+grep -q 'applyCorsHeaders' $gateway_sources
+grep -q 'access-control-allow-origin' $gateway_sources
+grep -Fq 'server.options("/*"' $gateway_sources
+grep -q 'RFQ_ENABLE_HSTS' $gateway_sources
+grep -q 'readEnableHsts' $gateway_sources
+grep -q 'defaultEnableHsts' $gateway_sources
+grep -q 'RFQ_TRUST_PROXY' $gateway_sources
+grep -q 'readTrustProxy' $gateway_sources
+grep -q 'defaultTrustProxy' $gateway_sources
+grep -q 'trustProxy?: boolean' $gateway_sources
+grep -q 'clientIdForRateLimit(request, trustProxy, principal)' $gateway_sources
+grep -q 'if (!trustProxy)' $gateway_sources
+grep -q 'applySecurityHeaders' $gateway_sources
+grep -q 'cache-control' $gateway_sources
+grep -q 'x-content-type-options' $gateway_sources
+grep -q 'strict-transport-security' $gateway_sources
+grep -q 'installGracefulShutdown' $gateway_sources
+grep -q 'SIGTERM' $gateway_sources
+grep -q 'SIGINT' $gateway_sources
+grep -q 'server.close' $gateway_sources
+grep -q 'server.setNotFoundHandler' $gateway_sources
+grep -q 'Route not found' $gateway_sources
+grep -q 'server.setErrorHandler' $gateway_sources
+grep -q 'frameworkErrorToAPIError' $gateway_sources
+grep -q 'frameworkErrorField(error, "code")' $gateway_sources
+grep -q 'frameworkErrorField(error, "statusCode")' $gateway_sources
+grep -q 'FST_ERR_CTP_BODY_TOO_LARGE' $gateway_sources
 grep -q 'RFQ API ignores inherited framework error fields' backend/test/api-validation-gateway.test.mjs
 grep -q 'Object.create({ statusCode: 400, code: "FST_ERR_CTP_BODY_TOO_LARGE" })' backend/test/api-validation-gateway.test.mjs
 grep -q '框架错误映射只信任 error 对象自有的 `code` 和 `statusCode` 字段' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'function requireConfigured' backend/src/modules/signer/signer-runtime.ts
 grep -q 'function parsePrivateKey' backend/src/modules/signer/signer-runtime.ts
 grep -q 'function parseAddress' backend/src/modules/signer/signer-runtime.ts
-grep -q 'NODE_ENV=${nodeEnv}' backend/src/main.ts
-grep -q 'HOST' backend/src/main.ts
-grep -q 'x-trace-id' backend/src/main.ts
-grep -q 'server.addHook("onRequest"' backend/src/main.ts
-grep -q 'requestTraceId' backend/src/main.ts
-grep -q 'safeIncomingTraceId' backend/src/main.ts
-grep -q 'traceIdPattern' backend/src/main.ts
+grep -q 'NODE_ENV=${nodeEnv}' $gateway_sources
+grep -q 'HOST' $gateway_sources
+grep -q 'x-trace-id' $gateway_sources
+grep -q 'server.addHook("onRequest"' $gateway_sources
+grep -q 'requestTraceId' $gateway_sources
+grep -q 'safeIncomingTraceId' $gateway_sources
+grep -q 'traceIdPattern' $gateway_sources
 grep -q 'RFQ API propagates safe incoming trace ids and falls back for unsafe values' backend/test/api-gateway-runtime.test.mjs
 grep -q 'RFQ_TRUST_PROXY=false' .env.example
 grep -q 'RFQ_TRUST_PROXY: "false"' docker-compose.yml
@@ -1040,8 +1050,8 @@ test -s backend/test/api-redis-rate-limit.test.mjs
 grep -q 'class RedisRateLimiter' backend/src/modules/rate-limit/redis-rate-limit.service.ts
 grep -q 'redis.call("SET", KEYS\[1\], 1, "PX", ARGV\[1\])' backend/src/modules/rate-limit/redis-rate-limit.service.ts
 grep -q 'if current >= tonumber(ARGV\[2\])' backend/src/modules/rate-limit/redis-rate-limit.service.ts
-grep -q 'RFQ_RATE_LIMIT_BACKEND must be redis when NODE_ENV=' backend/src/main.ts
-grep -q 'RATE_LIMIT_UNAVAILABLE' backend/src/main.ts
+grep -q 'RFQ_RATE_LIMIT_BACKEND must be redis when NODE_ENV=' $gateway_sources
+grep -q 'RATE_LIMIT_UNAVAILABLE' $gateway_sources
 grep -q '任何非本地 `NODE_ENV` 都强制 `RFQ_RATE_LIMIT_BACKEND=redis`' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q '超限后不继续递增计数' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q '`rateLimitStore` readiness' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
@@ -1083,7 +1093,7 @@ test -s backend/test/api-risk-policy-runtime.test.mjs
 test -s scripts/check-risk-policy-consistency.mjs
 grep -q 'TokenLimitRiskPolicy` 使用 exact-field parser' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'cross-chain address isolation' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
-grep -q 'RFQ_RISK_POLICY_JSON' backend/src/main.ts
+grep -q 'RFQ_RISK_POLICY_JSON' $gateway_sources
 grep -q 'tokenLimitKey(input.request.chainId, input.request.tokenIn)' backend/src/modules/risk/token-limit-risk.engine.ts
 grep -q 'tokenLimitKey(input.request.chainId, input.request.tokenOut)' backend/src/modules/risk/token-limit-risk.engine.ts
 grep -q 'TokenLimitRiskEngine scopes token authorization by chain and address' backend/test/token-limit-risk.test.mjs
@@ -1942,7 +1952,7 @@ grep -q 'rfq_quote_latency_seconds' backend/src/modules/metrics/metrics.service.
 grep -q 'rfq_quote_rejections_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_submit_latency_seconds' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_rate_limited_total' backend/src/modules/metrics/metrics.service.ts
-grep -q 'recordRateLimited' backend/src/main.ts
+grep -q 'recordRateLimited' $gateway_sources
 grep -q 'rfq_signer_requests_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_signer_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_signer_latency_seconds' backend/src/modules/metrics/metrics.service.ts
@@ -2002,7 +2012,7 @@ grep -q 'Histogram observations must be finite numbers before mutation' book/Vol
 grep -q 'realizedAt` must be a canonical UTC ISO timestamp generated with `Date.prototype.toISOString()`' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q '`String` wrapper objects cannot rely on JavaScript `RegExp.test()` coercion' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'canonical integer strings without leading zeros or negative zero' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
-grep -q 'recordReadiness' backend/src/main.ts
+grep -q 'recordReadiness' $gateway_sources
 grep -q 'rfq_readiness_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_dependency_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_rate_limited_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
@@ -2026,11 +2036,11 @@ grep -q 'RFQSubmitLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_submit_latency_seconds' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQRateLimitSpike' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_rate_limited_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
-grep -q 'recordQuoteLatency' backend/src/main.ts
-grep -q 'recordQuoteRejection' backend/src/main.ts
-grep -q 'recordSubmitLatency' backend/src/main.ts
-grep -q 'quoteService.markQuoteFailed' backend/src/main.ts
-grep -q 'SETTLEMENT_REVERTED' backend/src/main.ts
+grep -q 'recordQuoteLatency' $gateway_sources
+grep -q 'recordQuoteRejection' $gateway_sources
+grep -q 'recordSubmitLatency' $gateway_sources
+grep -q 'quoteService.markQuoteFailed' $gateway_sources
+grep -q 'SETTLEMENT_REVERTED' $gateway_sources
 grep -q 'rfq_settlements_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_settlements_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_settlements_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
@@ -2040,21 +2050,21 @@ grep -q 'rfq_hedge_intents_total' book/Volume7-ProductionDeployment/Chapter03-Mo
 grep -q 'rfq_hedge_intent_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_hedge_intent_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_hedge_intent_errors_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
-grep -q 'recordHedgeIntentError' backend/src/main.ts
+grep -q 'recordHedgeIntentError' $gateway_sources
 grep -q 'rfq_hedge_lag_seconds' backend/src/modules/metrics/metrics.service.ts
-grep -q 'recordHedgeLag' backend/src/main.ts
+grep -q 'recordHedgeLag' $gateway_sources
 grep -q 'rfq_hedge_lag_seconds' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_hedge_lag_seconds' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'RFQInventoryExposureHigh' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_inventory_balance' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'rfq_quote_status_update_errors_total' backend/src/modules/metrics/metrics.service.ts
-grep -q 'recordQuoteStatusUpdateError' backend/src/main.ts
+grep -q 'recordQuoteStatusUpdateError' $gateway_sources
 grep -q 'rfq_inventory_balance' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_inventory_balance' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_inventory_balance' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_pnl_trades_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_pnl_record_errors_total' backend/src/modules/metrics/metrics.service.ts
-grep -q 'recordPnlRecordError' backend/src/main.ts
+grep -q 'recordPnlRecordError' $gateway_sources
 grep -q 'rfq_realized_pnl_token_out' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertInventoryMetricPosition(position)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertPnlTradeMetricRecord(record)' backend/src/modules/metrics/metrics.service.ts
@@ -2890,8 +2900,8 @@ grep -q 'Every HTTP response includes an `x-trace-id` header' README.md
 grep -q 'assertTraceHeader' backend/test/api.test.mjs
 grep -q 'onRequest` hook' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Fastify parser' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'readOwnEnvValue(env, "RFQ_QUOTE_TTL_SECONDS")' backend/src/main.ts
-grep -q 'readOwnEnvValue(env, "HOST")' backend/src/main.ts
+grep -q 'readOwnEnvValue(env, "RFQ_QUOTE_TTL_SECONDS")' $gateway_sources
+grep -q 'readOwnEnvValue(env, "HOST")' $gateway_sources
 grep -q 'RFQ API reads startup environment only from own fields' backend/test/api-gateway-env.test.mjs
 grep -q 'Object.create({ HOST: "0.0.0.0", PORT: "8080" })' backend/test/api-gateway-env.test.mjs
 grep -q 'Gateway startup reads environment configuration only from own fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
@@ -3026,7 +3036,7 @@ grep -q 'preserves signer errors when failed quote persistence fails' backend/te
 grep -q 'rfq_signer_errors_total' backend/test/api-signer.test.mjs
 grep -q 'unconfigured market data pairs before pricing and signing' backend/test/api-market-data.test.mjs
 grep -q 'settlement constraints before simulated settlement' backend/test/api-submit-dependencies.test.mjs
-grep -q 'settlementRejectionFailureCode' backend/src/main.ts
+grep -q 'settlementRejectionFailureCode' $gateway_sources
 grep -q 'failed quote status persistence fails' backend/test/api-submit-dependencies.test.mjs
 grep -q 'target_status="FAILED"' backend/test/api-submit-dependencies.test.mjs
 grep -q 'settlement verifier failures' backend/test/api-submit-settlement-dependencies.test.mjs
@@ -3066,8 +3076,8 @@ grep -Fq 'typeof token !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(token)' backe
 grep -q 'new String(tokenIn)' backend/test/settlement-verifier-policy-validation.test.mjs
 grep -q 'signature shape, canonical low-s/v checks' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'The settlement verifier always recovers the signature against that explicit signer identity' README.md
-grep -q 'buildDefaultSettlementVerifierPolicy(signerRuntimeConfig)' backend/src/main.ts
-grep -q 'trustedSignerAddress: signerConfig.trustedSignerAddress' backend/src/main.ts
+grep -q 'buildDefaultSettlementVerifierPolicy(signerRuntimeConfig)' $gateway_sources
+grep -q 'trustedSignerAddress: signerConfig.trustedSignerAddress' $gateway_sources
 grep -q 'export function buildQuoteTypedData' backend/src/modules/signer/signer.service.ts
 grep -q 'settlement verifier policy fail-fast' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'JavaScript regex coercion 进入 `/submit` 结算验证路径' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -3118,7 +3128,7 @@ grep -q 'CORS preflight for disallowed origins' backend/test/api-gateway-runtime
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' backend/test/api-gateway-env.test.mjs
 grep -q 'normalizes RFQ_CORS_ALLOWED_ORIGINS at startup' backend/test/api-gateway-env.test.mjs
 grep -q 'https://app.example.com?debug=true' backend/test/api-gateway-env.test.mjs
-grep -q 'URL origins without path, query, fragment, credentials, or wildcards' backend/src/main.ts
+grep -q 'URL origins without path, query, fragment, credentials, or wildcards' $gateway_sources
 grep -q 'security headers on successful responses' backend/test/api-gateway-runtime.test.mjs
 grep -q 'emits HSTS when enabled' backend/test/api-gateway-runtime.test.mjs
 grep -q 'RFQ_ENABLE_HSTS' backend/test/api-gateway-env.test.mjs
@@ -3211,7 +3221,7 @@ grep -Fq '!/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/prici
 grep -q 'convertBaseUnitAmount(amountIn, midPrice, tokenIn.decimals, tokenOut.decimals)' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'calculateUsdNotional(amountIn, midPrice, tokenIn, tokenOut)' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'pricingVersion: `formula-v2:${input.routePlan.venue}`' backend/src/modules/pricing/pricing.engine.ts
-grep -q 'RFQ_TOKEN_REGISTRY_JSON' backend/src/main.ts
+grep -q 'RFQ_TOKEN_REGISTRY_JSON' $gateway_sources
 grep -q 'decimals-aware readiness pricing probe' backend/test/api-token-registry-runtime.test.mjs
 grep -q 'WETH 18 decimals to USDC 6 decimals' backend/test/price-normalization.test.mjs
 grep -q 'FormulaPricingEngine snapshots pricing configuration at construction' backend/test/pricing.test.mjs

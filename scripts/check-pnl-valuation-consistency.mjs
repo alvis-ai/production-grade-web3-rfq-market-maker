@@ -2,6 +2,7 @@
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
 
 const paths = [
   "backend/src/shared/types/rfq.ts",
@@ -24,6 +25,7 @@ const paths = [
 const files = Object.fromEntries(await Promise.all(
   paths.map(async (path) => [path, await readFile(path, "utf8")]),
 ));
+files["backend/src/main.ts"] = await readBackendGatewaySource();
 
 assertContains("backend/src/shared/types/rfq.ts", [
   "quote_snapshot_edge_v1",

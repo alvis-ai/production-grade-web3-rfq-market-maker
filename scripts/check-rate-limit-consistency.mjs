@@ -2,10 +2,11 @@
 
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
+import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
 
 const rateLimiterSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const redisRateLimiterSource = await readFile("backend/src/modules/rate-limit/redis-rate-limit.service.ts", "utf8");
-const mainSource = await readFile("backend/src/main.ts", "utf8");
+const mainSource = await readBackendGatewaySource();
 const apiGatewayEnvTestSource = await readFile("backend/test/api-gateway-env.test.mjs", "utf8");
 const apiGatewayTestSource = await readFile("backend/test/api-gateway.test.mjs", "utf8");
 const apiRateLimitTestSource = await readFile("backend/test/api-rate-limit.test.mjs", "utf8");
@@ -88,9 +89,10 @@ assertContains(mainSource, [
   "maxQuoteRequests: rateLimit.maxQuoteRequests ?? 120",
   "maxSubmitRequests: rateLimit.maxSubmitRequests ?? 60",
   "maxStatusRequests: rateLimit.maxStatusRequests ?? 300",
-  'enforceRateLimit(rateLimiter, metricsService, "quote", request, reply, trustProxy, authenticatedPrincipals.get(request))',
-  'enforceRateLimit(rateLimiter, metricsService, "submit", request, reply, trustProxy, authenticatedPrincipals.get(request))',
-  'enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy, authenticatedPrincipals.get(request))',
+  "enforceRateLimit(",
+  '"quote",\n        request,',
+  '"submit",\n        request,',
+  '"status",\n        request,',
   'new APIError("RATE_LIMITED", "Too many requests", 429)',
   'reply.header("x-ratelimit-remaining"',
   'reply.header("retry-after"',

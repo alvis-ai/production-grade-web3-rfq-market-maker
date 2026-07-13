@@ -2,9 +2,10 @@
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
 
 const files = {
-  main: await readFile("backend/src/main.ts", "utf8"),
+  main: await readBackendGatewaySource(),
   store: await readFile("backend/src/modules/execution/submit-reservation.store.ts", "utf8"),
   postgres: await readFile("backend/src/modules/execution/postgres-submit-reservation.store.ts", "utf8"),
   migration: await readFile("backend/src/db/migrations/008-submit-reservations.sql", "utf8"),

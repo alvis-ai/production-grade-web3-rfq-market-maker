@@ -19,6 +19,8 @@ on:
       - "backend/test/*submit-reservation*"
       - "backend/test/submit-concurrency.test.mjs"
       - "backend/src/main.ts"
+      - "backend/src/api/**"
+      - "backend/src/runtime/**"
       - "sdk/src/client.ts"
       - "sdk/src/types.ts"
       - "sdk/test/sdk-client-config.test.mjs"
@@ -31,6 +33,8 @@ on:
       - "sdk/test/sdk.test.mjs"
       - "scripts/check-api-error-consistency.mjs"
       - "scripts/check-api-auth-consistency.mjs"
+      - "scripts/check-api-composition-consistency.mjs"
+      - "scripts/lib/**"
       - "scripts/check-api-route-consistency.mjs"
       - "scripts/check-api-schema-consistency.mjs"
       - "scripts/check-ci-workflows-consistency.mjs"
@@ -83,6 +87,8 @@ jobs:
         run: make settlement-indexer-check
       - name: Check cross-replica submit reservation consistency
         run: make submit-reservation-check
+      - name: Check API composition boundaries
+        run: make api-composition-check
       - name: Check scoped API authentication consistency
         run: make api-auth-check
       - name: Check API error code consistency

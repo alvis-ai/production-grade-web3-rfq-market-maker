@@ -2,6 +2,7 @@
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
 
 const [
   authSource,
@@ -19,7 +20,7 @@ const [
   keyManagementSource,
 ] = await Promise.all([
   readFile("backend/src/modules/auth/api-key-auth.service.ts", "utf8"),
-  readFile("backend/src/main.ts", "utf8"),
+  readBackendGatewaySource(),
   readFile("backend/src/modules/metrics/metrics.service.ts", "utf8"),
   readFile("backend/test/api-auth-runtime.test.mjs", "utf8"),
   readFile("sdk/src/client.ts", "utf8"),

@@ -26,6 +26,7 @@ run_step make pnl-valuation-check
 run_step make kms-signer-check
 run_step make settlement-indexer-check
 run_step make submit-reservation-check
+run_step make api-composition-check
 run_step make api-auth-check
 run_step make eip712-check
 run_step make contract-abi-check

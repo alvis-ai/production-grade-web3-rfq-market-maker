@@ -23,6 +23,7 @@
     "skeleton:check": "make skeleton-check",
     "api:schema:check": "make api-schema-check",
     "api:route:check": "make api-route-check",
+    "api:composition:check": "make api-composition-check",
     "database:schema:check": "make database-schema-check",
     "reconciliation:check": "make reconciliation-check",
     "reconciliation:integration:check": "make reconciliation-integration-check",

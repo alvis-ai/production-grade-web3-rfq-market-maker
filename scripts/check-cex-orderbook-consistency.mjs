@@ -2,9 +2,10 @@
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
 
 const [
-  mainSource,
+  mainEntrySource,
   monitorSource,
   decimalSource,
   orderBookSource,
@@ -44,6 +45,7 @@ const [
   "package.json",
   "scripts/cex-orderbook-integration-check.mjs",
 ].map((path) => readFile(path, "utf8")));
+const mainSource = `${mainEntrySource}\n${await readBackendGatewaySource()}`;
 
 const tuningNames = [
   "RFQ_CEX_DEPTH_RANGE_BPS",
@@ -68,7 +70,7 @@ for (const name of tuningNames) {
 }
 
 assert.ok(
-  mainSource.includes("requiresExplicitSignerConfig(nodeEnv) ? 2 : 1"),
+  mainSource.includes("requiresExplicitRuntimeConfig(nodeEnv) ? 2 : 1"),
   "non-local CEX runtime must default to a two-source quorum",
 );
 assert.ok(monitorSource.includes("this.cache.delete(cacheKey)"), "blocked CEX pairs must invalidate cache immediately");

@@ -2,6 +2,7 @@
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
 
 const files = Object.fromEntries(await Promise.all([
   "backend/src/main.ts",
@@ -18,6 +19,7 @@ const files = Object.fromEntries(await Promise.all([
   "book/Volume2-MarketData-And-Pricing/Chapter02-Price-Normalization.md",
   "book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md",
 ].map(async (path) => [path, await readFile(path, "utf8")])));
+files["backend/src/main.ts"] = await readBackendGatewaySource();
 
 const runtimeConfigFiles = [
   ".env.example",
