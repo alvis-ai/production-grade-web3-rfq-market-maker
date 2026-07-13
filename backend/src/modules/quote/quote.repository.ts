@@ -24,6 +24,7 @@ const signedQuoteInputFields = [
   "pricingVersion",
   "spreadBps",
   "sizeImpactBps",
+  "marketSpreadBps",
   "inventorySkewBps",
   "volatilityPremiumBps",
   "hedgeCostBps",
@@ -58,6 +59,7 @@ export interface QuoteRecord {
   pricingVersion?: string;
   spreadBps?: number;
   sizeImpactBps?: number;
+  marketSpreadBps?: number;
   inventorySkewBps?: number;
   volatilityPremiumBps?: number;
   hedgeCostBps?: number;
@@ -127,6 +129,7 @@ export interface SaveSignedQuoteInput {
   pricingVersion: string;
   spreadBps: number;
   sizeImpactBps: number;
+  marketSpreadBps: number;
   inventorySkewBps: number;
   volatilityPremiumBps: number;
   hedgeCostBps: number;
@@ -225,6 +228,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       pricingVersion: input.pricingVersion,
       spreadBps: input.spreadBps,
       sizeImpactBps: input.sizeImpactBps,
+      marketSpreadBps: input.marketSpreadBps,
       inventorySkewBps: input.inventorySkewBps,
       volatilityPremiumBps: input.volatilityPremiumBps,
       hedgeCostBps: input.hedgeCostBps,
@@ -349,6 +353,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       !record.signature ||
       record.spreadBps === undefined ||
       record.sizeImpactBps === undefined ||
+      record.marketSpreadBps === undefined ||
       record.inventorySkewBps === undefined ||
       record.volatilityPremiumBps === undefined ||
       record.hedgeCostBps === undefined
@@ -472,6 +477,7 @@ function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertNonNegativeBps(input.slippageBps, "slippageBps", "Signed quote");
   assertNonNegativeBps(input.spreadBps, "spreadBps", "Signed quote");
   assertNonNegativeBps(input.sizeImpactBps, "sizeImpactBps", "Signed quote");
+  assertNonNegativeBps(input.marketSpreadBps, "marketSpreadBps", "Signed quote");
   assertBpsMagnitude(input.inventorySkewBps, "inventorySkewBps", "Signed quote");
   assertNonNegativeBps(input.volatilityPremiumBps, "volatilityPremiumBps", "Signed quote");
   assertNonNegativeBps(input.hedgeCostBps, "hedgeCostBps", "Signed quote");
@@ -747,6 +753,7 @@ function isSameSignedQuotePayload(record: QuoteRecord, input: SaveSignedQuoteInp
     record.pricingVersion === input.pricingVersion &&
     record.spreadBps === input.spreadBps &&
     record.sizeImpactBps === input.sizeImpactBps &&
+    record.marketSpreadBps === input.marketSpreadBps &&
     record.inventorySkewBps === input.inventorySkewBps &&
     record.volatilityPremiumBps === input.volatilityPremiumBps &&
     record.hedgeCostBps === input.hedgeCostBps &&

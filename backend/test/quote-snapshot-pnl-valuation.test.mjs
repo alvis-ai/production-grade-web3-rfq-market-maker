@@ -24,6 +24,7 @@ const snapshot = {
   tokenOut: usdc,
   midPrice: "2000.000000000000000000",
   liquidityUsd: "50000000",
+  marketSpreadBps: 0,
   volatilityBps: 25,
   source: "test",
   observedAt: "2026-07-11T00:00:00.000Z",

@@ -16,6 +16,7 @@ const basePricing = {
   minAmountOut: "993408000",
   spreadBps: 16,
   sizeImpactBps: 1,
+  marketSpreadBps: 0,
   inventorySkewBps: 0,
   volatilityPremiumBps: 0,
   hedgeCostBps: 0,
@@ -26,6 +27,7 @@ const baseSnapshot = {
   snapshotId: "risk_runtime_snapshot",
   midPrice: "1",
   liquidityUsd: "10000000",
+  marketSpreadBps: 0,
   volatilityBps: 25,
   observedAt: "2026-01-01T00:00:00.000Z",
 };

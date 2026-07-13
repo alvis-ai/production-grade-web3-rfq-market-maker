@@ -128,6 +128,7 @@ function pricing(amountOut) {
     minAmountOut: amountOut,
     spreadBps: 10,
     sizeImpactBps: 1,
+    marketSpreadBps: 0,
     inventorySkewBps: 0,
     volatilityPremiumBps: 0,
     hedgeCostBps: 0,

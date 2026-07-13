@@ -77,20 +77,20 @@ try {
   await pool.query(
     `INSERT INTO market_snapshots (
        id, chain_id, token_in, token_out, mid_price, bid_price, ask_price,
-       liquidity_usd, volatility_bps, source, observed_at
+       liquidity_usd, market_spread_bps, volatility_bps, source, observed_at
      ) VALUES ($1, 1, $2, $3, '1.000000000000000000', '0.990000000000000000',
-       '1.010000000000000000', 1000000, 25, 'reconciliation-integration', now())`,
+       '1.010000000000000000', 1000000, 10, 25, 'reconciliation-integration', now())`,
     [snapshotId, tokenIn, tokenOut],
   );
   await pool.query(
     `INSERT INTO quotes (
        id, chain_id, user_address, token_in, token_out, amount_in, slippage_bps,
        amount_out, min_amount_out, nonce, deadline, snapshot_id, pricing_version,
-       spread_bps, size_impact_bps, inventory_skew_bps, volatility_premium_bps,
+       spread_bps, size_impact_bps, market_spread_bps, inventory_skew_bps, volatility_premium_bps,
        hedge_cost_bps, risk_policy_version,
        status, signature
      ) VALUES ($1, 1, $2, $3, $4, $5, 50, $6, $7, $8, $9, $10,
-       'formula-v3', 20, 5, 0, 5, 0, 'risk-v1', 'signed', $11)`,
+       'formula-v4', 20, 5, 10, 0, 5, 0, 'risk-v1', 'signed', $11)`,
     [
       quoteId,
       user,

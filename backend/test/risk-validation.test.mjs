@@ -16,6 +16,7 @@ const basePricing = {
   minAmountOut: "993408000",
   spreadBps: 16,
   sizeImpactBps: 1,
+  marketSpreadBps: 0,
   inventorySkewBps: 0,
   volatilityPremiumBps: 0,
   hedgeCostBps: 0,

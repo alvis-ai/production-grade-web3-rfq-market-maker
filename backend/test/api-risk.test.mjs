@@ -52,6 +52,7 @@ test("RFQ API rejects quotes when pricing spread exceeds risk guard before signi
           minAmountOut: "895500000",
           spreadBps: 1500,
           sizeImpactBps: 250,
+          marketSpreadBps: 0,
           inventorySkewBps: 0,
           volatilityPremiumBps: 0,
           hedgeCostBps: 0,

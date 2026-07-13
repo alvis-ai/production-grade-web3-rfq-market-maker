@@ -28,6 +28,8 @@ export interface OrderBookMetrics {
   bestAsk: string;
   /** Spread in basis points */
   spreadBps: number;
+  /** Mid-to-best-bid discount in basis points for the executable quote direction */
+  marketSpreadBps: number;
   /** Executable bid-side USD notional within the configured depth range */
   liquidityUsd: string;
   /** Number of bid levels */
@@ -135,6 +137,10 @@ export class OrderBook {
     const spreadBps = spreadValue > BigInt(Number.MAX_SAFE_INTEGER)
       ? Number.MAX_SAFE_INTEGER
       : Number(spreadValue);
+    const marketSpreadValue = validSpread && midPriceValue > bestBidValue
+      ? ((midPriceValue - bestBidValue) * 10_000n + midPriceValue - 1n) / midPriceValue
+      : 0n;
+    const marketSpreadBps = Number(marketSpreadValue);
 
     // Configured CEX pairs are base tokenIn -> USD-reference tokenOut, so only
     // bids are executable hedge depth for the quoted direction.
@@ -145,6 +151,7 @@ export class OrderBook {
       bestBid,
       bestAsk,
       spreadBps,
+      marketSpreadBps,
       liquidityUsd: liquidityUsd.toString(),
       bidLevels: this.bids.size,
       askLevels: this.asks.size,

@@ -40,6 +40,7 @@ erDiagram
     text snapshot_id
     integer spread_bps
     integer size_impact_bps
+    integer market_spread_bps
     integer inventory_skew_bps
     integer volatility_premium_bps
     integer hedge_cost_bps
@@ -74,6 +75,7 @@ erDiagram
     text token_out
     numeric mid_price
     numeric liquidity_usd
+    integer market_spread_bps
     integer volatility_bps
     timestamptz observed_at
   }
@@ -222,18 +224,19 @@ erDiagram
 - `quotes` 使用 partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`，保证 signed quote 的 `chainId:user:nonce` 本地查找键唯一，同时允许 requested / rejected quote 在签名前没有 nonce。
 - `quote_exposure_reservations` 以 `quote_id` 为主键并级联绑定 requested quote，保存 `(chain_id, normalized user)` 与排序后的无方向 `(token_low, token_high)` 作用域、18-decimal USD 定点名义金额和 `expires_at`。只有尚未过期且 quote 状态仍为 requested/signed/failed 的行参与累计限额；failed signed quote 的链上 nonce 未必已消耗，必须保守计数。submitted/settled 有成交证据后暂不计数但保留行，reorg 恢复 signed 状态时自动重新纳入；expired 行由有界 `FOR UPDATE SKIP LOCKED` 清理。
 - PostgreSQL exposure store 对 quote、user 与 pair scope 按字符串稳定排序后逐个获取 transaction-scoped advisory locks，再执行 active SUM 和 INSERT；这让多 API replica 的并发报价无法通过 write skew 同时越过 `maxUserOpenNotionalUsd` 或 `maxPairOpenNotionalUsd`。锁仅覆盖冲突作用域，不串行化不相关用户与交易对。
-- 数据库层使用 CHECK constraints 固化应用层关键不变量：操作表 primary id 使用 SafeIdentifier 约束、quote lifecycle status、risk decision status / reason_code consistency、hedge side/status（`queued`、`filled`、`failed`）、hedge `venue` 非空、PnL attribution model / model description、20-byte address、distinct token pair、market snapshot `source` 非空、market snapshot `bid_price <= mid_price <= ask_price`、market snapshot `volatility_bps` 在 0..10000 bps、signed quote pricing bps component ranges、32-byte tx/quote hash、65-byte canonical low-s EIP-712 signature with `v` in 27/28、`amount_out >= min_amount_out`，以及正数 signed amount/nonce、settled amount/nonce 和 hedge amount。
+- 数据库层使用 CHECK constraints 固化应用层关键不变量：操作表 primary id 使用 SafeIdentifier 约束、quote lifecycle status、risk decision status / reason_code consistency、hedge side/status（`queued`、`filled`、`failed`）、hedge `venue` 非空、PnL attribution model / model description、20-byte address、distinct token pair、market snapshot `source` 非空、market snapshot `bid_price <= mid_price <= ask_price`、market snapshot `market_spread_bps` 与 market snapshot `volatility_bps` 在 0..10000 bps、signed quote pricing bps component ranges、32-byte tx/quote hash、65-byte canonical low-s EIP-712 signature with `v` in 27/28、`amount_out >= min_amount_out`，以及正数 signed amount/nonce、settled amount/nonce 和 hedge amount。
 - `quotes`、`market_snapshots`、`risk_decisions`、`settlement_events`、`inventory_positions`、`hedge_orders` 和 `pnl_records` 的 primary id 都必须符合 SafeIdentifier：非空、不超过 128 个字符，并且只包含 letters、numbers、underscore、colon 或 hyphen，避免数据库保存 API/SDK 无法查询或展示的资源主键。
 - `quotes` 的 status payload consistency 约束要求 signed payload 字段全有或全无，requested/rejected 状态不能携带 signed payload 字段，signed/expired/submitted/settled 状态必须保留完整 signed quote payload metadata，只有 rejected/failed 状态可以携带非空 `reject_code`，submitted/settled 状态必须至少保留 `tx_hash` 和 `settlement_event_id`。
 - `quotes.pricing_version`、`quotes.risk_policy_version` 和 `quotes.reject_code` 在状态允许为 NULL 时可以缺失，但一旦写入必须是非空字符串，避免 signed/rejected/failed quote 带着不可解释的空白元数据。
 - `quotes.deadline` 使用 BIGINT 保存 EIP-712 signed quote 的 Unix seconds，而不是 timestamptz；它必须位于 JavaScript safe integer range `1..9007199254740991`，保证数据库值与 API、Signer、Settlement verifier 和链上 `uint256 deadline` 语义一致。
 - `quotes.snapshot_id` 是指向 `market_snapshots.id` 的必填 foreign key，用于报价回放；每条持久化 quote 都必须能回到用于定价的 market snapshot。
 - `quotes.slippage_bps` 保存原始 `QuoteRequest.slippageBps`，必须是 `0..10000` bps 内的整数。EIP-712 `SignedQuote` 只携带最终 `minAmountOut`，数据库单独保留请求滑点，才能在报价回放、风控审计和用户争议处理中解释 `min_amount_out` 如何由 `amount_out` 推导而来。
-- `quotes.spread_bps`、`quotes.size_impact_bps`、`quotes.inventory_skew_bps`、`quotes.volatility_premium_bps` 和 `quotes.hedge_cost_bps` 保存 signed quote 的定价组成。除可正可负的 `inventory_skew_bps` 必须在 `-10000..10000` 外，其余 bps 字段必须在 `0..10000`；这些字段和 `pricing_version` 一起解释 `amount_out` 如何从 market snapshot、route liquidity、inventory skew、volatility premium 和 hedge failure pressure 推导而来。
+- `quotes.spread_bps`、`quotes.size_impact_bps`、`quotes.market_spread_bps`、`quotes.inventory_skew_bps`、`quotes.volatility_premium_bps` 和 `quotes.hedge_cost_bps` 保存 signed quote 的定价组成。除可正可负的 `inventory_skew_bps` 必须在 `-10000..10000` 外，其余 bps 字段必须在 `0..10000`；这些字段和 `pricing_version` 一起解释 `amount_out` 如何从 market snapshot、route liquidity、可执行 market spread、inventory、volatility 和 hedge pressure 推导而来。
 - `market_snapshots.source` 必须是非空字符串，用于保留行情来源、provider 或聚合管线版本，避免报价回放时无法解释价格输入。
 - `market_snapshots.liquidity_usd` 必须是非空正整数数值，匹配 Market Data、Routing 和 Pricing 对 `liquidityUsd` positive uint string 的运行时约束。
+- `market_snapshots.market_spread_bps` 必须是 `0..10000` bps 内的整数，保存 snapshot 当时 mid 到当前 RFQ 方向 executable bid 的折价。迁移 `013` 对无法恢复该归因的历史快照与历史 signed quote 回填 `0`，新写入则强制完整携带。
 - `market_snapshots.volatility_bps` 必须是 `0..10000` bps 内的整数，与 Market Data、Routing 和 Pricing 对 required `volatilityBps` / volatility premium 的输入契约一致。
-- runtime `MarketSnapshotStore` 必须镜像 `market_snapshots` 表的核心契约：同一 `snapshot_id` 只能对应同一 chain/token pair、price、liquidity、volatility、source 和 observedAt；完全相同写入可幂等重放，任何字段改写都必须失败，避免 quote 回放时一个 `snapshotId` 指向多个价格输入。
+- runtime `MarketSnapshotStore` 必须镜像 `market_snapshots` 表的核心契约：同一 `snapshot_id` 只能对应同一 chain/token pair、price、liquidity、market spread、volatility、source 和 observedAt；完全相同写入可幂等重放，任何字段改写都必须失败。
 - `quotes.settlement_event_id`、`quotes.hedge_order_id`、`quotes.pnl_id` 是分别指向 `settlement_events.id`、`hedge_orders.id`、`pnl_records.id` 的 nullable foreign keys，保证 `GET /quote/:id` 状态指针不能悬空；权威成交、对冲和 PnL 明细仍分别位于这些下游表。
 - `hedge_orders.status` 使用 `queued`、`filled`、`failed` 表达内部 intent 生命周期；`external_order_id` 可以在内部 queued intent 阶段为 NULL，但一旦外部 venue 返回引用就必须是非空字符串，`updated_at` 记录 filled/failed 状态转换时间。
 - `hedge_orders.attempt_count`、`next_attempt_at`、`lease_owner` 和 `lease_expires_at` 构成多 worker 共享的 durable queue。lease 字段必须同时为空或同时存在，只有 queued row 可以持有 lease，终态转换必须清除 lease。`idx_hedge_orders_queued_claim` 支持按 due time 使用 `FOR UPDATE SKIP LOCKED` claim。

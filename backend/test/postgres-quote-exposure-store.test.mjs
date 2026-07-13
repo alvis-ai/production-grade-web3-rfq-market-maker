@@ -139,6 +139,7 @@ function input(quoteId) {
       minAmountOut: "100000000000000000000",
       spreadBps: 10,
       sizeImpactBps: 1,
+      marketSpreadBps: 0,
       inventorySkewBps: 0,
       volatilityPremiumBps: 0,
       hedgeCostBps: 0,

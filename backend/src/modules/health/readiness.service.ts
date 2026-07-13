@@ -87,6 +87,7 @@ export const defaultReadinessServiceConfig: ReadinessServiceConfig = {
     snapshotId: "readiness_snapshot",
     midPrice: "1",
     liquidityUsd: "10000000000000",
+    marketSpreadBps: 0,
     volatilityBps: 25,
     observedAt: "2026-01-01T00:00:00.000Z",
   },
@@ -102,6 +103,7 @@ export const defaultReadinessServiceConfig: ReadinessServiceConfig = {
     minAmountOut: "993408000",
     spreadBps: 16,
     sizeImpactBps: 1,
+    marketSpreadBps: 0,
     inventorySkewBps: 0,
     volatilityPremiumBps: 5,
     hedgeCostBps: 0,
@@ -147,13 +149,21 @@ const readinessServiceDepsFields = [
   "submitReservationStore",
 ] as const;
 const probeRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
-const probeSnapshotFields = ["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"] as const;
+const probeSnapshotFields = [
+  "snapshotId",
+  "midPrice",
+  "liquidityUsd",
+  "marketSpreadBps",
+  "volatilityBps",
+  "observedAt",
+] as const;
 const probeRoutePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"] as const;
 const probePricingFields = [
   "amountOut",
   "minAmountOut",
   "spreadBps",
   "sizeImpactBps",
+  "marketSpreadBps",
   "inventorySkewBps",
   "volatilityPremiumBps",
   "hedgeCostBps",

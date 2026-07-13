@@ -16,9 +16,9 @@ sequenceDiagram
   User->>API: POST /quote(chainId, user, tokenIn, tokenOut, amountIn, slippageBps)
   API->>API: Validate request schema and token support
   API->>MD: Load market snapshot
-  MD-->>API: snapshotId, midPrice, liquidity, volatility
+  MD-->>API: snapshotId, midPrice, liquidity, marketSpread, volatility
   API->>Pricing: Calculate quote with snapshot and inventory context
-  Pricing-->>API: amountOut, spread, sizeImpact, inventorySkew, volatilityPremium, hedgeCost
+  Pricing-->>API: amountOut, totalSpread, sizeImpact, marketSpread, inventorySkew, volatilityPremium, hedgeCost
   API->>Risk: Check limits, inventory, toxicity, notional, chain policy
   alt Risk accepted
     Risk-->>API: approved risk decision

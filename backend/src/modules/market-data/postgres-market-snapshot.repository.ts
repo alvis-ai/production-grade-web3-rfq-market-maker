@@ -33,11 +33,11 @@ export class PostgresMarketSnapshotStore implements MarketSnapshotStore {
     try {
       const result = await client.query(
         `INSERT INTO market_snapshots (id, chain_id, token_in, token_out, mid_price,
-          liquidity_usd, volatility_bps, source, observed_at, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+          liquidity_usd, market_spread_bps, volatility_bps, source, observed_at, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
          ON CONFLICT (id) DO NOTHING
          RETURNING id, chain_id, token_in, token_out, mid_price, liquidity_usd,
-           volatility_bps, source, observed_at, created_at`,
+           market_spread_bps, volatility_bps, source, observed_at, created_at`,
         [
           expected.snapshotId,
           expected.chainId,
@@ -45,6 +45,7 @@ export class PostgresMarketSnapshotStore implements MarketSnapshotStore {
           expected.tokenOut.toLowerCase(),
           expected.midPrice,
           expected.liquidityUsd,
+          expected.marketSpreadBps,
           expected.volatilityBps,
           expected.source,
           expected.observedAt,
@@ -55,7 +56,7 @@ export class PostgresMarketSnapshotStore implements MarketSnapshotStore {
 
       const existingResult = await client.query(
         `SELECT id, chain_id, token_in, token_out, mid_price, liquidity_usd,
-          volatility_bps, source, observed_at, created_at
+          market_spread_bps, volatility_bps, source, observed_at, created_at
          FROM market_snapshots WHERE id = $1`,
         [expected.snapshotId],
       );
@@ -78,7 +79,7 @@ export class PostgresMarketSnapshotStore implements MarketSnapshotStore {
     try {
       const result = await client.query(
         `SELECT id, chain_id, token_in, token_out, mid_price, liquidity_usd,
-          volatility_bps, source, observed_at, created_at
+          market_spread_bps, volatility_bps, source, observed_at, created_at
          FROM market_snapshots WHERE id = $1`,
         [snapshotId],
       );
@@ -99,6 +100,7 @@ function rowToRecord(row: Record<string, unknown>): MarketSnapshotRecord {
     tokenOut: String(row.token_out) as `0x${string}`,
     midPrice: String(row.mid_price),
     liquidityUsd: String(row.liquidity_usd),
+    marketSpreadBps: Number(row.market_spread_bps),
     volatilityBps: Number(row.volatility_bps),
     source: String(row.source),
     observedAt: row.observed_at instanceof Date ? row.observed_at.toISOString() : String(row.observed_at),
@@ -116,6 +118,7 @@ function matchesSnapshotRecord(
     record.tokenOut.toLowerCase() === expected.tokenOut.toLowerCase() &&
     equalDecimal(record.midPrice, expected.midPrice) &&
     record.liquidityUsd === expected.liquidityUsd &&
+    record.marketSpreadBps === expected.marketSpreadBps &&
     record.volatilityBps === expected.volatilityBps &&
     record.source === expected.source &&
     record.observedAt === expected.observedAt;

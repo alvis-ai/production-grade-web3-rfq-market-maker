@@ -20,6 +20,7 @@ test("RFQ API rejects stale market data before pricing and signing", async () =>
           snapshotId: "snapshot_stale",
           midPrice: "1",
           liquidityUsd: "10000000000000",
+          marketSpreadBps: 0,
           volatilityBps: 25,
           observedAt: new Date(Date.now() - 60_000).toISOString(),
         };
@@ -83,6 +84,7 @@ test("RFQ API rejects market data timestamps too far in the future", async () =>
           snapshotId: "snapshot_future",
           midPrice: "1",
           liquidityUsd: "10000000000000",
+          marketSpreadBps: 0,
           volatilityBps: 25,
           observedAt: new Date(Date.now() + 60_000).toISOString(),
         };
@@ -152,6 +154,7 @@ test("RFQ API rejects invalid market data before pricing and signing", async () 
           snapshotId: "snapshot_invalid_mid",
           midPrice: "not-a-price",
           liquidityUsd: "10000000000000",
+          marketSpreadBps: 0,
           volatilityBps: 25,
           observedAt: new Date().toISOString(),
         };

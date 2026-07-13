@@ -27,6 +27,7 @@ const pricingResultFields = [
   "minAmountOut",
   "spreadBps",
   "sizeImpactBps",
+  "marketSpreadBps",
   "inventorySkewBps",
   "volatilityPremiumBps",
   "hedgeCostBps",
@@ -327,6 +328,7 @@ export function assertRiskInput(input: RiskInput): void {
   }
   assertBpsUpperBound(input.pricing.spreadBps, "pricing.spreadBps");
   assertBpsUpperBound(input.pricing.sizeImpactBps, "pricing.sizeImpactBps");
+  assertBpsUpperBound(input.pricing.marketSpreadBps, "pricing.marketSpreadBps");
   assertBpsMagnitude(input.pricing.inventorySkewBps, "pricing.inventorySkewBps");
   assertBpsUpperBound(input.pricing.volatilityPremiumBps, "pricing.volatilityPremiumBps");
   assertBpsUpperBound(input.pricing.hedgeCostBps, "pricing.hedgeCostBps");

@@ -234,6 +234,7 @@ test("QuoteService keeps inventory skew and hedge risk premium separate in prici
           minAmountOut: "993408000",
           spreadBps: input.inventorySkewBps + input.hedgeCostBps,
           sizeImpactBps: 1,
+          marketSpreadBps: 0,
           inventorySkewBps: input.inventorySkewBps,
           volatilityPremiumBps: 5,
           hedgeCostBps: input.hedgeCostBps,

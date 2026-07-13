@@ -50,6 +50,10 @@ const pricingAttributionMigrationSource = await readFile(
   "backend/src/db/migrations/012-pricing-attribution.sql",
   "utf8",
 );
+const marketSpreadAttributionMigrationSource = await readFile(
+  "backend/src/db/migrations/013-market-spread-attribution.sql",
+  "utf8",
+);
 const postgresQuoteExposureSource = await readFile(
   "backend/src/modules/risk/postgres-quote-exposure.store.ts",
   "utf8",
@@ -107,6 +111,7 @@ const requiredTables = {
     "pricing_version",
     "spread_bps",
     "size_impact_bps",
+    "market_spread_bps",
     "inventory_skew_bps",
     "volatility_premium_bps",
     "hedge_cost_bps",
@@ -126,6 +131,7 @@ const requiredTables = {
     "token_out",
     "mid_price",
     "liquidity_usd",
+    "market_spread_bps",
     "volatility_bps",
     "observed_at",
   ],
@@ -525,6 +531,7 @@ assert.ok(
 for (const columnName of [
   "spread_bps",
   "size_impact_bps",
+  "market_spread_bps",
   "inventory_skew_bps",
   "volatility_premium_bps",
   "hedge_cost_bps",
@@ -545,6 +552,12 @@ assert.ok(
   "quotes must constrain size_impact_bps to the 0..10000 bps range when present",
 );
 assert.ok(
+  /market_spread_bps\s+IS\s+NULL\s+OR\s+market_spread_bps\s+BETWEEN\s+0\s+AND\s+10000/i.test(
+    tables.get("quotes").body,
+  ),
+  "quotes must constrain market_spread_bps to the 0..10000 bps range when present",
+);
+assert.ok(
   /inventory_skew_bps\s+IS\s+NULL\s+OR\s+inventory_skew_bps\s+BETWEEN\s+-10000\s+AND\s+10000/i.test(
     tables.get("quotes").body,
   ),
@@ -559,7 +572,7 @@ for (const columnName of ["volatility_premium_bps", "hedge_cost_bps"]) {
   );
 }
 assert.ok(
-  /export\s+interface\s+SaveSignedQuoteInput\s*\{[\s\S]*?spreadBps:\s*number;[\s\S]*?sizeImpactBps:\s*number;[\s\S]*?inventorySkewBps:\s*number;[\s\S]*?volatilityPremiumBps:\s*number;[\s\S]*?hedgeCostBps:\s*number;/i.test(
+  /export\s+interface\s+SaveSignedQuoteInput\s*\{[\s\S]*?spreadBps:\s*number;[\s\S]*?sizeImpactBps:\s*number;[\s\S]*?marketSpreadBps:\s*number;[\s\S]*?inventorySkewBps:\s*number;[\s\S]*?volatilityPremiumBps:\s*number;[\s\S]*?hedgeCostBps:\s*number;/i.test(
     quoteRepositorySource,
   ),
   "SaveSignedQuoteInput must carry pricing bps components for quote replay",
@@ -577,6 +590,12 @@ assert.ok(
   "signed quote persistence must validate sizeImpactBps before writing quote state",
 );
 assert.ok(
+  /assertNonNegativeBps\s*\(\s*input\.marketSpreadBps\s*,\s*"marketSpreadBps"\s*,\s*"Signed quote"\s*\)/i.test(
+    quoteRepositorySource,
+  ),
+  "signed quote persistence must validate marketSpreadBps before writing quote state",
+);
+assert.ok(
   /assertBpsMagnitude\s*\(\s*input\.inventorySkewBps\s*,\s*"inventorySkewBps"\s*,\s*"Signed quote"\s*\)/i.test(
     quoteRepositorySource,
   ),
@@ -591,7 +610,7 @@ for (const field of ["volatilityPremiumBps", "hedgeCostBps"]) {
   );
 }
 assert.ok(
-  /record\.spreadBps\s*===\s*input\.spreadBps[\s\S]*?record\.sizeImpactBps\s*===\s*input\.sizeImpactBps[\s\S]*?record\.inventorySkewBps\s*===\s*input\.inventorySkewBps[\s\S]*?record\.volatilityPremiumBps\s*===\s*input\.volatilityPremiumBps[\s\S]*?record\.hedgeCostBps\s*===\s*input\.hedgeCostBps/i.test(
+  /record\.spreadBps\s*===\s*input\.spreadBps[\s\S]*?record\.sizeImpactBps\s*===\s*input\.sizeImpactBps[\s\S]*?record\.marketSpreadBps\s*===\s*input\.marketSpreadBps[\s\S]*?record\.inventorySkewBps\s*===\s*input\.inventorySkewBps[\s\S]*?record\.volatilityPremiumBps\s*===\s*input\.volatilityPremiumBps[\s\S]*?record\.hedgeCostBps\s*===\s*input\.hedgeCostBps/i.test(
     quoteRepositorySource,
   ),
   "signed quote persistence must reject pricing bps rewrites",
@@ -599,6 +618,7 @@ assert.ok(
 for (const columnName of [
   "spread_bps",
   "size_impact_bps",
+  "market_spread_bps",
   "inventory_skew_bps",
   "volatility_premium_bps",
   "hedge_cost_bps",
@@ -733,6 +753,14 @@ assert.ok(
 assert.ok(
   /\bvolatility_bps\s+INTEGER\s+NOT\s+NULL/i.test(tables.get("market_snapshots").body),
   "market_snapshots.volatility_bps must be required because MarketSnapshot.volatilityBps is required",
+);
+assert.ok(
+  /\bmarket_spread_bps\s+INTEGER\s+NOT\s+NULL/i.test(tables.get("market_snapshots").body),
+  "market_snapshots.market_spread_bps must be required because MarketSnapshot.marketSpreadBps is required",
+);
+assert.ok(
+  /market_spread_bps\s+BETWEEN\s+0\s+AND\s+10000/i.test(tables.get("market_snapshots").body),
+  "market_snapshots must constrain market_spread_bps to the 0..10000 bps range",
 );
 assert.ok(
   /volatility_bps\s+BETWEEN\s+0\s+AND\s+10000/i.test(tables.get("market_snapshots").body),
@@ -1231,6 +1259,15 @@ assert.ok(
     !analyticsOutboxMigrationSource.includes("'volatilityPremiumBps'") &&
     !analyticsOutboxMigrationSource.includes("'hedgeCostBps'"),
   "pricing attribution must remain owned by migration 012 so a clean 001-012 chain does not duplicate columns",
+);
+assert.ok(
+  marketSpreadAttributionMigrationSource.includes("ADD COLUMN market_spread_bps") &&
+    marketSpreadAttributionMigrationSource.includes("chk_market_snapshots_market_spread_bps") &&
+    marketSpreadAttributionMigrationSource.includes("'marketSpreadBps'") &&
+    schemaSource.includes("('013', 'market-spread-attribution')") &&
+    !baseSchemaMigrationSource.includes("market_spread_bps") &&
+    !pricingAttributionMigrationSource.includes("market_spread_bps"),
+  "market spread attribution must remain owned by migration 013 and publish both quote and snapshot components",
 );
 assert.ok(
   postgresQuoteExposureSource.includes("pg_advisory_xact_lock") &&

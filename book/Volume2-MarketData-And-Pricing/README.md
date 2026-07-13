@@ -14,7 +14,7 @@
 
 ## Core Principle
 
-Pricing Engine 必须输出价格，也必须输出解释字段：`snapshotId`、`pricingVersion`、`spreadBps`、`sizeImpactBps`、`inventorySkewBps`、`volatilityPremiumBps` 和 `hedgeCostBps`。没有解释字段的报价无法用于生产审计和 PnL 归因。
+Pricing Engine 必须输出价格，也必须输出解释字段：`snapshotId`、`pricingVersion`、`spreadBps`、`sizeImpactBps`、`marketSpreadBps`、`inventorySkewBps`、`volatilityPremiumBps` 和 `hedgeCostBps`。没有解释字段的报价无法用于生产审计和 PnL 归因。
 
 ```mermaid
 flowchart LR

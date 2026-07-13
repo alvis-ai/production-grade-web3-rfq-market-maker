@@ -25,6 +25,7 @@ Spread 是做市商承担风险和提供流动性的补偿。RFQ 系统中的 sp
 
 - 支持 base spread。
 - 支持 volatility spread。
+- 支持方向化 executable market spread。
 - 支持 inventory spread。
 - 支持 hedge cost spread。
 - 输出 `spreadBps` 和组成解释。
@@ -48,6 +49,7 @@ Spread 是做市商承担风险和提供流动性的补偿。RFQ 系统中的 sp
 ```mermaid
 flowchart LR
   Base[Base Spread]
+  Market[Mid to Executable Bid]
   Vol[Volatility Add-on]
   Inventory[Inventory Add-on]
   Hedge[Hedge Cost]
@@ -55,6 +57,7 @@ flowchart LR
   Spread[Final Spread Bps]
 
   Base --> Guardrail
+  Market --> Guardrail
   Vol --> Guardrail
   Inventory --> Guardrail
   Hedge --> Guardrail
@@ -63,7 +66,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-Spread 模块接收 mid price、volatility、inventory 和 hedge cost，输出 final spread。
+Spread 模块接收 mid price、方向化 executable market spread、volatility、inventory 和 hedge cost，输出 final spread。订单簿完整 bid/ask spread 用于判断来源是否健康；`marketSpreadBps` 只表示当前 tokenIn -> USD-reference tokenOut 方向从 mid 到 best bid 的成本，两者不能互相替代。
 
 ## Sequence Diagram
 
@@ -95,7 +98,7 @@ stateDiagram-v2
 
 ## Data Model
 
-Spread 输出包括 `baseSpreadBps`、`volatilitySpreadBps`、`inventorySpreadBps`、`hedgeCostBps`、`finalSpreadBps` 和 `pricingVersion`。
+当前报价审计输出包括 `marketSpreadBps`、`sizeImpactBps`、`volatilityPremiumBps`、`inventorySkewBps`、`hedgeCostBps`、聚合 `spreadBps` 和 `pricingVersion`。base spread 与 internal route buffer 由 pricing version 和部署配置解释。
 
 ## API Design
 
@@ -123,7 +126,7 @@ Spread 计算必须轻量，复杂统计参数应离线更新。
 
 ## Testing Strategy
 
-测试 spread 下限、上限、库存方向、波动率上升、hedge cost 缺失和参数版本。
+测试 spread 下限、上限、mid-to-bid 向上取整、多来源保守聚合、库存方向、波动率上升、hedge cost 缺失和参数版本。
 
 ## Interview Notes
 

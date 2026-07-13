@@ -8,7 +8,14 @@ const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const saveMarketSnapshotInputFields = ["request", "snapshot"] as const;
 const saveMarketSnapshotOptionalFields = ["source"] as const;
-const marketSnapshotFields = ["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"] as const;
+const marketSnapshotFields = [
+  "snapshotId",
+  "midPrice",
+  "liquidityUsd",
+  "marketSpreadBps",
+  "volatilityBps",
+  "observedAt",
+] as const;
 
 export interface MarketSnapshotRecord {
   snapshotId: string;
@@ -17,6 +24,7 @@ export interface MarketSnapshotRecord {
   tokenOut: Address;
   midPrice: string;
   liquidityUsd: string;
+  marketSpreadBps: number;
   volatilityBps: number;
   source: string;
   observedAt: string;
@@ -81,6 +89,7 @@ export function toMarketSnapshotRecord(
     tokenOut: request.tokenOut,
     midPrice: input.snapshot.midPrice,
     liquidityUsd: input.snapshot.liquidityUsd,
+    marketSpreadBps: input.snapshot.marketSpreadBps,
     volatilityBps: input.snapshot.volatilityBps,
     source,
     observedAt: input.snapshot.observedAt,
@@ -104,6 +113,9 @@ function assertMarketSnapshot(snapshot: MarketSnapshot): void {
   }
   if (!isPositiveIntegerString(snapshot.liquidityUsd)) {
     throw new Error("Market snapshot liquidityUsd must be a positive uint string");
+  }
+  if (!Number.isSafeInteger(snapshot.marketSpreadBps) || snapshot.marketSpreadBps < 0 || snapshot.marketSpreadBps > 10_000) {
+    throw new Error("Market snapshot marketSpreadBps must be an integer from 0 to 10000");
   }
   if (!Number.isSafeInteger(snapshot.volatilityBps) || snapshot.volatilityBps < 0 || snapshot.volatilityBps > 10_000) {
     throw new Error("Market snapshot volatilityBps must be an integer from 0 to 10000");
@@ -180,6 +192,7 @@ function isSameMarketSnapshot(left: MarketSnapshotRecord, right: MarketSnapshotR
     left.tokenOut === right.tokenOut &&
     left.midPrice === right.midPrice &&
     left.liquidityUsd === right.liquidityUsd &&
+    left.marketSpreadBps === right.marketSpreadBps &&
     left.volatilityBps === right.volatilityBps &&
     left.source === right.source &&
     left.observedAt === right.observedAt

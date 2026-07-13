@@ -30,6 +30,7 @@ test("RFQ API generates unique quote ids and nonces within the same millisecond"
             ].join("_"),
             midPrice: "1",
             liquidityUsd: "10000000000000",
+            marketSpreadBps: 0,
             volatilityBps: 25,
             observedAt: new Date(Date.now()).toISOString(),
           };

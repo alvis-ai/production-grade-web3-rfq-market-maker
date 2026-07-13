@@ -281,6 +281,7 @@ export class CEXOrderBookMonitor {
       ].join("_"),
       midPrice,
       liquidityUsd: liquidity.toString(),
+      marketSpreadBps: aggregateMarketSpreadBps(midPriceValue, sources),
       volatilityBps: this.estimateVolatility(cacheKey),
       observedAt: new Date(observedAtMs).toISOString(),
     }, `cex:${Array.from(new Set(sources.map(({ source }) => source))).sort().join("+")}`);
@@ -404,6 +405,7 @@ function usableMidPrice(metrics: OrderBookMetrics, maxSpreadBps: number): bigint
   if (!isRecord(metrics) || !Number.isSafeInteger(metrics.spreadBps) || metrics.spreadBps < 0 ||
       metrics.spreadBps > maxSpreadBps || !Number.isSafeInteger(metrics.bidLevels) || metrics.bidLevels <= 0 ||
       !Number.isSafeInteger(metrics.askLevels) || metrics.askLevels <= 0 ||
+      !Number.isSafeInteger(metrics.marketSpreadBps) || metrics.marketSpreadBps < 0 || metrics.marketSpreadBps > 10_000 ||
       typeof metrics.liquidityUsd !== "string" || !/^[1-9][0-9]*$/.test(metrics.liquidityUsd)) {
     throw new Error("CEX order book metrics are unusable");
   }
@@ -418,9 +420,20 @@ function sourceFingerprint(sources: readonly SourceMetrics[]): string {
   return [...sources]
     .sort((left, right) => left.connectorKey.localeCompare(right.connectorKey))
     .map(({ connectorKey: key, metrics, observedAtMs }) => {
-      return `${key}:${observedAtMs}:${metrics.midPrice}:${metrics.liquidityUsd}:${metrics.spreadBps}`;
+      return `${key}:${observedAtMs}:${metrics.midPrice}:${metrics.liquidityUsd}:${metrics.spreadBps}:${metrics.marketSpreadBps}`;
     })
     .join("|");
+}
+
+function aggregateMarketSpreadBps(midPriceValue: bigint, sources: readonly SourceMetrics[]): number {
+  let maximum = 0n;
+  for (const { metrics } of sources) {
+    const bestBidValue = parseCexDecimal(metrics.bestBid, "CEX best bid", false);
+    if (bestBidValue >= midPriceValue) continue;
+    const spread = ((midPriceValue - bestBidValue) * 10_000n + midPriceValue - 1n) / midPriceValue;
+    if (spread > maximum) maximum = spread;
+  }
+  return Number(maximum);
 }
 
 function assertInteger(value: number, min: number, max: number, field: string): void {

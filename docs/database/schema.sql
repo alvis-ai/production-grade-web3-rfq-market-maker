@@ -14,6 +14,7 @@ CREATE TABLE quotes (
   pricing_version TEXT,
   spread_bps INTEGER,
   size_impact_bps INTEGER,
+  market_spread_bps INTEGER,
   inventory_skew_bps INTEGER,
   volatility_premium_bps INTEGER,
   hedge_cost_bps INTEGER,
@@ -40,6 +41,7 @@ CREATE TABLE quotes (
   CONSTRAINT chk_quotes_pricing_bps CHECK (
     (spread_bps IS NULL OR spread_bps BETWEEN 0 AND 10000)
     AND (size_impact_bps IS NULL OR size_impact_bps BETWEEN 0 AND 10000)
+    AND (market_spread_bps IS NULL OR market_spread_bps BETWEEN 0 AND 10000)
     AND (inventory_skew_bps IS NULL OR inventory_skew_bps BETWEEN -10000 AND 10000)
     AND (volatility_premium_bps IS NULL OR volatility_premium_bps BETWEEN 0 AND 10000)
     AND (hedge_cost_bps IS NULL OR hedge_cost_bps BETWEEN 0 AND 10000)
@@ -97,6 +99,7 @@ CREATE TABLE quotes (
       AND pricing_version IS NULL
       AND spread_bps IS NULL
       AND size_impact_bps IS NULL
+      AND market_spread_bps IS NULL
       AND inventory_skew_bps IS NULL
       AND volatility_premium_bps IS NULL
       AND hedge_cost_bps IS NULL
@@ -110,6 +113,7 @@ CREATE TABLE quotes (
       AND pricing_version IS NOT NULL
       AND spread_bps IS NOT NULL
       AND size_impact_bps IS NOT NULL
+      AND market_spread_bps IS NOT NULL
       AND inventory_skew_bps IS NOT NULL
       AND volatility_premium_bps IS NOT NULL
       AND hedge_cost_bps IS NOT NULL
@@ -126,6 +130,7 @@ CREATE TABLE quotes (
       AND pricing_version IS NULL
       AND spread_bps IS NULL
       AND size_impact_bps IS NULL
+      AND market_spread_bps IS NULL
       AND inventory_skew_bps IS NULL
       AND volatility_premium_bps IS NULL
       AND hedge_cost_bps IS NULL
@@ -142,6 +147,7 @@ CREATE TABLE quotes (
       AND pricing_version IS NOT NULL
       AND spread_bps IS NOT NULL
       AND size_impact_bps IS NOT NULL
+      AND market_spread_bps IS NOT NULL
       AND inventory_skew_bps IS NOT NULL
       AND volatility_premium_bps IS NOT NULL
       AND hedge_cost_bps IS NOT NULL
@@ -225,6 +231,7 @@ CREATE TABLE market_snapshots (
   bid_price NUMERIC(38, 18),
   ask_price NUMERIC(38, 18),
   liquidity_usd NUMERIC(78, 0) NOT NULL,
+  market_spread_bps INTEGER NOT NULL,
   volatility_bps INTEGER NOT NULL,
   source TEXT NOT NULL,
   observed_at TIMESTAMPTZ NOT NULL,
@@ -244,6 +251,7 @@ CREATE TABLE market_snapshots (
     AND liquidity_usd > 0
     AND volatility_bps BETWEEN 0 AND 10000
   ),
+  CONSTRAINT chk_market_snapshots_market_spread_bps CHECK (market_spread_bps BETWEEN 0 AND 10000),
   CONSTRAINT chk_market_snapshots_source_non_empty CHECK (btrim(source) <> ''),
   CONSTRAINT chk_market_snapshots_chain_id_safe CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_market_snapshots_addresses_hex CHECK (
@@ -697,6 +705,7 @@ BEGIN
         'riskPolicyVersion', source_row.risk_policy_version,
         'spreadBps', source_row.spread_bps,
         'sizeImpactBps', source_row.size_impact_bps,
+        'marketSpreadBps', source_row.market_spread_bps,
         'inventorySkewBps', source_row.inventory_skew_bps,
         'volatilityPremiumBps', source_row.volatility_premium_bps,
         'hedgeCostBps', source_row.hedge_cost_bps,
@@ -723,6 +732,7 @@ BEGIN
         'bidPrice', CASE WHEN source_row.bid_price IS NULL THEN NULL ELSE source_row.bid_price::text END,
         'askPrice', CASE WHEN source_row.ask_price IS NULL THEN NULL ELSE source_row.ask_price::text END,
         'liquidityUsd', source_row.liquidity_usd::text,
+        'marketSpreadBps', source_row.market_spread_bps,
         'volatilityBps', source_row.volatility_bps,
         'source', source_row.source,
         'observedAt', source_row.observed_at,
@@ -892,6 +902,7 @@ WHEN (
   OR OLD.bid_price IS DISTINCT FROM NEW.bid_price
   OR OLD.ask_price IS DISTINCT FROM NEW.ask_price
   OR OLD.liquidity_usd IS DISTINCT FROM NEW.liquidity_usd
+  OR OLD.market_spread_bps IS DISTINCT FROM NEW.market_spread_bps
   OR OLD.volatility_bps IS DISTINCT FROM NEW.volatility_bps
   OR OLD.observed_at IS DISTINCT FROM NEW.observed_at
 )
@@ -1144,4 +1155,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('009', 'risk-notional-reasons'),
   ('010', 'risk-market-regime-reasons'),
   ('011', 'open-quote-exposure'),
-  ('012', 'pricing-attribution');
+  ('012', 'pricing-attribution'),
+  ('013', 'market-spread-attribution');

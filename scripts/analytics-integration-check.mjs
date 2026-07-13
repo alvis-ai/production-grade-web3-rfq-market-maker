@@ -57,21 +57,21 @@ try {
   await client.query(
     `INSERT INTO market_snapshots (
        id, chain_id, token_in, token_out, mid_price, bid_price, ask_price,
-       liquidity_usd, volatility_bps, source, observed_at
+       liquidity_usd, market_spread_bps, volatility_bps, source, observed_at
      ) VALUES ($1, 1, $2, $3, '1.000000000000000000', '0.990000000000000000',
-       '1.010000000000000000', 1000000, 25, 'analytics-integration', now())`,
+       '1.010000000000000000', 1000000, 10, 25, 'analytics-integration', now())`,
     [snapshotId, tokenIn, tokenOut],
   );
   await client.query(
     `INSERT INTO quotes (
        id, chain_id, user_address, token_in, token_out, amount_in, slippage_bps,
        amount_out, min_amount_out, nonce, deadline, snapshot_id, pricing_version,
-       spread_bps, size_impact_bps, inventory_skew_bps, volatility_premium_bps,
+       spread_bps, size_impact_bps, market_spread_bps, inventory_skew_bps, volatility_premium_bps,
        hedge_cost_bps, risk_policy_version,
        status, signature
      ) VALUES ($1, 1, $2, $3, $4, 1000000000000000000, 50,
        990000000000000000, 980000000000000000, 1, 4102444800, $5,
-       'formula-v3', 20, 5, 0, 5, 0, 'risk-v1', 'signed', $6)`,
+       'formula-v4', 20, 5, 10, 0, 5, 0, 'risk-v1', 'signed', $6)`,
     [quoteId, user, tokenIn, tokenOut, snapshotId, signature],
   );
   await client.query(
@@ -150,9 +150,18 @@ try {
   const quotePayload = JSON.parse(quoteProjection.data[0].payload);
   assert.equal(quotePayload.amountIn, "1000000000000000000");
   assert.equal(typeof quotePayload.amountIn, "string");
+  assert.equal(quotePayload.marketSpreadBps, 10);
+
+  const snapshotProjection = await clickhouseQuery(
+    `SELECT payload FROM ${clickhouseTable} FINAL WHERE event_type = 'market.snapshot.v1' AND event_id IN (${eventIdFilter}) LIMIT 1`,
+  );
+  assert.equal(JSON.parse(snapshotProjection.data[0].payload).marketSpreadBps, 10);
 
   const migrations = await pool.query("SELECT version FROM _migrations ORDER BY version");
-  assert.deepEqual(migrations.rows.map((row) => row.version), ["001", "002", "003", "004", "005", "006"]);
+  assert.deepEqual(
+    migrations.rows.map((row) => row.version),
+    ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013"],
+  );
 
   await cleanupOperationalFixtures();
   fixturesCommitted = false;

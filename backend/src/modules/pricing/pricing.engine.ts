@@ -26,6 +26,7 @@ export interface PricingResult {
   minAmountOut: UIntString;
   spreadBps: number;
   sizeImpactBps: number;
+  marketSpreadBps: number;
   inventorySkewBps: number;
   volatilityPremiumBps: number;
   hedgeCostBps: number;
@@ -65,7 +66,7 @@ const formulaPricingConfigFields = [
 ] as const;
 const pricingInputFields = ["request", "snapshot", "routePlan", "inventorySkewBps", "hedgeCostBps"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
-const pricingSnapshotFields = ["snapshotId", "midPrice", "liquidityUsd", "volatilityBps"] as const;
+const pricingSnapshotFields = ["snapshotId", "midPrice", "liquidityUsd", "marketSpreadBps", "volatilityBps"] as const;
 const routePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"] as const;
 
 export class FormulaPricingEngine implements PricingEngine {
@@ -122,7 +123,7 @@ export class FormulaPricingEngine implements PricingEngine {
     const volatilityPremiumBps = Math.ceil(input.snapshot.volatilityBps / this.config.volatilityDivisor);
     const routeBufferBps = input.routePlan.venue === "internal_inventory" ? this.config.internalInventoryBufferBps : 0;
     const quotedSpreadBps = clampBps(
-      this.config.baseSpreadBps + routeBufferBps + volatilityPremiumBps + sizeImpactBps +
+      this.config.baseSpreadBps + routeBufferBps + input.snapshot.marketSpreadBps + volatilityPremiumBps + sizeImpactBps +
         input.inventorySkewBps + input.hedgeCostBps,
       0,
       this.config.maxTotalAdjustmentBps,
@@ -137,10 +138,11 @@ export class FormulaPricingEngine implements PricingEngine {
       minAmountOut: minAmountOut.toString() as UIntString,
       spreadBps: quotedSpreadBps,
       sizeImpactBps,
+      marketSpreadBps: input.snapshot.marketSpreadBps,
       inventorySkewBps: input.inventorySkewBps,
       volatilityPremiumBps,
       hedgeCostBps: input.hedgeCostBps,
-      pricingVersion: `formula-v3:${input.routePlan.venue}`,
+      pricingVersion: `formula-v4:${input.routePlan.venue}`,
     };
   }
 }
@@ -216,6 +218,7 @@ function assertPricingInput(input: PricingInput): void {
   assertSafeIdentifier(input.snapshot.snapshotId, "snapshot.snapshotId");
   assertPositiveDecimalString(input.snapshot.midPrice, "snapshot.midPrice");
   assertPositiveUIntString(input.snapshot.liquidityUsd, "snapshot.liquidityUsd");
+  assertBpsUpperBound(input.snapshot.marketSpreadBps, "snapshot.marketSpreadBps");
   assertBpsUpperBound(input.snapshot.volatilityBps, "snapshot.volatilityBps");
 
   assertSafeIdentifier(input.routePlan.routeId, "routePlan.routeId");

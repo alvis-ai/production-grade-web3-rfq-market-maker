@@ -15,6 +15,7 @@ const baseInput = {
     snapshotId: "snapshot_1",
     midPrice: "1.25",
     liquidityUsd: "10000000000000",
+    marketSpreadBps: 0,
     volatilityBps: 25,
     observedAt: "2026-06-27T00:00:00.000Z",
   },

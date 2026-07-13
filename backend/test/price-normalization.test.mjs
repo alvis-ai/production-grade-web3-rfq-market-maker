@@ -26,7 +26,7 @@ test("FormulaPricingEngine converts WETH 18 decimals to USDC 6 decimals", async 
 
   assert.equal(pricing.amountOut, "2000000000");
   assert.equal(pricing.minAmountOut, "2000000000");
-  assert.equal(pricing.pricingVersion, "formula-v3:internal_inventory");
+  assert.equal(pricing.pricingVersion, "formula-v4:internal_inventory");
 });
 
 test("FormulaPricingEngine converts the inverse USDC to WETH direction exactly", async () => {
@@ -49,6 +49,7 @@ test("FormulaPricingEngine applies USD-normalized size impact and quote adjustme
     midPrice: "2000",
     slippageBps: 50,
     liquidityUsd: "50000000",
+    marketSpreadBps: 0,
     volatilityBps: 25,
   }));
 
@@ -69,6 +70,7 @@ test("FormulaPricingEngine caps size impact using human USD notional", async () 
     amountIn: "100000000000000000000",
     midPrice: "2000",
     liquidityUsd: "1000000",
+    marketSpreadBps: 0,
     volatilityBps: 0,
   }));
 
@@ -148,6 +150,7 @@ function input({
   midPrice = "2000",
   slippageBps = 0,
   liquidityUsd = "50000000",
+  marketSpreadBps = 0,
   volatilityBps = 0,
 } = {}) {
   return {
@@ -156,6 +159,7 @@ function input({
       snapshotId: "snapshot_normalized",
       midPrice,
       liquidityUsd,
+      marketSpreadBps,
       volatilityBps,
       observedAt: "2026-07-12T00:00:00.000Z",
     },

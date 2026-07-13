@@ -22,6 +22,7 @@ test("RFQ API applies configured chain/token limits to a cross-decimals quote", 
           snapshotId: "snapshot_risk_policy",
           midPrice: "2000",
           liquidityUsd: "50000000",
+          marketSpreadBps: 0,
           volatilityBps: 25,
           observedAt: new Date().toISOString(),
         };
@@ -152,6 +153,7 @@ test("RFQ API rejects a cross-decimals quote above its USD notional limit", asyn
           snapshotId: "snapshot_notional_limit",
           midPrice: "2000",
           liquidityUsd: "50000000",
+          marketSpreadBps: 0,
           volatilityBps: 25,
           observedAt: new Date().toISOString(),
         };
@@ -194,6 +196,7 @@ test("RFQ API blocks signing in unsafe market liquidity and volatility regimes",
   let market = {
     snapshotId: "snapshot_low_liquidity",
     liquidityUsd: "999999",
+    marketSpreadBps: 0,
     volatilityBps: 25,
   };
   const server = buildServer({
@@ -231,6 +234,7 @@ test("RFQ API blocks signing in unsafe market liquidity and volatility regimes",
     market = {
       snapshotId: "snapshot_high_volatility",
       liquidityUsd: "50000000",
+      marketSpreadBps: 0,
       volatilityBps: 501,
     };
     const highVolatility = await server.inject({
@@ -272,6 +276,7 @@ test("RFQ API atomically limits cumulative user and pair open quote notional", a
           snapshotId: `snapshot_open_exposure_${snapshotSequence}`,
           midPrice: "2000",
           liquidityUsd: "50000000",
+          marketSpreadBps: 0,
           volatilityBps: 25,
           observedAt: new Date().toISOString(),
         };

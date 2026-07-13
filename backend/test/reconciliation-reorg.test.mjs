@@ -210,6 +210,7 @@ async function saveSignedQuote(quoteRepository, quoteId, signedQuote) {
     slippageBps: 50,
     spreadBps: 8,
     sizeImpactBps: 0,
+    marketSpreadBps: 0,
     inventorySkewBps: 0,
     volatilityPremiumBps: 0,
     hedgeCostBps: 0,

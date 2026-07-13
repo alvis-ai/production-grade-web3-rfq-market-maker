@@ -252,7 +252,8 @@ grep -q 'Readiness service config.maxSnapshotAgeMs must be an own field' backend
 grep -q 'Readiness service config.probeRequest must be an own field' backend/test/readiness-validation.test.mjs
 grep -q 'assertProbeFields(config)' backend/src/modules/health/readiness.service.ts
 grep -q 'probeRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' backend/src/modules/health/readiness.service.ts
-grep -q 'probeSnapshotFields = \["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"\]' backend/src/modules/health/readiness.service.ts
+grep -q 'const probeSnapshotFields = \[' backend/src/modules/health/readiness.service.ts
+grep -q '"marketSpreadBps"' backend/src/modules/health/readiness.service.ts
 grep -q 'probeRoutePlanFields = \["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"\]' backend/src/modules/health/readiness.service.ts
 grep -q 'probePricingFields = \[' backend/src/modules/health/readiness.service.ts
 grep -q 'probeQuoteFields = \[' backend/src/modules/health/readiness.service.ts
@@ -389,7 +390,8 @@ grep -q 'assertObject(input.request, "request")' backend/src/modules/market-data
 grep -q 'assertObject(input.snapshot, "snapshot")' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'saveMarketSnapshotInputFields = \["request", "snapshot"\]' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'saveMarketSnapshotOptionalFields = \["source"\]' backend/src/modules/market-data/market-snapshot.repository.ts
-grep -q 'marketSnapshotFields = \["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"\]' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q 'const marketSnapshotFields = \[' backend/src/modules/market-data/market-snapshot.repository.ts
+grep -q '"marketSpreadBps"' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'assertOwnFields(input, saveMarketSnapshotInputFields, "input")' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'assertOwnOptionalFields(input, saveMarketSnapshotOptionalFields, "input")' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'assertOwnFields(snapshot, marketSnapshotFields, "snapshot")' backend/src/modules/market-data/market-snapshot.repository.ts
@@ -405,7 +407,8 @@ grep -Fq 'typeof value === "string" && /^[1-9][0-9]*$/.test(value)' backend/src/
 grep -Fq '/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/market-data/market-data.service.ts
 grep -Fq 'normalizeHumanPrice(value);' backend/src/modules/market-data/market-snapshot.repository.ts
 grep -q 'parseCanonicalUtcIsoTimestamp(snapshot.observedAt)' backend/src/modules/market-data/market-data.service.ts
-grep -q 'marketSnapshotIssueFields = \["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"\]' backend/src/modules/market-data/market-data.service.ts
+grep -q 'const marketSnapshotIssueFields = \[' backend/src/modules/market-data/market-data.service.ts
+grep -q '"marketSpreadBps"' backend/src/modules/market-data/market-data.service.ts
 grep -q 'hasOwnMarketSnapshotIssueFields(snapshot)' backend/src/modules/market-data/market-data.service.ts
 grep -q 'snapshot freshness window is invalid' backend/src/modules/market-data/market-data.service.ts
 grep -q 'Object.create(snapshot), "snapshot is invalid"' backend/test/market-data-validation.test.mjs
@@ -507,7 +510,7 @@ grep -q 'assertObject(input.request, "request")' backend/src/modules/routing/rou
 grep -q 'assertObject(input.snapshot, "snapshot")' backend/src/modules/routing/routing.engine.ts
 grep -q 'routeInputFields = \["request", "snapshot"\]' backend/src/modules/routing/routing.engine.ts
 grep -q 'quoteRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' backend/src/modules/routing/routing.engine.ts
-grep -q 'routeSnapshotFields = \["snapshotId", "midPrice", "liquidityUsd", "volatilityBps"\]' backend/src/modules/routing/routing.engine.ts
+grep -q 'routeSnapshotFields = \["snapshotId", "midPrice", "liquidityUsd", "marketSpreadBps", "volatilityBps"\]' backend/src/modules/routing/routing.engine.ts
 grep -q 'assertOwnFields(input, routeInputFields, "input")' backend/src/modules/routing/routing.engine.ts
 grep -q 'assertOwnFields(input.request, quoteRequestFields, "request")' backend/src/modules/routing/routing.engine.ts
 grep -q 'assertOwnFields(input.snapshot, routeSnapshotFields, "snapshot")' backend/src/modules/routing/routing.engine.ts
@@ -804,6 +807,7 @@ test -s backend/src/db/migrations/009-risk-notional-reasons.sql
 test -s backend/src/db/migrations/010-risk-market-regime-reasons.sql
 test -s backend/src/db/migrations/011-open-quote-exposure.sql
 test -s backend/src/db/migrations/012-pricing-attribution.sql
+test -s backend/src/db/migrations/013-market-spread-attribution.sql
 test -s backend/src/modules/risk/quote-exposure.store.ts
 test -s backend/src/modules/risk/postgres-quote-exposure.store.ts
 test -s backend/test/quote-exposure-store.test.mjs
@@ -1383,12 +1387,14 @@ grep -q 'chk_quotes_slippage_bps' docs/database/schema.sql
 grep -q 'slippage_bps BETWEEN 0 AND 10000' docs/database/schema.sql
 grep -q 'spread_bps INTEGER' docs/database/schema.sql
 grep -q 'size_impact_bps INTEGER' docs/database/schema.sql
+grep -q 'market_spread_bps INTEGER' docs/database/schema.sql
 grep -q 'inventory_skew_bps INTEGER' docs/database/schema.sql
 grep -q 'volatility_premium_bps INTEGER' docs/database/schema.sql
 grep -q 'hedge_cost_bps INTEGER' docs/database/schema.sql
 grep -q 'chk_quotes_pricing_bps' docs/database/schema.sql
 grep -q 'spread_bps BETWEEN 0 AND 10000' docs/database/schema.sql
 grep -q 'size_impact_bps BETWEEN 0 AND 10000' docs/database/schema.sql
+grep -q 'market_spread_bps BETWEEN 0 AND 10000' docs/database/schema.sql
 grep -q 'inventory_skew_bps BETWEEN -10000 AND 10000' docs/database/schema.sql
 grep -q 'volatility_premium_bps BETWEEN 0 AND 10000' docs/database/schema.sql
 grep -q 'hedge_cost_bps BETWEEN 0 AND 10000' docs/database/schema.sql
@@ -1396,6 +1402,7 @@ grep -q 'chk_settlement_events_hashes' docs/database/schema.sql
 grep -q 'AND nonce > 0' docs/database/schema.sql
 grep -q 'bid_price <= mid_price' docs/database/schema.sql
 grep -q 'mid_price <= ask_price' docs/database/schema.sql
+grep -q 'market_spread_bps INTEGER NOT NULL' docs/database/schema.sql
 grep -q 'volatility_bps INTEGER NOT NULL' docs/database/schema.sql
 grep -q 'AND volatility_bps BETWEEN 0 AND 10000' docs/database/schema.sql
 grep -q 'chk_hedge_orders_side' docs/database/schema.sql
@@ -1446,6 +1453,7 @@ grep -q 'settlement_events must require positive settled amount and nonce fields
 grep -q 'market_snapshots must keep bid_price <= mid_price <= ask_price when bid or ask are present' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots.liquidity_usd must be stored as a required positive uint-sized value' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must require positive liquidity_usd' scripts/check-database-schema-consistency.mjs
+grep -q 'market_snapshots.market_spread_bps must be required because MarketSnapshot.marketSpreadBps is required' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots.volatility_bps must be required because MarketSnapshot.volatilityBps is required' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must constrain volatility_bps to the 0..10000 bps range' scripts/check-database-schema-consistency.mjs
 grep -q 'market_snapshots must reject empty source values' scripts/check-database-schema-consistency.mjs
@@ -3220,7 +3228,7 @@ grep -q 'assertObject(input.routePlan, "routePlan")' backend/src/modules/pricing
 grep -q 'formulaPricingConfigFields = \[' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'pricingInputFields = \["request", "snapshot", "routePlan", "inventorySkewBps", "hedgeCostBps"\]' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'quoteRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' backend/src/modules/pricing/pricing.engine.ts
-grep -q 'pricingSnapshotFields = \["snapshotId", "midPrice", "liquidityUsd", "volatilityBps"\]' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'pricingSnapshotFields = \["snapshotId", "midPrice", "liquidityUsd", "marketSpreadBps", "volatilityBps"\]' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'routePlanFields = \["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"\]' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertOwnFields(config, formulaPricingConfigFields, "config")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertOwnFields(input, pricingInputFields, "input")' backend/src/modules/pricing/pricing.engine.ts
@@ -3240,7 +3248,7 @@ grep -q 'normalizeHumanPrice(input.snapshot.midPrice)' backend/src/modules/prici
 grep -Fq '!/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(value)' backend/src/modules/pricing/price-normalization.ts
 grep -q 'convertBaseUnitAmount(amountIn, midPrice, tokenIn.decimals, tokenOut.decimals)' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'calculateUsdNotional(amountIn, midPrice, tokenIn, tokenOut)' backend/src/modules/pricing/pricing.engine.ts
-grep -q 'pricingVersion: `formula-v3:${input.routePlan.venue}`' backend/src/modules/pricing/pricing.engine.ts
+grep -q 'pricingVersion: `formula-v4:${input.routePlan.venue}`' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'RFQ_TOKEN_REGISTRY_JSON' $gateway_sources
 grep -q 'decimals-aware readiness pricing probe' backend/test/api-token-registry-runtime.test.mjs
 grep -q 'WETH 18 decimals to USDC 6 decimals' backend/test/price-normalization.test.mjs

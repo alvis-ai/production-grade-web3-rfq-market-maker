@@ -54,7 +54,14 @@ export const defaultStaticMarketDataConfig: StaticMarketDataConfig = {
 const staticMarketDataConfigFields = ["supportedPairs"] as const;
 const staticMarketDataPairFields = ["chainId", "tokenIn", "tokenOut"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
-const marketSnapshotIssueFields = ["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"] as const;
+const marketSnapshotIssueFields = [
+  "snapshotId",
+  "midPrice",
+  "liquidityUsd",
+  "marketSpreadBps",
+  "volatilityBps",
+  "observedAt",
+] as const;
 
 export class StaticMarketDataService implements MarketDataService {
   private readonly supportedPairs: ReadonlySet<string>;
@@ -86,6 +93,7 @@ export class StaticMarketDataService implements MarketDataService {
       ].join("_"),
       midPrice: "1",
       liquidityUsd: "10000000000000",
+      marketSpreadBps: 0,
       volatilityBps: 25,
       observedAt: new Date(observedAtMs).toISOString(),
     }, "static-market-data-v1");
@@ -213,6 +221,10 @@ export function getMarketSnapshotIssue(
     return "liquidity is invalid";
   }
 
+  if (!isBps(snapshot.marketSpreadBps)) {
+    return "market spread is invalid";
+  }
+
   if (!Number.isSafeInteger(snapshot.volatilityBps) || snapshot.volatilityBps < 0 || snapshot.volatilityBps > 10_000) {
     return "volatility is invalid";
   }
@@ -258,6 +270,10 @@ function isPositiveDecimal(value: string): boolean {
 
 function isPositiveIntegerString(value: string): boolean {
   return typeof value === "string" && /^[1-9][0-9]*$/.test(value);
+}
+
+function isBps(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0 && (value as number) <= 10_000;
 }
 
 function parseDecimalToScaledBigInt(value: string): bigint {

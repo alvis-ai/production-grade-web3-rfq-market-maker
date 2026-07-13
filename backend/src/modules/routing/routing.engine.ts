@@ -4,7 +4,7 @@ const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const routeInputFields = ["request", "snapshot"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
-const routeSnapshotFields = ["snapshotId", "midPrice", "liquidityUsd", "volatilityBps"] as const;
+const routeSnapshotFields = ["snapshotId", "midPrice", "liquidityUsd", "marketSpreadBps", "volatilityBps"] as const;
 
 export interface RouteInput {
   request: QuoteRequest;
@@ -61,6 +61,7 @@ function assertRouteInput(input: RouteInput): void {
   assertSafeIdentifier(input.snapshot.snapshotId, "snapshot.snapshotId");
   assertPositiveDecimalString(input.snapshot.midPrice, "snapshot.midPrice");
   assertPositiveUIntString(input.snapshot.liquidityUsd, "snapshot.liquidityUsd");
+  assertNonNegativeBps(input.snapshot.marketSpreadBps, "snapshot.marketSpreadBps");
   assertNonNegativeBps(input.snapshot.volatilityBps, "snapshot.volatilityBps");
 }
 

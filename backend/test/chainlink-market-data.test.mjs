@@ -169,6 +169,7 @@ function snapshot(id, midPrice) {
     snapshotId: `snapshot_${id}`,
     midPrice,
     liquidityUsd: "1000000",
+    marketSpreadBps: 0,
     volatilityBps: 10,
     observedAt: new Date().toISOString(),
   };

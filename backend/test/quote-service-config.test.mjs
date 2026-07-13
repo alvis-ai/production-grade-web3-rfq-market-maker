@@ -40,6 +40,7 @@ test("QuoteService snapshots runtime configuration at construction", async () =>
               snapshotId: "snapshot_mutable_config",
               midPrice: "1",
               liquidityUsd: "10000000000000",
+              marketSpreadBps: 0,
               volatilityBps: 25,
               observedAt: new Date(fixedNow - 2_000).toISOString(),
             };

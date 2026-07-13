@@ -171,6 +171,7 @@ export function normalizeQuoteExposureReservation(
       "minAmountOut",
       "spreadBps",
       "sizeImpactBps",
+      "marketSpreadBps",
       "inventorySkewBps",
       "volatilityPremiumBps",
       "hedgeCostBps",

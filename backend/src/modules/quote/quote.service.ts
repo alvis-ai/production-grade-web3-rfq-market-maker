@@ -85,6 +85,7 @@ const pricingResultFields = [
   "minAmountOut",
   "spreadBps",
   "sizeImpactBps",
+  "marketSpreadBps",
   "inventorySkewBps",
   "volatilityPremiumBps",
   "hedgeCostBps",
@@ -304,6 +305,7 @@ export class QuoteService {
         pricingVersion: pricing.pricingVersion,
         spreadBps: pricing.spreadBps,
         sizeImpactBps: pricing.sizeImpactBps,
+        marketSpreadBps: pricing.marketSpreadBps,
         inventorySkewBps: pricing.inventorySkewBps,
         volatilityPremiumBps: pricing.volatilityPremiumBps,
         hedgeCostBps: pricing.hedgeCostBps,
@@ -824,6 +826,7 @@ function assertPricingResult(value: unknown): asserts value is PricingResult {
 
   assertNonNegativeBpsInteger(value.spreadBps, "spreadBps");
   assertNonNegativeBpsInteger(value.sizeImpactBps, "sizeImpactBps");
+  assertNonNegativeBpsInteger(value.marketSpreadBps, "marketSpreadBps");
   assertBpsMagnitudeInteger(value.inventorySkewBps, "inventorySkewBps");
   assertNonNegativeBpsInteger(value.volatilityPremiumBps, "volatilityPremiumBps");
   assertNonNegativeBpsInteger(value.hedgeCostBps, "hedgeCostBps");
@@ -874,7 +877,7 @@ function assertPricingUIntString(value: unknown, field: "amountOut" | "minAmount
 
 function assertNonNegativeBpsInteger(
   value: unknown,
-  field: "spreadBps" | "sizeImpactBps" | "volatilityPremiumBps" | "hedgeCostBps",
+  field: "spreadBps" | "sizeImpactBps" | "marketSpreadBps" | "volatilityPremiumBps" | "hedgeCostBps",
 ): asserts value is number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > maxBps) {
     throw new Error(`Quote service pricing result.${field} must be a non-negative bps integer`);

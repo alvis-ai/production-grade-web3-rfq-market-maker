@@ -37,6 +37,7 @@ const quoteSelectColumns = [
   "pricing_version",
   "spread_bps",
   "size_impact_bps",
+  "market_spread_bps",
   "inventory_skew_bps",
   "volatility_premium_bps",
   "hedge_cost_bps",
@@ -204,11 +205,11 @@ export class PostgresQuoteRepository implements QuoteRepository {
       const result = await client.query(
         `INSERT INTO quotes (id, chain_id, user_address, token_in, token_out, amount_in,
           slippage_bps, amount_out, min_amount_out, nonce, deadline, snapshot_id,
-          pricing_version, spread_bps, size_impact_bps, inventory_skew_bps,
+          pricing_version, spread_bps, size_impact_bps, market_spread_bps, inventory_skew_bps,
           volatility_premium_bps, hedge_cost_bps, risk_policy_version,
           status, signature, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-           $13, $14, $15, $16, $17, $18, $19, 'signed', $20, now(), now())
+           $13, $14, $15, $16, $17, $18, $19, $20, 'signed', $21, now(), now())
          ON CONFLICT (id) DO UPDATE SET
            chain_id = EXCLUDED.chain_id,
            user_address = EXCLUDED.user_address,
@@ -224,6 +225,7 @@ export class PostgresQuoteRepository implements QuoteRepository {
            pricing_version = EXCLUDED.pricing_version,
            spread_bps = EXCLUDED.spread_bps,
            size_impact_bps = EXCLUDED.size_impact_bps,
+           market_spread_bps = EXCLUDED.market_spread_bps,
            inventory_skew_bps = EXCLUDED.inventory_skew_bps,
            volatility_premium_bps = EXCLUDED.volatility_premium_bps,
            hedge_cost_bps = EXCLUDED.hedge_cost_bps,
@@ -237,7 +239,7 @@ export class PostgresQuoteRepository implements QuoteRepository {
           quoteId, chainId, user, tokenIn, tokenOut, amountIn,
           input.slippageBps, amountOut, minAmountOut, nonce, deadline,
           input.snapshotId, input.pricingVersion, input.spreadBps,
-          input.sizeImpactBps, input.inventorySkewBps,
+          input.sizeImpactBps, input.marketSpreadBps, input.inventorySkewBps,
           input.volatilityPremiumBps, input.hedgeCostBps,
           input.riskPolicyVersion, input.signature,
         ],
@@ -503,6 +505,7 @@ export class PostgresQuoteRepository implements QuoteRepository {
          AND signature IS NOT NULL
          AND spread_bps IS NOT NULL
          AND size_impact_bps IS NOT NULL
+         AND market_spread_bps IS NOT NULL
          AND inventory_skew_bps IS NOT NULL
          AND volatility_premium_bps IS NOT NULL
          AND hedge_cost_bps IS NOT NULL`,
@@ -571,6 +574,7 @@ function quoteRecordFromRow(row: Record<string, unknown>): QuoteRecord {
     pricingVersion: row.pricing_version != null ? String(row.pricing_version) : undefined,
     spreadBps: row.spread_bps != null ? Number(row.spread_bps) : undefined,
     sizeImpactBps: row.size_impact_bps != null ? Number(row.size_impact_bps) : undefined,
+    marketSpreadBps: row.market_spread_bps != null ? Number(row.market_spread_bps) : undefined,
     inventorySkewBps: row.inventory_skew_bps != null ? Number(row.inventory_skew_bps) : undefined,
     volatilityPremiumBps: row.volatility_premium_bps != null ? Number(row.volatility_premium_bps) : undefined,
     hedgeCostBps: row.hedge_cost_bps != null ? Number(row.hedge_cost_bps) : undefined,
@@ -688,6 +692,7 @@ function isSameSignedQuotePayload(record: QuoteRecord, input: SaveSignedQuoteInp
     record.pricingVersion === input.pricingVersion &&
     record.spreadBps === input.spreadBps &&
     record.sizeImpactBps === input.sizeImpactBps &&
+    record.marketSpreadBps === input.marketSpreadBps &&
     record.inventorySkewBps === input.inventorySkewBps &&
     record.volatilityPremiumBps === input.volatilityPremiumBps &&
     record.hedgeCostBps === input.hedgeCostBps &&
@@ -786,6 +791,7 @@ function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertNonNegativeBps(input.slippageBps, "slippageBps");
   assertNonNegativeBps(input.spreadBps, "spreadBps");
   assertNonNegativeBps(input.sizeImpactBps, "sizeImpactBps");
+  assertNonNegativeBps(input.marketSpreadBps, "marketSpreadBps");
   assertBpsMagnitude(input.inventorySkewBps, "inventorySkewBps");
   assertNonNegativeBps(input.volatilityPremiumBps, "volatilityPremiumBps");
   assertNonNegativeBps(input.hedgeCostBps, "hedgeCostBps");

@@ -18,6 +18,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "010", name: "risk-market-regime-reasons", applied_at: "2026-07-14T00:01:00.000Z" },
         { version: "011", name: "open-quote-exposure", applied_at: "2026-07-14T00:02:00.000Z" },
         { version: "012", name: "pricing-attribution", applied_at: "2026-07-14T00:03:00.000Z" },
+        { version: "013", name: "market-spread-attribution", applied_at: "2026-07-14T00:04:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -348,6 +349,42 @@ test("database migration runner applies pricing attribution after open quote exp
   assert.equal(client.queries.some(({ sql }) => sql.includes("'volatilityPremiumBps'")), true);
   assert.equal(client.queries.some(({ sql }) => sql.includes("'hedgeCostBps'")), true);
   assert.equal(client.queries.some(({ sql, params }) => sql.includes("INSERT INTO _migrations") && params[0] === "012"), true);
+});
+
+test("database migration runner applies market spread attribution after pricing attribution", async () => {
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: [
+        ["001", "base-schema"],
+        ["002", "settlement-canonical"],
+        ["003", "hedge-worker-queue"],
+        ["004", "analytics-outbox"],
+        ["005", "post-trade-reconciliation"],
+        ["006", "quote-snapshot-pnl"],
+        ["007", "settlement-indexer"],
+        ["008", "submit-reservations"],
+        ["009", "risk-notional-reasons"],
+        ["010", "risk-market-regime-reasons"],
+        ["011", "open-quote-exposure"],
+        ["012", "pricing-attribution"],
+      ].map(([version, name]) => ({ version, name, applied_at: "2026-07-14T00:00:00.000Z" })) };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "013");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("ALTER TABLE market_snapshots") && sql.includes("ADD COLUMN market_spread_bps")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("ALTER TABLE quotes") && sql.includes("ADD COLUMN market_spread_bps")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("chk_market_snapshots_market_spread_bps")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("'marketSpreadBps', source_row.market_spread_bps")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("DROP TRIGGER trg_market_snapshots_analytics_update")), true);
+  assert.equal(client.queries.some(({ sql, params }) => sql.includes("INSERT INTO _migrations") && params[0] === "013"), true);
 });
 
 function fakePool(handler) {

@@ -15,6 +15,7 @@ const snapshot = {
   snapshotId: "snapshot_base_usdc_weth",
   midPrice: "1.25",
   liquidityUsd: "250000000000",
+  marketSpreadBps: 0,
   volatilityBps: 25,
   observedAt: "2026-06-29T00:00:00.000Z",
 };

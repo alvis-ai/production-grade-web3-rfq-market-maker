@@ -20,6 +20,7 @@ test("OrderBook uses exact fixed decimals and applies each message atomically", 
   assert.equal(book.bids.has("99"), true);
   assert.equal(book.asks.has("101"), true);
   assert.equal(book.getMetrics(100).midPrice, "100");
+  assert.equal(book.getMetrics(100).marketSpreadBps, 100);
   assert.equal(book.getMetrics(100).liquidityUsd, "99");
   assert.equal(book.getMetrics(2_000).liquidityUsd, "9099");
 
@@ -41,6 +42,7 @@ test("OrderBook uses exact fixed decimals and applies each message atomically", 
     asks: [["9007199254740992.000000000000000003", "1"]],
   });
   assert.equal(book.getMetrics().midPrice, "9007199254740992.000000000000000002");
+  assert.equal(book.getMetrics().marketSpreadBps, 1);
 
   book.applySnapshot({ bids: [["101", "1"]], asks: [["100", "1"]] });
   assert.equal(book.getMetrics().midPrice, "0");
@@ -82,6 +84,7 @@ test("CEXOrderBookMonitor publishes only changed fresh source events", () => {
     const snapshot = cache.get(pairKey(1, tokenIn, tokenOut));
     assert.equal(snapshot.midPrice, "102");
     assert.equal(snapshot.liquidityUsd, "306");
+    assert.equal(snapshot.marketSpreadBps, 221);
     assert.equal(snapshot.volatilityBps, 10);
     assert.equal(snapshot.observedAt, new Date(now - 100).toISOString());
     assert.equal(getMarketDataSnapshotSource(snapshot), "cex:binance+coinbase");
@@ -96,6 +99,7 @@ test("CEXOrderBookMonitor publishes only changed fresh source events", () => {
     const fallback = cache.get(pairKey(1, tokenIn, tokenOut));
     assert.equal(fallback.midPrice, "100");
     assert.equal(fallback.liquidityUsd, "99");
+    assert.equal(fallback.marketSpreadBps, 25);
     assert.equal(observer.cycles.at(-1).readySources, 1);
     assert.equal(observer.cycles.at(-1).unavailableSources, 1);
   } finally {

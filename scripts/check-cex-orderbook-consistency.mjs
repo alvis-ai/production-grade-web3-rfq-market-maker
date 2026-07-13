@@ -85,6 +85,13 @@ assert.ok(
     !orderBookSource.match(/for \(const \[price, qty\] of this\.asks\)[\s\S]*?totalScaled \+=/),
   "CEX liquidityUsd must use executable bid depth and must not count ask quantity",
 );
+assert.ok(
+  orderBookSource.includes("marketSpreadBps") &&
+    orderBookSource.includes("midPriceValue - bestBidValue") &&
+    monitorSource.includes("aggregateMarketSpreadBps(midPriceValue, sources)") &&
+    monitorSource.includes("midPriceValue - bestBidValue"),
+  "CEX snapshots must conservatively attribute the executable mid-to-best-bid spread",
+);
 assert.ok(binanceSource.includes("E: number") && binanceSource.includes("s: string"), "Binance updates must validate event time and symbol");
 assert.ok(binanceSource.includes("bridgesUpdateId"), "Binance updates must enforce update-id continuity");
 assert.ok(coinbaseSource.includes("time: string") && coinbaseSource.includes("parseCoinbaseTimestamp"), "Coinbase updates must preserve exchange event time");
@@ -103,6 +110,7 @@ assert.ok(dashboard.panels.some((panel) => panel.title === "CEX Order Book Healt
 assert.ok(testSource.includes("publishes only changed fresh source events"), "tests must cover source-event freshness");
 assert.ok(testSource.includes("invalidates stale and cross-venue divergent books"), "tests must cover stale and divergent source invalidation");
 assert.ok(testSource.includes('asks: [["101", "1000"]]'), "tests must prove ask quantity cannot inflate executable liquidity");
+assert.ok(testSource.includes("marketSpreadBps"), "tests must cover executable market spread attribution");
 assert.ok(marketDataChapter.includes("developers.binance.com"), "market-data chapter must reference official Binance synchronization rules");
 assert.ok(marketDataChapter.includes("docs.cdp.coinbase.com"), "market-data chapter must reference official Coinbase Level-2 rules");
 assert.ok(readmeSource.includes("make cex-orderbook-integration-check"), "README must document the live CEX check");

@@ -17,6 +17,7 @@ test("RFQ API uses configured token decimals for a signed WETH to USDC quote", a
           snapshotId: "snapshot_cross_decimals",
           midPrice: "2000",
           liquidityUsd: "50000000",
+          marketSpreadBps: 0,
           volatilityBps: 25,
           observedAt: new Date().toISOString(),
         };

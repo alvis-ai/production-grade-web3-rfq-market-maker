@@ -30,6 +30,7 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
     slippageBps: request.slippageBps,
     spreadBps: 8,
     sizeImpactBps: 0,
+    marketSpreadBps: 0,
     inventorySkewBps: 0,
     volatilityPremiumBps: 0,
     hedgeCostBps: 0,

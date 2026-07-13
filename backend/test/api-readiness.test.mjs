@@ -11,6 +11,7 @@ test("RFQ API degrades readiness when market data is stale", async () => {
           snapshotId: "snapshot_stale",
           midPrice: "1",
           liquidityUsd: "10000000000000",
+          marketSpreadBps: 0,
           volatilityBps: 25,
           observedAt: new Date(Date.now() - 60_000).toISOString(),
         };
@@ -47,6 +48,7 @@ test("RFQ API degrades readiness when market data timestamp is too far in the fu
           snapshotId: "snapshot_future",
           midPrice: "1",
           liquidityUsd: "10000000000000",
+          marketSpreadBps: 0,
           volatilityBps: 25,
           observedAt: new Date(Date.now() + 60_000).toISOString(),
         };
@@ -76,6 +78,7 @@ test("RFQ API degrades readiness when market data shape is invalid", async () =>
           snapshotId: "snapshot_invalid",
           midPrice: "0",
           liquidityUsd: "10000000000000",
+          marketSpreadBps: 0,
           volatilityBps: 25,
           observedAt: new Date().toISOString(),
         };

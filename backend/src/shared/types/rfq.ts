@@ -74,6 +74,7 @@ export interface MarketSnapshot {
   snapshotId: string;
   midPrice: string;
   liquidityUsd: string;
+  marketSpreadBps: number;
   volatilityBps: number;
   observedAt: string;
 }

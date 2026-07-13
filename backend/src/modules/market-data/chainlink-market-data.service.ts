@@ -74,6 +74,7 @@ export class ChainlinkMarketDataService implements MarketDataService {
       ].join("_"),
       midPrice,
       liquidityUsd: this.config.referenceLiquidityUsd,
+      marketSpreadBps: 0,
       volatilityBps: this.config.referenceVolatilityBps,
       observedAt: new Date(observedAtMs).toISOString(),
     }, "chainlink-aggregator-v3");

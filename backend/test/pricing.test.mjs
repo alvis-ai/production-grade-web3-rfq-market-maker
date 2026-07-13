@@ -15,6 +15,7 @@ const baseInput = {
     snapshotId: "snapshot_1",
     midPrice: "1.25",
     liquidityUsd: "10000000000000",
+    marketSpreadBps: 0,
     volatilityBps: 25,
     observedAt: "2026-06-27T00:00:00.000Z",
   },
@@ -29,17 +30,32 @@ const baseInput = {
   hedgeCostBps: 0,
 };
 
-test("FormulaPricingEngine applies mid price, spread, size impact, volatility, and slippage", async () => {
+test("FormulaPricingEngine applies mid price, spread attribution, size impact, volatility, and slippage", async () => {
   const pricing = await new FormulaPricingEngine().price(baseInput);
 
   assert.equal(pricing.amountOut, "1248000000");
   assert.equal(pricing.minAmountOut, "1241760000");
   assert.equal(pricing.spreadBps, 16);
   assert.equal(pricing.sizeImpactBps, 1);
+  assert.equal(pricing.marketSpreadBps, 0);
   assert.equal(pricing.inventorySkewBps, 0);
   assert.equal(pricing.volatilityPremiumBps, 5);
   assert.equal(pricing.hedgeCostBps, 0);
-  assert.equal(pricing.pricingVersion, "formula-v3:internal_inventory");
+  assert.equal(pricing.pricingVersion, "formula-v4:internal_inventory");
+});
+
+test("FormulaPricingEngine charges executable market spread independently", async () => {
+  const pricing = await new FormulaPricingEngine().price({
+    ...baseInput,
+    snapshot: {
+      ...baseInput.snapshot,
+      marketSpreadBps: 25,
+    },
+  });
+
+  assert.equal(pricing.marketSpreadBps, 25);
+  assert.equal(pricing.spreadBps, 41);
+  assert.equal(pricing.amountOut, "1244875000");
 });
 
 test("FormulaPricingEngine clamps toxic size impact and inventory skew into total adjustment bounds", async () => {
