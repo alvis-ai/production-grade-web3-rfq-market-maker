@@ -417,6 +417,8 @@ CREATE TABLE hedge_orders (
   client_order_id TEXT,
   submission_attempted_at TIMESTAMPTZ,
   filled_amount NUMERIC(78, 0),
+  execution_evidence_version TEXT,
+  executed_quote_quantity NUMERIC(78, 18),
   last_error_code TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -429,7 +431,9 @@ CREATE TABLE hedge_orders (
   CONSTRAINT chk_hedge_orders_side CHECK (side IN ('buy', 'sell')),
   CONSTRAINT chk_hedge_orders_status CHECK (status IN ('queued', 'filled', 'failed')),
   CONSTRAINT chk_hedge_orders_reason CHECK (reason IN ('inventory_rebalance', 'risk_reduction')),
-  CONSTRAINT chk_hedge_orders_venue_non_empty CHECK (btrim(venue) <> ''),
+  CONSTRAINT chk_hedge_orders_venue_non_empty CHECK (
+    char_length(btrim(venue)) BETWEEN 1 AND 128
+  ),
   CONSTRAINT chk_hedge_orders_external_order_id_non_empty CHECK (
     external_order_id IS NULL OR btrim(external_order_id) <> ''
   ),
@@ -463,6 +467,23 @@ CREATE TABLE hedge_orders (
   ),
   CONSTRAINT chk_hedge_orders_filled_amount CHECK (
     filled_amount IS NULL OR (filled_amount > 0 AND filled_amount <= amount)
+  ),
+  CONSTRAINT chk_hedge_orders_execution_evidence CHECK (
+    (
+      filled_amount IS NULL
+      AND execution_evidence_version IS NULL
+      AND executed_quote_quantity IS NULL
+    )
+    OR (
+      filled_amount IS NOT NULL
+      AND (
+        (execution_evidence_version = 'base-only-v1' AND executed_quote_quantity IS NULL)
+        OR (
+          execution_evidence_version = 'base-and-quote-v2'
+          AND executed_quote_quantity > 0
+        )
+      )
+    )
   ),
   CONSTRAINT chk_hedge_orders_terminal_state CHECK (
     status = 'queued'
@@ -870,6 +891,52 @@ $$ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, public;
 
+CREATE OR REPLACE FUNCTION enqueue_hedge_analytics_event_v2()
+RETURNS TRIGGER AS $$
+DECLARE
+  source_row hedge_orders%ROWTYPE;
+  event_payload JSONB;
+BEGIN
+  source_row := NEW;
+  event_payload := jsonb_build_object(
+    'operation', lower(TG_OP),
+    'hedgeOrderId', source_row.id,
+    'settlementEventId', source_row.settlement_event_id,
+    'quoteId', source_row.quote_id,
+    'chainId', source_row.chain_id,
+    'token', lower(source_row.token_address),
+    'side', source_row.side,
+    'amount', source_row.amount::text,
+    'venue', source_row.venue,
+    'venueSymbol', source_row.venue_symbol,
+    'clientOrderId', source_row.client_order_id,
+    'externalOrderId', source_row.external_order_id,
+    'status', source_row.status,
+    'reason', source_row.reason,
+    'submissionAttemptedAt', source_row.submission_attempted_at,
+    'filledAmount', CASE WHEN source_row.filled_amount IS NULL THEN NULL ELSE source_row.filled_amount::text END,
+    'executionEvidenceVersion', source_row.execution_evidence_version,
+    'executedQuoteQuantity', CASE
+      WHEN source_row.executed_quote_quantity IS NULL THEN NULL
+      ELSE source_row.executed_quote_quantity::text
+    END,
+    'lastErrorCode', source_row.last_error_code,
+    'createdAt', source_row.created_at,
+    'updatedAt', source_row.updated_at
+  );
+
+  INSERT INTO public.analytics_outbox (
+    topic, event_key, event_type, schema_version, aggregate_type, aggregate_id, payload
+  ) VALUES (
+    'rfq.analytics.v1', source_row.id, 'hedge.lifecycle.v2', 2, 'hedge', source_row.id, event_payload
+  );
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public;
+
 CREATE TRIGGER trg_quotes_analytics_insert
 AFTER INSERT ON quotes
 FOR EACH ROW
@@ -955,7 +1022,7 @@ EXECUTE FUNCTION enqueue_rfq_analytics_event();
 CREATE TRIGGER trg_hedge_orders_analytics_insert
 AFTER INSERT ON hedge_orders
 FOR EACH ROW
-EXECUTE FUNCTION enqueue_rfq_analytics_event();
+EXECUTE FUNCTION enqueue_hedge_analytics_event_v2();
 
 CREATE TRIGGER trg_hedge_orders_analytics_update
 AFTER UPDATE ON hedge_orders
@@ -967,10 +1034,12 @@ WHEN (
   OR OLD.submission_attempted_at IS DISTINCT FROM NEW.submission_attempted_at
   OR OLD.external_order_id IS DISTINCT FROM NEW.external_order_id
   OR OLD.filled_amount IS DISTINCT FROM NEW.filled_amount
+  OR OLD.execution_evidence_version IS DISTINCT FROM NEW.execution_evidence_version
+  OR OLD.executed_quote_quantity IS DISTINCT FROM NEW.executed_quote_quantity
   OR OLD.status IS DISTINCT FROM NEW.status
   OR OLD.last_error_code IS DISTINCT FROM NEW.last_error_code
 )
-EXECUTE FUNCTION enqueue_rfq_analytics_event();
+EXECUTE FUNCTION enqueue_hedge_analytics_event_v2();
 
 CREATE TRIGGER trg_pnl_records_analytics_insert
 AFTER INSERT ON pnl_records
@@ -1156,4 +1225,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('010', 'risk-market-regime-reasons'),
   ('011', 'open-quote-exposure'),
   ('012', 'pricing-attribution'),
-  ('013', 'market-spread-attribution');
+  ('013', 'market-spread-attribution'),
+  ('014', 'hedge-execution-evidence');

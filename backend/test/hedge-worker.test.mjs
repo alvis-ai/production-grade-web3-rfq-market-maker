@@ -31,7 +31,12 @@ test("HedgeWorker queries deterministic client id before submitting and complete
   const adapter = {
     async queryOrder(input) {
       assert.match(input.clientOrderId, /^rfq_[a-f0-9]{32}$/);
-      return { state: "filled", externalOrderId: input.clientOrderId, executedQuantity: "1.25" };
+      return {
+        state: "filled",
+        externalOrderId: input.clientOrderId,
+        executedQuantity: "1.25",
+        executedQuoteQuantity: "3125.5",
+      };
     },
     async submitMarketOrder() { submissions += 1; throw new Error("must not submit"); },
   };
@@ -42,13 +47,19 @@ test("HedgeWorker queries deterministic client id before submitting and complete
   assert.equal(store.calls.prepareRoute.length, 1);
   assert.equal(store.calls.recordExternalOrderObserved.length, 1);
   assert.equal(store.calls.completeFilled[0][2], store.calls.prepareRoute[0][2].clientOrderId);
+  assert.equal(store.calls.completeFilled[0][4], "3125.5");
 });
 
 test("HedgeWorker requires FILLED cumulative quantity to equal the quantized target", async () => {
   const store = fakeStore(job);
   const adapter = {
     async queryOrder(input) {
-      return { state: "filled", externalOrderId: input.clientOrderId, executedQuantity: "0.5" };
+      return {
+        state: "filled",
+        externalOrderId: input.clientOrderId,
+        executedQuantity: "0.5",
+        executedQuoteQuantity: "1250",
+      };
     },
     async submitMarketOrder() { throw new Error("must not submit"); },
   };
@@ -67,7 +78,12 @@ test("HedgeWorker permits only sub-step dust between intent and a complete venue
   const store = fakeStore({ ...job, amount: "1250090000000000000" });
   const adapter = {
     async queryOrder(input) {
-      return { state: "filled", externalOrderId: input.clientOrderId, executedQuantity: "1.25" };
+      return {
+        state: "filled",
+        externalOrderId: input.clientOrderId,
+        executedQuantity: "1.25",
+        executedQuoteQuantity: "3125",
+      };
     },
     async submitMarketOrder() { throw new Error("must not submit"); },
   };
@@ -83,7 +99,12 @@ test("HedgeWorker submits only after not-found and reschedules pending orders", 
     async queryOrder() { return undefined; },
     async submitMarketOrder(input) {
       assert.equal(input.quantity, "1.25");
-      return { state: "pending", externalOrderId: input.clientOrderId, executedQuantity: "0.5" };
+      return {
+        state: "pending",
+        externalOrderId: input.clientOrderId,
+        executedQuantity: "0.5",
+        executedQuoteQuantity: "1250.25",
+      };
     },
   };
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
@@ -96,6 +117,7 @@ test("HedgeWorker submits only after not-found and reschedules pending orders", 
   assert.deepEqual(store.calls.releaseForRetry[0].slice(0, 3), [job.hedgeOrderId, "worker_1", "HEDGE_ORDER_PENDING"]);
   assert.equal(store.calls.authorizeSubmission.length, 1);
   assert.equal(store.calls.recordExecutionProgress[0][3], "500000000000000000");
+  assert.equal(store.calls.recordExecutionProgress[0][4], "1250.25");
 });
 
 test("HedgeWorker never marks ambiguous venue failures terminal", async () => {
@@ -168,6 +190,22 @@ test("HedgeWorker permanently fails unconfigured routes without venue calls", as
   assert.equal(store.calls.completeFailed.length, 1);
 });
 
+test("HedgeWorker never abandons a submission-attempted job on local route failure", async () => {
+  const store = fakeStore({ ...job, chainId: 2, submissionAttempted: true });
+  const worker = new HedgeWorker(store, routes, new Map([[
+    "binance",
+    { async queryOrder() {}, async submitMarketOrder() {} },
+  ]]), config, silentLogger);
+
+  assert.deepEqual(await worker.runOnce(), {
+    status: "retry_scheduled",
+    hedgeOrderId: job.hedgeOrderId,
+    errorCode: "HEDGE_ROUTE_NOT_CONFIGURED",
+  });
+  assert.equal(store.calls.completeFailed.length, 0);
+  assert.equal(store.calls.releaseForRetry.length, 1);
+});
+
 test("HedgeWorker blocks a new POST when submission authorization observes a reorg", async () => {
   const store = fakeStore(job);
   store.authorizeSubmission = async (...args) => {
@@ -197,6 +235,7 @@ test("HedgeWorker persists terminal partial execution before marking venue failu
         state: "failed",
         externalOrderId: input.clientOrderId,
         executedQuantity: "0.5",
+        executedQuoteQuantity: "1250",
         failureCode: "BINANCE_ORDER_EXPIRED",
       };
     },
@@ -210,6 +249,25 @@ test("HedgeWorker persists terminal partial execution before marking venue failu
     "BINANCE_ORDER_EXPIRED",
   ]);
   assert.equal(store.calls.completeFailed[0][4], "500000000000000000");
+  assert.equal(store.calls.completeFailed[0][5], "1250");
+});
+
+test("HedgeWorker rejects unpaired base and quote execution evidence", async () => {
+  const store = fakeStore(job);
+  const adapter = {
+    async queryOrder(input) {
+      return {
+        state: "pending",
+        externalOrderId: input.clientOrderId,
+        executedQuantity: "0.5",
+        executedQuoteQuantity: "0",
+      };
+    },
+    async submitMarketOrder() { throw new Error("must not submit"); },
+  };
+  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  assert.equal((await worker.runOnce()).errorCode, "HEDGE_VENUE_RESPONSE_INVALID");
+  assert.equal(store.calls.recordExecutionProgress.length, 0);
 });
 
 test("HedgeWorkerMetrics exposes bounded outcome labels", () => {

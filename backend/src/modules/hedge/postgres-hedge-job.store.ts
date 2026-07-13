@@ -1,6 +1,11 @@
 import pg from "pg";
 import type { Address, UIntString } from "../../shared/types/rfq.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
+import {
+  compareCexQuoteQuantities,
+  parseCexQuoteQuantity,
+  type CexQuoteQuantity,
+} from "./hedge-execution-evidence.js";
 
 export interface HedgeJob {
   hedgeOrderId: string;
@@ -30,14 +35,22 @@ export interface HedgeJobStore {
     workerId: string,
     externalOrderId: string,
     filledAmount: UIntString,
+    executedQuoteQuantity: CexQuoteQuantity,
   ): Promise<void>;
-  completeFilled(hedgeOrderId: string, workerId: string, externalOrderId: string, filledAmount: UIntString): Promise<void>;
+  completeFilled(
+    hedgeOrderId: string,
+    workerId: string,
+    externalOrderId: string,
+    filledAmount: UIntString,
+    executedQuoteQuantity: CexQuoteQuantity,
+  ): Promise<void>;
   completeFailed(
     hedgeOrderId: string,
     workerId: string,
     errorCode: string,
     externalOrderId?: string,
     filledAmount?: UIntString,
+    executedQuoteQuantity?: CexQuoteQuantity,
   ): Promise<void>;
   releaseForRetry(hedgeOrderId: string, workerId: string, errorCode: string, retryDelayMs: number): Promise<void>;
 }
@@ -169,17 +182,20 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
     workerId: string,
     externalOrderId: string,
     filledAmount: UIntString,
+    executedQuoteQuantity: CexQuoteQuantity,
   ): Promise<void> {
     assertLeaseMutation(hedgeOrderId, workerId);
     assertNonEmptyBoundedString(externalOrderId, "externalOrderId", 128);
     assertPositiveUInt(filledAmount, "filledAmount");
+    assertPositiveQuoteQuantity(executedQuoteQuantity);
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
       await lockSettlementForHedge(client, hedgeOrderId);
       const selected = await client.query(
         `SELECT chain_id, token_address, side, amount::text AS amount,
-                filled_amount::text AS filled_amount, external_order_id
+                filled_amount::text AS filled_amount,
+                executed_quote_quantity::text AS executed_quote_quantity, external_order_id
          FROM hedge_orders
          WHERE id = $1 AND status = 'queued' AND lease_owner = $2
          FOR UPDATE`,
@@ -189,6 +205,16 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       const position = parseTerminalPosition(selected.rows[0]);
       const previous = parseOptionalPositiveUInt((selected.rows[0] as Record<string, unknown>).filled_amount);
       assertCumulativeFill(hedgeOrderId, filledAmount, position.amount, previous);
+      const previousQuoteQuantity = parseOptionalQuoteQuantity(
+        (selected.rows[0] as Record<string, unknown>).executed_quote_quantity,
+      );
+      assertCumulativeExecutionEvidence(
+        hedgeOrderId,
+        filledAmount,
+        executedQuoteQuantity,
+        previous,
+        previousQuoteQuantity,
+      );
       const previousExternalOrderId = (selected.rows[0] as Record<string, unknown>).external_order_id;
       if (previousExternalOrderId !== null && previousExternalOrderId !== externalOrderId) {
         throw new Error(`Postgres hedge external order conflict for ${hedgeOrderId}`);
@@ -196,9 +222,10 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       await client.query(
         `UPDATE hedge_orders
          SET submission_attempted_at = COALESCE(submission_attempted_at, now()),
-             external_order_id = $3, filled_amount = $4, updated_at = now()
+             external_order_id = $3, filled_amount = $4,
+             executed_quote_quantity = $5, execution_evidence_version = 'base-and-quote-v2', updated_at = now()
          WHERE id = $1 AND status = 'queued' AND lease_owner = $2`,
-        [hedgeOrderId, workerId, externalOrderId, filledAmount],
+        [hedgeOrderId, workerId, externalOrderId, filledAmount, executedQuoteQuantity],
       );
       await applyInventoryFillDelta(client, position, BigInt(filledAmount) - BigInt(previous ?? "0"));
       await client.query("COMMIT");
@@ -215,11 +242,21 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
     workerId: string,
     externalOrderId: string,
     filledAmount: UIntString,
+    executedQuoteQuantity: CexQuoteQuantity,
   ): Promise<void> {
     assertLeaseMutation(hedgeOrderId, workerId);
     assertNonEmptyBoundedString(externalOrderId, "externalOrderId", 128);
     assertPositiveUInt(filledAmount, "filledAmount");
-    await this.completeTerminal(hedgeOrderId, workerId, "filled", undefined, externalOrderId, filledAmount);
+    assertPositiveQuoteQuantity(executedQuoteQuantity);
+    await this.completeTerminal(
+      hedgeOrderId,
+      workerId,
+      "filled",
+      undefined,
+      externalOrderId,
+      filledAmount,
+      executedQuoteQuantity,
+    );
   }
 
   async completeFailed(
@@ -228,6 +265,7 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
     errorCode: string,
     externalOrderId?: string,
     filledAmount?: UIntString,
+    executedQuoteQuantity?: CexQuoteQuantity,
   ): Promise<void> {
     assertLeaseMutation(hedgeOrderId, workerId);
     assertErrorCode(errorCode);
@@ -236,7 +274,19 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       assertPositiveUInt(filledAmount, "filledAmount");
       if (externalOrderId === undefined) throw new Error("Hedge job partial fill requires externalOrderId");
     }
-    await this.completeTerminal(hedgeOrderId, workerId, "failed", errorCode, externalOrderId, filledAmount);
+    if ((filledAmount === undefined) !== (executedQuoteQuantity === undefined)) {
+      throw new Error("Hedge job partial fill requires paired quote quantity evidence");
+    }
+    if (executedQuoteQuantity !== undefined) assertPositiveQuoteQuantity(executedQuoteQuantity);
+    await this.completeTerminal(
+      hedgeOrderId,
+      workerId,
+      "failed",
+      errorCode,
+      externalOrderId,
+      filledAmount,
+      executedQuoteQuantity,
+    );
   }
 
   async releaseForRetry(
@@ -278,6 +328,7 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
     errorCode?: string,
     externalOrderId?: string,
     filledAmount?: UIntString,
+    executedQuoteQuantity?: CexQuoteQuantity,
   ): Promise<void> {
     const client = await this.pool.connect();
     try {
@@ -285,7 +336,8 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       await lockSettlementForHedge(client, hedgeOrderId);
       const selected = await client.query(
         `SELECT chain_id, token_address, side, amount::text AS amount,
-                filled_amount::text AS filled_amount
+                filled_amount::text AS filled_amount,
+                executed_quote_quantity::text AS executed_quote_quantity, external_order_id
          FROM hedge_orders
          WHERE id = $1 AND status = 'queued' AND lease_owner = $2
          FOR UPDATE`,
@@ -295,14 +347,47 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       const position = parseTerminalPosition(selected.rows[0]);
       const previous = parseOptionalPositiveUInt((selected.rows[0] as Record<string, unknown>).filled_amount);
       if (filledAmount !== undefined) assertCumulativeFill(hedgeOrderId, filledAmount, position.amount, previous);
+      const previousQuoteQuantity = parseOptionalQuoteQuantity(
+        (selected.rows[0] as Record<string, unknown>).executed_quote_quantity,
+      );
+      const previousExternalOrderId = (selected.rows[0] as Record<string, unknown>).external_order_id;
+      if (externalOrderId !== undefined && previousExternalOrderId !== null &&
+          previousExternalOrderId !== externalOrderId) {
+        throw new Error(`Postgres hedge external order conflict for ${hedgeOrderId}`);
+      }
+      if (externalOrderId !== undefined && previous !== undefined && filledAmount === undefined) {
+        throw new Error(`Postgres hedge cumulative execution evidence disappeared for ${hedgeOrderId}`);
+      }
+      if (filledAmount !== undefined && executedQuoteQuantity !== undefined) {
+        assertCumulativeExecutionEvidence(
+          hedgeOrderId,
+          filledAmount,
+          executedQuoteQuantity,
+          previous,
+          previousQuoteQuantity,
+        );
+      }
       const updated = await client.query(
         `UPDATE hedge_orders
          SET status = $3, external_order_id = COALESCE($4, external_order_id),
              filled_amount = COALESCE($5, filled_amount), last_error_code = $6,
+             executed_quote_quantity = COALESCE($7, executed_quote_quantity),
+             execution_evidence_version = CASE
+               WHEN $7 IS NOT NULL THEN 'base-and-quote-v2'
+               ELSE execution_evidence_version
+             END,
              lease_owner = NULL, lease_expires_at = NULL, updated_at = now()
          WHERE id = $1 AND status = 'queued' AND lease_owner = $2
            AND ($3 <> 'filled' OR (venue <> 'internal' AND venue_symbol IS NOT NULL AND client_order_id IS NOT NULL))`,
-        [hedgeOrderId, workerId, status, externalOrderId ?? null, filledAmount ?? null, errorCode ?? null],
+        [
+          hedgeOrderId,
+          workerId,
+          status,
+          externalOrderId ?? null,
+          filledAmount ?? null,
+          errorCode ?? null,
+          executedQuoteQuantity ?? null,
+        ],
       );
       if (updated.rowCount !== 1) throw new Error(`Postgres hedge lease conflict for ${hedgeOrderId}`);
       if (filledAmount !== undefined) {
@@ -442,6 +527,33 @@ function assertCumulativeFill(
   }
   if (previous !== undefined && BigInt(filledAmount) < BigInt(previous)) {
     throw new Error(`Postgres hedge cumulative fill regressed for ${hedgeOrderId}`);
+  }
+}
+
+function assertCumulativeExecutionEvidence(
+  hedgeOrderId: string,
+  filledAmount: UIntString,
+  quoteQuantity: CexQuoteQuantity,
+  previousFilledAmount?: UIntString,
+  previousQuoteQuantity?: CexQuoteQuantity,
+): void {
+  if (previousQuoteQuantity === undefined) return;
+  const fillComparison = BigInt(filledAmount) === BigInt(previousFilledAmount ?? "0") ? 0 : 1;
+  const quoteComparison = compareCexQuoteQuantities(quoteQuantity, previousQuoteQuantity);
+  if (quoteComparison < 0 || (fillComparison === 0 && quoteComparison !== 0) ||
+      (fillComparison > 0 && quoteComparison <= 0)) {
+    throw new Error(`Postgres hedge cumulative execution evidence is inconsistent for ${hedgeOrderId}`);
+  }
+}
+
+function parseOptionalQuoteQuantity(value: unknown): CexQuoteQuantity | undefined {
+  if (value === null || value === undefined) return undefined;
+  return parseCexQuoteQuantity(value);
+}
+
+function assertPositiveQuoteQuantity(value: unknown): asserts value is CexQuoteQuantity {
+  if (parseCexQuoteQuantity(value) === undefined) {
+    throw new Error("Hedge executedQuoteQuantity must be positive");
   }
 }
 

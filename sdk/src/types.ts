@@ -98,6 +98,7 @@ export interface QuoteStatus {
 }
 
 export type HedgeIntentStatusValue = "queued" | "filled" | "failed";
+export type HedgeExecutionEvidenceVersion = "base-only-v1" | "base-and-quote-v2";
 
 export interface HedgeIntentStatus {
   hedgeOrderId: string;
@@ -112,6 +113,10 @@ export interface HedgeIntentStatus {
   createdAt: string;
   externalOrderId?: string;
   filledAmount?: UIntString;
+  venue?: string;
+  venueSymbol?: string;
+  executionEvidenceVersion?: HedgeExecutionEvidenceVersion;
+  executedQuoteQuantity?: string;
   failureCode?: string;
   updatedAt?: string;
 }

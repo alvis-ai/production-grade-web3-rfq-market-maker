@@ -67,6 +67,7 @@ test("PostgresHedgeService persists terminal state and durable failure pressure"
           status: params[1],
           external_order_id: params[2],
           filled_amount: params[1] === "filled" ? intent.amount : null,
+          execution_evidence_version: params[1] === "filled" ? "base-only-v1" : null,
         })],
         rowCount: 1,
       };
@@ -84,6 +85,7 @@ test("PostgresHedgeService persists terminal state and durable failure pressure"
   assert.equal(filled.record.status, "filled");
   assert.equal(filled.record.externalOrderId, "cex-1");
   assert.equal(filled.record.filledAmount, intent.amount);
+  assert.equal(filled.record.executionEvidenceVersion, "base-only-v1");
   await service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
   assert.equal(await service.quoteRiskPenaltyBps({ chainId: 1, token: intent.token }), 60);
   assert.equal(client.queries.some(({ sql }) => sql.includes("ON CONFLICT (settlement_event_id)")), true);
@@ -130,9 +132,13 @@ test("PostgresHedgeService removes intents for reorg reconciliation", async () =
 
 test("PostgresHedgeService preserves submission-attempted and terminal CEX evidence during reorg reconciliation", async () => {
   const filled = hedgeRow({
+    venue: "binance",
+    venue_symbol: "ETHUSDT",
     status: "filled",
     external_order_id: "rfq_11111111111111111111111111111111",
     filled_amount: intent.amount,
+    execution_evidence_version: "base-and-quote-v2",
+    executed_quote_quantity: "2500.500000000000000000",
   });
   const { pool } = fakePool(async (sql) => {
     if (sql.includes("DELETE FROM hedge_orders")) return { rows: [], rowCount: 0 };
@@ -145,6 +151,10 @@ test("PostgresHedgeService preserves submission-attempted and terminal CEX evide
   assert.equal(result.removed, false);
   assert.equal(result.record.status, "filled");
   assert.equal(result.record.filledAmount, intent.amount);
+  assert.equal(result.record.venue, "binance");
+  assert.equal(result.record.venueSymbol, "ETHUSDT");
+  assert.equal(result.record.executionEvidenceVersion, "base-and-quote-v2");
+  assert.equal(result.record.executedQuoteQuantity, "2500.500000000000000000");
 });
 
 test("PostgresHedgeService rejects malformed dependencies and database rows", async () => {
@@ -167,6 +177,10 @@ function hedgeRow(overrides = {}) {
     reason: intent.reason,
     external_order_id: null,
     filled_amount: null,
+    venue: "internal",
+    venue_symbol: null,
+    execution_evidence_version: null,
+    executed_quote_quantity: null,
     last_error_code: null,
     created_at: "2026-07-11T00:00:00.000Z",
     updated_at: "2026-07-11T00:00:00.000Z",

@@ -36,6 +36,7 @@ test("PostgresHedgeJobStore claims one due job with transaction and SKIP LOCKED"
 
 test("PostgresHedgeJobStore persists route and lease-owned terminal or retry transitions", async () => {
   let currentFilledAmount = null;
+  let currentQuoteQuantity = null;
   const { pool, client } = fakePool(async (sql, params) => {
     if (sql.includes("FROM settlement_events AS settlement")) {
       return { rows: [{ id: "se_1_test_0", canonical: true }], rowCount: 1 };
@@ -48,6 +49,7 @@ test("PostgresHedgeJobStore persists route and lease-owned terminal or retry tra
           side: "buy",
           amount: "990",
           filled_amount: currentFilledAmount,
+          executed_quote_quantity: currentQuoteQuantity,
           external_order_id: null,
         }],
         rowCount: 1,
@@ -55,6 +57,7 @@ test("PostgresHedgeJobStore persists route and lease-owned terminal or retry tra
     }
     if (sql.includes("external_order_id = $3, filled_amount = $4")) {
       currentFilledAmount = params[3];
+      currentQuoteQuantity = params[4];
     }
     return { rows: [], rowCount: 1 };
   });
@@ -64,10 +67,9 @@ test("PostgresHedgeJobStore persists route and lease-owned terminal or retry tra
   await store.prepareRoute(row.id, "worker_1", route);
   await store.authorizeSubmission(row.id, "worker_1");
   await store.recordExternalOrderObserved(row.id, "worker_1");
-  await store.recordExecutionProgress(row.id, "worker_1", route.clientOrderId, "400");
+  await store.recordExecutionProgress(row.id, "worker_1", route.clientOrderId, "400", "1000.25");
   await store.releaseForRetry(row.id, "worker_1", "BINANCE_REQUEST_FAILED", 1000);
-  await store.completeFilled(row.id, "worker_1", route.clientOrderId, "900");
-  await store.completeFailed(row.id, "worker_1", "BINANCE_ORDER_REJECTED");
+  await store.completeFilled(row.id, "worker_1", route.clientOrderId, "900", "2251.5");
 
   assert.match(client.queries[0].sql, /client_order_id = \$5/);
   assert.match(client.queries[0].sql, /venue = 'internal'/);
@@ -75,12 +77,50 @@ test("PostgresHedgeJobStore persists route and lease-owned terminal or retry tra
   assert.equal(client.queries.some(({ sql }) => sql.includes("submission_attempted_at = COALESCE")), true);
   assert.match(client.queries.find(({ sql }) => sql.includes("next_attempt_at = now()")).sql, /lease_owner = NULL/);
   assert.match(client.queries.find(({ sql }) => sql.includes("SET status = $3")).sql, /filled_amount = COALESCE\(\$5/);
+  assert.match(client.queries.find(({ sql }) => sql.includes("SET status = $3")).sql, /executed_quote_quantity/);
   assert.equal(client.queries.some(({ sql }) => sql.includes("INSERT INTO inventory_positions")), true);
   assert.deepEqual(
     client.queries.filter(({ sql }) => sql.includes("INSERT INTO inventory_positions")).map(({ params }) => params[3]),
     ["400", "500"],
   );
-  assert.equal(client.queries.filter(({ sql }) => sql === "COMMIT").length, 4);
+  assert.equal(client.queries.filter(({ sql }) => sql === "COMMIT").length, 3);
+});
+
+test("PostgresHedgeJobStore persists terminal partial failure economics atomically", async () => {
+  const externalOrderId = "rfq_11111111111111111111111111111111";
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("FROM settlement_events AS settlement")) {
+      return { rows: [{ canonical: true }], rowCount: 1 };
+    }
+    if (sql.includes("SELECT chain_id") && sql.includes("FOR UPDATE")) {
+      return { rows: [{
+        chain_id: "1",
+        token_address: row.token_address,
+        side: "buy",
+        amount: "990",
+        filled_amount: null,
+        executed_quote_quantity: null,
+        external_order_id: null,
+      }], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 1 };
+  });
+  const store = new PostgresHedgeJobStore(pool);
+
+  await store.completeFailed(
+    row.id,
+    "worker_1",
+    "BINANCE_ORDER_EXPIRED",
+    externalOrderId,
+    "400",
+    "1000.25",
+  );
+
+  const terminalUpdate = client.queries.find(({ sql }) => sql.includes("SET status = $3"));
+  assert.equal(terminalUpdate.params[2], "failed");
+  assert.equal(terminalUpdate.params[6], "1000.25");
+  assert.equal(client.queries.find(({ sql }) => sql.includes("INSERT INTO inventory_positions")).params[3], "400");
+  assert.equal(client.queries.at(-1).sql, "COMMIT");
 });
 
 test("PostgresHedgeJobStore rejects stale lease mutation and rolls back failed claims", async () => {
@@ -116,6 +156,8 @@ test("PostgresHedgeJobStore preserves external hedge fills after settlement reor
           side: "buy",
           amount: "990",
           filled_amount: null,
+          executed_quote_quantity: null,
+          external_order_id: null,
         }],
         rowCount: 1,
       };
@@ -124,9 +166,76 @@ test("PostgresHedgeJobStore preserves external hedge fills after settlement reor
   });
   const store = new PostgresHedgeJobStore(pool);
 
-  await store.completeFilled(row.id, "worker_1", "rfq_11111111111111111111111111111111", "900");
+  await store.completeFilled(
+    row.id,
+    "worker_1",
+    "rfq_11111111111111111111111111111111",
+    "900",
+    "2250",
+  );
   assert.equal(client.queries.some(({ sql }) => sql.includes("INSERT INTO inventory_positions")), true);
   assert.equal(client.queries.at(-1).sql, "COMMIT");
+});
+
+test("PostgresHedgeJobStore rejects regressing or unpaired cumulative quote evidence", async () => {
+  const { pool } = fakePool(async (sql) => {
+    if (sql.includes("FROM settlement_events AS settlement")) {
+      return { rows: [{ canonical: true }], rowCount: 1 };
+    }
+    if (sql.includes("SELECT chain_id") && sql.includes("FOR UPDATE")) {
+      return { rows: [{
+        chain_id: "1",
+        token_address: row.token_address,
+        side: "buy",
+        amount: "990",
+        filled_amount: "400",
+        executed_quote_quantity: "1000.250000000000000000",
+        external_order_id: "rfq_11111111111111111111111111111111",
+      }], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 1 };
+  });
+  const store = new PostgresHedgeJobStore(pool);
+  await assert.rejects(
+    store.recordExecutionProgress(
+      row.id,
+      "worker_1",
+      "rfq_11111111111111111111111111111111",
+      "500",
+      "999",
+    ),
+    /cumulative execution evidence is inconsistent/,
+  );
+  await assert.rejects(
+    store.completeFailed(
+      row.id,
+      "worker_1",
+      "BINANCE_ORDER_EXPIRED",
+      "rfq_11111111111111111111111111111111",
+      "500",
+    ),
+    /paired quote quantity evidence/,
+  );
+  await assert.rejects(
+    store.completeFailed(
+      row.id,
+      "worker_1",
+      "BINANCE_ORDER_EXPIRED",
+      "rfq_22222222222222222222222222222222",
+      "500",
+      "1250",
+    ),
+    /external order conflict/,
+  );
+  await assert.rejects(
+    store.completeFailed(
+      row.id,
+      "worker_1",
+      "BINANCE_ORDER_EXPIRED",
+      "rfq_11111111111111111111111111111111",
+    ),
+    /cumulative execution evidence disappeared/,
+  );
 });
 
 test("PostgresHedgeJobStore blocks new submission authorization after settlement reorg", async () => {

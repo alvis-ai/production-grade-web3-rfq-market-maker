@@ -19,6 +19,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "011", name: "open-quote-exposure", applied_at: "2026-07-14T00:02:00.000Z" },
         { version: "012", name: "pricing-attribution", applied_at: "2026-07-14T00:03:00.000Z" },
         { version: "013", name: "market-spread-attribution", applied_at: "2026-07-14T00:04:00.000Z" },
+        { version: "014", name: "hedge-execution-evidence", applied_at: "2026-07-14T00:05:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -385,6 +386,43 @@ test("database migration runner applies market spread attribution after pricing 
   assert.equal(client.queries.some(({ sql }) => sql.includes("'marketSpreadBps', source_row.market_spread_bps")), true);
   assert.equal(client.queries.some(({ sql }) => sql.includes("DROP TRIGGER trg_market_snapshots_analytics_update")), true);
   assert.equal(client.queries.some(({ sql, params }) => sql.includes("INSERT INTO _migrations") && params[0] === "013"), true);
+});
+
+test("database migration runner adds versioned cumulative hedge execution evidence", async () => {
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: [
+        ["001", "base-schema"],
+        ["002", "settlement-canonical"],
+        ["003", "hedge-worker-queue"],
+        ["004", "analytics-outbox"],
+        ["005", "post-trade-reconciliation"],
+        ["006", "quote-snapshot-pnl"],
+        ["007", "settlement-indexer"],
+        ["008", "submit-reservations"],
+        ["009", "risk-notional-reasons"],
+        ["010", "risk-market-regime-reasons"],
+        ["011", "open-quote-exposure"],
+        ["012", "pricing-attribution"],
+        ["013", "market-spread-attribution"],
+      ].map(([version, name]) => ({ version, name, applied_at: "2026-07-14T00:00:00.000Z" })) };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "014");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("ADD COLUMN execution_evidence_version")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("ADD COLUMN executed_quote_quantity")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("base-only-v1")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("hedge.lifecycle.v2")), true);
+  assert.equal(client.queries.some(({ sql, params }) =>
+    sql.includes("INSERT INTO _migrations") && params[0] === "014"), true);
 });
 
 function fakePool(handler) {

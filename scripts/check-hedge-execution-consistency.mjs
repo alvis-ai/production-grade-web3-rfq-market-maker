@@ -6,6 +6,9 @@ import { readFile } from "node:fs/promises";
 const paths = {
   route: "backend/src/modules/hedge/hedge-route.ts",
   worker: "backend/src/modules/hedge/hedge-worker.ts",
+  adapter: "backend/src/modules/hedge/binance-spot.adapter.ts",
+  store: "backend/src/modules/hedge/postgres-hedge-job.store.ts",
+  migration: "backend/src/db/migrations/014-hedge-execution-evidence.sql",
   runtime: "backend/src/hedge-worker-main.ts",
   routeTest: "backend/test/hedge-route.test.mjs",
   workerTest: "backend/test/hedge-worker.test.mjs",
@@ -32,6 +35,14 @@ assert.match(source.route, /quantized\.toString\(\) as UIntString/);
 assert.match(source.worker, /const targetAmount = quantizeHedgeAmount\(job\.amount, route\)/);
 assert.match(source.worker, /filledAmount === undefined \|\| filledAmount !== targetAmount/);
 assert.match(source.worker, /completeFilled[\s\S]*filledAmount/);
+assert.match(source.adapter, /cummulativeQuoteQty/);
+assert.match(source.worker, /parseCexQuoteQuantity\(order\.executedQuoteQuantity\)/);
+assert.match(source.worker, /if \(job\.submissionAttempted\)[\s\S]*scheduleRetry/);
+assert.match(source.store, /execution_evidence_version = 'base-and-quote-v2'/);
+assert.match(source.store, /assertCumulativeExecutionEvidence/);
+assert.match(source.migration, /execution_evidence_version/);
+assert.match(source.migration, /executed_quote_quantity/);
+assert.match(source.migration, /hedge\.lifecycle\.v2/);
 
 assert.match(source.runtime, /readRequired\(env, "RFQ_TOKEN_REGISTRY_JSON"\)/);
 assert.match(source.runtime, /routes\.validateTokenRegistry\(tokenRegistry\)/);
@@ -50,7 +61,9 @@ assert.match(source.helmDeployment, /env\.RFQ_TOKEN_REGISTRY_JSON is required fo
 
 for (const [name, needle] of [
   ["readme", /quantized target/],
+  ["readme", /base-and-quote-v2/],
   ["hedgeBook", /quantized target/],
+  ["hedgeBook", /cummulativeQuoteQty/],
   ["kubernetesBook", /route decimals/],
   ["runbook", /registry\/route decimals mismatch/],
 ]) {

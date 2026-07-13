@@ -120,6 +120,14 @@ export function QuoteStatusPanel({
           <dd>{hedgeStatus?.externalOrderId ?? "-"}</dd>
         </div>
         <div>
+          <dt>Hedge Venue</dt>
+          <dd>{hedgeStatus?.venueSymbol ?? hedgeStatus?.venue ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Hedge Executed Quote</dt>
+          <dd>{hedgeStatus?.executedQuoteQuantity ?? "-"}</dd>
+        </div>
+        <div>
           <dt>Hedge Updated</dt>
           <dd>{hedgeStatus?.updatedAt ?? "-"}</dd>
         </div>

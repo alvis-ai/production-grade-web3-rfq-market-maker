@@ -810,6 +810,7 @@ test -s backend/src/db/migrations/010-risk-market-regime-reasons.sql
 test -s backend/src/db/migrations/011-open-quote-exposure.sql
 test -s backend/src/db/migrations/012-pricing-attribution.sql
 test -s backend/src/db/migrations/013-market-spread-attribution.sql
+test -s backend/src/db/migrations/014-hedge-execution-evidence.sql
 test -s backend/src/modules/risk/quote-exposure.store.ts
 test -s backend/src/modules/risk/postgres-quote-exposure.store.ts
 test -s backend/test/quote-exposure-store.test.mjs
@@ -1475,7 +1476,7 @@ grep -q 'settlement_events must constrain hash-shaped fields' scripts/check-data
 grep -q 'hedge_orders must constrain side enum values' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge reason constraint must match backend HedgeIntent reason values' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must persist HedgeIntentStatusResponse' scripts/check-database-schema-consistency.mjs
-grep -q 'hedge_orders must reject empty venue values' scripts/check-database-schema-consistency.mjs
+grep -q 'hedge_orders must reject empty or oversized venue values' scripts/check-database-schema-consistency.mjs
 grep -q 'hedge_orders must reject empty external_order_id values when present' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution models' scripts/check-database-schema-consistency.mjs
 grep -q 'pnl_records must constrain supported attribution model descriptions' scripts/check-database-schema-consistency.mjs
@@ -2528,7 +2529,7 @@ grep -q 'withPrototype({ txHash: submitResponse.txHash }, { status: "accepted" }
 grep -q 'successful response validators require closed own response fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'routeHint: "debug"' sdk/test/sdk-client-responses.test.mjs
 grep -q 'relayer: quote.user' sdk/test/sdk-client-responses.test.mjs
-grep -q 'venue: "CEX_A"' sdk/test/sdk-client-status-responses.test.mjs
+grep -q 'venue: "x".repeat(129)' sdk/test/sdk-client-status-responses.test.mjs
 grep -q 'chainName: "mainnet"' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'reconciliationId: "recon_1"' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'routeId: "route_1"' sdk/test/sdk-client-accounting-responses.test.mjs

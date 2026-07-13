@@ -14,6 +14,7 @@ import {
 } from "./hedge-route.js";
 import type { UIntString } from "../../shared/types/rfq.js";
 import type { HedgeJob, HedgeJobStore } from "./postgres-hedge-job.store.js";
+import { parseCexQuoteQuantity } from "./hedge-execution-evidence.js";
 
 export interface HedgeWorkerConfig {
   workerId: string;
@@ -129,6 +130,10 @@ export class HedgeWorker {
   ): Promise<HedgeWorkerResult> {
     assertOrderResult(order);
     const filledAmount = parseHedgeExecutedQuantity(order.executedQuantity, route);
+    const executedQuoteQuantity = parseCexQuoteQuantity(order.executedQuoteQuantity);
+    if ((filledAmount === undefined) !== (executedQuoteQuantity === undefined)) {
+      throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
+    }
     if (filledAmount !== undefined && BigInt(filledAmount) > BigInt(targetAmount)) {
       throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
     }
@@ -136,7 +141,13 @@ export class HedgeWorker {
       if (filledAmount === undefined || filledAmount !== targetAmount) {
         throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
       }
-      await this.store.completeFilled(job.hedgeOrderId, this.config.workerId, order.externalOrderId, filledAmount);
+      await this.store.completeFilled(
+        job.hedgeOrderId,
+        this.config.workerId,
+        order.externalOrderId,
+        filledAmount,
+        executedQuoteQuantity!,
+      );
       return { status: "filled", hedgeOrderId: job.hedgeOrderId };
     }
     if (order.state === "failed") {
@@ -147,6 +158,7 @@ export class HedgeWorker {
         errorCode,
         order.externalOrderId,
         filledAmount,
+        executedQuoteQuantity,
       );
       return { status: "failed", hedgeOrderId: job.hedgeOrderId, errorCode };
     }
@@ -156,6 +168,7 @@ export class HedgeWorker {
         this.config.workerId,
         order.externalOrderId,
         filledAmount,
+        executedQuoteQuantity!,
       );
     }
     return this.scheduleRetry(job, "HEDGE_ORDER_PENDING");
@@ -164,6 +177,9 @@ export class HedgeWorker {
   private async handleJobError(job: HedgeJob, error: unknown): Promise<HedgeWorkerResult> {
     const normalized = normalizeJobError(error);
     if (!normalized.retryable) {
+      if (job.submissionAttempted) {
+        return this.scheduleRetry(job, normalized.errorCode, normalized.retryAfterMs);
+      }
       await this.store.completeFailed(job.hedgeOrderId, this.config.workerId, normalized.errorCode);
       return { status: "failed", hedgeOrderId: job.hedgeOrderId, errorCode: normalized.errorCode };
     }
@@ -231,7 +247,8 @@ function normalizeJobError(error: unknown): { errorCode: string; retryable: bool
       error.message === "HEDGE_AMOUNT_BELOW_STEP_SIZE" || error.message === "HEDGE_SETTLEMENT_NON_CANONICAL")) {
     return { errorCode: error.message, retryable: false };
   }
-  if (error instanceof Error && error.message === "HEDGE_EXECUTED_QUANTITY_INVALID") {
+  if (error instanceof Error && (error.message === "HEDGE_EXECUTED_QUANTITY_INVALID" ||
+      error.message === "HEDGE_EXECUTED_QUOTE_QUANTITY_INVALID")) {
     return { errorCode: error.message, retryable: true };
   }
   return { errorCode: "HEDGE_WORKER_INTERNAL", retryable: true };
@@ -242,12 +259,13 @@ function assertOrderResult(result: CexOrderResult): void {
     throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
   }
   const expectedFields = result.state === "failed"
-    ? new Set(["state", "externalOrderId", "executedQuantity", "failureCode"])
-    : new Set(["state", "externalOrderId", "executedQuantity"]);
+    ? new Set(["state", "externalOrderId", "executedQuantity", "executedQuoteQuantity", "failureCode"])
+    : new Set(["state", "externalOrderId", "executedQuantity", "executedQuoteQuantity"]);
   if (Object.keys(result).some((field) => !expectedFields.has(field)) ||
       !Object.prototype.hasOwnProperty.call(result, "state") ||
       !Object.prototype.hasOwnProperty.call(result, "externalOrderId") ||
-      !Object.prototype.hasOwnProperty.call(result, "executedQuantity")) {
+      !Object.prototype.hasOwnProperty.call(result, "executedQuantity") ||
+      !Object.prototype.hasOwnProperty.call(result, "executedQuoteQuantity")) {
     throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
   }
   if (result.state !== "pending" && result.state !== "filled" && result.state !== "failed") {
@@ -263,6 +281,10 @@ function assertOrderResult(result: CexOrderResult): void {
   }
   if (typeof result.executedQuantity !== "string" ||
       !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(result.executedQuantity)) {
+    throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
+  }
+  if (typeof result.executedQuoteQuantity !== "string" ||
+      !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(result.executedQuoteQuantity)) {
     throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
   }
 }

@@ -80,6 +80,7 @@ export interface MarketSnapshot {
 }
 
 export type HedgeIntentStatus = "queued" | "filled" | "failed";
+export type HedgeExecutionEvidenceVersion = "base-only-v1" | "base-and-quote-v2";
 
 export interface HedgeIntentStatusResponse {
   hedgeOrderId: string;
@@ -94,6 +95,10 @@ export interface HedgeIntentStatusResponse {
   createdAt: string;
   externalOrderId?: string;
   filledAmount?: UIntString;
+  venue?: string;
+  venueSymbol?: string;
+  executionEvidenceVersion?: HedgeExecutionEvidenceVersion;
+  executedQuoteQuantity?: string;
   failureCode?: string;
   updatedAt?: string;
 }

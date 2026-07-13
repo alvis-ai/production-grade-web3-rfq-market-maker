@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import pg from "pg";
 import type { Address, HedgeIntentStatusResponse } from "../../shared/types/rfq.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
+import { parseCexQuoteQuantity } from "./hedge-execution-evidence.js";
 import {
   assertHedgeIntent,
   assertHedgeRiskInput,
@@ -24,7 +25,8 @@ import {
 
 const hedgeColumns = `
   id, settlement_event_id, quote_id, chain_id, token_address, side, amount,
-  status, reason, external_order_id, filled_amount, last_error_code,
+  venue, venue_symbol, status, reason, external_order_id, filled_amount,
+  execution_evidence_version, executed_quote_quantity::text AS executed_quote_quantity, last_error_code,
   created_at, updated_at
 `;
 
@@ -277,12 +279,21 @@ export class PostgresHedgeService implements HedgeIntentService {
          SET status = $2,
              external_order_id = CASE WHEN $2 = 'filled' THEN $3 ELSE external_order_id END,
              filled_amount = CASE WHEN $2 = 'filled' THEN amount ELSE filled_amount END,
+             execution_evidence_version = CASE
+               WHEN $2 = 'filled' THEN 'base-only-v1'
+               ELSE execution_evidence_version
+             END,
              last_error_code = CASE
                WHEN $2 = 'failed' THEN COALESCE(last_error_code, 'HEDGE_MANUAL_FAILURE')
                ELSE NULL
              END,
              updated_at = now()
          WHERE id = $1 AND status = 'queued' AND lease_owner IS NULL
+           AND ($2 <> 'filled' OR (
+             venue = 'internal'
+             AND submission_attempted_at IS NULL
+             AND filled_amount IS NULL
+           ))
          RETURNING ${hedgeColumns}`,
         [hedgeOrderId, status, externalOrderId ?? null],
       );
@@ -344,6 +355,21 @@ function parseHedgeRow(row: unknown): HedgeIntentStatusResponse {
       (typeof filledAmount !== "string" || !/^[1-9][0-9]*$/.test(filledAmount))) {
     throw new Error("Postgres hedge row filled_amount is invalid");
   }
+  const venue = value.venue;
+  if (typeof venue !== "string" || venue.trim().length === 0 || venue.length > 128) {
+    throw new Error("Postgres hedge row venue is invalid");
+  }
+  const venueSymbol = value.venue_symbol;
+  if (venueSymbol !== null && venueSymbol !== undefined &&
+      (typeof venueSymbol !== "string" || !/^[A-Z0-9._-]{3,32}$/.test(venueSymbol))) {
+    throw new Error("Postgres hedge row venue_symbol is invalid");
+  }
+  const executionEvidenceVersion = value.execution_evidence_version;
+  if (executionEvidenceVersion !== null && executionEvidenceVersion !== undefined &&
+      executionEvidenceVersion !== "base-only-v1" && executionEvidenceVersion !== "base-and-quote-v2") {
+    throw new Error("Postgres hedge row execution_evidence_version is invalid");
+  }
+  const executedQuoteQuantity = parseOptionalExecutedQuoteQuantity(value.executed_quote_quantity);
   const failureCode = value.last_error_code;
   if (failureCode !== null && failureCode !== undefined &&
       (typeof failureCode !== "string" || !/^[A-Z0-9_:-]{1,128}$/.test(failureCode))) {
@@ -362,11 +388,19 @@ function parseHedgeRow(row: unknown): HedgeIntentStatusResponse {
     createdAt: parseTimestamp(value.created_at, "created_at"),
     ...(externalOrderId ? { externalOrderId } : {}),
     ...(filledAmount ? { filledAmount } : {}),
+    venue,
+    ...(venueSymbol ? { venueSymbol } : {}),
+    ...(executionEvidenceVersion ? { executionEvidenceVersion } : {}),
+    ...(executedQuoteQuantity ? { executedQuoteQuantity } : {}),
     ...(failureCode ? { failureCode } : {}),
     ...(value.updated_at ? { updatedAt: parseTimestamp(value.updated_at, "updated_at") } : {}),
   };
   if (status === "filled" && (!record.externalOrderId || !record.filledAmount)) {
     throw new Error("Postgres hedge filled row requires external order and filled amount");
+  }
+  if ((record.executionEvidenceVersion === "base-and-quote-v2") !==
+      (record.executedQuoteQuantity !== undefined)) {
+    throw new Error("Postgres hedge row base-and-quote evidence is inconsistent");
   }
   return record;
 }
@@ -384,6 +418,21 @@ function assertFilledInput(input: MarkHedgeIntentFilledInput): void {
   if (typeof input.externalOrderId !== "string" || input.externalOrderId.trim().length === 0) {
     throw new Error("Hedge externalOrderId must be a non-empty string");
   }
+}
+
+function parseOptionalExecutedQuoteQuantity(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value !== "string") {
+    throw new Error("Postgres hedge row executed_quote_quantity is invalid");
+  }
+  try {
+    if (parseCexQuoteQuantity(value) === undefined) {
+      throw new Error("zero");
+    }
+  } catch {
+    throw new Error("Postgres hedge row executed_quote_quantity is invalid");
+  }
+  return value;
 }
 
 function parseIdentifier(value: unknown, field: string): string {

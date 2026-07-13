@@ -33,7 +33,7 @@ const quoteHash = `0x${randomBytes(32).toString("hex")}`;
 const signature = `0x${"11".repeat(64)}1b`;
 const modelDescription = "Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution";
 const expectedTypes = [
-  "hedge.lifecycle.v1",
+  "hedge.lifecycle.v2",
   "inventory.position.v1",
   "market.snapshot.v1",
   "pnl.attribution.v2",
@@ -160,7 +160,7 @@ try {
   const migrations = await pool.query("SELECT version FROM _migrations ORDER BY version");
   assert.deepEqual(
     migrations.rows.map((row) => row.version),
-    ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013"],
+    ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013", "014"],
   );
 
   await cleanupOperationalFixtures();

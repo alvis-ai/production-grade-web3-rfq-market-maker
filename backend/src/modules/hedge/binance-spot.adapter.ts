@@ -16,6 +16,7 @@ export interface CexOrderResult {
   state: "pending" | "filled" | "failed";
   externalOrderId: string;
   executedQuantity: string;
+  executedQuoteQuantity: string;
   failureCode?: string;
 }
 
@@ -146,24 +147,34 @@ function parseOrderResponse(value: unknown, expectedSymbol: string, expectedClie
   const record = value as Record<string, unknown>;
   if (record.symbol !== expectedSymbol || record.clientOrderId !== expectedClientOrderId ||
       typeof record.status !== "string" || typeof record.executedQty !== "string" ||
-      !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(record.executedQty)) {
+      !isVenueDecimal(record.executedQty, 36) ||
+      typeof record.cummulativeQuoteQty !== "string" || !isVenueDecimal(record.cummulativeQuoteQty, 18)) {
     throw new CexVenueError("BINANCE_RESPONSE_INVALID", true);
   }
+  const result = {
+    externalOrderId: expectedClientOrderId,
+    executedQuantity: record.executedQty,
+    executedQuoteQuantity: record.cummulativeQuoteQty,
+  };
   if (record.status === "FILLED") {
-    return { state: "filled", externalOrderId: expectedClientOrderId, executedQuantity: record.executedQty };
+    return { state: "filled", ...result };
   }
   if (pendingStatuses.has(record.status)) {
-    return { state: "pending", externalOrderId: expectedClientOrderId, executedQuantity: record.executedQty };
+    return { state: "pending", ...result };
   }
   if (terminalFailedStatuses.has(record.status)) {
     return {
       state: "failed",
-      externalOrderId: expectedClientOrderId,
-      executedQuantity: record.executedQty,
+      ...result,
       failureCode: `BINANCE_ORDER_${record.status}`,
     };
   }
   throw new CexVenueError("BINANCE_STATUS_UNKNOWN", true);
+}
+
+function isVenueDecimal(value: string, maxFractionDigits: number): boolean {
+  const match = value.match(/^(0|[1-9][0-9]*)(?:\.([0-9]+))?$/);
+  return match !== null && match[1].length <= 60 && (match[2]?.length ?? 0) <= maxFractionDigits;
 }
 
 async function parseJson(response: Response): Promise<unknown> {

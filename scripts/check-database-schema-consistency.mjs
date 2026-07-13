@@ -54,6 +54,10 @@ const marketSpreadAttributionMigrationSource = await readFile(
   "backend/src/db/migrations/013-market-spread-attribution.sql",
   "utf8",
 );
+const hedgeExecutionEvidenceMigrationSource = await readFile(
+  "backend/src/db/migrations/014-hedge-execution-evidence.sql",
+  "utf8",
+);
 const postgresQuoteExposureSource = await readFile(
   "backend/src/modules/risk/postgres-quote-exposure.store.ts",
   "utf8",
@@ -174,6 +178,8 @@ const requiredTables = {
     "client_order_id",
     "submission_attempted_at",
     "filled_amount",
+    "execution_evidence_version",
+    "executed_quote_quantity",
     "last_error_code",
   ],
   pnl_records: [
@@ -399,6 +405,7 @@ const requiredCheckConstraints = {
     ["chk_hedge_orders_submission_attempt", "hedge_orders must constrain external submission evidence"],
     ["chk_hedge_orders_last_error_code", "hedge_orders must constrain worker error codes"],
     ["chk_hedge_orders_filled_amount", "hedge_orders must constrain terminal filled amounts"],
+    ["chk_hedge_orders_execution_evidence", "hedge_orders must constrain versioned execution evidence"],
     ["chk_hedge_orders_terminal_state", "hedge_orders must clear terminal leases and require fill evidence"],
   ],
   pnl_records: [
@@ -786,8 +793,10 @@ assert.ok(
   "hedge reason constraint must match backend HedgeIntent reason values",
 );
 assert.ok(
-  /btrim\s*\(\s*venue\s*\)\s*<>\s*''/i.test(tables.get("hedge_orders").body),
-  "hedge_orders must reject empty venue values",
+  /char_length\s*\(\s*btrim\s*\(\s*venue\s*\)\s*\)\s+BETWEEN\s+1\s+AND\s+128/i.test(
+    tables.get("hedge_orders").body,
+  ),
+  "hedge_orders must reject empty or oversized venue values",
 );
 assert.ok(
   /external_order_id\s+IS\s+NULL\s+OR\s+btrim\s*\(\s*external_order_id\s*\)\s*<>\s*''/i.test(
@@ -1017,6 +1026,10 @@ const hedgeColumnMapping = {
   createdAt: "created_at",
   externalOrderId: "external_order_id",
   filledAmount: "filled_amount",
+  venue: "venue",
+  venueSymbol: "venue_symbol",
+  executionEvidenceVersion: "execution_evidence_version",
+  executedQuoteQuantity: "executed_quote_quantity",
   failureCode: "last_error_code",
   updatedAt: "updated_at",
 };
@@ -1268,6 +1281,17 @@ assert.ok(
     !baseSchemaMigrationSource.includes("market_spread_bps") &&
     !pricingAttributionMigrationSource.includes("market_spread_bps"),
   "market spread attribution must remain owned by migration 013 and publish both quote and snapshot components",
+);
+assert.ok(
+  hedgeExecutionEvidenceMigrationSource.includes("ADD COLUMN execution_evidence_version") &&
+    hedgeExecutionEvidenceMigrationSource.includes("ADD COLUMN executed_quote_quantity") &&
+    hedgeExecutionEvidenceMigrationSource.includes("base-only-v1") &&
+    hedgeExecutionEvidenceMigrationSource.includes("base-and-quote-v2") &&
+    hedgeExecutionEvidenceMigrationSource.includes("hedge.lifecycle.v2") &&
+    schemaSource.includes("('014', 'hedge-execution-evidence')") &&
+    !baseSchemaMigrationSource.includes("executed_quote_quantity") &&
+    !hedgeWorkerMigrationSource.includes("executed_quote_quantity"),
+  "hedge execution evidence must remain owned by migration 014 and publish versioned cumulative economics",
 );
 assert.ok(
   postgresQuoteExposureSource.includes("pg_advisory_xact_lock") &&

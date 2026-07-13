@@ -880,7 +880,28 @@ components:
           description: External venue order reference once the worker observes an accepted or terminal venue order.
         filledAmount:
           $ref: "#/components/schemas/PositiveUIntString"
-          description: Raw token units confirmed executed by the venue at a terminal hedge outcome.
+          description: Cumulative raw base-token units confirmed executed by the venue.
+        venue:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Execution venue selected for the hedge.
+        venueSymbol:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: "^[A-Z0-9._-]+$"
+          description: Venue pair whose quote side gives the unit of executedQuoteQuantity.
+        executionEvidenceVersion:
+          type: string
+          enum:
+            - base-only-v1
+            - base-and-quote-v2
+          description: Completeness of the persisted cumulative venue execution evidence.
+        executedQuoteQuantity:
+          type: string
+          pattern: "^(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$"
+          description: Positive cumulative quote-asset amount transacted for the venue order.
         failureCode:
           type: string
           minLength: 1

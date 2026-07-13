@@ -21,7 +21,13 @@ test("BinanceSpotAdapter signs query-first market order execution", async () => 
     const url = new URL(input);
     calls.push({ url, init });
     if (init.method === "GET") return jsonResponse({ code: -2013, msg: "Order does not exist." }, 400);
-    return jsonResponse({ symbol: "ETHUSDT", clientOrderId, status: "FILLED", executedQty: "1.25000000" });
+    return jsonResponse({
+      symbol: "ETHUSDT",
+      clientOrderId,
+      status: "FILLED",
+      executedQty: "1.25000000",
+      cummulativeQuoteQty: "3125.50000000",
+    });
   };
   const adapter = new BinanceSpotAdapter(config, fetchFn, () => 1_700_000_000_000);
 
@@ -33,7 +39,12 @@ test("BinanceSpotAdapter signs query-first market order execution", async () => 
     clientOrderId,
   });
 
-  assert.deepEqual(result, { state: "filled", externalOrderId: clientOrderId, executedQuantity: "1.25000000" });
+  assert.deepEqual(result, {
+    state: "filled",
+    externalOrderId: clientOrderId,
+    executedQuantity: "1.25000000",
+    executedQuoteQuantity: "3125.50000000",
+  });
   assert.equal(calls[1].init.method, "POST");
   assert.equal(calls[1].init.headers["X-MBX-APIKEY"], config.apiKey);
   assert.equal(calls[1].url.searchParams.get("side"), "BUY");
@@ -46,15 +57,28 @@ test("BinanceSpotAdapter signs query-first market order execution", async () => 
 });
 
 test("BinanceSpotAdapter classifies pending, terminal, retryable, and permanent responses", async () => {
-  let response = jsonResponse({ symbol: "ETHUSDT", clientOrderId, status: "PARTIALLY_FILLED", executedQty: "0.5" });
+  let response = jsonResponse({
+    symbol: "ETHUSDT",
+    clientOrderId,
+    status: "PARTIALLY_FILLED",
+    executedQty: "0.5",
+    cummulativeQuoteQty: "1250.25",
+  });
   const adapter = new BinanceSpotAdapter(config, async () => response, () => 1_700_000_000_000);
   assert.equal((await adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId })).state, "pending");
 
-  response = jsonResponse({ symbol: "ETHUSDT", clientOrderId, status: "REJECTED", executedQty: "0" });
+  response = jsonResponse({
+    symbol: "ETHUSDT",
+    clientOrderId,
+    status: "REJECTED",
+    executedQty: "0",
+    cummulativeQuoteQty: "0",
+  });
   assert.deepEqual(await adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId }), {
     state: "failed",
     externalOrderId: clientOrderId,
     executedQuantity: "0",
+    executedQuoteQuantity: "0",
     failureCode: "BINANCE_ORDER_REJECTED",
   });
 
@@ -90,9 +114,21 @@ test("BinanceSpotAdapter treats transport ambiguity and malformed venue data saf
     clientOrderId,
     status: "FILLED",
     executedQty: "1",
+    cummulativeQuoteQty: "2500",
   }));
   await assert.rejects(
     malformed.queryOrder({ symbol: "ETHUSDT", clientOrderId }),
+    /BINANCE_RESPONSE_INVALID/,
+  );
+
+  const missingQuoteEvidence = new BinanceSpotAdapter(config, async () => jsonResponse({
+    symbol: "ETHUSDT",
+    clientOrderId,
+    status: "FILLED",
+    executedQty: "1",
+  }));
+  await assert.rejects(
+    missingQuoteEvidence.queryOrder({ symbol: "ETHUSDT", clientOrderId }),
     /BINANCE_RESPONSE_INVALID/,
   );
 });

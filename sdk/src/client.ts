@@ -68,7 +68,16 @@ const hedgeStatusRequiredFields = [
   "reason",
   "createdAt",
 ] as const;
-const hedgeStatusOptionalFields = ["externalOrderId", "filledAmount", "failureCode", "updatedAt"] as const;
+const hedgeStatusOptionalFields = [
+  "externalOrderId",
+  "filledAmount",
+  "venue",
+  "venueSymbol",
+  "executionEvidenceVersion",
+  "executedQuoteQuantity",
+  "failureCode",
+  "updatedAt",
+] as const;
 const settlementEventStatusFields = [
   "settlementEventId",
   "status",
@@ -735,6 +744,28 @@ function assertHedgeIntentStatus(payload: unknown, status: number): asserts payl
   }
   if (payload.filledAmount !== undefined && !isPositiveUIntString(payload.filledAmount)) {
     throw malformedFieldError(status, label, "filledAmount");
+  }
+  if (payload.venue !== undefined && (!isNonEmptyString(payload.venue) || payload.venue.length > 128)) {
+    throw malformedFieldError(status, label, "venue");
+  }
+  if (payload.venueSymbol !== undefined &&
+      (typeof payload.venueSymbol !== "string" || !/^[A-Z0-9._-]{3,32}$/.test(payload.venueSymbol))) {
+    throw malformedFieldError(status, label, "venueSymbol");
+  }
+  if (payload.executionEvidenceVersion !== undefined &&
+      payload.executionEvidenceVersion !== "base-only-v1" &&
+      payload.executionEvidenceVersion !== "base-and-quote-v2") {
+    throw malformedFieldError(status, label, "executionEvidenceVersion");
+  }
+  if (payload.executedQuoteQuantity !== undefined && !isPositiveDecimalString(payload.executedQuoteQuantity)) {
+    throw malformedFieldError(status, label, "executedQuoteQuantity");
+  }
+  if ((payload.executionEvidenceVersion === "base-and-quote-v2") !==
+      (payload.executedQuoteQuantity !== undefined)) {
+    throw malformedFieldError(status, label, "executionEvidenceVersion");
+  }
+  if (payload.executionEvidenceVersion !== undefined && payload.filledAmount === undefined) {
+    throw malformedFieldError(status, label, "executionEvidenceVersion");
   }
   if (payload.failureCode !== undefined &&
       (typeof payload.failureCode !== "string" || !/^[A-Z0-9_:-]{1,128}$/.test(payload.failureCode))) {

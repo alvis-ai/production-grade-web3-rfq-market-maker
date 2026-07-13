@@ -151,7 +151,7 @@ test("RFQClient rejects malformed hedge status responses", async () => {
       message: "RFQ hedge status response returned malformed status",
     },
     {
-      payload: { ...hedgeResponse, venue: "CEX_A" },
+      payload: { ...hedgeResponse, venue: "x".repeat(129) },
       message: "RFQ hedge status response returned malformed venue",
     },
     {
@@ -195,6 +195,34 @@ test("RFQClient rejects malformed hedge status responses", async () => {
       message: "RFQ hedge status response returned malformed filledAmount",
     },
     {
+      payload: { ...hedgeResponse, venue: " " },
+      message: "RFQ hedge status response returned malformed venue",
+    },
+    {
+      payload: { ...hedgeResponse, venueSymbol: "bad symbol" },
+      message: "RFQ hedge status response returned malformed venueSymbol",
+    },
+    {
+      payload: { ...hedgeResponse, executionEvidenceVersion: "unknown-v3" },
+      message: "RFQ hedge status response returned malformed executionEvidenceVersion",
+    },
+    {
+      payload: { ...hedgeResponse, executionEvidenceVersion: "base-and-quote-v2" },
+      message: "RFQ hedge status response returned malformed executionEvidenceVersion",
+    },
+    {
+      payload: { ...hedgeResponse, executedQuoteQuantity: "1000" },
+      message: "RFQ hedge status response returned malformed executionEvidenceVersion",
+    },
+    {
+      payload: {
+        ...hedgeResponse,
+        executionEvidenceVersion: "base-and-quote-v2",
+        executedQuoteQuantity: "0",
+      },
+      message: "RFQ hedge status response returned malformed executedQuoteQuantity",
+    },
+    {
       payload: { ...hedgeResponse, failureCode: "bad failure" },
       message: "RFQ hedge status response returned malformed failureCode",
     },
@@ -219,6 +247,7 @@ test("RFQClient rejects malformed hedge status responses", async () => {
           assert.equal(error.message, message);
           return true;
         },
+        `expected malformed hedge response rejection for ${JSON.stringify(payload)}`,
       );
     } finally {
       restoreFetch();
@@ -241,6 +270,10 @@ test("RFQClient accepts terminal hedge status responses", async () => {
       createdAt: "2026-06-27T00:00:00.000Z",
       externalOrderId: "cex_order_1",
       filledAmount: quote.amountOut,
+      venue: "binance",
+      venueSymbol: "ETHUSDT",
+      executionEvidenceVersion: "base-and-quote-v2",
+      executedQuoteQuantity: "3125.500000000000000000",
       updatedAt: "2026-06-27T00:00:01.000Z",
     },
     {
