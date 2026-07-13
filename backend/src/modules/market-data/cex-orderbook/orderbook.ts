@@ -28,7 +28,7 @@ export interface OrderBookMetrics {
   bestAsk: string;
   /** Spread in basis points */
   spreadBps: number;
-  /** Cumulative liquidity in USD within the configured depth range */
+  /** Executable bid-side USD notional within the configured depth range */
   liquidityUsd: string;
   /** Number of bid levels */
   bidLevels: number;
@@ -136,8 +136,9 @@ export class OrderBook {
       ? Number.MAX_SAFE_INTEGER
       : Number(spreadValue);
 
-    // Cumulative liquidity within depthRangeBps of mid
-    const liquidityUsd = this.computeDepth(midPriceValue, depthRangeBps);
+    // Configured CEX pairs are base tokenIn -> USD-reference tokenOut, so only
+    // bids are executable hedge depth for the quoted direction.
+    const liquidityUsd = this.computeBidDepth(midPriceValue, depthRangeBps);
 
     const entry: OrderBookMetrics = {
       midPrice,
@@ -181,28 +182,18 @@ export class OrderBook {
     return best;
   }
 
-  /**
-   * Compute total notional value (price × quantity) of all levels
-   * within depthRangeBps of the mid price.
-   */
-  private computeDepth(mid: bigint, depthRangeBps: number): bigint {
+  /** Compute executable bid notional (price x quantity) near the mid price. */
+  private computeBidDepth(mid: bigint, depthRangeBps: number): bigint {
     if (mid <= 0n) return 0n;
 
     const lower = mid * BigInt(10_000 - depthRangeBps) / 10_000n;
-    const upper = mid * BigInt(10_000 + depthRangeBps) / 10_000n;
 
     let totalScaled = 0n;
 
     for (const [price, qty] of this.bids) {
       const priceValue = parseCexDecimal(price, "Order book bid price", false);
-      if (priceValue >= lower && priceValue <= upper) {
+      if (priceValue >= lower && priceValue <= mid) {
         totalScaled += priceValue * parseCexDecimal(qty, "Order book bid quantity", false) / cexDecimalScale;
-      }
-    }
-    for (const [price, qty] of this.asks) {
-      const priceValue = parseCexDecimal(price, "Order book ask price", false);
-      if (priceValue >= lower && priceValue <= upper) {
-        totalScaled += priceValue * parseCexDecimal(qty, "Order book ask quantity", false) / cexDecimalScale;
       }
     }
 

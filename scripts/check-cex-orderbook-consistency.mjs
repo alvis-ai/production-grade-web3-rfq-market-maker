@@ -80,6 +80,11 @@ assert.ok(monitorSource.includes("Math.min(...sources.map(({ observedAtMs })"), 
 assert.ok(monitorSource.includes("lastPublishedFingerprint"), "unchanged CEX events must not refresh snapshots");
 assert.ok(decimalSource.includes("10n ** BigInt(cexDecimalScaleDigits)"), "CEX decimal math must use fixed-point BigInt");
 assert.ok(orderBookSource.includes("normalizeLevels") && orderBookSource.includes("parseCexDecimal"), "order-book messages must validate atomically with fixed decimals");
+assert.ok(
+  orderBookSource.includes("computeBidDepth") &&
+    !orderBookSource.match(/for \(const \[price, qty\] of this\.asks\)[\s\S]*?totalScaled \+=/),
+  "CEX liquidityUsd must use executable bid depth and must not count ask quantity",
+);
 assert.ok(binanceSource.includes("E: number") && binanceSource.includes("s: string"), "Binance updates must validate event time and symbol");
 assert.ok(binanceSource.includes("bridgesUpdateId"), "Binance updates must enforce update-id continuity");
 assert.ok(coinbaseSource.includes("time: string") && coinbaseSource.includes("parseCoinbaseTimestamp"), "Coinbase updates must preserve exchange event time");
@@ -97,11 +102,13 @@ const dashboard = JSON.parse(dashboardSource);
 assert.ok(dashboard.panels.some((panel) => panel.title === "CEX Order Book Health"), "Grafana must include CEX order-book health");
 assert.ok(testSource.includes("publishes only changed fresh source events"), "tests must cover source-event freshness");
 assert.ok(testSource.includes("invalidates stale and cross-venue divergent books"), "tests must cover stale and divergent source invalidation");
+assert.ok(testSource.includes('asks: [["101", "1000"]]'), "tests must prove ask quantity cannot inflate executable liquidity");
 assert.ok(marketDataChapter.includes("developers.binance.com"), "market-data chapter must reference official Binance synchronization rules");
 assert.ok(marketDataChapter.includes("docs.cdp.coinbase.com"), "market-data chapter must reference official Coinbase Level-2 rules");
 assert.ok(readmeSource.includes("make cex-orderbook-integration-check"), "README must document the live CEX check");
 assert.ok(makefileSource.includes("cex-orderbook-integration-check: backend-build"), "Makefile must expose the live CEX check");
 assert.ok(packageSource.includes("cex:orderbook:integration:check"), "package scripts must expose the live CEX check");
 assert.ok(integrationSource.includes("RFQ_CEX_INTEGRATION_CONFIRM=yes"), "live CEX check must require explicit opt-in");
+assert.ok(integrationSource.includes("executable bid liquidity"), "live CEX check must validate directional bid depth");
 
 console.log(`CEX order-book consistency check passed (${tuningNames.length} runtime controls)`);

@@ -34,7 +34,11 @@ try {
   assert.equal(ageMs >= -1_000 && ageMs <= maxAgeMs, true, `CEX source event age ${ageMs}ms is outside bounds`);
   const metrics = connector.getOrderBook().getMetrics(50);
   assert.equal(metrics.bidLevels > 0 && metrics.askLevels > 0, true, "CEX order book must contain both sides");
-  assert.equal(BigInt(metrics.liquidityUsd) > 0n, true, "CEX order book must expose positive near-mid liquidity");
+  assert.equal(
+    BigInt(metrics.liquidityUsd) > 0n,
+    true,
+    "CEX order book must expose positive near-mid executable bid liquidity",
+  );
   assert.equal(
     parseCexDecimal(metrics.bestAsk, "CEX integration best ask", false) >
       parseCexDecimal(metrics.bestBid, "CEX integration best bid", false),

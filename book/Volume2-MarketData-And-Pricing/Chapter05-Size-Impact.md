@@ -102,6 +102,7 @@ Size impact 输入包括 `amountIn`、`notionalUsd`、`liquidityUsd`、`depthBuc
 - size impact 单独建模，不混入 base spread。
 - 超过最大尺寸时拒绝报价。
 - 早期可用阶梯模型，后续接深度模型。
+- CEX `liquidityUsd` 必须使用报价方向可执行的 bid depth；把 ask depth 相加会高估可对冲流动性并系统性压低 size impact。
 
 ## Failure Scenarios
 
