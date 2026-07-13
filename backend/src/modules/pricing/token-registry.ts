@@ -29,7 +29,7 @@ export const defaultTokenRegistryConfig: TokenRegistryConfig = {
       decimals: 18,
       isWhitelisted: true,
       riskTier: "low",
-      usdReference: true,
+      usdReference: false,
     },
     {
       chainId: 1,

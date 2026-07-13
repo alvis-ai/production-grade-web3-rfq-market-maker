@@ -30,7 +30,7 @@ Hedge Service 负责成交后风险再平衡。RFQSettlement 确认成交后，I
 - 记录 hedge cost、status 和 latency。
 - 反馈给 Inventory 和 Risk。
 - hedge intent 创建失败时保留 settlement 结果，并输出稳定 reasonCode。
-- hedge intent 创建失败后，为同一输出 token 累积有上限的 quote risk penalty。
+- hedge intent 创建失败后，为实际 hedge token 累积有上限的 quote risk penalty；后续报价读取 pair 两腿压力的最大值。
 
 ### Non-Functional Requirements
 
@@ -113,11 +113,12 @@ Hedge Service uses internal event APIs. It does not expose public user API.
 ## Engineering Decisions
 
 - Hedge failure does not revert settlement; current backend records `HEDGE_INTENT_FAILED` and leaves `hedgeOrderId` absent from the accepted submit response.
+- `delta-neutral-v2` 使用可信 token registry 选择资产腿：仅 `tokenOut` 是 USD reference 时，卖出成交后收到的 `tokenIn/amountIn`；`tokenIn` 是 USD reference 时，买入成交后支付的 `tokenOut/amountOut`，两腿均为 USD reference 的稳定币交易也使用该库存补充方向。仅两腿都不是 USD reference 时规划器 fail closed。Execution Service 与 reconciliation worker 注入同一 registry 和 planner，实时路径与重放路径不会生成不同 intent。
 - Hedge intent creation is idempotent by `settlementEventId`; retrying the same settlement returns the existing `hedgeOrderId` instead of creating a second hedge order.
 - Hedge idempotency requires repeated `settlementEventId` input to match the stored hedge intent payload. A retry with a different quote id, token, side, amount or reason is a hedge intent conflict rather than a silent no-op. Persistent hedge rows store the required `quoteId` and `reason` from `HedgeIntentStatusResponse` so `/hedges/:id`, quote status hydration and reconciliation can join directly to both the triggering settlement event and original quote.
 - Hedge Service returns defensive copies from create and status lookup operations. Direct callers must not be able to mutate queued hedge intent state by editing a returned record, because quote status hydration, `/hedges/:id` and reconciliation all depend on the stored intent.
 - Hedge intents move through a minimal internal lifecycle: `queued` at creation, then `filled` with a non-empty `externalOrderId` or `failed` without changing the accepted settlement. Terminal transitions are idempotent only when the repeated filled update carries the same external order reference; conflicting terminal transitions are rejected rather than silently rewriting venue reconciliation evidence.
-- Hedge failure updates risk state through `recordHedgeFailure` and `quoteRiskPenaltyBps`; Quote Service passes that penalty into pricing as independent `hedgeCostBps`, while `inventorySkewBps` remains the inventory-only signal.
+- Hedge failure updates risk state through `recordHedgeFailure` and `quoteRiskPenaltyBps`; Quote Service validates both pair-leg results and uses their maximum as independent `hedgeCostBps`, while `inventorySkewBps` remains the inventory-only signal. Taking the maximum avoids double charging one pair while ensuring a failed non-reference hedge remains visible when `tokenOut` is USD.
 - `quoteRiskPenaltyBps` output is a Quote Service dependency boundary. If a custom Hedge Service returns a non-number, non-integer, negative value or value above 10000 bps, Quote Service treats the pricing adjustment as unavailable before calling Pricing Service and fails the requested quote with `PRICING_UNAVAILABLE`.
 - `createHedgeIntent` output is an Execution Service dependency boundary. If a custom Hedge Service returns a malformed `HedgeResult`, a mismatched nested hedge record, or a record whose `createdAt` is not canonical UTC ISO, Execution Service treats it as `HEDGE_INTENT_FAILED`: the settlement stays accepted, inventory remains updated, the submit response omits `hedgeOrderId`, and follow-up quote risk pressure can still be recorded through `recordHedgeFailure`.
 - Hedge failure penalty config is validated at construction: `failurePenaltyBps` and `maxFailurePenaltyBps` must be own positive safe integers, each must be at most 10000 bps, and `failurePenaltyBps` must not exceed `maxFailurePenaltyBps`. Invalid config fails fast before `/submit` can accept a settlement whose follow-up quote risk feedback would be nonsensical.
@@ -126,7 +127,7 @@ Hedge Service uses internal event APIs. It does not expose public user API.
 - Hedge status lookups validate `hedgeOrderId` and `settlementEventId` as primitive-string `SafeIdentifier` values before reading local or PostgreSQL indexes, so internal callers cannot bypass the API gateway and query with blank, unsafe, boxed `String` or overlong resource identifiers.
 - Non-local runtime uses `PostgresHedgeService`: one unique `hedge_orders` row per settlement event, deterministic cross-replica hedge ids, DB timestamps, durable queued/filled/failed transitions, and idempotent conflict validation. Failed rows provide shared bounded quote-risk pressure instead of pod-local failure counters.
 - `PostgresHedgeJobStore` uses a short transaction with `FOR UPDATE SKIP LOCKED` to claim one due queued row, increments `attempt_count`, and writes an expiring `(lease_owner, lease_expires_at)` pair. Terminal and retry updates require the same lease owner, so a stale worker cannot overwrite a row reclaimed by another replica.
-- `RFQ_HEDGE_ROUTES_JSON` maps `chainId/token` to a Binance base-asset symbol, token decimals and raw-unit step size. The worker rounds amount down to that step before decimal formatting; zero-after-rounding is a deterministic `HEDGE_AMOUNT_BELOW_STEP_SIZE` failure rather than an invalid venue request.
+- `RFQ_HEDGE_ROUTES_JSON` maps each planner-selected `chainId/token` to a Binance base-asset symbol, token decimals and raw-unit step size. The worker rounds amount down to that step before decimal formatting; zero-after-rounding is a deterministic `HEDGE_AMOUNT_BELOW_STEP_SIZE` failure rather than an invalid venue request.
 - Every hedge id derives one stable `rfq_<sha256>` Binance client order id. The worker persists this id, queries `GET /api/v3/order` first, and calls `POST /api/v3/order` only when Binance explicitly reports the order absent. This query-before-submit rule repairs a lost HTTP response without duplicate exposure.
 - Route persistence is write-once/idempotent for a queued job: a retry may repeat the exact venue, symbol and client id, but a deployment cannot overwrite them. Route changes require draining or explicitly reconciling old jobs by their persisted symbol/client id before rollout.
 - Immediately before a new POST, `authorizeSubmission` locks the source settlement row, requires it to remain canonical, and persists `submission_attempted_at`. Reorged, never-submitted jobs stop being claimable; jobs with an attempted submission continue query-only recovery after reorg because Binance may already have accepted them.
@@ -146,7 +147,7 @@ Hedge Service uses internal event APIs. It does not expose public user API.
 - Partial fill：update residual exposure。
 - Hedge cost too high：risk limit tightened。
 - Credential failure：alert and disable venue。
-- Hedge intent creation failed：settlement remains accepted, inventory and PnL remain updated, metric `rfq_hedge_intent_errors_total` increments, and follow-up quote spread tightens through output-token quote risk penalty.
+- Hedge intent creation failed：settlement remains accepted, inventory and PnL remain updated, metric `rfq_hedge_intent_errors_total` increments, and follow-up quote spread tightens through pair-level hedge risk penalty.
 - Hedge status store unavailable：`GET /hedges/:id` returns `HEDGE_STORE_UNAVAILABLE` with traceId, so clients can retry status lookup instead of treating the hedge as missing.
 
 ## Security Considerations

@@ -20,6 +20,7 @@ run_step make deployment-check
 run_step make ci-check
 run_step make compose-check
 run_step make cex-orderbook-check
+run_step make hedge-planning-check
 run_step make price-normalization-check
 run_step make risk-policy-check
 run_step make pnl-valuation-check

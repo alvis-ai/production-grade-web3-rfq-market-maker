@@ -10,6 +10,10 @@ import { validateSubmitQuoteRequest } from "../../shared/validation/submit-reque
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 import type { HedgeIntent, HedgeResult } from "../hedge/hedge.service.js";
 import type { HedgeIntentService, HedgeFailureReasonCode } from "../hedge/hedge.service.js";
+import {
+  DeltaNeutralHedgePlanner,
+  type HedgeIntentPlanner,
+} from "../hedge/hedge-intent-planner.js";
 import type { InventoryPosition, IInventoryService } from "../inventory/inventory.service.js";
 import {
   hashSettlementQuote,
@@ -111,17 +115,21 @@ type CreateHedgeIntentResult =
 export class SkeletonExecutionService implements ExecutionService {
   private readonly deps: ExecutionServiceDeps;
   private readonly evidenceProvider: SettlementEvidenceProvider;
+  private readonly hedgePlanner: HedgeIntentPlanner;
 
   constructor(
     deps: ExecutionServiceDeps,
     evidenceProvider: SettlementEvidenceProvider = syntheticSettlementEvidenceProvider,
+    hedgePlanner: HedgeIntentPlanner = new DeltaNeutralHedgePlanner(),
   ) {
     assertExecutionServiceDeps(deps);
     assertSettlementEvidenceProvider(evidenceProvider);
+    assertHedgeIntentPlanner(hedgePlanner);
     this.deps = cloneExecutionServiceDeps(deps);
     this.evidenceProvider = {
       resolve: evidenceProvider.resolve.bind(evidenceProvider),
     };
+    this.hedgePlanner = { plan: hedgePlanner.plan.bind(hedgePlanner) };
   }
 
   async submitQuote(request: SubmitQuoteRequest, context: ExecutionContext): Promise<ExecutionResult> {
@@ -203,16 +211,26 @@ export class SkeletonExecutionService implements ExecutionService {
     context: ExecutionContext,
     settlementEventId: string,
   ): Promise<CreateHedgeIntentResult> {
-    const intent: HedgeIntent = {
-      settlementEventId,
-      quoteId: context.quoteId,
-      chainId: request.quote.chainId,
-      token: request.quote.tokenOut,
-      side: "buy",
-      amount: request.quote.amountOut,
-      reason: "inventory_rebalance",
-    };
     const startedAt = Date.now();
+    let intent: HedgeIntent;
+
+    try {
+      intent = this.hedgePlanner.plan({
+        settlementEventId,
+        quoteId: context.quoteId,
+        chainId: request.quote.chainId,
+        tokenIn: request.quote.tokenIn,
+        tokenOut: request.quote.tokenOut,
+        amountIn: request.quote.amountIn,
+        amountOut: request.quote.amountOut,
+      });
+    } catch {
+      return {
+        hedgeFailure: {
+          reasonCode: "HEDGE_INTENT_FAILED",
+        },
+      };
+    }
 
     try {
       const hedgeResult = await this.deps.hedgeService.createHedgeIntent(intent);
@@ -247,6 +265,13 @@ export class SkeletonExecutionService implements ExecutionService {
     } catch (error) {
       throw settlementVerificationFailure(error);
     }
+  }
+}
+
+function assertHedgeIntentPlanner(value: unknown): asserts value is HedgeIntentPlanner {
+  if (typeof value !== "object" || value === null || Array.isArray(value) ||
+      typeof (value as Record<string, unknown>).plan !== "function") {
+    throw new Error("Execution service hedgePlanner.plan must be a function");
   }
 }
 

@@ -127,9 +127,9 @@ const reorgHedge = reorgHedgeService.createHedgeIntent({
   settlementEventId: reorgSettlement.event.settlementEventId,
   quoteId: reorgSettlement.event.quoteId,
   chainId: reorgSettlement.event.chainId,
-  token: reorgSettlement.event.tokenOut,
-  side: "buy",
-  amount: reorgSettlement.event.amountOut,
+  token: reorgSettlement.event.tokenIn,
+  side: "sell",
+  amount: reorgSettlement.event.amountIn,
   reason: "inventory_rebalance",
 });
 await reorgPnlService.recordSettlement({

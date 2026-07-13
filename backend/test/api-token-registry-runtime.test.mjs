@@ -92,6 +92,11 @@ test("RFQ API rejects malformed token metadata and non-USD CEX quote assets at s
     });
     assert.throws(() => buildServer({ logger: false }), /Pricing tokenOut token .* is not configured/);
 
+    process.env.RFQ_TOKEN_REGISTRY_JSON = JSON.stringify({
+      tokens: tokenRegistryConfig(true).tokens.map((token) => ({ ...token, usdReference: false })),
+    });
+    assert.throws(() => buildServer({ logger: false }), /requires at least one approved USD reference token/);
+
     process.env.RFQ_TOKEN_REGISTRY_JSON = JSON.stringify(tokenRegistryConfig(false));
     process.env.RFQ_CEX_PAIRS = `1:${weth}:${usdc}:binance:ETHUSDC`;
     process.env.RFQ_CEX_MIN_SOURCES = "1";

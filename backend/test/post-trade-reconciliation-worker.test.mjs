@@ -68,9 +68,9 @@ test("PostTradeReconciliationWorker removes reversible projections for a non-can
     settlementEventId: settlement.event.settlementEventId,
     quoteId: deps.quoteId,
     chainId: quote.chainId,
-    token: quote.tokenOut,
-    side: "buy",
-    amount: quote.amountOut,
+    token: quote.tokenIn,
+    side: "sell",
+    amount: quote.amountIn,
     reason: "inventory_rebalance",
   });
   const pnl = await deps.pnlService.recordSettlement({

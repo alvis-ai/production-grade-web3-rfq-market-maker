@@ -170,9 +170,9 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     assert.equal(hedge.body.settlementEventId, submit.body.settlementEventId);
     assert.equal(hedge.body.quoteId, quote.body.quoteId);
     assert.equal(hedge.body.chainId, baseQuoteRequest.chainId);
-    assert.equal(hedge.body.token, baseQuoteRequest.tokenOut);
-    assert.equal(hedge.body.side, "buy");
-    assert.equal(hedge.body.amount, quote.body.amountOut);
+    assert.equal(hedge.body.token, baseQuoteRequest.tokenIn);
+    assert.equal(hedge.body.side, "sell");
+    assert.equal(hedge.body.amount, baseQuoteRequest.amountIn);
     assert.equal(hedge.body.reason, "inventory_rebalance");
     assert.match(hedge.body.createdAt, /^\d{4}-\d{2}-\d{2}T/);
 

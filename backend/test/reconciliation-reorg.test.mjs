@@ -91,9 +91,9 @@ test("ReconciliationService removes hedge and PnL records after a removed settle
     settlementEventId: settlement.event.settlementEventId,
     quoteId: settlement.event.quoteId,
     chainId: settlement.event.chainId,
-    token: settlement.event.tokenOut,
-    side: "buy",
-    amount: settlement.event.amountOut,
+    token: settlement.event.tokenIn,
+    side: "sell",
+    amount: settlement.event.amountIn,
     reason: "inventory_rebalance",
   });
   await pnlService.recordSettlement({

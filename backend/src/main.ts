@@ -3,6 +3,7 @@ import { SkeletonExecutionService } from "./modules/execution/execution.service.
 import { endPool } from "./db/pool.js";
 import { HedgeService } from "./modules/hedge/hedge.service.js";
 import { PostgresHedgeService } from "./modules/hedge/postgres-hedge.service.js";
+import { DeltaNeutralHedgePlanner } from "./modules/hedge/hedge-intent-planner.js";
 import {
   defaultReadinessServiceConfig,
   ReadinessService,
@@ -158,7 +159,8 @@ export function buildServer(options: BuildServerOptions = {}) {
     settlementVerifier: options.settlementVerifier ?? new LocalSettlementVerifier(
       buildDefaultSettlementVerifierPolicy(signerRuntimeConfig),
     ),
-  }, options.settlementEvidenceProvider ?? buildRuntimeSettlementEvidenceProvider(signerRuntimeConfig.settlementAddress));
+  }, options.settlementEvidenceProvider ?? buildRuntimeSettlementEvidenceProvider(signerRuntimeConfig.settlementAddress),
+  new DeltaNeutralHedgePlanner(runtimeTokenRegistry));
   const pnlValuationProvider = new QuoteSnapshotPnlValuationProvider(marketSnapshotStore, runtimeTokenRegistry);
   const pnlService = options.pnlService ?? (
     postgresPool

@@ -221,6 +221,7 @@ test("QuoteService preserves signer errors when marking failed quotes fails", as
 test("QuoteService keeps inventory skew and hedge risk premium separate in pricing input", async () => {
   let observedInventorySkewBps;
   let observedHedgeCostBps;
+  const observedPenaltyTokens = [];
   const service = new QuoteService({
     inventoryService: new InventoryService(),
     marketDataService: new StaticMarketDataService(),
@@ -249,8 +250,9 @@ test("QuoteService keeps inventory skew and hedge risk premium separate in prici
       getHedgeIntent() {
         return undefined;
       },
-      quoteRiskPenaltyBps() {
-        return 75;
+      quoteRiskPenaltyBps(input) {
+        observedPenaltyTokens.push(input.token);
+        return input.token.toLowerCase() === request.tokenIn.toLowerCase() ? 75 : 25;
       },
     },
     quoteRepository: new InMemoryQuoteRepository(),
@@ -271,6 +273,7 @@ test("QuoteService keeps inventory skew and hedge risk premium separate in prici
 
   assert.equal(observedInventorySkewBps, 0);
   assert.equal(observedHedgeCostBps, 75);
+  assert.deepEqual(observedPenaltyTokens, [request.tokenIn, request.tokenOut]);
 });
 
 function fixedSignature() {

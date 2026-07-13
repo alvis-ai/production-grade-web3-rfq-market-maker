@@ -99,8 +99,9 @@ assertEqual(hedgeStatus.status, "queued", "hedge status");
 assertEqual(hedgeStatus.hedgeOrderId, submitResponse.hedgeOrderId, "hedge order id");
 assertEqual(hedgeStatus.settlementEventId, submitResponse.settlementEventId, "hedge settlement event id");
 assertEqual(hedgeStatus.quoteId, quoteResponse.quoteId, "hedge quote id");
-assertEqual(hedgeStatus.token, quoteRequest.tokenOut, "hedge token");
-assertEqual(hedgeStatus.amount, quoteResponse.amountOut, "hedge amount");
+assertEqual(hedgeStatus.token, quoteRequest.tokenIn, "hedge token");
+assertEqual(hedgeStatus.side, "sell", "hedge side");
+assertEqual(hedgeStatus.amount, quoteRequest.amountIn, "hedge amount");
 
 const pnl = await request("GET", "/pnl");
 assertEqual(pnl.status, "ok", "pnl status");

@@ -3,6 +3,7 @@ import { hostname } from "node:os";
 import Fastify from "fastify";
 import { checkPoolHealth, endPool, getPool } from "./db/pool.js";
 import { PostgresHedgeService } from "./modules/hedge/postgres-hedge.service.js";
+import { DeltaNeutralHedgePlanner } from "./modules/hedge/hedge-intent-planner.js";
 import { PostgresInventoryService } from "./modules/inventory/postgres-inventory.service.js";
 import { PostgresMarketSnapshotStore } from "./modules/market-data/postgres-market-snapshot.repository.js";
 import { PostgresPnlStore } from "./modules/pnl/postgres-pnl.store.js";
@@ -65,9 +66,10 @@ export async function startReconciliationWorker(): Promise<void> {
   const quoteRepository = new PostgresQuoteRepository(pool);
   const hedgeService = new PostgresHedgeService(pool);
   const marketSnapshots = new PostgresMarketSnapshotStore(pool);
+  const tokenRegistry = readReconciliationTokenRegistry();
   const pnlValuationProvider = new QuoteSnapshotPnlValuationProvider(
     marketSnapshots,
-    readReconciliationTokenRegistry(),
+    tokenRegistry,
   );
   const pnlService = new PostgresPnlStore(pool, pnlValuationProvider);
   const store = new PostgresPostTradeReconciliationStore(pool);
@@ -76,7 +78,7 @@ export async function startReconciliationWorker(): Promise<void> {
     settlementEventService: settlementEvents,
     hedgeService,
     pnlService,
-  });
+  }, new DeltaNeutralHedgePlanner(tokenRegistry));
   const metrics = new PostTradeReconciliationMetrics();
   const worker = new PostTradeReconciliationWorker(store, reconciliation, config.worker, metrics);
   const server = Fastify({ logger: false });

@@ -173,13 +173,21 @@ export class QuoteService {
         token: validatedRequest.tokenOut,
       });
       assertInventorySkewBps(inventorySkewResult);
-      const hedgeRiskPenaltyResult = this.deps.hedgeService?.quoteRiskPenaltyBps
-        ? await this.deps.hedgeService.quoteRiskPenaltyBps({
+      let hedgeRiskPenaltyResult = 0;
+      if (this.deps.hedgeService?.quoteRiskPenaltyBps) {
+        const pairPenalties = await Promise.all([
+          this.deps.hedgeService.quoteRiskPenaltyBps({
+            chainId: validatedRequest.chainId,
+            token: validatedRequest.tokenIn,
+          }),
+          this.deps.hedgeService.quoteRiskPenaltyBps({
             chainId: validatedRequest.chainId,
             token: validatedRequest.tokenOut,
-          })
-        : 0;
-      assertHedgeRiskPenaltyBps(hedgeRiskPenaltyResult);
+          }),
+        ]);
+        pairPenalties.forEach(assertHedgeRiskPenaltyBps);
+        hedgeRiskPenaltyResult = Math.max(...pairPenalties);
+      }
       inventorySkewBps = inventorySkewResult;
       hedgeCostBps = hedgeRiskPenaltyResult;
       assertPricingAdjustmentBps(inventorySkewBps + hedgeCostBps);

@@ -25,10 +25,12 @@ test -s scripts/lib/read-backend-gateway-source.mjs
 test -s backend/src/hedge-worker-main.ts
 test -s backend/src/db/migrations/003-hedge-worker-queue.sql
 test -s backend/src/modules/hedge/binance-spot.adapter.ts
+test -s backend/src/modules/hedge/hedge-intent-planner.ts
 test -s backend/src/modules/hedge/hedge-route.ts
 test -s backend/src/modules/hedge/hedge-worker.ts
 test -s backend/src/modules/hedge/postgres-hedge-job.store.ts
 test -s backend/test/binance-spot-adapter.test.mjs
+test -s backend/test/hedge-intent-planner.test.mjs
 test -s backend/test/database-migrate.test.mjs
 test -s backend/test/hedge-route.test.mjs
 test -s backend/test/hedge-worker.test.mjs
@@ -945,7 +947,7 @@ grep -q 'Quote service route plan token pair must match quote request token pair
 grep -q 'PRICING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
 grep -q 'pricingFailure' backend/src/modules/quote/quote.service.ts
 grep -q 'assertInventorySkewBps(inventorySkewResult)' backend/src/modules/quote/quote.service.ts
-grep -q 'assertHedgeRiskPenaltyBps(hedgeRiskPenaltyResult)' backend/src/modules/quote/quote.service.ts
+grep -q 'pairPenalties.forEach(assertHedgeRiskPenaltyBps)' backend/src/modules/quote/quote.service.ts
 grep -Fq 'assertPricingAdjustmentBps(inventorySkewBps + hedgeCostBps)' backend/src/modules/quote/quote.service.ts
 grep -q 'Quote service pricing adjustment bps must be a safe bps integer' backend/src/modules/quote/quote.service.ts
 grep -q 'pricingResultFields' backend/src/modules/quote/quote.service.ts
@@ -1737,7 +1739,8 @@ grep -q 'reconcileRemovedSettlementToHedge' backend/src/modules/reconciliation/r
 grep -q 'reconcileSettlementToPnl' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'reconcileRemovedSettlementToPnl' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'normalizeSettlementReconciliationFilter' backend/src/modules/reconciliation/reconciliation.service.ts
-grep -q 'hedgeIntentFromSettlementEvent' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'hedgePlanInputFromSettlementEvent' backend/src/modules/reconciliation/reconciliation.service.ts
+grep -q 'this.hedgePlanner.plan' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'createHedgeIntent(hedgeIntent)' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'SIGNED_QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.service.ts

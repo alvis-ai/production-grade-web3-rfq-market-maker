@@ -42,8 +42,9 @@ test("ReconciliationService repairs hedge intents from settlement events", async
   });
   const hedge = hedgeService.getHedgeIntentBySettlementEvent(settlement.event.settlementEventId);
   assert.equal(hedge.quoteId, "q_hedge");
-  assert.equal(hedge.token, quote.tokenOut);
-  assert.equal(hedge.amount, quote.amountOut);
+  assert.equal(hedge.token, quote.tokenIn);
+  assert.equal(hedge.side, "sell");
+  assert.equal(hedge.amount, quote.amountIn);
   assert.equal(hedge.reason, "inventory_rebalance");
 
   const secondReport = await reconciliation.reconcileSettlementToHedge();
@@ -101,7 +102,7 @@ test("ReconciliationService reports hedge intent conflicts without stopping late
   assert.equal(conflictHedge.quoteId, "q_different_hedge_quote");
   assert.equal(conflictHedge.amount, "1");
   assert.equal(laterHedge.quoteId, "q_hedge_after_conflict");
-  assert.equal(laterHedge.amount, "970");
+  assert.equal(laterHedge.amount, laterQuote.amountIn);
 });
 
 test("ReconciliationService requires hedge service for settlement-to-hedge repair", async () => {

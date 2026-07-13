@@ -1,4 +1,9 @@
-import type { HedgeIntent, HedgeIntentService } from "../hedge/hedge.service.js";
+import type { HedgeIntentService } from "../hedge/hedge.service.js";
+import {
+  DeltaNeutralHedgePlanner,
+  hedgePlanInputFromSettlementEvent,
+  type HedgeIntentPlanner,
+} from "../hedge/hedge-intent-planner.js";
 import type { PnlStore } from "../pnl/pnl.service.js";
 import type { QuoteRecord, QuoteRepository } from "../quote/quote.repository.js";
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
@@ -83,10 +88,13 @@ export interface ReconciliationServiceDeps {
 
 export class ReconciliationService {
   private readonly deps: ReconciliationServiceDeps;
+  private readonly hedgePlanner: HedgeIntentPlanner;
 
-  constructor(deps: ReconciliationServiceDeps) {
+  constructor(deps: ReconciliationServiceDeps, hedgePlanner: HedgeIntentPlanner = new DeltaNeutralHedgePlanner()) {
     assertReconciliationServiceDeps(deps);
+    assertHedgeIntentPlanner(hedgePlanner);
     this.deps = cloneReconciliationServiceDeps(deps);
+    this.hedgePlanner = { plan: hedgePlanner.plan.bind(hedgePlanner) };
   }
 
   async reconcileSettlementToQuote(
@@ -342,7 +350,7 @@ export class ReconciliationService {
     for (const event of events) {
       try {
         const existingIntent = await hedgeService.getHedgeIntentBySettlementEvent(event.settlementEventId);
-        const hedgeIntent = hedgeIntentFromSettlementEvent(event);
+        const hedgeIntent = this.hedgePlanner.plan(hedgePlanInputFromSettlementEvent(event));
         await hedgeService.createHedgeIntent(hedgeIntent);
 
         if (existingIntent) {
@@ -540,18 +548,10 @@ function assertPositiveSafeInteger(value: unknown, field: string): void {
   }
 }
 
-function hedgeIntentFromSettlementEvent(
-  event: SettlementEventForReconciliation,
-): HedgeIntent {
-  return {
-    settlementEventId: event.settlementEventId,
-    quoteId: event.quoteId,
-    chainId: event.chainId,
-    token: event.tokenOut,
-    side: "buy",
-    amount: event.amountOut,
-    reason: "inventory_rebalance",
-  };
+function assertHedgeIntentPlanner(value: unknown): asserts value is HedgeIntentPlanner {
+  if (!isRecord(value) || typeof value.plan !== "function") {
+    throw new Error("ReconciliationService hedgePlanner.plan must be a function");
+  }
 }
 
 function signedQuoteFromRecord(record: QuoteRecord): SignedQuote {
