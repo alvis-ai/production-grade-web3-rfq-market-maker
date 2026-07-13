@@ -107,6 +107,8 @@ Key metrics include:
 - `rfq_submit_requests_total`
 - `rfq_submit_accepted_total`
 - `rfq_submit_errors_total`
+- `rfq_submit_reservation_contention_total`
+- `rfq_submit_reservation_errors_total` with bounded `operation` label
 - `rfq_submit_latency_seconds`
 - `rfq_rate_limited_total`
 - `rfq_api_auth_rejections_total`
@@ -171,6 +173,7 @@ Key metrics include:
 - Quote error alerting should correlate errors with risk rejection, rate limit, market data, pricing and signer metrics before changing quote availability.
 - Quote response alerting should compare requests, signed responses, errors and rejections so operators can distinguish fail-closed behavior from signer or dependency failure.
 - Submit error alerting must compare errors with accepted settlements, rate-limit counters and settlement reverts before deciding whether to pause submit traffic.
+- Submit reservation errors are fail-closed PostgreSQL incidents; contention is a separate client/replay signal and must not be treated as storage failure.
 - Submit latency alerting should inspect verification, settlement event persistence, inventory, hedge and PnL work before lowering quote availability.
 - Signer throughput alerting should compare quote demand with `sign` operations; safe quote flow must never bypass the signer.
 - Market-data cache alerting should compare `rfq_market_data_cache_hits_total` and `rfq_market_data_cache_misses_total` before increasing quote limits; a cold cache points to disabled prefetch, stale CEX order book streams or unsupported pair configuration.

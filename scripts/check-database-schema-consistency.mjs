@@ -28,6 +28,10 @@ const settlementIndexerMigrationSource = await readFile(
   "backend/src/db/migrations/007-settlement-indexer.sql",
   "utf8",
 );
+const submitReservationMigrationSource = await readFile(
+  "backend/src/db/migrations/008-submit-reservations.sql",
+  "utf8",
+);
 const postgresSettlementSource = await readFile("backend/src/modules/settlement/postgres-settlement-event.store.ts", "utf8");
 const postgresInventorySource = await readFile("backend/src/modules/inventory/postgres-inventory.service.ts", "utf8");
 const postgresHedgeSource = await readFile("backend/src/modules/hedge/postgres-hedge.service.ts", "utf8");
@@ -212,6 +216,7 @@ const requiredTables = {
     "block_hash",
     "created_at",
   ],
+  quote_submit_reservations: ["quote_id", "owner_token", "acquired_at", "expires_at"],
   _migrations: ["version", "name", "applied_at"],
 };
 
@@ -397,6 +402,10 @@ const requiredCheckConstraints = {
   settlement_indexer_checkpoints: [
     ["chk_settlement_indexer_checkpoint_block", "settlement indexer checkpoints must constrain block numbers"],
     ["chk_settlement_indexer_checkpoint_hash", "settlement indexer checkpoints must constrain block hashes"],
+  ],
+  quote_submit_reservations: [
+    ["chk_quote_submit_reservations_owner", "submit reservations must constrain owner tokens"],
+    ["chk_quote_submit_reservations_expiry", "submit reservations must constrain lease expiry"],
   ],
 };
 
@@ -1111,6 +1120,13 @@ assert.ok(
     settlementIndexerMigrationSource.includes("idx_settlement_events_canonical_chain_block") &&
     schemaSource.includes("('007', 'settlement-indexer')"),
   "settlement indexer migration must install durable cursor, checkpoint, and canonical range state",
+);
+assert.ok(
+  submitReservationMigrationSource.includes("CREATE TABLE quote_submit_reservations") &&
+    submitReservationMigrationSource.includes("ON DELETE CASCADE") &&
+    submitReservationMigrationSource.includes("idx_quote_submit_reservations_expiry") &&
+    schemaSource.includes("('008', 'submit-reservations')"),
+  "submit reservation migration must install quote-scoped expiring ownership",
 );
 assert.ok(
   settlementIndexerStoreSource.includes("lease_expires_at > now()") &&

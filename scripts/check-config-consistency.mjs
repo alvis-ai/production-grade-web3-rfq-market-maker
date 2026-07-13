@@ -21,6 +21,7 @@ const localExpected = {
   PORT: "3000",
   RFQ_QUOTE_TTL_SECONDS: "30",
   RFQ_BODY_LIMIT_BYTES: "32768",
+  RFQ_SUBMIT_RESERVATION_LEASE_MS: "900000",
   RFQ_CORS_ALLOWED_ORIGINS: "http://localhost:5173",
   RFQ_ENABLE_HSTS: "false",
   RFQ_TRUST_PROXY: "false",
@@ -41,6 +42,7 @@ const composeExpected = {
   NODE_ENV: "development",
   RFQ_QUOTE_TTL_SECONDS: "30",
   RFQ_BODY_LIMIT_BYTES: "32768",
+  RFQ_SUBMIT_RESERVATION_LEASE_MS: "900000",
   RFQ_CORS_ALLOWED_ORIGINS: "http://localhost:5173",
   RFQ_ENABLE_HSTS: "false",
   RFQ_TRUST_PROXY: "false",
@@ -60,6 +62,7 @@ const productionExpected = {
   RFQ_LOG_LEVEL: "info",
   RFQ_QUOTE_TTL_SECONDS: "30",
   RFQ_BODY_LIMIT_BYTES: "32768",
+  RFQ_SUBMIT_RESERVATION_LEASE_MS: "900000",
   RFQ_CORS_ALLOWED_ORIGINS: "https://app.example.com",
   RFQ_ENABLE_HSTS: "true",
   RFQ_TRUST_PROXY: "false",
@@ -113,6 +116,12 @@ assert.ok(
     backendSource.includes("max: 1_048_576") &&
     backendSource.includes("min: 1024"),
   "backend must enforce RFQ_BODY_LIMIT_BYTES base-10 integer bounds",
+);
+assert.ok(
+  backendSource.includes('name: "RFQ_SUBMIT_RESERVATION_LEASE_MS"') &&
+    backendSource.includes("maxSubmitReservationLeaseMs") &&
+    backendSource.includes("minSubmitReservationLeaseMs"),
+  "backend must enforce submit reservation lease bounds",
 );
 assert.ok(
   backendSource.includes('assertIntegerOption(options.bodyLimitBytes, "bodyLimitBytes", 1024, 1_048_576)') &&

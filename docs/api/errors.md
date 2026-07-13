@@ -41,6 +41,7 @@
 | `PNL_STORE_UNAVAILABLE` | 503 | PnL store 或归因查询依赖不可用 | 稍后重试，必要时从 settlement event 和执行日志重建 PnL |
 | `SETTLEMENT_UNAVAILABLE` | 503 | settlement verifier、链 RPC 或结算依赖不可用，尚未判定 quote 是否可结算 | 稍后重试同一 signed quote，过期后重新询价 |
 | `SETTLEMENT_REVERTED` | 409 | settlement verification 或链上结算拒绝该 quote | 查看交易状态并重新询价 |
+| `SUBMIT_RESERVATION_UNAVAILABLE` | 503 | quote 级提交租约存储不可用，无法排除其他 API 副本正在处理同一 quote | 不绕过租约；等待 PostgreSQL 恢复后重试同一 signed quote |
 | `RATE_LIMITED` | 429 | 请求频率过高 | 降低请求频率 |
 | `RATE_LIMIT_UNAVAILABLE` | 503 | 分布式限流存储不可用 | 不绕过限流，等待 Redis 恢复后重试 |
 | `INTERNAL_ERROR` | 500 | 未分类内部错误 | 使用 traceId 联系维护者 |
@@ -63,6 +64,8 @@
 ## Rate Limit Policy
 
 The gateway uses a 60 second rate limit window keyed by authenticated API key id whenever authentication is active, so clients behind one NAT do not consume each other's quota. Anonymous local development falls back to the direct client IP. `x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`; only enable that setting behind a trusted proxy or ingress that strips spoofed forwarding headers and writes the canonical client address. When proxy trust is enabled, forwarded client identities longer than 128 characters or outside `[A-Za-z0-9_.:-]` are rejected as `INVALID_REQUEST`/400 before rate-limit buckets are written. Local development uses process memory; every non-local `NODE_ENV` requires the Redis backend. A Lua script atomically creates the fixed window, increments within the limit, and returns its TTL across replicas. Redis failure is fail-closed as `RATE_LIMIT_UNAVAILABLE`/503 and also degrades `/ready.components.rateLimitStore`.
+
+Before settlement verification, `/submit` atomically acquires a quote-scoped reservation. PostgreSQL deployments share this lease across replicas; local development uses process memory. Active contention remains `QUOTE_ALREADY_USED`/409, while reservation persistence failures return `SUBMIT_RESERVATION_UNAVAILABLE`/503 and degrade `/ready.components.execution`. Release requires the same random owner token, and expired rows can only be replaced using PostgreSQL server time.
 
 | Endpoint Class | Routes | Default Limit | Error Contract |
 | --- | --- | ---: | --- |

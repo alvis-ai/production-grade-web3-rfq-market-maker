@@ -5,6 +5,7 @@
 ```mermaid
 erDiagram
   QUOTES ||--o{ RISK_DECISIONS : has
+  QUOTES ||--o| QUOTE_SUBMIT_RESERVATIONS : reserves
   QUOTES ||--o{ SETTLEMENT_EVENTS : settles
   SETTLEMENT_EVENTS ||--o{ HEDGE_ORDERS : triggers
   QUOTES ||--o{ PNL_RECORDS : attributes
@@ -44,6 +45,13 @@ erDiagram
     text settlement_event_id
     text hedge_order_id
     text pnl_id
+  }
+
+  QUOTE_SUBMIT_RESERVATIONS {
+    text quote_id PK, FK
+    text owner_token
+    timestamptz acquired_at
+    timestamptz expires_at
   }
 
   MARKET_SNAPSHOTS {

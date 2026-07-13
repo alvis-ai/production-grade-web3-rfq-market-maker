@@ -72,6 +72,21 @@ test("RFQ API rejects invalid RFQ_BODY_LIMIT_BYTES at startup", () => {
   }
 });
 
+test("RFQ API rejects invalid RFQ_SUBMIT_RESERVATION_LEASE_MS at startup", () => {
+  const originalLease = process.env.RFQ_SUBMIT_RESERVATION_LEASE_MS;
+  try {
+    for (const lease of ["59999", "3600001", "9e5", "900000.0", "+900000"]) {
+      process.env.RFQ_SUBMIT_RESERVATION_LEASE_MS = lease;
+      assert.throws(
+        () => buildServer({ logger: false }),
+        /RFQ_SUBMIT_RESERVATION_LEASE_MS must be a base-10 integer between 60000 and 3600000/,
+      );
+    }
+  } finally {
+    restoreEnv("RFQ_SUBMIT_RESERVATION_LEASE_MS", originalLease);
+  }
+});
+
 test("RFQ API rejects invalid RFQ_CORS_ALLOWED_ORIGINS at startup", () => {
   const originalOrigins = process.env.RFQ_CORS_ALLOWED_ORIGINS;
 

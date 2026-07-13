@@ -64,6 +64,24 @@ groups:
           summary: RFQ submit p95 latency is above 2 seconds
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQSubmitReservationErrors
+        expr: sum(increase(rfq_submit_reservation_errors_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ submit reservation persistence errors detected
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSubmitReservationContentionSpike
+        expr: increase(rfq_submit_reservation_contention_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ quote submit reservation contention is elevated
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQRateLimitSpike
         expr: sum by (endpoint) (increase(rfq_rate_limited_total[5m])) > 25
         for: 5m

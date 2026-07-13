@@ -14,6 +14,7 @@ import { BasicRiskEngine } from "../dist/modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "../dist/modules/routing/routing.engine.js";
 import { SettlementEventService } from "../dist/modules/settlement/settlement-event.service.js";
 import { LocalEIP712SignerService } from "../dist/modules/signer/signer.service.js";
+import { InMemorySubmitReservationStore } from "../dist/modules/execution/submit-reservation.store.js";
 
 const readinessComponents = [
   "marketData",
@@ -82,6 +83,22 @@ test("ReadinessService degrades when the distributed rate limit store is unavail
 
   assert.equal(readiness.status, "degraded");
   assert.equal(readiness.components.rateLimitStore, "degraded");
+  assert.equal(readiness.components.quoteRepository, "ok");
+});
+
+test("ReadinessService degrades execution when the submit reservation store is unavailable", async () => {
+  const readiness = await createReadinessService({
+    submitReservationStore: {
+      async checkHealth() {
+        throw new Error("submit reservation unavailable");
+      },
+      async acquire() {},
+      async release() {},
+    },
+  }).check();
+
+  assert.equal(readiness.status, "degraded");
+  assert.equal(readiness.components.execution, "degraded");
   assert.equal(readiness.components.quoteRepository, "ok");
 });
 
@@ -195,5 +212,6 @@ function readinessServiceDeps(overrides = {}) {
     settlementEventService: overrides.settlementEventService ?? new SettlementEventService(inventoryService),
     pnlService: overrides.pnlService ?? new PnlService(),
     metricsService: overrides.metricsService ?? new MetricsService(),
+    submitReservationStore: overrides.submitReservationStore ?? new InMemorySubmitReservationStore(),
   };
 }

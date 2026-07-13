@@ -17,6 +17,7 @@ import type { RiskDecisionStore } from "../risk/risk-decision.repository.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
 import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
+import type { SubmitReservationStore } from "../execution/submit-reservation.store.js";
 
 export type ReadinessComponentStatus = "ok" | "degraded";
 export type ReadinessComponentName =
@@ -56,6 +57,7 @@ export interface ReadinessServiceDeps {
   settlementEventService: SettlementEventStore;
   pnlService: PnlStore;
   metricsService: MetricsService;
+  submitReservationStore: SubmitReservationStore;
 }
 
 export interface ReadinessServiceConfig {
@@ -138,6 +140,7 @@ const readinessServiceDepsFields = [
   "settlementEventService",
   "pnlService",
   "metricsService",
+  "submitReservationStore",
 ] as const;
 const probeRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const probeSnapshotFields = ["snapshotId", "midPrice", "liquidityUsd", "volatilityBps", "observedAt"] as const;
@@ -198,6 +201,7 @@ export class ReadinessService {
     const settlementEventStoreStatus = await this.checkDependency(this.deps.settlementEventService);
     const pnlStatus = await this.checkDependency(this.deps.pnlService);
     const metricsStatus = await this.checkDependency(this.deps.metricsService);
+    const submitReservationStatus = await this.checkDependency(this.deps.submitReservationStore);
     const components = {
       marketData: marketDataStatus,
       marketSnapshotStore: marketSnapshotStoreStatus,
@@ -209,8 +213,7 @@ export class ReadinessService {
       riskDecisionStore: riskDecisionStoreStatus,
       rateLimitStore: rateLimitStoreStatus,
       inventory: inventoryStatus,
-      // The current execution readiness probe is backed by the hedge intent store.
-      execution: hedgeStatus,
+      execution: hedgeStatus === "ok" && submitReservationStatus === "ok" ? "ok" : "degraded",
       settlementEventStore: settlementEventStoreStatus,
       pnl: pnlStatus,
       metrics: metricsStatus,
@@ -356,6 +359,7 @@ function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
   assertDependencyMethod(deps.settlementEventService, "settlementEventService", "checkHealth");
   assertDependencyMethod(deps.pnlService, "pnlService", "checkHealth");
   assertDependencyMethod(deps.metricsService, "metricsService", "checkHealth");
+  assertDependencyMethod(deps.submitReservationStore, "submitReservationStore", "checkHealth");
 }
 
 function assertDependencyMethod(

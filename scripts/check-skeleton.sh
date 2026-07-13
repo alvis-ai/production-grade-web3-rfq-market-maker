@@ -785,8 +785,14 @@ grep -q 'markSettlementRejectedQuoteFailed' backend/src/main.ts
 grep -q 'recordInventoryPosition' backend/src/main.ts
 grep -q 'recordInventoryPositionBestEffort(metricsService, result.inventoryPositions.tokenIn)' backend/src/main.ts
 grep -q 'a malformed gauge sample must not change submit semantics' backend/src/main.ts
-grep -q 'inFlightSubmitQuoteIds = new Set<string>()' backend/src/main.ts
-grep -q 'reserveSubmitQuoteId(inFlightSubmitQuoteIds, quoteId)' backend/src/main.ts
+grep -q 'acquireSubmitReservation(submitReservationStore, metricsService, quoteId)' backend/src/main.ts
+grep -q 'releaseSubmitReservationBestEffort(submitReservationStore, metricsService, submitReservation)' backend/src/main.ts
+test -s backend/src/modules/execution/submit-reservation.store.ts
+test -s backend/src/modules/execution/postgres-submit-reservation.store.ts
+test -s backend/src/db/migrations/008-submit-reservations.sql
+test -s backend/test/submit-reservation-store.test.mjs
+test -s backend/test/postgres-submit-reservation-store.test.mjs
+test -s backend/test/api-submit-reservation.test.mjs
 grep -q 'throw new APIError("QUOTE_ALREADY_USED", "Quote already used", 409)' backend/src/main.ts
 grep -q 'reply.code(202)' backend/src/main.ts
 grep -q '"submitted"' backend/src/main.ts
@@ -1917,8 +1923,8 @@ grep -q 'validates the `PnlTradeRecord` returned by `PnlStore.recordSettlement()
 grep -q 'malformed or mismatched PnL store output is treated as `PNL_RECORD_FAILED`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Post-settlement inventory position reads are a metrics boundary' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Malformed or unavailable position reads leave the settlement accepted' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'keeps an in-process `quoteId` reservation while `/submit` is executing' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'client double-click into two accepted HTTP responses' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'acquires a quote-scoped reservation before `/submit` enters settlement verification' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q '`RFQSettlement` nonce consumption remains the authoritative replay protection' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'rejects malformed root payloads, missing `quote` objects, and inherited root or signed quote required fields before field access' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q '`quoteId`、`settlementEventId`、`snapshotId` and the derived `pnlId` as `SafeIdentifier`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q '`QuoteSnapshotPnlValuationProvider` loads the immutable persisted snapshot' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md

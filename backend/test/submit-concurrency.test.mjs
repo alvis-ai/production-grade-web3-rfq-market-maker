@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer } from "../dist/main.js";
 import { LocalSettlementVerifier } from "../dist/modules/settlement/settlement-verifier.service.js";
+import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
+import { InMemorySubmitReservationStore } from "../dist/modules/execution/submit-reservation.store.js";
 
 const baseQuoteRequest = {
   chainId: 1,
@@ -124,6 +126,69 @@ test("RFQ API rejects concurrent submit attempts for the same signed quote", asy
   } finally {
     releaseFirstVerifier?.();
     await server.close();
+  }
+});
+
+test("shared submit reservations reject the same quote across API replicas", async () => {
+  let releaseFirstVerifier;
+  let resolveFirstVerifierStarted;
+  const firstVerifierStarted = new Promise((resolve) => {
+    resolveFirstVerifierStarted = resolve;
+  });
+  const firstVerifierGate = new Promise((resolve) => {
+    releaseFirstVerifier = resolve;
+  });
+  const reservationStore = new InMemorySubmitReservationStore();
+  const quoteRepository = new InMemoryQuoteRepository();
+  const localVerifier = new LocalSettlementVerifier();
+  let verifyCalls = 0;
+  const settlementVerifier = {
+    async verify(input) {
+      verifyCalls += 1;
+      if (verifyCalls === 1) {
+        resolveFirstVerifierStarted();
+        await firstVerifierGate;
+      }
+      return localVerifier.verify(input);
+    },
+  };
+  const firstServer = buildServer({
+    logger: false,
+    quoteRepository,
+    settlementVerifier,
+    submitReservationStore: reservationStore,
+  });
+  const secondServer = buildServer({
+    logger: false,
+    quoteRepository,
+    settlementVerifier,
+    submitReservationStore: reservationStore,
+  });
+  await Promise.all([firstServer.ready(), secondServer.ready()]);
+
+  try {
+    const quote = await injectJson(firstServer, "POST", "/quote", baseQuoteRequest);
+    const submitPayload = {
+      quote: quotePayloadFromResponse(quote.body),
+      signature: quote.body.signature,
+    };
+
+    const firstSubmitPromise = injectJson(firstServer, "POST", "/submit", submitPayload);
+    await firstVerifierStarted;
+    const concurrentReplay = await injectJson(secondServer, "POST", "/submit", submitPayload);
+    releaseFirstVerifier();
+    const firstSubmit = await firstSubmitPromise;
+
+    assert.equal(firstSubmit.statusCode, 202);
+    assert.equal(concurrentReplay.statusCode, 409);
+    assert.equal(concurrentReplay.body.code, "QUOTE_ALREADY_USED");
+    assert.equal(verifyCalls, 1);
+
+    const metrics = await secondServer.inject({ method: "GET", url: "/metrics" });
+    assert.match(metrics.payload, /rfq_submit_reservation_contention_total 1/);
+  } finally {
+    releaseFirstVerifier?.();
+    await Promise.all([firstServer.close(), secondServer.close()]);
   }
 });
 

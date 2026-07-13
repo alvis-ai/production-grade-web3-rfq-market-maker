@@ -22,6 +22,7 @@ type DependencyMetricStatus = "ok" | "degraded";
 type CexSourceMetricState = "ready" | "stale" | "unavailable";
 type CexPairMetricState = "usable" | "blocked";
 type ApiAuthMetricRejectionReason = ApiKeyRejectionReason | "scope_denied";
+type SubmitReservationMetricOperation = "acquire" | "release";
 
 const latencyBucketsSeconds = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
 const maxSafeIdentifierLength = 128;
@@ -67,6 +68,8 @@ export class MetricsService {
   private submitRequests = 0;
   private submitAccepted = 0;
   private submitErrors = 0;
+  private submitReservationContention = 0;
+  private readonly submitReservationErrors = new Map<SubmitReservationMetricOperation, number>();
   private readonly rateLimited = new Map<RateLimitedEndpoint, number>();
   private readonly apiAuthRejections = new Map<ApiAuthMetricRejectionReason, number>();
   private readonly signerRequests = new Map<SignerMetricOperation, number>();
@@ -159,6 +162,17 @@ export class MetricsService {
 
   recordSubmitLatency(seconds: number): void {
     recordHistogram(this.submitLatency, seconds);
+  }
+
+  recordSubmitReservationContention(): void {
+    this.submitReservationContention += 1;
+  }
+
+  recordSubmitReservationError(operation: SubmitReservationMetricOperation): void {
+    if (!submitReservationMetricOperations.includes(operation)) {
+      throw new Error("Metrics submit reservation operation is invalid");
+    }
+    this.submitReservationErrors.set(operation, (this.submitReservationErrors.get(operation) ?? 0) + 1);
   }
 
   recordRateLimited(endpoint: RateLimitedEndpoint): void {
@@ -267,6 +281,12 @@ export class MetricsService {
       "# HELP rfq_submit_latency_seconds RFQ submit request latency in seconds.",
       "# TYPE rfq_submit_latency_seconds histogram",
       ...renderHistogram("rfq_submit_latency_seconds", this.submitLatency),
+      "# HELP rfq_submit_reservation_contention_total Total submit requests rejected because another replica owns the quote reservation.",
+      "# TYPE rfq_submit_reservation_contention_total counter",
+      `rfq_submit_reservation_contention_total ${this.submitReservationContention}`,
+      "# HELP rfq_submit_reservation_errors_total Total submit reservation store errors by bounded operation.",
+      "# TYPE rfq_submit_reservation_errors_total counter",
+      ...this.renderSubmitReservationErrors(),
       "# HELP rfq_rate_limited_total Total rate-limited requests by stable endpoint group.",
       "# TYPE rfq_rate_limited_total counter",
       ...this.renderRateLimited(),
@@ -361,6 +381,12 @@ export class MetricsService {
   private renderRateLimited(): string[] {
     return rateLimitedEndpoints.map((endpoint) => {
       return `rfq_rate_limited_total{endpoint="${endpoint}"} ${this.rateLimited.get(endpoint) ?? 0}`;
+    });
+  }
+
+  private renderSubmitReservationErrors(): string[] {
+    return submitReservationMetricOperations.map((operation) => {
+      return `rfq_submit_reservation_errors_total{operation="${operation}"} ${this.submitReservationErrors.get(operation) ?? 0}`;
     });
   }
 
@@ -472,6 +498,7 @@ const apiAuthMetricRejectionReasons: readonly ApiAuthMetricRejectionReason[] = [
   "expired",
   "scope_denied",
 ];
+const submitReservationMetricOperations: readonly SubmitReservationMetricOperation[] = ["acquire", "release"];
 const readinessMetricStatuses: readonly ReadinessMetricStatus[] = ["ready", "degraded"];
 const dependencyMetricStatuses: readonly DependencyMetricStatus[] = ["ok", "degraded"];
 const cexSourceMetricStates: readonly CexSourceMetricState[] = ["ready", "stale", "unavailable"];

@@ -16,6 +16,17 @@ import {
   parseReceiptExecutionConfig,
   RuntimeSettlementEvidenceProvider,
 } from "./modules/execution/receipt-settlement-evidence.provider.js";
+import { PostgresSubmitReservationStore } from "./modules/execution/postgres-submit-reservation.store.js";
+import {
+  InMemorySubmitReservationStore,
+  assertSubmitReservation,
+  assertSubmitReservationStore,
+  defaultSubmitReservationLeaseMs,
+  maxSubmitReservationLeaseMs,
+  minSubmitReservationLeaseMs,
+  type SubmitReservation,
+  type SubmitReservationStore,
+} from "./modules/execution/submit-reservation.store.js";
 import { getPool, endPool } from "./db/pool.js";
 import { HedgeService, type HedgeIntentService } from "./modules/hedge/hedge.service.js";
 import { PostgresHedgeService } from "./modules/hedge/postgres-hedge.service.js";
@@ -150,6 +161,8 @@ const buildServerOptionFields = [
   "settlementEventService",
   "settlementVerifier",
   "signerService",
+  "submitReservationLeaseMs",
+  "submitReservationStore",
   "tokenRegistry",
   "trustProxy",
 ] as const;
@@ -209,6 +222,8 @@ export interface BuildServerOptions {
   settlementEventService?: SettlementEventStore;
   settlementVerifier?: SettlementVerifier;
   signerService?: SignerService;
+  submitReservationLeaseMs?: number;
+  submitReservationStore?: SubmitReservationStore;
   tokenRegistry?: TokenRegistry;
   rateLimit?: Partial<RateLimitConfig> | false;
   rateLimiter?: RateLimiter;
@@ -247,6 +262,14 @@ export function buildServer(options: BuildServerOptions = {}) {
   const quoteTtlSeconds = options.quoteTtlSeconds === undefined
     ? readQuoteTtlSeconds()
     : assertIntegerOption(options.quoteTtlSeconds, "quoteTtlSeconds", 1, 3600);
+  const submitReservationLeaseMs = options.submitReservationLeaseMs === undefined
+    ? readSubmitReservationLeaseMs()
+    : assertIntegerOption(
+        options.submitReservationLeaseMs,
+        "submitReservationLeaseMs",
+        minSubmitReservationLeaseMs,
+        maxSubmitReservationLeaseMs,
+      );
   const server = Fastify({
     logger,
     bodyLimit: bodyLimitBytes,
@@ -355,9 +378,13 @@ export function buildServer(options: BuildServerOptions = {}) {
       ? new PostgresPnlStore(postgresPool, pnlValuationProvider)
       : new PnlService(pnlValuationProvider)
   );
+  const submitReservationStore = resolveSubmitReservationStore(
+    options.submitReservationStore,
+    postgresPool,
+    submitReservationLeaseMs,
+  );
   const rateLimiter = resolveRateLimiter(options);
   apiKeyAuthenticator = resolveApiKeyAuthenticator(options);
-  const inFlightSubmitQuoteIds = new Set<string>();
   const quoteService = new QuoteService({
     inventoryService,
     marketDataService,
@@ -431,6 +458,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     routingEngine,
     settlementEventService,
     signerService,
+    submitReservationStore,
   }, defaultMarketData && priceUpdaterPairs[0]
     ? buildMarketReadinessConfig(priceUpdaterPairs[0], runtimeTokenRegistry, maxSnapshotAgeMs)
     : defaultReadinessServiceConfig);
@@ -561,7 +589,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   server.post("/submit", async (request, reply) => {
     const startedAt = Date.now();
     let quoteId: string | undefined;
-    let releaseSubmitReservation: (() => void) | undefined;
+    let submitReservation: SubmitReservation | undefined;
     metricsService.recordSubmitRequest();
     try {
       const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "submit", request, reply, trustProxy, authenticatedPrincipals.get(request));
@@ -576,7 +604,7 @@ export function buildServer(options: BuildServerOptions = {}) {
         submitRequest.signature,
         { allowExpired: submitRequest.txHash !== undefined },
       );
-      releaseSubmitReservation = reserveSubmitQuoteId(inFlightSubmitQuoteIds, quoteId);
+      submitReservation = await acquireSubmitReservation(submitReservationStore, metricsService, quoteId);
       const result = await executionService.submitQuote(submitRequest, { quoteId });
       const pnlRecord = result.settlementEventResult.duplicate
         ? undefined
@@ -623,7 +651,9 @@ export function buildServer(options: BuildServerOptions = {}) {
 
       return sendError(reply, requestTraceId(request), apiError);
     } finally {
-      releaseSubmitReservation?.();
+      if (submitReservation) {
+        await releaseSubmitReservationBestEffort(submitReservationStore, metricsService, submitReservation);
+      }
       metricsService.recordSubmitLatency(elapsedSeconds(startedAt));
     }
   });
@@ -697,15 +727,43 @@ function sendError(
   return reply.header("x-trace-id", traceId).code(error.statusCode).send(error.toResponse(traceId));
 }
 
-function reserveSubmitQuoteId(inFlightSubmitQuoteIds: Set<string>, quoteId: string): () => void {
-  if (inFlightSubmitQuoteIds.has(quoteId)) {
-    throw new APIError("QUOTE_ALREADY_USED", "Quote already used", 409);
+async function acquireSubmitReservation(
+  store: SubmitReservationStore,
+  metricsService: MetricsService,
+  quoteId: string,
+): Promise<SubmitReservation> {
+  try {
+    const reservation = await store.acquire(quoteId);
+    if (!reservation) {
+      metricsService.recordSubmitReservationContention();
+      throw new APIError("QUOTE_ALREADY_USED", "Quote already used", 409);
+    }
+    assertSubmitReservation(reservation);
+    if (reservation.quoteId !== quoteId) {
+      throw new Error("Submit reservation quoteId does not match requested quote");
+    }
+    return reservation;
+  } catch (error) {
+    if (error instanceof APIError) throw error;
+    metricsService.recordSubmitReservationError("acquire");
+    throw new APIError(
+      "SUBMIT_RESERVATION_UNAVAILABLE",
+      "Submit reservation store unavailable",
+      503,
+    );
   }
+}
 
-  inFlightSubmitQuoteIds.add(quoteId);
-  return () => {
-    inFlightSubmitQuoteIds.delete(quoteId);
-  };
+async function releaseSubmitReservationBestEffort(
+  store: SubmitReservationStore,
+  metricsService: MetricsService,
+  reservation: SubmitReservation,
+): Promise<void> {
+  try {
+    await store.release(reservation);
+  } catch {
+    metricsService.recordSubmitReservationError("release");
+  }
 }
 
 function assertStatusIdentifier(
@@ -1166,6 +1224,16 @@ function readQuoteTtlSeconds(): number {
   });
 }
 
+function readSubmitReservationLeaseMs(): number {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  return readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_SUBMIT_RESERVATION_LEASE_MS"), {
+    defaultValue: defaultSubmitReservationLeaseMs,
+    max: maxSubmitReservationLeaseMs,
+    min: minSubmitReservationLeaseMs,
+    name: "RFQ_SUBMIT_RESERVATION_LEASE_MS",
+  });
+}
+
 function readBodyLimitBytes(): number {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
   return readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_BODY_LIMIT_BYTES"), {
@@ -1281,6 +1349,21 @@ function resolvePostgresPool(options: BuildServerOptions): pg.Pool | undefined {
   }
 
   return getPool();
+}
+
+function resolveSubmitReservationStore(
+  configured: SubmitReservationStore | undefined,
+  postgresPool: pg.Pool | undefined,
+  leaseMs: number,
+): SubmitReservationStore {
+  if (configured !== undefined) {
+    assertSubmitReservationStore(configured);
+    return configured;
+  }
+  const config = { leaseMs };
+  return postgresPool
+    ? new PostgresSubmitReservationStore(postgresPool, config)
+    : new InMemorySubmitReservationStore(config);
 }
 
 function resolveRateLimiter(options: BuildServerOptions): RateLimiter | undefined {

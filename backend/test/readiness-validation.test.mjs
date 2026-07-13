@@ -14,6 +14,7 @@ import { BasicRiskEngine } from "../dist/modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "../dist/modules/routing/routing.engine.js";
 import { SettlementEventService } from "../dist/modules/settlement/settlement-event.service.js";
 import { LocalEIP712SignerService } from "../dist/modules/signer/signer.service.js";
+import { InMemorySubmitReservationStore } from "../dist/modules/execution/submit-reservation.store.js";
 
 test("ReadinessService rejects unsafe freshness configuration at construction", () => {
   assert.throws(
@@ -236,6 +237,14 @@ test("ReadinessService rejects unsafe dependency configuration at construction",
       }),
     /Readiness service rateLimiter.checkHealth must be a function/,
   );
+  assert.throws(
+    () =>
+      new ReadinessService({
+        ...deps,
+        submitReservationStore: {},
+      }),
+    /Readiness service submitReservationStore.checkHealth must be a function/,
+  );
 });
 
 function createReadinessService(overrides = {}, config = defaultReadinessServiceConfig) {
@@ -263,5 +272,6 @@ function readinessServiceDeps(overrides = {}) {
     settlementEventService: overrides.settlementEventService ?? new SettlementEventService(inventoryService),
     pnlService: overrides.pnlService ?? new PnlService(),
     metricsService: overrides.metricsService ?? new MetricsService(),
+    submitReservationStore: overrides.submitReservationStore ?? new InMemorySubmitReservationStore(),
   };
 }

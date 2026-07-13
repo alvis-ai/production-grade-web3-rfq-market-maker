@@ -31,6 +31,8 @@
 - [x] Rate limits protect public trading endpoints.
 - [x] Non-local business routes require scoped API keys whose plaintext secrets are never stored server-side.
 - [x] API key verification uses constant-time digest comparison, generic 401 responses, expiry, and fixed route scopes.
+- [x] Production `/submit` uses a PostgreSQL quote-scoped lease with server-time expiry and owner-token release across API replicas.
+- [x] Submit reservation acquisition failures fail closed and active contention is rejected before settlement verification.
 - [x] All errors include traceId.
 - [x] Public API responses include no-store cache control and baseline browser security headers.
 - [x] Browser access is restricted by a CORS origin allowlist.
@@ -57,3 +59,4 @@
 - [x] Emergency pause procedure is documented.
 - [x] Alerts exist for signer failures, risk reject spikes, event lag and hedge failures.
 - [x] Dashboards cover quote latency, settlement failures and inventory exposure.
+- [x] Alerts and runbooks cover submit reservation persistence errors and contention spikes.

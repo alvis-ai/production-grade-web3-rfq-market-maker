@@ -12,8 +12,12 @@ on:
       - "backend/src/modules/auth/**"
       - "backend/src/modules/signer/**"
       - "backend/src/modules/indexer/**"
+      - "backend/src/modules/execution/*submit-reservation*"
       - "backend/src/settlement-indexer-main.ts"
       - "backend/src/db/migrations/007-settlement-indexer.sql"
+      - "backend/src/db/migrations/008-submit-reservations.sql"
+      - "backend/test/*submit-reservation*"
+      - "backend/test/submit-concurrency.test.mjs"
       - "backend/src/main.ts"
       - "sdk/src/client.ts"
       - "sdk/src/types.ts"
@@ -38,6 +42,7 @@ on:
       - "scripts/check-metrics-consistency.mjs"
       - "scripts/check-kms-signer-consistency.mjs"
       - "scripts/check-settlement-indexer-consistency.mjs"
+      - "scripts/check-submit-reservation-consistency.mjs"
       - "scripts/check-runbook-consistency.mjs"
       - "scripts/check-rate-limit-consistency.mjs"
       - "scripts/check-security-docs-consistency.mjs"
@@ -76,6 +81,8 @@ jobs:
         run: make kms-signer-check
       - name: Check settlement indexer consistency
         run: make settlement-indexer-check
+      - name: Check cross-replica submit reservation consistency
+        run: make submit-reservation-check
       - name: Check scoped API authentication consistency
         run: make api-auth-check
       - name: Check API error code consistency

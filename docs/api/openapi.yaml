@@ -224,7 +224,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: Rate limit store, settlement verifier, chain RPC, or another settlement dependency is unavailable before settlement is applied
+          description: Submit reservation store, rate limit store, settlement verifier, chain RPC, or another settlement dependency is unavailable before settlement is applied
           headers:
             x-trace-id:
               $ref: "#/components/headers/TraceId"
@@ -1207,6 +1207,7 @@ components:
             - PNL_STORE_UNAVAILABLE
             - SETTLEMENT_UNAVAILABLE
             - SETTLEMENT_REVERTED
+            - SUBMIT_RESERVATION_UNAVAILABLE
             - RATE_LIMITED
             - RATE_LIMIT_UNAVAILABLE
             - INTERNAL_ERROR
