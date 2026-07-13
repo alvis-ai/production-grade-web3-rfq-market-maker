@@ -34,6 +34,7 @@ test("HedgeWorker queries deterministic client id before submitting and complete
       return {
         state: "filled",
         externalOrderId: input.clientOrderId,
+        venueOrderId: "100234",
         executedQuantity: "1.25",
         executedQuoteQuantity: "3125.5",
       };
@@ -47,7 +48,8 @@ test("HedgeWorker queries deterministic client id before submitting and complete
   assert.equal(store.calls.prepareRoute.length, 1);
   assert.equal(store.calls.recordExternalOrderObserved.length, 1);
   assert.equal(store.calls.completeFilled[0][2], store.calls.prepareRoute[0][2].clientOrderId);
-  assert.equal(store.calls.completeFilled[0][4], "3125.5");
+  assert.equal(store.calls.completeFilled[0][3], "100234");
+  assert.equal(store.calls.completeFilled[0][5], "3125.5");
 });
 
 test("HedgeWorker requires FILLED cumulative quantity to equal the quantized target", async () => {
@@ -57,6 +59,7 @@ test("HedgeWorker requires FILLED cumulative quantity to equal the quantized tar
       return {
         state: "filled",
         externalOrderId: input.clientOrderId,
+        venueOrderId: "100234",
         executedQuantity: "0.5",
         executedQuoteQuantity: "1250",
       };
@@ -81,6 +84,7 @@ test("HedgeWorker permits only sub-step dust between intent and a complete venue
       return {
         state: "filled",
         externalOrderId: input.clientOrderId,
+        venueOrderId: "100234",
         executedQuantity: "1.25",
         executedQuoteQuantity: "3125",
       };
@@ -90,7 +94,7 @@ test("HedgeWorker permits only sub-step dust between intent and a complete venue
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
 
   assert.equal((await worker.runOnce()).status, "filled");
-  assert.equal(store.calls.completeFilled[0][3], "1250000000000000000");
+  assert.equal(store.calls.completeFilled[0][4], "1250000000000000000");
 });
 
 test("HedgeWorker submits only after not-found and reschedules pending orders", async () => {
@@ -102,6 +106,7 @@ test("HedgeWorker submits only after not-found and reschedules pending orders", 
       return {
         state: "pending",
         externalOrderId: input.clientOrderId,
+        venueOrderId: "100234",
         executedQuantity: "0.5",
         executedQuoteQuantity: "1250.25",
       };
@@ -116,8 +121,9 @@ test("HedgeWorker submits only after not-found and reschedules pending orders", 
   });
   assert.deepEqual(store.calls.releaseForRetry[0].slice(0, 3), [job.hedgeOrderId, "worker_1", "HEDGE_ORDER_PENDING"]);
   assert.equal(store.calls.authorizeSubmission.length, 1);
-  assert.equal(store.calls.recordExecutionProgress[0][3], "500000000000000000");
-  assert.equal(store.calls.recordExecutionProgress[0][4], "1250.25");
+  assert.equal(store.calls.recordExecutionProgress[0][3], "100234");
+  assert.equal(store.calls.recordExecutionProgress[0][4], "500000000000000000");
+  assert.equal(store.calls.recordExecutionProgress[0][5], "1250.25");
 });
 
 test("HedgeWorker never marks ambiguous venue failures terminal", async () => {
@@ -234,6 +240,7 @@ test("HedgeWorker persists terminal partial execution before marking venue failu
       return {
         state: "failed",
         externalOrderId: input.clientOrderId,
+        venueOrderId: "100234",
         executedQuantity: "0.5",
         executedQuoteQuantity: "1250",
         failureCode: "BINANCE_ORDER_EXPIRED",
@@ -248,8 +255,9 @@ test("HedgeWorker persists terminal partial execution before marking venue failu
     "worker_1",
     "BINANCE_ORDER_EXPIRED",
   ]);
-  assert.equal(store.calls.completeFailed[0][4], "500000000000000000");
-  assert.equal(store.calls.completeFailed[0][5], "1250");
+  assert.equal(store.calls.completeFailed[0][4], "100234");
+  assert.equal(store.calls.completeFailed[0][5], "500000000000000000");
+  assert.equal(store.calls.completeFailed[0][6], "1250");
 });
 
 test("HedgeWorker rejects unpaired base and quote execution evidence", async () => {
@@ -259,6 +267,7 @@ test("HedgeWorker rejects unpaired base and quote execution evidence", async () 
       return {
         state: "pending",
         externalOrderId: input.clientOrderId,
+        venueOrderId: "100234",
         executedQuantity: "0.5",
         executedQuoteQuantity: "0",
       };

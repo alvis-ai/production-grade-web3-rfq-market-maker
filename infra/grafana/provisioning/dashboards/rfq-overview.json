@@ -209,6 +209,31 @@
           "expr": "time() - max(rfq_hedge_worker_last_processed_timestamp_seconds)",
           "legendFormat": "seconds since progress",
           "refId": "C"
+        },
+        {
+          "expr": "sum by (status) (rate(rfq_hedge_fee_reconciliations_total[5m]))",
+          "legendFormat": "fee {{status}}/s",
+          "refId": "D"
+        },
+        {
+          "expr": "rate(rfq_hedge_fee_iteration_errors_total[5m])",
+          "legendFormat": "fee iteration errors/s",
+          "refId": "E"
+        },
+        {
+          "expr": "time() - max(rfq_hedge_fee_last_processed_timestamp_seconds)",
+          "legendFormat": "seconds since fee progress",
+          "refId": "F"
+        },
+        {
+          "expr": "max(rfq_hedge_fee_pending)",
+          "legendFormat": "fees pending",
+          "refId": "G"
+        },
+        {
+          "expr": "max(rfq_hedge_fee_oldest_due_age_seconds)",
+          "legendFormat": "oldest fee due age",
+          "refId": "H"
         }
       ]
     },

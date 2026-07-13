@@ -32,7 +32,9 @@ export type {
 } from "./client.js";
 export type {
   Address,
+  HedgeCommissionTotal,
   HedgeExecutionEvidenceVersion,
+  HedgeFeeReconciliationStatus,
   HedgeIntentStatus,
   HealthResponse,
   IntString,

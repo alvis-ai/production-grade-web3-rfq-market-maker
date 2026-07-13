@@ -81,6 +81,12 @@ export interface MarketSnapshot {
 
 export type HedgeIntentStatus = "queued" | "filled" | "failed";
 export type HedgeExecutionEvidenceVersion = "base-only-v1" | "base-and-quote-v2";
+export type HedgeFeeReconciliationStatus = "pending" | "complete";
+
+export interface HedgeCommissionTotal {
+  asset: string;
+  quantity: string;
+}
 
 export interface HedgeIntentStatusResponse {
   hedgeOrderId: string;
@@ -97,8 +103,13 @@ export interface HedgeIntentStatusResponse {
   filledAmount?: UIntString;
   venue?: string;
   venueSymbol?: string;
+  venueOrderId?: string;
   executionEvidenceVersion?: HedgeExecutionEvidenceVersion;
   executedQuoteQuantity?: string;
+  feeReconciliationStatus?: HedgeFeeReconciliationStatus;
+  feeLastErrorCode?: string;
+  feeReconciledAt?: string;
+  commissionTotals?: HedgeCommissionTotal[];
   failureCode?: string;
   updatedAt?: string;
 }

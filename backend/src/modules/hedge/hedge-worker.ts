@@ -145,6 +145,7 @@ export class HedgeWorker {
         job.hedgeOrderId,
         this.config.workerId,
         order.externalOrderId,
+        order.venueOrderId,
         filledAmount,
         executedQuoteQuantity!,
       );
@@ -157,6 +158,7 @@ export class HedgeWorker {
         this.config.workerId,
         errorCode,
         order.externalOrderId,
+        order.venueOrderId,
         filledAmount,
         executedQuoteQuantity,
       );
@@ -167,6 +169,7 @@ export class HedgeWorker {
         job.hedgeOrderId,
         this.config.workerId,
         order.externalOrderId,
+        order.venueOrderId,
         filledAmount,
         executedQuoteQuantity!,
       );
@@ -259,11 +262,12 @@ function assertOrderResult(result: CexOrderResult): void {
     throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
   }
   const expectedFields = result.state === "failed"
-    ? new Set(["state", "externalOrderId", "executedQuantity", "executedQuoteQuantity", "failureCode"])
-    : new Set(["state", "externalOrderId", "executedQuantity", "executedQuoteQuantity"]);
+    ? new Set(["state", "externalOrderId", "venueOrderId", "executedQuantity", "executedQuoteQuantity", "failureCode"])
+    : new Set(["state", "externalOrderId", "venueOrderId", "executedQuantity", "executedQuoteQuantity"]);
   if (Object.keys(result).some((field) => !expectedFields.has(field)) ||
       !Object.prototype.hasOwnProperty.call(result, "state") ||
       !Object.prototype.hasOwnProperty.call(result, "externalOrderId") ||
+      !Object.prototype.hasOwnProperty.call(result, "venueOrderId") ||
       !Object.prototype.hasOwnProperty.call(result, "executedQuantity") ||
       !Object.prototype.hasOwnProperty.call(result, "executedQuoteQuantity")) {
     throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
@@ -273,6 +277,10 @@ function assertOrderResult(result: CexOrderResult): void {
   }
   if (typeof result.externalOrderId !== "string" || result.externalOrderId.trim().length === 0 ||
       result.externalOrderId.length > 128) {
+    throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
+  }
+  if (typeof result.venueOrderId !== "string" || !/^[1-9][0-9]{0,15}$/.test(result.venueOrderId) ||
+      !Number.isSafeInteger(Number(result.venueOrderId))) {
     throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
   }
   if (result.failureCode !== undefined &&

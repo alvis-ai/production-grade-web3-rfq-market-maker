@@ -5,13 +5,16 @@ import assert from "node:assert/strict";
 
 const metricsSource = await readFile("backend/src/modules/metrics/metrics.service.ts", "utf8");
 const hedgeWorkerMetricsSource = await readFile("backend/src/modules/hedge/hedge-worker.ts", "utf8");
+const hedgeFeeMetricsSource = await readFile("backend/src/modules/hedge/hedge-fee-worker.ts", "utf8");
 const analyticsWorkerMetricsSource = await readFile("backend/src/modules/analytics/analytics-worker.metrics.ts", "utf8");
 const datasourceSource = await readFile("infra/grafana/provisioning/datasources/prometheus.yml", "utf8");
 const dashboardProviderSource = await readFile("infra/grafana/provisioning/dashboards/dashboards.yml", "utf8");
 const dashboardSource = await readFile("infra/grafana/provisioning/dashboards/rfq-overview.json", "utf8");
 const alertRulesSource = await readFile("infra/prometheus/rules/rfq-alerts.yml", "utf8");
 
-const emittedMetrics = extractEmittedMetrics(`${metricsSource}\n${hedgeWorkerMetricsSource}\n${analyticsWorkerMetricsSource}`);
+const emittedMetrics = extractEmittedMetrics(
+  `${metricsSource}\n${hedgeWorkerMetricsSource}\n${hedgeFeeMetricsSource}\n${analyticsWorkerMetricsSource}`,
+);
 const alertMetrics = extractAlertMetrics(alertRulesSource);
 const dashboard = JSON.parse(dashboardSource);
 const expressions = extractDashboardExpressions(dashboard);

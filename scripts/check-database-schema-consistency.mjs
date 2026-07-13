@@ -58,6 +58,10 @@ const hedgeExecutionEvidenceMigrationSource = await readFile(
   "backend/src/db/migrations/014-hedge-execution-evidence.sql",
   "utf8",
 );
+const hedgeFeeReconciliationMigrationSource = await readFile(
+  "backend/src/db/migrations/015-hedge-fee-reconciliation.sql",
+  "utf8",
+);
 const postgresQuoteExposureSource = await readFile(
   "backend/src/modules/risk/postgres-quote-exposure.store.ts",
   "utf8",
@@ -1028,12 +1032,21 @@ const hedgeColumnMapping = {
   filledAmount: "filled_amount",
   venue: "venue",
   venueSymbol: "venue_symbol",
+  venueOrderId: "venue_order_id",
   executionEvidenceVersion: "execution_evidence_version",
   executedQuoteQuantity: "executed_quote_quantity",
+  feeReconciliationStatus: "fee_reconciliation_status",
+  feeLastErrorCode: "fee_last_error_code",
+  feeReconciledAt: "fee_reconciled_at",
   failureCode: "last_error_code",
   updatedAt: "updated_at",
 };
 for (const field of hedgeFields) {
+  if (field === "commissionTotals") {
+    assert.ok(tables.get("hedge_execution_fills")?.columns.has("commission_quantity"));
+    assert.ok(tables.get("hedge_execution_fills")?.columns.has("commission_asset"));
+    continue;
+  }
   assert.ok(hedgeColumnMapping[field], `HedgeIntentStatusResponse.${field} must have a database column mapping`);
   assert.ok(
     tables.get("hedge_orders").columns.has(hedgeColumnMapping[field]),
@@ -1048,6 +1061,7 @@ for (const erNode of [
   "SETTLEMENT_EVENTS",
   "INVENTORY_POSITIONS",
   "HEDGE_ORDERS",
+  "HEDGE_EXECUTION_FILLS",
   "PNL_RECORDS",
   "ANALYTICS_OUTBOX",
   "POST_TRADE_RECONCILIATION_JOBS",
@@ -1145,7 +1159,7 @@ assert.ok(
     postgresHedgeJobSource.includes("HEDGE_SETTLEMENT_NON_CANONICAL") &&
     postgresHedgeJobSource.includes("next_attempt_at = now()") &&
     postgresHedgeJobSource.includes("INSERT INTO inventory_positions") &&
-    postgresHedgeJobSource.includes("filled_amount = COALESCE($5, filled_amount)") &&
+    postgresHedgeJobSource.includes("filled_amount = COALESCE($6, filled_amount)") &&
     postgresHedgeJobSource.includes("recordExecutionProgress") &&
     postgresHedgeJobSource.includes("BigInt(filledAmount) - BigInt(previous"),
   "Postgres hedge job store must claim due rows, guard mutations by lease owner, and atomically apply fill deltas",
@@ -1292,6 +1306,17 @@ assert.ok(
     !baseSchemaMigrationSource.includes("executed_quote_quantity") &&
     !hedgeWorkerMigrationSource.includes("executed_quote_quantity"),
   "hedge execution evidence must remain owned by migration 014 and publish versioned cumulative economics",
+);
+assert.ok(
+  hedgeFeeReconciliationMigrationSource.includes("ADD COLUMN venue_order_id") &&
+    hedgeFeeReconciliationMigrationSource.includes("fee_reconciliation_status") &&
+    hedgeFeeReconciliationMigrationSource.includes("CREATE TABLE hedge_execution_fills") &&
+    hedgeFeeReconciliationMigrationSource.includes("hedge.execution-fill.v1") &&
+    hedgeFeeReconciliationMigrationSource.includes("hedge.lifecycle.v3") &&
+    schemaSource.includes("('015', 'hedge-fee-reconciliation')") &&
+    !hedgeExecutionEvidenceMigrationSource.includes("fee_reconciliation_status") &&
+    !baseSchemaMigrationSource.includes("hedge_execution_fills"),
+  "hedge fee evidence must remain owned by migration 015 and publish immutable per-fill economics",
 );
 assert.ok(
   postgresQuoteExposureSource.includes("pg_advisory_xact_lock") &&

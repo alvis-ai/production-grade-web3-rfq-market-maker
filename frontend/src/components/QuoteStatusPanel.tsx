@@ -128,6 +128,14 @@ export function QuoteStatusPanel({
           <dd>{hedgeStatus?.executedQuoteQuantity ?? "-"}</dd>
         </div>
         <div>
+          <dt>Fee Reconciliation</dt>
+          <dd>{hedgeStatus?.feeReconciliationStatus ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Execution Fees</dt>
+          <dd>{hedgeStatus?.commissionTotals?.map((total) => `${total.quantity} ${total.asset}`).join(", ") ?? "-"}</dd>
+        </div>
+        <div>
           <dt>Hedge Updated</dt>
           <dd>{hedgeStatus?.updatedAt ?? "-"}</dd>
         </div>

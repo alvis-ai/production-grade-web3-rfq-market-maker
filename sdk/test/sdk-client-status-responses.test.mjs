@@ -203,6 +203,10 @@ test("RFQClient rejects malformed hedge status responses", async () => {
       message: "RFQ hedge status response returned malformed venueSymbol",
     },
     {
+      payload: { ...hedgeResponse, venueOrderId: "9007199254740992" },
+      message: "RFQ hedge status response returned malformed venueOrderId",
+    },
+    {
       payload: { ...hedgeResponse, executionEvidenceVersion: "unknown-v3" },
       message: "RFQ hedge status response returned malformed executionEvidenceVersion",
     },
@@ -229,6 +233,22 @@ test("RFQClient rejects malformed hedge status responses", async () => {
     {
       payload: { ...hedgeResponse, updatedAt: "not-a-date" },
       message: "RFQ hedge status response returned malformed updatedAt",
+    },
+    {
+      payload: { ...hedgeResponse, feeReconciliationStatus: "complete" },
+      message: "RFQ hedge status response returned malformed feeReconciliationStatus",
+    },
+    {
+      payload: {
+        ...hedgeResponse,
+        feeReconciliationStatus: "pending",
+        feeReconciledAt: "2026-06-27T00:00:01.000Z",
+      },
+      message: "RFQ hedge status response returned malformed feeReconciliationStatus",
+    },
+    {
+      payload: { ...hedgeResponse, commissionTotals: [{ asset: "BNB", quantity: "0.1" }] },
+      message: "RFQ hedge status response returned malformed commissionTotals",
     },
   ];
 
@@ -272,8 +292,15 @@ test("RFQClient accepts terminal hedge status responses", async () => {
       filledAmount: quote.amountOut,
       venue: "binance",
       venueSymbol: "ETHUSDT",
+      venueOrderId: "100234",
       executionEvidenceVersion: "base-and-quote-v2",
       executedQuoteQuantity: "3125.500000000000000000",
+      feeReconciliationStatus: "complete",
+      feeReconciledAt: "2026-06-27T00:00:01.000Z",
+      commissionTotals: [
+        { asset: "BNB", quantity: "0.000100000000000000" },
+        { asset: "USDT", quantity: "1.250000000000000000" },
+      ],
       updatedAt: "2026-06-27T00:00:01.000Z",
     },
     {

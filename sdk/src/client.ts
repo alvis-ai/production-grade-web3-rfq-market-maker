@@ -73,8 +73,13 @@ const hedgeStatusOptionalFields = [
   "filledAmount",
   "venue",
   "venueSymbol",
+  "venueOrderId",
   "executionEvidenceVersion",
   "executedQuoteQuantity",
+  "feeReconciliationStatus",
+  "feeLastErrorCode",
+  "feeReconciledAt",
+  "commissionTotals",
   "failureCode",
   "updatedAt",
 ] as const;
@@ -752,6 +757,11 @@ function assertHedgeIntentStatus(payload: unknown, status: number): asserts payl
       (typeof payload.venueSymbol !== "string" || !/^[A-Z0-9._-]{3,32}$/.test(payload.venueSymbol))) {
     throw malformedFieldError(status, label, "venueSymbol");
   }
+  if (payload.venueOrderId !== undefined &&
+      (typeof payload.venueOrderId !== "string" || !/^[1-9][0-9]{0,15}$/.test(payload.venueOrderId) ||
+        !Number.isSafeInteger(Number(payload.venueOrderId)))) {
+    throw malformedFieldError(status, label, "venueOrderId");
+  }
   if (payload.executionEvidenceVersion !== undefined &&
       payload.executionEvidenceVersion !== "base-only-v1" &&
       payload.executionEvidenceVersion !== "base-and-quote-v2") {
@@ -766,6 +776,34 @@ function assertHedgeIntentStatus(payload: unknown, status: number): asserts payl
   }
   if (payload.executionEvidenceVersion !== undefined && payload.filledAmount === undefined) {
     throw malformedFieldError(status, label, "executionEvidenceVersion");
+  }
+  if (payload.feeReconciliationStatus !== undefined &&
+      payload.feeReconciliationStatus !== "pending" && payload.feeReconciliationStatus !== "complete") {
+    throw malformedFieldError(status, label, "feeReconciliationStatus");
+  }
+  if (payload.feeLastErrorCode !== undefined &&
+      (typeof payload.feeLastErrorCode !== "string" || !/^[A-Z0-9_:-]{1,128}$/.test(payload.feeLastErrorCode))) {
+    throw malformedFieldError(status, label, "feeLastErrorCode");
+  }
+  if (payload.feeReconciledAt !== undefined && !isIsoUtcTimestampString(payload.feeReconciledAt)) {
+    throw malformedFieldError(status, label, "feeReconciledAt");
+  }
+  if (payload.commissionTotals !== undefined && !isCommissionTotals(payload.commissionTotals)) {
+    throw malformedFieldError(status, label, "commissionTotals");
+  }
+  if (payload.feeReconciliationStatus === "complete" &&
+      (payload.venueOrderId === undefined || payload.executionEvidenceVersion !== "base-and-quote-v2" ||
+        payload.feeReconciledAt === undefined || payload.commissionTotals === undefined)) {
+    throw malformedFieldError(status, label, "feeReconciliationStatus");
+  }
+  if (payload.feeReconciliationStatus === "pending" && payload.feeReconciledAt !== undefined) {
+    throw malformedFieldError(status, label, "feeReconciliationStatus");
+  }
+  if (payload.feeLastErrorCode !== undefined && payload.feeReconciliationStatus !== "pending") {
+    throw malformedFieldError(status, label, "feeLastErrorCode");
+  }
+  if (payload.commissionTotals !== undefined && payload.feeReconciliationStatus === undefined) {
+    throw malformedFieldError(status, label, "commissionTotals");
   }
   if (payload.failureCode !== undefined &&
       (typeof payload.failureCode !== "string" || !/^[A-Z0-9_:-]{1,128}$/.test(payload.failureCode))) {
@@ -1121,6 +1159,22 @@ function isPositiveDecimalString(value: unknown): value is string {
   }
   const digits = value.replace(".", "");
   return BigInt(digits) > 0n;
+}
+
+function isCommissionTotals(value: unknown): value is Array<{ asset: string; quantity: string }> {
+  if (!Array.isArray(value)) return false;
+  let previousAsset = "";
+  for (const entry of value) {
+    if (!isRecord(entry) || Object.keys(entry).length !== 2 ||
+        typeof entry.asset !== "string" || entry.asset.length < 1 || entry.asset.length > 64 ||
+        /[\s\p{Cc}]/u.test(entry.asset) || entry.asset <= previousAsset ||
+        typeof entry.quantity !== "string" || entry.quantity.length > 96 ||
+        !/^(0|[1-9][0-9]*)(?:\.[0-9]{1,36})?$/.test(entry.quantity)) {
+      return false;
+    }
+    previousAsset = entry.asset;
+  }
+  return true;
 }
 
 function isIntString(value: unknown): value is string {

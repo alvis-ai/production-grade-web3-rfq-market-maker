@@ -26,8 +26,23 @@ import {
 const hedgeColumns = `
   id, settlement_event_id, quote_id, chain_id, token_address, side, amount,
   venue, venue_symbol, status, reason, external_order_id, filled_amount,
-  execution_evidence_version, executed_quote_quantity::text AS executed_quote_quantity, last_error_code,
+  venue_order_id, execution_evidence_version, executed_quote_quantity::text AS executed_quote_quantity,
+  fee_reconciliation_status, fee_last_error_code, fee_reconciled_at, last_error_code,
   created_at, updated_at
+`;
+const hedgeCommissionTotalsColumn = `
+  COALESCE((
+    SELECT jsonb_agg(
+      jsonb_build_object('asset', totals.commission_asset, 'quantity', totals.quantity)
+      ORDER BY totals.commission_asset
+    )
+    FROM (
+      SELECT commission_asset, SUM(commission_quantity)::text AS quantity
+      FROM hedge_execution_fills
+      WHERE hedge_order_id = hedge_orders.id
+      GROUP BY commission_asset
+    ) AS totals
+  ), '[]'::jsonb) AS commission_totals
 `;
 
 export class PostgresHedgeService implements HedgeIntentService {
@@ -214,7 +229,10 @@ export class PostgresHedgeService implements HedgeIntentService {
   private async findOne(field: "id" | "settlement_event_id", value: string): Promise<HedgeIntentStatusResponse | undefined> {
     const client = await this.pool.connect();
     try {
-      const result = await client.query(`SELECT ${hedgeColumns} FROM hedge_orders WHERE ${field} = $1`, [value]);
+      const result = await client.query(
+        `SELECT ${hedgeColumns}, ${hedgeCommissionTotalsColumn} FROM hedge_orders WHERE ${field} = $1`,
+        [value],
+      );
       if (result.rows.length > 1) throw new Error("Postgres hedge lookup returned multiple rows");
       return result.rows[0] ? parseHedgeRow(result.rows[0]) : undefined;
     } finally {
@@ -364,12 +382,33 @@ function parseHedgeRow(row: unknown): HedgeIntentStatusResponse {
       (typeof venueSymbol !== "string" || !/^[A-Z0-9._-]{3,32}$/.test(venueSymbol))) {
     throw new Error("Postgres hedge row venue_symbol is invalid");
   }
+  const venueOrderId = value.venue_order_id;
+  if (venueOrderId !== null && venueOrderId !== undefined && !isSafeVenueId(venueOrderId)) {
+    throw new Error("Postgres hedge row venue_order_id is invalid");
+  }
   const executionEvidenceVersion = value.execution_evidence_version;
   if (executionEvidenceVersion !== null && executionEvidenceVersion !== undefined &&
       executionEvidenceVersion !== "base-only-v1" && executionEvidenceVersion !== "base-and-quote-v2") {
     throw new Error("Postgres hedge row execution_evidence_version is invalid");
   }
   const executedQuoteQuantity = parseOptionalExecutedQuoteQuantity(value.executed_quote_quantity);
+  const feeReconciliationStatus = value.fee_reconciliation_status;
+  if (feeReconciliationStatus !== null && feeReconciliationStatus !== undefined &&
+      feeReconciliationStatus !== "pending" && feeReconciliationStatus !== "complete") {
+    throw new Error("Postgres hedge row fee_reconciliation_status is invalid");
+  }
+  const feeLastErrorCode = value.fee_last_error_code;
+  if (feeLastErrorCode !== null && feeLastErrorCode !== undefined &&
+      (typeof feeLastErrorCode !== "string" || !/^[A-Z0-9_:-]{1,128}$/.test(feeLastErrorCode))) {
+    throw new Error("Postgres hedge row fee_last_error_code is invalid");
+  }
+  const feeReconciledAt = value.fee_reconciled_at === null || value.fee_reconciled_at === undefined
+    ? undefined
+    : parseTimestamp(value.fee_reconciled_at, "fee_reconciled_at");
+  const commissionTotals = value.commission_totals === undefined || feeReconciliationStatus === null ||
+      feeReconciliationStatus === undefined
+    ? undefined
+    : parseCommissionTotals(value.commission_totals);
   const failureCode = value.last_error_code;
   if (failureCode !== null && failureCode !== undefined &&
       (typeof failureCode !== "string" || !/^[A-Z0-9_:-]{1,128}$/.test(failureCode))) {
@@ -390,8 +429,13 @@ function parseHedgeRow(row: unknown): HedgeIntentStatusResponse {
     ...(filledAmount ? { filledAmount } : {}),
     venue,
     ...(venueSymbol ? { venueSymbol } : {}),
+    ...(typeof venueOrderId === "string" ? { venueOrderId } : {}),
     ...(executionEvidenceVersion ? { executionEvidenceVersion } : {}),
     ...(executedQuoteQuantity ? { executedQuoteQuantity } : {}),
+    ...(feeReconciliationStatus ? { feeReconciliationStatus } : {}),
+    ...(feeLastErrorCode ? { feeLastErrorCode } : {}),
+    ...(feeReconciledAt ? { feeReconciledAt } : {}),
+    ...(commissionTotals ? { commissionTotals } : {}),
     ...(failureCode ? { failureCode } : {}),
     ...(value.updated_at ? { updatedAt: parseTimestamp(value.updated_at, "updated_at") } : {}),
   };
@@ -402,7 +446,42 @@ function parseHedgeRow(row: unknown): HedgeIntentStatusResponse {
       (record.executedQuoteQuantity !== undefined)) {
     throw new Error("Postgres hedge row base-and-quote evidence is inconsistent");
   }
+  if (record.feeReconciliationStatus === "complete" &&
+      (!record.venueOrderId || !record.feeReconciledAt ||
+        record.executionEvidenceVersion !== "base-and-quote-v2" || !record.commissionTotals)) {
+    throw new Error("Postgres hedge row completed fee reconciliation is inconsistent");
+  }
+  if (record.feeReconciliationStatus === "pending" && record.feeReconciledAt !== undefined) {
+    throw new Error("Postgres hedge row pending fee reconciliation is inconsistent");
+  }
+  if (record.feeLastErrorCode !== undefined && record.feeReconciliationStatus !== "pending") {
+    throw new Error("Postgres hedge row fee error state is inconsistent");
+  }
   return record;
+}
+
+function parseCommissionTotals(value: unknown): Array<{ asset: string; quantity: string }> {
+  if (!Array.isArray(value)) throw new Error("Postgres hedge row commission_totals is invalid");
+  let previousAsset = "";
+  return value.map((entry) => {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      throw new Error("Postgres hedge row commission_totals is invalid");
+    }
+    const record = entry as Record<string, unknown>;
+    if (Object.keys(record).length !== 2 || typeof record.asset !== "string" ||
+        record.asset.length < 1 || record.asset.length > 64 || /[\s\p{Cc}]/u.test(record.asset) ||
+        typeof record.quantity !== "string" ||
+        !/^(0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(record.quantity) || record.asset <= previousAsset) {
+      throw new Error("Postgres hedge row commission_totals is invalid");
+    }
+    previousAsset = record.asset;
+    return { asset: record.asset, quantity: record.quantity };
+  });
+}
+
+function isSafeVenueId(value: unknown): value is string {
+  return typeof value === "string" && /^[1-9][0-9]{0,15}$/.test(value) &&
+    Number.isSafeInteger(Number(value));
 }
 
 function assertFilledInput(input: MarkHedgeIntentFilledInput): void {

@@ -34,6 +34,7 @@ export interface HedgeJobStore {
     hedgeOrderId: string,
     workerId: string,
     externalOrderId: string,
+    venueOrderId: string,
     filledAmount: UIntString,
     executedQuoteQuantity: CexQuoteQuantity,
   ): Promise<void>;
@@ -41,6 +42,7 @@ export interface HedgeJobStore {
     hedgeOrderId: string,
     workerId: string,
     externalOrderId: string,
+    venueOrderId: string,
     filledAmount: UIntString,
     executedQuoteQuantity: CexQuoteQuantity,
   ): Promise<void>;
@@ -49,6 +51,7 @@ export interface HedgeJobStore {
     workerId: string,
     errorCode: string,
     externalOrderId?: string,
+    venueOrderId?: string,
     filledAmount?: UIntString,
     executedQuoteQuantity?: CexQuoteQuantity,
   ): Promise<void>;
@@ -181,11 +184,13 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
     hedgeOrderId: string,
     workerId: string,
     externalOrderId: string,
+    venueOrderId: string,
     filledAmount: UIntString,
     executedQuoteQuantity: CexQuoteQuantity,
   ): Promise<void> {
     assertLeaseMutation(hedgeOrderId, workerId);
     assertNonEmptyBoundedString(externalOrderId, "externalOrderId", 128);
+    assertVenueOrderId(venueOrderId);
     assertPositiveUInt(filledAmount, "filledAmount");
     assertPositiveQuoteQuantity(executedQuoteQuantity);
     const client = await this.pool.connect();
@@ -195,7 +200,7 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       const selected = await client.query(
         `SELECT chain_id, token_address, side, amount::text AS amount,
                 filled_amount::text AS filled_amount,
-                executed_quote_quantity::text AS executed_quote_quantity, external_order_id
+                executed_quote_quantity::text AS executed_quote_quantity, external_order_id, venue_order_id
          FROM hedge_orders
          WHERE id = $1 AND status = 'queued' AND lease_owner = $2
          FOR UPDATE`,
@@ -219,13 +224,16 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       if (previousExternalOrderId !== null && previousExternalOrderId !== externalOrderId) {
         throw new Error(`Postgres hedge external order conflict for ${hedgeOrderId}`);
       }
+      assertStableVenueOrderId(selected.rows[0], venueOrderId, hedgeOrderId);
       await client.query(
         `UPDATE hedge_orders
          SET submission_attempted_at = COALESCE(submission_attempted_at, now()),
-             external_order_id = $3, filled_amount = $4,
-             executed_quote_quantity = $5, execution_evidence_version = 'base-and-quote-v2', updated_at = now()
+             external_order_id = $3, venue_order_id = $4, filled_amount = $5,
+             executed_quote_quantity = $6, execution_evidence_version = 'base-and-quote-v2',
+             fee_reconciliation_status = 'pending', fee_next_attempt_at = now(),
+             fee_last_error_code = NULL, fee_reconciled_at = NULL, updated_at = now()
          WHERE id = $1 AND status = 'queued' AND lease_owner = $2`,
-        [hedgeOrderId, workerId, externalOrderId, filledAmount, executedQuoteQuantity],
+        [hedgeOrderId, workerId, externalOrderId, venueOrderId, filledAmount, executedQuoteQuantity],
       );
       await applyInventoryFillDelta(client, position, BigInt(filledAmount) - BigInt(previous ?? "0"));
       await client.query("COMMIT");
@@ -241,11 +249,13 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
     hedgeOrderId: string,
     workerId: string,
     externalOrderId: string,
+    venueOrderId: string,
     filledAmount: UIntString,
     executedQuoteQuantity: CexQuoteQuantity,
   ): Promise<void> {
     assertLeaseMutation(hedgeOrderId, workerId);
     assertNonEmptyBoundedString(externalOrderId, "externalOrderId", 128);
+    assertVenueOrderId(venueOrderId);
     assertPositiveUInt(filledAmount, "filledAmount");
     assertPositiveQuoteQuantity(executedQuoteQuantity);
     await this.completeTerminal(
@@ -254,6 +264,7 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       "filled",
       undefined,
       externalOrderId,
+      venueOrderId,
       filledAmount,
       executedQuoteQuantity,
     );
@@ -264,15 +275,19 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
     workerId: string,
     errorCode: string,
     externalOrderId?: string,
+    venueOrderId?: string,
     filledAmount?: UIntString,
     executedQuoteQuantity?: CexQuoteQuantity,
   ): Promise<void> {
     assertLeaseMutation(hedgeOrderId, workerId);
     assertErrorCode(errorCode);
     if (externalOrderId !== undefined) assertNonEmptyBoundedString(externalOrderId, "externalOrderId", 128);
+    if (venueOrderId !== undefined) assertVenueOrderId(venueOrderId);
     if (filledAmount !== undefined) {
       assertPositiveUInt(filledAmount, "filledAmount");
-      if (externalOrderId === undefined) throw new Error("Hedge job partial fill requires externalOrderId");
+      if (externalOrderId === undefined || venueOrderId === undefined) {
+        throw new Error("Hedge job partial fill requires externalOrderId and venueOrderId");
+      }
     }
     if ((filledAmount === undefined) !== (executedQuoteQuantity === undefined)) {
       throw new Error("Hedge job partial fill requires paired quote quantity evidence");
@@ -284,6 +299,7 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       "failed",
       errorCode,
       externalOrderId,
+      venueOrderId,
       filledAmount,
       executedQuoteQuantity,
     );
@@ -327,6 +343,7 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
     status: "filled" | "failed",
     errorCode?: string,
     externalOrderId?: string,
+    venueOrderId?: string,
     filledAmount?: UIntString,
     executedQuoteQuantity?: CexQuoteQuantity,
   ): Promise<void> {
@@ -337,7 +354,7 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       const selected = await client.query(
         `SELECT chain_id, token_address, side, amount::text AS amount,
                 filled_amount::text AS filled_amount,
-                executed_quote_quantity::text AS executed_quote_quantity, external_order_id
+                executed_quote_quantity::text AS executed_quote_quantity, external_order_id, venue_order_id
          FROM hedge_orders
          WHERE id = $1 AND status = 'queued' AND lease_owner = $2
          FOR UPDATE`,
@@ -355,6 +372,7 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
           previousExternalOrderId !== externalOrderId) {
         throw new Error(`Postgres hedge external order conflict for ${hedgeOrderId}`);
       }
+      if (venueOrderId !== undefined) assertStableVenueOrderId(selected.rows[0], venueOrderId, hedgeOrderId);
       if (externalOrderId !== undefined && previous !== undefined && filledAmount === undefined) {
         throw new Error(`Postgres hedge cumulative execution evidence disappeared for ${hedgeOrderId}`);
       }
@@ -370,12 +388,20 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       const updated = await client.query(
         `UPDATE hedge_orders
          SET status = $3, external_order_id = COALESCE($4, external_order_id),
-             filled_amount = COALESCE($5, filled_amount), last_error_code = $6,
-             executed_quote_quantity = COALESCE($7, executed_quote_quantity),
+             venue_order_id = COALESCE($5, venue_order_id),
+             filled_amount = COALESCE($6, filled_amount), last_error_code = $7,
+             executed_quote_quantity = COALESCE($8, executed_quote_quantity),
              execution_evidence_version = CASE
-               WHEN $7 IS NOT NULL THEN 'base-and-quote-v2'
+               WHEN $8 IS NOT NULL THEN 'base-and-quote-v2'
                ELSE execution_evidence_version
              END,
+             fee_reconciliation_status = CASE
+               WHEN $6 IS NOT NULL THEN 'pending'
+               ELSE fee_reconciliation_status
+             END,
+             fee_next_attempt_at = CASE WHEN $6 IS NOT NULL THEN now() ELSE fee_next_attempt_at END,
+             fee_last_error_code = CASE WHEN $6 IS NOT NULL THEN NULL ELSE fee_last_error_code END,
+             fee_reconciled_at = CASE WHEN $6 IS NOT NULL THEN NULL ELSE fee_reconciled_at END,
              lease_owner = NULL, lease_expires_at = NULL, updated_at = now()
          WHERE id = $1 AND status = 'queued' AND lease_owner = $2
            AND ($3 <> 'filled' OR (venue <> 'internal' AND venue_symbol IS NOT NULL AND client_order_id IS NOT NULL))`,
@@ -384,6 +410,7 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
           workerId,
           status,
           externalOrderId ?? null,
+          venueOrderId ?? null,
           filledAmount ?? null,
           errorCode ?? null,
           executedQuoteQuantity ?? null,
@@ -400,6 +427,23 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
     } finally {
       client.release();
     }
+  }
+}
+
+function assertVenueOrderId(value: string): void {
+  if (typeof value !== "string" || !/^[1-9][0-9]{0,15}$/.test(value) ||
+      !Number.isSafeInteger(Number(value))) {
+    throw new Error("Hedge job venueOrderId must be a positive safe integer string");
+  }
+}
+
+function assertStableVenueOrderId(row: unknown, venueOrderId: string, hedgeOrderId: string): void {
+  if (typeof row !== "object" || row === null || Array.isArray(row)) {
+    throw new Error("Postgres hedge execution row must be an object");
+  }
+  const previous = (row as Record<string, unknown>).venue_order_id;
+  if (previous !== null && previous !== undefined && previous !== venueOrderId) {
+    throw new Error(`Postgres hedge venue order conflict for ${hedgeOrderId}`);
   }
 }
 

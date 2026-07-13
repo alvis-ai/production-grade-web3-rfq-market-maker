@@ -12,16 +12,36 @@ export interface QueryOrderInput {
   clientOrderId: string;
 }
 
+export interface QueryOrderTradesInput {
+  symbol: string;
+  venueOrderId: string;
+}
+
 export interface CexOrderResult {
   state: "pending" | "filled" | "failed";
   externalOrderId: string;
+  venueOrderId: string;
   executedQuantity: string;
   executedQuoteQuantity: string;
   failureCode?: string;
 }
 
+export interface CexTradeFill {
+  venueTradeId: string;
+  venueOrderId: string;
+  price: string;
+  quantity: string;
+  quoteQuantity: string;
+  commissionQuantity: string;
+  commissionAsset: string;
+  executedAt: string;
+  isBuyer: boolean;
+  isMaker: boolean;
+}
+
 export interface CexExecutionAdapter {
   queryOrder(input: QueryOrderInput): Promise<CexOrderResult | undefined>;
+  queryOrderTrades(input: QueryOrderTradesInput): Promise<CexTradeFill[]>;
   submitMarketOrder(input: SubmitMarketOrderInput): Promise<CexOrderResult>;
 }
 
@@ -53,6 +73,8 @@ const defaultRequestTimeoutMs = 10_000;
 const terminalFailedStatuses = new Set(["CANCELED", "EXPIRED", "EXPIRED_IN_MATCH", "REJECTED"]);
 const pendingStatuses = new Set(["NEW", "PENDING_NEW", "PARTIALLY_FILLED"]);
 const retryableVenueCodes = new Set([-1000, -1001, -1003, -1006, -1007, -1008, -1015, -1016, -1021, -1034]);
+const tradePageSize = 1_000;
+const maxTradePages = 100;
 
 export class BinanceSpotAdapter implements CexExecutionAdapter {
   private readonly apiKey: string;
@@ -107,6 +129,34 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
     return parseOrderResponse(await parseJson(response), input.symbol, input.clientOrderId);
   }
 
+  async queryOrderTrades(input: QueryOrderTradesInput): Promise<CexTradeFill[]> {
+    assertQueryOrderTradesInput(input);
+    const fills: CexTradeFill[] = [];
+    let fromId: string | undefined;
+    for (let pageNumber = 0; pageNumber < maxTradePages; pageNumber += 1) {
+      const response = await this.signedRequest("GET", "/api/v3/myTrades", {
+        symbol: input.symbol,
+        orderId: input.venueOrderId,
+        limit: String(tradePageSize),
+        ...(fromId === undefined ? {} : { fromId }),
+      });
+      if (!response.ok) {
+        const error = await parseErrorResponse(response);
+        throw venueErrorForResponse(response.status, error.code, error.message, parseRetryAfterMs(response));
+      }
+      const page = parseTradeResponse(await parseJson(response), input.symbol, input.venueOrderId);
+      const previousTradeId = fills[fills.length - 1]?.venueTradeId;
+      if (previousTradeId !== undefined && page[0] !== undefined &&
+          Number(page[0].venueTradeId) <= Number(previousTradeId)) {
+        throw new CexVenueError("BINANCE_RESPONSE_INVALID", true);
+      }
+      fills.push(...page);
+      if (page.length < tradePageSize) return fills;
+      fromId = incrementSafeVenueId(page[page.length - 1]!.venueTradeId);
+    }
+    throw new CexVenueError("BINANCE_TRADE_PAGE_LIMIT_EXCEEDED", true);
+  }
+
   private async signedRequest(
     method: "GET" | "POST",
     path: string,
@@ -146,6 +196,7 @@ function parseOrderResponse(value: unknown, expectedSymbol: string, expectedClie
   }
   const record = value as Record<string, unknown>;
   if (record.symbol !== expectedSymbol || record.clientOrderId !== expectedClientOrderId ||
+      !isPositiveSafeVenueId(record.orderId) ||
       typeof record.status !== "string" || typeof record.executedQty !== "string" ||
       !isVenueDecimal(record.executedQty, 36) ||
       typeof record.cummulativeQuoteQty !== "string" || !isVenueDecimal(record.cummulativeQuoteQty, 18)) {
@@ -153,6 +204,7 @@ function parseOrderResponse(value: unknown, expectedSymbol: string, expectedClie
   }
   const result = {
     externalOrderId: expectedClientOrderId,
+    venueOrderId: String(record.orderId),
     executedQuantity: record.executedQty,
     executedQuoteQuantity: record.cummulativeQuoteQty,
   };
@@ -172,9 +224,64 @@ function parseOrderResponse(value: unknown, expectedSymbol: string, expectedClie
   throw new CexVenueError("BINANCE_STATUS_UNKNOWN", true);
 }
 
+function parseTradeResponse(value: unknown, expectedSymbol: string, expectedOrderId: string): CexTradeFill[] {
+  if (!Array.isArray(value)) throw new CexVenueError("BINANCE_RESPONSE_INVALID", true);
+  let previousTradeId = 0;
+  return value.map((entry) => {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      throw new CexVenueError("BINANCE_RESPONSE_INVALID", true);
+    }
+    const record = entry as Record<string, unknown>;
+    if (record.symbol !== expectedSymbol || !isPositiveSafeVenueId(record.id) ||
+        !isPositiveSafeVenueId(record.orderId) || String(record.orderId) !== expectedOrderId ||
+        typeof record.price !== "string" || !isPositiveVenueDecimal(record.price, 18) ||
+        typeof record.qty !== "string" || !isPositiveVenueDecimal(record.qty, 36) ||
+        typeof record.quoteQty !== "string" || !isPositiveVenueDecimal(record.quoteQty, 18) ||
+        typeof record.commission !== "string" || !isVenueDecimal(record.commission, 36) ||
+        typeof record.commissionAsset !== "string" || !isCommissionAsset(record.commissionAsset) ||
+        !isPositiveSafeVenueId(record.time) || typeof record.isBuyer !== "boolean" ||
+        typeof record.isMaker !== "boolean") {
+      throw new CexVenueError("BINANCE_RESPONSE_INVALID", true);
+    }
+    const tradeId = record.id as number;
+    if (tradeId <= previousTradeId) throw new CexVenueError("BINANCE_RESPONSE_INVALID", true);
+    previousTradeId = tradeId;
+    return {
+      venueTradeId: String(tradeId),
+      venueOrderId: String(record.orderId),
+      price: record.price,
+      quantity: record.qty,
+      quoteQuantity: record.quoteQty,
+      commissionQuantity: record.commission,
+      commissionAsset: record.commissionAsset,
+      executedAt: new Date(record.time as number).toISOString(),
+      isBuyer: record.isBuyer,
+      isMaker: record.isMaker,
+    };
+  });
+}
+
 function isVenueDecimal(value: string, maxFractionDigits: number): boolean {
   const match = value.match(/^(0|[1-9][0-9]*)(?:\.([0-9]+))?$/);
   return match !== null && match[1].length <= 60 && (match[2]?.length ?? 0) <= maxFractionDigits;
+}
+
+function isPositiveVenueDecimal(value: string, maxFractionDigits: number): boolean {
+  return isVenueDecimal(value, maxFractionDigits) && !/^0(?:\.0+)?$/.test(value);
+}
+
+function isPositiveSafeVenueId(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
+function incrementSafeVenueId(value: string): string {
+  const next = Number(value) + 1;
+  if (!Number.isSafeInteger(next)) throw new CexVenueError("BINANCE_RESPONSE_INVALID", true);
+  return String(next);
+}
+
+function isCommissionAsset(value: string): boolean {
+  return value.length >= 1 && value.length <= 64 && !/[\s\p{Cc}]/u.test(value);
 }
 
 async function parseJson(response: Response): Promise<unknown> {
@@ -240,6 +347,15 @@ function assertQueryInput(input: QueryOrderInput): void {
   assertClosedInput(input, ["symbol", "clientOrderId"], "query input");
   assertSymbol(input.symbol);
   assertClientOrderId(input.clientOrderId);
+}
+
+function assertQueryOrderTradesInput(input: QueryOrderTradesInput): void {
+  assertClosedInput(input, ["symbol", "venueOrderId"], "trade query input");
+  assertSymbol(input.symbol);
+  if (typeof input.venueOrderId !== "string" || !/^[1-9][0-9]{0,15}$/.test(input.venueOrderId) ||
+      !Number.isSafeInteger(Number(input.venueOrderId))) {
+    throw new Error("Binance venueOrderId must be a positive safe integer string");
+  }
 }
 
 function assertSubmitInput(input: SubmitMarketOrderInput): void {

@@ -115,6 +115,8 @@ grep -q 'createHmac("sha256"' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'origClientOrderId' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'newClientOrderId' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'rfq_hedge_worker_jobs_total' backend/src/modules/hedge/hedge-worker.ts
+grep -q 'rfq_hedge_fee_pending' backend/src/modules/hedge/hedge-fee-worker.ts
+grep -q 'rfq_hedge_fee_oldest_due_age_seconds' backend/src/modules/hedge/hedge-fee-worker.ts
 test -s backend/test/api-error.test.mjs
 test -s backend/test/api-gateway-env.test.mjs
 test -s backend/test/api-gateway-signer-env.test.mjs
@@ -811,6 +813,11 @@ test -s backend/src/db/migrations/011-open-quote-exposure.sql
 test -s backend/src/db/migrations/012-pricing-attribution.sql
 test -s backend/src/db/migrations/013-market-spread-attribution.sql
 test -s backend/src/db/migrations/014-hedge-execution-evidence.sql
+test -s backend/src/db/migrations/015-hedge-fee-reconciliation.sql
+test -s backend/src/modules/hedge/hedge-fee-worker.ts
+test -s backend/src/modules/hedge/postgres-hedge-fee.store.ts
+test -s backend/test/hedge-fee-worker.test.mjs
+test -s backend/test/postgres-hedge-fee-store.test.mjs
 test -s backend/src/modules/risk/quote-exposure.store.ts
 test -s backend/src/modules/risk/postgres-quote-exposure.store.ts
 test -s backend/test/quote-exposure-store.test.mjs

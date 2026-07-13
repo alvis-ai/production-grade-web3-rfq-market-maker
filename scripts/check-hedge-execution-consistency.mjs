@@ -9,9 +9,14 @@ const paths = {
   adapter: "backend/src/modules/hedge/binance-spot.adapter.ts",
   store: "backend/src/modules/hedge/postgres-hedge-job.store.ts",
   migration: "backend/src/db/migrations/014-hedge-execution-evidence.sql",
+  feeWorker: "backend/src/modules/hedge/hedge-fee-worker.ts",
+  feeStore: "backend/src/modules/hedge/postgres-hedge-fee.store.ts",
+  feeMigration: "backend/src/db/migrations/015-hedge-fee-reconciliation.sql",
   runtime: "backend/src/hedge-worker-main.ts",
   routeTest: "backend/test/hedge-route.test.mjs",
   workerTest: "backend/test/hedge-worker.test.mjs",
+  feeWorkerTest: "backend/test/hedge-fee-worker.test.mjs",
+  feeStoreTest: "backend/test/postgres-hedge-fee-store.test.mjs",
   runtimeTest: "backend/test/hedge-worker-runtime.test.mjs",
   compose: "docker-compose.yml",
   k8sConfig: "infra/k8s/configmap.yaml",
@@ -43,12 +48,24 @@ assert.match(source.store, /assertCumulativeExecutionEvidence/);
 assert.match(source.migration, /execution_evidence_version/);
 assert.match(source.migration, /executed_quote_quantity/);
 assert.match(source.migration, /hedge\.lifecycle\.v2/);
+assert.match(source.adapter, /\/api\/v3\/myTrades/);
+assert.match(source.adapter, /orderId: input\.venueOrderId/);
+assert.match(source.adapter, /fromId/);
+assert.match(source.feeWorker, /sumCexTradeQuantity\(fills, "quantity"\)/);
+assert.match(source.feeWorker, /sumCexTradeQuantity\(fills, "quoteQuantity"\)/);
+assert.match(source.feeStore, /ON CONFLICT \(hedge_order_id, venue_trade_id\) DO UPDATE/);
+assert.match(source.feeStore, /fee_reconciliation_status = 'complete'/);
+assert.match(source.feeMigration, /CREATE TABLE hedge_execution_fills/);
+assert.match(source.feeMigration, /hedge\.execution-fill\.v1/);
+assert.match(source.feeMigration, /hedge\.lifecycle\.v3/);
 
 assert.match(source.runtime, /readRequired\(env, "RFQ_TOKEN_REGISTRY_JSON"\)/);
 assert.match(source.runtime, /routes\.validateTokenRegistry\(tokenRegistry\)/);
 assert.match(source.routeTest, /binds route decimals to the shared token registry/);
 assert.match(source.workerTest, /requires FILLED cumulative quantity to equal the quantized target/);
 assert.match(source.workerTest, /permits only sub-step dust between intent and a complete venue fill/);
+assert.match(source.feeWorkerTest, /retries while myTrades lags cumulative order execution/);
+assert.match(source.feeStoreTest, /idempotently persists fills and completes reconciliation atomically/);
 assert.match(source.runtimeTest, /RFQ_TOKEN_REGISTRY_JSON is required/);
 assert.match(source.runtimeTest, /does not match token registry decimals/);
 
@@ -66,6 +83,9 @@ for (const [name, needle] of [
   ["hedgeBook", /cummulativeQuoteQty/],
   ["kubernetesBook", /route decimals/],
   ["runbook", /registry\/route decimals mismatch/],
+  ["readme", /commissionTotals/],
+  ["hedgeBook", /commissionAsset/],
+  ["runbook", /fee_reconciliation_status='pending'/],
 ]) {
   assert.match(source[name], needle, `${paths[name]} must document hedge quantity integrity`);
 }

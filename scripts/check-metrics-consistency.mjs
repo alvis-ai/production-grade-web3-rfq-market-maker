@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 
 const metricsSource = await readFile("backend/src/modules/metrics/metrics.service.ts", "utf8");
 const hedgeWorkerMetricsSource = await readFile("backend/src/modules/hedge/hedge-worker.ts", "utf8");
+const hedgeFeeMetricsSource = await readFile("backend/src/modules/hedge/hedge-fee-worker.ts", "utf8");
 const analyticsWorkerMetricsSource = await readFile("backend/src/modules/analytics/analytics-worker.metrics.ts", "utf8");
 const reconciliationWorkerMetricsSource = await readFile(
   "backend/src/modules/reconciliation/post-trade-reconciliation.metrics.ts",
@@ -22,7 +23,7 @@ const backendMetricsChapter = await readFile("book/Volume5-BackendEngineering/Ch
 const monitoringChapter = await readFile("book/Volume7-ProductionDeployment/Chapter03-Monitoring.md", "utf8");
 
 const emittedMetrics = extractEmittedMetrics(
-  `${metricsSource}\n${hedgeWorkerMetricsSource}\n${analyticsWorkerMetricsSource}\n${reconciliationWorkerMetricsSource}\n${settlementIndexerMetricsSource}`,
+  `${metricsSource}\n${hedgeWorkerMetricsSource}\n${hedgeFeeMetricsSource}\n${analyticsWorkerMetricsSource}\n${reconciliationWorkerMetricsSource}\n${settlementIndexerMetricsSource}`,
 );
 const alertMetrics = extractAlertMetrics(alertRulesSource);
 const backendDocMetrics = extractDocumentedMetrics(backendMetricsChapter);

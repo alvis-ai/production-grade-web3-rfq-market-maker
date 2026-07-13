@@ -157,6 +157,40 @@ test("PostgresHedgeService preserves submission-attempted and terminal CEX evide
   assert.equal(result.record.executedQuoteQuantity, "2500.500000000000000000");
 });
 
+test("PostgresHedgeService exposes reconciled commission totals without cross-asset conversion", async () => {
+  const completed = hedgeRow({
+    venue: "binance",
+    venue_symbol: "ETHUSDT",
+    status: "filled",
+    external_order_id: "rfq_11111111111111111111111111111111",
+    venue_order_id: "100234",
+    filled_amount: intent.amount,
+    execution_evidence_version: "base-and-quote-v2",
+    executed_quote_quantity: "2500.500000000000000000",
+    fee_reconciliation_status: "complete",
+    fee_reconciled_at: "2026-07-14T00:00:03.000Z",
+    commission_totals: [
+      { asset: "BNB", quantity: "0.000100000000000000000000000000000000" },
+      { asset: "USDT", quantity: "1.250000000000000000000000000000000000" },
+    ],
+  });
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("WHERE id = $1")) return { rows: [completed], rowCount: 1 };
+    return { rows: [], rowCount: 0 };
+  });
+  const service = new PostgresHedgeService(pool);
+
+  const result = await service.getHedgeIntent(completed.id);
+
+  assert.equal(result.feeReconciliationStatus, "complete");
+  assert.equal(result.venueOrderId, "100234");
+  assert.deepEqual(result.commissionTotals, completed.commission_totals.map((total) => ({
+    asset: total.asset,
+    quantity: total.quantity,
+  })));
+  assert.match(client.queries[0].sql, /SUM\(commission_quantity\)/);
+});
+
 test("PostgresHedgeService rejects malformed dependencies and database rows", async () => {
   assert.throws(() => new PostgresHedgeService(null), /pool\.connect must be a function/);
   const { pool } = fakePool(async () => ({ rows: [hedgeRow({ amount: "0990" })], rowCount: 1 }));
@@ -179,8 +213,12 @@ function hedgeRow(overrides = {}) {
     filled_amount: null,
     venue: "internal",
     venue_symbol: null,
+    venue_order_id: null,
     execution_evidence_version: null,
     executed_quote_quantity: null,
+    fee_reconciliation_status: null,
+    fee_last_error_code: null,
+    fee_reconciled_at: null,
     last_error_code: null,
     created_at: "2026-07-11T00:00:00.000Z",
     updated_at: "2026-07-11T00:00:00.000Z",

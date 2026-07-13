@@ -104,7 +104,7 @@ stateDiagram-v2
 
 ## Data Model
 
-Docker volumes store PostgreSQL, ClickHouse and Grafana data. These volumes are local development data, not production backups. Compose mounts `docs/database/schema.sql` into `/docker-entrypoint-initdb.d/001-schema.sql`, so a fresh `postgres-data` volume starts with the documented RFQ operational schema and seeded migration history. A one-shot `database-migrate` service serializes pending migrations before backend startup; existing databases apply through `014-hedge-execution-evidence.sql` before any API or post-trade worker checks readiness.
+Docker volumes store PostgreSQL, ClickHouse and Grafana data. These volumes are local development data, not production backups. Compose mounts `docs/database/schema.sql` into `/docker-entrypoint-initdb.d/001-schema.sql`, so a fresh `postgres-data` volume starts with the documented RFQ operational schema and seeded migration history. A one-shot `database-migrate` service serializes pending migrations before backend startup; existing databases apply through `015-hedge-fee-reconciliation.sql` before any API or post-trade worker checks readiness.
 
 The analytics profile uses separate Redpanda internal (`redpanda:9092`) and host (`localhost:19092`) advertised listeners, then an idempotent `redpanda-topic-init` service creates `rfq.analytics.v1` with six local partitions. `analytics-worker` publishes PostgreSQL outbox rows and projects consumed batches into the local ClickHouse `rfq_analytics_events` table. This one-node broker and empty ClickHouse password are development defaults only.
 

@@ -252,7 +252,12 @@ export class HedgeService implements HedgeIntentService {
 }
 
 export function cloneHedgeIntentStatus(intent: HedgeIntentStatusResponse): HedgeIntentStatusResponse {
-  return { ...intent };
+  return {
+    ...intent,
+    ...(intent.commissionTotals
+      ? { commissionTotals: intent.commissionTotals.map((total) => ({ ...total })) }
+      : {}),
+  };
 }
 
 export function cloneHedgeServiceConfig(config: HedgeServiceConfig): HedgeServiceConfig {

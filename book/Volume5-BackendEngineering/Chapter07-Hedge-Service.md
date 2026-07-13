@@ -79,6 +79,8 @@ sequenceDiagram
   participant H as Hedge Service
   participant R as Routing Engine
   participant V as Venue
+  participant F as Fee Reconciliation
+  participant DB as PostgreSQL
 
   I->>H: hedge intent
   H->>R: select route
@@ -86,6 +88,10 @@ sequenceDiagram
   H->>V: submit order
   V-->>H: fill or reject
   H-->>I: hedge result
+  H->>DB: cumulative base/quote and inventory delta
+  F->>V: query myTrades by orderId
+  V-->>F: fills with commission asset
+  F->>DB: reconcile and persist immutable fills
 ```
 
 ## State Machine
@@ -104,7 +110,7 @@ stateDiagram-v2
 
 ## Data Model
 
-`HedgeOrder` includes `id`, `settlementEventId`, `token`, `side`, `amount`, `venue`, `status`, `externalOrderId`, `costBps`, `createdAt`, `updatedAt`.
+`HedgeOrder` includes `id`, `settlementEventId`, `token`, `side`, `amount`, `venue`, `status`, deterministic `clientOrderId`, native `venueOrderId`, cumulative base/quote evidence, independent execution and fee leases, and timestamps. `hedge_execution_fills` uses `(hedgeOrderId, venueTradeId)` as its idempotency key and stores exact price、base quantity、quote quantity、commission quantity、commission asset、maker/taker direction and venue execution time.
 
 ## API Design
 
@@ -128,7 +134,9 @@ Hedge Service uses internal event APIs. It does not expose public user API.
 - Non-local runtime uses `PostgresHedgeService`: one unique `hedge_orders` row per settlement event, deterministic cross-replica hedge ids, DB timestamps, durable queued/filled/failed transitions, and idempotent conflict validation. Failed rows provide shared bounded quote-risk pressure instead of pod-local failure counters.
 - `PostgresHedgeJobStore` uses a short transaction with `FOR UPDATE SKIP LOCKED` to claim one due queued row, increments `attempt_count`, and writes an expiring `(lease_owner, lease_expires_at)` pair. Terminal and retry updates require the same lease owner, so a stale worker cannot overwrite a row reclaimed by another replica.
 - `RFQ_HEDGE_ROUTES_JSON` maps each planner-selected `chainId/token` to a Binance base-asset symbol, token decimals and raw-unit step size. Worker startup loads the shared `RFQ_TOKEN_REGISTRY_JSON` and requires route decimals to match trusted token metadata exactly; this check intentionally accepts a token that is no longer whitelisted so an already-settled exposure can still be unwound. The worker rounds amount down to that step before decimal formatting; zero-after-rounding is a deterministic `HEDGE_AMOUNT_BELOW_STEP_SIZE` failure rather than an invalid venue request.
-- Binance 查询与下单回报必须同时包含累计基础资产成交量 `executedQty` 和累计计价资产成交额 `cummulativeQuoteQty`。worker 将二者规范化后在同一数据库事务中写为 `base-and-quote-v2`，并要求同一外部订单号下两者保持同步单调增长；迁移前无法恢复成交额的历史记录标记为 `base-only-v1`，不得补造价格。该证据足以计算成交均价和滑点，但在逐笔手续费及 gas 成本接入前不应称为净 PnL。
+- Binance 查询与下单回报必须同时包含原生 `orderId`、累计基础资产成交量 `executedQty` 和累计计价资产成交额 `cummulativeQuoteQty`。worker 将数量规范化后在同一数据库事务中写为 `base-and-quote-v2`，并要求同一原生订单号下两者保持同步单调增长；迁移前无法恢复成交额的历史记录标记为 `base-only-v1`，不得补造价格。
+- 库存风险和费用会计使用两条独立 lease。订单累计量一旦增加，执行事务立即应用 inventory delta，并把 `fee_reconciliation_status` 置为 `pending`；它不等待账户成交历史。费用 worker 使用 `GET /api/v3/myTrades` 的 `symbol + orderId + fromId` 组合分页，逐笔验证 trade/order ID、买卖方向、数量、时间、手续费资产，并要求所有 fill 的 base/quote 总和与订单累计量完全相等。Binance 账户成交接口是 `Memory => Database` 数据源，短暂缺失必须重试，不能以配置费率或下单回报中的临时 fills 代替最终证据。
+- `hedge_execution_fills` 对 venue trade ID 幂等，冲突重放只有所有经济字段完全一致才能成功。每笔新增记录产生 `hedge.execution-fill.v1` analytics event；订单费用状态进入 `complete` 后，`GET /hedges/:id` 按 `commissionAsset` 返回精确 `commissionTotals`。不同资产不相加，也不自动进入 `quote_snapshot_edge_v1`。完整净 PnL 仍需可靠的手续费资产估值、gas 和 hedge markout 证据。
 - Every hedge id derives one stable `rfq_<sha256>` Binance client order id. The worker persists this id, queries `GET /api/v3/order` first, and calls `POST /api/v3/order` only when Binance explicitly reports the order absent. This query-before-submit rule repairs a lost HTTP response without duplicate exposure.
 - Route persistence is write-once/idempotent for a queued job: a retry may repeat the exact venue, symbol and client id, but a deployment cannot overwrite them. Route changes require draining or explicitly reconciling old jobs by their persisted symbol/client id before rollout.
 - Immediately before a new POST, `authorizeSubmission` locks the source settlement row, requires it to remain canonical, and persists `submission_attempted_at`. Reorged, never-submitted jobs stop being claimable; jobs with an attempted submission continue query-only recovery after reorg because Binance may already have accepted them.
@@ -148,6 +156,7 @@ Hedge Service uses internal event APIs. It does not expose public user API.
 - Partial fill：update residual exposure。
 - Hedge cost too high：risk limit tightened。
 - Credential failure：alert and disable venue。
+- Fee reconciliation lag：保留已执行库存，检查 `fee_reconciliation_status='pending'`、`fee_last_error_code` 和 `rfq_hedge_fee_reconciliations_total`；不得重提订单或把估算费率写成实际手续费。
 - Hedge intent creation failed：settlement remains accepted, inventory and PnL remain updated, metric `rfq_hedge_intent_errors_total` increments, and follow-up quote spread tightens through pair-level hedge risk penalty.
 - Hedge status store unavailable：`GET /hedges/:id` returns `HEDGE_STORE_UNAVAILABLE` with traceId, so clients can retry status lookup instead of treating the hedge as missing.
 
@@ -161,7 +170,7 @@ Hedge lag is key metric. The service should prioritize high exposure intents.
 
 ## Testing Strategy
 
-测试 hedge skipped、route selected、step-size rounding、HMAC signing、query-before-submit、venue reject、partial fill/pending retry、ambiguous timeout recovery、lease conflict、idempotent retry、hedge intent creation failed does not rollback settlement、follow-up quote risk penalty、failure penalty config fail-fast、hedge status store unavailable 和 worker metrics emission。
+测试 hedge skipped、route selected、step-size rounding、HMAC signing、query-before-submit、venue reject、partial fill/pending retry、ambiguous timeout recovery、lease conflict、idempotent retry、`myTrades` pagination、trade ID safety、eventual-consistency retry、multi-asset commission、immutable fill conflict、hedge intent creation failed does not rollback settlement、follow-up quote risk penalty、failure penalty config fail-fast、hedge status store unavailable 和 worker metrics emission。
 
 ## Interview Notes
 

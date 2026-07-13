@@ -3,8 +3,10 @@ import { hostname } from "node:os";
 import Fastify from "fastify";
 import { checkPoolHealth, endPool, getPool } from "./db/pool.js";
 import { BinanceSpotAdapter, type BinanceSpotAdapterConfig } from "./modules/hedge/binance-spot.adapter.js";
+import { HedgeFeeWorker, HedgeFeeWorkerMetrics } from "./modules/hedge/hedge-fee-worker.js";
 import { HedgeWorker, HedgeWorkerMetrics, type HedgeWorkerConfig } from "./modules/hedge/hedge-worker.js";
 import { parseHedgeRoutesJson, type HedgeRouteTable } from "./modules/hedge/hedge-route.js";
+import { PostgresHedgeFeeStore } from "./modules/hedge/postgres-hedge-fee.store.js";
 import { PostgresHedgeJobStore } from "./modules/hedge/postgres-hedge-job.store.js";
 import { ConfiguredTokenRegistry, parseTokenRegistryConfig } from "./modules/pricing/token-registry.js";
 
@@ -60,34 +62,58 @@ export async function startHedgeWorker(): Promise<void> {
   const pool = getPool();
   await checkPoolHealth(pool);
   const store = new PostgresHedgeJobStore(pool);
+  const feeStore = new PostgresHedgeFeeStore(pool);
   await store.checkHealth();
+  await feeStore.checkHealth();
   const adapter = new BinanceSpotAdapter(config.binance);
   const metrics = new HedgeWorkerMetrics();
+  const feeMetrics = new HedgeFeeWorkerMetrics();
+  const adapters = new Map<"binance", BinanceSpotAdapter>([["binance", adapter]]);
   const worker = new HedgeWorker(
     store,
     config.routes,
-    new Map([["binance", adapter]]),
+    adapters,
     config.worker,
     undefined,
     metrics,
+  );
+  const feeWorker = new HedgeFeeWorker(
+    feeStore,
+    config.routes,
+    adapters,
+    config.worker,
+    undefined,
+    feeMetrics,
   );
   const server = Fastify({ logger: false });
   server.get("/health", async () => ({ status: "ok" }));
   server.get("/ready", async (_request, reply) => {
     try {
       await store.checkHealth();
+      await feeStore.checkHealth();
       return { status: "ok" };
     } catch {
       return reply.code(503).send({ status: "degraded" });
     }
   });
-  server.get("/metrics", async (_request, reply) => reply.type("text/plain").send(metrics.renderPrometheus()));
+  server.get("/metrics", async (_request, reply) => {
+    let feeStats;
+    try {
+      feeStats = await feeStore.stats();
+    } catch {}
+    return reply.type("text/plain").send(
+      `${metrics.renderPrometheus()}${feeMetrics.renderPrometheus(feeStats)}`,
+    );
+  });
   await server.listen({ host: config.listenHost, port: config.listenPort });
-  const stop = () => worker.stop();
+  const stop = () => {
+    worker.stop();
+    feeWorker.stop();
+  };
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
   try {
-    await worker.run();
+    await Promise.all([worker.run(), feeWorker.run()]);
   } finally {
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);

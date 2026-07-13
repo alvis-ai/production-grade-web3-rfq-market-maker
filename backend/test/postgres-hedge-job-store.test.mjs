@@ -51,13 +51,14 @@ test("PostgresHedgeJobStore persists route and lease-owned terminal or retry tra
           filled_amount: currentFilledAmount,
           executed_quote_quantity: currentQuoteQuantity,
           external_order_id: null,
+          venue_order_id: null,
         }],
         rowCount: 1,
       };
     }
-    if (sql.includes("external_order_id = $3, filled_amount = $4")) {
-      currentFilledAmount = params[3];
-      currentQuoteQuantity = params[4];
+    if (sql.includes("external_order_id = $3, venue_order_id = $4")) {
+      currentFilledAmount = params[4];
+      currentQuoteQuantity = params[5];
     }
     return { rows: [], rowCount: 1 };
   });
@@ -67,16 +68,17 @@ test("PostgresHedgeJobStore persists route and lease-owned terminal or retry tra
   await store.prepareRoute(row.id, "worker_1", route);
   await store.authorizeSubmission(row.id, "worker_1");
   await store.recordExternalOrderObserved(row.id, "worker_1");
-  await store.recordExecutionProgress(row.id, "worker_1", route.clientOrderId, "400", "1000.25");
+  await store.recordExecutionProgress(row.id, "worker_1", route.clientOrderId, "100234", "400", "1000.25");
   await store.releaseForRetry(row.id, "worker_1", "BINANCE_REQUEST_FAILED", 1000);
-  await store.completeFilled(row.id, "worker_1", route.clientOrderId, "900", "2251.5");
+  await store.completeFilled(row.id, "worker_1", route.clientOrderId, "100234", "900", "2251.5");
 
   assert.match(client.queries[0].sql, /client_order_id = \$5/);
   assert.match(client.queries[0].sql, /venue = 'internal'/);
   assert.match(client.queries[0].sql, /venue = \$3 AND venue_symbol = \$4 AND client_order_id = \$5/);
   assert.equal(client.queries.some(({ sql }) => sql.includes("submission_attempted_at = COALESCE")), true);
-  assert.match(client.queries.find(({ sql }) => sql.includes("next_attempt_at = now()")).sql, /lease_owner = NULL/);
-  assert.match(client.queries.find(({ sql }) => sql.includes("SET status = $3")).sql, /filled_amount = COALESCE\(\$5/);
+  assert.match(client.queries.find(({ sql }) => sql.includes("last_error_code = $3") &&
+    sql.includes("next_attempt_at = now()")).sql, /lease_owner = NULL/);
+  assert.match(client.queries.find(({ sql }) => sql.includes("SET status = $3")).sql, /filled_amount = COALESCE\(\$6/);
   assert.match(client.queries.find(({ sql }) => sql.includes("SET status = $3")).sql, /executed_quote_quantity/);
   assert.equal(client.queries.some(({ sql }) => sql.includes("INSERT INTO inventory_positions")), true);
   assert.deepEqual(
@@ -101,6 +103,7 @@ test("PostgresHedgeJobStore persists terminal partial failure economics atomical
         filled_amount: null,
         executed_quote_quantity: null,
         external_order_id: null,
+        venue_order_id: null,
       }], rowCount: 1 };
     }
     return { rows: [], rowCount: 1 };
@@ -112,13 +115,14 @@ test("PostgresHedgeJobStore persists terminal partial failure economics atomical
     "worker_1",
     "BINANCE_ORDER_EXPIRED",
     externalOrderId,
+    "100234",
     "400",
     "1000.25",
   );
 
   const terminalUpdate = client.queries.find(({ sql }) => sql.includes("SET status = $3"));
   assert.equal(terminalUpdate.params[2], "failed");
-  assert.equal(terminalUpdate.params[6], "1000.25");
+  assert.equal(terminalUpdate.params[7], "1000.25");
   assert.equal(client.queries.find(({ sql }) => sql.includes("INSERT INTO inventory_positions")).params[3], "400");
   assert.equal(client.queries.at(-1).sql, "COMMIT");
 });
@@ -158,6 +162,7 @@ test("PostgresHedgeJobStore preserves external hedge fills after settlement reor
           filled_amount: null,
           executed_quote_quantity: null,
           external_order_id: null,
+          venue_order_id: null,
         }],
         rowCount: 1,
       };
@@ -170,6 +175,7 @@ test("PostgresHedgeJobStore preserves external hedge fills after settlement reor
     row.id,
     "worker_1",
     "rfq_11111111111111111111111111111111",
+    "100234",
     "900",
     "2250",
   );
@@ -191,6 +197,7 @@ test("PostgresHedgeJobStore rejects regressing or unpaired cumulative quote evid
         filled_amount: "400",
         executed_quote_quantity: "1000.250000000000000000",
         external_order_id: "rfq_11111111111111111111111111111111",
+        venue_order_id: "100234",
       }], rowCount: 1 };
     }
     return { rows: [], rowCount: 1 };
@@ -201,6 +208,7 @@ test("PostgresHedgeJobStore rejects regressing or unpaired cumulative quote evid
       row.id,
       "worker_1",
       "rfq_11111111111111111111111111111111",
+      "100234",
       "500",
       "999",
     ),
@@ -212,6 +220,7 @@ test("PostgresHedgeJobStore rejects regressing or unpaired cumulative quote evid
       "worker_1",
       "BINANCE_ORDER_EXPIRED",
       "rfq_11111111111111111111111111111111",
+      "100234",
       "500",
     ),
     /paired quote quantity evidence/,
@@ -222,6 +231,7 @@ test("PostgresHedgeJobStore rejects regressing or unpaired cumulative quote evid
       "worker_1",
       "BINANCE_ORDER_EXPIRED",
       "rfq_22222222222222222222222222222222",
+      "100234",
       "500",
       "1250",
     ),
