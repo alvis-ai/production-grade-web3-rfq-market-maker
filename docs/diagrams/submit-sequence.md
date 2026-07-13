@@ -8,6 +8,7 @@ sequenceDiagram
   participant User as Trader / Wallet
   participant API as RFQ API
   participant QuoteStore as PostgreSQL Quotes
+  participant Allowance as ERC20 Allowance
   participant Chain as RFQSettlement
   participant Treasury as Treasury
   participant TokenIn as ERC20 tokenIn
@@ -21,6 +22,16 @@ sequenceDiagram
   participant Hedge as Hedge Engine
   participant Metrics as Metrics / PnL
 
+  User->>Allowance: allowance(user, RFQSettlement)
+  alt allowance is non-zero and insufficient
+    User->>Allowance: approve(RFQSettlement, 0)
+    Allowance-->>User: successful receipt
+  end
+  opt allowance is insufficient
+    User->>Allowance: approve(RFQSettlement, amountIn)
+    Allowance-->>User: successful receipt
+    User->>Allowance: re-read allowance
+  end
   User->>Chain: submitQuote(quote, signature)
   Chain->>Chain: verify EIP-712 signature
   Chain->>Chain: check trusted signer, nonce, deadline, chainId, whitelist
@@ -60,6 +71,7 @@ sequenceDiagram
 ## Invariants
 
 - 合约验证失败时不能更新 nonce 为已使用。
+- 钱包只能在 allowance 覆盖 `amountIn` 后提交；参考 UI 使用精确授权，非零不足额度先归零并等待每笔授权回执成功。
 - `txHash` 只是非可信查询键；receipt、transaction 和 event 必须由配置的 RPC 独立读取。
 - 非本地环境默认禁止 synthetic settlement，无真实匹配事件时不得更新库存。
 - 事件消费必须使用 `chainId + txHash + logIndex` 幂等，并保存 `quoteHash` 和 `blockNumber` 作为链上 `QuoteSettled` 与链下 quote payload 的一致性锚点和 reorg 排查依据。

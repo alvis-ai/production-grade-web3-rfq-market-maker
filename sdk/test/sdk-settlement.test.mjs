@@ -3,11 +3,14 @@ import test from "node:test";
 import { recoverTypedDataAddress, verifyTypedData } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import {
+  buildErc20AllowanceReadRequest,
+  buildErc20ApprovalWriteRequest,
   buildQuoteTypedData,
   buildRFQDomain,
   buildSubmitQuoteArgs,
   buildSubmitQuoteWriteRequest,
   buildTreasuryTransferArgs,
+  erc20Abi,
   hashSettlementQuote,
   quoteTypes,
   rfqSettlementAbi,
@@ -111,6 +114,34 @@ test("buildSubmitQuoteWriteRequest builds a wagmi and viem compatible contract r
   assert.equal(request.abi, rfqSettlementAbi);
   assert.equal(request.functionName, "submitQuote");
   assert.deepEqual(request.args, buildSubmitQuoteArgs(quote, signature));
+});
+
+test("ERC-20 helpers build exact allowance and approval requests", () => {
+  const allowance = buildErc20AllowanceReadRequest({
+    token: quote.tokenIn,
+    owner: quote.user,
+    spender: verifyingContract,
+  });
+  assert.deepEqual(allowance, {
+    address: quote.tokenIn,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: [quote.user, verifyingContract],
+  });
+
+  const approval = buildErc20ApprovalWriteRequest({
+    token: quote.tokenIn,
+    spender: verifyingContract,
+    amount: quote.amountIn,
+  });
+  assert.deepEqual(approval, {
+    address: quote.tokenIn,
+    abi: erc20Abi,
+    functionName: "approve",
+    args: [verifyingContract, 1000000000n],
+  });
+  assert.ok(erc20Abi.some((item) => item.type === "function" && item.name === "allowance"));
+  assert.ok(erc20Abi.some((item) => item.type === "function" && item.name === "approve"));
 });
 
 test("hashSettlementQuote matches RFQSettlement.hashQuote struct hashing", () => {

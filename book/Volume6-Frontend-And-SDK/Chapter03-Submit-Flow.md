@@ -42,7 +42,7 @@ RFQ quote 包含 signature、deadline 和 nonce。前端提交前必须确认 wa
 
 ## Trade-Off Analysis
 
-Direct wallet submit 满足 `msg.sender == quote.user` 并保持自托管。`Submit Onchain` 使用 Wagmi 广播 `RFQSettlement.submitQuote`，拿到 txHash 后自动调用 `/submit`；后端独立确认 receipt 与 `QuoteSettled` 后才触发 inventory、hedge 和 PnL。`Submit API` 仅用于显式开启 synthetic settlement 的本地参考环境。
+Direct wallet submit 满足 `msg.sender == quote.user` 并保持自托管。前端先确认 `tokenIn.allowance(user, settlement) >= amountIn`，不足时完成精确额度授权，再使用 Wagmi 广播 `RFQSettlement.submitQuote`。拿到 txHash 后自动调用 `/submit`；后端独立确认 receipt 与 `QuoteSettled` 后才触发 inventory、hedge 和 PnL。`Submit API` 仅用于显式开启 synthetic settlement 的本地参考环境。
 
 ## System Design
 
@@ -50,13 +50,18 @@ Direct wallet submit 满足 `msg.sender == quote.user` 并保持自托管。`Sub
 flowchart LR
   Quote[Signed Quote]
   Precheck[Submit Precheck]
+  Allowance[ERC20 Allowance]
+  Approval[Exact Approval]
   Wallet[Wallet writeContract]
   Chain[RFQSettlement]
   Receipt[Transaction Receipt]
   Event[QuoteSettled Event]
 
   Quote --> Precheck
-  Precheck --> Wallet
+  Precheck --> Allowance
+  Allowance -->|insufficient| Approval
+  Approval --> Allowance
+  Allowance -->|sufficient| Wallet
   Wallet --> Chain
   Chain --> Receipt
   Receipt --> Event
@@ -73,10 +78,23 @@ sequenceDiagram
   autonumber
   participant UI
   participant Wallet
+  participant Token as tokenIn ERC20
   participant Chain as RFQSettlement
   participant API as Quote Status API
 
   UI->>UI: precheck quote and wallet
+  UI->>Token: allowance(user, settlement)
+  alt allowance non-zero and insufficient
+    UI->>Wallet: approve(settlement, 0)
+    Wallet->>Token: reset allowance
+    Token-->>UI: successful receipt
+  end
+  opt allowance insufficient
+    UI->>Wallet: approve(settlement, amountIn)
+    Wallet->>Token: exact approval
+    Token-->>UI: successful receipt
+    UI->>Token: re-read allowance
+  end
   UI->>Wallet: writeContract submitQuote
   Wallet->>Chain: transaction
   Chain-->>Wallet: receipt
@@ -89,7 +107,13 @@ sequenceDiagram
 stateDiagram-v2
   [*] --> Ready
   Ready --> PrecheckFailed
-  Ready --> WalletPrompt
+  Ready --> CheckingAllowance
+  CheckingAllowance --> ApprovalPrompt: insufficient
+  CheckingAllowance --> WalletPrompt: sufficient
+  ApprovalPrompt --> ApprovalPending
+  ApprovalPrompt --> UserRejected
+  ApprovalPending --> CheckingAllowance
+  ApprovalPending --> TxReverted
   WalletPrompt --> UserRejected
   WalletPrompt --> TxPending
   TxPending --> TxConfirmed
@@ -110,9 +134,12 @@ Wallet broadcast 后调用 `POST /submit` 并携带 `quote`、`signature` 和 `t
 
 - Direct wallet submit and API relay submit share the same signed quote payload.
 - Direct wallet submit uses `VITE_RFQ_SETTLEMENT_ADDRESS` as the write target.
+- Direct wallet submit reads allowance with `buildErc20AllowanceReadRequest()` and only enables settlement after the returned bigint covers `amountIn`.
+- Approval uses `buildErc20ApprovalWriteRequest()` with the exact quoted amount. A non-zero insufficient allowance is reset to zero and confirmed first; every approval receipt must report success and the final allowance is re-read before submit becomes available.
 - `writeContractAsync()` 返回 txHash 后，页面立即把该 hash 交给 SDK `/submit`；确认过程中保留 txHash 展示，并把 RPC、revert 或 event mismatch 错误与 wallet broadcast 错误分开呈现。
 - Submit disabled after deadline.
 - Direct wallet submit is also disabled unless the connected wallet address matches an own-field `quote.user` and the active wallet chain id matches an own-field `quote.chainId`; the click handler repeats those guards before calling `writeContractAsync`.
+- Allowance reads, reset approvals, exact approvals and `submitQuote` writes all carry the signed quote `chainId`; a wallet network switch therefore produces a provider rejection instead of authorizing or submitting against the same address on another chain.
 - The wallet submit click handler also repeats the active quote TTL guard. If `canSubmit` is false, it emits `Quote expired; request a new quote` and returns before `prepareWalletSubmit()` or `writeContractAsync()`.
 - `prepareWalletSubmit()` rejects inherited or unknown signed quote fields and inherited quote response signature fields before copying `signature` into the SDK write request, so UI readiness and calldata construction share the same closed own-field boundary.
 - Refresh hydrates settlement, hedge and PnL panels from `QuoteStatus` pointers first, with the `/submit` response only as immediate fallback.
@@ -124,11 +151,13 @@ Wallet broadcast 后调用 `POST /submit` 并携带 `quote`、`signature` 和 `t
 - Wrong network：prompt switch chain。
 - User rejected：show non-fatal state。
 - Contract revert：show reverted and allow re-quote。
+- Allowance RPC unavailable：fail closed and expose a bounded retry action。
+- Token approval rejected or reverted：stop before settlement and preserve the signed quote only while its TTL remains valid。
 - Indexer lag：show pending settlement confirmation。
 
 ## Security Considerations
 
-Front-end prechecks are not security controls. Contract validation remains authoritative.
+Front-end prechecks are not security controls. Contract validation remains authoritative. Exact approval limits standing token exposure; the UI never silently upgrades a quote-scoped approval to `uint256.max`.
 
 ## Performance Considerations
 

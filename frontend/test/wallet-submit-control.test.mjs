@@ -37,24 +37,30 @@ async function importWalletSubmitControlModule() {
   const sourceUrl = await transpileModule("../src/components/WalletSubmitControl.tsx", (source) =>
     source
       .replace(
-        'import { useEffect } from "react";',
-        "const useEffect = (effect) => { effect(); };",
+        'import { useEffect, useState } from "react";',
+        "const useEffect = (effect) => { effect(); };\nconst useState = (initial) => [initial, () => {}];",
       )
       .replace(
-        'import { buildSubmitQuoteWriteRequest } from "@rfq-market-maker/sdk";',
-        'const buildSubmitQuoteWriteRequest = (input) => ({ kind: "submitQuoteWriteRequest", input });',
+        'import { buildErc20AllowanceReadRequest, buildErc20ApprovalWriteRequest, buildSubmitQuoteWriteRequest } from "@rfq-market-maker/sdk";',
+        [
+          'const buildErc20AllowanceReadRequest = (input) => ({ kind: "allowanceReadRequest", input });',
+          'const buildErc20ApprovalWriteRequest = (input) => ({ kind: "approvalWriteRequest", input });',
+          'const buildSubmitQuoteWriteRequest = (input) => ({ kind: "submitQuoteWriteRequest", input });',
+        ].join("\n"),
       )
       .replace(
         'import { ConnectButton } from "@rainbow-me/rainbowkit";',
         'const ConnectButton = () => "Mock Connect";',
       )
       .replace(
-        'import { useAccount, useChainId, useWriteContract } from "wagmi";',
+        'import { useAccount, useChainId, usePublicClient, useReadContract, useWriteContract } from "wagmi";',
         [
-          "let wagmiMock = { address: undefined, chainId: 1, writeContractAsync: async () => `0x${\"aa\".repeat(32)}`, isPending: false };",
+          "let wagmiMock = { address: undefined, chainId: 1, allowance: 1000000000000000000n, allowanceLoading: false, allowanceError: false, writeContractAsync: async () => `0x${\"aa\".repeat(32)}`, waitForTransactionReceipt: async () => ({ status: \"success\" }), isPending: false };",
           "export function setWagmiMock(next) { wagmiMock = { ...wagmiMock, ...next }; }",
           "const useAccount = () => ({ address: wagmiMock.address });",
           "const useChainId = () => wagmiMock.chainId;",
+          "const usePublicClient = () => ({ waitForTransactionReceipt: wagmiMock.waitForTransactionReceipt });",
+          "const useReadContract = () => ({ data: wagmiMock.allowance, isLoading: wagmiMock.allowanceLoading, isError: wagmiMock.allowanceError, refetch: wagmiMock.refetchAllowance ?? (async () => ({ data: wagmiMock.allowance })) });",
           "const useWriteContract = () => ({ writeContractAsync: wagmiMock.writeContractAsync, isPending: wagmiMock.isPending });",
         ].join("\n"),
       )
@@ -160,8 +166,12 @@ test("WalletSubmitControl enables onchain submit only for matching wallet state"
   const walletChanges = [];
   const writes = [];
   const txHashes = [];
+  const errors = [];
   setWagmiMock({
     ...wallet,
+    allowance: 1000000000000000000n,
+    allowanceLoading: false,
+    allowanceError: false,
     isPending: false,
     writeContractAsync: async (request) => {
       writes.push(request);
@@ -172,6 +182,7 @@ test("WalletSubmitControl enables onchain submit only for matching wallet state"
   const props = baseProps({
     onWalletChange: (state) => walletChanges.push(state),
     onTxHash: (txHash) => txHashes.push(txHash),
+    onError: (error) => errors.push(error),
   });
   const markup = renderToStaticMarkup(createElement(WalletSubmitInner, props));
   assert.match(markup, /Mock Connect/);
@@ -185,10 +196,12 @@ test("WalletSubmitControl enables onchain submit only for matching wallet state"
   assert.deepEqual(walletChanges.at(-1), wallet);
 
   await button.props.onClick();
+  assert.deepEqual(errors, [undefined]);
   assert.deepEqual(txHashes, [`0x${"aa".repeat(32)}`]);
   assert.equal(writes.length, 1);
   assert.deepEqual(writes[0], {
     kind: "submitQuoteWriteRequest",
+    chainId: signedQuote.chainId,
     input: {
       settlementAddress: "0x5555555555555555555555555555555555555555",
       quote: signedQuote,
@@ -204,6 +217,9 @@ test("WalletSubmitControl disables onchain submit for mismatch and pending state
     address: "0x4444444444444444444444444444444444444444",
     chainId: wallet.chainId,
     isPending: false,
+    allowance: 1000000000000000000n,
+    allowanceLoading: false,
+    allowanceError: false,
   });
   const mismatchTree = WalletSubmitInner(baseProps());
   const mismatchButton = findElements(mismatchTree, (element) => element.type === "button")
@@ -218,6 +234,17 @@ test("WalletSubmitControl disables onchain submit for mismatch and pending state
   const pendingButton = findElements(pendingTree, (element) => element.type === "button")
     .find((candidate) => textContent(candidate) === "Submitting Onchain...");
   assert.equal(pendingButton.props.disabled, true);
+
+  setWagmiMock({
+    ...wallet,
+    isPending: false,
+    allowanceLoading: true,
+    allowanceError: false,
+  });
+  const loadingTree = WalletSubmitInner(baseProps());
+  const loadingButton = findElements(loadingTree, (element) => element.type === "button")
+    .find((candidate) => textContent(candidate) === "Checking Allowance...");
+  assert.equal(loadingButton.props.disabled, true);
 });
 
 test("WalletSubmitControl reports expired, preparation, and write errors", async () => {
@@ -226,6 +253,9 @@ test("WalletSubmitControl reports expired, preparation, and write errors", async
   setWagmiMock({
     ...wallet,
     isPending: false,
+    allowance: 1000000000000000000n,
+    allowanceLoading: false,
+    allowanceError: false,
     writeContractAsync: async () => {
       throw new Error("wallet rejected");
     },
@@ -259,4 +289,122 @@ test("WalletSubmitControl reports expired, preparation, and write errors", async
   assert.equal(writeFailureButton.props.disabled, false);
   await writeFailureButton.props.onClick();
   assert.deepEqual(errors.pop(), { message: "wallet rejected" });
+});
+
+test("WalletSubmitControl resets non-zero allowance before exact approval", async () => {
+  const { WalletSubmitInner, setWagmiMock } = await importWalletSubmitControlModule();
+  const writes = [];
+  const receipts = [];
+  let refetchCount = 0;
+  setWagmiMock({
+    ...wallet,
+    allowance: 7n,
+    allowanceLoading: false,
+    allowanceError: false,
+    isPending: false,
+    refetchAllowance: async () => {
+      refetchCount += 1;
+      return { data: refetchCount === 1 ? 7n : 1000000000000000000n };
+    },
+    writeContractAsync: async (request) => {
+      writes.push(request);
+      return writes.length === 1 ? `0x${"bb".repeat(32)}` : `0x${"cc".repeat(32)}`;
+    },
+    waitForTransactionReceipt: async (input) => {
+      receipts.push(input);
+      return { status: "success" };
+    },
+  });
+
+  const tree = WalletSubmitInner(baseProps());
+  const button = findElements(tree, (element) => element.type === "button")
+    .find((candidate) => textContent(candidate) === "Approve Token");
+  assert.ok(button);
+  assert.equal(button.props.disabled, false);
+  await button.props.onClick();
+
+  assert.deepEqual(writes, [{
+    kind: "approvalWriteRequest",
+    chainId: signedQuote.chainId,
+    input: {
+      token: signedQuote.tokenIn,
+      spender: "0x5555555555555555555555555555555555555555",
+      amount: 0n,
+    },
+  }, {
+    kind: "approvalWriteRequest",
+    chainId: signedQuote.chainId,
+    input: {
+      token: signedQuote.tokenIn,
+      spender: "0x5555555555555555555555555555555555555555",
+      amount: signedQuote.amountIn,
+    },
+  }]);
+  assert.deepEqual(receipts, [
+    { hash: `0x${"bb".repeat(32)}` },
+    { hash: `0x${"cc".repeat(32)}` },
+  ]);
+  assert.equal(refetchCount, 2);
+});
+
+test("WalletSubmitControl approves an exact amount once when allowance is zero", async () => {
+  const { WalletSubmitInner, setWagmiMock } = await importWalletSubmitControlModule();
+  const writes = [];
+  let refetchCount = 0;
+  setWagmiMock({
+    ...wallet,
+    allowance: 0n,
+    allowanceLoading: false,
+    allowanceError: false,
+    isPending: false,
+    refetchAllowance: async () => {
+      refetchCount += 1;
+      return { data: refetchCount === 1 ? 0n : 1000000000000000000n };
+    },
+    writeContractAsync: async (request) => {
+      writes.push(request);
+      return `0x${"ee".repeat(32)}`;
+    },
+    waitForTransactionReceipt: async () => ({ status: "success" }),
+  });
+
+  const tree = WalletSubmitInner(baseProps());
+  const button = findElements(tree, (element) => element.type === "button")
+    .find((candidate) => textContent(candidate) === "Approve Token");
+  await button.props.onClick();
+
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].input.amount, signedQuote.amountIn);
+  assert.equal(refetchCount, 2);
+});
+
+test("WalletSubmitControl fails closed on reverted approval and allowance read errors", async () => {
+  const { WalletSubmitInner, setWagmiMock } = await importWalletSubmitControlModule();
+  const errors = [];
+  setWagmiMock({
+    ...wallet,
+    allowance: 0n,
+    allowanceLoading: false,
+    allowanceError: false,
+    isPending: false,
+    refetchAllowance: async () => ({ data: 0n }),
+    writeContractAsync: async () => `0x${"dd".repeat(32)}`,
+    waitForTransactionReceipt: async () => ({ status: "reverted" }),
+  });
+  const approvalTree = WalletSubmitInner(baseProps({ onError: (error) => errors.push(error) }));
+  const approvalButton = findElements(approvalTree, (element) => element.type === "button")
+    .find((candidate) => textContent(candidate) === "Approve Token");
+  await approvalButton.props.onClick();
+  assert.deepEqual(errors.pop(), { message: "Token approval transaction reverted" });
+
+  setWagmiMock({
+    allowanceError: true,
+    refetchAllowance: async () => { throw new Error("allowance RPC unavailable"); },
+  });
+  const retryTree = WalletSubmitInner(baseProps({ onError: (error) => errors.push(error) }));
+  const retryButton = findElements(retryTree, (element) => element.type === "button")
+    .find((candidate) => textContent(candidate) === "Retry Allowance");
+  assert.equal(retryButton.props.disabled, false);
+  await retryButton.props.onClick();
+  assert.deepEqual(errors.pop(), { message: "allowance RPC unavailable" });
 });

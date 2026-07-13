@@ -2211,6 +2211,10 @@ grep -q 'Enable Wallet' frontend/src/pages/QuotePage.tsx
 grep -q 'onchainAction' frontend/src/pages/QuotePage.tsx
 grep -q 'ConnectButton' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'useWriteContract' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'useReadContract' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'buildErc20AllowanceReadRequest' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'buildErc20ApprovalWriteRequest' frontend/src/components/WalletSubmitControl.tsx
+grep -q 'waitForSuccessfulApproval' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'buildSubmitQuoteWriteRequest' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'writeContractAsync' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'walletMatchesQuote' frontend/src/components/WalletSubmitControl.tsx
@@ -2282,9 +2286,12 @@ grep -q '{error.retryAfterSeconds}s' frontend/src/components/QuoteStatusPanel.ts
 grep -q 'error-box' frontend/src/app/styles.css
 grep -q 'export { RFQClient' sdk/src/index.ts
 grep -q 'rfqSettlementAbi' sdk/src/index.ts
+grep -q 'erc20Abi' sdk/src/index.ts
 grep -q 'treasuryAbi' sdk/src/index.ts
 grep -q 'buildSubmitQuoteArgs' sdk/src/index.ts
 grep -q 'buildSubmitQuoteWriteRequest' sdk/src/index.ts
+grep -q 'buildErc20AllowanceReadRequest' sdk/src/index.ts
+grep -q 'buildErc20ApprovalWriteRequest' sdk/src/index.ts
 grep -q 'hashSettlementQuote' sdk/src/index.ts
 grep -q 'buildTreasuryTransferArgs' sdk/src/index.ts
 grep -q 'hashSettlementQuote' sdk/src/quote-hash.ts

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { privateKeyToAccount } from "viem/accounts";
 import {
+  buildErc20AllowanceReadRequest,
+  buildErc20ApprovalWriteRequest,
   buildQuoteTypedData,
   buildRFQDomain,
   buildSubmitQuoteArgs,
@@ -191,6 +193,55 @@ test("buildSubmitQuoteWriteRequest rejects unsafe request inputs", () => {
         signature,
       }),
     /settlementAddress must be a 20-byte hex address/,
+  );
+});
+
+test("ERC-20 helpers reject inherited, unknown, and malformed approval inputs", () => {
+  assert.throws(
+    () => buildErc20AllowanceReadRequest(undefined),
+    /ERC-20 allowance read request input must be an object/,
+  );
+  assert.throws(
+    () => buildErc20AllowanceReadRequest(Object.create({
+      token: quote.tokenIn,
+      owner: quote.user,
+      spender: verifyingContract,
+    })),
+    /ERC-20 allowance read request input\.token must be an own field/,
+  );
+  assert.throws(
+    () => buildErc20AllowanceReadRequest({
+      token: quote.tokenIn,
+      owner: quote.user,
+      spender: verifyingContract,
+      blockTag: "latest",
+    }),
+    /must not include unknown field blockTag/,
+  );
+  assert.throws(
+    () => buildErc20ApprovalWriteRequest({
+      token: "0x1234",
+      spender: verifyingContract,
+      amount: quote.amountIn,
+    }),
+    /token must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () => buildErc20ApprovalWriteRequest({
+      token: quote.tokenIn,
+      spender: verifyingContract,
+      amount: -1n,
+    }),
+    /amount must be a uint/,
+  );
+  assert.throws(
+    () => buildErc20ApprovalWriteRequest({
+      token: quote.tokenIn,
+      spender: verifyingContract,
+      amount: quote.amountIn,
+      unlimited: true,
+    }),
+    /must not include unknown field unlimited/,
   );
 });
 

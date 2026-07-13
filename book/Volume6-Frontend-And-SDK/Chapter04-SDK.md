@@ -115,6 +115,8 @@ const submitRequest = buildSubmitQuoteWriteRequest({
   quote: quoteLikeStruct,
   signature,
 });
+const allowanceRequest = buildErc20AllowanceReadRequest({ token, owner, spender: settlementAddress });
+const approvalRequest = buildErc20ApprovalWriteRequest({ token, spender: settlementAddress, amount });
 const treasuryArgs = buildTreasuryTransferArgs({ token, to, amount });
 ```
 
@@ -122,7 +124,8 @@ const treasuryArgs = buildTreasuryTransferArgs({ token, to, amount });
 
 - SDK uses string amounts.
 - SDK owns EIP-712 helper.
-- SDK exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs`, `buildSubmitQuoteWriteRequest`, `hashSettlementQuote` and `buildTreasuryTransferArgs` so viem/wagmi consumers use the same contract tuple shape, write request shape, quote-hash reconciliation rule, public state getters, role constant getters and custom-error revert decoding surface as the repository tests.
+- SDK exports `erc20Abi`, `rfqSettlementAbi`, `treasuryAbi`, `buildErc20AllowanceReadRequest`, `buildErc20ApprovalWriteRequest`, `buildSubmitQuoteArgs`, `buildSubmitQuoteWriteRequest`, `hashSettlementQuote` and `buildTreasuryTransferArgs` so viem/wagmi consumers use the same allowance, approval, settlement tuple, quote-hash reconciliation, public state, role and custom-error surface as the repository tests.
+- ERC-20 helpers validate closed own token/owner/spender/amount fields and return typed `allowance` or `approve` requests. Policy remains with the caller: the frontend uses an exact quote amount and handles non-zero-to-non-zero compatibility through a confirmed reset transaction.
 - `buildSubmitQuoteWriteRequest()` returns `{ address, abi, functionName: "submitQuote", args }` after validating the settlement contract address, quote fields and signature, which keeps frontend and external integrators from manually duplicating contract-call wiring. The write request input, treasury transfer input and quote payloads must provide closed required own fields before SDK helpers build calldata, typed data or quote hashes.
 - `buildSubmitQuoteArgs()` rejects non-canonical high-s ECDSA signatures and invalid `v` values before returning contract call arguments, matching backend and `RFQSettlement` signature rules.
 - SDK helper functions reject non-object, inherited-field and unknown-field quote / write-request / treasury-transfer inputs before field-level validation, so JavaScript consumers get stable validation errors instead of ambiguous property access exceptions.

@@ -1,4 +1,4 @@
-import { rfqSettlementAbi } from "./abi.js";
+import { erc20Abi, rfqSettlementAbi } from "./abi.js";
 import type { Address, Quote, UIntString } from "./types.js";
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
@@ -15,6 +15,8 @@ const settlementQuoteFields = [
 ] as const;
 const submitQuoteWriteRequestFields = ["settlementAddress", "quote", "signature"] as const;
 const treasuryTransferFields = ["token", "to", "amount"] as const;
+const erc20AllowanceReadRequestFields = ["token", "owner", "spender"] as const;
+const erc20ApprovalWriteRequestFields = ["token", "spender", "amount"] as const;
 
 export interface SettlementQuote {
   user: Address;
@@ -26,6 +28,32 @@ export interface SettlementQuote {
   nonce: bigint;
   deadline: bigint;
   chainId: bigint;
+}
+
+export interface Erc20AllowanceReadRequestInput {
+  token: Address;
+  owner: Address;
+  spender: Address;
+}
+
+export interface Erc20AllowanceReadRequest {
+  address: Address;
+  abi: typeof erc20Abi;
+  functionName: "allowance";
+  args: readonly [Address, Address];
+}
+
+export interface Erc20ApprovalWriteRequestInput {
+  token: Address;
+  spender: Address;
+  amount: UIntString | bigint;
+}
+
+export interface Erc20ApprovalWriteRequest {
+  address: Address;
+  abi: typeof erc20Abi;
+  functionName: "approve";
+  args: readonly [Address, bigint];
 }
 
 export type SubmitQuoteArgs = readonly [SettlementQuote, `0x${string}`];
@@ -92,6 +120,32 @@ export function buildSubmitQuoteWriteRequest(input: SubmitQuoteWriteRequestInput
     abi: rfqSettlementAbi,
     functionName: "submitQuote",
     args: buildSubmitQuoteArgs(input.quote, input.signature),
+  };
+}
+
+export function buildErc20AllowanceReadRequest(
+  input: Erc20AllowanceReadRequestInput,
+): Erc20AllowanceReadRequest {
+  assertRecord(input, "ERC-20 allowance read request input");
+  assertExactFields(input, erc20AllowanceReadRequestFields, "ERC-20 allowance read request input");
+  return {
+    address: parseAddress(input.token, "token"),
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: [parseAddress(input.owner, "owner"), parseAddress(input.spender, "spender")],
+  };
+}
+
+export function buildErc20ApprovalWriteRequest(
+  input: Erc20ApprovalWriteRequestInput,
+): Erc20ApprovalWriteRequest {
+  assertRecord(input, "ERC-20 approval write request input");
+  assertExactFields(input, erc20ApprovalWriteRequestFields, "ERC-20 approval write request input");
+  return {
+    address: parseAddress(input.token, "token"),
+    abi: erc20Abi,
+    functionName: "approve",
+    args: [parseAddress(input.spender, "spender"), parseUInt(input.amount, "amount")],
   };
 }
 

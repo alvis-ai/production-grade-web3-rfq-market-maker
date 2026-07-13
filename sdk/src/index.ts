@@ -1,4 +1,4 @@
-export { rfqSettlementAbi, treasuryAbi } from "./abi.js";
+export { erc20Abi, rfqSettlementAbi, treasuryAbi } from "./abi.js";
 export { RFQClient, RFQClientError } from "./client.js";
 export { quoteSnapshotPnlModelDescription, rfqErrorCodes } from "./types.js";
 export {
@@ -10,6 +10,8 @@ export {
 } from "./eip712.js";
 export { hashSettlementQuote } from "./quote-hash.js";
 export {
+  buildErc20AllowanceReadRequest,
+  buildErc20ApprovalWriteRequest,
   buildSubmitQuoteArgs,
   buildSubmitQuoteWriteRequest,
   buildTreasuryTransferArgs,
@@ -17,6 +19,10 @@ export {
 } from "./settlement.js";
 export type { RFQDomain } from "./eip712.js";
 export type {
+  Erc20AllowanceReadRequest,
+  Erc20AllowanceReadRequestInput,
+  Erc20ApprovalWriteRequest,
+  Erc20ApprovalWriteRequestInput,
   SettlementQuote,
   SubmitQuoteArgs,
   SubmitQuoteWriteRequest,

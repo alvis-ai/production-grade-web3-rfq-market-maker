@@ -217,7 +217,7 @@ make cex-orderbook-integration-check
 
 Direct `buildServer(options)` embedding follows the same runtime bounds for `bodyLimitBytes` and `quoteTtlSeconds`, and rejects non-boolean `logger`, `enableHsts` or `trustProxy` values before the Fastify instance is created.
 
-The frontend reads `VITE_RFQ_API_BASE_URL`, `VITE_RFQ_SETTLEMENT_ADDRESS` and `VITE_WALLETCONNECT_PROJECT_ID` at Vite build/dev-server time. It shows the active API endpoint in the trading console header, sends a dynamic `tr_web_*` `x-trace-id` through the SDK for each API request, and uses Wagmi/RainbowKit with the SDK `rfqSettlementAbi`, `buildSubmitQuoteArgs`, and `hashSettlementQuote` helpers for wallet-driven `submitQuote` transactions and settlement-event reconciliation. Wallet and contract-call failures are normalized into bounded UI messages, preferring viem/wagmi `shortMessage`, `details` or custom-error cause text when present.
+The frontend reads `VITE_RFQ_API_BASE_URL`, `VITE_RFQ_SETTLEMENT_ADDRESS` and `VITE_WALLETCONNECT_PROJECT_ID` at Vite build/dev-server time. It shows the active API endpoint in the trading console header, sends a dynamic `tr_web_*` `x-trace-id` through the SDK for each API request, and uses Wagmi/RainbowKit with the SDK contract helpers for wallet-driven settlement. Before enabling `submitQuote`, it reads the exact `tokenIn.allowance(user, settlement)` and requests only the quoted `amountIn`; a non-zero insufficient allowance is first reset to zero for USDT-style compatibility, and every approval must have a successful receipt before the allowance is re-read. Wallet and contract-call failures are normalized into bounded UI messages, preferring viem/wagmi `shortMessage`, `details` or custom-error cause text when present.
 
 ## Local Docker Stack
 
@@ -382,7 +382,7 @@ await client.metrics();
 
 `RFQClient` validates its base URL, static `traceId` values, trace provider type, and fetch dependency at construction. Dynamic trace provider results are validated before each request. The base URL and outgoing trace ids must be runtime primitive strings before URL parsing or header construction, so JavaScript callers get a stable `RFQClientError` instead of native coercion behavior. The accepted base URL is an absolute HTTP(S) URL with an optional path prefix; credentials, wildcard hosts, query strings and fragments are rejected before any request leaves the process. By default it uses `globalThis.fetch`; server-side runtimes, tests, and constrained execution environments can pass `{ fetch: customFetch }` to keep transport ownership explicit. Integrators can pass `{ traceId: "tr_session_123" }` or `{ traceId: () => "tr_request_123" }` to propagate a safe `x-trace-id` header on SDK requests.
 
-The SDK also exports `rfqSettlementAbi`, `treasuryAbi`, `buildSubmitQuoteArgs`, `hashSettlementQuote`, and `buildTreasuryTransferArgs` for viem/wagmi contract calls, event reconciliation, public state reads, role administration helpers, and custom-error revert decoding.
+The SDK also exports `erc20Abi`, `rfqSettlementAbi`, `treasuryAbi`, `buildErc20AllowanceReadRequest`, `buildErc20ApprovalWriteRequest`, `buildSubmitQuoteArgs`, `hashSettlementQuote`, and `buildTreasuryTransferArgs` for viem/wagmi allowance management, contract calls, event reconciliation, public state reads, role administration helpers, and custom-error revert decoding.
 
 ## Design Principles
 

@@ -82,7 +82,7 @@ export function QuotePage() {
     }));
   }, [clearQuoteSession]);
 
-  const handleOnchainError = useCallback((nextError: UIError) => {
+  const handleOnchainError = useCallback((nextError: UIError | undefined) => {
     setError(nextError);
   }, []);
 
