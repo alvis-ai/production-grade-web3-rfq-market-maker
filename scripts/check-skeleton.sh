@@ -801,6 +801,7 @@ test -s backend/src/modules/execution/submit-reservation.store.ts
 test -s backend/src/modules/execution/postgres-submit-reservation.store.ts
 test -s backend/src/db/migrations/008-submit-reservations.sql
 test -s backend/src/db/migrations/009-risk-notional-reasons.sql
+test -s backend/src/db/migrations/010-risk-market-regime-reasons.sql
 test -s backend/test/submit-reservation-store.test.mjs
 test -s backend/test/postgres-submit-reservation-store.test.mjs
 test -s backend/test/api-submit-reservation.test.mjs
@@ -3270,7 +3271,7 @@ grep -q 'assertObject(input.pricing, "pricing")' backend/src/modules/risk/risk.e
 grep -q 'assertObject(input.inventoryProjection, "inventoryProjection")' backend/src/modules/risk/risk.engine.ts
 grep -q 'basicRiskPolicyFields = \[' backend/src/modules/risk/risk.engine.ts
 grep -q 'toxicFlowScoreFields = \["user", "scoreBps"\]' backend/src/modules/risk/risk.engine.ts
-grep -q 'riskInputFields = \["request", "pricing"\]' backend/src/modules/risk/risk.engine.ts
+grep -q 'riskInputFields = \["request", "pricing", "snapshot"\]' backend/src/modules/risk/risk.engine.ts
 grep -q 'riskInputOptionalFields = \["inventoryProjection"\]' backend/src/modules/risk/risk.engine.ts
 grep -q 'quoteRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' backend/src/modules/risk/risk.engine.ts
 grep -q 'pricingResultFields = \[' backend/src/modules/risk/risk.engine.ts

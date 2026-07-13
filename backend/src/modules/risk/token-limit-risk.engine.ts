@@ -30,6 +30,8 @@ export interface TokenLimitRiskPolicy {
   restrictedUsers: Address[];
   toxicFlowScores: ToxicFlowScore[];
   maxToxicScoreBps: number;
+  minLiquidityUsd: string;
+  maxVolatilityBps: number;
   maxSlippageBps: number;
   maxQuotedSpreadBps: number;
 }
@@ -67,6 +69,8 @@ export const defaultTokenLimitRiskPolicy: TokenLimitRiskPolicy = {
   restrictedUsers: [],
   toxicFlowScores: [],
   maxToxicScoreBps: 8_000,
+  minLiquidityUsd: "1000000",
+  maxVolatilityBps: 500,
   maxSlippageBps: 500,
   maxQuotedSpreadBps: 1_000,
 };
@@ -78,6 +82,8 @@ const policyFields = [
   "restrictedUsers",
   "toxicFlowScores",
   "maxToxicScoreBps",
+  "minLiquidityUsd",
+  "maxVolatilityBps",
   "maxSlippageBps",
   "maxQuotedSpreadBps",
 ] as const;
@@ -101,6 +107,7 @@ export class TokenLimitRiskEngine implements RiskEngine {
   private readonly limitsByToken: ReadonlyMap<string, ParsedTokenRiskLimit>;
   private readonly restrictedUsers: ReadonlySet<string>;
   private readonly toxicFlowScores: ReadonlyMap<string, number>;
+  private readonly minLiquidityUsd: bigint;
 
   constructor(
     policy: TokenLimitRiskPolicy = defaultTokenLimitRiskPolicy,
@@ -109,6 +116,7 @@ export class TokenLimitRiskEngine implements RiskEngine {
     assertTokenLimitRiskPolicy(policy);
     this.policy = cloneTokenLimitRiskPolicy(policy);
     this.enabledChainIds = new Set(this.policy.enabledChainIds);
+    this.minLiquidityUsd = BigInt(this.policy.minLiquidityUsd);
     this.limitsByToken = new Map(this.policy.tokenLimits.map((limit) => [
       tokenLimitKey(limit.chainId, limit.tokenAddress),
       {
@@ -139,6 +147,13 @@ export class TokenLimitRiskEngine implements RiskEngine {
     const tokenInLimit = this.limitsByToken.get(tokenLimitKey(input.request.chainId, input.request.tokenIn));
     const tokenOutLimit = this.limitsByToken.get(tokenLimitKey(input.request.chainId, input.request.tokenOut));
     if (!tokenInLimit || !tokenOutLimit) return this.reject("TOKEN_NOT_ALLOWED");
+
+    if (BigInt(input.snapshot.liquidityUsd) < this.minLiquidityUsd) {
+      return this.reject("MARKET_LIQUIDITY_TOO_LOW");
+    }
+    if (input.snapshot.volatilityBps > this.policy.maxVolatilityBps) {
+      return this.reject("MARKET_VOLATILITY_LIMIT_EXCEEDED");
+    }
 
     if (BigInt(input.request.amountIn) > tokenInLimit.maxAmountIn) {
       return this.reject("AMOUNT_IN_LIMIT_EXCEEDED");
@@ -219,6 +234,8 @@ export function assertTokenLimitRiskPolicy(value: unknown): asserts value is Tok
   assertAddressList(value.restrictedUsers, "Token limit risk policy.restrictedUsers");
   assertToxicFlowScores(value.toxicFlowScores);
   assertBps(value.maxToxicScoreBps, "Token limit risk policy.maxToxicScoreBps");
+  assertPositiveUint256String(value.minLiquidityUsd, "Token limit risk policy.minLiquidityUsd");
+  assertBps(value.maxVolatilityBps, "Token limit risk policy.maxVolatilityBps");
   assertBps(value.maxSlippageBps, "Token limit risk policy.maxSlippageBps");
   assertBps(value.maxQuotedSpreadBps, "Token limit risk policy.maxQuotedSpreadBps");
 }

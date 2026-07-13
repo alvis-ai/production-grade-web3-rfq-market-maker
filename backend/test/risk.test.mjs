@@ -20,10 +20,19 @@ const basePricing = {
   pricingVersion: "formula-v1:internal_inventory",
 };
 
+const baseSnapshot = {
+  snapshotId: "risk_snapshot",
+  midPrice: "1",
+  liquidityUsd: "10000000",
+  volatilityBps: 25,
+  observedAt: "2026-01-01T00:00:00.000Z",
+};
+
 test("BasicRiskEngine rejects projected token-in inventory over hard limit", async () => {
   const decision = await new BasicRiskEngine().evaluate({
     request: baseRequest,
     pricing: basePricing,
+    snapshot: baseSnapshot,
     inventoryProjection: {
       tokenIn: {
         chainId: 1,
@@ -46,6 +55,7 @@ test("BasicRiskEngine rejects projected token-out inventory over hard limit", as
   const decision = await new BasicRiskEngine().evaluate({
     request: baseRequest,
     pricing: basePricing,
+    snapshot: baseSnapshot,
     inventoryProjection: {
       tokenIn: {
         chainId: 1,
@@ -71,6 +81,7 @@ test("BasicRiskEngine rejects restricted toxic-flow users", async () => {
   }).evaluate({
     request: baseRequest,
     pricing: basePricing,
+    snapshot: baseSnapshot,
   });
 
   assert.equal(decision.status, "rejected");
@@ -91,6 +102,7 @@ test("BasicRiskEngine rejects users above toxic-flow score threshold", async () 
   }).evaluate({
     request: baseRequest,
     pricing: basePricing,
+    snapshot: baseSnapshot,
   });
 
   assert.equal(decision.status, "rejected");
@@ -104,6 +116,7 @@ test("BasicRiskEngine rejects quoted spreads above policy limit", async () => {
     maxQuotedSpreadBps: 100,
   }).evaluate({
     request: baseRequest,
+    snapshot: baseSnapshot,
     pricing: {
       ...basePricing,
       spreadBps: 101,
@@ -113,6 +126,20 @@ test("BasicRiskEngine rejects quoted spreads above policy limit", async () => {
   assert.equal(decision.status, "rejected");
   assert.equal(decision.reasonCode, "QUOTED_SPREAD_TOO_WIDE");
   assert.equal(decision.policyVersion, "basic-risk-v1");
+});
+
+test("BasicRiskEngine rejects low-liquidity and extreme-volatility market regimes", async () => {
+  const engine = new BasicRiskEngine();
+  assert.equal((await engine.evaluate({
+    request: baseRequest,
+    pricing: basePricing,
+    snapshot: { ...baseSnapshot, liquidityUsd: "999999" },
+  })).reasonCode, "MARKET_LIQUIDITY_TOO_LOW");
+  assert.equal((await engine.evaluate({
+    request: baseRequest,
+    pricing: basePricing,
+    snapshot: { ...baseSnapshot, volatilityBps: 501 },
+  })).reasonCode, "MARKET_VOLATILITY_LIMIT_EXCEEDED");
 });
 
 test("BasicRiskEngine snapshots policy configuration at construction", async () => {
@@ -137,12 +164,15 @@ test("BasicRiskEngine snapshots policy configuration at construction", async () 
   mutablePolicy.restrictedUsers.push(baseRequest.user);
   mutablePolicy.toxicFlowScores.push({ user: baseRequest.user, scoreBps: 10_000 });
   mutablePolicy.maxAmountIn = 1n;
+  mutablePolicy.minLiquidityUsd = 20_000_000n;
+  mutablePolicy.maxVolatilityBps = 1;
   mutablePolicy.maxSlippageBps = 1;
   mutablePolicy.maxQuotedSpreadBps = 1;
 
   const decision = await engine.evaluate({
     request: baseRequest,
     pricing: basePricing,
+    snapshot: baseSnapshot,
   });
 
   assert.equal(decision.status, "approved");

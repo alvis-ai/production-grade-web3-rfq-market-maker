@@ -89,6 +89,8 @@ const rejectedRiskDecisionFullFields = ["status", "policyVersion", "reasonCode"]
 const riskRejectReasonCodes = new Set<string>([
   "CHAIN_NOT_ENABLED",
   "TOKEN_NOT_ALLOWED",
+  "MARKET_LIQUIDITY_TOO_LOW",
+  "MARKET_VOLATILITY_LIMIT_EXCEEDED",
   "AMOUNT_IN_LIMIT_EXCEEDED",
   "AMOUNT_OUT_TOO_SMALL",
   "QUOTE_NOTIONAL_LIMIT_EXCEEDED",
@@ -200,7 +202,12 @@ export class QuoteService {
         amountOut: pricing.amountOut,
       });
       assertInventoryProjection(projectionResult, validatedRequest);
-      risk = await this.evaluateRisk({ request: validatedRequest, pricing, inventoryProjection: projectionResult });
+      risk = await this.evaluateRisk({
+        request: validatedRequest,
+        pricing,
+        snapshot,
+        inventoryProjection: projectionResult,
+      });
     } catch {
       risk = riskUnavailableDecision();
     }

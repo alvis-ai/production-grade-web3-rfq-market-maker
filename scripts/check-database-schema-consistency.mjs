@@ -37,6 +37,10 @@ const riskNotionalMigrationSource = await readFile(
   "backend/src/db/migrations/009-risk-notional-reasons.sql",
   "utf8",
 );
+const riskMarketRegimeMigrationSource = await readFile(
+  "backend/src/db/migrations/010-risk-market-regime-reasons.sql",
+  "utf8",
+);
 const postgresSettlementSource = await readFile("backend/src/modules/settlement/postgres-settlement-event.store.ts", "utf8");
 const postgresInventorySource = await readFile("backend/src/modules/inventory/postgres-inventory.service.ts", "utf8");
 const postgresHedgeSource = await readFile("backend/src/modules/hedge/postgres-hedge.service.ts", "utf8");
@@ -1139,6 +1143,13 @@ assert.ok(
     riskNotionalMigrationSource.includes("USD_REFERENCE_REQUIRED") &&
     schemaSource.includes("('009', 'risk-notional-reasons')"),
   "risk notional migration must extend the durable risk rejection contract",
+);
+assert.ok(
+  riskMarketRegimeMigrationSource.includes("DROP CONSTRAINT IF EXISTS chk_risk_decisions_reason_code_consistency") &&
+    riskMarketRegimeMigrationSource.includes("MARKET_LIQUIDITY_TOO_LOW") &&
+    riskMarketRegimeMigrationSource.includes("MARKET_VOLATILITY_LIMIT_EXCEEDED") &&
+    schemaSource.includes("('010', 'risk-market-regime-reasons')"),
+  "risk market-regime migration must extend the durable risk rejection contract",
 );
 assert.ok(
   settlementIndexerStoreSource.includes("lease_expires_at > now()") &&

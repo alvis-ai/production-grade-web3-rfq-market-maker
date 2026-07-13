@@ -9,6 +9,8 @@ const rejectedRiskDecisionFields = ["reasonCode"] as const;
 const riskRejectReasonCodes = new Set<string>([
   "CHAIN_NOT_ENABLED",
   "TOKEN_NOT_ALLOWED",
+  "MARKET_LIQUIDITY_TOO_LOW",
+  "MARKET_VOLATILITY_LIMIT_EXCEEDED",
   "AMOUNT_IN_LIMIT_EXCEEDED",
   "AMOUNT_OUT_TOO_SMALL",
   "QUOTE_NOTIONAL_LIMIT_EXCEEDED",

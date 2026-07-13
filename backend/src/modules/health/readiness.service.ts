@@ -301,6 +301,7 @@ export class ReadinessService {
       const decision = await this.deps.riskEngine.evaluate({
         request: this.config.probeRequest,
         pricing: this.config.probePricing,
+        snapshot: this.config.probeSnapshot,
       });
       return decision.status === "approved" ? "ok" : "degraded";
     } catch {

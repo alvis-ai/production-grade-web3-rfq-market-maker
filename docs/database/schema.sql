@@ -249,6 +249,8 @@ CREATE TABLE risk_decisions (
       AND reason_code IN (
         'CHAIN_NOT_ENABLED',
         'TOKEN_NOT_ALLOWED',
+        'MARKET_LIQUIDITY_TOO_LOW',
+        'MARKET_VOLATILITY_LIMIT_EXCEEDED',
         'AMOUNT_IN_LIMIT_EXCEEDED',
         'AMOUNT_OUT_TOO_SMALL',
         'QUOTE_NOTIONAL_LIMIT_EXCEEDED',
@@ -1097,4 +1099,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('006', 'quote-snapshot-pnl'),
   ('007', 'settlement-indexer'),
   ('008', 'submit-reservations'),
-  ('009', 'risk-notional-reasons');
+  ('009', 'risk-notional-reasons'),
+  ('010', 'risk-market-regime-reasons');

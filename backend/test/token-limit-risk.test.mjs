@@ -55,6 +55,17 @@ test("TokenLimitRiskEngine applies input and output token-specific amount limits
   assert.equal((await engine.evaluate(riskInput({ amountIn: "100", amountOut: "50", minAmountOut: "49" }))).status, "approved");
 });
 
+test("TokenLimitRiskEngine rejects low-liquidity and extreme-volatility snapshots", async () => {
+  const engine = new TokenLimitRiskEngine(policy({
+    minLiquidityUsd: "1000000",
+    maxVolatilityBps: 500,
+  }));
+
+  assert.equal((await engine.evaluate(riskInput({ liquidityUsd: "999999" }))).reasonCode, "MARKET_LIQUIDITY_TOO_LOW");
+  assert.equal((await engine.evaluate(riskInput({ volatilityBps: 501 }))).reasonCode, "MARKET_VOLATILITY_LIMIT_EXCEEDED");
+  assert.equal((await engine.evaluate(riskInput({ liquidityUsd: "1000000", volatilityBps: 500 }))).status, "approved");
+});
+
 test("TokenLimitRiskEngine enforces the smaller token USD notional limit across decimals", async () => {
   const registry = tokenRegistry([
     token(1, tokenA, 18, false),
@@ -218,6 +229,14 @@ test("parseTokenLimitRiskPolicy rejects ambiguous and unsafe runtime configurati
     /maxNotionalUsd must be a canonical positive uint256 string/,
   );
   assert.throws(
+    () => parseTokenLimitRiskPolicy(JSON.stringify({ ...valid, minLiquidityUsd: "0" })),
+    /minLiquidityUsd must be a canonical positive uint256 string/,
+  );
+  assert.throws(
+    () => parseTokenLimitRiskPolicy(JSON.stringify({ ...valid, maxVolatilityBps: 10001 })),
+    /maxVolatilityBps must be an integer between 0 and 10000/,
+  );
+  assert.throws(
     () => new TokenLimitRiskEngine(Object.create(defaultTokenLimitRiskPolicy)),
     /policyVersion must be an own field/,
   );
@@ -234,6 +253,8 @@ function policy(overrides = {}) {
     restrictedUsers: [],
     toxicFlowScores: [],
     maxToxicScoreBps: 8000,
+    minLiquidityUsd: "1000000",
+    maxVolatilityBps: 500,
     maxSlippageBps: 500,
     maxQuotedSpreadBps: 1000,
     ...overrides,
@@ -269,6 +290,8 @@ function riskInput({
   minAmountOut = "98",
   slippageBps = 50,
   spreadBps = 16,
+  liquidityUsd = "10000000",
+  volatilityBps = 25,
   inventoryProjection,
 } = {}) {
   return {
@@ -280,6 +303,13 @@ function riskInput({
       sizeImpactBps: 1,
       inventorySkewBps: 0,
       pricingVersion: "formula-v2:internal_inventory",
+    },
+    snapshot: {
+      snapshotId: "risk_snapshot",
+      midPrice: "1",
+      liquidityUsd,
+      volatilityBps,
+      observedAt: "2026-01-01T00:00:00.000Z",
     },
     ...(inventoryProjection ? { inventoryProjection } : {}),
   };

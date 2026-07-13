@@ -1,5 +1,6 @@
-import type { QuoteRequest } from "../../shared/types/rfq.js";
+import type { MarketSnapshot, QuoteRequest } from "../../shared/types/rfq.js";
 import type { InventoryProjection } from "../inventory/inventory.service.js";
+import { getMarketSnapshotIssue } from "../market-data/market-data.service.js";
 import type { PricingResult } from "../pricing/pricing.engine.js";
 
 const basicRiskPolicyFields = [
@@ -11,12 +12,14 @@ const basicRiskPolicyFields = [
   "maxToxicScoreBps",
   "maxAmountIn",
   "minAmountOut",
+  "minLiquidityUsd",
+  "maxVolatilityBps",
   "maxSlippageBps",
   "maxQuotedSpreadBps",
   "maxAbsoluteInventory",
 ] as const;
 const toxicFlowScoreFields = ["user", "scoreBps"] as const;
-const riskInputFields = ["request", "pricing"] as const;
+const riskInputFields = ["request", "pricing", "snapshot"] as const;
 const riskInputOptionalFields = ["inventoryProjection"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const pricingResultFields = [
@@ -34,6 +37,8 @@ export type RiskDecisionStatus = "approved" | "rejected";
 export type RiskRejectReasonCode =
   | "CHAIN_NOT_ENABLED"
   | "TOKEN_NOT_ALLOWED"
+  | "MARKET_LIQUIDITY_TOO_LOW"
+  | "MARKET_VOLATILITY_LIMIT_EXCEEDED"
   | "AMOUNT_IN_LIMIT_EXCEEDED"
   | "AMOUNT_OUT_TOO_SMALL"
   | "QUOTE_NOTIONAL_LIMIT_EXCEEDED"
@@ -60,6 +65,7 @@ export type RiskDecision =
 export interface RiskInput {
   request: QuoteRequest;
   pricing: PricingResult;
+  snapshot: MarketSnapshot;
   inventoryProjection?: InventoryProjection;
 }
 
@@ -76,6 +82,8 @@ export interface BasicRiskPolicy {
   maxToxicScoreBps: number;
   maxAmountIn: bigint;
   minAmountOut: bigint;
+  minLiquidityUsd: bigint;
+  maxVolatilityBps: number;
   maxSlippageBps: number;
   maxQuotedSpreadBps: number;
   maxAbsoluteInventory: bigint;
@@ -98,6 +106,8 @@ export const defaultBasicRiskPolicy: BasicRiskPolicy = {
   maxToxicScoreBps: 8_000,
   maxAmountIn: 10_000_000_000_000_000_000_000n,
   minAmountOut: 1n,
+  minLiquidityUsd: 1_000_000n,
+  maxVolatilityBps: 500,
   maxSlippageBps: 500,
   maxQuotedSpreadBps: 1_000,
   maxAbsoluteInventory: 2_000_000_000n,
@@ -121,6 +131,8 @@ export class BasicRiskEngine implements RiskEngine {
     assertBpsUpperBound(policy.maxToxicScoreBps, "maxToxicScoreBps");
     assertPositiveBigInt(policy.maxAmountIn, "maxAmountIn");
     assertPositiveBigInt(policy.minAmountOut, "minAmountOut");
+    assertPositiveBigInt(policy.minLiquidityUsd, "minLiquidityUsd");
+    assertBpsUpperBound(policy.maxVolatilityBps, "maxVolatilityBps");
     assertBpsUpperBound(policy.maxSlippageBps, "maxSlippageBps");
     assertBpsUpperBound(policy.maxQuotedSpreadBps, "maxQuotedSpreadBps");
     assertPositiveBigInt(policy.maxAbsoluteInventory, "maxAbsoluteInventory");
@@ -140,6 +152,14 @@ export class BasicRiskEngine implements RiskEngine {
 
     if (!this.isAllowedToken(input.request.tokenIn) || !this.isAllowedToken(input.request.tokenOut)) {
       return this.reject("TOKEN_NOT_ALLOWED");
+    }
+
+    if (BigInt(input.snapshot.liquidityUsd) < this.policy.minLiquidityUsd) {
+      return this.reject("MARKET_LIQUIDITY_TOO_LOW");
+    }
+
+    if (input.snapshot.volatilityBps > this.policy.maxVolatilityBps) {
+      return this.reject("MARKET_VOLATILITY_LIMIT_EXCEEDED");
     }
 
     if (BigInt(input.request.amountIn) > this.policy.maxAmountIn) {
@@ -285,6 +305,7 @@ export function assertRiskInput(input: RiskInput): void {
   assertOwnFields(input.request, quoteRequestFields, "request");
   assertObject(input.pricing, "pricing");
   assertOwnFields(input.pricing, pricingResultFields, "pricing");
+  assertMarketSnapshot(input.snapshot);
   assertPositiveSafeInteger(input.request.chainId, "request.chainId");
   assertAddress(input.request.user, "request.user");
   assertAddress(input.request.tokenIn, "request.tokenIn");
@@ -310,6 +331,13 @@ export function assertRiskInput(input: RiskInput): void {
     assertOwnFields(input.inventoryProjection, inventoryProjectionFields, "inventoryProjection");
     assertInventoryPosition(input.inventoryProjection.tokenIn, input.request.chainId, input.request.tokenIn, "tokenIn");
     assertInventoryPosition(input.inventoryProjection.tokenOut, input.request.chainId, input.request.tokenOut, "tokenOut");
+  }
+}
+
+function assertMarketSnapshot(snapshot: MarketSnapshot): void {
+  const issue = getMarketSnapshotIssue(snapshot, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+  if (issue !== undefined) {
+    throw new Error(`Basic risk market ${issue}`);
   }
 }
 

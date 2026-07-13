@@ -104,6 +104,16 @@ test("BasicRiskEngine rejects unsafe policy configuration at construction", () =
   );
 
   assert.throws(
+    () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, minLiquidityUsd: 0n }),
+    /Basic risk minLiquidityUsd must be a positive bigint/,
+  );
+
+  assert.throws(
+    () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, maxVolatilityBps: 10_001 }),
+    /Basic risk maxVolatilityBps must be less than or equal to 10000 bps/,
+  );
+
+  assert.throws(
     () => new BasicRiskEngine({ ...defaultBasicRiskPolicy, maxQuotedSpreadBps: 10_001 }),
     /Basic risk maxQuotedSpreadBps must be less than or equal to 10000 bps/,
   );

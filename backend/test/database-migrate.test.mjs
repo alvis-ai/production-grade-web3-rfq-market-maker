@@ -15,6 +15,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "007", name: "settlement-indexer", applied_at: "2026-07-12T00:00:00.000Z" },
         { version: "008", name: "submit-reservations", applied_at: "2026-07-13T00:00:00.000Z" },
         { version: "009", name: "risk-notional-reasons", applied_at: "2026-07-14T00:00:00.000Z" },
+        { version: "010", name: "risk-market-regime-reasons", applied_at: "2026-07-14T00:01:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -244,6 +245,36 @@ test("database migration runner applies risk notional reasons after submit reser
   assert.equal(client.queries.some(({ sql }) => sql.includes("QUOTE_NOTIONAL_LIMIT_EXCEEDED")), true);
   assert.equal(client.queries.some(({ sql }) => sql.includes("USD_REFERENCE_REQUIRED")), true);
   assert.equal(client.queries.some(({ sql, params }) => sql.includes("INSERT INTO _migrations") && params[0] === "009"), true);
+});
+
+test("database migration runner applies market-regime reasons after risk notional reasons", async () => {
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: [
+        { version: "001", name: "base-schema", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "002", name: "settlement-canonical", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "003", name: "hedge-worker-queue", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "004", name: "analytics-outbox", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "005", name: "post-trade-reconciliation", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "006", name: "quote-snapshot-pnl", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "007", name: "settlement-indexer", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "008", name: "submit-reservations", applied_at: "2026-07-13T00:00:00.000Z" },
+        { version: "009", name: "risk-notional-reasons", applied_at: "2026-07-14T00:00:00.000Z" },
+      ] };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "010");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("MARKET_LIQUIDITY_TOO_LOW")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("MARKET_VOLATILITY_LIMIT_EXCEEDED")), true);
+  assert.equal(client.queries.some(({ sql, params }) => sql.includes("INSERT INTO _migrations") && params[0] === "010"), true);
 });
 
 function fakePool(handler) {

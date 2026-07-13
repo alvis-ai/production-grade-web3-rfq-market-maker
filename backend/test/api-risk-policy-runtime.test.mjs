@@ -186,6 +186,73 @@ test("RFQ API rejects a cross-decimals quote above its USD notional limit", asyn
   }
 });
 
+test("RFQ API blocks signing in unsafe market liquidity and volatility regimes", async () => {
+  const originalRegistry = process.env.RFQ_TOKEN_REGISTRY_JSON;
+  const originalPolicy = process.env.RFQ_RISK_POLICY_JSON;
+  process.env.RFQ_TOKEN_REGISTRY_JSON = JSON.stringify(tokenRegistry());
+  process.env.RFQ_RISK_POLICY_JSON = JSON.stringify(riskPolicy());
+  let market = {
+    snapshotId: "snapshot_low_liquidity",
+    liquidityUsd: "999999",
+    volatilityBps: 25,
+  };
+  const server = buildServer({
+    logger: false,
+    marketDataService: {
+      async getSnapshot() {
+        return {
+          midPrice: "2000",
+          ...market,
+          observedAt: new Date().toISOString(),
+        };
+      },
+    },
+  });
+  const request = {
+    chainId: 1,
+    user,
+    tokenIn: weth,
+    tokenOut: usdc,
+    amountIn: "500000000000000000",
+    slippageBps: 50,
+  };
+
+  try {
+    await server.ready();
+    const lowLiquidity = await server.inject({
+      method: "POST",
+      url: "/quote",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify(request),
+    });
+    assert.equal(lowLiquidity.statusCode, 409, lowLiquidity.payload);
+    assert.equal(JSON.parse(lowLiquidity.payload).code, "RISK_REJECTED");
+
+    market = {
+      snapshotId: "snapshot_high_volatility",
+      liquidityUsd: "50000000",
+      volatilityBps: 501,
+    };
+    const highVolatility = await server.inject({
+      method: "POST",
+      url: "/quote",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({ ...request, amountIn: "500000000000000001" }),
+    });
+    assert.equal(highVolatility.statusCode, 409, highVolatility.payload);
+    assert.equal(JSON.parse(highVolatility.payload).code, "RISK_REJECTED");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="MARKET_LIQUIDITY_TOO_LOW"\} 1/);
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="MARKET_VOLATILITY_LIMIT_EXCEEDED"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+  } finally {
+    await server.close();
+    restoreEnv("RFQ_TOKEN_REGISTRY_JSON", originalRegistry);
+    restoreEnv("RFQ_RISK_POLICY_JSON", originalPolicy);
+  }
+});
+
 function tokenRegistry() {
   return {
     tokens: [
@@ -236,6 +303,8 @@ function riskPolicy() {
     restrictedUsers: [],
     toxicFlowScores: [],
     maxToxicScoreBps: 8000,
+    minLiquidityUsd: "1000000",
+    maxVolatilityBps: 500,
     maxSlippageBps: 500,
     maxQuotedSpreadBps: 1000,
   };
