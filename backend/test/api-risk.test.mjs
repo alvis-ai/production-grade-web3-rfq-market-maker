@@ -42,6 +42,66 @@ test("RFQ API rejects quotes that fail pre-trade risk policy", async () => {
   }
 });
 
+test("RFQ API rejects quotes that exceed observed treasury tokenOut liquidity before signing", async () => {
+  const server = buildServer({
+    logger: false,
+    treasuryLiquidityProvider: {
+      async checkHealth() {},
+      async getLiquidity({ chainId, token }) {
+        return {
+          chainId,
+          settlementAddress: "0x0000000000000000000000000000000000000004",
+          treasuryAddress: "0x0000000000000000000000000000000000000005",
+          token,
+          availableBalance: "1",
+          blockNumber: 123n,
+        };
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "RISK_REJECTED");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.match(
+      metrics.payload,
+      /rfq_quote_rejections_total\{reason="TREASURY_LIQUIDITY_INSUFFICIENT"\} 1/,
+    );
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API fails closed when treasury liquidity cannot be observed", async () => {
+  const server = buildServer({
+    logger: false,
+    treasuryLiquidityProvider: {
+      async checkHealth() {},
+      async getLiquidity() {
+        throw new Error("treasury liquidity RPC unavailable");
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "RISK_REJECTED");
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="RISK_ENGINE_UNAVAILABLE"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rejects quotes when pricing spread exceeds risk guard before signing", async () => {
   const server = buildServer({
     logger: false,

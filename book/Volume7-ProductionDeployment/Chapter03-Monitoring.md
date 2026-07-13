@@ -103,7 +103,7 @@ Key metrics include:
 - `rfq_quote_responses_total`
 - `rfq_quote_errors_total`
 - `rfq_quote_latency_seconds`
-- `rfq_quote_rejections_total`
+- `rfq_quote_rejections_total` with bounded `reason`; alert separately on `TREASURY_LIQUIDITY_INSUFFICIENT` and `RISK_ENGINE_UNAVAILABLE`
 - `rfq_submit_requests_total`
 - `rfq_submit_accepted_total`
 - `rfq_submit_errors_total`

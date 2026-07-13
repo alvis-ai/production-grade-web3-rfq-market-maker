@@ -62,6 +62,14 @@ const hedgeFeeReconciliationMigrationSource = await readFile(
   "backend/src/db/migrations/015-hedge-fee-reconciliation.sql",
   "utf8",
 );
+const treasuryLiquidityMigrationSource = await readFile(
+  "backend/src/db/migrations/016-treasury-liquidity-reservations.sql",
+  "utf8",
+);
+const treasuryLiquidityProviderSource = await readFile(
+  "backend/src/modules/risk/treasury-liquidity.provider.ts",
+  "utf8",
+);
 const postgresQuoteExposureSource = await readFile(
   "backend/src/modules/risk/postgres-quote-exposure.store.ts",
   "utf8",
@@ -1319,17 +1327,34 @@ assert.ok(
   "hedge fee evidence must remain owned by migration 015 and publish immutable per-fill economics",
 );
 assert.ok(
+  treasuryLiquidityMigrationSource.includes("ADD COLUMN IF NOT EXISTS token_out") &&
+    treasuryLiquidityMigrationSource.includes("treasury_available_balance") &&
+    treasuryLiquidityMigrationSource.includes("settlement_address IS NOT NULL") &&
+    treasuryLiquidityMigrationSource.includes("treasury_block_number IS NOT NULL") &&
+    schemaSource.includes("treasury_available_balance IS NOT NULL") &&
+    treasuryLiquidityMigrationSource.includes("idx_quote_exposure_output_active") &&
+    treasuryLiquidityMigrationSource.includes("TREASURY_LIQUIDITY_INSUFFICIENT") &&
+    schemaSource.includes("('016', 'treasury-liquidity-reservations')"),
+  "treasury liquidity migration must persist output reservations and observed chain evidence",
+);
+assert.ok(
   postgresQuoteExposureSource.includes("pg_advisory_xact_lock") &&
     postgresQuoteExposureSource.includes("exposureLockScopes(reservation).sort()") &&
     postgresQuoteExposureSource.includes("for (const scope of scopes)") &&
     postgresQuoteExposureSource.includes("expires_at > now()") &&
     postgresQuoteExposureSource.includes("quote.status IN ('requested', 'signed', 'failed')") &&
-    postgresQuoteExposureSource.includes("WHERE to_timestamp($7) > now()") &&
+    postgresQuoteExposureSource.includes("WHERE to_timestamp($13) > now()") &&
     postgresQuoteExposureSource.includes("FOR UPDATE SKIP LOCKED") &&
     postgresQuoteExposureSource.includes("SUM(exposure.notional_usd_e18)") &&
+    postgresQuoteExposureSource.includes("SUM(amount_out)") &&
+    postgresQuoteExposureSource.includes("quote-liquidity:") &&
     backendMainSource.includes("resolveQuoteExposureStore") &&
-    backendMainSource.includes("quoteExposureStore"),
-  "runtime must atomically reserve user and pair quote exposure across API replicas",
+    backendMainSource.includes("quoteExposureStore") &&
+    backendMainSource.includes("buildRuntimeTreasuryLiquidityProvider") &&
+    treasuryLiquidityProviderSource.includes("readTreasury") &&
+    treasuryLiquidityProviderSource.includes("readTokenBalance") &&
+    treasuryLiquidityProviderSource.includes("blockNumber"),
+  "runtime must atomically reserve user, pair, and same-block treasury output capacity across API replicas",
 );
 assert.ok(
   settlementIndexerStoreSource.includes("lease_expires_at > now()") &&

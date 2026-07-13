@@ -202,7 +202,13 @@ CREATE TABLE quote_exposure_reservations (
   user_address TEXT NOT NULL,
   token_low TEXT NOT NULL,
   token_high TEXT NOT NULL,
+  token_out TEXT NOT NULL,
+  amount_out NUMERIC(78, 0) NOT NULL,
   notional_usd_e18 NUMERIC(96, 0) NOT NULL,
+  settlement_address TEXT,
+  treasury_address TEXT,
+  treasury_available_balance NUMERIC(78, 0),
+  treasury_block_number NUMERIC(78, 0),
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_quote_exposure_chain_id CHECK (chain_id BETWEEN 1 AND 9007199254740991),
@@ -212,7 +218,28 @@ CREATE TABLE quote_exposure_reservations (
     AND token_high ~ '^0x[0-9a-f]{40}$'
     AND token_low < token_high
   ),
-  CONSTRAINT chk_quote_exposure_notional CHECK (notional_usd_e18 > 0)
+  CONSTRAINT chk_quote_exposure_notional CHECK (notional_usd_e18 > 0),
+  CONSTRAINT chk_quote_exposure_output CHECK (
+    token_out ~ '^0x[0-9a-f]{40}$' AND amount_out > 0
+  ),
+  CONSTRAINT chk_quote_exposure_treasury_evidence CHECK (
+    (
+      settlement_address IS NULL
+      AND treasury_address IS NULL
+      AND treasury_available_balance IS NULL
+      AND treasury_block_number IS NULL
+    )
+    OR (
+      settlement_address IS NOT NULL
+      AND treasury_address IS NOT NULL
+      AND treasury_available_balance IS NOT NULL
+      AND treasury_block_number IS NOT NULL
+      AND settlement_address ~ '^0x[0-9a-f]{40}$'
+      AND treasury_address ~ '^0x[0-9a-f]{40}$'
+      AND treasury_available_balance >= 0
+      AND treasury_block_number >= 0
+    )
+  )
 );
 
 CREATE INDEX idx_quote_exposure_user_active
@@ -221,6 +248,8 @@ CREATE INDEX idx_quote_exposure_pair_active
   ON quote_exposure_reservations (chain_id, token_low, token_high, expires_at);
 CREATE INDEX idx_quote_exposure_expiry
   ON quote_exposure_reservations (expires_at);
+CREATE INDEX idx_quote_exposure_output_active
+  ON quote_exposure_reservations (chain_id, token_out, expires_at);
 
 CREATE TABLE market_snapshots (
   id TEXT PRIMARY KEY,
@@ -302,6 +331,7 @@ CREATE TABLE risk_decisions (
         'QUOTE_NOTIONAL_LIMIT_EXCEEDED',
         'USER_OPEN_NOTIONAL_LIMIT_EXCEEDED',
         'PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED',
+        'TREASURY_LIQUIDITY_INSUFFICIENT',
         'USD_REFERENCE_REQUIRED',
         'SLIPPAGE_TOO_WIDE',
         'QUOTED_SPREAD_TOO_WIDE',
@@ -1386,4 +1416,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('012', 'pricing-attribution'),
   ('013', 'market-spread-attribution'),
   ('014', 'hedge-execution-evidence'),
-  ('015', 'hedge-fee-reconciliation');
+  ('015', 'hedge-fee-reconciliation'),
+  ('016', 'treasury-liquidity-reservations');

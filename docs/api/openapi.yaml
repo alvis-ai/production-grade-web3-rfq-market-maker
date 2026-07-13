@@ -12,6 +12,12 @@ paths:
     post:
       operationId: createQuote
       summary: Request an RFQ quote
+      description: >
+        Prices and risk-checks the request before signing. Receipt-confirmed runtimes
+        also read the configured settlement contract treasury and tokenOut balance at
+        one chain block, then atomically reserve unexpired output capacity across API
+        replicas. Insufficient or unavailable Treasury liquidity fails closed before
+        the EIP-712 signer is called.
       x-required-scope: quote:write
       tags:
         - Quote

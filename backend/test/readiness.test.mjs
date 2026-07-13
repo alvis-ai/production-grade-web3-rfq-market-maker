@@ -118,6 +118,20 @@ test("ReadinessService degrades risk when the quote exposure store is unavailabl
   assert.equal(readiness.components.quoteRepository, "ok");
 });
 
+test("ReadinessService degrades risk when the treasury liquidity RPC is unavailable", async () => {
+  const readiness = await createReadinessService({
+    treasuryLiquidityProvider: {
+      async checkHealth() {
+        throw new Error("treasury liquidity RPC unavailable");
+      },
+    },
+  }).check();
+
+  assert.equal(readiness.status, "degraded");
+  assert.equal(readiness.components.risk, "degraded");
+  assert.equal(readiness.components.quoteRepository, "ok");
+});
+
 test("ReadinessService snapshots readiness configuration at construction", async () => {
   const mutableConfig = {
     ...defaultReadinessServiceConfig,
@@ -217,6 +231,9 @@ function readinessServiceDeps(overrides = {}) {
     pricingEngine: overrides.pricingEngine ?? new FormulaPricingEngine(),
     riskEngine: overrides.riskEngine ?? new BasicRiskEngine(),
     ...(overrides.quoteExposureStore ? { quoteExposureStore: overrides.quoteExposureStore } : {}),
+    ...(overrides.treasuryLiquidityProvider
+      ? { treasuryLiquidityProvider: overrides.treasuryLiquidityProvider }
+      : {}),
     signerService: overrides.signerService ?? new LocalEIP712SignerService({
       privateKey: "0x59c6995e998f97a5a0044966f094538d9dae1ffc26a3b6d86dae8e3a0b97e6a0",
       settlementAddress: "0x0000000000000000000000000000000000000004",

@@ -42,6 +42,7 @@ import { registerTradingRoutes } from "./api/trading-routes.js";
 import {
   buildDefaultSettlementVerifierPolicy,
   buildRuntimeSettlementEvidenceProvider,
+  buildRuntimeTreasuryLiquidityProvider,
   readGatewayServerSettings,
   resolveApiKeyAuthenticator,
   resolvePostgresPool,
@@ -147,6 +148,8 @@ export function buildServer(options: BuildServerOptions = {}) {
     defaultRiskEngine,
     runtimeTokenRegistry,
   );
+  const treasuryLiquidityProvider = options.treasuryLiquidityProvider ??
+    buildRuntimeTreasuryLiquidityProvider();
   const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
   const inMemoryInventoryService = postgresPool ? undefined : new InventoryService();
   const inventoryService: IInventoryService = postgresInventoryService ?? inMemoryInventoryService!;
@@ -195,6 +198,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     riskEngine,
     routingEngine,
     signerService: new ObservedSignerService(signerService, metricsService),
+    treasuryLiquidityProvider,
   }, {
     ...defaultQuoteServiceConfig,
     maxSnapshotAgeMs,
@@ -262,6 +266,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     settlementEventService,
     signerService,
     submitReservationStore,
+    treasuryLiquidityProvider,
   }, defaultMarketData && readinessPair
     ? buildMarketReadinessConfig(readinessPair, runtimeTokenRegistry, maxSnapshotAgeMs)
     : defaultReadinessServiceConfig);

@@ -26,7 +26,7 @@
 | `MARKET_DATA_UNAVAILABLE` | 503 | 市场数据不可用、过期、明显来自未来或快照字段无效 | 稍后重试 |
 | `ROUTING_UNAVAILABLE` | 503 | Routing Engine 无法选择报价路径 | 稍后重试 |
 | `PRICING_UNAVAILABLE` | 503 | Pricing Engine 无法生成报价 | 稍后重试 |
-| `RISK_REJECTED` | 409 | 风控策略拒绝签名 | 降低数量或稍后重试 |
+| `RISK_REJECTED` | 409 | 风控策略、活动 quote 累计敞口或 Treasury tokenOut 可用余额拒绝签名 | 降低数量或稍后重试 |
 | `SIGNER_UNAVAILABLE` | 503 | Signer Service 不可用 | 稍后重试 |
 | `INVALID_SIGNATURE` | 409 | quote signature 与后端签发归档不一致、无法恢复到 trusted signer，或不是链上可接受的 canonical low-s ECDSA 签名 | 重新询价并提交后端返回的签名 |
 | `QUOTE_STORE_UNAVAILABLE` | 503 | quote repository 或持久化审计存储不可用 | 稍后重试，若已拿到 signed quote 则先查询 quote 状态 |
@@ -51,6 +51,7 @@
 - 对外错误码保持稳定，不直接暴露内部 policy threshold。
 - 所有错误响应必须包含 `traceId`，并且 `ErrorResponse` 是闭合 schema，只允许 `code`、`message` 和 `traceId` 三个字段。
 - 风控拒绝应记录内部 `reasonCode` 和 `policyVersion`，但对外只返回通用说明。
+- Treasury 余额不足使用内部 `TREASURY_LIQUIDITY_INSUFFICIENT`；RPC/合约读取异常使用 `RISK_ENGINE_UNAVAILABLE`。两者对外仍保持闭合的 `RISK_REJECTED`，不得暴露资金阈值或 custody 地址细节。
 - `RATE_LIMITED` 响应必须返回 HTTP 429，并带 `Retry-After` header。
 - 依赖不可用使用 503，业务状态冲突使用 409。
 - 框架级解析错误也必须映射为结构化 `ErrorResponse`，包括 malformed JSON、body too large 和 unsupported content type。

@@ -32,6 +32,7 @@ test("PostgresQuoteExposureStore locks both scopes before atomically inserting",
     `quote-exposure:pair:1:${tokenA}:${tokenB}`,
     "quote-exposure:quote:q_pg_exposure",
     `quote-exposure:user:1:${user}`,
+    `quote-liquidity:1:${tokenB}`,
   ]);
   const cleanup = queries.find(({ sql }) => sql.startsWith("DELETE FROM quote_exposure_reservations"));
   assert.match(cleanup.sql, /LIMIT 100/);
@@ -44,11 +45,43 @@ test("PostgresQuoteExposureStore locks both scopes before atomically inserting",
     user,
     tokenA,
     tokenB,
+    tokenB,
     "101000000000000000000",
+    "101000000000000000000",
+    null,
+    null,
+    null,
+    null,
     now + 30,
   ]);
   assert.equal(queries.at(-1).sql, "COMMIT");
   assert.equal(clients[0].released, true);
+});
+
+test("PostgresQuoteExposureStore serializes and rejects oversubscribed treasury output", async () => {
+  const { pool, clients } = fakePool(async (sql) => {
+    if (sql.includes("reserved_output_amount")) {
+      return { rows: [{ reserved_output_amount: "60000000000000000000" }], rowCount: 1 };
+    }
+    if (sql.includes("user_open_notional_usd_e18")) {
+      return {
+        rows: [{ user_open_notional_usd_e18: "0", pair_open_notional_usd_e18: "0" }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+
+  const result = await createStore(pool).reserve(withLiquidity(input("q_pg_liquidity"), "150000000000000000000"));
+  assert.deepEqual(result, {
+    status: "rejected",
+    reasonCode: "TREASURY_LIQUIDITY_INSUFFICIENT",
+  });
+  const outputTotal = clients[0].queries.find(({ sql }) => sql.includes("reserved_output_amount"));
+  assert.match(outputTotal.sql, /expires_at > now\(\)/);
+  assert.doesNotMatch(outputTotal.sql, /quote\.status/);
+  assert.deepEqual(outputTotal.params, [1, tokenB]);
+  assert.equal(clients[0].queries.at(-1).sql, "ROLLBACK");
 });
 
 test("PostgresQuoteExposureStore rejects user and pair totals without inserting", async () => {
@@ -146,6 +179,20 @@ function input(quoteId) {
       pricingVersion: "exposure-test-v1",
     },
     deadline: now + 30,
+  };
+}
+
+function withLiquidity(value, availableBalance) {
+  return {
+    ...value,
+    treasuryLiquidity: {
+      chainId: 1,
+      settlementAddress: "0x0000000000000000000000000000000000000044",
+      treasuryAddress: "0x0000000000000000000000000000000000000055",
+      token: tokenB,
+      availableBalance,
+      blockNumber: 123n,
+    },
   };
 }
 

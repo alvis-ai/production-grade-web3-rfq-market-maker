@@ -35,6 +35,7 @@ import type {
   QuoteExposureReservationResult,
   QuoteExposureStore,
 } from "../risk/quote-exposure.store.js";
+import type { TreasuryLiquidityProvider } from "../risk/treasury-liquidity.provider.js";
 import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
@@ -47,6 +48,7 @@ export interface QuoteServiceDeps {
   hedgeService?: HedgeIntentService;
   quoteRepository: QuoteRepository;
   quoteExposureStore?: QuoteExposureStore;
+  treasuryLiquidityProvider?: TreasuryLiquidityProvider;
   riskDecisionStore: RiskDecisionStore;
   riskEngine: RiskEngine;
   routingEngine: RoutingEngine;
@@ -104,6 +106,7 @@ const riskRejectReasonCodes = new Set<string>([
   "QUOTE_NOTIONAL_LIMIT_EXCEEDED",
   "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED",
   "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED",
+  "TREASURY_LIQUIDITY_INSUFFICIENT",
   "USD_REFERENCE_REQUIRED",
   "SLIPPAGE_TOO_WIDE",
   "QUOTED_SPREAD_TOO_WIDE",
@@ -232,11 +235,18 @@ export class QuoteService {
         inventoryProjection: projectionResult,
       });
       if (risk.status === "approved" && this.deps.quoteExposureStore) {
+        const treasuryLiquidity = this.deps.treasuryLiquidityProvider
+          ? await this.deps.treasuryLiquidityProvider.getLiquidity({
+              chainId: validatedRequest.chainId,
+              token: validatedRequest.tokenOut,
+            })
+          : undefined;
         const exposure = await this.deps.quoteExposureStore.reserve({
           quoteId,
           request: validatedRequest,
           pricing,
           deadline,
+          ...(treasuryLiquidity ? { treasuryLiquidity } : {}),
         });
         assertQuoteExposureReservationResult(exposure);
         if (exposure.status === "reserved") {
@@ -619,6 +629,7 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   assertOwnFields(deps, quoteServiceDepsFields, "deps");
   assertOptionalOwnField(deps, "hedgeService", "deps");
   assertOptionalOwnField(deps, "quoteExposureStore", "deps");
+  assertOptionalOwnField(deps, "treasuryLiquidityProvider", "deps");
   assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
   assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "saveSnapshot");
   assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
@@ -629,6 +640,12 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   if (deps.quoteExposureStore !== undefined) {
     assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "reserve");
     assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "release");
+  }
+  if (deps.treasuryLiquidityProvider !== undefined) {
+    if (deps.quoteExposureStore === undefined) {
+      throw new Error("Quote service treasuryLiquidityProvider requires quoteExposureStore");
+    }
+    assertDependencyMethod(deps.treasuryLiquidityProvider, "treasuryLiquidityProvider", "getLiquidity");
   }
   assertDependencyMethod(deps.riskEngine, "riskEngine", "evaluate");
   assertDependencyMethod(deps.riskDecisionStore, "riskDecisionStore", "saveDecision");
@@ -860,7 +877,8 @@ function assertQuoteExposureReservationResult(
     assertNoUnknownFields(value, ["status", "reasonCode"], "exposure reservation result");
     if (
       value.reasonCode !== "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED" &&
-      value.reasonCode !== "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED"
+      value.reasonCode !== "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED" &&
+      value.reasonCode !== "TREASURY_LIQUIDITY_INSUFFICIENT"
     ) {
       throw new Error("Quote service exposure reservation reasonCode is invalid");
     }

@@ -814,6 +814,8 @@ test -s backend/src/db/migrations/012-pricing-attribution.sql
 test -s backend/src/db/migrations/013-market-spread-attribution.sql
 test -s backend/src/db/migrations/014-hedge-execution-evidence.sql
 test -s backend/src/db/migrations/015-hedge-fee-reconciliation.sql
+test -s backend/src/db/migrations/016-treasury-liquidity-reservations.sql
+test -s backend/src/modules/risk/treasury-liquidity.provider.ts
 test -s backend/src/modules/hedge/hedge-fee-worker.ts
 test -s backend/src/modules/hedge/postgres-hedge-fee.store.ts
 test -s backend/test/hedge-fee-worker.test.mjs
@@ -1027,7 +1029,8 @@ grep -q 'requireSubmittableSignedQuote()` revalidates the submit quote and canon
 grep -q 'The internal `allowExpired` validation option must be an own boolean field' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'internal validation options also reject inherited `allowExpired` fields' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'QuoteService` snapshots its dependency map at construction' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'Required dependency entries must be own fields before method validation, and optional `hedgeService` must be an own field when provided' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'Required dependency entries must be own fields before method validation, and optional `hedgeService`、`quoteExposureStore`、`treasuryLiquidityProvider` must be own fields when provided' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'A treasury provider without a reservation store is rejected at construction' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'QuoteService` validates dependency methods at construction' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'class QuoteIdentityGenerator' backend/src/modules/quote/quote-identity.ts
 grep -q 'randomUint64' backend/src/modules/quote/quote-identity.ts
@@ -3351,7 +3354,7 @@ grep -q 'inherited optional `inventoryProjection`' book/Volume5-BackendEngineeri
 grep -q 'missing required own projection / position fields fail before nested field access' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'canonical decimal form without leading zeros' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'JavaScript regex coercion' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
-grep -q 'policy config fail-fast' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
+grep -q '`BasicRiskPolicy` 在构造期 fail fast' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'snapshots `BasicRiskPolicy` at construction after validation' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'pricing spread exceeds risk guard before signing' backend/test/api-risk.test.mjs
 grep -q 'QUOTED_SPREAD_TOO_WIDE' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
@@ -3361,6 +3364,9 @@ grep -q 'RFQQuoteResponsesStalled' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_quote_responses_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQQuoteLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteRiskRejectSpike' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQTreasuryLiquidityInsufficient' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQRiskDependencyUnavailable' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'TREASURY_LIQUIDITY_INSUFFICIENT' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQSignerErrors' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQSignerSignThroughputStalled' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_signer_requests_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md

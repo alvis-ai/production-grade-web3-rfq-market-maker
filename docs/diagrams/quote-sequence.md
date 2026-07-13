@@ -10,6 +10,7 @@ sequenceDiagram
   participant MD as Market Data Service
   participant Pricing as Pricing Engine
   participant Risk as Risk Engine
+  participant Chain as EVM RPC / Treasury
   participant Signer as EIP-712 Signer
   participant Store as PostgreSQL / Redis
 
@@ -22,10 +23,18 @@ sequenceDiagram
   API->>Risk: Check limits, inventory, toxicity, notional, chain policy
   alt Risk accepted
     Risk-->>API: approved risk decision
+    API->>Chain: read treasury and tokenOut balance at one block
+    Chain-->>API: treasury, balance, blockNumber
+    API->>Store: reserve user, pair, and tokenOut capacity until TTL
+    alt Treasury capacity insufficient
+      Store-->>API: TREASURY_LIQUIDITY_INSUFFICIENT
+      API-->>User: RISK_REJECTED
+    else Capacity reserved
     API->>Signer: Sign EIP-712 Quote
     Signer-->>API: signature, signer, deadline, nonce
     API->>Store: Persist quote, snapshotId, risk decision
     API-->>User: quoteId, snapshotId, amountOut, minAmountOut, deadline, nonce, signature
+    end
   else Risk rejected
     Risk-->>API: reject reason and policy id
     API->>Store: Persist rejection for observability
@@ -39,3 +48,4 @@ sequenceDiagram
 - `deadline` 必须足够短，避免市场状态漂移。
 - `snapshotId` 是排查报价争议、风控争议和 PnL 归因的关键字段。
 - Rejected quote 也应该记录，但不能返回可执行签名。
+- 生产环境必须把真实 Treasury `tokenOut` 余额与所有未过期 quote 的输出预留比较；链 RPC 和数据库无法原子提交，因此 settled reservation 仍保留到 TTL，优先保证不超卖。

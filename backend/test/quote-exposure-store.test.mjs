@@ -57,6 +57,25 @@ test("InMemoryQuoteExposureStore releases failures and stops counting expired qu
   assert.equal((await store.reserve(input("q_after_expiry", userA, now + 30))).status, "reserved");
 });
 
+test("InMemoryQuoteExposureStore reserves output liquidity across concurrent quotes until expiry", async () => {
+  let now = 1_700_000_000;
+  const store = new InMemoryQuoteExposureStore(policy("1000", "1000"), registry(), () => now);
+  const first = withLiquidity(input("q_liquidity_1", userA, now + 30), "150000000000000000000");
+  const second = withLiquidity(input("q_liquidity_2", userB, now + 30), "150000000000000000000");
+
+  assert.equal((await store.reserve(first)).status, "reserved");
+  assert.deepEqual(await store.reserve(second), {
+    status: "rejected",
+    reasonCode: "TREASURY_LIQUIDITY_INSUFFICIENT",
+  });
+
+  now += 31;
+  assert.equal((await store.reserve(withLiquidity(
+    input("q_liquidity_after_expiry", userB, now + 30),
+    "101000000000000000000",
+  ))).status, "reserved");
+});
+
 test("InMemoryQuoteExposureStore rounds sub-E18 USD reference units up", async () => {
   const now = 1_700_000_000;
   const highDecimals = "0x0000000000000000000000000000000000000033";
@@ -115,6 +134,20 @@ function reverseInput(quoteId, user, deadline) {
     request: request(user, tokenB, tokenA, "101000000000000000000"),
     pricing: pricing("100000000"),
     deadline,
+  };
+}
+
+function withLiquidity(value, availableBalance) {
+  return {
+    ...value,
+    treasuryLiquidity: {
+      chainId: 1,
+      settlementAddress: "0x0000000000000000000000000000000000000044",
+      treasuryAddress: "0x0000000000000000000000000000000000000055",
+      token: value.request.tokenOut,
+      availableBalance,
+      blockNumber: 123n,
+    },
   };
 }
 

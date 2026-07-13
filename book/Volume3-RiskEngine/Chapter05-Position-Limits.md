@@ -105,6 +105,8 @@ stateDiagram-v2
 
 单笔门禁通过后，Quote Service 在 Signer 之前预留活动签名报价敞口。`quote_exposure_reservations` 以 quoteId 为幂等键，把 USD-reference 一侧按可信 decimals 转成 18 位 USD 定点数；两侧均为 USD reference 时取较大值，超过 18 decimals 的极小余数向上取整，避免低估。用户作用域为 `(chainId, user)`，交易对作用域使用排序后的 `(chainId, tokenLow, tokenHigh)`，因此反向报价不能绕过 pair limit。PostgreSQL 实现按稳定顺序逐个获取 transaction-scoped advisory locks，再在同一事务中求和并插入，消除多 API replica 的 check-then-insert write skew。只有 `expires_at > now()` 且 quote 状态为 `requested`、`signed` 或 `failed` 的记录计入活动敞口；submitted/settled 已有链上 nonce 消耗证据，暂不计数但保留记录，以便 reorg 将 quote 恢复为 signed 时自动重新计数。`failed` 仍可能对应用户已经拿到、链上尚可重试的签名，不能仅凭本地失败状态提前释放。签名前的签名、审计或 signed quote 持久化失败会 best-effort 显式释放；expired 记录由每次预留时的有界 `FOR UPDATE SKIP LOCKED` 清理，进程崩溃时也最多保守占用到 quote TTL。
 
+名义限额之外，生产 runtime 使用 `RFQ_RECEIPT_CONFIG_JSON` 的链 RPC 在同一 block 读取 `RFQSettlement.treasury()` 与 `tokenOut.balanceOf(treasury)`。reservation 额外持久化方向性的 `tokenOut/amountOut` 和链上观察证据，并为 `(chainId, tokenOut)` 获取 advisory lock。所有未过期 quote 的输出数量都参与流动性 SUM，包括已经 submitted/settled 的 quote；后者保留到 TTL 是有意的保守策略，用于覆盖 RPC 读取、链上余额下降和数据库状态切换无法组成原子事务的窗口。若 `reserved + candidate > observedBalance`，记录 `TREASURY_LIQUIDITY_INSUFFICIENT` 并在 Signer 前拒绝。RPC 不可用、treasury 地址畸形或 balance 非 uint256 都按 risk unavailable fail closed。
+
 ## API Design
 
 内部管理 API 后续可支持限额更新，但必须鉴权。公开 quote API 只返回风险拒绝。

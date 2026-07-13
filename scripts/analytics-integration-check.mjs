@@ -160,7 +160,7 @@ try {
   const migrations = await pool.query("SELECT version FROM _migrations ORDER BY version");
   assert.deepEqual(
     migrations.rows.map((row) => row.version),
-    ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013", "014", "015"],
+    ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016"],
   );
 
   await cleanupOperationalFixtures();

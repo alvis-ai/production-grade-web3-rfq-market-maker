@@ -16,6 +16,10 @@ interface ExposureTotalsRow {
   pair_open_notional_usd_e18: string;
 }
 
+interface OutputReservationTotalRow {
+  reserved_output_amount: string;
+}
+
 export class PostgresQuoteExposureStore implements QuoteExposureStore {
   private readonly maxUserOpenNotionalUsdE18: bigint;
   private readonly maxPairOpenNotionalUsdE18: bigint;
@@ -71,7 +75,11 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
 
       const existingResult = await client.query(
         `SELECT exposure.quote_id, exposure.chain_id, exposure.user_address,
-          exposure.token_low, exposure.token_high, exposure.notional_usd_e18::text,
+          exposure.token_low, exposure.token_high, exposure.token_out,
+          exposure.amount_out::text, exposure.notional_usd_e18::text,
+          exposure.settlement_address, exposure.treasury_address,
+          exposure.treasury_available_balance::text,
+          exposure.treasury_block_number::text,
           extract(epoch FROM exposure.expires_at)::bigint::text AS deadline,
           exposure.expires_at > now() AND quote.status IN ('requested', 'signed', 'failed') AS active
          FROM quote_exposure_reservations exposure
@@ -120,13 +128,32 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
         transactionOpen = false;
         return { status: "rejected", reasonCode: "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED" };
       }
+      if (reservation.treasuryLiquidity) {
+        const outputTotalResult = await client.query<OutputReservationTotalRow>(
+          `SELECT COALESCE(SUM(amount_out), 0)::text AS reserved_output_amount
+           FROM quote_exposure_reservations
+           WHERE chain_id = $1 AND lower(token_out) = $2 AND expires_at > now()`,
+          [reservation.chainId, reservation.tokenOut],
+        );
+        const reservedOutputAmount = parseNonNegativeInteger(
+          outputTotalResult.rows[0]?.reserved_output_amount,
+          "reserved output amount",
+        );
+        if (reservedOutputAmount + reservation.amountOut > reservation.treasuryLiquidity.availableBalance) {
+          await client.query("ROLLBACK");
+          transactionOpen = false;
+          return { status: "rejected", reasonCode: "TREASURY_LIQUIDITY_INSUFFICIENT" };
+        }
+      }
 
       const insertResult = await client.query(
         `INSERT INTO quote_exposure_reservations (
-          quote_id, chain_id, user_address, token_low, token_high, notional_usd_e18, expires_at
+          quote_id, chain_id, user_address, token_low, token_high, token_out, amount_out,
+          notional_usd_e18, settlement_address, treasury_address,
+          treasury_available_balance, treasury_block_number, expires_at
         )
-        SELECT $1, $2, $3, $4, $5, $6, to_timestamp($7)
-        WHERE to_timestamp($7) > now()
+        SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, to_timestamp($13)
+        WHERE to_timestamp($13) > now()
           AND EXISTS (SELECT 1 FROM quotes WHERE id = $1 AND status = 'requested')
         RETURNING quote_id`,
         [
@@ -135,7 +162,13 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
           reservation.user,
           reservation.tokenLow,
           reservation.tokenHigh,
+          reservation.tokenOut,
+          reservation.amountOut.toString(),
           reservation.notionalUsdE18.toString(),
+          reservation.treasuryLiquidity?.settlementAddress ?? null,
+          reservation.treasuryLiquidity?.treasuryAddress ?? null,
+          reservation.treasuryLiquidity?.availableBalance.toString() ?? null,
+          reservation.treasuryLiquidity?.blockNumber.toString() ?? null,
           reservation.deadline,
         ],
       );
@@ -177,6 +210,7 @@ function exposureLockScopes(reservation: NormalizedQuoteExposureReservation): st
     `quote-exposure:quote:${reservation.quoteId}`,
     `quote-exposure:user:${reservation.chainId}:${reservation.user}`,
     `quote-exposure:pair:${reservation.chainId}:${reservation.tokenLow}:${reservation.tokenHigh}`,
+    `quote-liquidity:${reservation.chainId}:${reservation.tokenOut}`,
   ];
 }
 
@@ -197,6 +231,7 @@ function normalizeReservationRow(row: Record<string, unknown>): NormalizedQuoteE
   const user = requireAddress(row.user_address, "user_address");
   const tokenLow = requireAddress(row.token_low, "token_low");
   const tokenHigh = requireAddress(row.token_high, "token_high");
+  const tokenOut = requireAddress(row.token_out, "token_out");
   const deadline = Number(row.deadline);
   if (!Number.isSafeInteger(deadline) || deadline <= 0) {
     throw new Error("Postgres quote exposure row.deadline must be a positive safe integer");
@@ -207,14 +242,50 @@ function normalizeReservationRow(row: Record<string, unknown>): NormalizedQuoteE
     user,
     tokenLow,
     tokenHigh,
+    tokenOut,
+    amountOut: parsePositiveInteger(row.amount_out, "amount_out"),
     notionalUsdE18: parseNonNegativeInteger(row.notional_usd_e18, "notional_usd_e18"),
     deadline,
+    ...normalizeOptionalLiquidityRow(row),
+  };
+}
+
+function normalizeOptionalLiquidityRow(
+  row: Record<string, unknown>,
+): Pick<NormalizedQuoteExposureReservation, "treasuryLiquidity"> | Record<string, never> {
+  const values = [
+    row.settlement_address,
+    row.treasury_address,
+    row.treasury_available_balance,
+    row.treasury_block_number,
+  ];
+  if (values.every((value) => value === null || value === undefined)) return {};
+  if (values.some((value) => value === null || value === undefined)) {
+    throw new Error("Postgres quote exposure treasury liquidity row is incomplete");
+  }
+  return {
+    treasuryLiquidity: {
+      settlementAddress: requireAddress(row.settlement_address, "settlement_address"),
+      treasuryAddress: requireAddress(row.treasury_address, "treasury_address"),
+      availableBalance: parseNonNegativeInteger(
+        row.treasury_available_balance,
+        "treasury_available_balance",
+      ),
+      blockNumber: parseNonNegativeInteger(row.treasury_block_number, "treasury_block_number"),
+    },
   };
 }
 
 function parseNonNegativeInteger(value: unknown, label: string): bigint {
   if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/.test(value)) {
     throw new Error(`Postgres quote exposure ${label} must be a canonical non-negative integer`);
+  }
+  return BigInt(value);
+}
+
+function parsePositiveInteger(value: unknown, label: string): bigint {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
+    throw new Error(`Postgres quote exposure ${label} must be a canonical positive integer`);
   }
   return BigInt(value);
 }

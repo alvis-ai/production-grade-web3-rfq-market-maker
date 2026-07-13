@@ -39,6 +39,10 @@ import {
 import type { RiskDecisionStore } from "../modules/risk/risk-decision.repository.js";
 import type { RiskEngine } from "../modules/risk/risk.engine.js";
 import type { QuoteExposureStore } from "../modules/risk/quote-exposure.store.js";
+import {
+  OnchainTreasuryLiquidityProvider,
+  type TreasuryLiquidityProvider,
+} from "../modules/risk/treasury-liquidity.provider.js";
 import type { RoutingEngine } from "../modules/routing/routing.engine.js";
 import type { SettlementEventStore } from "../modules/settlement/settlement-event.service.js";
 import {
@@ -90,6 +94,7 @@ const buildServerOptionFields = [
   "submitReservationLeaseMs",
   "submitReservationStore",
   "tokenRegistry",
+  "treasuryLiquidityProvider",
   "trustProxy",
 ] as const;
 const rateLimitOptionFields = ["windowMs", "maxQuoteRequests", "maxSubmitRequests", "maxStatusRequests"] as const;
@@ -115,6 +120,7 @@ export interface BuildServerOptions {
   submitReservationLeaseMs?: number;
   submitReservationStore?: SubmitReservationStore;
   tokenRegistry?: TokenRegistry;
+  treasuryLiquidityProvider?: TreasuryLiquidityProvider;
   rateLimit?: Partial<RateLimitConfig> | false;
   rateLimiter?: RateLimiter;
   quoteTtlSeconds?: number;
@@ -194,6 +200,13 @@ export function buildRuntimeSettlementEvidenceProvider(
     }
   }
   return new RuntimeSettlementEvidenceProvider(config, allowSimulatedSettlement);
+}
+
+export function buildRuntimeTreasuryLiquidityProvider(): TreasuryLiquidityProvider | undefined {
+  const config = parseReceiptExecutionConfig(
+    readOwnEnvValue(runtimeEnvironment(), "RFQ_RECEIPT_CONFIG_JSON"),
+  );
+  return config.chains.length === 0 ? undefined : new OnchainTreasuryLiquidityProvider(config);
 }
 
 export function resolveApiKeyAuthenticator(options: BuildServerOptions): ApiKeyAuthenticator | undefined {

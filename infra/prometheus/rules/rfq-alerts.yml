@@ -118,6 +118,24 @@ groups:
           summary: RFQ quote risk rejection volume is elevated
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQTreasuryLiquidityInsufficient
+        expr: sum(increase(rfq_quote_rejections_total{reason="TREASURY_LIQUIDITY_INSUFFICIENT"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ treasury output liquidity is insufficient for requested quotes
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQRiskDependencyUnavailable
+        expr: sum(increase(rfq_quote_rejections_total{reason="RISK_ENGINE_UNAVAILABLE"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ pre-sign risk or treasury evidence dependency is unavailable
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQSignerErrors
         expr: sum(increase(rfq_signer_errors_total[5m])) > 0
         for: 1m

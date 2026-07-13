@@ -4,10 +4,12 @@ import {
   requireTokenMetadata,
   type TokenRegistry,
 } from "../pricing/token-registry.js";
+import type { TreasuryLiquiditySnapshot } from "./treasury-liquidity.provider.js";
 
 export type QuoteExposureRejectReason =
   | "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED"
-  | "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED";
+  | "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED"
+  | "TREASURY_LIQUIDITY_INSUFFICIENT";
 
 export interface QuoteExposurePolicy {
   maxUserOpenNotionalUsd: string;
@@ -19,6 +21,7 @@ export interface ReserveQuoteExposureInput {
   request: QuoteRequest;
   pricing: PricingResult;
   deadline: number;
+  treasuryLiquidity?: TreasuryLiquiditySnapshot;
 }
 
 export type QuoteExposureReservationResult =
@@ -37,8 +40,16 @@ export interface NormalizedQuoteExposureReservation {
   user: `0x${string}`;
   tokenLow: `0x${string}`;
   tokenHigh: `0x${string}`;
+  tokenOut: `0x${string}`;
+  amountOut: bigint;
   notionalUsdE18: bigint;
   deadline: number;
+  treasuryLiquidity?: {
+    settlementAddress: `0x${string}`;
+    treasuryAddress: `0x${string}`;
+    availableBalance: bigint;
+    blockNumber: bigint;
+  };
 }
 
 type ActiveQuoteExposure = NormalizedQuoteExposureReservation;
@@ -79,6 +90,7 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
 
     let userOpenNotionalUsdE18 = 0n;
     let pairOpenNotionalUsdE18 = 0n;
+    let reservedOutputAmount = 0n;
     for (const active of this.reservations.values()) {
       if (active.chainId !== reservation.chainId) continue;
       if (active.user === reservation.user) {
@@ -87,6 +99,7 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
       if (active.tokenLow === reservation.tokenLow && active.tokenHigh === reservation.tokenHigh) {
         pairOpenNotionalUsdE18 += active.notionalUsdE18;
       }
+      if (active.tokenOut === reservation.tokenOut) reservedOutputAmount += active.amountOut;
     }
 
     if (userOpenNotionalUsdE18 + reservation.notionalUsdE18 > this.maxUserOpenNotionalUsdE18) {
@@ -94,6 +107,10 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
     }
     if (pairOpenNotionalUsdE18 + reservation.notionalUsdE18 > this.maxPairOpenNotionalUsdE18) {
       return { status: "rejected", reasonCode: "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED" };
+    }
+    if (reservation.treasuryLiquidity &&
+        reservedOutputAmount + reservation.amountOut > reservation.treasuryLiquidity.availableBalance) {
+      return { status: "rejected", reasonCode: "TREASURY_LIQUIDITY_INSUFFICIENT" };
     }
 
     this.reservations.set(reservation.quoteId, reservation);
@@ -143,7 +160,8 @@ export function normalizeQuoteExposureReservation(
 ): NormalizedQuoteExposureReservation {
   assertPositiveSafeInteger(nowSeconds, "Quote exposure current time");
   assertRecord(input, "Quote exposure reservation");
-  assertExactFields(input, ["quoteId", "request", "pricing", "deadline"], "Quote exposure reservation");
+  const inputFields = ["quoteId", "request", "pricing", "deadline"] as const;
+  assertExactFields(input, inputFields, "Quote exposure reservation", ["treasuryLiquidity"]);
   assertSafeIdentifier(input.quoteId, "Quote exposure reservation.quoteId");
   assertPositiveSafeInteger(input.deadline, "Quote exposure reservation.deadline");
   if (input.deadline <= nowSeconds || input.deadline > nowSeconds + maxReservationTtlSeconds) {
@@ -205,6 +223,9 @@ export function normalizeQuoteExposureReservation(
   }
   const notionalUsdE18 = usdNotionals.reduce((largest, current) => current > largest ? current : largest);
   const [tokenLow, tokenHigh] = [input.request.tokenIn.toLowerCase(), input.request.tokenOut.toLowerCase()].sort();
+  const treasuryLiquidity = input.treasuryLiquidity === undefined
+    ? undefined
+    : normalizeTreasuryLiquidity(input.treasuryLiquidity, input.request.chainId, input.request.tokenOut);
 
   return {
     quoteId: input.quoteId,
@@ -212,8 +233,11 @@ export function normalizeQuoteExposureReservation(
     user: input.request.user.toLowerCase() as `0x${string}`,
     tokenLow: tokenLow as `0x${string}`,
     tokenHigh: tokenHigh as `0x${string}`,
+    tokenOut: input.request.tokenOut.toLowerCase() as `0x${string}`,
+    amountOut: BigInt(input.pricing.amountOut),
     notionalUsdE18,
     deadline: input.deadline,
+    ...(treasuryLiquidity ? { treasuryLiquidity } : {}),
   };
 }
 
@@ -227,11 +251,47 @@ export function assertSameReservation(
     existing.user !== expected.user ||
     existing.tokenLow !== expected.tokenLow ||
     existing.tokenHigh !== expected.tokenHigh ||
+    existing.tokenOut !== expected.tokenOut ||
+    existing.amountOut !== expected.amountOut ||
     existing.notionalUsdE18 !== expected.notionalUsdE18 ||
     existing.deadline !== expected.deadline
   ) {
     throw new Error(`Quote exposure reservation conflict for ${expected.quoteId}`);
   }
+}
+
+function normalizeTreasuryLiquidity(
+  value: TreasuryLiquiditySnapshot,
+  expectedChainId: number,
+  expectedToken: `0x${string}`,
+): NonNullable<NormalizedQuoteExposureReservation["treasuryLiquidity"]> {
+  assertRecord(value, "Quote exposure treasury liquidity");
+  assertExactFields(
+    value,
+    ["chainId", "settlementAddress", "treasuryAddress", "token", "availableBalance", "blockNumber"],
+    "Quote exposure treasury liquidity",
+  );
+  assertPositiveSafeInteger(value.chainId, "Quote exposure treasury liquidity.chainId");
+  if (value.chainId !== expectedChainId) throw new Error("Quote exposure treasury liquidity chain does not match request");
+  assertAddress(value.settlementAddress, "Quote exposure treasury liquidity.settlementAddress");
+  assertAddress(value.treasuryAddress, "Quote exposure treasury liquidity.treasuryAddress");
+  assertAddress(value.token, "Quote exposure treasury liquidity.token");
+  if (value.token.toLowerCase() !== expectedToken.toLowerCase()) {
+    throw new Error("Quote exposure treasury liquidity token does not match request tokenOut");
+  }
+  if (typeof value.availableBalance !== "string" || !/^(0|[1-9][0-9]*)$/.test(value.availableBalance) ||
+      BigInt(value.availableBalance) > maxUint256) {
+    throw new Error("Quote exposure treasury liquidity.availableBalance must be a canonical uint256 string");
+  }
+  if (typeof value.blockNumber !== "bigint" || value.blockNumber < 0n) {
+    throw new Error("Quote exposure treasury liquidity.blockNumber must be a non-negative bigint");
+  }
+  return {
+    settlementAddress: value.settlementAddress.toLowerCase() as `0x${string}`,
+    treasuryAddress: value.treasuryAddress.toLowerCase() as `0x${string}`,
+    availableBalance: BigInt(value.availableBalance),
+    blockNumber: value.blockNumber,
+  };
 }
 
 function toUsdE18(amount: string, decimals: number): bigint {
@@ -257,13 +317,23 @@ function assertRecord(value: unknown, label: string): asserts value is Record<st
   }
 }
 
-function assertExactFields(value: Record<string, unknown>, fields: readonly string[], label: string): void {
-  const expected = new Set(fields);
+function assertExactFields(
+  value: Record<string, unknown>,
+  fields: readonly string[],
+  label: string,
+  optionalFields: readonly string[] = [],
+): void {
+  const expected = new Set([...fields, ...optionalFields]);
   for (const field of Object.keys(value)) {
     if (!expected.has(field)) throw new Error(`${label} must not include unknown field ${field}`);
   }
   for (const field of fields) {
     if (!Object.prototype.hasOwnProperty.call(value, field)) throw new Error(`${label}.${field} must be an own field`);
+  }
+  for (const field of optionalFields) {
+    if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`${label}.${field} must be an own field when provided`);
+    }
   }
 }
 

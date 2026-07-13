@@ -10,10 +10,13 @@ const files = Object.fromEntries(await Promise.all([
   "backend/src/modules/risk/token-limit-risk.engine.ts",
   "backend/src/modules/risk/quote-exposure.store.ts",
   "backend/src/modules/risk/postgres-quote-exposure.store.ts",
+  "backend/src/modules/risk/treasury-liquidity.provider.ts",
   "backend/src/modules/quote/quote.service.ts",
   "backend/src/modules/health/readiness.service.ts",
   "backend/test/token-limit-risk.test.mjs",
   "backend/test/api-risk-policy-runtime.test.mjs",
+  "backend/test/api-risk.test.mjs",
+  "backend/test/readiness.test.mjs",
   "backend/test/quote-exposure-store.test.mjs",
   "backend/test/postgres-quote-exposure-store.test.mjs",
   ".env.example",
@@ -82,6 +85,9 @@ assertContains("backend/src/modules/risk/quote-exposure.store.ts", [
   "class InMemoryQuoteExposureStore",
   "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED",
   "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED",
+  "TREASURY_LIQUIDITY_INSUFFICIENT",
+  "reservedOutputAmount",
+  "treasuryLiquidity.availableBalance",
   "toUsdE18",
   "tokenLow",
   "deadline",
@@ -92,9 +98,18 @@ assertContains("backend/src/modules/risk/postgres-quote-exposure.store.ts", [
   "for (const scope of scopes)",
   "expires_at > now()",
   "quote.status IN ('requested', 'signed', 'failed')",
-  "WHERE to_timestamp($7) > now()",
+  "WHERE to_timestamp($13) > now()",
   "FOR UPDATE SKIP LOCKED",
   "SUM(exposure.notional_usd_e18)",
+  "SUM(amount_out)",
+  "quote-liquidity:",
+]);
+assertContains("backend/src/modules/risk/treasury-liquidity.provider.ts", [
+  "class OnchainTreasuryLiquidityProvider",
+  "getBlockNumber",
+  "readTreasury",
+  "readTokenBalance",
+  "blockNumber",
 ]);
 assertContains("backend/test/token-limit-risk.test.mjs", [
   "scopes token authorization by chain and address",
@@ -112,6 +127,15 @@ assertContains("backend/test/api-risk-policy-runtime.test.mjs", [
   "cumulative user and pair open quote notional",
   'assert.equal(decision.policyVersion, "weth-usdc-risk-v1")',
   "unknown-token, and incomplete risk policies",
+]);
+assertContains("backend/test/api-risk.test.mjs", [
+  "observed treasury tokenOut liquidity before signing",
+  "fails closed when treasury liquidity cannot be observed",
+  "TREASURY_LIQUIDITY_INSUFFICIENT",
+  "RISK_ENGINE_UNAVAILABLE",
+]);
+assertContains("backend/test/readiness.test.mjs", [
+  "degrades risk when the treasury liquidity RPC is unavailable",
 ]);
 assertContains("backend/test/quote-exposure-store.test.mjs", [
   "exact user open-notional boundaries",
