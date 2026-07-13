@@ -1,5 +1,11 @@
 import type { Address } from "../../shared/types/rfq.js";
 import {
+  ConfiguredTokenRegistry,
+  requireTokenMetadata,
+  type TokenMetadata,
+  type TokenRegistry,
+} from "../pricing/token-registry.js";
+import {
   assertRiskInput,
   type RiskDecision,
   type RiskEngine,
@@ -13,6 +19,7 @@ export interface TokenRiskLimit {
   tokenAddress: Address;
   maxAmountIn: string;
   minAmountOut: string;
+  maxNotionalUsd: string;
   maxAbsoluteInventory: string;
 }
 
@@ -31,7 +38,9 @@ interface ParsedTokenRiskLimit {
   config: TokenRiskLimit;
   maxAmountIn: bigint;
   minAmountOut: bigint;
+  maxNotionalUsd: bigint;
   maxAbsoluteInventory: bigint;
+  metadata: TokenMetadata;
 }
 
 export const defaultTokenLimitRiskPolicy: TokenLimitRiskPolicy = {
@@ -43,6 +52,7 @@ export const defaultTokenLimitRiskPolicy: TokenLimitRiskPolicy = {
       tokenAddress: "0x0000000000000000000000000000000000000002",
       maxAmountIn: "1000000000000000000000",
       minAmountOut: "1",
+      maxNotionalUsd: "1000000",
       maxAbsoluteInventory: "10000000000000000000000",
     },
     {
@@ -50,6 +60,7 @@ export const defaultTokenLimitRiskPolicy: TokenLimitRiskPolicy = {
       tokenAddress: "0x0000000000000000000000000000000000000003",
       maxAmountIn: "1000000000000000000000",
       minAmountOut: "1",
+      maxNotionalUsd: "1000000",
       maxAbsoluteInventory: "10000000000000000000000",
     },
   ],
@@ -75,6 +86,7 @@ const tokenLimitFields = [
   "tokenAddress",
   "maxAmountIn",
   "minAmountOut",
+  "maxNotionalUsd",
   "maxAbsoluteInventory",
 ] as const;
 const toxicFlowScoreFields = ["user", "scoreBps"] as const;
@@ -90,7 +102,10 @@ export class TokenLimitRiskEngine implements RiskEngine {
   private readonly restrictedUsers: ReadonlySet<string>;
   private readonly toxicFlowScores: ReadonlyMap<string, number>;
 
-  constructor(policy: TokenLimitRiskPolicy = defaultTokenLimitRiskPolicy) {
+  constructor(
+    policy: TokenLimitRiskPolicy = defaultTokenLimitRiskPolicy,
+    tokenRegistry: TokenRegistry = new ConfiguredTokenRegistry(),
+  ) {
     assertTokenLimitRiskPolicy(policy);
     this.policy = cloneTokenLimitRiskPolicy(policy);
     this.enabledChainIds = new Set(this.policy.enabledChainIds);
@@ -100,7 +115,9 @@ export class TokenLimitRiskEngine implements RiskEngine {
         config: { ...limit },
         maxAmountIn: BigInt(limit.maxAmountIn),
         minAmountOut: BigInt(limit.minAmountOut),
+        maxNotionalUsd: BigInt(limit.maxNotionalUsd),
         maxAbsoluteInventory: BigInt(limit.maxAbsoluteInventory),
+        metadata: requireTokenMetadata(tokenRegistry, limit.chainId, limit.tokenAddress, "Risk policy"),
       },
     ]));
     this.restrictedUsers = new Set(this.policy.restrictedUsers.map((user) => user.toLowerCase()));
@@ -129,6 +146,23 @@ export class TokenLimitRiskEngine implements RiskEngine {
     if (BigInt(input.pricing.amountOut) < tokenOutLimit.minAmountOut) {
       return this.reject("AMOUNT_OUT_TOO_SMALL");
     }
+
+    const maxNotionalUsd = min(tokenInLimit.maxNotionalUsd, tokenOutLimit.maxNotionalUsd);
+    let hasUsdReference = false;
+    if (tokenInLimit.metadata.usdReference) {
+      hasUsdReference = true;
+      if (exceedsUsdNotional(input.request.amountIn, tokenInLimit.metadata.decimals, maxNotionalUsd)) {
+        return this.reject("QUOTE_NOTIONAL_LIMIT_EXCEEDED");
+      }
+    }
+    if (tokenOutLimit.metadata.usdReference) {
+      hasUsdReference = true;
+      if (exceedsUsdNotional(input.pricing.amountOut, tokenOutLimit.metadata.decimals, maxNotionalUsd)) {
+        return this.reject("QUOTE_NOTIONAL_LIMIT_EXCEEDED");
+      }
+    }
+    if (!hasUsdReference) return this.reject("USD_REFERENCE_REQUIRED");
+
     if (this.restrictedUsers.has(input.request.user.toLowerCase())) {
       return this.reject("TOXIC_FLOW_RESTRICTED_USER");
     }
@@ -206,6 +240,7 @@ function assertTokenLimits(value: unknown, enabledChainIds: ReadonlySet<number>)
     assertAddress(entry.tokenAddress, "Token risk limit.tokenAddress");
     assertPositiveUint256String(entry.maxAmountIn, "Token risk limit.maxAmountIn");
     assertPositiveUint256String(entry.minAmountOut, "Token risk limit.minAmountOut");
+    assertPositiveUint256String(entry.maxNotionalUsd, "Token risk limit.maxNotionalUsd");
     assertPositiveUint256String(entry.maxAbsoluteInventory, "Token risk limit.maxAbsoluteInventory");
     const key = tokenLimitKey(entry.chainId, entry.tokenAddress);
     if (seen.has(key)) throw new Error("Token limit risk policy must not contain duplicate chain/token limits");
@@ -284,6 +319,14 @@ function tokenLimitKey(chainId: number, tokenAddress: string): string {
 
 function abs(value: bigint): bigint {
   return value < 0n ? -value : value;
+}
+
+function min(left: bigint, right: bigint): bigint {
+  return left < right ? left : right;
+}
+
+function exceedsUsdNotional(amount: string, decimals: number, maxNotionalUsd: bigint): boolean {
+  return BigInt(amount) > maxNotionalUsd * (10n ** BigInt(decimals));
 }
 
 function assertRecord(value: unknown, label: string): asserts value is Record<string, unknown> {

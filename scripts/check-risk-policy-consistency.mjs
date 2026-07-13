@@ -34,6 +34,7 @@ for (const path of [
     "tokenLimits",
     "maxAmountIn",
     "minAmountOut",
+    "maxNotionalUsd",
     "maxAbsoluteInventory",
   ]);
 }
@@ -43,6 +44,7 @@ assertContains("backend/src/main.ts", [
   "buildDefaultRiskEngine",
   "Risk policy has no tokenIn limit for managed pair",
   "Risk policy has no tokenOut limit for managed pair",
+  "must include at least one USD-reference token",
   "requireTokenMetadata(tokenRegistry, limit.chainId, limit.tokenAddress, \"Risk policy\")",
 ]);
 assertContains("backend/src/modules/risk/token-limit-risk.engine.ts", [
@@ -51,6 +53,10 @@ assertContains("backend/src/modules/risk/token-limit-risk.engine.ts", [
   "tokenLimitKey(input.request.chainId, input.request.tokenOut)",
   "tokenInLimit.maxAmountIn",
   "tokenOutLimit.minAmountOut",
+  "min(tokenInLimit.maxNotionalUsd, tokenOutLimit.maxNotionalUsd)",
+  "QUOTE_NOTIONAL_LIMIT_EXCEEDED",
+  "USD_REFERENCE_REQUIRED",
+  "10n ** BigInt(decimals)",
   "tokenInLimit.maxAbsoluteInventory",
   "tokenOutLimit.maxAbsoluteInventory",
   "canonical positive uint256 string",
@@ -59,11 +65,14 @@ assertContains("backend/src/modules/risk/token-limit-risk.engine.ts", [
 assertContains("backend/test/token-limit-risk.test.mjs", [
   "scopes token authorization by chain and address",
   "input and output token-specific amount limits",
+  "smaller token USD notional limit across decimals",
+  "pair has no USD-reference token",
   "each projected inventory limit in that token's raw units",
   "duplicate chain\\/token limits",
 ]);
 assertContains("backend/test/api-risk-policy-runtime.test.mjs", [
   "configured chain/token limits to a cross-decimals quote",
+  "cross-decimals quote above its USD notional limit",
   'assert.equal(decision.policyVersion, "weth-usdc-risk-v1")',
   "unknown-token, and incomplete risk policies",
 ]);
@@ -72,15 +81,17 @@ assertContains("book/Volume3-RiskEngine/Chapter05-Position-Limits.md", [
   "`(chainId, tokenAddress)`",
   "USDC 6 decimals",
   "WETH 18 decimals",
+  "maxNotionalUsd",
 ]);
 assertContains("book/Volume5-BackendEngineering/Chapter04-Risk-Service.md", [
   "`TokenLimitRiskEngine`",
   "`RFQ_RISK_POLICY_JSON`",
   "cross-chain address isolation",
   "policy/registry mismatch",
+  "BigInt",
 ]);
 
-console.log("Risk policy consistency check passed: chain-scoped limits and 5 runtime config surfaces");
+console.log("Risk policy consistency check passed: chain-scoped raw-unit and USD-notional limits across 5 runtime config surfaces");
 
 function assertContains(path, needles) {
   for (const needle of needles) {

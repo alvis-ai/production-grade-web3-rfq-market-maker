@@ -800,6 +800,7 @@ grep -q 'releaseSubmitReservationBestEffort(submitReservationStore, metricsServi
 test -s backend/src/modules/execution/submit-reservation.store.ts
 test -s backend/src/modules/execution/postgres-submit-reservation.store.ts
 test -s backend/src/db/migrations/008-submit-reservations.sql
+test -s backend/src/db/migrations/009-risk-notional-reasons.sql
 test -s backend/test/submit-reservation-store.test.mjs
 test -s backend/test/postgres-submit-reservation-store.test.mjs
 test -s backend/test/api-submit-reservation.test.mjs

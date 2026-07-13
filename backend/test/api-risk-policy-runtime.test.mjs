@@ -115,7 +115,72 @@ test("RFQ API fails startup on malformed, unknown-token, and incomplete risk pol
     incompletePolicy.tokenLimits = incompletePolicy.tokenLimits.slice(0, 1);
     process.env.RFQ_RISK_POLICY_JSON = JSON.stringify(incompletePolicy);
     assert.throws(() => buildServer({ logger: false }), /no tokenOut limit for managed pair/);
+
+    const noUsdRegistry = tokenRegistry();
+    noUsdRegistry.tokens = noUsdRegistry.tokens.map((token) => ({ ...token, usdReference: false }));
+    process.env.RFQ_TOKEN_REGISTRY_JSON = JSON.stringify(noUsdRegistry);
+    process.env.RFQ_RISK_POLICY_JSON = JSON.stringify(riskPolicy());
+    assert.throws(() => buildServer({
+      logger: false,
+      pricingEngine: {
+        async price() {
+          throw new Error("not used during startup");
+        },
+      },
+    }), /must include at least one USD-reference token/);
   } finally {
+    restoreEnv("RFQ_TOKEN_REGISTRY_JSON", originalRegistry);
+    restoreEnv("RFQ_RISK_POLICY_JSON", originalPolicy);
+  }
+});
+
+test("RFQ API rejects a cross-decimals quote above its USD notional limit", async () => {
+  const originalRegistry = process.env.RFQ_TOKEN_REGISTRY_JSON;
+  const originalPolicy = process.env.RFQ_RISK_POLICY_JSON;
+  process.env.RFQ_TOKEN_REGISTRY_JSON = JSON.stringify(tokenRegistry());
+  const configuredPolicy = riskPolicy();
+  configuredPolicy.tokenLimits = configuredPolicy.tokenLimits.map((limit) => ({
+    ...limit,
+    maxNotionalUsd: "1500",
+  }));
+  process.env.RFQ_RISK_POLICY_JSON = JSON.stringify(configuredPolicy);
+  const server = buildServer({
+    logger: false,
+    marketDataService: {
+      async getSnapshot() {
+        return {
+          snapshotId: "snapshot_notional_limit",
+          midPrice: "2000",
+          liquidityUsd: "50000000",
+          volatilityBps: 25,
+          observedAt: new Date().toISOString(),
+        };
+      },
+    },
+  });
+
+  try {
+    await server.ready();
+    const response = await server.inject({
+      method: "POST",
+      url: "/quote",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({
+        chainId: 1,
+        user,
+        tokenIn: weth,
+        tokenOut: usdc,
+        amountIn: "1000000000000000000",
+        slippageBps: 50,
+      }),
+    });
+
+    assert.equal(response.statusCode, 409, response.payload);
+    assert.equal(JSON.parse(response.payload).code, "RISK_REJECTED");
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="QUOTE_NOTIONAL_LIMIT_EXCEEDED"\} 1/);
+  } finally {
+    await server.close();
     restoreEnv("RFQ_TOKEN_REGISTRY_JSON", originalRegistry);
     restoreEnv("RFQ_RISK_POLICY_JSON", originalPolicy);
   }
@@ -156,6 +221,7 @@ function riskPolicy() {
         tokenAddress: weth,
         maxAmountIn: "10000000000000000000",
         minAmountOut: "1",
+        maxNotionalUsd: "2500",
         maxAbsoluteInventory: "100000000000000000000",
       },
       {
@@ -163,6 +229,7 @@ function riskPolicy() {
         tokenAddress: usdc,
         maxAmountIn: "1000000000000",
         minAmountOut: "1",
+        maxNotionalUsd: "2500",
         maxAbsoluteInventory: "10000000000000",
       },
     ],

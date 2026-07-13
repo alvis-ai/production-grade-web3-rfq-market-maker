@@ -153,7 +153,7 @@ export function buildDefaultRiskEngine(
     requireTokenMetadata(tokenRegistry, limit.chainId, limit.tokenAddress, "Risk policy");
   }
 
-  const engine = new TokenLimitRiskEngine(policy);
+  const engine = new TokenLimitRiskEngine(policy, tokenRegistry);
   const inspected = new Set<string>();
   for (const pair of managedPairs) {
     const key = `${pair.chainId}:${pair.tokenIn.toLowerCase()}:${pair.tokenOut.toLowerCase()}`;
@@ -164,6 +164,11 @@ export function buildDefaultRiskEngine(
     }
     if (!engine.getTokenLimit(pair.chainId, pair.tokenOut)) {
       throw new Error(`Risk policy has no tokenOut limit for managed pair ${key}`);
+    }
+    const tokenIn = requireTokenMetadata(tokenRegistry, pair.chainId, pair.tokenIn, "Risk policy managed pair tokenIn");
+    const tokenOut = requireTokenMetadata(tokenRegistry, pair.chainId, pair.tokenOut, "Risk policy managed pair tokenOut");
+    if (!tokenIn.usdReference && !tokenOut.usdReference) {
+      throw new Error(`Risk policy managed pair ${key} must include at least one USD-reference token`);
     }
   }
   return engine;

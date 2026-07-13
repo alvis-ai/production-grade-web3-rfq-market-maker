@@ -101,7 +101,7 @@ stateDiagram-v2
 
 ## Data Model
 
-`RiskLimitPolicy` 的完整目标包含 `policyVersion`、`chainId`、`tokenAddress`、`maxPosition`、`softPosition`、`maxNotionalUsd`、`maxUserNotionalUsd`、`maxQuotedSpreadBps`、`enabled`。当前默认后端已落地 `TokenLimitRiskPolicy`：`enabledChainIds` 定义 chain gate，`tokenLimits` 以 `(chainId, tokenAddress)` 唯一键分别保存 canonical uint256 `maxAmountIn`、`minAmountOut` 和 `maxAbsoluteInventory`，公共字段保存 slippage/spread/toxic-flow 上限。Quote Service 把 projected tokenIn/tokenOut position 传给 Risk Engine；任一余额按对应 token raw-unit hard limit 超限，或最终 quoted spread 超过 policy，都会拒绝签名。后续再扩展数据库驱动的 USD notional、pair/user 和 portfolio 限额。
+`RiskLimitPolicy` 的完整目标包含 `policyVersion`、`chainId`、`tokenAddress`、`maxPosition`、`softPosition`、`maxNotionalUsd`、`maxUserNotionalUsd`、`maxQuotedSpreadBps`、`enabled`。当前默认后端已落地 `TokenLimitRiskPolicy`：`enabledChainIds` 定义 chain gate，`tokenLimits` 以 `(chainId, tokenAddress)` 唯一键分别保存 canonical uint256 `maxAmountIn`、`minAmountOut`、整数美元 `maxNotionalUsd` 和 `maxAbsoluteInventory`，公共字段保存 slippage/spread/toxic-flow 上限。Quote Service 把 projected tokenIn/tokenOut position 传给 Risk Engine；任一余额按对应 token raw-unit hard limit 超限、USD-reference 一侧按可信 decimals 计算出的单笔名义金额超过两侧较小上限，或最终 quoted spread 超过 policy，都会拒绝签名。没有 USD-reference 的 managed pair 在启动时失败，避免把非稳定币 raw units 当成美元。后续再扩展数据库驱动的累计 pair/user 和 portfolio 限额。
 
 ## API Design
 

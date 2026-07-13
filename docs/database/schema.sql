@@ -251,6 +251,8 @@ CREATE TABLE risk_decisions (
         'TOKEN_NOT_ALLOWED',
         'AMOUNT_IN_LIMIT_EXCEEDED',
         'AMOUNT_OUT_TOO_SMALL',
+        'QUOTE_NOTIONAL_LIMIT_EXCEEDED',
+        'USD_REFERENCE_REQUIRED',
         'SLIPPAGE_TOO_WIDE',
         'QUOTED_SPREAD_TOO_WIDE',
         'TOXIC_FLOW_RESTRICTED_USER',
@@ -1094,4 +1096,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('005', 'post-trade-reconciliation'),
   ('006', 'quote-snapshot-pnl'),
   ('007', 'settlement-indexer'),
-  ('008', 'submit-reservations');
+  ('008', 'submit-reservations'),
+  ('009', 'risk-notional-reasons');

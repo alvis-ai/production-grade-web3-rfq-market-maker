@@ -33,6 +33,10 @@ const submitReservationMigrationSource = await readFile(
   "backend/src/db/migrations/008-submit-reservations.sql",
   "utf8",
 );
+const riskNotionalMigrationSource = await readFile(
+  "backend/src/db/migrations/009-risk-notional-reasons.sql",
+  "utf8",
+);
 const postgresSettlementSource = await readFile("backend/src/modules/settlement/postgres-settlement-event.store.ts", "utf8");
 const postgresInventorySource = await readFile("backend/src/modules/inventory/postgres-inventory.service.ts", "utf8");
 const postgresHedgeSource = await readFile("backend/src/modules/hedge/postgres-hedge.service.ts", "utf8");
@@ -1128,6 +1132,13 @@ assert.ok(
     submitReservationMigrationSource.includes("idx_quote_submit_reservations_expiry") &&
     schemaSource.includes("('008', 'submit-reservations')"),
   "submit reservation migration must install quote-scoped expiring ownership",
+);
+assert.ok(
+  riskNotionalMigrationSource.includes("DROP CONSTRAINT IF EXISTS chk_risk_decisions_reason_code_consistency") &&
+    riskNotionalMigrationSource.includes("QUOTE_NOTIONAL_LIMIT_EXCEEDED") &&
+    riskNotionalMigrationSource.includes("USD_REFERENCE_REQUIRED") &&
+    schemaSource.includes("('009', 'risk-notional-reasons')"),
+  "risk notional migration must extend the durable risk rejection contract",
 );
 assert.ok(
   settlementIndexerStoreSource.includes("lease_expires_at > now()") &&

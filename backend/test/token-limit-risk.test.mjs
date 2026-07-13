@@ -5,6 +5,7 @@ import {
   defaultTokenLimitRiskPolicy,
   parseTokenLimitRiskPolicy,
 } from "../dist/modules/risk/token-limit-risk.engine.js";
+import { ConfiguredTokenRegistry } from "../dist/modules/pricing/token-registry.js";
 
 const user = "0x0000000000000000000000000000000000000001";
 const tokenA = "0x0000000000000000000000000000000000000002";
@@ -21,7 +22,12 @@ test("TokenLimitRiskEngine scopes token authorization by chain and address", asy
       limit(10, tokenC, "100", "1", "1000"),
       limit(10, tokenD, "100", "1", "1000"),
     ],
-  }));
+  }), tokenRegistry([
+    token(1, tokenA, 18, true),
+    token(1, tokenB, 6, true),
+    token(10, tokenC, 18, false),
+    token(10, tokenD, 6, true),
+  ]));
 
   assert.deepEqual(await engine.evaluate(riskInput({ chainId: 99 })), {
     status: "rejected",
@@ -47,6 +53,60 @@ test("TokenLimitRiskEngine applies input and output token-specific amount limits
   assert.equal((await engine.evaluate(riskInput({ amountIn: "101" }))).reasonCode, "AMOUNT_IN_LIMIT_EXCEEDED");
   assert.equal((await engine.evaluate(riskInput({ amountOut: "49", minAmountOut: "49" }))).reasonCode, "AMOUNT_OUT_TOO_SMALL");
   assert.equal((await engine.evaluate(riskInput({ amountIn: "100", amountOut: "50", minAmountOut: "49" }))).status, "approved");
+});
+
+test("TokenLimitRiskEngine enforces the smaller token USD notional limit across decimals", async () => {
+  const registry = tokenRegistry([
+    token(1, tokenA, 18, false),
+    token(1, tokenB, 6, true),
+  ]);
+  const engine = new TokenLimitRiskEngine(policy({
+    tokenLimits: [
+      limit(1, tokenA, "10000000000000000000", "1", "100000000000000000000", "1500"),
+      limit(1, tokenB, "10000000000", "1", "10000000000", "2000"),
+    ],
+  }), registry);
+
+  assert.equal((await engine.evaluate(riskInput({
+    amountIn: "1000000000000000000",
+    amountOut: "1500000000",
+    minAmountOut: "1490000000",
+  }))).status, "approved");
+  assert.equal((await engine.evaluate(riskInput({
+    amountIn: "1000000000000000000",
+    amountOut: "1500000001",
+    minAmountOut: "1490000000",
+  }))).reasonCode, "QUOTE_NOTIONAL_LIMIT_EXCEEDED");
+
+  const reverse = new TokenLimitRiskEngine(policy({
+    tokenLimits: [
+      limit(1, tokenA, "10000000000000000000", "1", "100000000000000000000", "2000"),
+      limit(1, tokenB, "10000000000", "1", "10000000000", "2000"),
+    ],
+  }), registry);
+  assert.equal((await reverse.evaluate(riskInput({
+    tokenIn: tokenB,
+    tokenOut: tokenA,
+    amountIn: "2000000001",
+    amountOut: "1000000000000000000",
+    minAmountOut: "990000000000000000",
+  }))).reasonCode, "QUOTE_NOTIONAL_LIMIT_EXCEEDED");
+  assert.equal((await reverse.evaluate(riskInput({
+    tokenIn: tokenB,
+    tokenOut: tokenA,
+    amountIn: "2000000000",
+    amountOut: "1000000000000000000",
+    minAmountOut: "990000000000000000",
+  }))).status, "approved");
+});
+
+test("TokenLimitRiskEngine fails closed when a pair has no USD-reference token", async () => {
+  const engine = new TokenLimitRiskEngine(policy(), tokenRegistry([
+    token(1, tokenA, 18, false),
+    token(1, tokenB, 6, false),
+  ]));
+
+  assert.equal((await engine.evaluate(riskInput())).reasonCode, "USD_REFERENCE_REQUIRED");
 });
 
 test("TokenLimitRiskEngine applies each projected inventory limit in that token's raw units", async () => {
@@ -90,11 +150,14 @@ test("TokenLimitRiskEngine snapshots policy and returns defensive token limits",
   mutable.policyVersion = "mutated";
   mutable.enabledChainIds.length = 0;
   mutable.tokenLimits[0].maxAmountIn = "1";
+  mutable.tokenLimits[0].maxNotionalUsd = "1";
   mutable.restrictedUsers.push(user);
 
   const exposed = engine.getTokenLimit(1, tokenA);
   exposed.maxAmountIn = "1";
+  exposed.maxNotionalUsd = "1";
   assert.equal(engine.getTokenLimit(1, tokenA).maxAmountIn, "1000");
+  assert.equal(engine.getTokenLimit(1, tokenA).maxNotionalUsd, "1000000");
   assert.deepEqual(await engine.evaluate(riskInput()), {
     status: "approved",
     policyVersion: "token-limit-test-v1",
@@ -148,6 +211,13 @@ test("parseTokenLimitRiskPolicy rejects ambiguous and unsafe runtime configurati
     /canonical positive uint256 string/,
   );
   assert.throws(
+    () => parseTokenLimitRiskPolicy(JSON.stringify({
+      ...valid,
+      tokenLimits: [{ ...valid.tokenLimits[0], maxNotionalUsd: "01" }],
+    })),
+    /maxNotionalUsd must be a canonical positive uint256 string/,
+  );
+  assert.throws(
     () => new TokenLimitRiskEngine(Object.create(defaultTokenLimitRiskPolicy)),
     /policyVersion must be an own field/,
   );
@@ -170,8 +240,24 @@ function policy(overrides = {}) {
   };
 }
 
-function limit(chainId, tokenAddress, maxAmountIn, minAmountOut, maxAbsoluteInventory) {
-  return { chainId, tokenAddress, maxAmountIn, minAmountOut, maxAbsoluteInventory };
+function limit(chainId, tokenAddress, maxAmountIn, minAmountOut, maxAbsoluteInventory, maxNotionalUsd = "1000000") {
+  return { chainId, tokenAddress, maxAmountIn, minAmountOut, maxNotionalUsd, maxAbsoluteInventory };
+}
+
+function tokenRegistry(tokens) {
+  return new ConfiguredTokenRegistry({ tokens });
+}
+
+function token(chainId, tokenAddress, decimals, usdReference) {
+  return {
+    chainId,
+    tokenAddress,
+    symbol: `T${tokenAddress.slice(-2)}`,
+    decimals,
+    isWhitelisted: true,
+    riskTier: "medium",
+    usdReference,
+  };
 }
 
 function riskInput({
