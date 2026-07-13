@@ -15,6 +15,7 @@ import {
   type MarketDataService,
 } from "../modules/market-data/market-data.service.js";
 import type { OrderBookPairConfig } from "../modules/market-data/cex-orderbook/orderbook.js";
+import { pairKey } from "../modules/market-data/price-cache.js";
 import {
   defaultFormulaPricingConfig,
   FormulaPricingEngine,
@@ -41,6 +42,7 @@ import {
 } from "../modules/risk/token-limit-risk.engine.js";
 import {
   readDecimalIntegerConfig,
+  readOptionalBoolean,
   readOwnEnvValue,
   requiresExplicitRuntimeConfig,
   runtimeEnvironment,
@@ -262,57 +264,84 @@ export function readCexOrderBookPairs(): OrderBookPairConfig[] {
 export function readCexOrderBookConfig(pairs: OrderBookPairConfig[]) {
   const env = runtimeEnvironment();
   const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
+  const requireLiveBook = readOptionalBoolean(
+    readOwnEnvValue(env, "RFQ_CEX_REQUIRE_LIVE_BOOK"),
+    requiresExplicitRuntimeConfig(nodeEnv),
+    "RFQ_CEX_REQUIRE_LIVE_BOOK",
+  );
+  if (pairs.length > 0 && requiresExplicitRuntimeConfig(nodeEnv) && !requireLiveBook &&
+      readOwnEnvValue(env, "RFQ_MARKET_DATA_PROVIDER")?.trim() !== "chainlink") {
+    throw new Error(
+      "RFQ_CEX_REQUIRE_LIVE_BOOK=false requires RFQ_MARKET_DATA_PROVIDER=chainlink outside local environments",
+    );
+  }
   return {
-    pairs,
-    depthRangeBps: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_DEPTH_RANGE_BPS"), {
-      defaultValue: 50,
-      min: 1,
-      max: 10_000,
-      name: "RFQ_CEX_DEPTH_RANGE_BPS",
-    }),
-    flushIntervalMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_FLUSH_INTERVAL_MS"), {
-      defaultValue: 100,
-      min: 50,
-      max: 60_000,
-      name: "RFQ_CEX_FLUSH_INTERVAL_MS",
-    }),
-    volatilitySampleSize: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_VOLATILITY_SAMPLE_SIZE"), {
-      defaultValue: 10,
-      min: 3,
-      max: 10_000,
-      name: "RFQ_CEX_VOLATILITY_SAMPLE_SIZE",
-    }),
-    maxSourceAgeMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_SOURCE_AGE_MS"), {
-      defaultValue: 2_000,
-      min: 100,
-      max: 60_000,
-      name: "RFQ_CEX_MAX_SOURCE_AGE_MS",
-    }),
-    maxFutureSkewMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_FUTURE_SKEW_MS"), {
-      defaultValue: 1_000,
-      min: 0,
-      max: 60_000,
-      name: "RFQ_CEX_MAX_FUTURE_SKEW_MS",
-    }),
-    minSources: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MIN_SOURCES"), {
-      defaultValue: requiresExplicitRuntimeConfig(nodeEnv) ? 2 : 1,
-      min: 1,
-      max: 10,
-      name: "RFQ_CEX_MIN_SOURCES",
-    }),
-    maxSourceDeviationBps: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_SOURCE_DEVIATION_BPS"), {
-      defaultValue: 100,
-      min: 1,
-      max: 10_000,
-      name: "RFQ_CEX_MAX_SOURCE_DEVIATION_BPS",
-    }),
-    maxSpreadBps: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_SPREAD_BPS"), {
-      defaultValue: 100,
-      min: 1,
-      max: 10_000,
-      name: "RFQ_CEX_MAX_SPREAD_BPS",
-    }),
+    monitor: {
+      pairs,
+      depthRangeBps: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_DEPTH_RANGE_BPS"), {
+        defaultValue: 50,
+        min: 1,
+        max: 10_000,
+        name: "RFQ_CEX_DEPTH_RANGE_BPS",
+      }),
+      flushIntervalMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_FLUSH_INTERVAL_MS"), {
+        defaultValue: 100,
+        min: 50,
+        max: 60_000,
+        name: "RFQ_CEX_FLUSH_INTERVAL_MS",
+      }),
+      volatilitySampleSize: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_VOLATILITY_SAMPLE_SIZE"), {
+        defaultValue: 10,
+        min: 3,
+        max: 10_000,
+        name: "RFQ_CEX_VOLATILITY_SAMPLE_SIZE",
+      }),
+      maxSourceAgeMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_SOURCE_AGE_MS"), {
+        defaultValue: 2_000,
+        min: 100,
+        max: 60_000,
+        name: "RFQ_CEX_MAX_SOURCE_AGE_MS",
+      }),
+      maxFutureSkewMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_FUTURE_SKEW_MS"), {
+        defaultValue: 1_000,
+        min: 0,
+        max: 60_000,
+        name: "RFQ_CEX_MAX_FUTURE_SKEW_MS",
+      }),
+      minSources: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MIN_SOURCES"), {
+        defaultValue: requiresExplicitRuntimeConfig(nodeEnv) ? 2 : 1,
+        min: 1,
+        max: 10,
+        name: "RFQ_CEX_MIN_SOURCES",
+      }),
+      maxSourceDeviationBps: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_SOURCE_DEVIATION_BPS"), {
+        defaultValue: 100,
+        min: 1,
+        max: 10_000,
+        name: "RFQ_CEX_MAX_SOURCE_DEVIATION_BPS",
+      }),
+      maxSpreadBps: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_SPREAD_BPS"), {
+        defaultValue: 100,
+        min: 1,
+        max: 10_000,
+        name: "RFQ_CEX_MAX_SPREAD_BPS",
+      }),
+    },
+    requireLiveBook,
   };
+}
+
+export function buildRequiredCexCacheKeys(
+  pairs: readonly OrderBookPairConfig[],
+  requireLiveBook: boolean,
+): string[] {
+  if (!requireLiveBook) return [];
+  const keys = new Set<string>();
+  for (const pair of pairs) {
+    keys.add(pairKey(pair.chainId, pair.tokenIn, pair.tokenOut));
+    keys.add(pairKey(pair.chainId, pair.tokenOut, pair.tokenIn));
+  }
+  return [...keys];
 }
 
 function assertPricingPairsSupported(

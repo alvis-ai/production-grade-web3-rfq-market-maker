@@ -141,6 +141,47 @@ test("CachedMarketDataService always prefers the CEX overlay to the base provide
   assert.equal(innerReads, 0);
 });
 
+test("CachedMarketDataService fails closed when a required live CEX book is unavailable", async () => {
+  const cexCache = new SharedPriceCache();
+  const baseCache = new SharedPriceCache();
+  const key = pairKey(request.chainId, request.tokenIn, request.tokenOut);
+  let innerReads = 0;
+  const service = new CachedMarketDataService({
+    async getSnapshot() {
+      innerReads += 1;
+      return snapshot("inner", "3");
+    },
+  }, [cexCache, baseCache], undefined, [key]);
+
+  baseCache.set(key, snapshot("base", "1"));
+  await assert.rejects(service.getSnapshot(request), /Required live CEX order book is unavailable/);
+  assert.equal(innerReads, 0);
+  assert.equal(service.hitRate, 0);
+
+  cexCache.set(key, snapshot("cex", "2"));
+  assert.equal((await service.getSnapshot(request)).midPrice, "2");
+  assert.equal(service.hitRate, 0.5);
+});
+
+test("CachedMarketDataService keeps fallback available for pairs without a live-book requirement", async () => {
+  const cexCache = new SharedPriceCache();
+  const baseCache = new SharedPriceCache();
+  const key = pairKey(request.chainId, request.tokenIn, request.tokenOut);
+  const unrelatedKey = pairKey(request.chainId, request.tokenOut, request.tokenIn);
+  const service = new CachedMarketDataService({
+    async getSnapshot() {
+      throw new Error("must not read inner provider");
+    },
+  }, [cexCache, baseCache], undefined, [unrelatedKey]);
+
+  baseCache.set(key, snapshot("base", "1"));
+  assert.equal((await service.getSnapshot(request)).midPrice, "1");
+  assert.throws(
+    () => new CachedMarketDataService(service, cexCache, undefined, [""]),
+    /required primary keys must be bounded non-empty strings/,
+  );
+});
+
 function validConfig() {
   return {
     networks: [{

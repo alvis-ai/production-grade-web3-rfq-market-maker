@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer, readServerListenConfig } from "../dist/main.js";
+import { buildRequiredCexCacheKeys, readCexOrderBookConfig } from "../dist/runtime/market-runtime.js";
 import {
   configureAwsSignerEnvironment,
   localTestSignerService,
@@ -236,6 +237,61 @@ test("production RFQ API requires two CEX sources per configured pair by default
   } finally {
     for (const name of names) restoreEnv(name, original[name]);
   }
+});
+
+test("CEX runtime requires a live order book by default outside local environments", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalRequireLiveBook = process.env.RFQ_CEX_REQUIRE_LIVE_BOOK;
+  const originalProvider = process.env.RFQ_MARKET_DATA_PROVIDER;
+  const pairs = [{
+    chainId: 1,
+    tokenIn: "0x0000000000000000000000000000000000000002",
+    tokenOut: "0x0000000000000000000000000000000000000003",
+    exchange: "binance",
+    symbol: "ETHUSDT",
+  }];
+  try {
+    delete process.env.NODE_ENV;
+    delete process.env.RFQ_CEX_REQUIRE_LIVE_BOOK;
+    assert.equal(readCexOrderBookConfig([]).requireLiveBook, false);
+
+    process.env.NODE_ENV = "production";
+    assert.equal(readCexOrderBookConfig(pairs).requireLiveBook, true);
+
+    process.env.RFQ_CEX_REQUIRE_LIVE_BOOK = "false";
+    assert.throws(
+      () => readCexOrderBookConfig(pairs),
+      /requires RFQ_MARKET_DATA_PROVIDER=chainlink/,
+    );
+    process.env.RFQ_MARKET_DATA_PROVIDER = "chainlink";
+    assert.equal(readCexOrderBookConfig(pairs).requireLiveBook, false);
+
+    process.env.RFQ_CEX_REQUIRE_LIVE_BOOK = "sometimes";
+    assert.throws(
+      () => readCexOrderBookConfig([]),
+      /RFQ_CEX_REQUIRE_LIVE_BOOK must be true or false/,
+    );
+  } finally {
+    restoreEnv("NODE_ENV", originalNodeEnv);
+    restoreEnv("RFQ_CEX_REQUIRE_LIVE_BOOK", originalRequireLiveBook);
+    restoreEnv("RFQ_MARKET_DATA_PROVIDER", originalProvider);
+  }
+});
+
+test("CEX live-book policy protects both RFQ directions for each native market", () => {
+  const pairs = [{
+    chainId: 1,
+    tokenIn: "0x0000000000000000000000000000000000000002",
+    tokenOut: "0x0000000000000000000000000000000000000003",
+    exchange: "binance",
+    symbol: "ETHUSDT",
+  }];
+  assert.deepEqual(buildRequiredCexCacheKeys(pairs, true), [
+    "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003",
+    "1:0x0000000000000000000000000000000000000003:0x0000000000000000000000000000000000000002",
+  ]);
+  assert.deepEqual(buildRequiredCexCacheKeys(pairs, false), []);
+  assert.equal(buildRequiredCexCacheKeys([...pairs, ...pairs], true).length, 2);
 });
 
 test("RFQ API rejects invalid or incomplete Chainlink provider configuration", () => {

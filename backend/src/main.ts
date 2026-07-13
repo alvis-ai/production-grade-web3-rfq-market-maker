@@ -51,6 +51,7 @@ import {
 } from "./runtime/gateway-runtime.js";
 import {
   buildDefaultRiskEngine,
+  buildRequiredCexCacheKeys,
   buildMarketReadinessConfig,
   readCexOrderBookConfig,
   readCexOrderBookPairs,
@@ -95,12 +96,14 @@ export function buildServer(options: BuildServerOptions = {}) {
   const priceUpdaterPairs = defaultMarketData ? readMarketDataPairs(defaultMarketData.defaultPairs) : [];
   const managedRiskPairs = [...(defaultMarketData?.defaultPairs ?? []), ...priceUpdaterPairs, ...cexPairs];
   const basePriceCache = defaultMarketData ? new SharedPriceCache(5_000) : undefined;
-  const cexPriceCache = cexConfig ? new SharedPriceCache(cexConfig.maxSourceAgeMs) : undefined;
+  const cexPriceCache = cexConfig ? new SharedPriceCache(cexConfig.monitor.maxSourceAgeMs) : undefined;
+  const requiredCexCacheKeys = buildRequiredCexCacheKeys(cexPairs, cexConfig?.requireLiveBook ?? false);
   const marketDataService = defaultMarketData && basePriceCache
     ? new CachedMarketDataService(
         rawMarketDataService,
         cexPriceCache ? [cexPriceCache, basePriceCache] : [basePriceCache],
         metricsService,
+        requiredCexCacheKeys,
       )
     : rawMarketDataService;
   const maxSnapshotAgeMs = defaultMarketData?.maxSnapshotAgeMs ?? defaultQuoteServiceConfig.maxSnapshotAgeMs;
@@ -208,7 +211,7 @@ export function buildServer(options: BuildServerOptions = {}) {
 
   // Start CEX order book monitor (only when using default service)
   const cexMonitor = defaultMarketData && cexPriceCache && cexConfig
-    ? new CEXOrderBookMonitor(cexPriceCache, cexConfig, metricsService)
+    ? new CEXOrderBookMonitor(cexPriceCache, cexConfig.monitor, metricsService)
     : undefined;
   priceUpdater?.start();
   cexMonitor?.start();
@@ -239,6 +242,9 @@ export function buildServer(options: BuildServerOptions = {}) {
     });
   }
 
+  const readinessPair = cexConfig?.requireLiveBook && cexPairs[0]
+    ? { ...cexPairs[0], user: "0x0000000000000000000000000000000000000001" as const }
+    : priceUpdaterPairs[0];
   const readinessService = new ReadinessService({
     hedgeService,
     inventoryService,
@@ -256,8 +262,8 @@ export function buildServer(options: BuildServerOptions = {}) {
     settlementEventService,
     signerService,
     submitReservationStore,
-  }, defaultMarketData && priceUpdaterPairs[0]
-    ? buildMarketReadinessConfig(priceUpdaterPairs[0], runtimeTokenRegistry, maxSnapshotAgeMs)
+  }, defaultMarketData && readinessPair
+    ? buildMarketReadinessConfig(readinessPair, runtimeTokenRegistry, maxSnapshotAgeMs)
     : defaultReadinessServiceConfig);
 
   registerTradingRoutes(server, {

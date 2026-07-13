@@ -6,6 +6,7 @@ import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs"
 
 const [
   mainEntrySource,
+  cachedMarketDataSource,
   monitorSource,
   decimalSource,
   orderBookSource,
@@ -13,6 +14,8 @@ const [
   coinbaseSource,
   metricsSource,
   testSource,
+  cacheTestSource,
+  runtimeTestSource,
   envSource,
   composeSource,
   k8sSource,
@@ -26,6 +29,7 @@ const [
   integrationSource,
 ] = await Promise.all([
   "backend/src/main.ts",
+  "backend/src/modules/market-data/cached-market-data.service.ts",
   "backend/src/modules/market-data/cex-orderbook/cex-orderbook-monitor.ts",
   "backend/src/modules/market-data/cex-orderbook/decimal.ts",
   "backend/src/modules/market-data/cex-orderbook/orderbook.ts",
@@ -33,6 +37,8 @@ const [
   "backend/src/modules/market-data/cex-orderbook/coinbase-connector.ts",
   "backend/src/modules/metrics/metrics.service.ts",
   "backend/test/cex-orderbook.test.mjs",
+  "backend/test/chainlink-market-data.test.mjs",
+  "backend/test/api-gateway-env.test.mjs",
   ".env.example",
   "docker-compose.yml",
   "infra/k8s/configmap.yaml",
@@ -56,6 +62,7 @@ const tuningNames = [
   "RFQ_CEX_MIN_SOURCES",
   "RFQ_CEX_MAX_SOURCE_DEVIATION_BPS",
   "RFQ_CEX_MAX_SPREAD_BPS",
+  "RFQ_CEX_REQUIRE_LIVE_BOOK",
 ];
 for (const name of tuningNames) {
   for (const [label, source] of [
@@ -72,6 +79,17 @@ for (const name of tuningNames) {
 assert.ok(
   mainSource.includes("requiresExplicitRuntimeConfig(nodeEnv) ? 2 : 1"),
   "non-local CEX runtime must default to a two-source quorum",
+);
+assert.ok(
+    mainSource.includes("RFQ_CEX_REQUIRE_LIVE_BOOK=false requires RFQ_MARKET_DATA_PROVIDER=chainlink") &&
+    mainSource.includes("buildRequiredCexCacheKeys") &&
+    mainSource.includes("cexConfig?.requireLiveBook"),
+  "non-local CEX runtime must require a live book or an explicit Chainlink fallback",
+);
+assert.ok(
+  cachedMarketDataSource.includes("requiredPrimaryCacheKeys.has(key)") &&
+    cachedMarketDataSource.includes("Required live CEX order book is unavailable"),
+  "required CEX pairs must fail before reading lower-priority caches or providers",
 );
 assert.ok(monitorSource.includes("this.cache.delete(cacheKey)"), "blocked CEX pairs must invalidate cache immediately");
 assert.ok(monitorSource.includes("cexDeviationBps"), "CEX monitor must enforce cross-source deviation bounds");
@@ -122,6 +140,17 @@ assert.ok(testSource.includes("inverseFallback"), "tests must cover inverse ask-
 assert.ok(
   testSource.includes("RFQ API prices the inverse USD-to-base direction from executable asks"),
   "tests must cover inverse CEX pricing through the signed quote API",
+);
+assert.ok(
+  cacheTestSource.includes("fails closed when a required live CEX book is unavailable") &&
+    cacheTestSource.includes("keeps fallback available for pairs without a live-book requirement"),
+  "tests must cover required live-book failure and scoped fallback",
+);
+assert.ok(
+  runtimeTestSource.includes("CEX live-book policy protects both RFQ directions for each native market") &&
+    mainSource.includes("pair.tokenOut, pair.tokenIn") &&
+    mainSource.includes("pair.tokenIn, pair.tokenOut"),
+  "live-book policy must protect both RFQ directions",
 );
 assert.ok(marketDataChapter.includes("developers.binance.com"), "market-data chapter must reference official Binance synchronization rules");
 assert.ok(marketDataChapter.includes("docs.cdp.coinbase.com"), "market-data chapter must reference official Coinbase Level-2 rules");
