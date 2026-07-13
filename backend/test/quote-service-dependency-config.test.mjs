@@ -95,6 +95,14 @@ test("QuoteService rejects unsafe dependency configuration at construction", () 
     () => new QuoteService(depsWithInheritedHedgeService),
     /Quote service deps.hedgeService must be an own field when provided/,
   );
+  const depsWithInheritedExposureStore = { ...deps };
+  Object.setPrototypeOf(depsWithInheritedExposureStore, {
+    quoteExposureStore: { reserve() {}, release() {} },
+  });
+  assert.throws(
+    () => new QuoteService(depsWithInheritedExposureStore),
+    /Quote service deps.quoteExposureStore must be an own field when provided/,
+  );
   assert.throws(
     () =>
       new QuoteService({
@@ -208,6 +216,17 @@ test("QuoteService rejects unsafe dependency configuration at construction", () 
         },
       }),
     /Quote service hedgeService.quoteRiskPenaltyBps must be a function when provided/,
+  );
+  assert.throws(
+    () => new QuoteService({ ...deps, quoteExposureStore: {} }),
+    /Quote service quoteExposureStore.reserve must be a function/,
+  );
+  assert.throws(
+    () => new QuoteService({
+      ...deps,
+      quoteExposureStore: { reserve() {}, release: true },
+    }),
+    /Quote service quoteExposureStore.release must be a function/,
   );
 });
 

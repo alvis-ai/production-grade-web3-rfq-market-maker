@@ -1,3 +1,4 @@
+import type pg from "pg";
 import {
   defaultReadinessServiceConfig,
   type ReadinessServiceConfig,
@@ -27,7 +28,11 @@ import {
   type TokenRegistry,
 } from "../modules/pricing/token-registry.js";
 import { defaultQuoteServiceConfig } from "../modules/quote/quote.service.js";
-import type { RiskEngine } from "../modules/risk/risk.engine.js";
+import {
+  InMemoryQuoteExposureStore,
+  type QuoteExposureStore,
+} from "../modules/risk/quote-exposure.store.js";
+import { PostgresQuoteExposureStore } from "../modules/risk/postgres-quote-exposure.store.js";
 import {
   defaultTokenLimitRiskPolicy,
   parseTokenLimitRiskPolicy,
@@ -142,7 +147,7 @@ export function buildMarketReadinessConfig(
 export function buildDefaultRiskEngine(
   tokenRegistry: TokenRegistry,
   managedPairs: readonly { chainId: number; tokenIn: `0x${string}`; tokenOut: `0x${string}` }[],
-): RiskEngine {
+): TokenLimitRiskEngine {
   const env = runtimeEnvironment();
   const serializedPolicy = readOwnEnvValue(env, "RFQ_RISK_POLICY_JSON");
   const policy: TokenLimitRiskPolicy = serializedPolicy === undefined
@@ -172,6 +177,20 @@ export function buildDefaultRiskEngine(
     }
   }
   return engine;
+}
+
+export function resolveQuoteExposureStore(
+  configuredStore: QuoteExposureStore | undefined,
+  postgresPool: pg.Pool | undefined,
+  defaultRiskEngine: TokenLimitRiskEngine | undefined,
+  tokenRegistry: TokenRegistry,
+): QuoteExposureStore | undefined {
+  if (configuredStore) return configuredStore;
+  if (!defaultRiskEngine) return undefined;
+  const policy = defaultRiskEngine.getQuoteExposurePolicy();
+  return postgresPool
+    ? new PostgresQuoteExposureStore(postgresPool, policy, tokenRegistry)
+    : new InMemoryQuoteExposureStore(policy, tokenRegistry);
 }
 
 export function readMarketDataPairs(

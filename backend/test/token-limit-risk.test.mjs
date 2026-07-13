@@ -169,6 +169,10 @@ test("TokenLimitRiskEngine snapshots policy and returns defensive token limits",
   exposed.maxNotionalUsd = "1";
   assert.equal(engine.getTokenLimit(1, tokenA).maxAmountIn, "1000");
   assert.equal(engine.getTokenLimit(1, tokenA).maxNotionalUsd, "1000000");
+  assert.deepEqual(engine.getQuoteExposurePolicy(), {
+    maxUserOpenNotionalUsd: "2000000",
+    maxPairOpenNotionalUsd: "5000000",
+  });
   assert.deepEqual(await engine.evaluate(riskInput()), {
     status: "approved",
     policyVersion: "token-limit-test-v1",
@@ -233,6 +237,10 @@ test("parseTokenLimitRiskPolicy rejects ambiguous and unsafe runtime configurati
     /minLiquidityUsd must be a canonical positive uint256 string/,
   );
   assert.throws(
+    () => parseTokenLimitRiskPolicy(JSON.stringify({ ...valid, maxUserOpenNotionalUsd: "0" })),
+    /maxUserOpenNotionalUsd must be a canonical positive uint256 string/,
+  );
+  assert.throws(
     () => parseTokenLimitRiskPolicy(JSON.stringify({ ...valid, maxVolatilityBps: 10001 })),
     /maxVolatilityBps must be an integer between 0 and 10000/,
   );
@@ -253,6 +261,8 @@ function policy(overrides = {}) {
     restrictedUsers: [],
     toxicFlowScores: [],
     maxToxicScoreBps: 8000,
+    maxUserOpenNotionalUsd: "2000000",
+    maxPairOpenNotionalUsd: "5000000",
     minLiquidityUsd: "1000000",
     maxVolatilityBps: 500,
     maxSlippageBps: 500,

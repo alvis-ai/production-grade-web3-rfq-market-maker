@@ -253,6 +253,66 @@ test("RFQ API blocks signing in unsafe market liquidity and volatility regimes",
   }
 });
 
+test("RFQ API atomically limits cumulative user and pair open quote notional", async () => {
+  const originalRegistry = process.env.RFQ_TOKEN_REGISTRY_JSON;
+  const originalPolicy = process.env.RFQ_RISK_POLICY_JSON;
+  process.env.RFQ_TOKEN_REGISTRY_JSON = JSON.stringify(tokenRegistry());
+  process.env.RFQ_RISK_POLICY_JSON = JSON.stringify({
+    ...riskPolicy(),
+    maxUserOpenNotionalUsd: "3000",
+    maxPairOpenNotionalUsd: "5000",
+  });
+  let snapshotSequence = 0;
+  const server = buildServer({
+    logger: false,
+    marketDataService: {
+      async getSnapshot() {
+        snapshotSequence += 1;
+        return {
+          snapshotId: `snapshot_open_exposure_${snapshotSequence}`,
+          midPrice: "2000",
+          liquidityUsd: "50000000",
+          volatilityBps: 25,
+          observedAt: new Date().toISOString(),
+        };
+      },
+    },
+  });
+  const quote = async (quoteUser) => server.inject({
+    method: "POST",
+    url: "/quote",
+    headers: { "content-type": "application/json" },
+    payload: JSON.stringify({
+      chainId: 1,
+      user: quoteUser,
+      tokenIn: weth,
+      tokenOut: usdc,
+      amountIn: "1000000000000000000",
+      slippageBps: 50,
+    }),
+  });
+
+  try {
+    await server.ready();
+    assert.equal((await quote(user)).statusCode, 200);
+    const sameUser = await quote(user);
+    assert.equal(sameUser.statusCode, 409, sameUser.payload);
+
+    assert.equal((await quote("0x00000000000000000000000000000000000000b2")).statusCode, 200);
+    const pairLimit = await quote("0x00000000000000000000000000000000000000c3");
+    assert.equal(pairLimit.statusCode, 409, pairLimit.payload);
+
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="USER_OPEN_NOTIONAL_LIMIT_EXCEEDED"\} 1/);
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 2/);
+  } finally {
+    await server.close();
+    restoreEnv("RFQ_TOKEN_REGISTRY_JSON", originalRegistry);
+    restoreEnv("RFQ_RISK_POLICY_JSON", originalPolicy);
+  }
+});
+
 function tokenRegistry() {
   return {
     tokens: [
@@ -303,6 +363,8 @@ function riskPolicy() {
     restrictedUsers: [],
     toxicFlowScores: [],
     maxToxicScoreBps: 8000,
+    maxUserOpenNotionalUsd: "2000000",
+    maxPairOpenNotionalUsd: "5000000",
     minLiquidityUsd: "1000000",
     maxVolatilityBps: 500,
     maxSlippageBps: 500,

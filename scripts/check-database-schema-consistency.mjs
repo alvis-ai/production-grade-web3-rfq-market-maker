@@ -41,6 +41,14 @@ const riskMarketRegimeMigrationSource = await readFile(
   "backend/src/db/migrations/010-risk-market-regime-reasons.sql",
   "utf8",
 );
+const quoteExposureMigrationSource = await readFile(
+  "backend/src/db/migrations/011-open-quote-exposure.sql",
+  "utf8",
+);
+const postgresQuoteExposureSource = await readFile(
+  "backend/src/modules/risk/postgres-quote-exposure.store.ts",
+  "utf8",
+);
 const postgresSettlementSource = await readFile("backend/src/modules/settlement/postgres-settlement-event.store.ts", "utf8");
 const postgresInventorySource = await readFile("backend/src/modules/inventory/postgres-inventory.service.ts", "utf8");
 const postgresHedgeSource = await readFile("backend/src/modules/hedge/postgres-hedge.service.ts", "utf8");
@@ -226,6 +234,15 @@ const requiredTables = {
     "created_at",
   ],
   quote_submit_reservations: ["quote_id", "owner_token", "acquired_at", "expires_at"],
+  quote_exposure_reservations: [
+    "quote_id",
+    "chain_id",
+    "user_address",
+    "token_low",
+    "token_high",
+    "notional_usd_e18",
+    "expires_at",
+  ],
   _migrations: ["version", "name", "applied_at"],
 };
 
@@ -415,6 +432,11 @@ const requiredCheckConstraints = {
   quote_submit_reservations: [
     ["chk_quote_submit_reservations_owner", "submit reservations must constrain owner tokens"],
     ["chk_quote_submit_reservations_expiry", "submit reservations must constrain lease expiry"],
+  ],
+  quote_exposure_reservations: [
+    ["chk_quote_exposure_chain_id", "quote exposure must constrain chain id"],
+    ["chk_quote_exposure_addresses", "quote exposure must constrain normalized scope addresses"],
+    ["chk_quote_exposure_notional", "quote exposure must constrain positive notional"],
   ],
 };
 
@@ -1150,6 +1172,28 @@ assert.ok(
     riskMarketRegimeMigrationSource.includes("MARKET_VOLATILITY_LIMIT_EXCEEDED") &&
     schemaSource.includes("('010', 'risk-market-regime-reasons')"),
   "risk market-regime migration must extend the durable risk rejection contract",
+);
+assert.ok(
+  quoteExposureMigrationSource.includes("CREATE TABLE IF NOT EXISTS quote_exposure_reservations") &&
+    quoteExposureMigrationSource.includes("NUMERIC(96, 0)") &&
+    quoteExposureMigrationSource.includes("idx_quote_exposure_expiry") &&
+    quoteExposureMigrationSource.includes("USER_OPEN_NOTIONAL_LIMIT_EXCEEDED") &&
+    quoteExposureMigrationSource.includes("PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED") &&
+    schemaSource.includes("('011', 'open-quote-exposure')"),
+  "open quote exposure migration must install exact TTL-bound reservations and rejection reasons",
+);
+assert.ok(
+  postgresQuoteExposureSource.includes("pg_advisory_xact_lock") &&
+    postgresQuoteExposureSource.includes("exposureLockScopes(reservation).sort()") &&
+    postgresQuoteExposureSource.includes("for (const scope of scopes)") &&
+    postgresQuoteExposureSource.includes("expires_at > now()") &&
+    postgresQuoteExposureSource.includes("quote.status IN ('requested', 'signed', 'failed')") &&
+    postgresQuoteExposureSource.includes("WHERE to_timestamp($7) > now()") &&
+    postgresQuoteExposureSource.includes("FOR UPDATE SKIP LOCKED") &&
+    postgresQuoteExposureSource.includes("SUM(exposure.notional_usd_e18)") &&
+    backendMainSource.includes("resolveQuoteExposureStore") &&
+    backendMainSource.includes("quoteExposureStore"),
+  "runtime must atomically reserve user and pair quote exposure across API replicas",
 );
 assert.ok(
   settlementIndexerStoreSource.includes("lease_expires_at > now()") &&

@@ -38,6 +38,7 @@ import {
 } from "../modules/rate-limit/redis-rate-limit.service.js";
 import type { RiskDecisionStore } from "../modules/risk/risk-decision.repository.js";
 import type { RiskEngine } from "../modules/risk/risk.engine.js";
+import type { QuoteExposureStore } from "../modules/risk/quote-exposure.store.js";
 import type { RoutingEngine } from "../modules/routing/routing.engine.js";
 import type { SettlementEventStore } from "../modules/settlement/settlement-event.service.js";
 import {
@@ -75,6 +76,7 @@ const buildServerOptionFields = [
   "pnlService",
   "pricingEngine",
   "quoteRepository",
+  "quoteExposureStore",
   "quoteTtlSeconds",
   "rateLimit",
   "rateLimiter",
@@ -100,6 +102,7 @@ export interface BuildServerOptions {
   marketSnapshotStore?: MarketSnapshotStore;
   pricingEngine?: PricingEngine;
   quoteRepository?: QuoteRepository;
+  quoteExposureStore?: QuoteExposureStore;
   riskDecisionStore?: RiskDecisionStore;
   riskEngine?: RiskEngine;
   routingEngine?: RoutingEngine;

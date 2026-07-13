@@ -178,6 +178,32 @@ CREATE TABLE quote_submit_reservations (
 CREATE INDEX idx_quote_submit_reservations_expiry
   ON quote_submit_reservations (expires_at);
 
+CREATE TABLE quote_exposure_reservations (
+  quote_id TEXT PRIMARY KEY REFERENCES quotes(id) ON DELETE CASCADE,
+  chain_id BIGINT NOT NULL,
+  user_address TEXT NOT NULL,
+  token_low TEXT NOT NULL,
+  token_high TEXT NOT NULL,
+  notional_usd_e18 NUMERIC(96, 0) NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_quote_exposure_chain_id CHECK (chain_id BETWEEN 1 AND 9007199254740991),
+  CONSTRAINT chk_quote_exposure_addresses CHECK (
+    user_address ~ '^0x[0-9a-f]{40}$'
+    AND token_low ~ '^0x[0-9a-f]{40}$'
+    AND token_high ~ '^0x[0-9a-f]{40}$'
+    AND token_low < token_high
+  ),
+  CONSTRAINT chk_quote_exposure_notional CHECK (notional_usd_e18 > 0)
+);
+
+CREATE INDEX idx_quote_exposure_user_active
+  ON quote_exposure_reservations (chain_id, user_address, expires_at);
+CREATE INDEX idx_quote_exposure_pair_active
+  ON quote_exposure_reservations (chain_id, token_low, token_high, expires_at);
+CREATE INDEX idx_quote_exposure_expiry
+  ON quote_exposure_reservations (expires_at);
+
 CREATE TABLE market_snapshots (
   id TEXT PRIMARY KEY,
   chain_id BIGINT NOT NULL,
@@ -254,6 +280,8 @@ CREATE TABLE risk_decisions (
         'AMOUNT_IN_LIMIT_EXCEEDED',
         'AMOUNT_OUT_TOO_SMALL',
         'QUOTE_NOTIONAL_LIMIT_EXCEEDED',
+        'USER_OPEN_NOTIONAL_LIMIT_EXCEEDED',
+        'PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED',
         'USD_REFERENCE_REQUIRED',
         'SLIPPAGE_TOO_WIDE',
         'QUOTED_SPREAD_TOO_WIDE',
@@ -1100,4 +1128,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('007', 'settlement-indexer'),
   ('008', 'submit-reservations'),
   ('009', 'risk-notional-reasons'),
-  ('010', 'risk-market-regime-reasons');
+  ('010', 'risk-market-regime-reasons'),
+  ('011', 'open-quote-exposure');

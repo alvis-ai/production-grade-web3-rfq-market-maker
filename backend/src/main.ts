@@ -56,6 +56,7 @@ import {
   readDefaultMarketDataRuntime,
   readMarketDataPairs,
   readTokenRegistry,
+  resolveQuoteExposureStore,
   resolvePricingRuntime,
 } from "./runtime/market-runtime.js";
 import {
@@ -132,9 +133,15 @@ export function buildServer(options: BuildServerOptions = {}) {
   );
   const pricingEngine = pricingRuntime.engine;
   const runtimeTokenRegistry = options.tokenRegistry ?? pricingRuntime.tokenRegistry ?? readTokenRegistry();
-  const riskEngine = options.riskEngine ?? buildDefaultRiskEngine(
+  const defaultRiskEngine = options.riskEngine === undefined
+    ? buildDefaultRiskEngine(runtimeTokenRegistry, managedRiskPairs)
+    : undefined;
+  const riskEngine = options.riskEngine ?? defaultRiskEngine!;
+  const quoteExposureStore = resolveQuoteExposureStore(
+    options.quoteExposureStore,
+    postgresPool,
+    defaultRiskEngine,
     runtimeTokenRegistry,
-    managedRiskPairs,
   );
   const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
   const inMemoryInventoryService = postgresPool ? undefined : new InventoryService();
@@ -177,6 +184,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     marketSnapshotStore,
     hedgeService,
     pricingEngine,
+    quoteExposureStore,
     quoteRepository,
     riskDecisionStore,
     riskEngine,
@@ -237,6 +245,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     metricsService,
     pnlService,
     pricingEngine,
+    quoteExposureStore,
     quoteRepository,
     riskDecisionStore,
     riskEngine,

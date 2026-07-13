@@ -101,7 +101,9 @@ stateDiagram-v2
 
 ## Data Model
 
-`RiskLimitPolicy` 的完整目标包含 `policyVersion`、`chainId`、`tokenAddress`、`maxPosition`、`softPosition`、`maxNotionalUsd`、`maxUserNotionalUsd`、`maxQuotedSpreadBps`、`enabled`。当前默认后端已落地 `TokenLimitRiskPolicy`：`enabledChainIds` 定义 chain gate，`tokenLimits` 以 `(chainId, tokenAddress)` 唯一键分别保存 canonical uint256 `maxAmountIn`、`minAmountOut`、整数美元 `maxNotionalUsd` 和 `maxAbsoluteInventory`，公共字段保存 `minLiquidityUsd`、`maxVolatilityBps` 以及 slippage/spread/toxic-flow 上限。Quote Service 把定价 snapshot 与 projected tokenIn/tokenOut position 一并传给 Risk Engine；任一余额按对应 token raw-unit hard limit 超限、USD-reference 一侧按可信 decimals 计算出的单笔名义金额超过两侧较小上限、市场流动性不足、波动率越界或最终 quoted spread 超过 policy，都会拒绝签名。没有 USD-reference 的 managed pair 在启动时失败，避免把非稳定币 raw units 当成美元。后续再扩展数据库驱动的累计 pair/user 和 portfolio 限额。
+`RiskLimitPolicy` 的完整目标包含 `policyVersion`、`chainId`、`tokenAddress`、`maxPosition`、`softPosition`、`maxNotionalUsd`、`maxUserNotionalUsd`、`maxQuotedSpreadBps`、`enabled`。当前默认后端已落地 `TokenLimitRiskPolicy`：`enabledChainIds` 定义 chain gate，`tokenLimits` 以 `(chainId, tokenAddress)` 唯一键分别保存 canonical uint256 `maxAmountIn`、`minAmountOut`、整数美元 `maxNotionalUsd` 和 `maxAbsoluteInventory`，公共字段保存 `maxUserOpenNotionalUsd`、`maxPairOpenNotionalUsd`、`minLiquidityUsd`、`maxVolatilityBps` 以及 slippage/spread/toxic-flow 上限。Quote Service 把定价 snapshot 与 projected tokenIn/tokenOut position 一并传给 Risk Engine；任一余额按对应 token raw-unit hard limit 超限、USD-reference 一侧按可信 decimals 计算出的单笔名义金额超过两侧较小上限、市场流动性不足、波动率越界或最终 quoted spread 超过 policy，都会拒绝签名。没有 USD-reference 的 managed pair 在启动时失败，避免把非稳定币 raw units 当成美元。
+
+单笔门禁通过后，Quote Service 在 Signer 之前预留活动签名报价敞口。`quote_exposure_reservations` 以 quoteId 为幂等键，把 USD-reference 一侧按可信 decimals 转成 18 位 USD 定点数；两侧均为 USD reference 时取较大值，超过 18 decimals 的极小余数向上取整，避免低估。用户作用域为 `(chainId, user)`，交易对作用域使用排序后的 `(chainId, tokenLow, tokenHigh)`，因此反向报价不能绕过 pair limit。PostgreSQL 实现按稳定顺序逐个获取 transaction-scoped advisory locks，再在同一事务中求和并插入，消除多 API replica 的 check-then-insert write skew。只有 `expires_at > now()` 且 quote 状态为 `requested`、`signed` 或 `failed` 的记录计入活动敞口；submitted/settled 已有链上 nonce 消耗证据，暂不计数但保留记录，以便 reorg 将 quote 恢复为 signed 时自动重新计数。`failed` 仍可能对应用户已经拿到、链上尚可重试的签名，不能仅凭本地失败状态提前释放。签名前的签名、审计或 signed quote 持久化失败会 best-effort 显式释放；expired 记录由每次预留时的有界 `FOR UPDATE SKIP LOCKED` 清理，进程崩溃时也最多保守占用到 quote TTL。
 
 ## API Design
 
@@ -114,10 +116,12 @@ stateDiagram-v2
 - policyVersion 必须写入 risk decision。
 - token address 必须与 chainId 共同构成授权键；不能因为同一地址在另一个 enabled chain 获准就跨链放行。
 - `RFQ_RISK_POLICY_JSON` 和 `RFQ_TOKEN_REGISTRY_JSON` 必须在启动时双向覆盖 active pair；raw-unit 限额不得跨 decimals token 复用。
+- `maxUserOpenNotionalUsd` 与 `maxPairOpenNotionalUsd` 是独立正整数阈值；累计 user/pair 门禁必须在签名前完成原子预留。
 
 ## Failure Scenarios
 
 - Limit Store 不可用：拒绝签名。
+- Exposure reservation store 不可用：拒绝签名；已成功预留但后续步骤失败时释放，释放失败由 deadline 自动止损。
 - policy 缺失：拒绝相关 token。
 - limit 配置过低：成交率下降但资金安全优先。
 
@@ -127,7 +131,7 @@ stateDiagram-v2
 
 ## Performance Considerations
 
-Active policy 应缓存，但缓存必须有版本和失效机制。
+Active policy 应缓存，但缓存必须有版本和失效机制。PostgreSQL 只串行化共享同一用户或同一无方向交易对的预留，不使用全局锁；活动求和由 user/pair + expiry 复合索引支持。
 
 ## Testing Strategy
 

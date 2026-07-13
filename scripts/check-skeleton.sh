@@ -802,6 +802,11 @@ test -s backend/src/modules/execution/postgres-submit-reservation.store.ts
 test -s backend/src/db/migrations/008-submit-reservations.sql
 test -s backend/src/db/migrations/009-risk-notional-reasons.sql
 test -s backend/src/db/migrations/010-risk-market-regime-reasons.sql
+test -s backend/src/db/migrations/011-open-quote-exposure.sql
+test -s backend/src/modules/risk/quote-exposure.store.ts
+test -s backend/src/modules/risk/postgres-quote-exposure.store.ts
+test -s backend/test/quote-exposure-store.test.mjs
+test -s backend/test/postgres-quote-exposure-store.test.mjs
 test -s backend/test/submit-reservation-store.test.mjs
 test -s backend/test/postgres-submit-reservation-store.test.mjs
 test -s backend/test/api-submit-reservation.test.mjs
@@ -815,6 +820,8 @@ grep -q 'quoteRepository?: QuoteRepository' $gateway_sources
 grep -q 'routingEngine?: RoutingEngine' $gateway_sources
 grep -q 'InternalInventoryRoutingEngine' $gateway_sources
 grep -q 'TokenLimitRiskEngine' $gateway_sources
+grep -q 'resolveQuoteExposureStore' $gateway_sources
+grep -q 'quoteExposureStore' $gateway_sources
 grep -q 'createSignerRuntime' $gateway_sources
 grep -q 'ObservedSignerService' $gateway_sources
 grep -q 'readSignerRuntimeConfig' $gateway_sources

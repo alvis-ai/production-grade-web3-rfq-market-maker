@@ -162,6 +162,32 @@ CREATE INDEX IF NOT EXISTS idx_quotes_hedge_order_id ON quotes (hedge_order_id)
 CREATE INDEX IF NOT EXISTS idx_quotes_pnl_id ON quotes (pnl_id)
   WHERE pnl_id IS NOT NULL;
 
+CREATE TABLE IF NOT EXISTS quote_exposure_reservations (
+  quote_id TEXT PRIMARY KEY REFERENCES quotes(id) ON DELETE CASCADE,
+  chain_id BIGINT NOT NULL,
+  user_address TEXT NOT NULL,
+  token_low TEXT NOT NULL,
+  token_high TEXT NOT NULL,
+  notional_usd_e18 NUMERIC(96, 0) NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_quote_exposure_chain_id CHECK (chain_id BETWEEN 1 AND 9007199254740991),
+  CONSTRAINT chk_quote_exposure_addresses CHECK (
+    user_address ~ '^0x[0-9a-f]{40}$'
+    AND token_low ~ '^0x[0-9a-f]{40}$'
+    AND token_high ~ '^0x[0-9a-f]{40}$'
+    AND token_low < token_high
+  ),
+  CONSTRAINT chk_quote_exposure_notional CHECK (notional_usd_e18 > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_quote_exposure_user_active
+  ON quote_exposure_reservations (chain_id, user_address, expires_at);
+CREATE INDEX IF NOT EXISTS idx_quote_exposure_pair_active
+  ON quote_exposure_reservations (chain_id, token_low, token_high, expires_at);
+CREATE INDEX IF NOT EXISTS idx_quote_exposure_expiry
+  ON quote_exposure_reservations (expires_at);
+
 CREATE TABLE IF NOT EXISTS market_snapshots (
   id TEXT PRIMARY KEY,
   chain_id BIGINT NOT NULL,
@@ -238,6 +264,8 @@ CREATE TABLE IF NOT EXISTS risk_decisions (
         'AMOUNT_IN_LIMIT_EXCEEDED',
         'AMOUNT_OUT_TOO_SMALL',
         'QUOTE_NOTIONAL_LIMIT_EXCEEDED',
+        'USER_OPEN_NOTIONAL_LIMIT_EXCEEDED',
+        'PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED',
         'USD_REFERENCE_REQUIRED',
         'SLIPPAGE_TOO_WIDE',
         'QUOTED_SPREAD_TOO_WIDE',

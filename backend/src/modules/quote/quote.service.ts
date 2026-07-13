@@ -31,6 +31,10 @@ import type {
 } from "./quote.repository.js";
 import type { RiskDecision, RiskEngine, RiskInput, RiskRejectReasonCode } from "../risk/risk.engine.js";
 import type { RiskDecisionStore, SaveRiskDecisionInput } from "../risk/risk-decision.repository.js";
+import type {
+  QuoteExposureReservationResult,
+  QuoteExposureStore,
+} from "../risk/quote-exposure.store.js";
 import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
@@ -42,6 +46,7 @@ export interface QuoteServiceDeps {
   pricingEngine: PricingEngine;
   hedgeService?: HedgeIntentService;
   quoteRepository: QuoteRepository;
+  quoteExposureStore?: QuoteExposureStore;
   riskDecisionStore: RiskDecisionStore;
   riskEngine: RiskEngine;
   routingEngine: RoutingEngine;
@@ -94,6 +99,8 @@ const riskRejectReasonCodes = new Set<string>([
   "AMOUNT_IN_LIMIT_EXCEEDED",
   "AMOUNT_OUT_TOO_SMALL",
   "QUOTE_NOTIONAL_LIMIT_EXCEEDED",
+  "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED",
+  "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED",
   "USD_REFERENCE_REQUIRED",
   "SLIPPAGE_TOO_WIDE",
   "QUOTED_SPREAD_TOO_WIDE",
@@ -192,7 +199,9 @@ export class QuoteService {
       await this.markQuoteFailedBestEffort(quoteId, failure.code);
       throw failure;
     }
+    const deadline = Math.floor(Date.now() / 1000) + this.config.quoteTtlSeconds;
     let risk: RiskDecision;
+    let exposureReserved = false;
     try {
       const projectionResult = await this.deps.inventoryService.projectSettlement({
         chainId: validatedRequest.chainId,
@@ -208,6 +217,24 @@ export class QuoteService {
         snapshot,
         inventoryProjection: projectionResult,
       });
+      if (risk.status === "approved" && this.deps.quoteExposureStore) {
+        const exposure = await this.deps.quoteExposureStore.reserve({
+          quoteId,
+          request: validatedRequest,
+          pricing,
+          deadline,
+        });
+        assertQuoteExposureReservationResult(exposure);
+        if (exposure.status === "reserved") {
+          exposureReserved = true;
+        } else {
+          risk = {
+            status: "rejected",
+            policyVersion: risk.policyVersion,
+            reasonCode: exposure.reasonCode,
+          };
+        }
+      }
     } catch {
       risk = riskUnavailableDecision();
     }
@@ -217,6 +244,7 @@ export class QuoteService {
         decision: risk,
       });
     } catch (error) {
+      if (exposureReserved) await this.releaseQuoteExposureBestEffort(quoteId);
       await this.markQuoteFailedBestEffort(quoteId, quoteFailureCode(error));
       throw error;
     }
@@ -237,7 +265,6 @@ export class QuoteService {
       );
     }
 
-    const deadline = Math.floor(Date.now() / 1000) + this.config.quoteTtlSeconds;
     const signedQuote: SignedQuote = {
       user: validatedRequest.user,
       tokenIn: validatedRequest.tokenIn,
@@ -258,22 +285,28 @@ export class QuoteService {
         snapshotId: snapshot.snapshotId,
       });
     } catch (error) {
+      if (exposureReserved) await this.releaseQuoteExposureBestEffort(quoteId);
       await this.markQuoteFailedBestEffort(quoteId, quoteFailureCode(error));
       throw error;
     }
 
-    await this.saveSignedQuote({
-      quoteId,
-      snapshotId: snapshot.snapshotId,
-      slippageBps: validatedRequest.slippageBps,
-      quote: signedQuote,
-      pricingVersion: pricing.pricingVersion,
-      spreadBps: pricing.spreadBps,
-      sizeImpactBps: pricing.sizeImpactBps,
-      inventorySkewBps: pricing.inventorySkewBps,
-      riskPolicyVersion: risk.policyVersion,
-      signature,
-    });
+    try {
+      await this.saveSignedQuote({
+        quoteId,
+        snapshotId: snapshot.snapshotId,
+        slippageBps: validatedRequest.slippageBps,
+        quote: signedQuote,
+        pricingVersion: pricing.pricingVersion,
+        spreadBps: pricing.spreadBps,
+        sizeImpactBps: pricing.sizeImpactBps,
+        inventorySkewBps: pricing.inventorySkewBps,
+        riskPolicyVersion: risk.policyVersion,
+        signature,
+      });
+    } catch (error) {
+      if (exposureReserved) await this.releaseQuoteExposureBestEffort(quoteId);
+      throw error;
+    }
 
     return {
       quoteId,
@@ -361,6 +394,14 @@ export class QuoteService {
     }
   }
 
+  private async releaseQuoteExposureBestEffort(quoteId: string): Promise<void> {
+    try {
+      await this.deps.quoteExposureStore?.release(quoteId);
+    } catch {
+      // The reservation is deadline-bound and will stop counting even when release fails.
+    }
+  }
+
   private async findQuoteStatus(quoteId: string): Promise<QuoteStatusResponse | undefined> {
     try {
       return await this.deps.quoteRepository.findStatus(quoteId);
@@ -400,6 +441,7 @@ export class QuoteService {
   private async markQuoteExpiredBestEffort(quoteId: string): Promise<void> {
     try {
       await this.markStoredQuoteStatus(quoteId, "expired");
+      await this.releaseQuoteExposureBestEffort(quoteId);
     } catch {
       // Preserve the read or submit response; reconciliation can recover stale signed quotes later.
     }
@@ -429,6 +471,9 @@ export class QuoteService {
 
   async markQuoteStatus(quoteId: string, status: QuoteLifecycleStatus, metadata?: QuoteStatusMetadata): Promise<void> {
     await this.markStoredQuoteStatus(quoteId, status, metadata);
+    if (status === "expired") {
+      await this.releaseQuoteExposureBestEffort(quoteId);
+    }
   }
 
   async markQuoteFailed(quoteId: string, errorCode: string): Promise<void> {
@@ -556,6 +601,7 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   assertRecord(deps, "deps");
   assertOwnFields(deps, quoteServiceDepsFields, "deps");
   assertOptionalOwnField(deps, "hedgeService", "deps");
+  assertOptionalOwnField(deps, "quoteExposureStore", "deps");
   assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
   assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "saveSnapshot");
   assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
@@ -563,6 +609,10 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   assertDependencyMethod(deps.inventoryService, "inventoryService", "calculateQuoteSkewBps");
   assertDependencyMethod(deps.inventoryService, "inventoryService", "projectSettlement");
   assertOptionalDependencyMethod(deps.hedgeService, "hedgeService", "quoteRiskPenaltyBps");
+  if (deps.quoteExposureStore !== undefined) {
+    assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "reserve");
+    assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "release");
+  }
   assertDependencyMethod(deps.riskEngine, "riskEngine", "evaluate");
   assertDependencyMethod(deps.riskDecisionStore, "riskDecisionStore", "saveDecision");
   assertDependencyMethod(deps.signerService, "signerService", "signQuote");
@@ -769,6 +819,34 @@ function assertPricingResult(value: unknown): asserts value is PricingResult {
   assertNonNegativeBpsInteger(value.sizeImpactBps, "sizeImpactBps");
   assertBpsMagnitudeInteger(value.inventorySkewBps, "inventorySkewBps");
   assertPricingSafeIdentifier(value.pricingVersion);
+}
+
+function assertQuoteExposureReservationResult(
+  value: unknown,
+): asserts value is QuoteExposureReservationResult {
+  if (!isRecord(value)) {
+    throw new Error("Quote service exposure reservation result must be an object");
+  }
+  if (value.status === "reserved") {
+    assertOwnFields(value, ["status", "notionalUsdE18"], "exposure reservation result");
+    assertNoUnknownFields(value, ["status", "notionalUsdE18"], "exposure reservation result");
+    if (typeof value.notionalUsdE18 !== "string" || !positiveUIntStringPattern.test(value.notionalUsdE18)) {
+      throw new Error("Quote service exposure reservation notionalUsdE18 must be a positive uint string");
+    }
+    return;
+  }
+  if (value.status === "rejected") {
+    assertOwnFields(value, ["status", "reasonCode"], "exposure reservation result");
+    assertNoUnknownFields(value, ["status", "reasonCode"], "exposure reservation result");
+    if (
+      value.reasonCode !== "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED" &&
+      value.reasonCode !== "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED"
+    ) {
+      throw new Error("Quote service exposure reservation reasonCode is invalid");
+    }
+    return;
+  }
+  throw new Error("Quote service exposure reservation status is invalid");
 }
 
 function assertNoUnknownFields(value: object, fields: readonly string[], path: string): void {

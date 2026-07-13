@@ -15,6 +15,7 @@ import type { QuoteRepository } from "../quote/quote.repository.js";
 import type { RateLimiter } from "../rate-limit/rate-limit.service.js";
 import type { RiskDecisionStore } from "../risk/risk-decision.repository.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
+import type { QuoteExposureStore } from "../risk/quote-exposure.store.js";
 import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
 import type { SubmitReservationStore } from "../execution/submit-reservation.store.js";
@@ -48,6 +49,7 @@ export interface ReadinessServiceDeps {
   routingEngine: RoutingEngine;
   pricingEngine: PricingEngine;
   riskEngine: RiskEngine;
+  quoteExposureStore?: QuoteExposureStore;
   signerService: SignerService;
   quoteRepository: QuoteRepository;
   riskDecisionStore: RiskDecisionStore;
@@ -298,6 +300,7 @@ export class ReadinessService {
 
   private async checkRisk(): Promise<ReadinessComponentStatus> {
     try {
+      await this.deps.quoteExposureStore?.checkHealth?.();
       const decision = await this.deps.riskEngine.evaluate({
         request: this.config.probeRequest,
         pricing: this.config.probePricing,
@@ -345,10 +348,19 @@ function cloneReadinessServiceDeps(deps: ReadinessServiceDeps): ReadinessService
 function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
   assertRecord(deps, "deps");
   assertOwnFields(deps, readinessServiceDepsFields, "deps");
+  if (
+    "quoteExposureStore" in deps &&
+    !Object.prototype.hasOwnProperty.call(deps, "quoteExposureStore")
+  ) {
+    throw new Error("Readiness service deps.quoteExposureStore must be an own field when provided");
+  }
   assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
   assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
   assertDependencyMethod(deps.pricingEngine, "pricingEngine", "price");
   assertDependencyMethod(deps.riskEngine, "riskEngine", "evaluate");
+  if (deps.quoteExposureStore !== undefined) {
+    assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "checkHealth");
+  }
   assertDependencyMethod(deps.signerService, "signerService", "signQuote");
   assertDependencyMethod(deps.signerService, "signerService", "verifyQuoteSignature");
   assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "checkHealth");

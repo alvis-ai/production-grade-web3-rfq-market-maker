@@ -8,10 +8,14 @@ const files = Object.fromEntries(await Promise.all([
   "backend/src/main.ts",
   "backend/src/modules/risk/risk.engine.ts",
   "backend/src/modules/risk/token-limit-risk.engine.ts",
+  "backend/src/modules/risk/quote-exposure.store.ts",
+  "backend/src/modules/risk/postgres-quote-exposure.store.ts",
   "backend/src/modules/quote/quote.service.ts",
   "backend/src/modules/health/readiness.service.ts",
   "backend/test/token-limit-risk.test.mjs",
   "backend/test/api-risk-policy-runtime.test.mjs",
+  "backend/test/quote-exposure-store.test.mjs",
+  "backend/test/postgres-quote-exposure-store.test.mjs",
   ".env.example",
   "docker-compose.yml",
   "infra/k8s/configmap.yaml",
@@ -38,6 +42,8 @@ for (const path of [
     "minAmountOut",
     "maxNotionalUsd",
     "maxAbsoluteInventory",
+    "maxUserOpenNotionalUsd",
+    "maxPairOpenNotionalUsd",
     "minLiquidityUsd",
     "maxVolatilityBps",
   ]);
@@ -50,6 +56,7 @@ assertContains("backend/src/main.ts", [
   "Risk policy has no tokenOut limit for managed pair",
   "must include at least one USD-reference token",
   "requireTokenMetadata(tokenRegistry, limit.chainId, limit.tokenAddress, \"Risk policy\")",
+  "resolveQuoteExposureStore",
 ]);
 assertContains("backend/src/modules/risk/token-limit-risk.engine.ts", [
   "class TokenLimitRiskEngine",
@@ -69,6 +76,25 @@ assertContains("backend/src/modules/risk/token-limit-risk.engine.ts", [
   "tokenOutLimit.maxAbsoluteInventory",
   "canonical positive uint256 string",
   "duplicate chain/token limits",
+  "getQuoteExposurePolicy",
+]);
+assertContains("backend/src/modules/risk/quote-exposure.store.ts", [
+  "class InMemoryQuoteExposureStore",
+  "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED",
+  "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED",
+  "toUsdE18",
+  "tokenLow",
+  "deadline",
+]);
+assertContains("backend/src/modules/risk/postgres-quote-exposure.store.ts", [
+  "pg_advisory_xact_lock",
+  "exposureLockScopes(reservation).sort()",
+  "for (const scope of scopes)",
+  "expires_at > now()",
+  "quote.status IN ('requested', 'signed', 'failed')",
+  "WHERE to_timestamp($7) > now()",
+  "FOR UPDATE SKIP LOCKED",
+  "SUM(exposure.notional_usd_e18)",
 ]);
 assertContains("backend/test/token-limit-risk.test.mjs", [
   "scopes token authorization by chain and address",
@@ -83,12 +109,25 @@ assertContains("backend/test/api-risk-policy-runtime.test.mjs", [
   "configured chain/token limits to a cross-decimals quote",
   "cross-decimals quote above its USD notional limit",
   "unsafe market liquidity and volatility regimes",
+  "cumulative user and pair open quote notional",
   'assert.equal(decision.policyVersion, "weth-usdc-risk-v1")',
   "unknown-token, and incomplete risk policies",
+]);
+assertContains("backend/test/quote-exposure-store.test.mjs", [
+  "exact user open-notional boundaries",
+  "canonicalizes pair direction",
+  "stops counting expired quotes",
+  "rounds sub-E18 USD reference units up",
+]);
+assertContains("backend/test/postgres-quote-exposure-store.test.mjs", [
+  "locks both scopes before atomically inserting",
+  "rejects user and pair totals without inserting",
 ]);
 assertContains("backend/src/modules/quote/quote.service.ts", [
   "risk = await this.evaluateRisk({",
   "snapshot,",
+  "quoteExposureStore.reserve",
+  "releaseQuoteExposureBestEffort",
 ]);
 assertContains("backend/src/modules/health/readiness.service.ts", [
   "snapshot: this.config.probeSnapshot",
@@ -101,6 +140,9 @@ assertContains("book/Volume3-RiskEngine/Chapter05-Position-Limits.md", [
   "maxNotionalUsd",
   "minLiquidityUsd",
   "maxVolatilityBps",
+  "maxUserOpenNotionalUsd",
+  "maxPairOpenNotionalUsd",
+  "quote_exposure_reservations",
 ]);
 assertContains("book/Volume5-BackendEngineering/Chapter04-Risk-Service.md", [
   "`TokenLimitRiskEngine`",
@@ -109,9 +151,10 @@ assertContains("book/Volume5-BackendEngineering/Chapter04-Risk-Service.md", [
   "policy/registry mismatch",
   "BigInt",
   "snapshot 流动性不足或波动率越界",
+  "活动签名报价",
 ]);
 
-console.log("Risk policy consistency check passed: market-regime, chain-scoped raw-unit, and USD-notional limits across 5 runtime config surfaces");
+console.log("Risk policy consistency check passed: market-regime, per-quote, and atomic open-exposure limits across 5 runtime config surfaces");
 
 function assertContains(path, needles) {
   for (const needle of needles) {

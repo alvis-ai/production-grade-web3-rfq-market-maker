@@ -6,6 +6,7 @@
 erDiagram
   QUOTES ||--o{ RISK_DECISIONS : has
   QUOTES ||--o| QUOTE_SUBMIT_RESERVATIONS : reserves
+  QUOTES ||--o| QUOTE_EXPOSURE_RESERVATIONS : limits
   QUOTES ||--o{ SETTLEMENT_EVENTS : settles
   SETTLEMENT_EVENTS ||--o{ HEDGE_ORDERS : triggers
   QUOTES ||--o{ PNL_RECORDS : attributes
@@ -51,6 +52,16 @@ erDiagram
     text quote_id PK, FK
     text owner_token
     timestamptz acquired_at
+    timestamptz expires_at
+  }
+
+  QUOTE_EXPOSURE_RESERVATIONS {
+    text quote_id PK, FK
+    bigint chain_id
+    text user_address
+    text token_low
+    text token_high
+    numeric notional_usd_e18
     timestamptz expires_at
   }
 
@@ -207,6 +218,8 @@ erDiagram
 - `settlement_indexer_checkpoints` 保存已提交 range 末端的 block hash。每次扫描先比较最近 checkpoint；分叉时在 `reorgLookbackBlocks` 内寻找共同祖先，按 reverse chain order 标记 orphaned settlement events non-canonical，再回退 cursor。超出窗口时 fail closed 并等待人工确认。
 - `idx_settlement_events_canonical_chain_block` 支持 indexer 在 crash-before-cursor-commit 和 reorg 恢复时只读取受影响链与 block range，不对完整事件表做全量扫描。
 - `quotes` 使用 partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`，保证 signed quote 的 `chainId:user:nonce` 本地查找键唯一，同时允许 requested / rejected quote 在签名前没有 nonce。
+- `quote_exposure_reservations` 以 `quote_id` 为主键并级联绑定 requested quote，保存 `(chain_id, normalized user)` 与排序后的无方向 `(token_low, token_high)` 作用域、18-decimal USD 定点名义金额和 `expires_at`。只有尚未过期且 quote 状态仍为 requested/signed/failed 的行参与累计限额；failed signed quote 的链上 nonce 未必已消耗，必须保守计数。submitted/settled 有成交证据后暂不计数但保留行，reorg 恢复 signed 状态时自动重新纳入；expired 行由有界 `FOR UPDATE SKIP LOCKED` 清理。
+- PostgreSQL exposure store 对 quote、user 与 pair scope 按字符串稳定排序后逐个获取 transaction-scoped advisory locks，再执行 active SUM 和 INSERT；这让多 API replica 的并发报价无法通过 write skew 同时越过 `maxUserOpenNotionalUsd` 或 `maxPairOpenNotionalUsd`。锁仅覆盖冲突作用域，不串行化不相关用户与交易对。
 - 数据库层使用 CHECK constraints 固化应用层关键不变量：操作表 primary id 使用 SafeIdentifier 约束、quote lifecycle status、risk decision status / reason_code consistency、hedge side/status（`queued`、`filled`、`failed`）、hedge `venue` 非空、PnL attribution model / model description、20-byte address、distinct token pair、market snapshot `source` 非空、market snapshot `bid_price <= mid_price <= ask_price`、market snapshot `volatility_bps` 在 0..10000 bps、signed quote pricing bps component ranges、32-byte tx/quote hash、65-byte canonical low-s EIP-712 signature with `v` in 27/28、`amount_out >= min_amount_out`，以及正数 signed amount/nonce、settled amount/nonce 和 hedge amount。
 - `quotes`、`market_snapshots`、`risk_decisions`、`settlement_events`、`inventory_positions`、`hedge_orders` 和 `pnl_records` 的 primary id 都必须符合 SafeIdentifier：非空、不超过 128 个字符，并且只包含 letters、numbers、underscore、colon 或 hyphen，避免数据库保存 API/SDK 无法查询或展示的资源主键。
 - `quotes` 的 status payload consistency 约束要求 signed payload 字段全有或全无，requested/rejected 状态不能携带 signed payload 字段，signed/expired/submitted/settled 状态必须保留完整 signed quote payload metadata，只有 rejected/failed 状态可以携带非空 `reject_code`，submitted/settled 状态必须至少保留 `tx_hash` 和 `settlement_event_id`。
@@ -228,7 +241,7 @@ erDiagram
 - `quotes.snapshot_id` 使用索引支持报价回放；nullable status pointers 使用 partial indexes，只索引非空的 `settlement_event_id`、`hedge_order_id` 和 `pnl_id`，支持审计 join 和 reconciliation 查询，同时避免大量未成交 quote 的空指针污染索引。
 - 所有带 `chain_id` 的操作表都使用 CHECK constraint 限制为 JavaScript safe integer range `1..9007199254740991`，与后端、SDK 和 OpenAPI 的 `chainId` 契约一致，避免数据库保存无法被运行时代码安全表示的链 ID。
 - `quotes.tx_hash` 是状态查询冗余字段，用于快速展示链上交易哈希；权威成交事件仍由 `settlement_events` 和 `quote_hash` 绑定。
-- `risk_decisions.policy_version` 用于解释风控变更后的历史行为，必须是非空字符串；`reason_code` 只允许出现在 rejected decision 上，approved decision 必须保持 NULL，且 rejected reason 必须来自后端 `RiskRejectReasonCode` 稳定枚举，包括市场流动性不足、波动率越界、USD 单笔名义金额超限和缺少可信 USD reference 的 fail-closed 决策。
+- `risk_decisions.policy_version` 用于解释风控变更后的历史行为，必须是非空字符串；`reason_code` 只允许出现在 rejected decision 上，approved decision 必须保持 NULL，且 rejected reason 必须来自后端 `RiskRejectReasonCode` 稳定枚举，包括市场流动性不足、波动率越界、USD 单笔名义金额超限、活动用户/交易对累计名义金额超限和缺少可信 USD reference 的 fail-closed 决策。
 - `inventory_positions` 是当前操作状态，不替代事件账本。
 - `settlement_events` insert/reactivation 与 tokenIn/tokenOut 两条 `inventory_positions` delta 在同一个 PostgreSQL transaction 中提交；token address 按字典序加锁，避免相反交易对并发更新产生 deadlock。重复 event 不重复更新库存。
 - 生产 Quote Service 直接读取共享 `inventory_positions` 计算 skew 和 projected exposure，不依赖 pod-local inventory cache；因此多副本风险决策看到同一个已提交敞口。

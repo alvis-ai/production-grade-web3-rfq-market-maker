@@ -13,6 +13,7 @@ import {
   type RiskRejectReasonCode,
   type ToxicFlowScore,
 } from "./risk.engine.js";
+import type { QuoteExposurePolicy } from "./quote-exposure.store.js";
 
 export interface TokenRiskLimit {
   chainId: number;
@@ -30,6 +31,8 @@ export interface TokenLimitRiskPolicy {
   restrictedUsers: Address[];
   toxicFlowScores: ToxicFlowScore[];
   maxToxicScoreBps: number;
+  maxUserOpenNotionalUsd: string;
+  maxPairOpenNotionalUsd: string;
   minLiquidityUsd: string;
   maxVolatilityBps: number;
   maxSlippageBps: number;
@@ -69,6 +72,8 @@ export const defaultTokenLimitRiskPolicy: TokenLimitRiskPolicy = {
   restrictedUsers: [],
   toxicFlowScores: [],
   maxToxicScoreBps: 8_000,
+  maxUserOpenNotionalUsd: "2000000",
+  maxPairOpenNotionalUsd: "5000000",
   minLiquidityUsd: "1000000",
   maxVolatilityBps: 500,
   maxSlippageBps: 500,
@@ -82,6 +87,8 @@ const policyFields = [
   "restrictedUsers",
   "toxicFlowScores",
   "maxToxicScoreBps",
+  "maxUserOpenNotionalUsd",
+  "maxPairOpenNotionalUsd",
   "minLiquidityUsd",
   "maxVolatilityBps",
   "maxSlippageBps",
@@ -138,6 +145,13 @@ export class TokenLimitRiskEngine implements RiskEngine {
     if (!Number.isSafeInteger(chainId) || chainId <= 0 || !isAddress(tokenAddress)) return undefined;
     const limit = this.limitsByToken.get(tokenLimitKey(chainId, tokenAddress));
     return limit ? { ...limit.config } : undefined;
+  }
+
+  getQuoteExposurePolicy(): QuoteExposurePolicy {
+    return {
+      maxUserOpenNotionalUsd: this.policy.maxUserOpenNotionalUsd,
+      maxPairOpenNotionalUsd: this.policy.maxPairOpenNotionalUsd,
+    };
   }
 
   async evaluate(input: RiskInput): Promise<RiskDecision> {
@@ -234,6 +248,14 @@ export function assertTokenLimitRiskPolicy(value: unknown): asserts value is Tok
   assertAddressList(value.restrictedUsers, "Token limit risk policy.restrictedUsers");
   assertToxicFlowScores(value.toxicFlowScores);
   assertBps(value.maxToxicScoreBps, "Token limit risk policy.maxToxicScoreBps");
+  assertPositiveUint256String(
+    value.maxUserOpenNotionalUsd,
+    "Token limit risk policy.maxUserOpenNotionalUsd",
+  );
+  assertPositiveUint256String(
+    value.maxPairOpenNotionalUsd,
+    "Token limit risk policy.maxPairOpenNotionalUsd",
+  );
   assertPositiveUint256String(value.minLiquidityUsd, "Token limit risk policy.minLiquidityUsd");
   assertBps(value.maxVolatilityBps, "Token limit risk policy.maxVolatilityBps");
   assertBps(value.maxSlippageBps, "Token limit risk policy.maxSlippageBps");

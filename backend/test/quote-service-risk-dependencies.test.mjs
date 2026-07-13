@@ -140,6 +140,7 @@ test("QuoteService blocks signer when risk decision persistence fails", async ()
   const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
   let requestedQuoteId;
   let signerCalls = 0;
+  const releasedQuoteIds = [];
   quoteRepository.saveRequested = async (input) => {
     requestedQuoteId = input.quoteId;
     await saveRequested(input);
@@ -147,6 +148,14 @@ test("QuoteService blocks signer when risk decision persistence fails", async ()
   const service = new QuoteService({
     ...quoteServiceDeps(),
     quoteRepository,
+    quoteExposureStore: {
+      async reserve() {
+        return { status: "reserved", notionalUsdE18: "1000000000000000000" };
+      },
+      async release(quoteId) {
+        releasedQuoteIds.push(quoteId);
+      },
+    },
     riskDecisionStore: {
       checkHealth() {},
       async saveDecision() {
@@ -180,6 +189,184 @@ test("QuoteService blocks signer when risk decision persistence fails", async ()
   assert.equal(status.status, "failed");
   assert.equal(status.errorCode, "QUOTE_STORE_UNAVAILABLE");
   assert.equal(signerCalls, 0);
+  assert.deepEqual(releasedQuoteIds, [requestedQuoteId]);
+});
+
+test("QuoteService persists cumulative exposure rejection before signer boundary", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const riskDecisionStore = new InMemoryRiskDecisionRepository();
+  const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+  let requestedQuoteId;
+  let signerCalls = 0;
+  quoteRepository.saveRequested = async (input) => {
+    requestedQuoteId = input.quoteId;
+    await saveRequested(input);
+  };
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteRepository,
+    riskDecisionStore,
+    quoteExposureStore: {
+      async reserve() {
+        return { status: "rejected", reasonCode: "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED" };
+      },
+      async release() {
+        assert.fail("rejected exposure must not be released");
+      },
+    },
+    signerService: {
+      async signQuote() {
+        signerCalls += 1;
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() {
+        return true;
+      },
+    },
+  });
+
+  await assert.rejects(service.createQuote(request), (error) => {
+    assert.equal(error.code, "RISK_REJECTED");
+    assert.equal(error.internalReasonCode, "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED");
+    return true;
+  });
+  assert.equal(signerCalls, 0);
+  const decision = await riskDecisionStore.findByQuoteId(requestedQuoteId);
+  assert.equal(decision.decision, "rejected");
+  assert.equal(decision.reasonCode, "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED");
+  assert.equal(decision.policyVersion, "basic-risk-v1");
+});
+
+test("QuoteService releases cumulative exposure when signing fails", async () => {
+  const releasedQuoteIds = [];
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteExposureStore: {
+      async reserve() {
+        return { status: "reserved", notionalUsdE18: "1000000000000000000" };
+      },
+      async release(quoteId) {
+        releasedQuoteIds.push(quoteId);
+      },
+    },
+    signerService: {
+      async signQuote() {
+        throw new Error("signer offline");
+      },
+      async verifyQuoteSignature() {
+        return true;
+      },
+    },
+  });
+
+  await assert.rejects(service.createQuote(request), /signer offline/);
+  assert.equal(releasedQuoteIds.length, 1);
+  assert.match(releasedQuoteIds[0], /^q_/);
+});
+
+test("QuoteService fails closed on malformed exposure reservation results", async () => {
+  for (const malformed of [
+    undefined,
+    { status: "reserved" },
+    { status: "reserved", notionalUsdE18: "0" },
+    { status: "rejected", reasonCode: "TEMPORARY_LIMIT" },
+    { status: "reserved", notionalUsdE18: "1", extra: true },
+  ]) {
+    let signerCalls = 0;
+    const riskDecisionStore = new InMemoryRiskDecisionRepository();
+    const quoteRepository = new InMemoryQuoteRepository();
+    const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+    let quoteId;
+    quoteRepository.saveRequested = async (input) => {
+      quoteId = input.quoteId;
+      await saveRequested(input);
+    };
+    const service = new QuoteService({
+      ...quoteServiceDeps(),
+      quoteRepository,
+      riskDecisionStore,
+      quoteExposureStore: {
+        async reserve() {
+          return malformed;
+        },
+        async release() {},
+      },
+      signerService: {
+        async signQuote() {
+          signerCalls += 1;
+          return fixedSignature();
+        },
+        async verifyQuoteSignature() {
+          return true;
+        },
+      },
+    });
+
+    await assert.rejects(service.createQuote(request), (error) => error.code === "RISK_REJECTED");
+    assert.equal(signerCalls, 0);
+    assert.equal((await riskDecisionStore.findByQuoteId(quoteId)).reasonCode, "RISK_ENGINE_UNAVAILABLE");
+  }
+});
+
+test("QuoteService releases cumulative exposure when a quote leaves open status", async () => {
+  const releasedQuoteIds = [];
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteExposureStore: {
+      async reserve() {
+        return { status: "reserved", notionalUsdE18: "1000000000000000000" };
+      },
+      async release(quoteId) {
+        releasedQuoteIds.push(quoteId);
+      },
+    },
+  });
+
+  const quote = await service.createQuote(request);
+  assert.deepEqual(releasedQuoteIds, []);
+  await service.markQuoteStatus(quote.quoteId, "expired");
+  assert.deepEqual(releasedQuoteIds, [quote.quoteId]);
+});
+
+test("QuoteService retains exposure for failed signed quotes until deadline", async () => {
+  const releasedQuoteIds = [];
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteExposureStore: {
+      async reserve() {
+        return { status: "reserved", notionalUsdE18: "1000000000000000000" };
+      },
+      async release(quoteId) {
+        releasedQuoteIds.push(quoteId);
+      },
+    },
+  });
+
+  const quote = await service.createQuote(request);
+  await service.markQuoteFailed(quote.quoteId, "SETTLEMENT_REVERTED");
+  assert.deepEqual(releasedQuoteIds, []);
+});
+
+test("QuoteService retains settled exposure evidence for possible reorg restoration", async () => {
+  const releasedQuoteIds = [];
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteExposureStore: {
+      async reserve() {
+        return { status: "reserved", notionalUsdE18: "1000000000000000000" };
+      },
+      async release(quoteId) {
+        releasedQuoteIds.push(quoteId);
+      },
+    },
+  });
+
+  const quote = await service.createQuote(request);
+  await service.markQuoteStatus(quote.quoteId, "settled", {
+    txHash: `0x${"11".repeat(32)}`,
+    settlementEventId: "se_reorg_evidence",
+  });
+  assert.deepEqual(releasedQuoteIds, []);
 });
 
 function fixedSignature() {
