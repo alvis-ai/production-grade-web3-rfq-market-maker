@@ -32,6 +32,7 @@ test("non-local RFQ API startup requires durable PostgreSQL persistence", async 
 
     const { pool, queries } = fakeDatabasePool();
     const server = buildServer({
+      apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
       logger: false,
       databasePool: pool,
       rateLimiter: allowAllRateLimiter(),
@@ -61,6 +62,17 @@ function allowAllRateLimiter() {
       return { allowed: true, remaining: 1, retryAfterSeconds: 60 };
     },
     checkHealth() {},
+  };
+}
+
+function allowAllApiKeyAuthenticator() {
+  return {
+    authenticate() {
+      return {
+        status: "authenticated",
+        principal: { keyId: "test_key", principalId: "test_principal", scopes: ["quote:write"] },
+      };
+    },
   };
 }
 

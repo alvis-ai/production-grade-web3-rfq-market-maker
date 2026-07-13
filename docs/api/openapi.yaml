@@ -2,14 +2,17 @@ openapi: 3.1.0
 info:
   title: Production-Grade Web3 RFQ Market Maker API
   version: 0.1.0
-  description: API draft for RFQ quote, submit, health, and metrics flows. Every response includes an x-trace-id header for request correlation; structured error bodies also include the same traceId value. Clients may send a safe tr_-prefixed x-trace-id request header, which the gateway echoes after length and character validation; unsafe values fall back to a generated request id. Browser access is controlled by the RFQ_CORS_ALLOWED_ORIGINS allowlist, which only accepts normalized HTTP(S) URL origins without path, query, fragment, credentials, or wildcards. The gateway emits no-store cache control and baseline browser security headers on every response. Unknown routes and unsupported methods return the standard ErrorResponse shape.
+  description: API draft for RFQ quote, submit, health, and metrics flows. Every response includes an x-trace-id header for request correlation; structured error bodies also include the same traceId value. Clients may send a safe tr_-prefixed x-trace-id request header, which the gateway echoes after length and character validation; unsafe values fall back to a generated request id. Business routes require a scoped x-api-key in non-local deployments; only the key id and SHA-256 secret digest are stored server-side. Browser access is controlled by the RFQ_CORS_ALLOWED_ORIGINS allowlist, which only accepts normalized HTTP(S) URL origins without path, query, fragment, credentials, or wildcards. The gateway emits no-store cache control and baseline browser security headers on every response. Unknown routes and unsupported methods return the standard ErrorResponse shape.
 servers:
   - url: http://localhost:3000
+security:
+  - ApiKeyAuth: []
 paths:
   /quote:
     post:
       operationId: createQuote
       summary: Request an RFQ quote
+      x-required-scope: quote:write
       tags:
         - Quote
       requestBody:
@@ -37,6 +40,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/QuoteResponse"
+        "401":
+          description: Missing, malformed, invalid, or expired API key
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: API key lacks the scope required by this operation
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
               examples:
                 default:
                   value:
@@ -100,6 +121,7 @@ paths:
     post:
       operationId: submitQuote
       summary: Confirm a wallet transaction or run an explicitly enabled local simulation
+      x-required-scope: submit:write
       description: >
         In receipt-confirmed mode the client supplies the transaction hash produced by
         its wallet. The backend independently waits for configured confirmations,
@@ -134,6 +156,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SubmitQuoteResponse"
+        "401":
+          description: Missing, malformed, invalid, or expired API key
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: API key lacks the scope required by this operation
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "400":
           description: Invalid submit request
           headers:
@@ -196,6 +236,7 @@ paths:
     get:
       operationId: getQuote
       summary: Get quote status by id
+      x-required-scope: status:read
       tags:
         - Quote
       parameters:
@@ -218,6 +259,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/QuoteStatus"
+        "401":
+          description: Missing, malformed, invalid, or expired API key
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: API key lacks the scope required by this operation
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Quote not found
           headers:
@@ -253,6 +312,7 @@ paths:
     get:
       operationId: getHedgeIntent
       summary: Get hedge intent status by id
+      x-required-scope: status:read
       description: >
         Returns the hedge intent created after a submit request updates
         inventory, including its current queued, filled, or failed lifecycle
@@ -283,6 +343,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HedgeIntentStatus"
+        "401":
+          description: Missing, malformed, invalid, or expired API key
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: API key lacks the scope required by this operation
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Hedge intent not found
           headers:
@@ -318,6 +396,7 @@ paths:
     get:
       operationId: getSettlementEvent
       summary: Get settlement event status by id
+      x-required-scope: status:read
       description: >
         Returns the accepted settlement event consumed by the backend to update
         inventory. Receipt-confirmed deployments derive these records from
@@ -348,6 +427,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SettlementEventStatus"
+        "401":
+          description: Missing, malformed, invalid, or expired API key
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: API key lacks the scope required by this operation
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Settlement event not found
           headers:
@@ -383,6 +480,7 @@ paths:
     get:
       operationId: getPnlSummary
       summary: Get realized PnL summary
+      x-required-scope: pnl:read
       description: >
         Returns gross settlement PnL records valued against each quote's persisted
         market snapshot. The model normalizes token decimals, reports tokenOut base
@@ -400,6 +498,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PnlSummary"
+        "401":
+          description: Missing, malformed, invalid, or expired API key
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: API key lacks the scope required by this operation
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "429":
           description: Rate limited
           headers:
@@ -424,6 +540,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
   /health:
     get:
+      security: []
       operationId: getHealth
       summary: Health check
       tags:
@@ -440,6 +557,7 @@ paths:
                 $ref: "#/components/schemas/HealthResponse"
   /ready:
     get:
+      security: []
       operationId: getReadiness
       summary: Readiness check
       description: Checks market data freshness, signer sign/verify capability, Redis rate-limit availability, and lightweight state dependency probes before the instance is considered routable.
@@ -466,6 +584,7 @@ paths:
                 $ref: "#/components/schemas/ReadinessResponse"
   /metrics:
     get:
+      security: []
       operationId: getMetrics
       summary: Prometheus metrics endpoint
       tags:
@@ -481,6 +600,12 @@ paths:
               schema:
                 type: string
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: Scoped key in keyId.secret form. Store only SHA-256(secret) in RFQ_API_KEY_CONFIG_JSON and rotate with overlapping key ids.
   headers:
     TraceId:
       description: Request correlation id attached to every response. ErrorResponse.traceId contains the same value for structured error bodies. Safe tr_-prefixed request header values may be echoed; unsafe values are replaced with a generated request id.
@@ -1058,6 +1183,8 @@ components:
           type: string
           enum:
             - INVALID_REQUEST
+            - AUTHENTICATION_REQUIRED
+            - AUTHORIZATION_DENIED
             - UNSUPPORTED_CHAIN
             - UNSUPPORTED_TOKEN
             - AMOUNT_TOO_SMALL

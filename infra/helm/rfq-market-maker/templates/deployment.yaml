@@ -59,6 +59,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.redisSecret.name }}
                   key: {{ .Values.redisSecret.urlKey }}
+            - name: RFQ_API_KEY_CONFIG_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiKeySecret.name }}
+                  key: {{ .Values.apiKeySecret.configKey }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

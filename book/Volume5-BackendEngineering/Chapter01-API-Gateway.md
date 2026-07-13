@@ -120,6 +120,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 - `RFQ_BODY_LIMIT_BYTES` 控制 gateway 接收的最大 JSON body，默认 32768 bytes，启动时必须校验为 1024 到 1048576 的 base-10 integer，避免 `1e6`、`32768.0` 或 `0x8000` 这类非十进制字面量消耗 parser 和内存资源。
 - Direct `buildServer(options)` embedding requires a non-array options object, rejects inherited supported option fields, uses the same fail-fast runtime bounds for `bodyLimitBytes` and `quoteTtlSeconds`, rejects non-boolean `logger`, `enableHsts` or `trustProxy` values, and requires `rateLimit` to be `false` or an object whose partial rate-limit fields are own fields before creating rate-limit state. Tests may inject a validated `rateLimiter`, but cannot provide it together with `rateLimit`. This prevents tests, benchmark harnesses or embedded deployments from bypassing the env reader with unsafe direct options or prototype-backed dependency injection.
 - `RFQ_CORS_ALLOWED_ORIGINS` 控制浏览器来源 allowlist，默认允许本地 Vite 前端 `http://localhost:5173`。Gateway 在启动期只接受 HTTP(S) URL origin，拒绝 path、query、fragment、credentials 和 wildcard，并用 `URL.origin` 归一化大小写、默认端口和重复项。Gateway 只为匹配来源写入 `access-control-allow-origin`；预检请求来源不匹配时返回结构化 `INVALID_REQUEST`/403。
+- `RFQ_API_KEY_CONFIG_JSON` 在非本地环境是必填 Secret。每个 `keyId.secret` 只持久化 `SHA-256(secret)`，unknown key id 也执行固定 dummy digest 比较；所有认证失败统一为 `AUTHENTICATION_REQUIRED`/401。Route scope 固定为 `/quote -> quote:write`、`/submit -> submit:write`、状态查询 `-> status:read`、`/pnl -> pnl:read`，scope 不足返回 `AUTHORIZATION_DENIED`/403。探针、metrics 和 CORS preflight 不要求 key，但应由集群网络边界限制访问。
 - Gateway 为所有响应写入 baseline security headers：`cache-control: no-store`、`x-content-type-options: nosniff`、`x-frame-options: DENY`、`referrer-policy: no-referrer` 和限制性的 `permissions-policy`。`RFQ_ENABLE_HSTS` 只应在 HTTPS 入口后开启，开启后写入 `strict-transport-security`。
 - Standalone backend process registers graceful shutdown handlers for `SIGTERM` and `SIGINT`; the first signal closes Fastify and sets process exit code, while duplicate signals do not trigger duplicate close attempts.
 - Gateway uses a not-found handler so unknown routes and unsupported HTTP methods return structured `INVALID_REQUEST`/404 responses instead of Fastify default error objects.
@@ -135,6 +136,7 @@ OpenAPI 是公开接口来源。Gateway 实现必须对齐 `docs/api/openapi.yam
 - 请求格式错误、malformed JSON、unsupported content type 或 body too large：返回 `INVALID_REQUEST`，并按具体场景使用 HTTP 400、413 或 415。
 - CORS preflight origin 不在 allowlist：返回 `INVALID_REQUEST` 和 HTTP 403，不写入 allow-origin header。
 - Unknown route or unsupported method：返回 `INVALID_REQUEST` 和 HTTP 404，仍包含 traceId 和 security headers。
+- API key 缺失、格式错误、secret 错误、unknown 或 expired：返回同一个 `AUTHENTICATION_REQUIRED`/401；scope 不足返回 `AUTHORIZATION_DENIED`/403，均不得记录 plaintext key。
 - 限流：返回 HTTP 429、`RATE_LIMITED` 和 `Retry-After`。
 - Redis rate-limit store unavailable：受保护端点 fail-closed 返回 HTTP 503、`RATE_LIMIT_UNAVAILABLE` 和 traceId，`/ready.components.rateLimitStore` 同时变为 `degraded`；不得临时切换到各 pod 独立内存桶继续承接生产流量。
 - Market data unavailable、invalid 或 stale：`/ready` 返回 HTTP 503/degraded，`POST /quote` 返回 `MARKET_DATA_UNAVAILABLE`。
@@ -159,7 +161,7 @@ Gateway 应保持薄层，不执行重计算。序列化和校验必须足够快
 
 ## Testing Strategy
 
-测试 request validation、Fastify parser error mapping、not-found handler、body limit、CORS allowed origin、CORS preflight rejection、security headers、HSTS toggle、graceful shutdown signal handling、error mapping、内存与 Redis rate limit、Redis Lua decision validation、Redis failure fail-closed、health、readiness market data degraded、readiness config fail-fast、readiness routing degraded、readiness pricing degraded、readiness risk degraded、readiness signer degraded、readiness rate-limit/store dependency degraded、metrics、`/quote` 路由、settlement event 查询、hedge intent 查询、PnL summary 查询，以及成功和失败响应的 `x-trace-id` 传播。
+测试 request validation、API key 摘要、expiry、scope、生产必填、认证限流身份、SDK header 隔离、Fastify parser error mapping、not-found handler、body limit、CORS allowed origin、CORS preflight rejection、security headers、HSTS toggle、graceful shutdown signal handling、error mapping、内存与 Redis rate limit、Redis Lua decision validation、Redis failure fail-closed、health、readiness、metrics、`/quote` 路由和状态查询，以及成功和失败响应的 `x-trace-id` 传播。
 
 ## Interview Notes
 

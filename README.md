@@ -137,6 +137,7 @@ RFQ_ENABLE_HSTS=false
 RFQ_TRUST_PROXY=false
 RFQ_RATE_LIMIT_BACKEND=memory
 # RFQ_REDIS_URL=redis://127.0.0.1:6379/0
+# RFQ_API_KEY_CONFIG_JSON={"keys":[{"keyId":"client_primary","principalId":"institution_a","secretSha256":"...","scopes":["quote:write","submit:write","status:read","pnl:read"]}]}
 VITE_RFQ_API_BASE_URL=http://localhost:3000
 VITE_RFQ_SETTLEMENT_ADDRESS=0x...
 VITE_WALLETCONNECT_PROJECT_ID=00000000000000000000000000000000
@@ -159,6 +160,8 @@ RFQ_SETTLEMENT_ADDRESS=0x...
 ```
 
 The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK and `RFQSettlement` contract. Local development uses `RFQ_SIGNER_MODE=local`, derives the trusted signer from `RFQ_SIGNER_PRIVATE_KEY`, and binds signatures to `RFQ_SETTLEMENT_ADDRESS`. Non-local runtime uses `RFQ_SIGNER_MODE=aws-kms`, requires an explicit `RFQ_TRUSTED_SIGNER_ADDRESS`, and rejects `RFQ_SIGNER_PRIVATE_KEY`; an injected `SignerService` may use `external` mode. The settlement verifier always recovers the signature against that explicit signer identity before settlement evidence is consumed. `HOST` defaults to `127.0.0.1` and must not contain whitespace; `PORT` defaults to `3000` and must be a base-10 integer from 1 to 65535. Backend startup reads only own environment fields, so prototype-backed `HOST`, `PORT`, `RFQ_QUOTE_TTL_SECONDS`, signer, CORS, HSTS, proxy, Redis, token-registry or risk-policy values are treated as unset. `RFQ_QUOTE_TTL_SECONDS` controls the signed quote lifetime and must be a base-10 integer from 1 to 3600; keep it short enough to limit stale price execution. `RFQ_BODY_LIMIT_BYTES` controls the maximum JSON request body size and must be a base-10 integer from 1024 to 1048576. `RFQ_CORS_ALLOWED_ORIGINS` is a comma-separated allowlist of HTTP(S) URL origins that may call the API; startup rejects entries with paths, query strings, fragments, credentials, or wildcards, then normalizes each accepted origin with `URL.origin`. `RFQ_ENABLE_HSTS` must only be enabled when the public API is served through HTTPS. `RFQ_TRUST_PROXY` defaults to `false`; only enable it when a trusted reverse proxy or ingress strips untrusted `x-forwarded-for` input and writes the client IP. `RFQ_TOKEN_REGISTRY_JSON` is the trusted, startup-validated source for each supported chain/token address, symbol, decimals, whitelist state, risk tier and USD-reference status; quote requests never supply or override token decimals. `RFQ_RISK_POLICY_JSON` defines a versioned enabled-chain list plus per `(chainId, tokenAddress)` `maxAmountIn`、`minAmountOut` and `maxAbsoluteInventory` base-unit limits, as well as toxic-flow and bps controls. Startup requires every policy token to exist in the registry and every managed pair to have both token limits. `VITE_RFQ_API_BASE_URL` configures the browser API endpoint and must be an absolute HTTP(S) URL with an optional path prefix, no credentials, no wildcard host, and no query string or fragment. `VITE_RFQ_SETTLEMENT_ADDRESS` configures the browser-side `RFQSettlement.submitQuote` target. `VITE_WALLETCONNECT_PROJECT_ID` configures RainbowKit wallet connection and must be a 128-character-or-shorter safe string containing only letters, numbers, underscore, or hyphen.
+
+`RFQ_API_KEY_CONFIG_JSON` is optional for local development and required for every non-local `NODE_ENV`. Each entry stores a public key id, stable principal id, fixed scopes, optional canonical expiry timestamp, and only `SHA-256(secret)`; clients send `x-api-key: keyId.secret`. The gateway uses constant-time digest comparison, returns one generic 401 response for missing, malformed, unknown, expired, or incorrect credentials, and keys distributed rate limits by authenticated key id. The direct browser demo should remain local or sit behind a trusted backend-for-frontend; never embed an institutional API secret in a `VITE_*` variable.
 
 Local development permits synthetic settlement only when `RFQ_ALLOW_SIMULATED_SETTLEMENT=true`. In receipt-confirmed mode the wallet broadcasts `RFQSettlement.submitQuote`, then sends the resulting `txHash` to `POST /submit`. The backend treats that hash only as an RPC lookup key: it waits for configured confirmations, verifies transaction `from`, `to`, and decoded `submitQuote` calldata against the stored quote/signature, requires a successful receipt, and requires exactly one matching `QuoteSettled` event before inventory, hedge, PnL, or quote-status side effects.
 
@@ -257,6 +260,8 @@ Local ports:
 
 ## Production Configuration
 
+Every non-local standalone backend also requires `RFQ_API_KEY_CONFIG_JSON`; startup fails closed when scoped API authentication is absent or explicitly disabled.
+
 When `NODE_ENV` is set to any non-local environment such as `production` or `staging`, the standalone backend requires `RFQ_SIGNER_MODE=aws-kms`, `RFQ_AWS_KMS_KEY_ID`, `RFQ_AWS_KMS_REGION`, `RFQ_TRUSTED_SIGNER_ADDRESS`, `RFQ_SETTLEMENT_ADDRESS`, and `DATABASE_URL`. The KMS key must be an asymmetric `ECC_SECG_P256K1` signing key. The runtime sends the 32-byte EIP-712 digest with `MessageType=DIGEST` and `ECDSA_SHA_256`, strictly decodes the returned DER signature, normalizes it to low-s form, and accepts it only when address recovery equals `RFQ_TRUSTED_SIGNER_ADDRESS`. `RFQ_SIGNER_PRIVATE_KEY` is rejected outside local mode. The AWS SDK default credential chain should resolve workload identity; do not mount static AWS access keys into the Pod. The first `/ready` check performs a real sign-and-recover probe, then caches both successful and degraded signer status for 30 seconds and coalesces concurrent probes so health traffic cannot amplify into unbounded KMS calls. Production also defaults `RFQ_ALLOW_SIMULATED_SETTLEMENT` to `false`, requires at least one valid chain in `RFQ_RECEIPT_CONFIG_JSON`, forces `RFQ_RATE_LIMIT_BACKEND=redis`, and requires a valid `RFQ_REDIS_URL`. Every receipt chain settlement address must match the EIP-712 settlement address. The built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`; synthetic settlement, process-local rate limits, and in-memory operational stores have the same local-only boundary.
 
 Leave `RFQ_TRUST_PROXY=false` unless the public API is behind a trusted load balancer or ingress that removes incoming spoofed `x-forwarded-for` headers and sets the canonical client address. When enabled, the rate limiter keys by the first `x-forwarded-for` entry after enforcing the 128 character limit and `[A-Za-z0-9_.:-]` character set; otherwise it uses the direct socket IP. Redis uses one atomic Lua operation for counter, TTL and limit decisions across replicas. Redis errors return `RATE_LIMIT_UNAVAILABLE`/503 and degrade `rateLimitStore` readiness; the gateway never silently fails open.
@@ -269,7 +274,8 @@ kubectl -n rfq-market-maker create secret generic rfq-backend-secrets \
   --from-literal=RFQ_AWS_KMS_KEY_ID=alias/rfq-production-signer \
   --from-literal=RFQ_TRUSTED_SIGNER_ADDRESS=0x... \
   --from-literal=RFQ_SETTLEMENT_ADDRESS=0x... \
-  --from-literal=RFQ_REDIS_URL=rediss://user:password@redis.example.com:6380/0
+  --from-literal=RFQ_REDIS_URL=rediss://user:password@redis.example.com:6380/0 \
+  --from-literal=RFQ_API_KEY_CONFIG_JSON='{"keys":[{"keyId":"client_primary","principalId":"institution_a","secretSha256":"<sha256-of-secret>","scopes":["quote:write","submit:write","status:read","pnl:read"]}]}'
 ```
 
 Create a separate worker Secret so API pods never receive venue credentials. The Binance key should permit spot trading only, use an IP allowlist, and have withdrawals disabled:
@@ -314,6 +320,8 @@ kubectl -n rfq-market-maker create secret generic rfq-database-migration-secrets
   --from-literal=DATABASE_URL=postgres://migrator:password@postgres.example.com:5432/rfq_market_maker
 ```
 
+The API credential digest JSON is exposed to the backend only through Helm `apiKeySecret`; it is not part of the ConfigMap or worker Secrets.
+
 The Helm chart expects the KMS key id, trusted signer address, and settlement address through `signerSecret`, the Redis URL through `redisSecret`, and the API PostgreSQL URL through `databaseSecret.name` / `databaseSecret.urlKey`. `serviceAccount.annotations` binds the backend Pod to a workload identity with only `kms:Sign` on the configured key. `hedgeWorker.secret` references the separate worker database and Binance credential keys; `analyticsWorker.secret` references the analytics database, Kafka SASL and ClickHouse credentials; `settlementIndexer.secret` references only its database URL and RPC-bearing chain JSON. Routing and broker endpoint metadata stay in non-secret values.
 
 API, hedge, analytics, reconciliation, and settlement-indexer Kubernetes Deployments run the migration entrypoint in an init container using `migrationSecret`. Migration discovery and execution are serialized by a PostgreSQL session advisory lock, allowing multiple rollout pods to start safely while ensuring migrations through `007-settlement-indexer.sql` are committed before any process checks readiness. The DDL-capable migrator credential is not mounted into runtime containers. Production operators must provision `rfq.analytics.v1` before starting analytics consumers; auto topic creation is intentionally disabled.
@@ -351,6 +359,7 @@ The submit benchmark builds the backend, requests a fresh quote per sample, then
 const client = new RFQClient("http://localhost:3000");
 const clientWithCustomFetch = new RFQClient("http://localhost:3000", { fetch: customFetch });
 const tracedClient = new RFQClient("http://localhost:3000", { traceId: () => "tr_request_123" });
+const authenticatedClient = new RFQClient("https://rfq.example.com", { apiKey: () => currentApiKey });
 
 await client.quote(request);
 await client.submit({ quote, signature });

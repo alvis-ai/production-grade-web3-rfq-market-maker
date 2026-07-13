@@ -1,8 +1,9 @@
-import { readFile, readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import assert from "node:assert/strict";
 
 const apiErrorSource = await readFile("backend/src/shared/errors/api-error.ts", "utf8");
-const backendSource = await readSourceTree("backend/src");
+const backendSource = await readReachableSourceTree("backend/src/main.ts");
 const apiGatewayStartupTestSource = await readFile("backend/test/api-gateway.test.mjs", "utf8");
 const apiGatewayRuntimeTestSource = await readFile("backend/test/api-gateway-runtime.test.mjs", "utf8");
 const apiGatewayTestSource = `${apiGatewayStartupTestSource}\n${apiGatewayRuntimeTestSource}`;
@@ -67,19 +68,18 @@ assertTraceHeaderContract(backendSource, apiGatewayTestSource, apiTraceContractT
 
 console.log(`API error code consistency check passed (${backendCodes.length} codes)`);
 
-async function readSourceTree(directory) {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const sources = [];
-  for (const entry of entries) {
-    const path = `${directory}/${entry.name}`;
-    if (entry.isDirectory()) {
-      sources.push(await readSourceTree(path));
-    } else if (entry.isFile() && path.endsWith(".ts")) {
-      sources.push(await readFile(path, "utf8"));
-    }
-  }
+async function readReachableSourceTree(entryPath, seen = new Set()) {
+  const absolutePath = resolve(entryPath);
+  if (seen.has(absolutePath)) return "";
+  seen.add(absolutePath);
 
-  return sources.join("\n");
+  const source = await readFile(absolutePath, "utf8");
+  const dependencies = [];
+  for (const match of source.matchAll(/(?:from\s+|import\s+)["'](\.[^"']+)["']/g)) {
+    dependencies.push(resolve(dirname(absolutePath), match[1].replace(/\.js$/, ".ts")));
+  }
+  const dependencySources = await Promise.all(dependencies.map((path) => readReachableSourceTree(path, seen)));
+  return [source, ...dependencySources].join("\n");
 }
 
 function extractOpenapiErrorCodes(source) {

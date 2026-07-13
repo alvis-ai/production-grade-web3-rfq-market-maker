@@ -1,6 +1,14 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import type pg from "pg";
 import {
+  Sha256ApiKeyAuthenticator,
+  assertApiKeyAuthResult,
+  parseApiKeyAuthConfig,
+  type ApiKeyAuthenticator,
+  type ApiKeyPrincipal,
+  type ApiKeyScope,
+} from "./modules/auth/api-key-auth.service.js";
+import {
   SkeletonExecutionService,
   type SettlementEvidenceProvider,
 } from "./modules/execution/execution.service.js";
@@ -120,6 +128,7 @@ const retryableSettlementEvidenceReasonCodes = new Set([
   "QUOTE_SETTLED_EVENT_AMBIGUOUS",
 ]);
 const buildServerOptionFields = [
+  "apiKeyAuthenticator",
   "bodyLimitBytes",
   "corsAllowedOrigins",
   "databasePool",
@@ -184,6 +193,7 @@ interface ShutdownLogger {
 }
 
 export interface BuildServerOptions {
+  apiKeyAuthenticator?: ApiKeyAuthenticator | false;
   logger?: boolean;
   databasePool?: pg.Pool;
   marketDataService?: MarketDataService;
@@ -245,10 +255,26 @@ export function buildServer(options: BuildServerOptions = {}) {
   const corsAllowedOrigins = options.corsAllowedOrigins === false
     ? []
     : normalizeCorsAllowedOrigins(options.corsAllowedOrigins ?? readCorsAllowedOrigins());
+  const metricsService = new MetricsService();
+  let apiKeyAuthenticator: ApiKeyAuthenticator | undefined;
+  const authenticatedPrincipals = new WeakMap<FastifyRequest, ApiKeyPrincipal>();
   server.addHook("onRequest", async (request, reply) => {
     reply.header("x-trace-id", requestTraceId(request));
     applySecurityHeaders(reply, enableHsts);
     applyCorsHeaders(request, reply, corsAllowedOrigins);
+    const requiredScope = requiredApiKeyScope(request);
+    if (!requiredScope || !apiKeyAuthenticator) return;
+    const result = apiKeyAuthenticator.authenticate(request.headers["x-api-key"]);
+    assertApiKeyAuthResult(result);
+    if (result.status === "rejected") {
+      metricsService.recordApiAuthRejection(result.reason);
+      throw new APIError("AUTHENTICATION_REQUIRED", "Valid API key required", 401);
+    }
+    if (!result.principal.scopes.includes(requiredScope)) {
+      metricsService.recordApiAuthRejection("scope_denied");
+      throw new APIError("AUTHORIZATION_DENIED", "API key scope does not permit this operation", 403);
+    }
+    authenticatedPrincipals.set(request, result.principal);
   });
   server.setErrorHandler((error, request, reply) => {
     return sendError(reply, requestTraceId(request), frameworkErrorToAPIError(error));
@@ -257,7 +283,6 @@ export function buildServer(options: BuildServerOptions = {}) {
     return sendError(reply, requestTraceId(request), new APIError("INVALID_REQUEST", "Route not found", 404));
   });
 
-  const metricsService = new MetricsService();
   const defaultMarketData = options.marketDataService ? undefined : readDefaultMarketDataRuntime();
   const rawMarketDataService = options.marketDataService ?? defaultMarketData!.service;
   const cexPairs = defaultMarketData ? readCexOrderBookPairs() : [];
@@ -331,6 +356,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       : new PnlService(pnlValuationProvider)
   );
   const rateLimiter = resolveRateLimiter(options);
+  apiKeyAuthenticator = resolveApiKeyAuthenticator(options);
   const inFlightSubmitQuoteIds = new Set<string>();
   const quoteService = new QuoteService({
     inventoryService,
@@ -435,7 +461,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/pnl", async (request, reply) => {
     try {
-      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
+      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy, authenticatedPrincipals.get(request));
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -447,7 +473,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/settlements/:settlementEventId", async (request, reply) => {
     try {
-      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
+      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy, authenticatedPrincipals.get(request));
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -470,7 +496,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/quote/:quoteId", async (request, reply) => {
     try {
-      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
+      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy, authenticatedPrincipals.get(request));
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -489,7 +515,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   server.get("/hedges/:hedgeOrderId", async (request, reply) => {
     try {
-      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy);
+      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "status", request, reply, trustProxy, authenticatedPrincipals.get(request));
       if (!rateLimitResult.allowed) {
         return rateLimitResult.response;
       }
@@ -510,7 +536,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     const startedAt = Date.now();
     metricsService.recordQuoteRequest();
     try {
-      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "quote", request, reply, trustProxy);
+      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "quote", request, reply, trustProxy, authenticatedPrincipals.get(request));
       if (!rateLimitResult.allowed) {
         metricsService.recordQuoteError();
         return rateLimitResult.response;
@@ -538,7 +564,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     let releaseSubmitReservation: (() => void) | undefined;
     metricsService.recordSubmitRequest();
     try {
-      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "submit", request, reply, trustProxy);
+      const rateLimitResult = await enforceRateLimit(rateLimiter, metricsService, "submit", request, reply, trustProxy, authenticatedPrincipals.get(request));
       if (!rateLimitResult.allowed) {
         metricsService.recordSubmitError();
         return rateLimitResult.response;
@@ -612,12 +638,13 @@ async function enforceRateLimit(
   request: FastifyRequest,
   reply: FastifyReply,
   trustProxy: boolean,
+  principal?: ApiKeyPrincipal,
 ): Promise<{ allowed: true } | { allowed: false; response: FastifyReply }> {
   if (!rateLimiter) {
     return { allowed: true };
   }
 
-  const clientId = clientIdForRateLimit(request, trustProxy);
+  const clientId = clientIdForRateLimit(request, trustProxy, principal);
   let decision;
   try {
     decision = await rateLimiter.check({
@@ -712,7 +739,7 @@ function applyCorsHeaders(
   reply.header("access-control-allow-origin", origin);
   reply.header("vary", "Origin");
   reply.header("access-control-allow-methods", "GET,POST,OPTIONS");
-  reply.header("access-control-allow-headers", "content-type,x-trace-id");
+  reply.header("access-control-allow-headers", "content-type,x-api-key,x-trace-id");
   reply.header("access-control-max-age", "600");
 }
 
@@ -1045,7 +1072,12 @@ function elapsedSeconds(startedAt: number): number {
   return (Date.now() - startedAt) / 1000;
 }
 
-function clientIdForRateLimit(request: FastifyRequest, trustProxy: boolean): string {
+function clientIdForRateLimit(
+  request: FastifyRequest,
+  trustProxy: boolean,
+  principal?: ApiKeyPrincipal,
+): string {
+  if (principal) return assertGatewayRateLimitClientId(`api-key:${principal.keyId.toLowerCase()}`);
   if (!trustProxy) {
     return assertGatewayRateLimitClientId(request.ip);
   }
@@ -1191,6 +1223,43 @@ function assertBuildServerOptions(options: unknown): asserts options is BuildSer
   }
 
   assertOptionalOwnFields(options, buildServerOptionFields, "options");
+}
+
+function resolveApiKeyAuthenticator(options: BuildServerOptions): ApiKeyAuthenticator | undefined {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
+  if (options.apiKeyAuthenticator === false) {
+    if (requiresExplicitSignerConfig(nodeEnv)) {
+      throw new Error(`apiKeyAuthenticator cannot be disabled when NODE_ENV=${nodeEnv}`);
+    }
+    return undefined;
+  }
+  if (options.apiKeyAuthenticator !== undefined) {
+    if (!isRecord(options.apiKeyAuthenticator) || typeof options.apiKeyAuthenticator.authenticate !== "function") {
+      throw new Error("buildServer apiKeyAuthenticator.authenticate must be a function");
+    }
+    return options.apiKeyAuthenticator;
+  }
+
+  const serialized = readOwnEnvValue(env, "RFQ_API_KEY_CONFIG_JSON");
+  if (!serialized || serialized.trim().length === 0) {
+    if (requiresExplicitSignerConfig(nodeEnv)) {
+      throw new Error(`RFQ_API_KEY_CONFIG_JSON is required when NODE_ENV=${nodeEnv}`);
+    }
+    return undefined;
+  }
+  return new Sha256ApiKeyAuthenticator(parseApiKeyAuthConfig(serialized));
+}
+
+function requiredApiKeyScope(request: FastifyRequest): ApiKeyScope | undefined {
+  const route = request.routeOptions.url;
+  if (request.method === "POST" && route === "/quote") return "quote:write";
+  if (request.method === "POST" && route === "/submit") return "submit:write";
+  if (request.method === "GET" && route === "/pnl") return "pnl:read";
+  if (request.method === "GET" &&
+      (route === "/quote/:quoteId" || route === "/hedges/:hedgeOrderId" ||
+       route === "/settlements/:settlementEventId")) return "status:read";
+  return undefined;
 }
 
 function resolvePostgresPool(options: BuildServerOptions): pg.Pool | undefined {

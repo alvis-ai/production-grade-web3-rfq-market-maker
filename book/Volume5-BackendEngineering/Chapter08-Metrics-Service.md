@@ -125,6 +125,7 @@ Prometheus metrics:
 - `rfq_submit_errors_total`
 - `rfq_submit_latency_seconds`
 - `rfq_rate_limited_total`
+- `rfq_api_auth_rejections_total`
 - `rfq_signer_requests_total`
 - `rfq_signer_errors_total`
 - `rfq_signer_latency_seconds`
@@ -195,6 +196,7 @@ The settlement indexer exports durable cursor, safe-head, lag, range, event, bou
 - `rfq_market_data_cache_hits_total` 和 `rfq_market_data_cache_misses_total` 记录 `/quote` 行情读取是否命中后台预热缓存。它们不带 pair、token 或 exchange label，避免把交易对、地址或 CEX symbol 写入高基数 Prometheus 维度；具体 pair 级诊断应通过日志、trace 或 ClickHouse 事件完成。
 - CEX order-book 指标只使用固定 `state="ready|stale|unavailable"`、`state="usable|blocked"` 和 `exchange="binance|coinbase"` 标签。`rfq_cex_order_book_sources`、`rfq_cex_order_book_pairs`、`rfq_cex_order_book_deviation_rejected_sources`、`rfq_cex_order_book_max_update_age_seconds` 与 `rfq_cex_order_book_connector_errors_total` 能区分连接故障、事件时间过期、quorum 不足和跨源价格偏离，同时不会把 token 地址、symbol 或错误消息写入 Prometheus 标签。
 - `rfq_rate_limited_total` 使用固定 `endpoint="quote|submit|status"` label，把具体 HTTP route 收敛到稳定端点组，避免把 quoteId、settlementEventId、hedgeOrderId 或动态路径写入 Prometheus。
+- `rfq_api_auth_rejections_total` 只使用固定 `reason="missing|malformed|invalid|expired|scope_denied"` label；不得把 key id、principal、header 或摘要写入指标。
 - Metrics Service validates fixed-label inputs before mutation: rate-limit endpoints must be `quote|submit|status`, signer operations must be `sign|verify`, and readiness metrics must provide own `status` / `components` fields plus the exact supported component set as own fields with `ok|degraded` statuses.
 - Metrics Service validates dynamic label values before mutation: quote rejection reasons, hedge intent error reasons, quote status update targets and PnL record error reasons must be runtime strings before label normalization, so malformed observability calls cannot turn into native `.trim()` failures or mutate counters under unintended labels.
 - 当前后端实现已暴露 `rfq_pnl_trades_total` 和 `rfq_realized_pnl_token_out`，用于验证 `/submit -> settlement -> inventory -> hedge -> PnL` 闭环；生产版应将 quote-level PnL 归因写入 ClickHouse。

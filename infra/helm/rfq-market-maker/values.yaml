@@ -67,6 +67,10 @@ redisSecret:
   name: rfq-backend-secrets
   urlKey: RFQ_REDIS_URL
 
+apiKeySecret:
+  name: rfq-backend-secrets
+  configKey: RFQ_API_KEY_CONFIG_JSON
+
 databaseSecret:
   name: rfq-backend-secrets
   urlKey: DATABASE_URL

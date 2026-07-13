@@ -207,6 +207,7 @@ test("production RFQ API requires two CEX sources per configured pair by default
 
     assert.throws(
       () => buildServer({
+        apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
         logger: false,
         databasePool: { connect() { throw new Error("unused"); } },
         rateLimiter: {
@@ -360,6 +361,17 @@ async function injectJson(server, method, url, payload, headers = {}) {
     statusCode: response.statusCode,
     headers: response.headers,
     body: response.payload ? JSON.parse(response.payload) : undefined,
+  };
+}
+
+function allowAllApiKeyAuthenticator() {
+  return {
+    authenticate() {
+      return {
+        status: "authenticated",
+        principal: { keyId: "test_key", principalId: "test_principal", scopes: ["quote:write"] },
+      };
+    },
   };
 }
 

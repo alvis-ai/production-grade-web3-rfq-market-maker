@@ -168,6 +168,7 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
 
     process.env.RFQ_REDIS_URL = "redis://127.0.0.1:6379/0";
     const server = buildServer({
+      apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
       logger: false,
       databasePool: fakeDatabasePool(),
       signerService: localTestSignerService(),
@@ -205,6 +206,17 @@ function receiptConfig() {
       confirmations: 2,
       receiptTimeoutMs: 120_000,
     }],
+  };
+}
+
+function allowAllApiKeyAuthenticator() {
+  return {
+    authenticate() {
+      return {
+        status: "authenticated",
+        principal: { keyId: "test_key", principalId: "test_principal", scopes: ["quote:write"] },
+      };
+    },
   };
 }
 

@@ -109,6 +109,7 @@ Key metrics include:
 - `rfq_submit_errors_total`
 - `rfq_submit_latency_seconds`
 - `rfq_rate_limited_total`
+- `rfq_api_auth_rejections_total`
 - `rfq_signer_requests_total`
 - `rfq_signer_errors_total`
 - `rfq_signer_latency_seconds`

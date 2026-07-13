@@ -2,7 +2,7 @@
   "title": "RFQ Market Maker Overview",
   "uid": "rfq-market-maker-overview",
   "schemaVersion": 39,
-  "version": 4,
+  "version": 5,
   "refresh": "15s",
   "panels": [
     {
@@ -26,7 +26,8 @@
         { "expr": "rfq_submit_requests_total", "legendFormat": "requests", "refId": "A" },
         { "expr": "rfq_submit_accepted_total", "legendFormat": "accepted", "refId": "B" },
         { "expr": "rfq_submit_errors_total", "legendFormat": "errors", "refId": "C" },
-        { "expr": "sum by (endpoint) (rfq_rate_limited_total)", "legendFormat": "rate limited {{endpoint}}", "refId": "D" }
+        { "expr": "sum by (endpoint) (rfq_rate_limited_total)", "legendFormat": "rate limited {{endpoint}}", "refId": "D" },
+        { "expr": "sum by (reason) (rfq_api_auth_rejections_total)", "legendFormat": "auth {{reason}}", "refId": "E" }
       ]
     },
     {

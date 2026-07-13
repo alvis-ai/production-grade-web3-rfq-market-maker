@@ -29,9 +29,12 @@
 - [x] Quote persistence includes snapshotId and riskPolicyVersion.
 - [x] Rejected quotes are logged without returning signatures.
 - [x] Rate limits protect public trading endpoints.
+- [x] Non-local business routes require scoped API keys whose plaintext secrets are never stored server-side.
+- [x] API key verification uses constant-time digest comparison, generic 401 responses, expiry, and fixed route scopes.
 - [x] All errors include traceId.
 - [x] Public API responses include no-store cache control and baseline browser security headers.
 - [x] Browser access is restricted by a CORS origin allowlist.
+- [x] Browser bundles never receive institutional API secrets; production browser access requires a trusted backend-for-frontend or another approved session boundary.
 - [x] Sensitive thresholds are not exposed to users.
 
 ## Data and Events

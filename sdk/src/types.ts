@@ -176,6 +176,8 @@ export interface PnlSummary {
 
 export const rfqErrorCodes = [
   "INVALID_REQUEST",
+  "AUTHENTICATION_REQUIRED",
+  "AUTHORIZATION_DENIED",
   "UNSUPPORTED_CHAIN",
   "UNSUPPORTED_TOKEN",
   "AMOUNT_TOO_SMALL",

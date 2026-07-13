@@ -4,6 +4,7 @@ import type { Address, PnlTradeRecord } from "../../shared/types/rfq.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 import { normalizeHumanPrice } from "../pricing/price-normalization.js";
 import type { RateLimitedEndpoint } from "../rate-limit/rate-limit.service.js";
+import type { ApiKeyRejectionReason } from "../auth/api-key-auth.service.js";
 import type {
   CexOrderBookCycleObservation,
 } from "../market-data/cex-orderbook/cex-orderbook-monitor.js";
@@ -20,6 +21,7 @@ type ReadinessMetricStatus = ReadinessResponse["status"];
 type DependencyMetricStatus = "ok" | "degraded";
 type CexSourceMetricState = "ready" | "stale" | "unavailable";
 type CexPairMetricState = "usable" | "blocked";
+type ApiAuthMetricRejectionReason = ApiKeyRejectionReason | "scope_denied";
 
 const latencyBucketsSeconds = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
 const maxSafeIdentifierLength = 128;
@@ -66,6 +68,7 @@ export class MetricsService {
   private submitAccepted = 0;
   private submitErrors = 0;
   private readonly rateLimited = new Map<RateLimitedEndpoint, number>();
+  private readonly apiAuthRejections = new Map<ApiAuthMetricRejectionReason, number>();
   private readonly signerRequests = new Map<SignerMetricOperation, number>();
   private readonly signerErrors = new Map<SignerMetricOperation, number>();
   private settlements = 0;
@@ -161,6 +164,13 @@ export class MetricsService {
   recordRateLimited(endpoint: RateLimitedEndpoint): void {
     assertRateLimitedEndpoint(endpoint);
     this.rateLimited.set(endpoint, (this.rateLimited.get(endpoint) ?? 0) + 1);
+  }
+
+  recordApiAuthRejection(reason: ApiAuthMetricRejectionReason): void {
+    if (!apiAuthMetricRejectionReasons.includes(reason)) {
+      throw new Error("Metrics API auth rejection reason is invalid");
+    }
+    this.apiAuthRejections.set(reason, (this.apiAuthRejections.get(reason) ?? 0) + 1);
   }
 
   recordSignerRequest(operation: SignerMetricOperation): void {
@@ -260,6 +270,9 @@ export class MetricsService {
       "# HELP rfq_rate_limited_total Total rate-limited requests by stable endpoint group.",
       "# TYPE rfq_rate_limited_total counter",
       ...this.renderRateLimited(),
+      "# HELP rfq_api_auth_rejections_total Total API authentication or scope rejections by bounded reason.",
+      "# TYPE rfq_api_auth_rejections_total counter",
+      ...this.renderApiAuthRejections(),
       "# HELP rfq_signer_requests_total Total signer operations by operation type.",
       "# TYPE rfq_signer_requests_total counter",
       ...this.renderSignerCounter("rfq_signer_requests_total", this.signerRequests),
@@ -348,6 +361,12 @@ export class MetricsService {
   private renderRateLimited(): string[] {
     return rateLimitedEndpoints.map((endpoint) => {
       return `rfq_rate_limited_total{endpoint="${endpoint}"} ${this.rateLimited.get(endpoint) ?? 0}`;
+    });
+  }
+
+  private renderApiAuthRejections(): string[] {
+    return apiAuthMetricRejectionReasons.map((reason) => {
+      return `rfq_api_auth_rejections_total{reason="${reason}"} ${this.apiAuthRejections.get(reason) ?? 0}`;
     });
   }
 
@@ -446,6 +465,13 @@ export class MetricsService {
 
 const signerMetricOperations: readonly SignerMetricOperation[] = ["sign", "verify"];
 const rateLimitedEndpoints: readonly RateLimitedEndpoint[] = ["quote", "submit", "status"];
+const apiAuthMetricRejectionReasons: readonly ApiAuthMetricRejectionReason[] = [
+  "missing",
+  "malformed",
+  "invalid",
+  "expired",
+  "scope_denied",
+];
 const readinessMetricStatuses: readonly ReadinessMetricStatus[] = ["ready", "degraded"];
 const dependencyMetricStatuses: readonly DependencyMetricStatus[] = ["ok", "degraded"];
 const cexSourceMetricStates: readonly CexSourceMetricState[] = ["ready", "stale", "unavailable"];

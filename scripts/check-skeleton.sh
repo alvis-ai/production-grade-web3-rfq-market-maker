@@ -834,7 +834,7 @@ grep -q 'RFQ_TRUST_PROXY' backend/src/main.ts
 grep -q 'readTrustProxy' backend/src/main.ts
 grep -q 'defaultTrustProxy' backend/src/main.ts
 grep -q 'trustProxy?: boolean' backend/src/main.ts
-grep -q 'clientIdForRateLimit(request, trustProxy)' backend/src/main.ts
+grep -q 'clientIdForRateLimit(request, trustProxy, principal)' backend/src/main.ts
 grep -q 'if (!trustProxy)' backend/src/main.ts
 grep -q 'applySecurityHeaders' backend/src/main.ts
 grep -q 'cache-control' backend/src/main.ts
@@ -2326,7 +2326,7 @@ grep -q 'new String("se_test")' sdk/test/sdk-client-requests.test.mjs
 grep -q 'identifiers must be non-empty, 128 characters or fewer' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'boxed `String` identifiers fail before `encodeURIComponent()` or fetch' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'export interface RFQClientOptions' sdk/src/client.ts
-grep -q 'clientOptionFields = \["fetch", "traceId"\]' sdk/src/client.ts
+grep -q 'clientOptionFields = \["fetch", "traceId", "apiKey"\]' sdk/src/client.ts
 grep -Fq 'assertClientOptions(options)' sdk/src/client.ts
 grep -Fq 'RFQClient options.${field} must be an own field when provided' sdk/src/client.ts
 grep -q 'RFQClient options must not include unknown field' sdk/src/client.ts
@@ -2338,7 +2338,7 @@ grep -q 'RFQClient options.traceId must be an own field when provided' sdk/test/
 grep -q 'RFQClient options must not include unknown field retry' sdk/test/sdk-client-config.test.mjs
 grep -q 'RFQClient accepts injected fetch implementations' sdk/test/sdk-client-config.test.mjs
 grep -q 'can receive an injected `fetch` implementation' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'Client options are closed to own optional `fetch` / `traceId` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'Client options are closed to own optional `fetch` / `traceId` / `apiKey` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'Inherited `traceId` options' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'new RFQClient("http://localhost:3000", { fetch: customFetch })' README.md
 grep -q 'errorResponseFields = \["code", "message", "traceId"\]' sdk/src/client.ts
@@ -2758,7 +2758,7 @@ grep -q 'OpenAPI ErrorResponse enum must match backend RFQErrorCode' scripts/che
 grep -q 'SDK rfqErrorCodes array must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
 grep -q 'SDK rfqErrorCodes constant array not found' scripts/check-api-error-consistency.mjs
 grep -q 'docs/api/errors.md table must match backend RFQErrorCode' scripts/check-api-error-consistency.mjs
-grep -q 'readSourceTree("backend/src")' scripts/check-api-error-consistency.mjs
+grep -q 'readReachableSourceTree("backend/src/main.ts")' scripts/check-api-error-consistency.mjs
 grep -q 'extractDocumentedErrorStatuses' scripts/check-api-error-consistency.mjs
 grep -q 'extractBackendApiErrorStatuses' scripts/check-api-error-consistency.mjs
 grep -q 'HTTP status list must cover backend APIError statuses' scripts/check-api-error-consistency.mjs
@@ -3092,12 +3092,12 @@ grep -q 'degrades readiness when pricing probe fails' backend/test/api-readiness
 grep -q 'degrades readiness when risk probe fails' backend/test/api-readiness.test.mjs
 grep -q 'degrades readiness when signer probe fails' backend/test/api-readiness.test.mjs
 grep -q 'degrades readiness when storage dependency probes fail' backend/test/api-readiness-storage.test.mjs
-grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'readiness routing degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'readiness pricing degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'readiness risk degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'readiness config fail-fast' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'readiness rate-limit/store dependency degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'Signer readiness probe failed' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'Routing, pricing or risk readiness probe failed' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'pricing.*组件变为.*degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'risk.*组件变为.*degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'nested probe payload required fields 在构造期 fail fast' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q 'rateLimitStore.*degraded' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'readiness signer degraded' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'toxic-flow users' backend/test/api-risk.test.mjs
 grep -q 'TOXIC_FLOW_SCORE_EXCEEDED' backend/test/api-risk.test.mjs

@@ -8,6 +8,7 @@ const composeSource = await readFile("docker-compose.yml", "utf8");
 const k8sConfigSource = await readFile("infra/k8s/configmap.yaml", "utf8");
 const helmValuesSource = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
 const backendSource = await readFile("backend/src/main.ts", "utf8");
+const apiKeyAuthSource = await readFile("backend/src/modules/auth/api-key-auth.service.ts", "utf8");
 const hedgeWorkerSource = await readFile("backend/src/hedge-worker-main.ts", "utf8");
 const analyticsWorkerSource = await readFile("backend/src/analytics-worker-main.ts", "utf8");
 const frontendConfigSource = await readFile("frontend/src/lib/config.ts", "utf8");
@@ -136,6 +137,13 @@ assert.ok(
   backendSource.includes("RFQ_RATE_LIMIT_BACKEND must be memory or redis") &&
     backendSource.includes("RFQ_REDIS_URL is required when RFQ_RATE_LIMIT_BACKEND=redis"),
   "backend must enforce distributed rate limit configuration",
+);
+assert.ok(
+  envExampleSource.includes("RFQ_API_KEY_CONFIG_JSON") &&
+    backendSource.includes("RFQ_API_KEY_CONFIG_JSON is required when NODE_ENV=") &&
+    apiKeyAuthSource.includes("parseApiKeyAuthConfig") &&
+    apiKeyAuthSource.includes("timingSafeEqual"),
+  "API-key authentication must be optional locally, required in production, and digest-validated",
 );
 assert.ok(
   backendSource.includes("DATABASE_URL is required when NODE_ENV=") &&

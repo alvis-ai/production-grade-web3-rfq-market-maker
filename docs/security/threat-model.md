@@ -12,6 +12,7 @@
 - Inventory positions
 - Settlement events
 - Hedge venue credentials
+- Institutional RFQ API secrets and scope assignments
 - Kafka/ClickHouse analytics credentials and high-dimensional event data
 
 ## Trust Boundaries
@@ -45,12 +46,14 @@ flowchart LR
 | Hedge credential leak | External venue account loss | secret isolation, least privilege, withdrawal disabled |
 | Analytics credential leak | Event exfiltration, forged analytics or broker disruption | separate worker Secret, SASL/TLS, topic/table ACLs, no signer or venue credentials |
 | Event poisoning or offset skip | Analytics evidence becomes incomplete or misleading | closed envelope validation, 1 MiB bound, insert-before-offset commit, replay and event-id deduplication |
+| API credential disclosure or scope escalation | Unauthorized quote, submit, status, or PnL access | SHA-256 secret digests only, constant-time comparison, fixed scopes, expiry, Secret isolation, generic rejection responses and rotation |
 
 ## Security Requirements
 
 - Signer Service must not expose arbitrary signing.
 - Contract must reject untrusted signer, used nonce, expired quote, unsupported token and wrong chain.
 - API must validate all addresses and integer strings.
+- Every non-local business API request must authenticate with a scoped key; probes remain separately network-restricted.
 - Risk rejection must be logged but not leak sensitive thresholds.
 - Admin functions must be protected and auditable.
 

@@ -224,6 +224,45 @@ test("RFQClient accepts injected fetch implementations", async () => {
   }
 });
 
+test("RFQClient sends API keys only to protected endpoints and supports rotation providers", async () => {
+  const calls = [];
+  const key = "client_primary.0123456789abcdefghijklmnopqrstuvwxyz_ABCD";
+  const client = new RFQClient("http://127.0.0.1:3000", {
+    apiKey: () => key,
+    fetch: async (url, init = {}) => {
+      calls.push({ url, init });
+      if (url.endsWith("/health")) return jsonResponse(200, { status: "ok" });
+      return jsonResponse(401, {
+        code: "AUTHENTICATION_REQUIRED",
+        message: "Valid API key required",
+        traceId: "tr_sdk_auth",
+      }, { "x-trace-id": "tr_sdk_auth" });
+    },
+  });
+
+  assert.deepEqual(await client.health(), { status: "ok" });
+  await assert.rejects(client.getQuote("q_123"), (error) => {
+    assert.ok(error instanceof RFQClientError);
+    assert.equal(error.code, "AUTHENTICATION_REQUIRED");
+    return true;
+  });
+  assert.deepEqual(calls[0].init, {});
+  assert.deepEqual(calls[1].init.headers, { "x-api-key": key });
+});
+
+test("RFQClient validates static and rotating API key options without evaluating them for public probes", async () => {
+  for (const value of [null, new String("client_primary.secret"), "client_primary.short", "bad key.secret"]) {
+    assert.throws(() => new RFQClient("http://127.0.0.1:3000", { apiKey: value }), RFQClientError);
+  }
+
+  const client = new RFQClient("http://127.0.0.1:3000", {
+    apiKey: () => "invalid",
+    fetch: async () => jsonResponse(200, { status: "ok" }),
+  });
+  assert.deepEqual(await client.health(), { status: "ok" });
+  await assert.rejects(client.getQuote("q_123"), /keyId.secret format/);
+});
+
 function installFetch(fetchImpl) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = fetchImpl;

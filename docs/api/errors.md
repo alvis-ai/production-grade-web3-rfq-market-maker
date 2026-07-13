@@ -16,7 +16,9 @@
 
 | Code | HTTP Status | Description | User Action |
 | --- | ---: | --- | --- |
-| `INVALID_REQUEST` | 400 / 401 / 403 / 404 / 413 / 415 | 请求字段缺失、API key 缺失或无效、JSON 格式错误、CORS origin 不在 allowlist、未知路由或方法、body 超限、content type 错误、地址格式错误或 amount 无效 | 修正请求参数或认证信息 |
+| `INVALID_REQUEST` | 400 / 403 / 404 / 413 / 415 | 请求字段缺失、JSON 格式错误、CORS origin 不在 allowlist、未知路由或方法、body 超限、content type 错误、地址格式错误或 amount 无效 | 修正请求参数 |
+| `AUTHENTICATION_REQUIRED` | 401 | `x-api-key` 缺失、格式错误、摘要不匹配或已过期 | 使用有效且未过期的 `keyId.secret` 凭证重试 |
+| `AUTHORIZATION_DENIED` | 403 | API key 缺少当前操作要求的 scope | 申请正确 scope，不要复用高权限运维 key |
 | `UNSUPPORTED_CHAIN` | 400 | chainId 不在支持范围 | 切换网络 |
 | `UNSUPPORTED_TOKEN` | 400 | token 不在 whitelist | 更换资产 |
 | `AMOUNT_TOO_SMALL` | 400 | amount 小于系统最小交易量 | 提高交易数量 |
@@ -55,10 +57,12 @@
 - 所有 `PositiveUIntString` 字段必须使用 canonical decimal form：匹配 `^[1-9][0-9]*$`，不接受 `0`、负数、小数、科学计数法、十六进制或带前导零的字符串。
 - CORS preflight origin 不在 `RFQ_CORS_ALLOWED_ORIGINS` 时返回结构化 `INVALID_REQUEST` 和 HTTP 403，且不返回 `access-control-allow-origin`。`RFQ_CORS_ALLOWED_ORIGINS` 只接受 HTTP(S) URL origin；path、query、fragment、credentials 和 wildcard 会在启动期被拒绝。
 - 未匹配路由或不支持的方法必须返回结构化 `INVALID_REQUEST` 和 HTTP 404，不能返回 Fastify 默认错误对象。
+- 非本地环境必须配置 `RFQ_API_KEY_CONFIG_JSON`。服务端只保存 `SHA-256(secret)`，使用常量时间摘要比较，并对 unknown key id 执行同样的摘要路径。认证失败统一返回 `AUTHENTICATION_REQUIRED`，不区分 key 是否存在、是否过期或 secret 是否错误。
+- Scope 固定为 `quote:write`、`submit:write`、`status:read` 和 `pnl:read`；`/health`、`/ready`、`/metrics` 以及 CORS preflight 不要求 API key。
 
 ## Rate Limit Policy
 
-The gateway uses a 60 second rate limit window keyed by the direct client IP by default. `x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`; only enable that setting behind a trusted proxy or ingress that strips spoofed forwarding headers and writes the canonical client address. When proxy trust is enabled, forwarded client identities longer than 128 characters or outside `[A-Za-z0-9_.:-]` are rejected as `INVALID_REQUEST`/400 before rate-limit buckets are written. Local development uses process memory; every non-local `NODE_ENV` requires the Redis backend. A Lua script atomically creates the fixed window, increments within the limit, and returns its TTL across replicas. Redis failure is fail-closed as `RATE_LIMIT_UNAVAILABLE`/503 and also degrades `/ready.components.rateLimitStore`.
+The gateway uses a 60 second rate limit window keyed by authenticated API key id whenever authentication is active, so clients behind one NAT do not consume each other's quota. Anonymous local development falls back to the direct client IP. `x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`; only enable that setting behind a trusted proxy or ingress that strips spoofed forwarding headers and writes the canonical client address. When proxy trust is enabled, forwarded client identities longer than 128 characters or outside `[A-Za-z0-9_.:-]` are rejected as `INVALID_REQUEST`/400 before rate-limit buckets are written. Local development uses process memory; every non-local `NODE_ENV` requires the Redis backend. A Lua script atomically creates the fixed window, increments within the limit, and returns its TTL across replicas. Redis failure is fail-closed as `RATE_LIMIT_UNAVAILABLE`/503 and also degrades `/ready.components.rateLimitStore`.
 
 | Endpoint Class | Routes | Default Limit | Error Contract |
 | --- | --- | ---: | --- |

@@ -20,10 +20,12 @@ import type {
 export type RFQClientErrorCode = RFQErrorCode | "RFQ_CLIENT_ERROR";
 export type RFQClientFetch = (input: string, init?: RequestInit) => Promise<Response>;
 export type RFQClientTraceIdProvider = () => string | undefined;
+export type RFQClientApiKeyProvider = () => string | undefined;
 
 export interface RFQClientOptions {
   readonly fetch?: RFQClientFetch;
   readonly traceId?: string | RFQClientTraceIdProvider;
+  readonly apiKey?: string | RFQClientApiKeyProvider;
 }
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
@@ -33,7 +35,8 @@ const maxStatusIdentifierLength = 128;
 const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const retryAfterSecondsPattern = /^[1-9][0-9]*$/;
 const isoUtcTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const clientOptionFields = ["fetch", "traceId"] as const;
+const apiKeyPattern = /^[A-Za-z0-9_-]{3,64}\.[A-Za-z0-9_-]{32,128}$/;
+const clientOptionFields = ["fetch", "traceId", "apiKey"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const submitRequestFields = ["quote", "signature"] as const;
 const submitRequestOptionalFields = ["txHash"] as const;
@@ -145,6 +148,7 @@ export class RFQClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: RFQClientFetch;
   private readonly traceIdProvider?: RFQClientTraceIdProvider;
+  private readonly apiKeyProvider?: RFQClientApiKeyProvider;
 
   constructor(baseUrl: string, options: RFQClientOptions = {}) {
     const clientOptions = assertClientOptions(options);
@@ -152,6 +156,7 @@ export class RFQClient {
     this.baseUrl = normalizeBaseUrl(baseUrl);
     this.fetchImpl = resolveFetch(clientOptions);
     this.traceIdProvider = resolveTraceIdProvider(clientOptions);
+    this.apiKeyProvider = resolveApiKeyProvider(clientOptions);
   }
 
   async quote(request: QuoteRequest): Promise<QuoteResponse> {
@@ -229,7 +234,7 @@ export class RFQClient {
   }
 
   async health(): Promise<HealthResponse> {
-    const response = await this.fetchImpl(`${this.baseUrl}/health`, this.requestInit());
+    const response = await this.fetchImpl(`${this.baseUrl}/health`, this.requestInit({}, false));
 
     await assertOk(response, "RFQ health check failed");
 
@@ -247,7 +252,7 @@ export class RFQClient {
   }
 
   async ready(): Promise<ReadinessResponse> {
-    const response = await this.fetchImpl(`${this.baseUrl}/ready`, this.requestInit());
+    const response = await this.fetchImpl(`${this.baseUrl}/ready`, this.requestInit({}, false));
 
     if (!response.ok) {
       let payload: unknown;
@@ -278,21 +283,26 @@ export class RFQClient {
   }
 
   async metrics(): Promise<string> {
-    const response = await this.fetchImpl(`${this.baseUrl}/metrics`, this.requestInit());
+    const response = await this.fetchImpl(`${this.baseUrl}/metrics`, this.requestInit({}, false));
 
     await assertOk(response, "RFQ metrics request failed");
 
     return response.text();
   }
 
-  private requestInit(headers: Record<string, string> = {}): RequestInit | undefined {
-    const requestHeaders = this.requestHeaders(headers);
+  private requestInit(headers: Record<string, string> = {}, authenticated = true): RequestInit | undefined {
+    const requestHeaders = this.requestHeaders(headers, authenticated);
     return Object.keys(requestHeaders).length > 0 ? { headers: requestHeaders } : undefined;
   }
 
-  private requestHeaders(headers: Record<string, string>): Record<string, string> {
+  private requestHeaders(headers: Record<string, string>, authenticated = true): Record<string, string> {
     const traceId = this.traceIdProvider?.();
-    return traceId ? { ...headers, "x-trace-id": traceId } : headers;
+    const apiKey = authenticated ? this.apiKeyProvider?.() : undefined;
+    return {
+      ...headers,
+      ...(apiKey ? { "x-api-key": apiKey } : {}),
+      ...(traceId ? { "x-trace-id": traceId } : {}),
+    };
   }
 }
 
@@ -356,6 +366,31 @@ function resolveTraceIdProvider(options: RFQClientOptions): RFQClientTraceIdProv
   }
 
   throw new RFQClientError("RFQClient traceId option must be a primitive string or function", 0);
+}
+
+function resolveApiKeyProvider(options: RFQClientOptions): RFQClientApiKeyProvider | undefined {
+  const apiKey = options.apiKey;
+  if (apiKey === undefined) return undefined;
+  if (typeof apiKey === "string") {
+    const normalized = assertClientApiKey(apiKey, "RFQClient apiKey");
+    return () => normalized;
+  }
+  if (typeof apiKey === "function") {
+    return () => {
+      const nextApiKey = apiKey();
+      if (nextApiKey === undefined) return undefined;
+      return assertClientApiKey(nextApiKey, "RFQClient apiKey provider result");
+    };
+  }
+  throw new RFQClientError("RFQClient apiKey option must be a primitive string or function", 0);
+}
+
+function assertClientApiKey(value: unknown, label: string): string {
+  if (typeof value !== "string") throw new RFQClientError(`${label} must be a primitive string`, 0);
+  if (!apiKeyPattern.test(value)) {
+    throw new RFQClientError(`${label} must use keyId.secret format with a 32-128 character secret`, 0);
+  }
+  return value;
 }
 
 function assertClientTraceId(value: unknown, label: string): string {
