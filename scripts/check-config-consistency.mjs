@@ -162,14 +162,17 @@ assert.ok(
 );
 assert.ok(
   hedgeWorkerSource.includes('readRequired(env, "DATABASE_URL")') &&
+    hedgeWorkerSource.includes('readRequired(env, "RFQ_TOKEN_REGISTRY_JSON")') &&
     hedgeWorkerSource.includes('readRequired(env, "RFQ_HEDGE_ROUTES_JSON")') &&
+    hedgeWorkerSource.includes("routes.validateTokenRegistry(tokenRegistry)") &&
     hedgeWorkerSource.includes('readCredential(env, "RFQ_BINANCE_API_KEY")') &&
     hedgeWorkerSource.includes('readCredential(env, "RFQ_BINANCE_API_SECRET")') &&
     hedgeWorkerSource.includes("placeholder must be replaced") &&
     hedgeWorkerSource.includes("must exceed two RFQ_BINANCE_REQUEST_TIMEOUT_MS windows"),
-  "hedge worker must require durable queue, isolated venue credentials, and a safe lease window",
+  "hedge worker must require durable queue, shared token metadata, isolated venue credentials, and a safe lease window",
 );
 assert.ok(
+  k8sConfigSource.includes("RFQ_TOKEN_REGISTRY_JSON:") &&
   k8sConfigSource.includes("RFQ_HEDGE_ROUTES_JSON:") &&
     k8sConfigSource.includes('RFQ_HEDGE_LEASE_MS: "30000"') &&
     k8sConfigSource.includes('RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000"'),

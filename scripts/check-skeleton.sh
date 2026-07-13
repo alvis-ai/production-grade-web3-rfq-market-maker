@@ -3558,4 +3558,12 @@ grep -q 'RFQ_SETTLEMENT_INDEXER_CONFIG_JSON' infra/k8s/settlement-indexer-secret
 grep -q 'settlementIndexer:' infra/helm/rfq-market-maker/values.yaml
 grep -q 'make settlement-indexer-check' .github/workflows/docs-ci.yml
 
+test -s scripts/check-hedge-execution-consistency.mjs
+grep -q 'quantizeHedgeAmount' backend/src/modules/hedge/hedge-route.ts
+grep -q 'validateTokenRegistry' backend/src/modules/hedge/hedge-route.ts
+grep -q 'filledAmount !== targetAmount' backend/src/modules/hedge/hedge-worker.ts
+grep -q 'HedgeWorker requires FILLED cumulative quantity to equal the quantized target' backend/test/hedge-worker.test.mjs
+grep -q 'HedgeWorker permits only sub-step dust between intent and a complete venue fill' backend/test/hedge-worker.test.mjs
+grep -q 'make hedge-execution-check' .github/workflows/docs-ci.yml
+
 echo "skeleton check passed"

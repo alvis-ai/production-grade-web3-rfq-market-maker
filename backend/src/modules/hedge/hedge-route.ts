@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Address, UIntString } from "../../shared/types/rfq.js";
+import type { TokenRegistry } from "../pricing/token-registry.js";
 import type { HedgeJob } from "./postgres-hedge-job.store.js";
 
 export interface HedgeRoute {
@@ -36,6 +37,33 @@ export class HedgeRouteTable {
     const route = this.routes.get(routeKey(chainId, token));
     return route ? { ...route } : undefined;
   }
+
+  validateTokenRegistry(registry: TokenRegistry): void {
+    if (typeof registry !== "object" || registry === null || Array.isArray(registry) ||
+        typeof registry.getToken !== "function") {
+      throw new Error("Hedge route tokenRegistry.getToken must be a function");
+    }
+    for (const route of this.routes.values()) {
+      const metadata = registry.getToken(route.chainId, route.token);
+      if (metadata === undefined) {
+        throw new Error(`Hedge route token ${route.token} is not configured on chain ${route.chainId}`);
+      }
+      if (metadata.chainId !== route.chainId ||
+          typeof metadata.tokenAddress !== "string" ||
+          metadata.tokenAddress.toLowerCase() !== route.token.toLowerCase() ||
+          !Number.isSafeInteger(metadata.decimals) ||
+          metadata.decimals < 0 ||
+          metadata.decimals > 36) {
+        throw new Error("Hedge route token registry metadata is invalid");
+      }
+      if (metadata.decimals !== route.tokenDecimals) {
+        throw new Error(
+          `Hedge route tokenDecimals ${route.tokenDecimals} does not match token registry decimals ${metadata.decimals} ` +
+            `for ${route.chainId}:${route.token}`,
+        );
+      }
+    }
+  }
 }
 
 export function parseHedgeRoutesJson(value: string): HedgeRouteTable {
@@ -68,6 +96,10 @@ export function buildHedgeClientOrderId(hedgeOrderId: string): string {
 }
 
 export function formatHedgeQuantity(amount: UIntString, route: HedgeRoute): string {
+  return formatUnits(BigInt(quantizeHedgeAmount(amount, route)), route.tokenDecimals);
+}
+
+export function quantizeHedgeAmount(amount: UIntString, route: HedgeRoute): UIntString {
   if (typeof amount !== "string" || !/^[1-9][0-9]*$/.test(amount)) {
     throw new Error("Hedge amount must be a canonical positive uint string");
   }
@@ -76,7 +108,7 @@ export function formatHedgeQuantity(amount: UIntString, route: HedgeRoute): stri
   const stepSize = BigInt(route.stepSizeRaw);
   const quantized = (rawAmount / stepSize) * stepSize;
   if (quantized === 0n) throw new Error("HEDGE_AMOUNT_BELOW_STEP_SIZE");
-  return formatUnits(quantized, route.tokenDecimals);
+  return quantized.toString() as UIntString;
 }
 
 export function parseHedgeExecutedQuantity(quantity: string, route: HedgeRoute): UIntString | undefined {

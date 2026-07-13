@@ -44,6 +44,39 @@ test("HedgeWorker queries deterministic client id before submitting and complete
   assert.equal(store.calls.completeFilled[0][2], store.calls.prepareRoute[0][2].clientOrderId);
 });
 
+test("HedgeWorker requires FILLED cumulative quantity to equal the quantized target", async () => {
+  const store = fakeStore(job);
+  const adapter = {
+    async queryOrder(input) {
+      return { state: "filled", externalOrderId: input.clientOrderId, executedQuantity: "0.5" };
+    },
+    async submitMarketOrder() { throw new Error("must not submit"); },
+  };
+  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+
+  assert.deepEqual(await worker.runOnce(), {
+    status: "retry_scheduled",
+    hedgeOrderId: job.hedgeOrderId,
+    errorCode: "HEDGE_VENUE_RESPONSE_INVALID",
+  });
+  assert.equal(store.calls.completeFilled.length, 0);
+  assert.equal(store.calls.releaseForRetry.length, 1);
+});
+
+test("HedgeWorker permits only sub-step dust between intent and a complete venue fill", async () => {
+  const store = fakeStore({ ...job, amount: "1250090000000000000" });
+  const adapter = {
+    async queryOrder(input) {
+      return { state: "filled", externalOrderId: input.clientOrderId, executedQuantity: "1.25" };
+    },
+    async submitMarketOrder() { throw new Error("must not submit"); },
+  };
+  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+
+  assert.equal((await worker.runOnce()).status, "filled");
+  assert.equal(store.calls.completeFilled[0][3], "1250000000000000000");
+});
+
 test("HedgeWorker submits only after not-found and reschedules pending orders", async () => {
   const store = fakeStore(job);
   const adapter = {

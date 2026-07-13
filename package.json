@@ -16,6 +16,7 @@
     "ci:check": "make ci-check",
     "compose:check": "make compose-check",
     "cex:orderbook:check": "make cex-orderbook-check",
+    "hedge:execution:check": "make hedge-execution-check",
     "examples:check": "make examples-check",
     "config:check": "make config-check",
     "eip712:check": "make eip712-check",

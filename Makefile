@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check api-auth-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check analytics-integration-check cex-orderbook-integration-check benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check api-auth-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check analytics-integration-check cex-orderbook-integration-check benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -22,6 +22,7 @@ help:
 	@echo "  compose-check  Verify Docker Compose configuration"
 	@echo "  cex-orderbook-check  Verify CEX freshness, quorum, metrics, and deployment controls"
 	@echo "  hedge-planning-check Verify USD-reference hedge direction across runtime, repair, and deployment"
+	@echo "  hedge-execution-check Verify route decimals and quantized terminal fill integrity"
 	@echo "  price-normalization-check  Verify token decimals and USD-notional pricing controls"
 	@echo "  risk-policy-check  Verify chain-scoped token limits and runtime policy controls"
 	@echo "  pnl-valuation-check Verify snapshot-bound cross-decimal PnL controls"
@@ -117,6 +118,9 @@ cex-orderbook-check:
 
 hedge-planning-check:
 	@node scripts/check-hedge-planning-consistency.mjs
+
+hedge-execution-check:
+	@node scripts/check-hedge-execution-consistency.mjs
 
 price-normalization-check:
 	@node scripts/check-price-normalization-consistency.mjs

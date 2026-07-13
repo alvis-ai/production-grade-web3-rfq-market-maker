@@ -7,10 +7,12 @@ import {
   buildHedgeClientOrderId,
   formatHedgeQuantity,
   parseHedgeExecutedQuantity,
+  quantizeHedgeAmount,
   routeForJob,
   type HedgeRoute,
   type HedgeRouteTable,
 } from "./hedge-route.js";
+import type { UIntString } from "../../shared/types/rfq.js";
 import type { HedgeJob, HedgeJobStore } from "./postgres-hedge-job.store.js";
 
 export interface HedgeWorkerConfig {
@@ -67,6 +69,7 @@ export class HedgeWorker {
     try {
       const route = routeForJob(this.routes, job);
       const clientOrderId = buildHedgeClientOrderId(job.hedgeOrderId);
+      const targetAmount = quantizeHedgeAmount(job.amount, route);
       const quantity = formatHedgeQuantity(job.amount, route);
       await this.store.prepareRoute(job.hedgeOrderId, this.config.workerId, {
         venue: route.venue,
@@ -91,7 +94,7 @@ export class HedgeWorker {
           clientOrderId,
         });
       }
-      return await this.applyOrderResult(job, route, order);
+      return await this.applyOrderResult(job, route, targetAmount, order);
     } catch (error) {
       return this.handleJobError(job, error);
     }
@@ -118,14 +121,21 @@ export class HedgeWorker {
     this.stopped = true;
   }
 
-  private async applyOrderResult(job: HedgeJob, route: HedgeRoute, order: CexOrderResult): Promise<HedgeWorkerResult> {
+  private async applyOrderResult(
+    job: HedgeJob,
+    route: HedgeRoute,
+    targetAmount: UIntString,
+    order: CexOrderResult,
+  ): Promise<HedgeWorkerResult> {
     assertOrderResult(order);
     const filledAmount = parseHedgeExecutedQuantity(order.executedQuantity, route);
-    if (filledAmount !== undefined && BigInt(filledAmount) > BigInt(job.amount)) {
+    if (filledAmount !== undefined && BigInt(filledAmount) > BigInt(targetAmount)) {
       throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
     }
     if (order.state === "filled") {
-      if (filledAmount === undefined) throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
+      if (filledAmount === undefined || filledAmount !== targetAmount) {
+        throw new CexVenueError("HEDGE_VENUE_RESPONSE_INVALID", true);
+      }
       await this.store.completeFilled(job.hedgeOrderId, this.config.workerId, order.externalOrderId, filledAmount);
       return { status: "filled", hedgeOrderId: job.hedgeOrderId };
     }

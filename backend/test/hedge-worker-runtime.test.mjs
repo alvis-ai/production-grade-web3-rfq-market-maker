@@ -3,8 +3,20 @@ import test from "node:test";
 import { readHedgeWorkerRuntimeConfig } from "../dist/hedge-worker-main.js";
 
 const token = "0x0000000000000000000000000000000000000003";
+const tokenRegistry = {
+  tokens: [{
+    chainId: 1,
+    tokenAddress: token,
+    symbol: "WETH",
+    decimals: 18,
+    isWhitelisted: true,
+    riskTier: "medium",
+    usdReference: false,
+  }],
+};
 const env = {
   DATABASE_URL: "postgres://rfq:rfq@localhost:5432/rfq",
+  RFQ_TOKEN_REGISTRY_JSON: JSON.stringify(tokenRegistry),
   RFQ_HEDGE_ROUTES_JSON: JSON.stringify({ routes: [{
     chainId: 1,
     token,
@@ -27,7 +39,20 @@ test("hedge worker runtime config requires durable storage, routes, and isolated
   assert.equal(config.listenPort, 3001);
 
   assert.throws(() => readHedgeWorkerRuntimeConfig({ ...env, DATABASE_URL: undefined }), /DATABASE_URL is required/);
+  assert.throws(
+    () => readHedgeWorkerRuntimeConfig({ ...env, RFQ_TOKEN_REGISTRY_JSON: undefined }),
+    /RFQ_TOKEN_REGISTRY_JSON is required/,
+  );
   assert.throws(() => readHedgeWorkerRuntimeConfig({ ...env, RFQ_BINANCE_API_SECRET: undefined }), /API_SECRET is required/);
+  assert.throws(
+    () => readHedgeWorkerRuntimeConfig({
+      ...env,
+      RFQ_TOKEN_REGISTRY_JSON: JSON.stringify({
+        tokens: [{ ...tokenRegistry.tokens[0], decimals: 6 }],
+      }),
+    }),
+    /does not match token registry decimals/,
+  );
   assert.throws(
     () => readHedgeWorkerRuntimeConfig({ ...env, RFQ_BINANCE_API_KEY: "replace-with-trade-only-key" }),
     /placeholder must be replaced/,

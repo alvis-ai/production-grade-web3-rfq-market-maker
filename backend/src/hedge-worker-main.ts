@@ -6,6 +6,7 @@ import { BinanceSpotAdapter, type BinanceSpotAdapterConfig } from "./modules/hed
 import { HedgeWorker, HedgeWorkerMetrics, type HedgeWorkerConfig } from "./modules/hedge/hedge-worker.js";
 import { parseHedgeRoutesJson, type HedgeRouteTable } from "./modules/hedge/hedge-route.js";
 import { PostgresHedgeJobStore } from "./modules/hedge/postgres-hedge-job.store.js";
+import { ConfiguredTokenRegistry, parseTokenRegistryConfig } from "./modules/pricing/token-registry.js";
 
 export interface HedgeWorkerRuntimeConfig {
   worker: HedgeWorkerConfig;
@@ -23,6 +24,10 @@ export function readHedgeWorkerRuntimeConfig(
     throw new Error("DATABASE_URL must use postgres:// or postgresql:// protocol");
   }
   const routes = parseHedgeRoutesJson(readRequired(env, "RFQ_HEDGE_ROUTES_JSON"));
+  const tokenRegistry = new ConfiguredTokenRegistry(
+    parseTokenRegistryConfig(readRequired(env, "RFQ_TOKEN_REGISTRY_JSON")),
+  );
+  routes.validateTokenRegistry(tokenRegistry);
   const workerId = readOptional(env, "RFQ_HEDGE_WORKER_ID") ?? defaultWorkerId();
   const baseUrl = readOptional(env, "RFQ_BINANCE_BASE_URL");
   const leaseMs = readInteger(env, "RFQ_HEDGE_LEASE_MS", 30_000, 1_000, 300_000);

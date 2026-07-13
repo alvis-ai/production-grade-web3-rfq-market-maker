@@ -6,7 +6,9 @@ import {
   formatHedgeQuantity,
   parseHedgeExecutedQuantity,
   parseHedgeRoutesJson,
+  quantizeHedgeAmount,
 } from "../dist/modules/hedge/hedge-route.js";
+import { ConfiguredTokenRegistry } from "../dist/modules/pricing/token-registry.js";
 
 const token = "0x0000000000000000000000000000000000000003";
 const route = {
@@ -27,8 +29,49 @@ test("HedgeRouteTable normalizes token lookup and isolates returned routes", () 
 });
 
 test("formatHedgeQuantity quantizes raw token units down to venue step size", () => {
+  assert.equal(quantizeHedgeAmount("1234567890123456789", route), "1234500000000000000");
   assert.equal(formatHedgeQuantity("1234567890123456789", route), "1.2345");
   assert.throws(() => formatHedgeQuantity("99999999999999", route), /HEDGE_AMOUNT_BELOW_STEP_SIZE/);
+});
+
+test("HedgeRouteTable binds route decimals to the shared token registry", () => {
+  const table = new HedgeRouteTable([route]);
+  assert.doesNotThrow(() => table.validateTokenRegistry(new ConfiguredTokenRegistry({
+    tokens: [{
+      chainId: 1,
+      tokenAddress: token,
+      symbol: "WETH",
+      decimals: 18,
+      isWhitelisted: false,
+      riskTier: "medium",
+      usdReference: false,
+    }],
+  })));
+  assert.throws(() => table.validateTokenRegistry(new ConfiguredTokenRegistry({
+    tokens: [{
+      chainId: 1,
+      tokenAddress: token,
+      symbol: "WETH",
+      decimals: 6,
+      isWhitelisted: true,
+      riskTier: "medium",
+      usdReference: false,
+    }],
+  })), /does not match token registry decimals/);
+  assert.throws(
+    () => table.validateTokenRegistry(new ConfiguredTokenRegistry({
+      tokens: [{
+        chainId: 1,
+        tokenAddress: "0x0000000000000000000000000000000000000004",
+        symbol: "OTHER",
+        decimals: 18,
+        isWhitelisted: true,
+        riskTier: "low",
+        usdReference: false,
+      }],
+    })),
+    /is not configured/,
+  );
 });
 
 test("parseHedgeExecutedQuantity converts terminal venue quantities back to raw units", () => {
