@@ -28,10 +28,14 @@ export interface OrderBookMetrics {
   bestAsk: string;
   /** Spread in basis points */
   spreadBps: number;
-  /** Mid-to-best-bid discount in basis points for the executable quote direction */
+  /** Mid-to-best-bid discount in basis points for base-to-quote RFQs */
   marketSpreadBps: number;
+  /** Inverse-mid-to-inverse-best-ask discount in basis points for quote-to-base RFQs */
+  askMarketSpreadBps: number;
   /** Executable bid-side USD notional within the configured depth range */
   liquidityUsd: string;
+  /** Executable ask-side USD notional within the configured depth range */
+  askLiquidityUsd: string;
   /** Number of bid levels */
   bidLevels: number;
   /** Number of ask levels */
@@ -141,10 +145,13 @@ export class OrderBook {
       ? ((midPriceValue - bestBidValue) * 10_000n + midPriceValue - 1n) / midPriceValue
       : 0n;
     const marketSpreadBps = Number(marketSpreadValue);
+    const askMarketSpreadValue = validSpread && bestAskValue > midPriceValue
+      ? ((bestAskValue - midPriceValue) * 10_000n + bestAskValue - 1n) / bestAskValue
+      : 0n;
+    const askMarketSpreadBps = Number(askMarketSpreadValue);
 
-    // Configured CEX pairs are base tokenIn -> USD-reference tokenOut, so only
-    // bids are executable hedge depth for the quoted direction.
     const liquidityUsd = this.computeBidDepth(midPriceValue, depthRangeBps);
+    const askLiquidityUsd = this.computeAskDepth(midPriceValue, depthRangeBps);
 
     const entry: OrderBookMetrics = {
       midPrice,
@@ -152,7 +159,9 @@ export class OrderBook {
       bestAsk,
       spreadBps,
       marketSpreadBps,
+      askMarketSpreadBps,
       liquidityUsd: liquidityUsd.toString(),
+      askLiquidityUsd: askLiquidityUsd.toString(),
       bidLevels: this.bids.size,
       askLevels: this.asks.size,
     };
@@ -201,6 +210,23 @@ export class OrderBook {
       const priceValue = parseCexDecimal(price, "Order book bid price", false);
       if (priceValue >= lower && priceValue <= mid) {
         totalScaled += priceValue * parseCexDecimal(qty, "Order book bid quantity", false) / cexDecimalScale;
+      }
+    }
+
+    return totalScaled / cexDecimalScale;
+  }
+
+  /** Compute executable ask notional (price x quantity) near the mid price. */
+  private computeAskDepth(mid: bigint, depthRangeBps: number): bigint {
+    if (mid <= 0n) return 0n;
+
+    const upper = (mid * BigInt(10_000 + depthRangeBps) + 9_999n) / 10_000n;
+    let totalScaled = 0n;
+
+    for (const [price, qty] of this.asks) {
+      const priceValue = parseCexDecimal(price, "Order book ask price", false);
+      if (priceValue >= mid && priceValue <= upper) {
+        totalScaled += priceValue * parseCexDecimal(qty, "Order book ask quantity", false) / cexDecimalScale;
       }
     }
 

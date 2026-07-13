@@ -39,7 +39,7 @@ assertContains("backend/src/main.ts", [
   'readOwnEnvValue(env, "RFQ_TOKEN_REGISTRY_JSON")',
   "assertPricingPairsSupported",
   "assertCexPairsSupported",
-  "requires tokenOut to be an approved USD reference token",
+  "requires the exchange quote token to be an approved USD reference token",
 ]);
 assertContains("backend/src/modules/pricing/pricing.engine.ts", [
   "convertBaseUnitAmount",

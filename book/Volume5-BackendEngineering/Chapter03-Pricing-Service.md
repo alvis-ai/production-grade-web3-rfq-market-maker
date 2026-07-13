@@ -94,7 +94,7 @@ stateDiagram-v2
 
 `PricingResult` includes amount fields and complete component bps fields. It matches backend `pricing.engine.ts` and keeps executable market spread, volatility plus hedge cost separate from inventory state.
 
-当前 `formula-v4` 返回 `amountOut`、`minAmountOut`、`spreadBps`、`sizeImpactBps`、`marketSpreadBps`、`inventorySkewBps`、`volatilityPremiumBps`、`hedgeCostBps` 和 `pricingVersion`。`spreadBps` 表示聚合后的总报价调整；`marketSpreadBps` 表示快照中 mid 到当前 RFQ 方向 executable bid 的成本，并与 size impact、inventory、volatility 和 hedge failure pressure 独立保存。`amountOut` 和 `minAmountOut` 始终是 tokenOut base units。
+当前 `formula-v4` 返回 `amountOut`、`minAmountOut`、`spreadBps`、`sizeImpactBps`、`marketSpreadBps`、`inventorySkewBps`、`volatilityPremiumBps`、`hedgeCostBps` 和 `pricingVersion`。`spreadBps` 表示聚合后的总报价调整；`marketSpreadBps` 表示快照中 mid 到当前 RFQ 方向外部最优可执行价格的成本，base-to-quote 使用 bid，quote-to-base 使用 inverse ask，并与 size impact、inventory、volatility 和 hedge failure pressure 独立保存。`amountOut` 和 `minAmountOut` 始终是 tokenOut base units。
 
 ## API Design
 

@@ -102,7 +102,7 @@ test("RFQ API rejects malformed token metadata and non-USD CEX quote assets at s
     process.env.RFQ_CEX_MIN_SOURCES = "1";
     assert.throws(
       () => buildServer({ logger: false }),
-      /CEX pair .* requires tokenOut to be an approved USD reference token/,
+      /CEX pair .* requires the exchange quote token to be an approved USD reference token/,
     );
     assert.throws(
       () => buildServer({
@@ -113,7 +113,7 @@ test("RFQ API rejects malformed token metadata and non-USD CEX quote assets at s
           },
         },
       }),
-      /CEX pair .* requires tokenOut to be an approved USD reference token/,
+      /CEX pair .* requires the exchange quote token to be an approved USD reference token/,
     );
   } finally {
     restoreEnv("RFQ_TOKEN_REGISTRY_JSON", originalRegistry);

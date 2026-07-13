@@ -234,7 +234,7 @@ erDiagram
 - `quotes.spread_bps`、`quotes.size_impact_bps`、`quotes.market_spread_bps`、`quotes.inventory_skew_bps`、`quotes.volatility_premium_bps` 和 `quotes.hedge_cost_bps` 保存 signed quote 的定价组成。除可正可负的 `inventory_skew_bps` 必须在 `-10000..10000` 外，其余 bps 字段必须在 `0..10000`；这些字段和 `pricing_version` 一起解释 `amount_out` 如何从 market snapshot、route liquidity、可执行 market spread、inventory、volatility 和 hedge pressure 推导而来。
 - `market_snapshots.source` 必须是非空字符串，用于保留行情来源、provider 或聚合管线版本，避免报价回放时无法解释价格输入。
 - `market_snapshots.liquidity_usd` 必须是非空正整数数值，匹配 Market Data、Routing 和 Pricing 对 `liquidityUsd` positive uint string 的运行时约束。
-- `market_snapshots.market_spread_bps` 必须是 `0..10000` bps 内的整数，保存 snapshot 当时 mid 到当前 RFQ 方向 executable bid 的折价。迁移 `013` 对无法恢复该归因的历史快照与历史 signed quote 回填 `0`，新写入则强制完整携带。
+- `market_snapshots.market_spread_bps` 必须是 `0..10000` bps 内的整数，保存 snapshot 当时 mid 到当前 RFQ 方向外部最优可执行价格的折价；base-to-quote 对应 bid，quote-to-base 对应 inverse ask。迁移 `013` 对无法恢复该归因的历史快照与历史 signed quote 回填 `0`，新写入则强制完整携带。
 - `market_snapshots.volatility_bps` 必须是 `0..10000` bps 内的整数，与 Market Data、Routing 和 Pricing 对 required `volatilityBps` / volatility premium 的输入契约一致。
 - runtime `MarketSnapshotStore` 必须镜像 `market_snapshots` 表的核心契约：同一 `snapshot_id` 只能对应同一 chain/token pair、price、liquidity、market spread、volatility、source 和 observedAt；完全相同写入可幂等重放，任何字段改写都必须失败。
 - `quotes.settlement_event_id`、`quotes.hedge_order_id`、`quotes.pnl_id` 是分别指向 `settlement_events.id`、`hedge_orders.id`、`pnl_records.id` 的 nullable foreign keys，保证 `GET /quote/:id` 状态指针不能悬空；权威成交、对冲和 PnL 明细仍分别位于这些下游表。

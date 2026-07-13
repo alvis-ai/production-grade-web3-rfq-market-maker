@@ -2,6 +2,7 @@ import type { MarketSnapshot } from "../../../shared/types/rfq.js";
 import { tagMarketDataSnapshot } from "../market-data.service.js";
 import { SharedPriceCache, pairKey } from "../price-cache.js";
 import {
+  cexDecimalScale,
   cexDeviationBps,
   formatCexDecimal,
   medianCexDecimal,
@@ -76,11 +77,24 @@ interface SourceMetrics {
   connectorKey: string;
   metrics: OrderBookMetrics;
   midPriceValue: bigint;
+  executablePriceValue: bigint;
+  liquidityUsd: string;
   observedAtMs: number;
   source: OrderBookPairConfig["exchange"];
 }
 
 type SourceState = "ready" | "stale" | "unavailable";
+type QuoteDirection = "base-to-quote" | "quote-to-base";
+
+interface DirectedSource {
+  pair: OrderBookPairConfig;
+  direction: QuoteDirection;
+}
+
+interface DirectedPairGroup {
+  pair: OrderBookPairConfig;
+  sources: DirectedSource[];
+}
 
 interface InspectedSource {
   state: SourceState;
@@ -134,7 +148,7 @@ export class CEXOrderBookMonitor {
     }
     for (const connector of this.connectors.values()) connector.stop();
     this.connectors.clear();
-    for (const key of groupPairs(this.config.pairs).keys()) this.cache.delete(key);
+    for (const key of groupDirectedPairs(this.config.pairs).keys()) this.cache.delete(key);
     this.lastPublishedFingerprint.clear();
     this.priceHistory.clear();
   }
@@ -146,13 +160,13 @@ export class CEXOrderBookMonitor {
   flushOnce(nowMs = Date.now()): void {
     assertTimestamp(nowMs, "flush timestamp");
     const inspected = this.inspectSources(nowMs);
-    const groupedPairs = groupPairs(this.config.pairs);
+    const groupedPairs = groupDirectedPairs(this.config.pairs);
     let usablePairs = 0;
     let blockedPairs = 0;
     let deviationRejectedSources = 0;
 
-    for (const [cacheKey, pairs] of groupedPairs) {
-      const sources = this.readSources(pairs, inspected);
+    for (const [cacheKey, group] of groupedPairs) {
+      const sources = this.readSources(group.sources, inspected);
       if (sources.length < this.config.minSources) {
         this.invalidatePair(cacheKey);
         blockedPairs += 1;
@@ -173,7 +187,7 @@ export class CEXOrderBookMonitor {
       usablePairs += 1;
       const fingerprint = sourceFingerprint(accepted);
       if (this.lastPublishedFingerprint.get(cacheKey) === fingerprint) continue;
-      const snapshot = this.aggregateSnapshot(pairs[0], cacheKey, accepted);
+      const snapshot = this.aggregateSnapshot(group.pair, cacheKey, accepted);
       this.cache.set(cacheKey, snapshot);
       this.lastPublishedFingerprint.set(cacheKey, fingerprint);
     }
@@ -237,19 +251,28 @@ export class CEXOrderBookMonitor {
   }
 
   private readSources(
-    pairs: readonly OrderBookPairConfig[],
+    directedSources: readonly DirectedSource[],
     inspected: ReadonlyMap<string, InspectedSource>,
   ): SourceMetrics[] {
     const sources: SourceMetrics[] = [];
-    for (const pair of pairs) {
+    for (const { pair, direction } of directedSources) {
       const key = connectorKey(pair.exchange, pair.symbol);
       const source = inspected.get(key);
       if (source?.state !== "ready" || !source.metrics ||
           source.midPriceValue === undefined || source.observedAtMs === undefined) continue;
+      const reverse = direction === "quote-to-base";
+      const midPriceValue = reverse ? invertCexPrice(source.midPriceValue) : source.midPriceValue;
+      const executablePriceValue = reverse
+        ? invertCexPrice(parseCexDecimal(source.metrics.bestAsk, "CEX best ask", false))
+        : parseCexDecimal(source.metrics.bestBid, "CEX best bid", false);
+      const liquidityUsd = reverse ? source.metrics.askLiquidityUsd : source.metrics.liquidityUsd;
+      if (midPriceValue === 0n || executablePriceValue === 0n || BigInt(liquidityUsd) === 0n) continue;
       sources.push({
         connectorKey: key,
         metrics: source.metrics,
-        midPriceValue: source.midPriceValue,
+        midPriceValue,
+        executablePriceValue,
+        liquidityUsd,
         observedAtMs: source.observedAtMs,
         source: pair.exchange,
       });
@@ -264,7 +287,7 @@ export class CEXOrderBookMonitor {
   ): MarketSnapshot {
     const midPriceValue = medianCexDecimal(sources.map(({ midPriceValue }) => midPriceValue));
     const midPrice = formatCexDecimal(midPriceValue);
-    const liquidity = sources.reduce((total, { metrics }) => total + BigInt(metrics.liquidityUsd), 0n);
+    const liquidity = sources.reduce((total, source) => total + BigInt(source.liquidityUsd), 0n);
     const observedAtMs = Math.min(...sources.map(({ observedAtMs }) => observedAtMs));
     this.recordPrice(cacheKey, Number(midPrice));
     this.snapshotSequence += 1;
@@ -334,6 +357,31 @@ function groupPairs(pairs: readonly OrderBookPairConfig[]): Map<string, OrderBoo
   return grouped;
 }
 
+function groupDirectedPairs(pairs: readonly OrderBookPairConfig[]): Map<string, DirectedPairGroup> {
+  const grouped = new Map<string, DirectedPairGroup>();
+  for (const pair of pairs) {
+    addDirectedSource(grouped, pair, pair, "base-to-quote");
+    addDirectedSource(grouped, {
+      ...pair,
+      tokenIn: pair.tokenOut,
+      tokenOut: pair.tokenIn,
+    }, pair, "quote-to-base");
+  }
+  return grouped;
+}
+
+function addDirectedSource(
+  grouped: Map<string, DirectedPairGroup>,
+  directedPair: OrderBookPairConfig,
+  sourcePair: OrderBookPairConfig,
+  direction: QuoteDirection,
+): void {
+  const key = pairKey(directedPair.chainId, directedPair.tokenIn, directedPair.tokenOut);
+  const group = grouped.get(key) ?? { pair: directedPair, sources: [] };
+  group.sources.push({ pair: sourcePair, direction });
+  grouped.set(key, group);
+}
+
 function assertConfig(config: CexOrderBookConfig): void {
   if (!Array.isArray(config.pairs) || config.pairs.length === 0) {
     throw new Error("CEX order book pairs must contain at least one source");
@@ -366,6 +414,13 @@ function assertConfig(config: CexOrderBookConfig): void {
   for (const pairs of groupPairs(config.pairs).values()) {
     if (pairs.length < config.minSources) {
       throw new Error("CEX order book each pair must configure at least minSources distinct sources");
+    }
+  }
+
+  for (const { sources } of groupDirectedPairs(config.pairs).values()) {
+    const directedSourceKeys = sources.map(({ pair }) => connectorKey(pair.exchange, pair.symbol));
+    if (new Set(directedSourceKeys).size !== directedSourceKeys.length) {
+      throw new Error("CEX order book derived directions must not contain duplicate sources");
     }
   }
 }
@@ -406,7 +461,10 @@ function usableMidPrice(metrics: OrderBookMetrics, maxSpreadBps: number): bigint
       metrics.spreadBps > maxSpreadBps || !Number.isSafeInteger(metrics.bidLevels) || metrics.bidLevels <= 0 ||
       !Number.isSafeInteger(metrics.askLevels) || metrics.askLevels <= 0 ||
       !Number.isSafeInteger(metrics.marketSpreadBps) || metrics.marketSpreadBps < 0 || metrics.marketSpreadBps > 10_000 ||
-      typeof metrics.liquidityUsd !== "string" || !/^[1-9][0-9]*$/.test(metrics.liquidityUsd)) {
+      !Number.isSafeInteger(metrics.askMarketSpreadBps) || metrics.askMarketSpreadBps < 0 ||
+      metrics.askMarketSpreadBps > 10_000 ||
+      typeof metrics.liquidityUsd !== "string" || !/^(0|[1-9][0-9]*)$/.test(metrics.liquidityUsd) ||
+      typeof metrics.askLiquidityUsd !== "string" || !/^(0|[1-9][0-9]*)$/.test(metrics.askLiquidityUsd)) {
     throw new Error("CEX order book metrics are unusable");
   }
   const bid = parseCexDecimal(metrics.bestBid, "CEX best bid", false);
@@ -419,21 +477,25 @@ function usableMidPrice(metrics: OrderBookMetrics, maxSpreadBps: number): bigint
 function sourceFingerprint(sources: readonly SourceMetrics[]): string {
   return [...sources]
     .sort((left, right) => left.connectorKey.localeCompare(right.connectorKey))
-    .map(({ connectorKey: key, metrics, observedAtMs }) => {
-      return `${key}:${observedAtMs}:${metrics.midPrice}:${metrics.liquidityUsd}:${metrics.spreadBps}:${metrics.marketSpreadBps}`;
+    .map(({ connectorKey: key, midPriceValue, executablePriceValue, liquidityUsd, metrics, observedAtMs }) => {
+      return `${key}:${observedAtMs}:${midPriceValue}:${executablePriceValue}:${liquidityUsd}:${metrics.spreadBps}`;
     })
     .join("|");
 }
 
 function aggregateMarketSpreadBps(midPriceValue: bigint, sources: readonly SourceMetrics[]): number {
   let maximum = 0n;
-  for (const { metrics } of sources) {
-    const bestBidValue = parseCexDecimal(metrics.bestBid, "CEX best bid", false);
-    if (bestBidValue >= midPriceValue) continue;
-    const spread = ((midPriceValue - bestBidValue) * 10_000n + midPriceValue - 1n) / midPriceValue;
+  for (const { executablePriceValue } of sources) {
+    if (executablePriceValue >= midPriceValue) continue;
+    const spread = ((midPriceValue - executablePriceValue) * 10_000n + midPriceValue - 1n) / midPriceValue;
     if (spread > maximum) maximum = spread;
   }
   return Number(maximum);
+}
+
+function invertCexPrice(value: bigint): bigint {
+  if (value <= 0n) return 0n;
+  return cexDecimalScale * cexDecimalScale / value;
 }
 
 function assertInteger(value: number, min: number, max: number, field: string): void {

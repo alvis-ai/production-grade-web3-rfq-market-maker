@@ -40,6 +40,11 @@ try {
     "CEX order book must expose positive near-mid executable bid liquidity",
   );
   assert.equal(
+    BigInt(metrics.askLiquidityUsd) > 0n,
+    true,
+    "CEX order book must expose positive near-mid executable ask liquidity",
+  );
+  assert.equal(
     parseCexDecimal(metrics.bestAsk, "CEX integration best ask", false) >
       parseCexDecimal(metrics.bestBid, "CEX integration best bid", false),
     true,
@@ -54,7 +59,8 @@ try {
     bidLevels: metrics.bidLevels,
     askLevels: metrics.askLevels,
     spreadBps: metrics.spreadBps,
-    liquidityUsd: metrics.liquidityUsd,
+    bidLiquidityUsd: metrics.liquidityUsd,
+    askLiquidityUsd: metrics.askLiquidityUsd,
     transientErrors: errors.length,
   }, null, 2)}\n`);
 } finally {

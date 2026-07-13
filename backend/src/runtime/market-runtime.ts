@@ -233,7 +233,7 @@ export function readCexOrderBookPairs(): OrderBookPairConfig[] {
     const parts = pairStr.trim().split(":");
     if (parts.length !== 5) {
       throw new Error(
-        `Invalid RFQ_CEX_PAIRS entry: ${pairStr}. Expected format: chainId:tokenIn:tokenOut:exchange:symbol`,
+        `Invalid RFQ_CEX_PAIRS entry: ${pairStr}. Expected format: chainId:baseToken:usdQuoteToken:exchange:symbol`,
       );
     }
     const chainId = readPairChainId(parts[0], "RFQ_CEX_PAIRS", pairStr);
@@ -334,12 +334,12 @@ function assertPricingPairsSupported(
 
 function assertCexPairsSupported(tokenRegistry: TokenRegistry, cexPairs: readonly OrderBookPairConfig[]): void {
   for (const pair of cexPairs) {
-    requireTokenMetadata(tokenRegistry, pair.chainId, pair.tokenIn, "CEX tokenIn");
-    const tokenOut = requireTokenMetadata(tokenRegistry, pair.chainId, pair.tokenOut, "CEX tokenOut");
-    if (!tokenOut.usdReference) {
+    requireTokenMetadata(tokenRegistry, pair.chainId, pair.tokenIn, "CEX base token");
+    const quoteToken = requireTokenMetadata(tokenRegistry, pair.chainId, pair.tokenOut, "CEX quote token");
+    if (!quoteToken.usdReference) {
       throw new Error(
         `CEX pair ${pair.chainId}:${pair.tokenIn.toLowerCase()}:${pair.tokenOut.toLowerCase()} ` +
-          "requires tokenOut to be an approved USD reference token because order-book depth is expressed in USD",
+          "requires the exchange quote token to be an approved USD reference token because order-book depth is expressed in USD",
       );
     }
   }

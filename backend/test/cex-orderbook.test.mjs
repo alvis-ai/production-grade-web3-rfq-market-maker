@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { buildServer } from "../dist/main.js";
+import { CachedMarketDataService } from "../dist/modules/market-data/cached-market-data.service.js";
 import { CEXOrderBookMonitor } from "../dist/modules/market-data/cex-orderbook/cex-orderbook-monitor.js";
 import { BinanceConnector } from "../dist/modules/market-data/cex-orderbook/binance-connector.js";
 import { CoinbaseConnector } from "../dist/modules/market-data/cex-orderbook/coinbase-connector.js";
 import { OrderBook } from "../dist/modules/market-data/cex-orderbook/orderbook.js";
 import { getMarketDataSnapshotSource } from "../dist/modules/market-data/market-data.service.js";
 import { SharedPriceCache, pairKey } from "../dist/modules/market-data/price-cache.js";
+import { ConfiguredTokenRegistry } from "../dist/modules/pricing/token-registry.js";
 
 const tokenIn = "0x0000000000000000000000000000000000000002";
 const tokenOut = "0x0000000000000000000000000000000000000003";
@@ -21,11 +24,15 @@ test("OrderBook uses exact fixed decimals and applies each message atomically", 
   assert.equal(book.asks.has("101"), true);
   assert.equal(book.getMetrics(100).midPrice, "100");
   assert.equal(book.getMetrics(100).marketSpreadBps, 100);
+  assert.equal(book.getMetrics(100).askMarketSpreadBps, 100);
   assert.equal(book.getMetrics(100).liquidityUsd, "99");
+  assert.equal(book.getMetrics(100).askLiquidityUsd, "101");
   assert.equal(book.getMetrics(2_000).liquidityUsd, "9099");
+  assert.equal(book.getMetrics(2_000).askLiquidityUsd, "11101");
 
   book.applyDelta({ bids: [], asks: [["101", "1000"]] });
   assert.equal(book.getMetrics(100).liquidityUsd, "99");
+  assert.equal(book.getMetrics(100).askLiquidityUsd, "101000");
 
   assert.throws(
     () => book.applyDelta({ bids: [["100", "2"], ["invalid", "1"]], asks: [] }),
@@ -43,10 +50,12 @@ test("OrderBook uses exact fixed decimals and applies each message atomically", 
   });
   assert.equal(book.getMetrics().midPrice, "9007199254740992.000000000000000002");
   assert.equal(book.getMetrics().marketSpreadBps, 1);
+  assert.equal(book.getMetrics().askMarketSpreadBps, 1);
 
   book.applySnapshot({ bids: [["101", "1"]], asks: [["100", "1"]] });
   assert.equal(book.getMetrics().midPrice, "0");
   assert.equal(book.getMetrics().liquidityUsd, "0");
+  assert.equal(book.getMetrics().askLiquidityUsd, "0");
   assert.throws(() => book.getMetrics(0), /depthRangeBps/);
 });
 
@@ -82,6 +91,7 @@ test("CEXOrderBookMonitor publishes only changed fresh source events", () => {
     monitor.flushOnce(now);
 
     const snapshot = cache.get(pairKey(1, tokenIn, tokenOut));
+    const inverseSnapshot = cache.get(pairKey(1, tokenOut, tokenIn));
     assert.equal(snapshot.midPrice, "102");
     assert.equal(snapshot.liquidityUsd, "306");
     assert.equal(snapshot.marketSpreadBps, 221);
@@ -89,9 +99,13 @@ test("CEXOrderBookMonitor publishes only changed fresh source events", () => {
     assert.equal(snapshot.observedAt, new Date(now - 100).toISOString());
     assert.equal(getMarketDataSnapshotSource(snapshot), "cex:binance+coinbase");
     assert.match(snapshot.snapshotId, /_cex$/);
+    assert.equal(inverseSnapshot.liquidityUsd, "308");
+    assert.equal(getMarketDataSnapshotSource(inverseSnapshot), "cex:binance+coinbase");
+    assert.match(inverseSnapshot.snapshotId, /_cex$/);
 
     monitor.flushOnce(now + 10);
     assert.equal(cache.get(pairKey(1, tokenIn, tokenOut)), snapshot);
+    assert.equal(cache.get(pairKey(1, tokenOut, tokenIn)), inverseSnapshot);
 
     connectors.get("coinbase:ETH-USDT").ready = false;
     connectors.get("binance:ETHUSDT").setSnapshot([["99.75", "1"]], [["100.25", "1"]], now + 20);
@@ -100,15 +114,79 @@ test("CEXOrderBookMonitor publishes only changed fresh source events", () => {
     assert.equal(fallback.midPrice, "100");
     assert.equal(fallback.liquidityUsd, "99");
     assert.equal(fallback.marketSpreadBps, 25);
+    const inverseFallback = cache.get(pairKey(1, tokenOut, tokenIn));
+    assert.equal(inverseFallback.midPrice, "0.01");
+    assert.equal(inverseFallback.liquidityUsd, "100");
+    assert.equal(inverseFallback.marketSpreadBps, 25);
     assert.equal(observer.cycles.at(-1).readySources, 1);
     assert.equal(observer.cycles.at(-1).unavailableSources, 1);
+    assert.equal(observer.cycles.at(-1).usablePairs, 2);
   } finally {
     monitor.stop();
   }
 
   assert.equal(cache.get(pairKey(1, tokenIn, tokenOut)), undefined);
+  assert.equal(cache.get(pairKey(1, tokenOut, tokenIn)), undefined);
   assert.equal(connectors.get("binance:ETHUSDT").stopped, true);
   assert.equal(connectors.get("coinbase:ETH-USDT").stopped, true);
+});
+
+test("RFQ API prices the inverse USD-to-base direction from executable asks", async () => {
+  const cache = new SharedPriceCache(60_000);
+  let connector;
+  const monitor = new CEXOrderBookMonitor(cache, {
+    pairs: [{ chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT" }],
+    flushIntervalMs: 60_000,
+    minSources: 1,
+  }, new FakeObserver(), (exchange, symbol) => {
+    connector = new FakeConnector(exchange, symbol);
+    return connector;
+  });
+  monitor.start();
+  connector.setSnapshot([["99.75", "20000"]], [["100.25", "20000"]], Date.now());
+  monitor.flushOnce();
+  const inverseSnapshot = cache.get(pairKey(1, tokenOut, tokenIn));
+  const marketDataService = new CachedMarketDataService({
+    async getSnapshot() {
+      throw new Error("inverse CEX cache miss");
+    },
+  }, cache);
+  const server = buildServer({
+    logger: false,
+    marketDataService,
+    tokenRegistry: new ConfiguredTokenRegistry(),
+    riskEngine: {
+      async evaluate() {
+        return { status: "approved", policyVersion: "inverse-cex-risk-v1" };
+      },
+    },
+  });
+
+  try {
+    await server.ready();
+    const response = await server.inject({
+      method: "POST",
+      url: "/quote",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({
+        chainId: 1,
+        user: "0x0000000000000000000000000000000000000001",
+        tokenIn: tokenOut,
+        tokenOut: tokenIn,
+        amountIn: "1000000000000000000",
+        slippageBps: 50,
+      }),
+    });
+
+    assert.equal(response.statusCode, 200, response.payload);
+    const quote = JSON.parse(response.payload);
+    assert.equal(quote.snapshotId, inverseSnapshot.snapshotId);
+    assert.equal(BigInt(quote.amountOut) > 0n && BigInt(quote.amountOut) < 10n ** 16n, true);
+    assert.match(quote.signature, /^0x[0-9a-f]{130}$/);
+  } finally {
+    await server.close();
+    monitor.stop();
+  }
 });
 
 test("CEXOrderBookMonitor invalidates stale and cross-venue divergent books", () => {
@@ -130,6 +208,7 @@ test("CEXOrderBookMonitor invalidates stale and cross-venue divergent books", ()
     maxSourceDeviationBps: 100,
   }, observer, factory);
   const key = pairKey(1, tokenIn, tokenOut);
+  const inverseKey = pairKey(1, tokenOut, tokenIn);
   const now = Date.now();
 
   monitor.start();
@@ -138,16 +217,19 @@ test("CEXOrderBookMonitor invalidates stale and cross-venue divergent books", ()
     connectors.get("coinbase:ETH-USDT").setSnapshot([["103.9", "10"]], [["104.1", "10"]], now);
     monitor.flushOnce(now);
     assert.equal(cache.get(key), undefined);
-    assert.equal(observer.cycles.at(-1).blockedPairs, 1);
-    assert.equal(observer.cycles.at(-1).deviationRejectedSources, 2);
+    assert.equal(cache.get(inverseKey), undefined);
+    assert.equal(observer.cycles.at(-1).blockedPairs, 2);
+    assert.equal(observer.cycles.at(-1).deviationRejectedSources, 4);
 
     connectors.get("coinbase:ETH-USDT").setSnapshot([["100.1", "10"]], [["100.3", "10"]], now + 10);
     monitor.flushOnce(now + 10);
     assert.equal(cache.get(key).midPrice, "100.1");
-    assert.equal(observer.cycles.at(-1).usablePairs, 1);
+    assert.ok(cache.get(inverseKey));
+    assert.equal(observer.cycles.at(-1).usablePairs, 2);
 
     monitor.flushOnce(now + 2_500);
     assert.equal(cache.get(key), undefined);
+    assert.equal(cache.get(inverseKey), undefined);
     assert.equal(observer.cycles.at(-1).staleSources, 2);
     assert.equal(connectors.get("binance:ETHUSDT").restartCount, 1);
     assert.equal(connectors.get("coinbase:ETH-USDT").restartCount, 1);
@@ -169,6 +251,12 @@ test("CEXOrderBookMonitor rejects unsafe quorum and dependency configuration", (
   assert.throws(
     () => new CEXOrderBookMonitor(new SharedPriceCache(), { pairs: [pair, { ...pair }] }),
     /duplicate sources/,
+  );
+  assert.throws(
+    () => new CEXOrderBookMonitor(new SharedPriceCache(), {
+      pairs: [pair, { ...pair, tokenIn: tokenOut, tokenOut: tokenIn }],
+    }),
+    /derived directions must not contain duplicate sources/,
   );
   assert.throws(
     () => new CEXOrderBookMonitor(new SharedPriceCache(), { pairs: [pair], minSources: 2 }),

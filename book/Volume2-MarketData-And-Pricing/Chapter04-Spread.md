@@ -66,7 +66,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-Spread 模块接收 mid price、方向化 executable market spread、volatility、inventory 和 hedge cost，输出 final spread。订单簿完整 bid/ask spread 用于判断来源是否健康；`marketSpreadBps` 只表示当前 tokenIn -> USD-reference tokenOut 方向从 mid 到 best bid 的成本，两者不能互相替代。
+Spread 模块接收 mid price、方向化 executable market spread、volatility、inventory 和 hedge cost，输出 final spread。订单簿完整 bid/ask spread 用于判断来源是否健康；`marketSpreadBps` 只表示当前 RFQ 方向从 mid 到外部最优可执行价格的成本，base-to-quote 使用 best bid，quote-to-base 使用 inverse best ask，两者不能互相替代。
 
 ## Sequence Diagram
 

@@ -110,7 +110,7 @@ Token registry 包含 `chainId`、`tokenAddress`、`symbol`、`decimals`、`isWh
 - `RFQ_TOKEN_REGISTRY_JSON` 在启动时进行 exact-field、重复地址、decimals、symbol、risk tier 和布尔字段校验；注册表实例复制配置，调用方后续修改原对象不会改变报价。
 - `formula-v4` 继续使用 `amountInBase * priceNumerator * 10^tokenOutDecimals / (priceDenominator * 10^tokenInDecimals)` 并向下取整，做市方不会因小数舍入多付 tokenOut。
 - USD 名义规模优先使用 tokenIn 的 `usdReference`；否则在 tokenOut 是 USD reference 时使用方向化 mid price 换算。两侧都不是 USD reference 时拒绝报价，直到接入独立的 USD valuation feed。
-- CEX depth 当前由可执行 bid 的 `price * baseQuantity` 得到 quote notional，因此 CEX 配置要求 tokenOut 是 USD reference；否则 `liquidityUsd` 名称与单位不一致，启动直接失败。Ask depth 对应反向买入 base，不能与当前 tokenIn-to-tokenOut 方向的 bid depth 相加。
+- CEX 配置描述 exchange-native `baseToken/USD quoteToken`，因此 quoteToken 必须是 USD reference，否则 `liquidityUsd` 名称与单位不成立。Monitor 为 base-to-quote 方向使用 bid 的 `price * baseQuantity`，为 quote-to-base 方向使用 ask notional，并以 `10^36 / priceFixed18` 向下取整生成 18 位倒数价格。两侧各自形成 snapshot，bid/ask depth 不相加，倒数舍入也不会向用户多付 tokenOut。
 
 ## Failure Scenarios
 

@@ -82,15 +82,22 @@ assert.ok(decimalSource.includes("10n ** BigInt(cexDecimalScaleDigits)"), "CEX d
 assert.ok(orderBookSource.includes("normalizeLevels") && orderBookSource.includes("parseCexDecimal"), "order-book messages must validate atomically with fixed decimals");
 assert.ok(
   orderBookSource.includes("computeBidDepth") &&
-    !orderBookSource.match(/for \(const \[price, qty\] of this\.asks\)[\s\S]*?totalScaled \+=/),
-  "CEX liquidityUsd must use executable bid depth and must not count ask quantity",
+    orderBookSource.includes("computeAskDepth") &&
+    monitorSource.includes("source.metrics.askLiquidityUsd"),
+  "CEX order books must retain separate executable bid and ask depth",
 );
 assert.ok(
   orderBookSource.includes("marketSpreadBps") &&
-    orderBookSource.includes("midPriceValue - bestBidValue") &&
+    orderBookSource.includes("askMarketSpreadBps") &&
     monitorSource.includes("aggregateMarketSpreadBps(midPriceValue, sources)") &&
-    monitorSource.includes("midPriceValue - bestBidValue"),
-  "CEX snapshots must conservatively attribute the executable mid-to-best-bid spread",
+    monitorSource.includes("executablePriceValue"),
+  "CEX snapshots must conservatively attribute the direction-specific executable spread",
+);
+assert.ok(
+  monitorSource.includes("groupDirectedPairs") &&
+    monitorSource.includes('direction === "quote-to-base"') &&
+    monitorSource.includes("invertCexPrice"),
+  "each native BASE/USD book must publish base-to-quote and quote-to-base RFQ snapshots",
 );
 assert.ok(binanceSource.includes("E: number") && binanceSource.includes("s: string"), "Binance updates must validate event time and symbol");
 assert.ok(binanceSource.includes("bridgesUpdateId"), "Binance updates must enforce update-id continuity");
@@ -111,12 +118,20 @@ assert.ok(testSource.includes("publishes only changed fresh source events"), "te
 assert.ok(testSource.includes("invalidates stale and cross-venue divergent books"), "tests must cover stale and divergent source invalidation");
 assert.ok(testSource.includes('asks: [["101", "1000"]]'), "tests must prove ask quantity cannot inflate executable liquidity");
 assert.ok(testSource.includes("marketSpreadBps"), "tests must cover executable market spread attribution");
+assert.ok(testSource.includes("inverseFallback"), "tests must cover inverse ask-side snapshot publication");
+assert.ok(
+  testSource.includes("RFQ API prices the inverse USD-to-base direction from executable asks"),
+  "tests must cover inverse CEX pricing through the signed quote API",
+);
 assert.ok(marketDataChapter.includes("developers.binance.com"), "market-data chapter must reference official Binance synchronization rules");
 assert.ok(marketDataChapter.includes("docs.cdp.coinbase.com"), "market-data chapter must reference official Coinbase Level-2 rules");
 assert.ok(readmeSource.includes("make cex-orderbook-integration-check"), "README must document the live CEX check");
 assert.ok(makefileSource.includes("cex-orderbook-integration-check: backend-build"), "Makefile must expose the live CEX check");
 assert.ok(packageSource.includes("cex:orderbook:integration:check"), "package scripts must expose the live CEX check");
 assert.ok(integrationSource.includes("RFQ_CEX_INTEGRATION_CONFIRM=yes"), "live CEX check must require explicit opt-in");
-assert.ok(integrationSource.includes("executable bid liquidity"), "live CEX check must validate directional bid depth");
+assert.ok(
+  integrationSource.includes("executable bid liquidity") && integrationSource.includes("executable ask liquidity"),
+  "live CEX check must validate both directional depth surfaces",
+);
 
 console.log(`CEX order-book consistency check passed (${tuningNames.length} runtime controls)`);
