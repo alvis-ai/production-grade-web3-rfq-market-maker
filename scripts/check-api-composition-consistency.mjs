@@ -13,24 +13,47 @@ const routes = sources["backend/src/api/trading-routes.ts"];
 const quoteControlRoutes = sources["backend/src/api/quote-control-routes.ts"];
 const toxicFlowScoreRoutes = sources["backend/src/api/toxic-flow-score-routes.ts"];
 const environment = sources["backend/src/runtime/environment.ts"];
+const gatewayApplication = sources["backend/src/runtime/gateway-application.ts"];
+const gatewayMarketData = sources["backend/src/runtime/gateway-market-data.ts"];
 const gatewayRuntime = sources["backend/src/runtime/gateway-runtime.ts"];
 const marketRuntime = sources["backend/src/runtime/market-runtime.ts"];
 const serverProcess = sources["backend/src/runtime/server-process.ts"];
 const chapter = await readFile("book/Volume5-BackendEngineering/Chapter01-API-Gateway.md", "utf8");
 
 const mainLines = main.split(/\r?\n/).length;
-assert.ok(mainLines <= 500, `backend/src/main.ts must remain a thin composition root (got ${mainLines} lines)`);
+const gatewayApplicationLines = gatewayApplication.split(/\r?\n/).length;
+assert.ok(mainLines <= 100, `backend/src/main.ts must remain a process entrypoint (got ${mainLines} lines)`);
+assert.ok(
+  gatewayApplicationLines <= 350,
+  `backend/src/runtime/gateway-application.ts must remain a bounded composition root (got ${gatewayApplicationLines} lines)`,
+);
 assertContains(main, [
+  'export { buildServer } from "./runtime/gateway-application.js"',
+  "export async function startServer",
+  "installGracefulShutdown(server",
+], "backend/src/main.ts");
+assertContains(gatewayApplication, [
   "export function buildServer",
   "installGatewayBoundary(server",
   "registerTradingRoutes(server",
   "registerQuoteControlRoutes(server",
-  "readDefaultMarketDataRuntime()",
+  "buildGatewayMarketDataRuntime(options.marketDataService",
   "resolvePostgresPool(options)",
-  "export async function startServer",
-], "backend/src/main.ts");
+], "gateway application runtime");
+assertContains(gatewayMarketData, [
+  "buildGatewayMarketDataRuntime",
+  "readDefaultMarketDataRuntime()",
+  "new BackgroundPriceUpdater",
+  "new CEXOrderBookMonitor",
+  "new BackgroundMarketSnapshotSampler",
+  "startBackgroundTasks",
+], "gateway market-data runtime");
 for (const directRoute of ['server.get("', 'server.post("', 'server.options("']) {
   assert.ok(!main.includes(directRoute), `backend/src/main.ts must not register routes directly: ${directRoute}`);
+  assert.ok(
+    !gatewayApplication.includes(directRoute),
+    `gateway application runtime must delegate route registration: ${directRoute}`,
+  );
 }
 
 assertContains(boundary, [
@@ -97,15 +120,19 @@ assertContains(serverProcess, [
   'processLike.on("SIGINT"',
 ], "server process runtime");
 assertContains(chapter, [
-  "thin composition root",
+  "process-only entrypoint",
   "`backend/src/api/http-boundary.ts`",
   "`backend/src/api/trading-routes.ts`",
+  "`backend/src/runtime/gateway-application.ts`",
+  "`backend/src/runtime/gateway-market-data.ts`",
   "`backend/src/runtime/gateway-runtime.ts`",
   "`backend/src/runtime/market-runtime.ts`",
   "`make api-composition-check`",
 ], "API Gateway chapter");
 
-console.log(`API composition consistency check passed (main.ts ${mainLines} lines)`);
+console.log(
+  `API composition consistency check passed (main.ts ${mainLines} lines, gateway application ${gatewayApplicationLines} lines)`,
+);
 
 function assertContains(source, needles, label) {
   for (const needle of needles) {

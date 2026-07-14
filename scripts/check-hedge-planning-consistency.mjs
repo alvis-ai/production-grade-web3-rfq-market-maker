@@ -2,8 +2,9 @@
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
 
-const [
+let [
   planner,
   execution,
   reconciliation,
@@ -30,6 +31,7 @@ const [
   "README.md",
   "book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md",
 ].map((path) => readFile(path, "utf8")));
+main = await readBackendGatewaySource();
 
 assert.match(planner, /delta-neutral-v2/, "hedge planner must expose a versioned delta-neutral strategy");
 assert.match(

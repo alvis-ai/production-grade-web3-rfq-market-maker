@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/server-process.ts"
+gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/server-process.ts"
 
 test -s package.json
 test -s pnpm-workspace.yaml
@@ -18,6 +18,8 @@ test -s backend/src/api/http-boundary.ts
 test -s backend/src/api/trading-routes.ts
 test -s backend/src/api/quote-control-routes.ts
 test -s backend/src/runtime/environment.ts
+test -s backend/src/runtime/gateway-application.ts
+test -s backend/src/runtime/gateway-market-data.ts
 test -s backend/src/runtime/gateway-runtime.ts
 test -s backend/src/runtime/market-runtime.ts
 test -s backend/src/runtime/server-process.ts
@@ -3627,7 +3629,7 @@ test -s backend/test/dynamic-toxic-flow-risk.test.mjs
 test -s backend/test/api-toxic-flow-score.test.mjs
 grep -q 'server.get("/admin/toxic-flow/scores/:chainId/:user"' backend/src/api/toxic-flow-score-routes.ts
 grep -q 'server.put("/admin/toxic-flow/scores/:chainId/:user"' backend/src/api/toxic-flow-score-routes.ts
-grep -q 'DynamicToxicFlowRiskEngine' backend/src/main.ts
+grep -q 'DynamicToxicFlowRiskEngine' $gateway_sources
 grep -q 'toxic_flow_score_audit' docs/database/schema.sql
 grep -q "('020', 'toxic-flow-scores')" docs/database/schema.sql
 grep -q 'RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS' infra/k8s/configmap.yaml
