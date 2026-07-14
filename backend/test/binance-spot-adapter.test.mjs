@@ -140,6 +140,103 @@ test("BinanceSpotAdapter treats transport ambiguity and malformed venue data saf
   );
 });
 
+test("BinanceSpotAdapter resynchronizes clock once and retries timestamp-rejected requests", async () => {
+  const localTime = 1_700_000_000_000;
+  const serverTime = localTime + 2_500;
+  const calls = [];
+  let orderCalls = 0;
+  const fetchFn = async (input, init) => {
+    const url = new URL(input);
+    calls.push({ url, init });
+    if (url.pathname === "/api/v3/time") return jsonResponse({ serverTime });
+    orderCalls += 1;
+    if (orderCalls === 1) return jsonResponse({ code: -1021, msg: "Timestamp outside recvWindow." }, 400);
+    return jsonResponse({
+      symbol: "ETHUSDT",
+      orderId: 100234,
+      clientOrderId,
+      status: "FILLED",
+      executedQty: "1.25",
+      cummulativeQuoteQty: "3125",
+    });
+  };
+  const adapter = new BinanceSpotAdapter(config, fetchFn, () => localTime);
+
+  assert.equal((await adapter.submitMarketOrder({
+    symbol: "ETHUSDT",
+    side: "buy",
+    quantity: "1.25",
+    clientOrderId,
+  })).state, "filled");
+  assert.deepEqual(calls.map(({ url }) => url.pathname), [
+    "/api/v3/order",
+    "/api/v3/time",
+    "/api/v3/order",
+  ]);
+  assert.equal(calls[0].url.searchParams.get("timestamp"), String(localTime));
+  assert.equal(calls[2].url.searchParams.get("timestamp"), String(serverTime));
+  assert.notEqual(calls[0].url.searchParams.get("signature"), calls[2].url.searchParams.get("signature"));
+  const retriedParams = new URLSearchParams(calls[2].url.searchParams);
+  const retriedSignature = retriedParams.get("signature");
+  retriedParams.delete("signature");
+  assert.equal(
+    retriedSignature,
+    createHmac("sha256", config.apiSecret).update(retriedParams.toString()).digest("hex"),
+  );
+  assert.equal(calls[1].url.searchParams.has("signature"), false);
+  assert.equal(calls[1].init.headers, undefined);
+  assert.deepEqual(calls.map(({ init }) => init.method), ["POST", "GET", "POST"]);
+  assert.equal(calls[0].url.searchParams.get("newClientOrderId"), clientOrderId);
+  assert.equal(calls[2].url.searchParams.get("newClientOrderId"), clientOrderId);
+});
+
+test("BinanceSpotAdapter single-flights concurrent clock synchronization and fails closed on malformed time", async () => {
+  const localTime = 1_700_000_000_000;
+  const timeResponse = deferred();
+  let timeCalls = 0;
+  let signedCalls = 0;
+  const fetchFn = async (input) => {
+    const url = new URL(input);
+    if (url.pathname === "/api/v3/time") {
+      timeCalls += 1;
+      return timeResponse.promise;
+    }
+    signedCalls += 1;
+    if (signedCalls <= 2) return jsonResponse({ code: -1021, msg: "Invalid timestamp." }, 400);
+    return jsonResponse({ code: -2013, msg: "Order does not exist." }, 400);
+  };
+  const adapter = new BinanceSpotAdapter(config, fetchFn, () => localTime);
+  const first = adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId });
+  const second = adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(timeCalls, 1);
+  timeResponse.resolve(jsonResponse({ serverTime: localTime + 100 }));
+  assert.deepEqual(await Promise.all([first, second]), [undefined, undefined]);
+  assert.equal(signedCalls, 4);
+
+  const malformed = new BinanceSpotAdapter(config, async (input) => {
+    return new URL(input).pathname === "/api/v3/time"
+      ? jsonResponse({ serverTime: "not-a-number" })
+      : jsonResponse({ code: -1021, msg: "Invalid timestamp." }, 400);
+  }, () => localTime);
+  await assert.rejects(
+    malformed.queryOrder({ symbol: "ETHUSDT", clientOrderId }),
+    (error) => error instanceof CexVenueError && error.retryable &&
+      error.errorCode === "BINANCE_TIME_SYNC_FAILED",
+  );
+
+  const excessiveOffset = new BinanceSpotAdapter(config, async (input) => {
+    return new URL(input).pathname === "/api/v3/time"
+      ? jsonResponse({ serverTime: localTime + 86_400_001 })
+      : jsonResponse({ code: -1021, msg: "Invalid timestamp." }, 400);
+  }, () => localTime);
+  await assert.rejects(
+    excessiveOffset.queryOrder({ symbol: "ETHUSDT", clientOrderId }),
+    (error) => error instanceof CexVenueError && error.retryable &&
+      error.errorCode === "BINANCE_TIME_SYNC_FAILED",
+  );
+});
+
 test("BinanceSpotAdapter rejects unsafe credentials, URLs, and order inputs", async () => {
   assert.throws(() => new BinanceSpotAdapter({ ...config, apiSecret: "bad secret" }), /apiSecret/);
   assert.throws(() => new BinanceSpotAdapter({ ...config, baseUrl: "http://api.binance.com" }), /HTTPS origin/);
@@ -221,4 +318,10 @@ function jsonResponse(body, status = 200, headers = {}) {
     status,
     headers: { "content-type": "application/json", ...headers },
   });
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
 }

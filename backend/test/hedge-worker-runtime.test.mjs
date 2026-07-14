@@ -33,7 +33,7 @@ const env = {
 test("hedge worker runtime config requires durable storage, routes, and isolated credentials", () => {
   const config = readHedgeWorkerRuntimeConfig(env);
   assert.equal(config.worker.workerId, "worker_1");
-  assert.equal(config.worker.leaseMs, 30000);
+  assert.equal(config.worker.leaseMs, 45000);
   assert.equal(config.routes.find(1, token).symbol, "ETHUSDT");
   assert.equal(config.binance.apiKey, "api-key");
   assert.equal(config.listenPort, 3001);
@@ -60,11 +60,16 @@ test("hedge worker runtime config requires durable storage, routes, and isolated
   assert.throws(
     () => readHedgeWorkerRuntimeConfig({
       ...env,
-      RFQ_HEDGE_LEASE_MS: "20000",
+      RFQ_HEDGE_LEASE_MS: "41000",
       RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000",
     }),
-    /must exceed two/,
+    /must exceed four/,
   );
+  assert.equal(readHedgeWorkerRuntimeConfig({
+    ...env,
+    RFQ_HEDGE_LEASE_MS: "41001",
+    RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000",
+  }).worker.leaseMs, 41001);
 });
 
 test("hedge worker runtime config reads only own environment fields", () => {

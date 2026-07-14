@@ -13,6 +13,7 @@ const paths = {
   feeStore: "backend/src/modules/hedge/postgres-hedge-fee.store.ts",
   feeMigration: "backend/src/db/migrations/015-hedge-fee-reconciliation.sql",
   runtime: "backend/src/hedge-worker-main.ts",
+  adapterTest: "backend/test/binance-spot-adapter.test.mjs",
   routeTest: "backend/test/hedge-route.test.mjs",
   workerTest: "backend/test/hedge-worker.test.mjs",
   feeWorkerTest: "backend/test/hedge-fee-worker.test.mjs",
@@ -51,6 +52,9 @@ assert.match(source.migration, /hedge\.lifecycle\.v2/);
 assert.match(source.adapter, /\/api\/v3\/myTrades/);
 assert.match(source.adapter, /orderId: input\.venueOrderId/);
 assert.match(source.adapter, /fromId/);
+assert.match(source.adapter, /hasVenueErrorCode\(response, -1021\)/);
+assert.match(source.adapter, /\/api\/v3\/time/);
+assert.match(source.adapter, /clockSyncPromise/);
 assert.match(source.feeWorker, /sumCexTradeQuantity\(fills, "quantity"\)/);
 assert.match(source.feeWorker, /sumCexTradeQuantity\(fills, "quoteQuantity"\)/);
 assert.match(source.feeStore, /ON CONFLICT \(hedge_order_id, venue_trade_id\) DO UPDATE/);
@@ -61,6 +65,9 @@ assert.match(source.feeMigration, /hedge\.lifecycle\.v3/);
 
 assert.match(source.runtime, /readRequired\(env, "RFQ_TOKEN_REGISTRY_JSON"\)/);
 assert.match(source.runtime, /routes\.validateTokenRegistry\(tokenRegistry\)/);
+assert.match(source.runtime, /must exceed four RFQ_BINANCE_REQUEST_TIMEOUT_MS windows/);
+assert.match(source.adapterTest, /resynchronizes clock once and retries timestamp-rejected requests/);
+assert.match(source.adapterTest, /single-flights concurrent clock synchronization/);
 assert.match(source.routeTest, /binds route decimals to the shared token registry/);
 assert.match(source.workerTest, /requires FILLED cumulative quantity to equal the quantized target/);
 assert.match(source.workerTest, /permits only sub-step dust between intent and a complete venue fill/);
@@ -86,6 +93,9 @@ for (const [name, needle] of [
   ["readme", /commissionTotals/],
   ["hedgeBook", /commissionAsset/],
   ["runbook", /fee_reconciliation_status='pending'/],
+  ["runbook", /BINANCE_TIME_SYNC_FAILED/],
+  ["readme", /four configured request-timeout windows/],
+  ["hedgeBook", /GET \/api\/v3\/time/],
 ]) {
   assert.match(source[name], needle, `${paths[name]} must document hedge quantity integrity`);
 }

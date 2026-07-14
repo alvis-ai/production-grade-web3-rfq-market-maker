@@ -114,6 +114,8 @@ grep -q 'adapter.submitMarketOrder' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'createHmac("sha256"' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'origClientOrderId' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'newClientOrderId' backend/src/modules/hedge/binance-spot.adapter.ts
+grep -q '/api/v3/time' backend/src/modules/hedge/binance-spot.adapter.ts
+grep -q 'hasVenueErrorCode(response, -1021)' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'rfq_hedge_worker_jobs_total' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'rfq_hedge_fee_pending' backend/src/modules/hedge/hedge-fee-worker.ts
 grep -q 'rfq_hedge_fee_oldest_due_age_seconds' backend/src/modules/hedge/hedge-fee-worker.ts

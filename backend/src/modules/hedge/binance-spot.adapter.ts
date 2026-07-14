@@ -70,6 +70,7 @@ export class CexVenueError extends Error {
 const defaultBaseUrl = "https://api.binance.com";
 const defaultRecvWindowMs = 5_000;
 const defaultRequestTimeoutMs = 10_000;
+const maxClockOffsetMs = 86_400_000;
 const terminalFailedStatuses = new Set(["CANCELED", "EXPIRED", "EXPIRED_IN_MATCH", "REJECTED"]);
 const pendingStatuses = new Set(["NEW", "PENDING_NEW", "PARTIALLY_FILLED"]);
 const retryableVenueCodes = new Set([-1000, -1001, -1003, -1006, -1007, -1008, -1015, -1016, -1021, -1034]);
@@ -82,6 +83,8 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
   private readonly baseUrl: string;
   private readonly recvWindowMs: number;
   private readonly requestTimeoutMs: number;
+  private clockOffsetMs = 0;
+  private clockSyncPromise: Promise<void> | undefined;
 
   constructor(
     config: BinanceSpotAdapterConfig,
@@ -162,7 +165,18 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
     path: string,
     requestParams: Record<string, string>,
   ): Promise<Response> {
-    const timestamp = this.now();
+    const response = await this.sendSignedRequest(method, path, requestParams);
+    if (!await hasVenueErrorCode(response, -1021)) return response;
+    await this.synchronizeClock();
+    return this.sendSignedRequest(method, path, requestParams);
+  }
+
+  private async sendSignedRequest(
+    method: "GET" | "POST",
+    path: string,
+    requestParams: Record<string, string>,
+  ): Promise<Response> {
+    const timestamp = this.now() + this.clockOffsetMs;
     if (!Number.isSafeInteger(timestamp) || timestamp <= 0) {
       throw new CexVenueError("BINANCE_CLOCK_INVALID", false);
     }
@@ -173,20 +187,92 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
     });
     const signature = createHmac("sha256", this.apiSecret).update(params.toString()).digest("hex");
     params.set("signature", signature);
+    return this.fetchWithTimeout(`${this.baseUrl}${path}?${params.toString()}`, {
+      method,
+      headers: { "X-MBX-APIKEY": this.apiKey },
+    }, "BINANCE_REQUEST_FAILED");
+  }
+
+  private async synchronizeClock(): Promise<void> {
+    if (this.clockSyncPromise) return this.clockSyncPromise;
+    const pending = this.fetchClockOffset();
+    this.clockSyncPromise = pending;
+    try {
+      await pending;
+    } finally {
+      if (this.clockSyncPromise === pending) this.clockSyncPromise = undefined;
+    }
+  }
+
+  private async fetchClockOffset(): Promise<void> {
+    const startedAt = this.now();
+    if (!Number.isSafeInteger(startedAt) || startedAt <= 0) {
+      throw new CexVenueError("BINANCE_CLOCK_INVALID", false);
+    }
+    const response = await this.fetchWithTimeout(
+      `${this.baseUrl}/api/v3/time`,
+      { method: "GET" },
+      "BINANCE_TIME_SYNC_FAILED",
+    );
+    const completedAt = this.now();
+    if (!response.ok) {
+      throw new CexVenueError(
+        "BINANCE_TIME_SYNC_FAILED",
+        true,
+        undefined,
+        parseRetryAfterMs(response),
+      );
+    }
+    if (!Number.isSafeInteger(completedAt) || completedAt < startedAt) {
+      throw new CexVenueError("BINANCE_TIME_SYNC_FAILED", true);
+    }
+    let value: unknown;
+    try {
+      value = await response.json();
+    } catch {
+      throw new CexVenueError("BINANCE_TIME_SYNC_FAILED", true);
+    }
+    if (typeof value !== "object" || value === null || Array.isArray(value) ||
+        !Number.isSafeInteger((value as Record<string, unknown>).serverTime) ||
+        Number((value as Record<string, unknown>).serverTime) <= 0) {
+      throw new CexVenueError("BINANCE_TIME_SYNC_FAILED", true);
+    }
+    const midpoint = startedAt + Math.floor((completedAt - startedAt) / 2);
+    const offset = Number((value as Record<string, unknown>).serverTime) - midpoint;
+    const adjustedNow = this.now() + offset;
+    if (!Number.isSafeInteger(offset) || Math.abs(offset) > maxClockOffsetMs ||
+        !Number.isSafeInteger(adjustedNow) || adjustedNow <= 0) {
+      throw new CexVenueError("BINANCE_TIME_SYNC_FAILED", true);
+    }
+    this.clockOffsetMs = offset;
+  }
+
+  private async fetchWithTimeout(
+    url: string,
+    init: RequestInit,
+    failureCode: "BINANCE_REQUEST_FAILED" | "BINANCE_TIME_SYNC_FAILED",
+  ): Promise<Response> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
     timeout.unref();
     try {
-      return await this.fetchFn(`${this.baseUrl}${path}?${params.toString()}`, {
-        method,
-        headers: { "X-MBX-APIKEY": this.apiKey },
-        signal: controller.signal,
-      });
+      return await this.fetchFn(url, { ...init, signal: controller.signal });
     } catch {
-      throw new CexVenueError("BINANCE_REQUEST_FAILED", true);
+      throw new CexVenueError(failureCode, true);
     } finally {
       clearTimeout(timeout);
     }
+  }
+}
+
+async function hasVenueErrorCode(response: Response, expectedCode: number): Promise<boolean> {
+  if (response.ok) return false;
+  try {
+    const value = await response.clone().json() as unknown;
+    return typeof value === "object" && value !== null && !Array.isArray(value) &&
+      (value as Record<string, unknown>).code === expectedCode;
+  } catch {
+    return false;
   }
 }
 

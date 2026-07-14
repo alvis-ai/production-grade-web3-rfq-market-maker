@@ -1190,6 +1190,8 @@ assert.ok(
 assert.ok(
   binanceAdapterSource.includes('createHmac("sha256"') &&
     binanceAdapterSource.includes('"/api/v3/order"') &&
+    binanceAdapterSource.includes("/api/v3/time") &&
+    binanceAdapterSource.includes("hasVenueErrorCode(response, -1021)") &&
     binanceAdapterSource.includes("origClientOrderId") &&
     binanceAdapterSource.includes("newClientOrderId"),
   "Binance adapter must use signed Spot order query and submission endpoints",

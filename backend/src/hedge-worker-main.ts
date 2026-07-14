@@ -32,10 +32,10 @@ export function readHedgeWorkerRuntimeConfig(
   routes.validateTokenRegistry(tokenRegistry);
   const workerId = readOptional(env, "RFQ_HEDGE_WORKER_ID") ?? defaultWorkerId();
   const baseUrl = readOptional(env, "RFQ_BINANCE_BASE_URL");
-  const leaseMs = readInteger(env, "RFQ_HEDGE_LEASE_MS", 30_000, 1_000, 300_000);
+  const leaseMs = readInteger(env, "RFQ_HEDGE_LEASE_MS", 45_000, 1_000, 300_000);
   const requestTimeoutMs = readInteger(env, "RFQ_BINANCE_REQUEST_TIMEOUT_MS", 10_000, 100, 60_000);
-  if (leaseMs <= requestTimeoutMs * 2 + 1_000) {
-    throw new Error("RFQ_HEDGE_LEASE_MS must exceed two RFQ_BINANCE_REQUEST_TIMEOUT_MS windows plus 1000ms");
+  if (leaseMs <= requestTimeoutMs * 4 + 1_000) {
+    throw new Error("RFQ_HEDGE_LEASE_MS must exceed four RFQ_BINANCE_REQUEST_TIMEOUT_MS windows plus 1000ms");
   }
   return {
     worker: {

@@ -69,7 +69,7 @@ services:
       DATABASE_URL: postgres://rfq:rfq@postgres:5432/rfq_market_maker
       RFQ_HEDGE_WORKER_HOST: 0.0.0.0
       RFQ_HEDGE_WORKER_PORT: 3001
-      RFQ_HEDGE_LEASE_MS: 30000
+      RFQ_HEDGE_LEASE_MS: 45000
       RFQ_HEDGE_POLL_INTERVAL_MS: 250
       RFQ_HEDGE_RETRY_DELAY_MS: 1000
       RFQ_TOKEN_REGISTRY_JSON: '{"tokens":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","symbol":"TOKEN2","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":false},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","symbol":"TOKEN3","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true}]}'
