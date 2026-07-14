@@ -69,14 +69,23 @@ export function readDefaultMarketDataRuntime(): DefaultMarketDataRuntime {
   const configuredProvider = readOwnEnvValue(env, "RFQ_MARKET_DATA_PROVIDER");
   const provider = configuredProvider?.trim() || "static";
   if (provider === "static") {
-    return {
-      service: new StaticMarketDataService(),
-      defaultPairs: defaultStaticMarketDataConfig.supportedPairs.map((pair) => ({
+    const configuredPairs = readMarketDataPairs(
+      defaultStaticMarketDataConfig.supportedPairs.map((pair) => ({
         ...pair,
         user: "0x0000000000000000000000000000000000000001" as const,
         amountIn: "1",
         slippageBps: 50,
       })),
+    );
+    return {
+      service: new StaticMarketDataService({
+        supportedPairs: configuredPairs.map(({ chainId, tokenIn, tokenOut }) => ({
+          chainId,
+          tokenIn,
+          tokenOut,
+        })),
+      }),
+      defaultPairs: configuredPairs,
       maxSnapshotAgeMs: defaultQuoteServiceConfig.maxSnapshotAgeMs,
     };
   }

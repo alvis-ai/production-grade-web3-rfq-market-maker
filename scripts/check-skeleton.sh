@@ -3196,7 +3196,7 @@ grep -Fq 'typeof token !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(token)' backe
 grep -q 'new String(tokenIn)' backend/test/settlement-verifier-policy-validation.test.mjs
 grep -q 'signature shape, canonical low-s/v checks' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'The settlement verifier always recovers the signature against that explicit signer identity' README.md
-grep -q 'buildDefaultSettlementVerifierPolicy(signerRuntimeConfig)' $gateway_sources
+grep -q 'buildDefaultSettlementVerifierPolicy(signerRuntimeConfig, managedRiskPairs)' $gateway_sources
 grep -q 'trustedSignerAddress: signerConfig.trustedSignerAddress' $gateway_sources
 grep -q 'export function buildQuoteTypedData' backend/src/modules/signer/signer.service.ts
 grep -q 'settlement verifier policy fail-fast' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -3713,6 +3713,21 @@ grep -q 'trustedSignerOverlapAddresses' backend/src/modules/settlement/settlemen
 grep -q 'RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES' backend/src/modules/signer/signer-runtime.ts
 grep -q 'accepts an explicitly configured overlap signer' backend/test/settlement-verifier.test.mjs
 grep -q 'Signer rotation uses two backend rollouts' docs/security/audit-checklist.md
+
+test -s contracts/script/LocalE2EToken.s.sol
+test -s scripts/settlement-e2e.mjs
+test -s scripts/settlement-e2e.sh
+test -s backend/test/market-runtime.test.mjs
+test -s backend/test/gateway-settlement-policy.test.mjs
+grep -q 'service: new StaticMarketDataService({' backend/src/runtime/market-runtime.ts
+grep -q 'defaultPairs: configuredPairs' backend/src/runtime/market-runtime.ts
+grep -q 'buildDefaultSettlementVerifierPolicy(signerRuntimeConfig, managedRiskPairs)' $gateway_sources
+grep -q 'waitForTransactionReceipt' scripts/settlement-e2e.mjs
+grep -q 'functionName: "submitQuote"' scripts/settlement-e2e.mjs
+grep -q 'RFQ_ALLOW_SIMULATED_SETTLEMENT = "false"' scripts/settlement-e2e.mjs
+grep -q 'settlement-e2e: backend-build contract-build' Makefile
+grep -q 'run: make settlement-e2e' .github/workflows/contract-ci.yml
+grep -q 'run_step make settlement-e2e' scripts/verify.sh
 
 test -s frontend/playwright.config.ts
 test -s frontend/e2e/rfq-flow.spec.ts

@@ -43,6 +43,7 @@
 - [x] Browser access is restricted by a CORS origin allowlist.
 - [x] Browser bundles never receive institutional API secrets; production browser access requires a trusted backend-for-frontend or another approved session boundary.
 - [x] Sensitive thresholds are not exposed to users.
+- [x] Receipt-confirmed E2E broadcasts `submitQuote` on Anvil and verifies calldata, receipt, event, balances, nonce, inventory, hedge and PnL.
 
 ## Data and Events
 

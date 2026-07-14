@@ -30,6 +30,7 @@
     "reconciliation:integration:check": "make reconciliation-integration-check",
     "analytics:integration:check": "make analytics-integration-check",
     "cex:orderbook:integration:check": "make cex-orderbook-integration-check",
+    "settlement:e2e": "make settlement-e2e",
     "benchmark:quote": "make benchmark-quote",
     "benchmark:submit": "make benchmark-submit",
     "backend:build": "make backend-build",

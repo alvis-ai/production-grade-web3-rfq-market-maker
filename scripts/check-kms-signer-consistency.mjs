@@ -80,7 +80,7 @@ assertContains("backend/src/modules/settlement/settlement-verifier.service.ts", 
 assertContains("backend/src/main.ts", [
   "readSignerRuntimeConfig",
   "createSignerRuntime",
-  "buildDefaultSettlementVerifierPolicy(signerRuntimeConfig)",
+  "buildDefaultSettlementVerifierPolicy(signerRuntimeConfig, managedRiskPairs)",
   "buildRuntimeSettlementEvidenceProvider(signerRuntimeConfig.settlementAddress)",
   "defaultSignerRuntime.close",
 ]);

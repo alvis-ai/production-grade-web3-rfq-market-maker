@@ -167,6 +167,7 @@ const implementedAuditControls = [
   "Public API responses include no-store cache control and baseline browser security headers.",
   "Browser access is restricted by a CORS origin allowlist.",
   "Sensitive thresholds are not exposed to users.",
+  "Receipt-confirmed E2E broadcasts `submitQuote` on Anvil and verifies calldata, receipt, event, balances, nonce, inventory, hedge and PnL.",
   "Settlement events use `(chainId, txHash, logIndex)` idempotency.",
   "Indexer handles chain reorgs.",
   "Inventory updates are replayable.",

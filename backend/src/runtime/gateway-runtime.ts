@@ -64,6 +64,7 @@ import {
 } from "../modules/settlement/settlement-verifier.service.js";
 import type { SignerService } from "../modules/signer/signer.service.js";
 import type { SignerRuntimeConfig } from "../modules/signer/signer-runtime.js";
+import type { Address } from "../shared/types/rfq.js";
 import {
   assertBooleanOption,
   assertIntegerOption,
@@ -201,13 +202,61 @@ export function readGatewayServerSettings(options: BuildServerOptions): GatewayS
 
 export function buildDefaultSettlementVerifierPolicy(
   signerConfig: SignerRuntimeConfig,
+  managedPairs: readonly SettlementPolicyPair[] = [],
 ): LocalSettlementVerifierPolicy {
+  const configuredPolicy = settlementPolicyFromManagedPairs(managedPairs);
   return {
     ...defaultLocalSettlementVerifierPolicy,
+    ...configuredPolicy,
     settlementAddress: signerConfig.settlementAddress,
     trustedSignerAddress: signerConfig.trustedSignerAddress,
     trustedSignerOverlapAddresses: signerConfig.trustedSignerOverlapAddresses,
   };
+}
+
+export interface SettlementPolicyPair {
+  chainId: number;
+  tokenIn: Address;
+  tokenOut: Address;
+}
+
+function settlementPolicyFromManagedPairs(
+  managedPairs: readonly SettlementPolicyPair[],
+): Pick<LocalSettlementVerifierPolicy, "enabledChainIds" | "tokenWhitelist"> | undefined {
+  if (!Array.isArray(managedPairs)) {
+    throw new Error("Settlement policy managedPairs must be an array");
+  }
+  if (managedPairs.length === 0) return undefined;
+
+  const enabledChainIds = new Set<number>();
+  const tokenWhitelist = new Map<string, Address>();
+  for (const pair of managedPairs) {
+    if (typeof pair !== "object" || pair === null || Array.isArray(pair)) {
+      throw new Error("Settlement policy managed pair must be an object");
+    }
+    if (!Number.isSafeInteger(pair.chainId) || pair.chainId <= 0) {
+      throw new Error("Settlement policy managed pair chainId must be a positive safe integer");
+    }
+    assertSettlementPolicyAddress(pair.tokenIn, "tokenIn");
+    assertSettlementPolicyAddress(pair.tokenOut, "tokenOut");
+    if (pair.tokenIn.toLowerCase() === pair.tokenOut.toLowerCase()) {
+      throw new Error("Settlement policy managed pair must contain distinct tokens");
+    }
+    enabledChainIds.add(pair.chainId);
+    tokenWhitelist.set(pair.tokenIn.toLowerCase(), pair.tokenIn.toLowerCase() as Address);
+    tokenWhitelist.set(pair.tokenOut.toLowerCase(), pair.tokenOut.toLowerCase() as Address);
+  }
+
+  return {
+    enabledChainIds: [...enabledChainIds],
+    tokenWhitelist: [...tokenWhitelist.values()],
+  };
+}
+
+function assertSettlementPolicyAddress(value: unknown, field: "tokenIn" | "tokenOut"): asserts value is Address {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    throw new Error(`Settlement policy managed pair ${field} must be a 20-byte hex address`);
+  }
 }
 
 export function buildRuntimeSettlementEvidenceProvider(

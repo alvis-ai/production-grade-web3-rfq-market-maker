@@ -47,6 +47,11 @@ run_step make smoke-api-local
 
 if command -v forge >/dev/null 2>&1; then
   run_step make contract-test
+  if command -v anvil >/dev/null 2>&1; then
+    run_step make settlement-e2e
+  else
+    echo "==> anvil not found; skipping settlement-e2e"
+  fi
 else
   echo "==> forge not found; skipping contract-test in local verify"
 fi

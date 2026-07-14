@@ -230,6 +230,8 @@ Execution path can be asynchronous. RPC latency should not block quote generatio
 
 测试 payload generation、relay failure、tx revert、settlement verifier unavailable、settlement verifier policy fail-fast、PnL attribution input validation、event confirmation、duplicate submit、duplicate settlement side-effect suppression、indexer lost-callback recovery、crash-before-cursor-commit replay、block-hash reorg rollback、deep-reorg fail-closed、reorg removal inventory replay、post-settlement status persistence failure 和 quote expired。
 
+`make settlement-e2e` 补足 mock receipt 无法证明的跨层边界：测试会启动临时 Anvil，部署 ERC-20、Treasury 和 RFQSettlement，使用运行时配置的 pair 获取真实 EIP-712 signed quote，由 quote user 广播 `submitQuote`，再让 `ReceiptSettlementEvidenceProvider` 只凭 `txHash` 独立读取并验证 transaction、calldata、receipt 和唯一 `QuoteSettled` event。测试最后同时断言链上余额与 nonce、链下 inventory、hedge、PnL 和 metrics；Contract CI 与具备 Foundry/Anvil 的 `make verify` 都执行该门禁。
+
 ## Interview Notes
 
 后端 submit 成功不是成交成功。链上事件才是 settlement source of truth。

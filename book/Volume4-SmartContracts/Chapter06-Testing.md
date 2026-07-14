@@ -149,13 +149,15 @@ stateDiagram-v2
 | treasury emergency withdrawal | transfer funds |
 | treasury reentrant release | revert |
 
+单元和 fuzz tests 之外，`make settlement-e2e` 在临时 Anvil 上部署真实 token、Treasury 和 RFQSettlement，经过后端 `/quote` 生成 EIP-712 signature，再由用户账户实际广播 `submitQuote`。后端必须从 RPC 独立验证 transaction calldata、成功 receipt 和唯一匹配事件，随后测试链上余额、used nonce 与链下 inventory/hedge/PnL。该跨层门禁能捕捉 Solidity ABI、typed data、运行时 chain/token policy 和 receipt decoder 之间的组合漂移，Contract CI 必须执行。
+
 ## Interview Notes
 
 合约测试回答应强调 negative tests。RFQ 合约的价值在于拒绝未授权结算。
 
 ## Summary
 
-RFQSettlement 测试矩阵覆盖所有安全边界。OpenZeppelin 版本已经由 Foundry negative/fuzz tests、SDK ABI consistency 和专用 Contract CI 共同守护；CI 使用递归 submodule checkout，避免缺失或漂移的安全依赖被静默跳过。
+RFQSettlement 测试矩阵覆盖所有安全边界。OpenZeppelin 版本已经由 Foundry negative/fuzz tests、SDK ABI consistency、Anvil receipt-confirmed E2E 和专用 Contract CI 共同守护；CI 使用递归 submodule checkout，避免缺失或漂移的安全依赖被静默跳过。
 
 ## References
 

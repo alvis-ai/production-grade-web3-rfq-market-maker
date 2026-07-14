@@ -70,6 +70,8 @@ sequenceDiagram
 
 ## Invariants
 
+`make settlement-e2e` 在临时 Anvil 上执行图中的 wallet callback 分支：真实用户账户广播 `submitQuote`，API 只接收 `txHash`，并从 RPC 独立验证 transaction、calldata、receipt 和 event 后才允许库存与 post-trade side effects。该测试不使用 synthetic settlement evidence。
+
 - 合约验证失败时不能更新 nonce 为已使用。
 - 钱包只能在 allowance 覆盖 `amountIn` 后提交；参考 UI 使用精确授权，非零不足额度先归零并等待每笔授权回执成功。
 - `txHash` 只是非可信查询键；receipt、transaction 和 event 必须由配置的 RPC 独立读取。

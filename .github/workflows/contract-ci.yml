@@ -5,10 +5,21 @@ on:
     paths:
       - "contracts/**"
       - "backend/src/modules/signer/signer.service.ts"
+      - "backend/src/modules/settlement/settlement-verifier.service.ts"
+      - "backend/src/runtime/gateway-application.ts"
+      - "backend/src/runtime/gateway-runtime.ts"
+      - "backend/src/runtime/market-runtime.ts"
+      - "backend/test/gateway-settlement-policy.test.mjs"
+      - "backend/test/market-runtime.test.mjs"
       - "sdk/src/abi.ts"
       - "sdk/src/eip712.ts"
+      - "scripts/settlement-e2e.mjs"
+      - "scripts/settlement-e2e.sh"
       - "scripts/check-contract-abi-consistency.mjs"
       - "scripts/check-eip712-consistency.mjs"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".gitmodules"
       - "Makefile"
       - ".github/workflows/contract-ci.yml"
@@ -36,6 +47,10 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@b00af27efadbc7b4ca8b82abbd903b17cc874d2a # v1
         with:
           version: stable
+      - name: Install workspace dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
       - name: Check formatting
         working-directory: contracts
         run: forge fmt --check
@@ -49,3 +64,5 @@ jobs:
       - name: Test contracts
         working-directory: contracts
         run: forge test
+      - name: Test receipt-confirmed settlement end to end
+        run: make settlement-e2e

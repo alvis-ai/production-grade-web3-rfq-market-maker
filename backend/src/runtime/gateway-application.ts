@@ -151,7 +151,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     inventoryService,
     settlementEventService,
     settlementVerifier: options.settlementVerifier ?? new LocalSettlementVerifier(
-      buildDefaultSettlementVerifierPolicy(signerRuntimeConfig),
+      buildDefaultSettlementVerifierPolicy(signerRuntimeConfig, managedRiskPairs),
     ),
   }, options.settlementEvidenceProvider ?? buildRuntimeSettlementEvidenceProvider(signerRuntimeConfig.settlementAddress),
   new DeltaNeutralHedgePlanner(runtimeTokenRegistry));
