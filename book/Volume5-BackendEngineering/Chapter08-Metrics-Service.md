@@ -195,6 +195,8 @@ ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, st
 
 The standalone post-trade worker exports `rfq_reconciliation_jobs_total`, `rfq_reconciliation_iteration_errors_total`, `rfq_reconciliation_pending_jobs`, `rfq_reconciliation_oldest_pending_age_seconds`, and `rfq_reconciliation_last_processed_timestamp_seconds`. Job outcome is bounded to repaired, already consistent, retry scheduled, or stale revision; quote ids and settlement ids are never Prometheus labels.
 
+The standalone toxic-flow analyzer exports `rfq_toxic_flow_markouts_total`, `rfq_toxic_flow_analyzer_iteration_errors_total`, `rfq_toxic_flow_markout_pending`, `rfq_toxic_flow_markout_oldest_eligible_age_seconds`, and `rfq_toxic_flow_analyzer_last_processed_timestamp_seconds`. Outcome is bounded to scored, invalidated, or retry scheduled. User addresses, quote ids, settlement event ids, token addresses, and policy versions remain in PostgreSQL audit evidence and never become Prometheus labels.
+
 The settlement indexer exports durable cursor, safe-head, lag, range, event, bounded error, reorg, removed-event, last-poll, and cursor-age metrics. Labels are limited to configured `chain_id`, `outcome=applied|duplicate`, and the closed error-code enum; transaction hash, quote hash, user and RPC URL remain absent.
 
 - No high-cardinality quoteId labels in Prometheus.

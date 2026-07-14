@@ -29,6 +29,7 @@ export interface ReceiptReader {
     timeoutMs: number;
   }): Promise<unknown>;
   getTransaction(hash: `0x${string}`): Promise<unknown>;
+  getBlock(blockNumber: number): Promise<unknown>;
 }
 
 export type ReceiptReaderFactory = (config: ReceiptChainConfig) => ReceiptReader;
@@ -68,6 +69,7 @@ export class ReceiptSettlementEvidenceProvider implements SettlementEvidenceProv
 
     let rawReceipt: unknown;
     let rawTransaction: unknown;
+    let rawBlock: unknown;
     try {
       rawReceipt = await reader.waitForTransactionReceipt({
         hash: validatedRequest.txHash,
@@ -75,12 +77,15 @@ export class ReceiptSettlementEvidenceProvider implements SettlementEvidenceProv
         timeoutMs: chain.receiptTimeoutMs,
       });
       rawTransaction = await reader.getTransaction(validatedRequest.txHash);
+      const receiptBlockNumber = receiptBlockNumberFromUnknown(rawReceipt);
+      rawBlock = await reader.getBlock(receiptBlockNumber);
     } catch {
       throw new APIError("SETTLEMENT_UNAVAILABLE", "Chain transaction receipt is unavailable", 503);
     }
 
     const receipt = parseReceipt(rawReceipt, validatedRequest.txHash);
     const transaction = parseTransaction(rawTransaction, validatedRequest.txHash);
+    const settledAt = parseBlockTimestamp(rawBlock, receipt.blockNumber);
     if (!sameAddress(transaction.from, validatedRequest.quote.user)) {
       throw reverted("SETTLEMENT_SENDER_MISMATCH", "Settlement transaction sender does not match quote user");
     }
@@ -112,6 +117,7 @@ export class ReceiptSettlementEvidenceProvider implements SettlementEvidenceProv
       txHash: validatedRequest.txHash,
       blockNumber: receipt.blockNumber,
       logIndex: matchingLogs[0].logIndex,
+      settledAt,
     };
   }
 }
@@ -135,6 +141,7 @@ export class RuntimeSettlementEvidenceProvider implements SettlementEvidenceProv
       txHash: buildSyntheticTxHash(request, context),
       blockNumber: 0,
       logIndex: 0,
+      settledAt: new Date().toISOString(),
     };
   }
 }
@@ -208,7 +215,31 @@ function createReceiptReader(config: ReceiptChainConfig): ReceiptReader {
       timeout: timeoutMs,
     }),
     getTransaction: (hash) => client.getTransaction({ hash }),
+    getBlock: (blockNumber) => client.getBlock({ blockNumber: BigInt(blockNumber) }),
   };
+}
+
+function receiptBlockNumberFromUnknown(value: unknown): number {
+  assertRecord(value, "Chain transaction receipt");
+  return bigintToSafeInteger(value.blockNumber, "receipt blockNumber");
+}
+
+function parseBlockTimestamp(value: unknown, expectedBlockNumber: number): string {
+  assertRecord(value, "Settlement block");
+  const blockNumber = bigintToSafeInteger(value.number, "settlement block number");
+  if (blockNumber !== expectedBlockNumber) {
+    throw new APIError("SETTLEMENT_UNAVAILABLE", "Settlement block number does not match receipt", 503);
+  }
+  const timestampSeconds = bigintToSafeInteger(value.timestamp, "settlement block timestamp");
+  const timestampMs = timestampSeconds * 1_000;
+  if (!Number.isSafeInteger(timestampMs)) {
+    throw new APIError("SETTLEMENT_UNAVAILABLE", "Settlement block timestamp is outside supported range", 503);
+  }
+  try {
+    return new Date(timestampMs).toISOString();
+  } catch {
+    throw new APIError("SETTLEMENT_UNAVAILABLE", "Settlement block timestamp is invalid", 503);
+  }
 }
 
 function parseReceipt(value: unknown, expectedHash: `0x${string}`): ParsedReceipt {

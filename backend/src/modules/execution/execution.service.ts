@@ -85,6 +85,7 @@ export interface SettlementEvidence {
   txHash: `0x${string}`;
   blockNumber: number;
   logIndex: number;
+  settledAt: string;
 }
 
 export interface SettlementEvidenceProvider {
@@ -143,6 +144,7 @@ export class SkeletonExecutionService implements ExecutionService {
       txHash: evidence.txHash,
       blockNumber: evidence.blockNumber,
       logIndex: evidence.logIndex,
+      settledAt: evidence.settledAt,
     });
 
     const inventoryPositions = await this.readInventoryPositions(validatedRequest);
@@ -288,6 +290,7 @@ const syntheticSettlementEvidenceProvider: SettlementEvidenceProvider = {
       txHash: buildSyntheticTxHash(request, context),
       blockNumber: 0,
       logIndex: 0,
+      settledAt: new Date().toISOString(),
     };
   },
 };
@@ -309,7 +312,7 @@ function assertSettlementEvidence(
     throw new Error("Execution service settlement evidence must be an object");
   }
   const evidence = value as Record<string, unknown>;
-  const fields = ["txHash", "blockNumber", "logIndex"] as const;
+  const fields = ["txHash", "blockNumber", "logIndex", "settledAt"] as const;
   const expected = new Set(fields);
   for (const field of Object.keys(evidence)) {
     if (!expected.has(field as typeof fields[number])) throw new Error(`Execution service settlement evidence contains unknown field ${field}`);
@@ -327,6 +330,9 @@ function assertSettlementEvidence(
     if (!Number.isSafeInteger(evidence[field]) || Number(evidence[field]) < 0) {
       throw new Error(`Execution service settlement evidence.${field} must be a non-negative safe integer`);
     }
+  }
+  if (typeof evidence.settledAt !== "string" || !isCanonicalUtcIsoTimestamp(evidence.settledAt)) {
+    throw new Error("Settlement evidence settledAt must be a canonical UTC ISO timestamp");
   }
 }
 

@@ -29,6 +29,7 @@
 - **Routing Engine**: 在内部库存、外部交易场所和未来聚合路径之间选择报价路径。
 - **Pricing Engine**: 基于 mid price、spread、size impact、volatility premium 和库存偏移生成报价。
 - **Risk Engine**: 使用 chain-scoped token policy 校验单笔金额、投影库存、spread、slippage 和 toxic flow 风险，并为后续 delta、gamma 与 VaR 扩展保留版本化决策边界。
+- **Toxic-Flow Analyzer**: 从 canonical settlement 和 policy-horizon market snapshot 异步生成 reorg-aware markout，按用户窗口聚合并以 CAS 发布审计化动态风险分数。
 - **EIP-712 Signer**: 只对通过风控的短生命周期 quote 进行签名。
 - **RFQSettlement Contract**: 在链上校验签名、nonce、deadline、token whitelist 和成交边界。
 - **Inventory Service**: 记录成交后的库存变化，并向定价和对冲模块提供状态。
@@ -185,6 +186,8 @@ The API quote kill switch is shared across replicas through PostgreSQL. `GET/PUT
 
 Dynamic toxic-flow scores are stored per normalized `chainId + user` and managed through `GET/PUT /admin/toxic-flow/scores/:chainId/:user`. Updates require `admin:write`, an exact `expectedVersion`, bounded score/markout evidence, and a versioned analyzer policy; every successful write appends `toxic_flow_score_audit`. The default Risk Engine applies fresh scores after deterministic token/inventory/market checks. Unknown users retain base policy, while stale, future, malformed, or unreadable known scores fail closed and are recorded internally as `RISK_ENGINE_UNAVAILABLE` without exposing risk thresholds to quote clients.
 
+The toxic-flow analyzer (`pnpm --dir backend start:toxic-flow-analyzer`) is an isolated process with health and metrics on port 3005. Migration 021 creates a settlement-triggered revision queue and canonical markout evidence. Replicas claim only eligible jobs with `FOR UPDATE SKIP LOCKED`, select the first same-direction `market_snapshots` row after `RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS` and within the configured maximum lag, calculate cross-decimal maker-side drift, then aggregate the canonical user window and publish through the same audited score CAS store. Missing snapshots retain the job with bounded exponential retry. Settlement reorgs invalidate the derived markout and publish a corrected aggregate, including a zeroed empty-sample clearing version when no canonical evidence remains. PostgreSQL is the operational truth; this worker does not depend on ClickHouse or the HTTP admin endpoint.
+
 `RFQ_SUBMIT_RESERVATION_LEASE_MS` defaults to `900000` and must be between `60000` and `3600000`. Local mode uses an in-memory quote reservation; PostgreSQL mode uses `quote_submit_reservations` to atomically claim a quote across API replicas before receipt verification and post-trade effects. Release is owner-token conditional, stale rows become claimable using database time, reservation store failures return `SUBMIT_RESERVATION_UNAVAILABLE`/503, and contention returns the existing `QUOTE_ALREADY_USED`/409 contract.
 
 Local development permits synthetic settlement only when `RFQ_ALLOW_SIMULATED_SETTLEMENT=true`. In receipt-confirmed mode the wallet broadcasts `RFQSettlement.submitQuote`, then sends the resulting `txHash` to `POST /submit`. The backend treats that hash only as an RPC lookup key: it waits for configured confirmations, verifies transaction `from`, `to`, and decoded `submitQuote` calldata against the stored quote/signature, requires a successful receipt, and requires exactly one matching `QuoteSettled` event before inventory, hedge, PnL, or quote-status side effects.
@@ -270,6 +273,12 @@ Start independent on-chain settlement discovery after an RPC endpoint and deploy
 docker compose --profile indexer up --build settlement-indexer
 ```
 
+Start automatic post-trade toxic-flow scoring after the gateway is persisting market snapshots:
+
+```sh
+docker compose --profile toxic-flow up --build toxic-flow-analyzer
+```
+
 Local ports:
 
 - Backend API: `http://localhost:3000`
@@ -279,6 +288,7 @@ Local ports:
 - Analytics worker metrics: `http://localhost:3002/metrics`
 - Reconciliation worker metrics: `http://localhost:3003/metrics`
 - Settlement indexer metrics: `http://localhost:3004/metrics`
+- Toxic-flow analyzer metrics: `http://localhost:3005/metrics`
 - Redpanda external listener: `localhost:19092`
 - ClickHouse HTTP: `http://localhost:8123`
 
@@ -337,6 +347,13 @@ kubectl -n rfq-market-maker create secret generic rfq-settlement-indexer-secrets
   --from-literal=RFQ_SETTLEMENT_INDEXER_CONFIG_JSON='{"chains":[{"chainId":1,"rpcUrl":"https://rpc.example.com","settlementAddress":"0x...","startBlock":20000000,"confirmations":12,"maxBlockRange":500,"reorgLookbackBlocks":5000,"requestTimeoutMs":10000}]}'
 ```
 
+Create a toxic-flow analyzer Secret containing only its least-privilege database role. The role needs canonical settlement and market-snapshot reads, markout job leases, markout writes, and CAS score/audit writes; it needs no DDL, signer, RPC, venue, Kafka, ClickHouse, Redis, or admin API credential:
+
+```sh
+kubectl -n rfq-market-maker create secret generic rfq-toxic-flow-analyzer-secrets \
+  --from-literal=DATABASE_URL=postgres://toxic_analyzer:password@postgres.example.com:5432/rfq_market_maker
+```
+
 Use a third, migration-only Secret for the init container's DDL-capable database role. Runtime API and worker roles should not own schema privileges:
 
 ```sh
@@ -346,9 +363,9 @@ kubectl -n rfq-market-maker create secret generic rfq-database-migration-secrets
 
 The API credential digest JSON is exposed to the backend only through Helm `apiKeySecret`; it is not part of the ConfigMap or worker Secrets.
 
-The Helm chart expects the KMS key id, trusted signer address, and settlement address through `signerSecret`, the Redis URL through `redisSecret`, and the API PostgreSQL URL through `databaseSecret.name` / `databaseSecret.urlKey`. `serviceAccount.annotations` binds the backend Pod to a workload identity with only `kms:Sign` on the configured key. `hedgeWorker.secret` references the separate worker database and Binance credential keys; `analyticsWorker.secret` references the analytics database, Kafka SASL and ClickHouse credentials; `settlementIndexer.secret` references only its database URL and RPC-bearing chain JSON. Routing and broker endpoint metadata stay in non-secret values.
+The Helm chart expects the KMS key id, trusted signer address, and settlement address through `signerSecret`, the Redis URL through `redisSecret`, and the API PostgreSQL URL through `databaseSecret.name` / `databaseSecret.urlKey`. `serviceAccount.annotations` binds the backend Pod to a workload identity with only `kms:Sign` on the configured key. `hedgeWorker.secret` references the separate worker database and Binance credential keys; `analyticsWorker.secret` references the analytics database, Kafka SASL and ClickHouse credentials; `settlementIndexer.secret` references only its database URL and RPC-bearing chain JSON; `toxicFlowAnalyzer.secret` references only its database URL. Routing, markout policy, and broker endpoint metadata stay in non-secret values.
 
-API, hedge, analytics, reconciliation, and settlement-indexer Kubernetes Deployments run the migration entrypoint in an init container using `migrationSecret`. Migration discovery and execution are serialized by a PostgreSQL session advisory lock, allowing multiple rollout pods to start safely while ensuring migrations through `017-quote-principal-ownership.sql` are committed before any process checks readiness. Before applying migration 017 to an existing deployment, stop quote admission and wait at least the maximum quote TTL; historical rows receive isolated legacy principals and are intentionally unavailable through institutional APIs. The DDL-capable migrator credential is not mounted into runtime containers. Production operators must provision `rfq.analytics.v1` before starting analytics consumers; auto topic creation is intentionally disabled.
+API, hedge, analytics, reconciliation, settlement-indexer, and toxic-flow analyzer Kubernetes Deployments run the migration entrypoint in an init container using `migrationSecret`. Migration discovery and execution are serialized by a PostgreSQL session advisory lock, allowing multiple rollout pods to start safely while ensuring migrations through `021-toxic-flow-markouts.sql` are committed before any process checks readiness. Before applying migration 017 to an existing deployment, stop quote admission and wait at least the maximum quote TTL; historical rows receive isolated legacy principals and are intentionally unavailable through institutional APIs. The DDL-capable migrator credential is not mounted into runtime containers. Production operators must provision `rfq.analytics.v1` before starting analytics consumers; auto topic creation is intentionally disabled.
 
 Local API smoke path:
 

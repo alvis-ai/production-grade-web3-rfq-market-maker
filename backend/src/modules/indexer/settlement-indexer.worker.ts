@@ -1,4 +1,5 @@
 import type { SignedQuote } from "../../shared/types/rfq.js";
+import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 import type { QuoteRecord, QuoteRepository } from "../quote/quote.repository.js";
 import {
   hashSettlementQuote,
@@ -91,7 +92,12 @@ export class SettlementIndexerWorker {
     for (const chainConfig of chainConfigs) {
       const cloned = { ...chainConfig };
       const reader = readerFactory(cloned);
-      assertMethods(reader, "reader", ["getBlockNumber", "getBlockHash", "getQuoteSettledLogs"]);
+      assertMethods(reader, "reader", [
+        "getBlockNumber",
+        "getBlockHash",
+        "getBlockTimestamp",
+        "getQuoteSettledLogs",
+      ]);
       this.chains.set(cloned.chainId, { config: cloned, reader });
     }
   }
@@ -177,6 +183,7 @@ export class SettlementIndexerWorker {
     const rawLogs = await reader.getQuoteSettledLogs(cursor.nextBlock, toBlock);
     const logs = normalizeLogs(rawLogs, cursor.nextBlock, toBlock);
     const blockHashes = await verifyLogBlockHashes(reader, logs);
+    const blockTimestamps = await readLogBlockTimestamps(reader, logs);
     const checkpointHash = blockHashes.get(toBlock) ?? await reader.getBlockHash(toBlock);
     assertHash(checkpointHash, "checkpoint block hash");
     await this.removeOrphanedUncheckpointedEvents(
@@ -187,7 +194,7 @@ export class SettlementIndexerWorker {
     );
 
     for (const log of logs) {
-      await this.applyLog(chainId, log);
+      await this.applyLog(chainId, log, blockTimestamps.get(log.blockNumber)!);
     }
     await this.store.advanceCursor({
       chainId,
@@ -213,7 +220,11 @@ export class SettlementIndexerWorker {
     this.wakePoll?.();
   }
 
-  private async applyLog(chainId: number, log: IndexedQuoteSettledLog): Promise<void> {
+  private async applyLog(
+    chainId: number,
+    log: IndexedQuoteSettledLog,
+    settledAt: string,
+  ): Promise<void> {
     const record = await this.quoteRepository.findSignedQuoteByChainUserNonce(
       chainId,
       log.user,
@@ -228,6 +239,7 @@ export class SettlementIndexerWorker {
       txHash: log.transactionHash,
       blockNumber: log.blockNumber,
       logIndex: log.logIndex,
+      settledAt,
     });
     this.observer.recordEvent(chainId, result.duplicate ? "duplicate" : "applied");
   }
@@ -333,6 +345,22 @@ export class SettlementIndexerWorker {
       } catch {}
     }));
   }
+}
+
+async function readLogBlockTimestamps(
+  reader: SettlementChainReader,
+  logs: readonly IndexedQuoteSettledLog[],
+): Promise<Map<number, string>> {
+  const timestamps = new Map<number, string>();
+  for (const log of logs) {
+    if (timestamps.has(log.blockNumber)) continue;
+    const timestamp = await reader.getBlockTimestamp(log.blockNumber);
+    if (!isCanonicalUtcIsoTimestamp(timestamp)) {
+      throw new SettlementIndexerError("RPC_OR_STORE_UNAVAILABLE");
+    }
+    timestamps.set(log.blockNumber, timestamp);
+  }
+  return timestamps;
 }
 
 async function findCommonAncestor(

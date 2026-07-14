@@ -567,3 +567,48 @@ groups:
         annotations:
           summary: RFQ settlement indexer rolled back confirmed history
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQToxicFlowAnalyzerDown
+        expr: up{job="rfq-toxic-flow-analyzer"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ toxic-flow analyzer metrics endpoint is down
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQToxicFlowMarkoutBacklog
+        expr: max(rfq_toxic_flow_markout_pending) > 100 or max(rfq_toxic_flow_markout_oldest_eligible_age_seconds) > 900
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ post-trade markout jobs are not converging
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQToxicFlowAnalyzerRetries
+        expr: sum(increase(rfq_toxic_flow_markouts_total{outcome="retry_scheduled"}[10m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ toxic-flow analyzer repeatedly cannot publish markouts
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQToxicFlowAnalyzerErrors
+        expr: sum(increase(rfq_toxic_flow_analyzer_iteration_errors_total[10m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ toxic-flow analyzer loop is failing outside claimed jobs
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQToxicFlowAnalyzerProcessingStalled
+        expr: max(rfq_toxic_flow_markout_pending) > 0 and (time() - max(rfq_toxic_flow_analyzer_last_processed_timestamp_seconds)) > 900
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ toxic-flow analyzer has pending jobs without progress
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md

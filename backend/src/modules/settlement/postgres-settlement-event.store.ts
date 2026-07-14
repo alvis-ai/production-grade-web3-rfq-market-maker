@@ -24,7 +24,7 @@ import {
 const settlementColumns = `
   id, quote_id, chain_id, tx_hash, quote_hash, log_index, block_number,
   user_address, token_in, token_out, amount_in, amount_out, nonce,
-  created_at, canonical
+  settled_at, created_at, canonical
 `;
 const inventoryProjectionLockId = 1_384_717_921;
 
@@ -77,8 +77,8 @@ export class PostgresSettlementEventStore implements SettlementEventStore {
       const inserted = await client.query(
         `INSERT INTO settlement_events (
            id, quote_id, chain_id, tx_hash, quote_hash, log_index, block_number,
-           user_address, token_in, token_out, amount_in, amount_out, nonce, canonical
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, TRUE)
+           user_address, token_in, token_out, amount_in, amount_out, nonce, settled_at, canonical
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE)
          ON CONFLICT DO NOTHING
          RETURNING ${settlementColumns}`,
         eventParams(candidate),
@@ -240,6 +240,7 @@ function eventParams(event: SettlementEventStatusResponse): unknown[] {
     event.amountIn,
     event.amountOut,
     event.nonce,
+    event.observedAt,
   ];
 }
 
@@ -258,7 +259,7 @@ function parseStoredSettlementEvent(row: unknown): StoredSettlementEvent {
     throw new Error("Postgres settlement row must be an object");
   }
   const value = row as Record<string, unknown>;
-  const observedAt = parseTimestamp(value.created_at);
+  const observedAt = parseTimestamp(value.settled_at ?? value.created_at);
   const event: SettlementEventStatusResponse = {
     settlementEventId: parseSafeIdentifier(value.id, "id"),
     status: "applied",

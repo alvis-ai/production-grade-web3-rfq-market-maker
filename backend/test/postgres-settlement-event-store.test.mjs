@@ -33,6 +33,7 @@ test("PostgresSettlementEventStore commits event and inventory deltas atomically
 
   assert.equal(result.duplicate, false);
   assert.equal(result.event.txHash, txHash);
+  assert.equal(result.event.observedAt, settlementInput().settledAt);
   assert.deepEqual(client.queries.map(({ sql }) => transactionLabel(sql)), [
     "BEGIN",
     "INSERT_SETTLEMENT",
@@ -155,7 +156,14 @@ test("PostgresSettlementEventStore filters non-canonical rows from status and re
 });
 
 function settlementInput() {
-  return { quoteId: "q_postgres_settlement", quote, txHash, blockNumber: 100, logIndex: 2 };
+  return {
+    quoteId: "q_postgres_settlement",
+    quote,
+    txHash,
+    blockNumber: 100,
+    logIndex: 2,
+    settledAt: "2026-07-10T23:59:58.000Z",
+  };
 }
 
 function settlementRow(overrides = {}) {
@@ -173,6 +181,7 @@ function settlementRow(overrides = {}) {
     amount_in: quote.amountIn,
     amount_out: quote.amountOut,
     nonce: quote.nonce,
+    settled_at: "2026-07-10T23:59:58.000Z",
     created_at: "2026-07-11T00:00:00.000Z",
     canonical: true,
     ...overrides,
@@ -194,6 +203,7 @@ function settlementRowFromParams(params) {
     amount_in: params[10],
     amount_out: params[11],
     nonce: params[12],
+    settled_at: params[13],
   });
 }
 

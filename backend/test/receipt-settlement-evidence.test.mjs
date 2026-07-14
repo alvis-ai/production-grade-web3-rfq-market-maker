@@ -38,7 +38,12 @@ test("ReceiptSettlementEvidenceProvider verifies sender, target, receipt, and Qu
   const provider = new ReceiptSettlementEvidenceProvider(validConfig(), () => reader);
   const evidence = await provider.resolve(request);
 
-  assert.deepEqual(evidence, { txHash, blockNumber: 123, logIndex: 4 });
+  assert.deepEqual(evidence, {
+    txHash,
+    blockNumber: 123,
+    logIndex: 4,
+    settledAt: "2023-11-14T22:13:20.000Z",
+  });
   assert.deepEqual(reader.waitInput, { txHash, confirmations: 2, timeoutMs: 30_000 });
 });
 
@@ -65,12 +70,30 @@ test("ReceiptSettlementEvidenceProvider maps RPC failures to settlement unavaila
   const provider = new ReceiptSettlementEvidenceProvider(validConfig(), () => ({
     async waitForTransactionReceipt() { throw new Error("rpc offline"); },
     async getTransaction() { throw new Error("not reached"); },
+    async getBlock() { throw new Error("not reached"); },
   }));
 
   await assert.rejects(
     provider.resolve(request),
     (error) => error.code === "SETTLEMENT_UNAVAILABLE" && error.statusCode === 503,
   );
+});
+
+test("ReceiptSettlementEvidenceProvider rejects mismatched or invalid settlement blocks", async () => {
+  for (const block of [
+    validBlock({ number: 124n }),
+    validBlock({ timestamp: -1n }),
+    validBlock({ timestamp: BigInt(Number.MAX_SAFE_INTEGER) }),
+  ]) {
+    const provider = new ReceiptSettlementEvidenceProvider(
+      validConfig(),
+      () => new FakeReceiptReader(validReceipt(), validTransaction(), block),
+    );
+    await assert.rejects(
+      provider.resolve(request),
+      (error) => error.code === "SETTLEMENT_UNAVAILABLE" && error.statusCode === 503,
+    );
+  }
 });
 
 test("RuntimeSettlementEvidenceProvider requires txHash when simulation is disabled", async () => {
@@ -149,6 +172,14 @@ function validTransaction(overrides = {}) {
   };
 }
 
+function validBlock(overrides = {}) {
+  return {
+    number: 123n,
+    timestamp: 1_700_000_000n,
+    ...overrides,
+  };
+}
+
 function quoteSettledLog(overrides = {}) {
   const args = {
     quoteHash: hashSettlementQuote(quote),
@@ -183,9 +214,10 @@ function quoteSettledLog(overrides = {}) {
 class FakeReceiptReader {
   waitInput;
 
-  constructor(receipt, transaction) {
+  constructor(receipt, transaction, block = validBlock()) {
     this.receipt = receipt;
     this.transaction = transaction;
+    this.block = block;
   }
 
   async waitForTransactionReceipt(input) {
@@ -199,5 +231,9 @@ class FakeReceiptReader {
 
   async getTransaction() {
     return this.transaction;
+  }
+
+  async getBlock() {
+    return this.block;
   }
 }

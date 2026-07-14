@@ -329,6 +329,19 @@
         { "expr": "sum by (chain_id) (increase(rfq_settlement_indexer_reorgs_total[10m]))", "legendFormat": "{{chain_id}} reorgs/10m", "refId": "C" },
         { "expr": "sum by (chain_id) (increase(rfq_settlement_indexer_reorg_removed_events_total[10m]))", "legendFormat": "{{chain_id}} removed events/10m", "refId": "D" }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Toxic-Flow Markout Analyzer",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 59, "w": 24, "h": 7 },
+      "targets": [
+        { "expr": "max(rfq_toxic_flow_markout_pending)", "legendFormat": "pending markouts", "refId": "A" },
+        { "expr": "max(rfq_toxic_flow_markout_oldest_eligible_age_seconds)", "legendFormat": "oldest eligible age", "refId": "B" },
+        { "expr": "sum by (outcome) (rate(rfq_toxic_flow_markouts_total[5m]))", "legendFormat": "{{outcome}}/s", "refId": "C" },
+        { "expr": "sum(rate(rfq_toxic_flow_analyzer_iteration_errors_total[5m]))", "legendFormat": "iteration errors/s", "refId": "D" },
+        { "expr": "time() - max(rfq_toxic_flow_analyzer_last_processed_timestamp_seconds)", "legendFormat": "seconds since progress", "refId": "E" }
+      ]
     }
   ]
 }

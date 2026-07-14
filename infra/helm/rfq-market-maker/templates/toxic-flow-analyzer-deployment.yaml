@@ -1,0 +1,63 @@
+{{- if .Values.toxicFlowAnalyzer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-toxic-flow-analyzer
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: toxic-flow-analyzer
+spec:
+  replicas: {{ .Values.toxicFlowAnalyzer.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: toxic-flow-analyzer
+  template:
+    metadata:
+      labels:
+        {{- include "rfq-market-maker.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: toxic-flow-analyzer
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      initContainers:
+        - name: database-migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "backend/dist/db/migrate.js"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.migrationSecret.name }}
+                  key: {{ .Values.migrationSecret.urlKey }}
+      containers:
+        - name: toxic-flow-analyzer
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "backend/dist/toxic-flow-analyzer-main.js"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.toxicFlowAnalyzer.port }}
+          env:
+            {{- range $key, $value := .Values.toxicFlowAnalyzer.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            - name: RFQ_TOKEN_REGISTRY_JSON
+              value: {{ required "env.RFQ_TOKEN_REGISTRY_JSON is required for toxic-flow markout decimals" (index .Values.env "RFQ_TOKEN_REGISTRY_JSON") | quote }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.toxicFlowAnalyzer.secret.name }}
+                  key: {{ .Values.toxicFlowAnalyzer.secret.databaseUrlKey }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            {{- toYaml .Values.toxicFlowAnalyzer.resources | nindent 12 }}
+{{- end }}

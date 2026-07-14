@@ -187,6 +187,39 @@ services:
     ports:
       - "3004:3004"
 
+  toxic-flow-analyzer:
+    profiles: ["toxic-flow"]
+    build:
+      context: .
+      dockerfile: infra/docker/backend.Dockerfile
+    command: ["node", "backend/dist/toxic-flow-analyzer-main.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      database-migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://rfq:rfq@postgres:5432/rfq_market_maker
+      RFQ_TOXIC_FLOW_ANALYZER_HOST: 0.0.0.0
+      RFQ_TOXIC_FLOW_ANALYZER_PORT: 3005
+      RFQ_TOXIC_FLOW_ANALYZER_LEASE_MS: 30000
+      RFQ_TOXIC_FLOW_ANALYZER_POLL_INTERVAL_MS: 250
+      RFQ_TOXIC_FLOW_ANALYZER_RETRY_DELAY_MS: 1000
+      RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS: 300
+      RFQ_TOXIC_FLOW_MARKOUT_MAX_SNAPSHOT_LAG_SECONDS: 900
+      RFQ_TOXIC_FLOW_SCORE_WINDOW_SECONDS: 86400
+      RFQ_TOXIC_FLOW_SCORE_SCALE: 100
+      RFQ_TOXIC_FLOW_ANALYZER_POLICY_VERSION: markout-v1
+      RFQ_TOKEN_REGISTRY_JSON: '{"tokens":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","symbol":"TOKEN2","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":false},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","symbol":"TOKEN3","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true}]}'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3005/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    ports:
+      - "3005:3005"
+
   frontend:
     build:
       context: .

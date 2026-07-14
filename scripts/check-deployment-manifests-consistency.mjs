@@ -26,6 +26,22 @@ const k8sIndexerDeployment = await readFile("infra/k8s/settlement-indexer-deploy
 const k8sIndexerService = await readFile("infra/k8s/settlement-indexer-service.yaml", "utf8");
 const k8sIndexerSecret = await readFile("infra/k8s/settlement-indexer-secret.yaml", "utf8");
 const k8sIndexerNetworkPolicy = await readFile("infra/k8s/settlement-indexer-network-policy.yaml", "utf8");
+const k8sToxicFlowAnalyzerDeployment = await readFile(
+  "infra/k8s/toxic-flow-analyzer-deployment.yaml",
+  "utf8",
+);
+const k8sToxicFlowAnalyzerService = await readFile(
+  "infra/k8s/toxic-flow-analyzer-service.yaml",
+  "utf8",
+);
+const k8sToxicFlowAnalyzerSecret = await readFile(
+  "infra/k8s/toxic-flow-analyzer-secret.yaml",
+  "utf8",
+);
+const k8sToxicFlowAnalyzerNetworkPolicy = await readFile(
+  "infra/k8s/toxic-flow-analyzer-network-policy.yaml",
+  "utf8",
+);
 const helmValues = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
 const helmDeployment = await readFile("infra/helm/rfq-market-maker/templates/deployment.yaml", "utf8");
 const helmServiceAccount = await readFile("infra/helm/rfq-market-maker/templates/service-account.yaml", "utf8");
@@ -58,6 +74,18 @@ const helmIndexerService = await readFile(
 );
 const helmIndexerNetworkPolicy = await readFile(
   "infra/helm/rfq-market-maker/templates/settlement-indexer-network-policy.yaml",
+  "utf8",
+);
+const helmToxicFlowAnalyzerDeployment = await readFile(
+  "infra/helm/rfq-market-maker/templates/toxic-flow-analyzer-deployment.yaml",
+  "utf8",
+);
+const helmToxicFlowAnalyzerService = await readFile(
+  "infra/helm/rfq-market-maker/templates/toxic-flow-analyzer-service.yaml",
+  "utf8",
+);
+const helmToxicFlowAnalyzerNetworkPolicy = await readFile(
+  "infra/helm/rfq-market-maker/templates/toxic-flow-analyzer-network-policy.yaml",
   "utf8",
 );
 const kubernetesChapter = await readFile("book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md", "utf8");
@@ -324,6 +352,54 @@ assertContains(k8sIndexerNetworkPolicy, [
   "port: 443",
 ], "infra/k8s/settlement-indexer-network-policy.yaml");
 
+assertContains(k8sToxicFlowAnalyzerDeployment, [
+  "kind: Deployment",
+  "name: rfq-toxic-flow-analyzer",
+  "replicas: 2",
+  "initContainers:",
+  'command: ["node", "backend/dist/db/migrate.js"]',
+  'command: ["node", "backend/dist/toxic-flow-analyzer-main.js"]',
+  "containerPort: 3005",
+  "name: rfq-toxic-flow-analyzer-secrets",
+  "path: /ready",
+  "path: /health",
+], "infra/k8s/toxic-flow-analyzer-deployment.yaml");
+assertContains(k8sToxicFlowAnalyzerService, [
+  "kind: Service",
+  "name: rfq-toxic-flow-analyzer",
+  'prometheus.io/scrape: "true"',
+  'prometheus.io/port: "3005"',
+  "port: 3005",
+], "infra/k8s/toxic-flow-analyzer-service.yaml");
+assertContains(k8sToxicFlowAnalyzerSecret, [
+  "name: rfq-toxic-flow-analyzer-secrets",
+  "DATABASE_URL:",
+], "infra/k8s/toxic-flow-analyzer-secret.yaml");
+for (const forbidden of [
+  "RFQ_SIGNER_PRIVATE_KEY",
+  "RFQ_AWS_KMS_KEY_ID",
+  "RFQ_BINANCE_API_KEY",
+  "RFQ_ANALYTICS_KAFKA_SASL_USERNAME",
+  "RFQ_SETTLEMENT_INDEXER_CONFIG_JSON",
+]) {
+  assert.ok(
+    !k8sToxicFlowAnalyzerSecret.includes(forbidden),
+    `toxic-flow analyzer Secret must not contain ${forbidden}`,
+  );
+}
+assertContains(k8sToxicFlowAnalyzerNetworkPolicy, [
+  "kind: NetworkPolicy",
+  "app.kubernetes.io/name: rfq-toxic-flow-analyzer",
+  "- Ingress",
+  "- Egress",
+  "port: 3005",
+  "port: 5432",
+], "infra/k8s/toxic-flow-analyzer-network-policy.yaml");
+assert.ok(
+  !k8sToxicFlowAnalyzerNetworkPolicy.includes("port: 443"),
+  "toxic-flow analyzer must not receive public HTTPS egress",
+);
+
 assertContains(helmValues, [
   `replicaCount: ${expectedRuntime.replicas}`,
   `terminationGracePeriodSeconds: ${expectedRuntime.terminationGracePeriodSeconds}`,
@@ -375,6 +451,11 @@ assertContains(helmValues, [
   "RFQ_SETTLEMENT_INDEXER_LEASE_MS:",
   "name: rfq-settlement-indexer-secrets",
   "configJsonKey: RFQ_SETTLEMENT_INDEXER_CONFIG_JSON",
+  "toxicFlowAnalyzer:",
+  "RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS:",
+  "RFQ_TOXIC_FLOW_MARKOUT_MAX_SNAPSHOT_LAG_SECONDS:",
+  "RFQ_TOXIC_FLOW_SCORE_WINDOW_SECONDS:",
+  "name: rfq-toxic-flow-analyzer-secrets",
   "cpu: 100m",
   "memory: 128Mi",
   "cpu: 500m",
@@ -525,6 +606,33 @@ assertContains(helmIndexerNetworkPolicy, [
   "port: 443",
 ], "infra/helm/rfq-market-maker/templates/settlement-indexer-network-policy.yaml");
 
+assertContains(helmToxicFlowAnalyzerDeployment, [
+  "{{- if .Values.toxicFlowAnalyzer.enabled }}",
+  "replicas: {{ .Values.toxicFlowAnalyzer.replicaCount }}",
+  "initContainers:",
+  'command: ["node", "backend/dist/db/migrate.js"]',
+  'command: ["node", "backend/dist/toxic-flow-analyzer-main.js"]',
+  "RFQ_TOKEN_REGISTRY_JSON",
+  "env.RFQ_TOKEN_REGISTRY_JSON is required for toxic-flow markout decimals",
+  "key: {{ .Values.toxicFlowAnalyzer.secret.databaseUrlKey }}",
+  "path: /ready",
+  "path: /health",
+], "infra/helm/rfq-market-maker/templates/toxic-flow-analyzer-deployment.yaml");
+assertContains(helmToxicFlowAnalyzerService, [
+  "{{- if .Values.toxicFlowAnalyzer.enabled }}",
+  "with .Values.toxicFlowAnalyzer.service.annotations",
+  "port: {{ .Values.toxicFlowAnalyzer.port }}",
+], "infra/helm/rfq-market-maker/templates/toxic-flow-analyzer-service.yaml");
+assertContains(helmToxicFlowAnalyzerNetworkPolicy, [
+  ".Values.toxicFlowAnalyzer.networkPolicy.enabled",
+  "app.kubernetes.io/component: toxic-flow-analyzer",
+  "port: 5432",
+], "infra/helm/rfq-market-maker/templates/toxic-flow-analyzer-network-policy.yaml");
+assert.ok(
+  !helmToxicFlowAnalyzerNetworkPolicy.includes("port: 443"),
+  "Helm toxic-flow analyzer must not receive public HTTPS egress",
+);
+
 assertContains(kubernetesChapter, [
   "`terminationGracePeriodSeconds=30`",
   "preStop` sleep of 5 seconds",
@@ -555,6 +663,9 @@ assertContains(kubernetesChapter, [
   "`rfq-reconciliation-worker`",
   "Migration 005",
   "Migration 006",
+  "`rfq-toxic-flow-analyzer`",
+  "Migration 021",
+  "`RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS`",
 ], "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md");
 
 console.log("Deployment manifests consistency check passed");

@@ -10,6 +10,7 @@
     "start:analytics-worker": "node dist/analytics-worker-main.js",
     "start:reconciliation-worker": "node dist/reconciliation-worker-main.js",
     "start:settlement-indexer": "node dist/settlement-indexer-main.js",
+    "start:toxic-flow-analyzer": "node dist/toxic-flow-analyzer-main.js",
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.mjs"
   },

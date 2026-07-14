@@ -1282,8 +1282,9 @@ components:
           maximum: 10000
         sampleSize:
           type: integer
-          minimum: 1
+          minimum: 0
           maximum: 9007199254740991
+          description: Zero is reserved for a clearing state whose scoreBps and postTradeDriftBps are both zero.
         windowSeconds:
           type: integer
           minimum: 1
@@ -1329,8 +1330,9 @@ components:
           maximum: 10000
         sampleSize:
           type: integer
-          minimum: 1
+          minimum: 0
           maximum: 9007199254740991
+          description: Zero is accepted only when scoreBps and postTradeDriftBps are both zero.
         windowSeconds:
           type: integer
           minimum: 1
@@ -1734,7 +1736,7 @@ components:
         observedAt:
           type: string
           format: date-time
-          description: Canonical UTC ISO timestamp generated with Date.prototype.toISOString().
+          description: Canonical UTC ISO timestamp of the settlement block, generated with Date.prototype.toISOString().
     PnlTradeRecord:
       type: object
       additionalProperties: false

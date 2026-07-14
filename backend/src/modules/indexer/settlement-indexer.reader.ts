@@ -38,6 +38,7 @@ export interface IndexedQuoteSettledLog {
 export interface SettlementChainReader {
   getBlockNumber(): Promise<number>;
   getBlockHash(blockNumber: number): Promise<`0x${string}`>;
+  getBlockTimestamp(blockNumber: number): Promise<string>;
   getQuoteSettledLogs(fromBlock: number, toBlock: number): Promise<IndexedQuoteSettledLog[]>;
 }
 
@@ -131,6 +132,11 @@ export function createSettlementChainReader(
       const block = await client.getBlock({ blockNumber: BigInt(blockNumber) });
       return normalizeHash(block.hash, "block hash");
     },
+    async getBlockTimestamp(blockNumber) {
+      assertSafeInteger(blockNumber, 0, Number.MAX_SAFE_INTEGER, "blockNumber");
+      const block = await client.getBlock({ blockNumber: BigInt(blockNumber) });
+      return bigintTimestampToIso(block.timestamp, "block timestamp");
+    },
     async getQuoteSettledLogs(fromBlock, toBlock) {
       assertBlockRange(fromBlock, toBlock);
       const logs = await client.getLogs({
@@ -184,6 +190,19 @@ function bigintToSafeInteger(value: unknown, label: string): number {
     throw new Error(`Settlement indexer ${label} must be a non-negative safe integer`);
   }
   return Number(value);
+}
+
+function bigintTimestampToIso(value: unknown, label: string): string {
+  const seconds = bigintToSafeInteger(value, label);
+  const milliseconds = seconds * 1_000;
+  if (!Number.isSafeInteger(milliseconds)) {
+    throw new Error(`Settlement indexer ${label} must be within the supported date range`);
+  }
+  try {
+    return new Date(milliseconds).toISOString();
+  } catch {
+    throw new Error(`Settlement indexer ${label} must be within the supported date range`);
+  }
 }
 
 function numberToSafeInteger(value: unknown, label: string): number {

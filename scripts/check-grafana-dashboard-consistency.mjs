@@ -7,13 +7,25 @@ const metricsSource = await readFile("backend/src/modules/metrics/metrics.servic
 const hedgeWorkerMetricsSource = await readFile("backend/src/modules/hedge/hedge-worker.ts", "utf8");
 const hedgeFeeMetricsSource = await readFile("backend/src/modules/hedge/hedge-fee-worker.ts", "utf8");
 const analyticsWorkerMetricsSource = await readFile("backend/src/modules/analytics/analytics-worker.metrics.ts", "utf8");
+const reconciliationWorkerMetricsSource = await readFile(
+  "backend/src/modules/reconciliation/post-trade-reconciliation.metrics.ts",
+  "utf8",
+);
+const settlementIndexerMetricsSource = await readFile(
+  "backend/src/modules/indexer/settlement-indexer.metrics.ts",
+  "utf8",
+);
+const toxicFlowAnalyzerMetricsSource = await readFile(
+  "backend/src/modules/risk/toxic-flow-analyzer.worker.ts",
+  "utf8",
+);
 const datasourceSource = await readFile("infra/grafana/provisioning/datasources/prometheus.yml", "utf8");
 const dashboardProviderSource = await readFile("infra/grafana/provisioning/dashboards/dashboards.yml", "utf8");
 const dashboardSource = await readFile("infra/grafana/provisioning/dashboards/rfq-overview.json", "utf8");
 const alertRulesSource = await readFile("infra/prometheus/rules/rfq-alerts.yml", "utf8");
 
 const emittedMetrics = extractEmittedMetrics(
-  `${metricsSource}\n${hedgeWorkerMetricsSource}\n${hedgeFeeMetricsSource}\n${analyticsWorkerMetricsSource}`,
+  `${metricsSource}\n${hedgeWorkerMetricsSource}\n${hedgeFeeMetricsSource}\n${analyticsWorkerMetricsSource}\n${reconciliationWorkerMetricsSource}\n${settlementIndexerMetricsSource}\n${toxicFlowAnalyzerMetricsSource}`,
 );
 const alertMetrics = extractAlertMetrics(alertRulesSource);
 const dashboard = JSON.parse(dashboardSource);

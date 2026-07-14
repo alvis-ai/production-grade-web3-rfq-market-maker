@@ -104,13 +104,13 @@ stateDiagram-v2
 
 ## Data Model
 
-Docker volumes store PostgreSQL, ClickHouse and Grafana data. These volumes are local development data, not production backups. Compose mounts `docs/database/schema.sql` into `/docker-entrypoint-initdb.d/001-schema.sql`, so a fresh `postgres-data` volume starts with the documented RFQ operational schema and seeded migration history. A one-shot `database-migrate` service serializes pending migrations before backend startup; existing databases apply through `017-quote-principal-ownership.sql` before any API or post-trade worker checks readiness. For a populated environment, stop quote admission and wait one maximum quote TTL before migration 017; pre-017 rows receive isolated legacy principals and remain inaccessible to institutional API keys.
+Docker volumes store PostgreSQL, ClickHouse and Grafana data. These volumes are local development data, not production backups. Compose mounts `docs/database/schema.sql` into `/docker-entrypoint-initdb.d/001-schema.sql`, so a fresh `postgres-data` volume starts with the documented RFQ operational schema and seeded migration history. A one-shot `database-migrate` service serializes pending migrations before backend startup; existing databases apply through `021-toxic-flow-markouts.sql` before any API or post-trade worker checks readiness. For a populated environment, stop quote admission and wait one maximum quote TTL before migration 017; pre-017 rows receive isolated legacy principals and remain inaccessible to institutional API keys.
 
 The analytics profile uses separate Redpanda internal (`redpanda:9092`) and host (`localhost:19092`) advertised listeners, then an idempotent `redpanda-topic-init` service creates `rfq.analytics.v1` with six local partitions. `analytics-worker` publishes PostgreSQL outbox rows and projects consumed batches into the local ClickHouse `rfq_analytics_events` table. This one-node broker and empty ClickHouse password are development defaults only.
 
 ## API Design
 
-No public API changes. Compose exposes backend API on `localhost:3000`, frontend console on `localhost:5173`, Prometheus on `localhost:9090`, Grafana on `localhost:3001`, analytics metrics on `localhost:3002`, reconciliation metrics on `localhost:3003`, and settlement-indexer metrics on `localhost:3004` when their profiles are enabled.
+No public API changes. Compose exposes backend API on `localhost:3000`, frontend console on `localhost:5173`, Prometheus on `localhost:9090`, Grafana on `localhost:3001`, analytics metrics on `localhost:3002`, reconciliation metrics on `localhost:3003`, settlement-indexer metrics on `localhost:3004`, and toxic-flow analyzer metrics on `localhost:3005` when their profiles are enabled.
 
 ## Engineering Decisions
 
@@ -123,6 +123,7 @@ No public API changes. Compose exposes backend API on `localhost:3000`, frontend
 - The credential-isolated `hedge-worker` service is behind the explicit `hedge` Compose profile. It exposes health/readiness/metrics on container port 3001, claims PostgreSQL jobs with leases, and should use Binance Spot Testnet credentials for local integration.
 - The `reconciliation-worker` service is behind the explicit `reconciliation` profile. It exposes health/readiness/metrics on port 3003, claims quote-scoped desired revisions with expiring leases, and repairs post-settlement quote, hedge, and PnL projections without signer, RPC, or venue credentials.
 - The `settlement-indexer` service is behind the explicit `indexer` profile. It exposes health/readiness/metrics on port 3004 and reads a local Anvil RPC by default. Its durable PostgreSQL cursor discovers wallet settlements even when `/submit` is not called; production RPC credentials remain outside Compose defaults.
+- The `toxic-flow-analyzer` service is behind the explicit `toxic-flow` profile. It exposes health/readiness/metrics on port 3005, leases settlement-driven markout revisions after the configured horizon, uses the first bounded same-direction PostgreSQL market snapshot, and CAS-publishes auditable user scores without signer, RPC, CEX, Kafka or ClickHouse credentials.
 - Frontend image builds static Vite assets and serves them with Nginx; `VITE_RFQ_API_BASE_URL` is injected as a Docker build arg and defaults to `http://localhost:3000`.
 - Backend and frontend images define Docker health checks. Compose waits for the backend health check before starting frontend and Prometheus.
 - Docker builds copy `pnpm-lock.yaml` and use `pnpm install --frozen-lockfile` so image dependency resolution is reproducible.

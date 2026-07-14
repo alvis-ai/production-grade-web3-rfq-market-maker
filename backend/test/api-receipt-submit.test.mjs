@@ -19,7 +19,12 @@ test("RFQ API applies receipt-confirmed settlement evidence from a wallet txHash
   const settlementEvidenceProvider = {
     async resolve(request, context) {
       calls.push({ request, context });
-      return { txHash: request.txHash, blockNumber: 123, logIndex: 4 };
+      return {
+        txHash: request.txHash,
+        blockNumber: 123,
+        logIndex: 4,
+        settledAt: "2026-07-14T00:00:00.000Z",
+      };
     },
   };
   const server = buildServer({ logger: false, settlementEvidenceProvider });
@@ -62,6 +67,7 @@ test("RFQ API applies receipt-confirmed settlement evidence from a wallet txHash
     assert.equal(settlement.body.blockNumber, 123);
     assert.equal(settlement.body.logIndex, 4);
     assert.equal(settlement.body.txHash, txHash);
+    assert.equal(settlement.body.observedAt, "2026-07-14T00:00:00.000Z");
 
     const status = await injectJson(server, "GET", `/quote/${quoteResponse.body.quoteId}`);
     assert.equal(status.body.status, "settled");

@@ -144,7 +144,7 @@ export function normalizeToxicFlowScoreUpdate(value: unknown): UpdateToxicFlowSc
       Number(value.postTradeDriftBps) < -10_000 || Number(value.postTradeDriftBps) > 10_000) {
     throw new Error("Toxic flow score postTradeDriftBps must be an integer from -10000 to 10000");
   }
-  assertPositiveSafeInteger(value.sampleSize, "sampleSize");
+  assertNonNegativeSafeInteger(value.sampleSize, "sampleSize");
   assertPositiveSafeInteger(value.windowSeconds, "windowSeconds");
   if (Number(value.windowSeconds) > maxWindowSeconds) {
     throw new Error(`Toxic flow score windowSeconds must not exceed ${maxWindowSeconds}`);
@@ -155,6 +155,10 @@ export function normalizeToxicFlowScoreUpdate(value: unknown): UpdateToxicFlowSc
   }
   if (!Number.isSafeInteger(value.expectedVersion) || Number(value.expectedVersion) < 0) {
     throw new Error("Toxic flow score expectedVersion must be a non-negative safe integer");
+  }
+  if (Number(value.sampleSize) === 0 &&
+      (Number(value.scoreBps) !== 0 || Number(value.postTradeDriftBps) !== 0)) {
+    throw new Error("Toxic flow score empty sample must have zero score and drift");
   }
   return {
     scoreBps: Number(value.scoreBps),
@@ -208,6 +212,12 @@ function assertBps(value: unknown, field: string): void {
 function assertPositiveSafeInteger(value: unknown, field: string): void {
   if (!Number.isSafeInteger(value) || Number(value) <= 0) {
     throw new Error(`Toxic flow score ${field} must be a positive safe integer`);
+  }
+}
+
+function assertNonNegativeSafeInteger(value: unknown, field: string): void {
+  if (!Number.isSafeInteger(value) || Number(value) < 0) {
+    throw new Error(`Toxic flow score ${field} must be a non-negative safe integer`);
   }
 }
 

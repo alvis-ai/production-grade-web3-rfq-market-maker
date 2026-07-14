@@ -12,6 +12,7 @@ const backendSource = await readBackendGatewaySource();
 const apiKeyAuthSource = await readFile("backend/src/modules/auth/api-key-auth.service.ts", "utf8");
 const hedgeWorkerSource = await readFile("backend/src/hedge-worker-main.ts", "utf8");
 const analyticsWorkerSource = await readFile("backend/src/analytics-worker-main.ts", "utf8");
+const toxicFlowAnalyzerSource = await readFile("backend/src/toxic-flow-analyzer-main.ts", "utf8");
 const frontendConfigSource = await readFile("frontend/src/lib/config.ts", "utf8");
 const readmeSource = await readFile("README.md", "utf8");
 const tokenRegistryJson = '{"tokens":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","symbol":"TOKEN2","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":false},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","symbol":"TOKEN3","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true}]}';
@@ -219,6 +220,35 @@ assert.ok(
     composeSource.includes("redpanda-topic-init:") &&
     composeSource.includes('RFQ_ANALYTICS_KAFKA_BROKERS: redpanda:9092'),
   "Compose must expose distinct Redpanda listeners and initialize the analytics topic",
+);
+assert.ok(
+  toxicFlowAnalyzerSource.includes('readRequired(env, "DATABASE_URL")') &&
+    toxicFlowAnalyzerSource.includes('readRequired(env, "RFQ_TOKEN_REGISTRY_JSON")') &&
+    toxicFlowAnalyzerSource.includes('"RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS"') &&
+    toxicFlowAnalyzerSource.includes('"RFQ_TOXIC_FLOW_MARKOUT_MAX_SNAPSHOT_LAG_SECONDS"') &&
+    toxicFlowAnalyzerSource.includes('"RFQ_TOXIC_FLOW_SCORE_WINDOW_SECONDS"') &&
+    toxicFlowAnalyzerSource.includes('"RFQ_TOXIC_FLOW_SCORE_SCALE"') &&
+    toxicFlowAnalyzerSource.includes("horizonSeconds + maxSnapshotLagSeconds > 604_800") &&
+    toxicFlowAnalyzerSource.includes("windowSeconds < horizonSeconds"),
+  "toxic-flow analyzer must require durable evidence and validate its policy windows",
+);
+assert.ok(
+  composeSource.includes("toxic-flow-analyzer:") &&
+    composeSource.includes('profiles: ["toxic-flow"]') &&
+    composeSource.includes('command: ["node", "backend/dist/toxic-flow-analyzer-main.js"]') &&
+    composeSource.includes("RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS: 300") &&
+    composeSource.includes("RFQ_TOXIC_FLOW_MARKOUT_MAX_SNAPSHOT_LAG_SECONDS: 900") &&
+    composeSource.includes("RFQ_TOXIC_FLOW_SCORE_WINDOW_SECONDS: 86400"),
+  "Compose must define the isolated toxic-flow analyzer and bounded markout policy",
+);
+assert.ok(
+  k8sConfigSource.includes('RFQ_TOXIC_FLOW_ANALYZER_PORT: "3005"') &&
+    k8sConfigSource.includes('RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS: "300"') &&
+    k8sConfigSource.includes('RFQ_TOXIC_FLOW_MARKOUT_MAX_SNAPSHOT_LAG_SECONDS: "900"') &&
+    k8sConfigSource.includes('RFQ_TOXIC_FLOW_SCORE_WINDOW_SECONDS: "86400"') &&
+    helmValuesSource.includes("toxicFlowAnalyzer:") &&
+    helmValuesSource.includes("RFQ_TOXIC_FLOW_ANALYZER_POLICY_VERSION: markout-v1"),
+  "Kubernetes and Helm config must define the same toxic-flow analyzer policy",
 );
 assert.ok(
   frontendConfigSource.includes("readOptionalConfigString") &&

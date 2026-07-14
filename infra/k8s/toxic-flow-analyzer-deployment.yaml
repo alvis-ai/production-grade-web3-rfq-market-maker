@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rfq-toxic-flow-analyzer
+  namespace: rfq-market-maker
+  labels:
+    app.kubernetes.io/name: rfq-toxic-flow-analyzer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rfq-toxic-flow-analyzer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rfq-toxic-flow-analyzer
+    spec:
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: database-migrate
+          image: ghcr.io/example/rfq-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "backend/dist/db/migrate.js"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-database-migration-secrets
+                  key: DATABASE_URL
+      containers:
+        - name: toxic-flow-analyzer
+          image: ghcr.io/example/rfq-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "backend/dist/toxic-flow-analyzer-main.js"]
+          ports:
+            - name: http
+              containerPort: 3005
+          envFrom:
+            - configMapRef:
+                name: rfq-backend-config
+            - secretRef:
+                name: rfq-toxic-flow-analyzer-secrets
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi

@@ -70,7 +70,7 @@ test("toxic flow score validation rejects unsafe keys, envelopes, and evidence",
   );
   assert.throws(
     () => normalizeToxicFlowScoreUpdate(update({ sampleSize: 0 })),
-    /sampleSize must be a positive safe integer/,
+    /empty sample must have zero score and drift/,
   );
   assert.throws(
     () => normalizeToxicFlowScoreUpdate(update({ windowSeconds: 604_801 })),
@@ -84,6 +84,15 @@ test("toxic flow score validation rejects unsafe keys, envelopes, and evidence",
     () => normalizeToxicFlowScoreUpdate(update({ observedAt: "2026-07-14" })),
     /observedAt must be a canonical UTC timestamp/,
   );
+});
+
+test("toxic flow score permits only zeroed empty-sample clearing state", async () => {
+  const now = Date.parse("2026-07-14T00:00:00.000Z");
+  const store = new InMemoryToxicFlowScoreStore(() => now);
+  const cleared = await store.updateScore({ chainId: 1, user }, update({
+    scoreBps: 0, postTradeDriftBps: 0, sampleSize: 0,
+  }), "risk_analyzer:writer_key");
+  assert.equal(cleared.sampleSize, 0);
 });
 
 function update(overrides = {}) {

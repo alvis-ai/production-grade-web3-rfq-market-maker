@@ -15,6 +15,10 @@ const settlementIndexerMetricsSource = await readFile(
   "backend/src/modules/indexer/settlement-indexer.metrics.ts",
   "utf8",
 );
+const toxicFlowAnalyzerMetricsSource = await readFile(
+  "backend/src/modules/risk/toxic-flow-analyzer.worker.ts",
+  "utf8",
+);
 const readinessSource = await readFile("backend/src/modules/health/readiness.service.ts", "utf8");
 const rateLimitSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const prometheusConfigSource = await readFile("infra/prometheus/prometheus.yml", "utf8");
@@ -23,7 +27,7 @@ const backendMetricsChapter = await readFile("book/Volume5-BackendEngineering/Ch
 const monitoringChapter = await readFile("book/Volume7-ProductionDeployment/Chapter03-Monitoring.md", "utf8");
 
 const emittedMetrics = extractEmittedMetrics(
-  `${metricsSource}\n${hedgeWorkerMetricsSource}\n${hedgeFeeMetricsSource}\n${analyticsWorkerMetricsSource}\n${reconciliationWorkerMetricsSource}\n${settlementIndexerMetricsSource}`,
+  `${metricsSource}\n${hedgeWorkerMetricsSource}\n${hedgeFeeMetricsSource}\n${analyticsWorkerMetricsSource}\n${reconciliationWorkerMetricsSource}\n${settlementIndexerMetricsSource}\n${toxicFlowAnalyzerMetricsSource}`,
 );
 const alertMetrics = extractAlertMetrics(alertRulesSource);
 const backendDocMetrics = extractDocumentedMetrics(backendMetricsChapter);
@@ -83,6 +87,10 @@ assert.ok(
 assert.ok(
   prometheusConfigSource.includes("job_name: rfq-settlement-indexer"),
   "Prometheus must scrape the settlement indexer job",
+);
+assert.ok(
+  prometheusConfigSource.includes("job_name: rfq-toxic-flow-analyzer"),
+  "Prometheus must scrape the toxic-flow analyzer job",
 );
 assert.ok(prometheusConfigSource.includes("metrics_path: /metrics"), "Prometheus backend job must scrape /metrics");
 assert.ok(

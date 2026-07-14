@@ -25,6 +25,7 @@ test("settlement indexer ingests confirmed matching logs and advances only after
   assert.equal(fixture.events.applied.length, 1);
   assert.equal(fixture.events.applied[0].quoteId, "q_indexed_1");
   assert.equal(fixture.events.applied[0].txHash, settledLog(102, 3).transactionHash);
+  assert.equal(fixture.events.applied[0].settledAt, blockTimestamp(102));
   assert.equal(fixture.store.cursor.nextBlock, 105);
   assert.equal(fixture.store.cursor.revision, 1);
   assert.deepEqual(fixture.observer.events, [{ chainId: 1, outcome: "applied" }]);
@@ -63,6 +64,19 @@ test("settlement indexer rejects a mixed-fork log batch before applying events",
   await assert.rejects(
     fixture.worker.runChainOnce(1),
     (error) => error.code === "CHAIN_REORG_DURING_SCAN",
+  );
+  assert.equal(fixture.events.applied.length, 0);
+  assert.equal(fixture.store.cursor.nextBlock, 100);
+});
+
+test("settlement indexer fails closed on a malformed block timestamp", async () => {
+  const fixture = createFixture();
+  fixture.reader.logs = [settledLog(101, 0)];
+  fixture.reader.blockTimestamps.set(101, "2026-07-14T00:00:00Z");
+
+  await assert.rejects(
+    fixture.worker.runChainOnce(1),
+    (error) => error.code === "RPC_OR_STORE_UNAVAILABLE",
   );
   assert.equal(fixture.events.applied.length, 0);
   assert.equal(fixture.store.cursor.nextBlock, 100);
@@ -233,9 +247,13 @@ class FakeReader {
     this.logs = [];
     this.logRequests = [];
     this.blockHashes = new Map(Array.from({ length: 1_100 }, (_, block) => [block, hash(block)]));
+    this.blockTimestamps = new Map();
   }
   async getBlockNumber() { return this.head; }
   async getBlockHash(blockNumber) { return this.blockHashes.get(blockNumber) ?? hash(blockNumber); }
+  async getBlockTimestamp(blockNumber) {
+    return this.blockTimestamps.get(blockNumber) ?? blockTimestamp(blockNumber);
+  }
   async getQuoteSettledLogs(fromBlock, toBlock) {
     this.logRequests.push({ fromBlock, toBlock });
     return this.logs.map((log) => ({ ...log }));
@@ -268,6 +286,10 @@ function chainConfig(startBlock = 100) {
     reorgLookbackBlocks: 100,
     requestTimeoutMs: 5_000,
   };
+}
+
+function blockTimestamp(blockNumber) {
+  return new Date(1_700_000_000_000 + blockNumber * 1_000).toISOString();
 }
 
 function signedQuoteRecord() {

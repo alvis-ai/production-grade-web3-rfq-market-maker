@@ -219,6 +219,39 @@ settlementIndexer:
   networkPolicy:
     enabled: true
 
+toxicFlowAnalyzer:
+  enabled: true
+  replicaCount: 2
+  port: 3005
+  env:
+    RFQ_TOXIC_FLOW_ANALYZER_HOST: "0.0.0.0"
+    RFQ_TOXIC_FLOW_ANALYZER_PORT: "3005"
+    RFQ_TOXIC_FLOW_ANALYZER_LEASE_MS: "30000"
+    RFQ_TOXIC_FLOW_ANALYZER_POLL_INTERVAL_MS: "250"
+    RFQ_TOXIC_FLOW_ANALYZER_RETRY_DELAY_MS: "1000"
+    RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS: "300"
+    RFQ_TOXIC_FLOW_MARKOUT_MAX_SNAPSHOT_LAG_SECONDS: "900"
+    RFQ_TOXIC_FLOW_SCORE_WINDOW_SECONDS: "86400"
+    RFQ_TOXIC_FLOW_SCORE_SCALE: "100"
+    RFQ_TOXIC_FLOW_ANALYZER_POLICY_VERSION: markout-v1
+  secret:
+    name: rfq-toxic-flow-analyzer-secrets
+    databaseUrlKey: DATABASE_URL
+  service:
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "3005"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  networkPolicy:
+    enabled: true
+
 resources:
   requests:
     cpu: 100m

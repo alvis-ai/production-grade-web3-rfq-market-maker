@@ -82,12 +82,20 @@ const toxicFlowScoreMigrationSource = await readFile(
   "backend/src/db/migrations/020-toxic-flow-scores.sql",
   "utf8",
 );
+const toxicFlowMarkoutMigrationSource = await readFile(
+  "backend/src/db/migrations/021-toxic-flow-markouts.sql",
+  "utf8",
+);
 const postgresQuoteControlSource = await readFile(
   "backend/src/modules/quote-control/postgres-quote-control.store.ts",
   "utf8",
 );
 const postgresToxicFlowScoreSource = await readFile(
   "backend/src/modules/risk/postgres-toxic-flow-score.store.ts",
+  "utf8",
+);
+const postgresToxicFlowMarkoutSource = await readFile(
+  "backend/src/modules/risk/postgres-toxic-flow-markout.store.ts",
   "utf8",
 );
 const treasuryLiquidityProviderSource = await readFile(
@@ -190,6 +198,7 @@ const requiredTables = {
     "amount_in",
     "amount_out",
     "nonce",
+    "settled_at",
     "canonical",
     "removed_at",
   ],
@@ -1047,7 +1056,7 @@ const settlementColumnMapping = {
   amountIn: "amount_in",
   amountOut: "amount_out",
   nonce: "nonce",
-  observedAt: "created_at",
+  observedAt: "settled_at",
 };
 for (const field of settlementFields) {
   if (field === "status") {
@@ -1458,6 +1467,34 @@ assert.ok(
     postgresToxicFlowScoreSource.includes("FROM changed") &&
     postgresToxicFlowScoreSource.includes("ToxicFlowScoreConflictError"),
   "Postgres toxic-flow score store must CAS-upsert and append audit evidence atomically",
+);
+assert.ok(
+  toxicFlowMarkoutMigrationSource.includes("chk_toxic_flow_scores_empty_sample") &&
+    toxicFlowMarkoutMigrationSource.includes("ADD COLUMN settled_at TIMESTAMPTZ") &&
+    toxicFlowMarkoutMigrationSource.includes("CREATE TABLE toxic_flow_markout_jobs") &&
+    toxicFlowMarkoutMigrationSource.includes("CREATE TABLE toxic_flow_markouts") &&
+    toxicFlowMarkoutMigrationSource.includes("idx_toxic_flow_markout_jobs_pending") &&
+    toxicFlowMarkoutMigrationSource.includes("idx_toxic_flow_markouts_user_window") &&
+    toxicFlowMarkoutMigrationSource.includes("enqueue_toxic_flow_markout_job") &&
+    toxicFlowMarkoutMigrationSource.includes("AFTER INSERT OR UPDATE OF canonical") &&
+    toxicFlowMarkoutMigrationSource.includes("NEW.settled_at") &&
+    toxicFlowMarkoutMigrationSource.includes("WHERE settled_at IS NOT NULL") &&
+    schemaSource.includes("('021', 'toxic-flow-markouts')") &&
+    erDiagramSource.includes("SETTLEMENT_EVENTS ||--o| TOXIC_FLOW_MARKOUT_JOBS") &&
+    erDiagramSource.includes("MARKET_SNAPSHOTS ||--o{ TOXIC_FLOW_MARKOUTS"),
+  "toxic-flow markout migration and docs must install a reorg-aware durable analysis queue",
+);
+assert.ok(
+  postgresToxicFlowMarkoutSource.includes("async claimNext") &&
+    postgresToxicFlowMarkoutSource.includes("FOR UPDATE SKIP LOCKED") &&
+    postgresToxicFlowMarkoutSource.includes("async findPostTradeSnapshot") &&
+    postgresToxicFlowMarkoutSource.includes("ORDER BY observed_at ASC, id ASC LIMIT 1") &&
+    postgresToxicFlowMarkoutSource.includes("async upsertMarkout") &&
+    postgresToxicFlowMarkoutSource.includes("RETURNING settlement_event_id") &&
+    postgresToxicFlowMarkoutSource.includes("async invalidateMarkout") &&
+    postgresToxicFlowMarkoutSource.includes("async aggregateUser") &&
+    postgresToxicFlowMarkoutSource.includes("processed_revision = CASE"),
+  "Postgres toxic-flow markout store must lease, persist, invalidate, aggregate, and complete revisions",
 );
 assert.ok(
   postgresQuoteExposureSource.includes("pg_advisory_xact_lock") &&

@@ -1,0 +1,19 @@
+{{- if .Values.toxicFlowAnalyzer.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-toxic-flow-analyzer
+  annotations:
+    {{- with .Values.toxicFlowAnalyzer.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "rfq-market-maker.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: toxic-flow-analyzer
+  ports:
+    - name: http
+      port: {{ .Values.toxicFlowAnalyzer.port }}
+      targetPort: http
+{{- end }}

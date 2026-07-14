@@ -14,6 +14,7 @@ const settlementEventInputFields = ["quoteId", "quote", "txHash"] as const;
 const removeSettlementEventInputFields = ["chainId", "txHash"] as const;
 const settlementQuoteHashLookupFields = ["chainId", "quoteHash"] as const;
 const settlementEventOrdinalFields = ["blockNumber", "logIndex"] as const;
+const settlementEventTimingFields = ["settledAt"] as const;
 const settlementQuoteFields = [
   "user",
   "tokenIn",
@@ -31,6 +32,7 @@ export interface ApplySettlementEventInput {
   txHash: `0x${string}`;
   blockNumber?: number;
   logIndex?: number;
+  settledAt?: string;
   quote: SignedQuote;
 }
 
@@ -261,8 +263,9 @@ export function buildSettlementEvent(
   observedAt = new Date().toISOString(),
 ): SettlementEventStatusResponse {
   assertSettlementEventInput(input);
-  if (!isCanonicalUtcIsoTimestamp(observedAt)) {
-    throw new Error("Settlement event observedAt must be a canonical UTC ISO timestamp");
+  const settledAt = input.settledAt ?? observedAt;
+  if (!isCanonicalUtcIsoTimestamp(settledAt)) {
+    throw new Error("Settlement event settledAt must be a canonical UTC ISO timestamp");
   }
   const txHash = normalizeTxHash(input.txHash);
   const logIndex = normalizeEventOrdinal(input.logIndex, "logIndex");
@@ -282,7 +285,7 @@ export function buildSettlementEvent(
     amountIn: input.quote.amountIn,
     amountOut: input.quote.amountOut,
     nonce: input.quote.nonce,
-    observedAt,
+    observedAt: settledAt,
   };
 }
 
@@ -387,6 +390,10 @@ export function assertSettlementEventInput(input: ApplySettlementEventInput): vo
   assertRecord(input, "input");
   assertOwnFields(input, settlementEventInputFields, "input");
   assertOwnOptionalFields(input, settlementEventOrdinalFields, "input");
+  assertOwnOptionalFields(input, settlementEventTimingFields, "input");
+  if (input.settledAt !== undefined && !isCanonicalUtcIsoTimestamp(input.settledAt)) {
+    throw new Error("Settlement event settledAt must be a canonical UTC ISO timestamp");
+  }
   assertSafeIdentifier(input.quoteId, "quoteId");
   assertSettlementQuote(input.quote);
 }

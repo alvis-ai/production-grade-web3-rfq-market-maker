@@ -15,6 +15,11 @@ import { PostgresMarketSnapshotStore } from "./modules/market-data/postgres-mark
 import { CachedMarketDataService } from "./modules/market-data/cached-market-data.service.js";
 import { SharedPriceCache } from "./modules/market-data/price-cache.js";
 import { BackgroundPriceUpdater } from "./modules/market-data/price-updater.js";
+import {
+  BackgroundMarketSnapshotSampler,
+  buildMarketSnapshotSamplingPairs,
+  defaultMarketSnapshotSampleIntervalMs,
+} from "./modules/market-data/market-snapshot-sampler.js";
 import { CEXOrderBookMonitor } from "./modules/market-data/cex-orderbook/cex-orderbook-monitor.js";
 import { MetricsService } from "./modules/metrics/metrics.service.js";
 import { PnlService } from "./modules/pnl/pnl.service.js";
@@ -229,12 +234,25 @@ export function buildServer(options: BuildServerOptions = {}) {
   const cexMonitor = defaultMarketData && cexPriceCache && cexConfig
     ? new CEXOrderBookMonitor(cexPriceCache, cexConfig.monitor, metricsService)
     : undefined;
+  const snapshotSamplerCaches = cexPriceCache && basePriceCache
+    ? [cexPriceCache, basePriceCache]
+    : basePriceCache ? [basePriceCache] : [];
+  const snapshotSampler = defaultMarketData && postgresPool && snapshotSamplerCaches.length > 0
+    ? new BackgroundMarketSnapshotSampler(marketSnapshotStore, {
+        pairs: buildMarketSnapshotSamplingPairs(priceUpdaterPairs, cexPairs),
+        caches: snapshotSamplerCaches,
+        requiredPrimaryCacheKeys: requiredCexCacheKeys,
+        intervalMs: defaultMarketSnapshotSampleIntervalMs,
+      })
+    : undefined;
   priceUpdater?.start();
   cexMonitor?.start();
-  if (priceUpdater || cexMonitor) {
+  snapshotSampler?.start();
+  if (priceUpdater || cexMonitor || snapshotSampler) {
     server.addHook("onClose", async () => {
       priceUpdater?.stop();
       cexMonitor?.stop();
+      snapshotSampler?.stop();
     });
   }
   if (ownsPostgresPool) {
