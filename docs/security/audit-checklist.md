@@ -23,6 +23,7 @@
 
 - [x] `/quote` validates address format and amount strings.
 - [x] Risk Engine runs before Signer Service.
+- [x] Non-local static market data requires a non-empty mandatory live CEX source set and cannot sign from demonstration prices alone.
 - [x] Default token authorization and raw-unit limits are keyed by both chainId and token address.
 - [x] Startup cross-checks risk-policy tokens against the trusted token registry and active market pairs.
 - [x] Signer Service cannot be called directly from public API.

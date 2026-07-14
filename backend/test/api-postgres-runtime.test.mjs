@@ -35,6 +35,7 @@ test("non-local RFQ API startup requires durable PostgreSQL persistence", async 
       apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
       logger: false,
       databasePool: pool,
+      marketDataService: { async getSnapshot() { throw new Error("unused market data"); } },
       rateLimiter: allowAllRateLimiter(),
       signerService: localTestSignerService(),
     });

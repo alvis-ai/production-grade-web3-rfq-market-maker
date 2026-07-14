@@ -171,6 +171,7 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
       apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
       logger: false,
       databasePool: fakeDatabasePool(),
+      marketDataService: { async getSnapshot() { throw new Error("unused market data"); } },
       signerService: localTestSignerService(),
     });
     await server.ready();

@@ -17,6 +17,7 @@ const frontendConfigSource = await readFile("frontend/src/lib/config.ts", "utf8"
 const readmeSource = await readFile("README.md", "utf8");
 const tokenRegistryJson = '{"tokens":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","symbol":"TOKEN2","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":false},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","symbol":"TOKEN3","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true}]}';
 const riskPolicyJson = '{"policyVersion":"token-limit-risk-v1","enabledChainIds":[1],"tokenLimits":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","maxAmountIn":"1000000000000000000000","minAmountOut":"1","maxNotionalUsd":"1000000","maxAbsoluteInventory":"10000000000000000000000"},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","maxAmountIn":"1000000000000000000000","minAmountOut":"1","maxNotionalUsd":"1000000","maxAbsoluteInventory":"10000000000000000000000"}],"restrictedUsers":[],"toxicFlowScores":[],"maxToxicScoreBps":8000,"maxUserOpenNotionalUsd":"2000000","maxPairOpenNotionalUsd":"5000000","portfolioVar":{"modelVersion":"component-sum-v1","maxPortfolioVarUsd":"500000","confidenceMultiplierBps":23300,"horizonSeconds":86400,"maxSnapshotAgeMs":5000,"maxFutureSkewMs":5000,"valuationPairs":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","usdReferenceTokenAddress":"0x0000000000000000000000000000000000000003"}]},"minLiquidityUsd":"1000000","maxVolatilityBps":500,"maxSlippageBps":500,"maxQuotedSpreadBps":1000}';
+const productionCexPairs = "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT,1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:coinbase:ETH-USD";
 
 const localExpected = {
   HOST: "127.0.0.1",
@@ -78,6 +79,8 @@ const productionExpected = {
   RFQ_TRUST_PROXY: "false",
   RFQ_RATE_LIMIT_BACKEND: "redis",
   RFQ_SIGNER_MODE: "aws-kms",
+  RFQ_MARKET_DATA_PROVIDER: "static",
+  RFQ_CEX_PAIRS: productionCexPairs,
   RFQ_CEX_REQUIRE_LIVE_BOOK: "true",
   RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS: "86400000",
   RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS: "60000",
@@ -167,6 +170,11 @@ assert.ok(
   backendSource.includes("RFQ_RATE_LIMIT_BACKEND must be memory or redis") &&
     backendSource.includes("RFQ_REDIS_URL is required when RFQ_RATE_LIMIT_BACKEND=redis"),
   "backend must enforce distributed rate limit configuration",
+);
+assert.ok(
+  backendSource.includes("Non-local static market data requires non-empty RFQ_CEX_PAIRS") &&
+    backendSource.includes("assertProductionMarketDataPolicy"),
+  "non-local static market data must require a mandatory live CEX source set",
 );
 assert.ok(
   envExampleSource.includes("RFQ_API_KEY_CONFIG_JSON") &&

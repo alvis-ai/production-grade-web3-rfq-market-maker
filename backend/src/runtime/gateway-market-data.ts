@@ -19,6 +19,7 @@ import { defaultQuoteServiceConfig } from "../modules/quote/quote.service.js";
 import type { QuoteRequest } from "../shared/types/rfq.js";
 import {
   buildRequiredCexCacheKeys,
+  assertProductionMarketDataPolicy,
   readCexOrderBookConfig,
   readCexOrderBookPairs,
   readDefaultMarketDataRuntime,
@@ -32,6 +33,7 @@ export interface GatewayMarketDataRuntime {
   maxSnapshotAgeMs: number;
   pricingPairs: readonly MarketSnapshotSamplingPair[];
   readinessPair?: QuoteRequest;
+  assertProductionPolicy(): void;
   startBackgroundTasks(
     marketSnapshotStore: MarketSnapshotStore,
     persistSnapshots: boolean,
@@ -68,6 +70,15 @@ export function buildGatewayMarketDataRuntime(
     : priceUpdaterPairs[0];
 
   return {
+    assertProductionPolicy() {
+      if (defaultMarketData) {
+        assertProductionMarketDataPolicy(
+          defaultMarketData.provider,
+          cexPairs,
+          cexConfig?.requireLiveBook ?? false,
+        );
+      }
+    },
     cexPairs,
     managedRiskPairs: [...defaultPairs, ...priceUpdaterPairs, ...cexPairs],
     marketDataService,

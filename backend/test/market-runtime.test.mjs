@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readDefaultMarketDataRuntime } from "../dist/runtime/market-runtime.js";
+import {
+  assertProductionMarketDataPolicy,
+  readDefaultMarketDataRuntime,
+} from "../dist/runtime/market-runtime.js";
 
 const tokenIn = "0x1000000000000000000000000000000000000001";
 const tokenOut = "0x2000000000000000000000000000000000000002";
@@ -13,6 +16,7 @@ test("static market data runtime applies RFQ_MARKET_PAIRS to the provider allowl
 
   try {
     const runtime = readDefaultMarketDataRuntime();
+    assert.equal(runtime.provider, "static");
     assert.deepEqual(
       runtime.defaultPairs.map(({ chainId, tokenIn: pairTokenIn, tokenOut: pairTokenOut }) => ({
         chainId,
@@ -46,6 +50,35 @@ test("static market data runtime applies RFQ_MARKET_PAIRS to the provider allowl
     restoreEnv("RFQ_MARKET_DATA_PROVIDER", originalProvider);
     restoreEnv("RFQ_MARKET_PAIRS", originalPairs);
   }
+});
+
+test("non-local static market data requires a configured mandatory live CEX book", () => {
+  const pair = {
+    chainId: 1,
+    tokenIn,
+    tokenOut,
+    exchange: "binance",
+    symbol: "ETHUSDT",
+  };
+  const production = { NODE_ENV: "production" };
+
+  assert.throws(
+    () => assertProductionMarketDataPolicy("static", [], true, production),
+    /non-empty RFQ_CEX_PAIRS/,
+  );
+  assert.throws(
+    () => assertProductionMarketDataPolicy("static", [pair], false, production),
+    /RFQ_CEX_REQUIRE_LIVE_BOOK=true/,
+  );
+  assert.doesNotThrow(
+    () => assertProductionMarketDataPolicy("static", [pair], true, production),
+  );
+  assert.doesNotThrow(
+    () => assertProductionMarketDataPolicy("chainlink", [], false, production),
+  );
+  assert.doesNotThrow(
+    () => assertProductionMarketDataPolicy("static", [], false, { NODE_ENV: "development" }),
+  );
 });
 
 function restoreEnv(name, value) {

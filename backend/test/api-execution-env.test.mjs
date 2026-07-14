@@ -40,6 +40,7 @@ test("RFQ API validates simulated and receipt-confirmed execution configuration"
       apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
       logger: false,
       databasePool: fakeDatabasePool(),
+      marketDataService: testMarketDataService(),
       signerService: localTestSignerService(),
     });
     await server.ready();
@@ -73,6 +74,10 @@ function fakeDatabasePool() {
       return client;
     },
   };
+}
+
+function testMarketDataService() {
+  return { async getSnapshot() { throw new Error("unused market data"); } };
 }
 
 function saveEnv(names) {

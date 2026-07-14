@@ -40,7 +40,7 @@ flowchart LR
 | Quote field tampering | User changes amount or token | EIP-712 typed data verification |
 | Non-standard ERC20 settlement drift | Fee-on-transfer, sender-fee or rebasing behavior makes recorded amounts differ from actual debits and credits | Exact pre/post user and Treasury balance-delta checks on both token legs; any mismatch atomically reverts the nonce and transfers |
 | Partial or orphaned contract deployment | Multi-transaction deployment is interrupted after creation, Treasury wiring, whitelist setup, or only one ownership transfer | A dedicated deployment factory performs creation, wiring, whitelist setup, invariant checks, and final admin handoff in one transaction; factory retains no admin role |
-| Stale market data | Mispriced quote | snapshot TTL, market data health check, conservative fallback |
+| Stale market data or demonstration prices | Mispriced production quote | snapshot TTL, market data health check, non-local static-provider startup requires a non-empty mandatory live CEX source set, conservative Chainlink fallback only |
 | Risk bypass | Unsafe quote gets signed | signer only accepts approved risk decision |
 | Mempool MEV | User or hedge transaction exploited | short TTL, minAmountOut, private submission where possible |
 | Event duplication | Inventory updated twice | idempotency key `(chainId, txHash, logIndex)` |

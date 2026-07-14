@@ -139,6 +139,7 @@ const checkedAuditItems = [...docs.auditChecklist.matchAll(/^- \[x\] /gm)].lengt
 assert.ok(checkedAuditItems >= 20, "audit checklist must mark implemented baseline controls");
 
 const implementedAuditControls = [
+  "Non-local static market data requires a non-empty mandatory live CEX source set and cannot sign from demonstration prices alone.",
   "EIP-712 domain includes name, version, chainId and verifyingContract.",
   "Quote struct fields match SDK and backend signer exactly.",
   "`submitQuote` rejects expired quotes.",

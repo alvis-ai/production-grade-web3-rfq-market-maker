@@ -54,6 +54,7 @@ import {
 } from "./environment.js";
 
 export interface DefaultMarketDataRuntime {
+  provider: "static" | "chainlink";
   service: MarketDataService;
   defaultPairs: ReturnType<typeof chainlinkConfiguredPairs>;
   maxSnapshotAgeMs: number;
@@ -78,6 +79,7 @@ export function readDefaultMarketDataRuntime(): DefaultMarketDataRuntime {
       })),
     );
     return {
+      provider: "static",
       service: new StaticMarketDataService({
         supportedPairs: configuredPairs.map(({ chainId, tokenIn, tokenOut }) => ({
           chainId,
@@ -97,10 +99,26 @@ export function readDefaultMarketDataRuntime(): DefaultMarketDataRuntime {
   if (!serializedConfig) throw new Error("RFQ_CHAINLINK_CONFIG_JSON is required when RFQ_MARKET_DATA_PROVIDER=chainlink");
   const config: ChainlinkMarketDataConfig = parseChainlinkMarketDataConfig(serializedConfig);
   return {
+    provider: "chainlink",
     service: new ChainlinkMarketDataService(config),
     defaultPairs: chainlinkConfiguredPairs(config),
     maxSnapshotAgeMs: config.maxPriceAgeMs,
   };
+}
+
+export function assertProductionMarketDataPolicy(
+  provider: DefaultMarketDataRuntime["provider"],
+  cexPairs: readonly OrderBookPairConfig[],
+  requireLiveBook: boolean,
+  env: Record<string, string | undefined> | undefined = runtimeEnvironment(),
+): void {
+  const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
+  if (!requiresExplicitRuntimeConfig(nodeEnv) || provider === "chainlink") return;
+  if (cexPairs.length === 0 || !requireLiveBook) {
+    throw new Error(
+      "Non-local static market data requires non-empty RFQ_CEX_PAIRS and RFQ_CEX_REQUIRE_LIVE_BOOK=true",
+    );
+  }
 }
 
 export function readTokenRegistry(): TokenRegistry {

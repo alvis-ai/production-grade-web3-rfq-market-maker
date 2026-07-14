@@ -279,5 +279,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     trustProxy,
   });
 
+  marketRuntime.assertProductionPolicy();
+
   return server;
 }

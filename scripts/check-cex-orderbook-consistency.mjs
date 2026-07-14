@@ -87,6 +87,18 @@ assert.ok(
   "non-local CEX runtime must require a live book or an explicit Chainlink fallback",
 );
 assert.ok(
+  mainSource.includes("Non-local static market data requires non-empty RFQ_CEX_PAIRS") &&
+    mainSource.includes("assertProductionMarketDataPolicy") &&
+    runtimeTestSource.includes("rejects an unprotected static market-data provider"),
+  "non-local static market data must fail startup unless a live CEX pair is mandatory",
+);
+for (const [label, source] of [["Kubernetes ConfigMap", k8sSource], ["Helm values", helmSource]]) {
+  assert.ok(
+    source.includes(":binance:ETHUSDT") && source.includes(":coinbase:ETH-USD"),
+    `${label} must configure two independent production CEX sources`,
+  );
+}
+assert.ok(
   cachedMarketDataSource.includes("requiredPrimaryCacheKeys.has(key)") &&
     cachedMarketDataSource.includes("Required live CEX order book is unavailable"),
   "required CEX pairs must fail before reading lower-priority caches or providers",
@@ -155,6 +167,11 @@ assert.ok(
 assert.ok(marketDataChapter.includes("developers.binance.com"), "market-data chapter must reference official Binance synchronization rules");
 assert.ok(marketDataChapter.includes("docs.cdp.coinbase.com"), "market-data chapter must reference official Coinbase Level-2 rules");
 assert.ok(readmeSource.includes("make cex-orderbook-integration-check"), "README must document the live CEX check");
+assert.ok(
+  readmeSource.includes("Non-local `static` mode is accepted only") &&
+    marketDataChapter.includes("non-empty `RFQ_CEX_PAIRS`"),
+  "README and market-data chapter must document the non-local static-provider fail-closed policy",
+);
 assert.ok(makefileSource.includes("cex-orderbook-integration-check: backend-build"), "Makefile must expose the live CEX check");
 assert.ok(packageSource.includes("cex:orderbook:integration:check"), "package scripts must expose the live CEX check");
 assert.ok(integrationSource.includes("RFQ_CEX_INTEGRATION_CONFIRM=yes"), "live CEX check must require explicit opt-in");

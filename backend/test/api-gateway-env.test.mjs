@@ -239,6 +239,42 @@ test("production RFQ API requires two CEX sources per configured pair by default
   }
 });
 
+test("production RFQ API rejects an unprotected static market-data provider", () => {
+  const names = [
+    "NODE_ENV",
+    ...signerRuntimeEnvNames,
+    "RFQ_ALLOW_SIMULATED_SETTLEMENT",
+    "RFQ_MARKET_DATA_PROVIDER",
+    "RFQ_CEX_PAIRS",
+    "RFQ_CEX_REQUIRE_LIVE_BOOK",
+  ];
+  const original = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  try {
+    process.env.NODE_ENV = "production";
+    configureAwsSignerEnvironment();
+    process.env.RFQ_ALLOW_SIMULATED_SETTLEMENT = "true";
+    process.env.RFQ_MARKET_DATA_PROVIDER = "static";
+    process.env.RFQ_CEX_REQUIRE_LIVE_BOOK = "true";
+    delete process.env.RFQ_CEX_PAIRS;
+
+    assert.throws(
+      () => buildServer({
+        apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
+        logger: false,
+        databasePool: { connect() { throw new Error("unused database"); } },
+        rateLimiter: {
+          check() { return { allowed: true, remaining: 1, retryAfterSeconds: 1 }; },
+          checkHealth() {},
+        },
+        signerService: localTestSignerService(),
+      }),
+      /Non-local static market data requires non-empty RFQ_CEX_PAIRS/,
+    );
+  } finally {
+    for (const name of names) restoreEnv(name, original[name]);
+  }
+});
+
 test("CEX runtime requires a live order book by default outside local environments", () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalRequireLiveBook = process.env.RFQ_CEX_REQUIRE_LIVE_BOOK;

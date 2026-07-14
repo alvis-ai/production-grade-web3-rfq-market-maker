@@ -123,6 +123,7 @@ test("non-local RFQ API requires API key auth configuration or an injected authe
     const options = {
       logger: false,
       databasePool: fakeDatabasePool(),
+      marketDataService: { async getSnapshot() { throw new Error("unused market data"); } },
       rateLimiter: allowAllRateLimiter(),
       signerService: localTestSignerService(),
     };
