@@ -55,6 +55,7 @@ export interface IInventoryService {
   projectSettlement(input: InventoryProjectionInput): InventoryProjection | Promise<InventoryProjection>;
   calculateQuoteSkewBps(input: InventorySkewInput): number | Promise<number>;
   getPosition(chainId: number, token: Address): InventoryPosition | Promise<InventoryPosition>;
+  listPositions?(chainId: number): InventoryPosition[] | Promise<InventoryPosition[]>;
 }
 
 export class InventoryService implements IInventoryService {
@@ -123,6 +124,21 @@ export class InventoryService implements IInventoryService {
       token,
       balance: this.balances.get(this.key(chainId, token)) ?? 0n,
     };
+  }
+
+  listPositions(chainId: number): InventoryPosition[] {
+    if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+      throw new Error("Inventory chainId must be a positive safe integer");
+    }
+    const prefix = `${chainId}:`;
+    return [...this.balances.entries()]
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([key, balance]) => ({
+        chainId,
+        token: key.slice(prefix.length) as Address,
+        balance,
+      }))
+      .sort((left, right) => left.token.localeCompare(right.token));
   }
 
   private add(chainId: number, token: Address, delta: bigint): void {

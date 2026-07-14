@@ -73,6 +73,8 @@ erDiagram
     text user_address
     text token_low
     text token_high
+    text token_in
+    numeric amount_in
     text token_out
     numeric amount_out
     numeric notional_usd_e18
@@ -80,6 +82,7 @@ erDiagram
     text treasury_address
     numeric treasury_available_balance
     numeric treasury_block_number
+    jsonb var_evaluation
     timestamptz expires_at
   }
 

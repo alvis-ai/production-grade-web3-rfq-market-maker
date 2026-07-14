@@ -18,6 +18,10 @@ test("InventoryService applies settlement deltas and projects without mutating b
 
   assert.equal(inventory.getPosition(1, tokenIn).balance, 1000000000n);
   assert.equal(inventory.getPosition(1, tokenOut).balance, -998400000n);
+  assert.deepEqual(inventory.listPositions(1), [
+    { chainId: 1, token: tokenIn, balance: 1000000000n },
+    { chainId: 1, token: tokenOut, balance: -998400000n },
+  ]);
 
   const projection = inventory.projectSettlement({
     chainId: 1,

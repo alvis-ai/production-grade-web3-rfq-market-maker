@@ -164,6 +164,29 @@ export class PostgresInventoryService implements IInventoryService {
       client.release();
     }
   }
+
+  async listPositions(chainId: number): Promise<InventoryPosition[]> {
+    if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+      throw new Error("Inventory chainId must be a positive safe integer");
+    }
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT token_address, balance::text AS balance
+         FROM inventory_positions
+         WHERE chain_id = $1
+         ORDER BY token_address`,
+        [chainId],
+      );
+      return result.rows.map((row) => ({
+        chainId,
+        token: String(row.token_address).toLowerCase() as Address,
+        balance: parseBalance(row.balance),
+      }));
+    } finally {
+      client.release();
+    }
+  }
 }
 
 function inventoryPositionId(chainId: number, token: Address): string {

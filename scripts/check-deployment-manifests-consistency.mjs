@@ -665,6 +665,7 @@ assertContains(kubernetesChapter, [
   "Migration 006",
   "`rfq-toxic-flow-analyzer`",
   "Migration 021",
+  "Migration 022",
   "`RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS`",
 ], "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md");
 

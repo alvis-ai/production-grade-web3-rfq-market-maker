@@ -207,3 +207,30 @@ test("InMemoryMarketSnapshotRepository rejects unsafe snapshot lookup identifier
   const stored = await repository.saveSnapshot({ request, snapshot });
   assert.deepEqual(await repository.findBySnapshotId(snapshot.snapshotId), stored);
 });
+
+test("InMemoryMarketSnapshotRepository finds the newest snapshot in either pair direction", async () => {
+  const repository = new InMemoryMarketSnapshotRepository();
+  await repository.saveSnapshot({ request, snapshot });
+  const reverseRequest = {
+    ...request,
+    tokenIn: request.tokenOut,
+    tokenOut: request.tokenIn,
+  };
+  await repository.saveSnapshot({
+    request: reverseRequest,
+    snapshot: {
+      ...snapshot,
+      snapshotId: "snapshot_2_reverse",
+      midPrice: "0.8",
+      observedAt: "2026-06-29T00:00:01.000Z",
+    },
+  });
+
+  const latest = await repository.findLatestForPair(1, request.tokenIn, request.tokenOut);
+  assert.equal(latest.snapshotId, "snapshot_2_reverse");
+  assert.equal(latest.tokenIn, request.tokenOut);
+  await assert.rejects(
+    repository.findLatestForPair(1, request.tokenIn, request.tokenIn),
+    /tokens must be distinct/,
+  );
+});

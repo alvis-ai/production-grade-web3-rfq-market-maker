@@ -112,6 +112,7 @@ const riskRejectReasonCodes = new Set<string>([
   "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED",
   "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED",
   "TREASURY_LIQUIDITY_INSUFFICIENT",
+  "PORTFOLIO_VAR_LIMIT_EXCEEDED",
   "USD_REFERENCE_REQUIRED",
   "SLIPPAGE_TOO_WIDE",
   "QUOTED_SPREAD_TOO_WIDE",
@@ -904,10 +905,12 @@ function assertQuoteExposureReservationResult(
   }
   if (value.status === "reserved") {
     assertOwnFields(value, ["status", "notionalUsdE18"], "exposure reservation result");
-    assertNoUnknownFields(value, ["status", "notionalUsdE18"], "exposure reservation result");
+    assertOptionalOwnField(value, "portfolioVar", "exposure reservation result");
+    assertNoUnknownFields(value, ["status", "notionalUsdE18", "portfolioVar"], "exposure reservation result");
     if (typeof value.notionalUsdE18 !== "string" || !positiveUIntStringPattern.test(value.notionalUsdE18)) {
       throw new Error("Quote service exposure reservation notionalUsdE18 must be a positive uint string");
     }
+    if (value.portfolioVar !== undefined) assertPortfolioVarEvaluation(value.portfolioVar);
     return;
   }
   if (value.status === "rejected") {
@@ -916,13 +919,78 @@ function assertQuoteExposureReservationResult(
     if (
       value.reasonCode !== "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED" &&
       value.reasonCode !== "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED" &&
-      value.reasonCode !== "TREASURY_LIQUIDITY_INSUFFICIENT"
+      value.reasonCode !== "TREASURY_LIQUIDITY_INSUFFICIENT" &&
+      value.reasonCode !== "PORTFOLIO_VAR_LIMIT_EXCEEDED"
     ) {
       throw new Error("Quote service exposure reservation reasonCode is invalid");
     }
     return;
   }
   throw new Error("Quote service exposure reservation status is invalid");
+}
+
+function assertPortfolioVarEvaluation(value: unknown): void {
+  if (!isRecord(value)) throw new Error("Quote service portfolio VaR evaluation must be an object");
+  const fields = [
+    "modelVersion",
+    "horizonSeconds",
+    "preTradeVarUsdE18",
+    "postTradeVarUsdE18",
+    "varLimitUsdE18",
+    "preTradeComponents",
+    "postTradeComponents",
+  ] as const;
+  assertOwnFields(value, fields, "portfolio VaR evaluation");
+  assertNoUnknownFields(value, fields, "portfolio VaR evaluation");
+  if (typeof value.modelVersion !== "string" || !safeIdentifierPattern.test(value.modelVersion)) {
+    throw new Error("Quote service portfolio VaR modelVersion must be a safe identifier");
+  }
+  if (!Number.isSafeInteger(value.horizonSeconds) || Number(value.horizonSeconds) <= 0) {
+    throw new Error("Quote service portfolio VaR horizonSeconds must be a positive safe integer");
+  }
+  for (const field of ["preTradeVarUsdE18", "postTradeVarUsdE18", "varLimitUsdE18"] as const) {
+    if (typeof value[field] !== "string" || !/^(0|[1-9][0-9]*)$/.test(value[field])) {
+      throw new Error(`Quote service portfolio VaR ${field} must be a canonical non-negative integer`);
+    }
+  }
+  if (!Array.isArray(value.preTradeComponents) || !Array.isArray(value.postTradeComponents)) {
+    throw new Error("Quote service portfolio VaR components must be arrays");
+  }
+  for (const component of [...value.preTradeComponents, ...value.postTradeComponents]) {
+    assertPortfolioVarComponent(component);
+  }
+}
+
+function assertPortfolioVarComponent(value: unknown): void {
+  if (!isRecord(value)) throw new Error("Quote service portfolio VaR component must be an object");
+  const fields = [
+    "tokenAddress",
+    "balance",
+    "exposureUsdE18",
+    "volatilityBps",
+    "componentVarUsdE18",
+    "snapshotId",
+  ] as const;
+  assertOwnFields(value, fields, "portfolio VaR component");
+  assertNoUnknownFields(value, fields, "portfolio VaR component");
+  if (typeof value.tokenAddress !== "string" || !/^0x[0-9a-f]{40}$/.test(value.tokenAddress)) {
+    throw new Error("Quote service portfolio VaR tokenAddress must be normalized");
+  }
+  for (const field of ["balance", "exposureUsdE18"] as const) {
+    if (typeof value[field] !== "string" || !/^(0|-?[1-9][0-9]*)$/.test(value[field])) {
+      throw new Error(`Quote service portfolio VaR ${field} must be a canonical integer`);
+    }
+  }
+  if (typeof value.componentVarUsdE18 !== "string" || !/^(0|[1-9][0-9]*)$/.test(value.componentVarUsdE18)) {
+    throw new Error("Quote service portfolio VaR componentVarUsdE18 must be a canonical non-negative integer");
+  }
+  if (!Number.isSafeInteger(value.volatilityBps) || Number(value.volatilityBps) < 0 ||
+      Number(value.volatilityBps) > maxBps) {
+    throw new Error("Quote service portfolio VaR volatilityBps must be an integer from 0 to 10000");
+  }
+  if (typeof value.snapshotId !== "string" || !safeIdentifierPattern.test(value.snapshotId)) {
+    throw new Error("Quote service portfolio VaR snapshotId must be a safe identifier");
+  }
 }
 
 function assertNoUnknownFields(value: object, fields: readonly string[], path: string): void {

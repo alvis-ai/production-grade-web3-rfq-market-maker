@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ConfiguredTokenRegistry } from "../dist/modules/pricing/token-registry.js";
+import { InventoryService } from "../dist/modules/inventory/inventory.service.js";
+import { InMemoryMarketSnapshotRepository } from "../dist/modules/market-data/market-snapshot.repository.js";
 import {
   InMemoryQuoteExposureStore,
   normalizeQuoteExposurePolicy,
@@ -97,6 +99,48 @@ test("InMemoryQuoteExposureStore rounds sub-E18 USD reference units up", async (
   assert.deepEqual(result, { status: "reserved", notionalUsdE18: "1" });
 });
 
+test("InMemoryQuoteExposureStore serializes concurrent portfolio VaR reservations", async () => {
+  const now = 1_700_000_000;
+  const tokenRegistry = registry([
+    token(tokenA, 6, false),
+    token(tokenB, 18, true),
+  ]);
+  const marketSnapshotStore = new InMemoryMarketSnapshotRepository();
+  await marketSnapshotStore.saveSnapshot({
+    request: request(userA, tokenA, tokenB, "100000000"),
+    snapshot: {
+      snapshotId: "portfolio_var_snapshot",
+      midPrice: "1.01",
+      liquidityUsd: "1000000",
+      marketSpreadBps: 10,
+      volatilityBps: 1_000,
+      observedAt: new Date(now * 1_000).toISOString(),
+    },
+  });
+  const store = new InMemoryQuoteExposureStore(
+    {
+      ...policy("1000", "1000"),
+      portfolioVar: portfolioVarPolicy("30"),
+    },
+    tokenRegistry,
+    () => now,
+    { inventoryService: new InventoryService(), marketSnapshotStore },
+  );
+
+  const results = await Promise.all([
+    store.reserve(input("q_var_concurrent_1", userA, now + 30)),
+    store.reserve(input("q_var_concurrent_2", userB, now + 30)),
+  ]);
+  assert.equal(results.filter((result) => result.status === "reserved").length, 1);
+  assert.deepEqual(results.find((result) => result.status === "rejected"), {
+    status: "rejected",
+    reasonCode: "PORTFOLIO_VAR_LIMIT_EXCEEDED",
+  });
+  const reserved = results.find((result) => result.status === "reserved");
+  assert.equal(reserved.portfolioVar.preTradeVarUsdE18, "0");
+  assert.equal(reserved.portfolioVar.postTradeVarUsdE18, "20200000000000000000");
+});
+
 test("quote exposure policy validates independent user and pair limits", () => {
   assert.deepEqual(
     normalizeQuoteExposurePolicy({ maxUserOpenNotionalUsd: "200", maxPairOpenNotionalUsd: "100" }),
@@ -175,6 +219,22 @@ function policy(maxUserOpenNotionalUsd, maxPairOpenNotionalUsd) {
 
 function registry(tokens = [token(tokenA, 6, true), token(tokenB, 18, true)]) {
   return new ConfiguredTokenRegistry({ tokens });
+}
+
+function portfolioVarPolicy(maxPortfolioVarUsd) {
+  return {
+    modelVersion: "component-sum-v1",
+    maxPortfolioVarUsd,
+    confidenceMultiplierBps: 20_000,
+    horizonSeconds: 86_400,
+    maxSnapshotAgeMs: 5_000,
+    maxFutureSkewMs: 5_000,
+    valuationPairs: [{
+      chainId: 1,
+      tokenAddress: tokenA,
+      usdReferenceTokenAddress: tokenB,
+    }],
+  };
 }
 
 function token(tokenAddress, decimals, usdReference) {

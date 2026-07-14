@@ -86,6 +86,10 @@ const toxicFlowMarkoutMigrationSource = await readFile(
   "backend/src/db/migrations/021-toxic-flow-markouts.sql",
   "utf8",
 );
+const portfolioVarMigrationSource = await readFile(
+  "backend/src/db/migrations/022-portfolio-var-reservations.sql",
+  "utf8",
+);
 const postgresQuoteControlSource = await readFile(
   "backend/src/modules/quote-control/postgres-quote-control.store.ts",
   "utf8",
@@ -304,7 +308,12 @@ const requiredTables = {
     "user_address",
     "token_low",
     "token_high",
+    "token_in",
+    "amount_in",
+    "token_out",
+    "amount_out",
     "notional_usd_e18",
+    "var_evaluation",
     "expires_at",
   ],
   quote_control: ["singleton", "paused", "version", "reason", "updated_by", "updated_at"],
@@ -512,6 +521,9 @@ const requiredCheckConstraints = {
     ["chk_quote_exposure_chain_id", "quote exposure must constrain chain id"],
     ["chk_quote_exposure_addresses", "quote exposure must constrain normalized scope addresses"],
     ["chk_quote_exposure_notional", "quote exposure must constrain positive notional"],
+    ["chk_quote_exposure_input", "quote exposure must constrain directional input"],
+    ["chk_quote_exposure_output", "quote exposure must constrain directional output"],
+    ["chk_quote_exposure_var_evaluation", "quote exposure must constrain portfolio VaR evidence"],
   ],
   quote_control: [
     ["chk_quote_control_version", "quote control must constrain version to JavaScript safe integer range"],
@@ -1485,6 +1497,16 @@ assert.ok(
   "toxic-flow markout migration and docs must install a reorg-aware durable analysis queue",
 );
 assert.ok(
+  portfolioVarMigrationSource.includes("ADD COLUMN IF NOT EXISTS token_in") &&
+    portfolioVarMigrationSource.includes("ADD COLUMN IF NOT EXISTS amount_in") &&
+    portfolioVarMigrationSource.includes("ADD COLUMN IF NOT EXISTS var_evaluation JSONB") &&
+    portfolioVarMigrationSource.includes("chk_quote_exposure_var_evaluation") &&
+    portfolioVarMigrationSource.includes("PORTFOLIO_VAR_LIMIT_EXCEEDED") &&
+    schemaSource.includes("('022', 'portfolio-var-reservations')") &&
+    erDiagramSource.includes("jsonb var_evaluation"),
+  "portfolio VaR migration must persist directional quote deltas and replayable risk evidence",
+);
+assert.ok(
   postgresToxicFlowMarkoutSource.includes("async claimNext") &&
     postgresToxicFlowMarkoutSource.includes("FOR UPDATE SKIP LOCKED") &&
     postgresToxicFlowMarkoutSource.includes("async findPostTradeSnapshot") &&
@@ -1498,15 +1520,17 @@ assert.ok(
 );
 assert.ok(
   postgresQuoteExposureSource.includes("pg_advisory_xact_lock") &&
-    postgresQuoteExposureSource.includes("exposureLockScopes(reservation).sort()") &&
+    postgresQuoteExposureSource.includes("exposureLockScopes(reservation, this.portfolioVarEvaluator !== undefined).sort()") &&
     postgresQuoteExposureSource.includes("for (const scope of scopes)") &&
     postgresQuoteExposureSource.includes("expires_at > now()") &&
     postgresQuoteExposureSource.includes("quote.status IN ('requested', 'signed', 'failed')") &&
-    postgresQuoteExposureSource.includes("WHERE to_timestamp($13) > now()") &&
+    postgresQuoteExposureSource.includes("WHERE to_timestamp($16) > now()") &&
     postgresQuoteExposureSource.includes("FOR UPDATE SKIP LOCKED") &&
     postgresQuoteExposureSource.includes("SUM(exposure.notional_usd_e18)") &&
     postgresQuoteExposureSource.includes("SUM(amount_out)") &&
     postgresQuoteExposureSource.includes("quote-liquidity:") &&
+    postgresQuoteExposureSource.includes("quote-exposure:portfolio:") &&
+    postgresQuoteExposureSource.includes("var_evaluation") &&
     backendMainSource.includes("resolveQuoteExposureStore") &&
     backendMainSource.includes("quoteExposureStore") &&
     backendMainSource.includes("buildRuntimeTreasuryLiquidityProvider") &&

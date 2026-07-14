@@ -87,6 +87,23 @@ test("PostgresMarketSnapshotStore validates snapshots before opening a database 
   assert.equal(queries.length, 0);
 });
 
+test("PostgresMarketSnapshotStore reads the latest snapshot across pair directions", async () => {
+  const { pool, queries } = fakePool(async (sql, params) => {
+    assert.match(sql, /ORDER BY observed_at DESC, id DESC/);
+    assert.match(sql, /lower\(token_in\)/);
+    assert.deepEqual(params, [1, input.request.tokenIn, input.request.tokenOut]);
+    return { rows: [snapshotRow()], rowCount: 1 };
+  });
+
+  const latest = await new PostgresMarketSnapshotStore(pool).findLatestForPair(
+    1,
+    input.request.tokenIn,
+    input.request.tokenOut,
+  );
+  assert.equal(latest.snapshotId, input.snapshot.snapshotId);
+  assert.equal(queries.length, 1);
+});
+
 function snapshotRow(overrides = {}) {
   return {
     id: input.snapshot.snapshotId,

@@ -115,7 +115,7 @@ test("RFQ API fails startup on malformed, unknown-token, and incomplete risk pol
     const incompletePolicy = riskPolicy();
     incompletePolicy.tokenLimits = incompletePolicy.tokenLimits.slice(0, 1);
     process.env.RFQ_RISK_POLICY_JSON = JSON.stringify(incompletePolicy);
-    assert.throws(() => buildServer({ logger: false }), /no tokenOut limit for managed pair/);
+    assert.throws(() => buildServer({ logger: false }), /USD reference must have a token risk limit/);
 
     const noUsdRegistry = tokenRegistry();
     noUsdRegistry.tokens = noUsdRegistry.tokens.map((token) => ({ ...token, usdReference: false }));
@@ -128,7 +128,7 @@ test("RFQ API fails startup on malformed, unknown-token, and incomplete risk pol
           throw new Error("not used during startup");
         },
       },
-    }), /must include at least one USD-reference token/);
+    }), /must be a USD-reference token/);
   } finally {
     restoreEnv("RFQ_TOKEN_REGISTRY_JSON", originalRegistry);
     restoreEnv("RFQ_RISK_POLICY_JSON", originalPolicy);
@@ -318,6 +318,56 @@ test("RFQ API atomically limits cumulative user and pair open quote notional", a
   }
 });
 
+test("RFQ API rejects portfolio VaR before invoking the signer", async () => {
+  const originalRegistry = process.env.RFQ_TOKEN_REGISTRY_JSON;
+  const originalPolicy = process.env.RFQ_RISK_POLICY_JSON;
+  process.env.RFQ_TOKEN_REGISTRY_JSON = JSON.stringify(tokenRegistry());
+  const configuredPolicy = riskPolicy();
+  configuredPolicy.portfolioVar.maxPortfolioVarUsd = "10";
+  process.env.RFQ_RISK_POLICY_JSON = JSON.stringify(configuredPolicy);
+  const server = buildServer({
+    logger: false,
+    marketDataService: {
+      async getSnapshot() {
+        return {
+          snapshotId: "snapshot_portfolio_var_limit",
+          midPrice: "2000",
+          liquidityUsd: "50000000",
+          marketSpreadBps: 0,
+          volatilityBps: 25,
+          observedAt: new Date().toISOString(),
+        };
+      },
+    },
+  });
+
+  try {
+    await server.ready();
+    const response = await server.inject({
+      method: "POST",
+      url: "/quote",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({
+        chainId: 1,
+        user,
+        tokenIn: weth,
+        tokenOut: usdc,
+        amountIn: "1000000000000000000",
+        slippageBps: 50,
+      }),
+    });
+    assert.equal(response.statusCode, 409, response.payload);
+    assert.equal(JSON.parse(response.payload).code, "RISK_REJECTED");
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="PORTFOLIO_VAR_LIMIT_EXCEEDED"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+  } finally {
+    await server.close();
+    restoreEnv("RFQ_TOKEN_REGISTRY_JSON", originalRegistry);
+    restoreEnv("RFQ_RISK_POLICY_JSON", originalPolicy);
+  }
+});
+
 function tokenRegistry() {
   return {
     tokens: [
@@ -370,6 +420,19 @@ function riskPolicy() {
     maxToxicScoreBps: 8000,
     maxUserOpenNotionalUsd: "2000000",
     maxPairOpenNotionalUsd: "5000000",
+    portfolioVar: {
+      modelVersion: "component-sum-v1",
+      maxPortfolioVarUsd: "500000",
+      confidenceMultiplierBps: 23_300,
+      horizonSeconds: 86_400,
+      maxSnapshotAgeMs: 5_000,
+      maxFutureSkewMs: 5_000,
+      valuationPairs: [{
+        chainId: 1,
+        tokenAddress: weth,
+        usdReferenceTokenAddress: usdc,
+      }],
+    },
     minLiquidityUsd: "1000000",
     maxVolatilityBps: 500,
     maxSlippageBps: 500,

@@ -129,17 +129,18 @@ export function buildServer(options: BuildServerOptions = {}) {
     toxicFlowScoreStore,
     readDynamicToxicFlowRiskConfig(defaultRiskEngine!.getMaxToxicScoreBps()),
   );
+  const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
+  const inMemoryInventoryService = postgresPool ? undefined : new InventoryService();
+  const inventoryService: IInventoryService = postgresInventoryService ?? inMemoryInventoryService!;
   const quoteExposureStore = resolveQuoteExposureStore(
     options.quoteExposureStore,
     postgresPool,
     defaultRiskEngine,
     runtimeTokenRegistry,
+    { inventoryService, marketSnapshotStore },
   );
   const treasuryLiquidityProvider = options.treasuryLiquidityProvider ??
     buildRuntimeTreasuryLiquidityProvider();
-  const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
-  const inMemoryInventoryService = postgresPool ? undefined : new InventoryService();
-  const inventoryService: IInventoryService = postgresInventoryService ?? inMemoryInventoryService!;
   const postgresSettlementEventStore = postgresPool && options.settlementEventService === undefined
     ? new PostgresSettlementEventStore(postgresPool, postgresInventoryService!)
     : undefined;

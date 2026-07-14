@@ -119,6 +119,7 @@ stateDiagram-v2
 - token address 必须与 chainId 共同构成授权键；不能因为同一地址在另一个 enabled chain 获准就跨链放行。
 - `RFQ_RISK_POLICY_JSON` 和 `RFQ_TOKEN_REGISTRY_JSON` 必须在启动时双向覆盖 active pair；raw-unit 限额不得跨 decimals token 复用。
 - `maxUserOpenNotionalUsd` 与 `maxPairOpenNotionalUsd` 是独立正整数阈值；累计 user/pair 门禁必须在签名前完成原子预留。
+- `portfolioVar` 对所有非 USD 风险 token 要求显式 valuation pair。组合状态是 `inventory_positions + active quote reservations + candidate`；PostgreSQL 以 chain advisory lock 和 inventory `SHARE` lock 防止并发穿透，超限稳定返回 `PORTFOLIO_VAR_LIMIT_EXCEEDED`。
 
 ## Failure Scenarios
 

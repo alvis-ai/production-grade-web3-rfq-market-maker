@@ -14,6 +14,11 @@ import {
   type ToxicFlowScore,
 } from "./risk.engine.js";
 import type { QuoteExposurePolicy } from "./quote-exposure.store.js";
+import {
+  assertPortfolioVarPolicy,
+  normalizePortfolioVarPolicy,
+  type PortfolioVarPolicy,
+} from "./portfolio-var.js";
 
 export interface TokenRiskLimit {
   chainId: number;
@@ -33,6 +38,7 @@ export interface TokenLimitRiskPolicy {
   maxToxicScoreBps: number;
   maxUserOpenNotionalUsd: string;
   maxPairOpenNotionalUsd: string;
+  portfolioVar: PortfolioVarPolicy;
   minLiquidityUsd: string;
   maxVolatilityBps: number;
   maxSlippageBps: number;
@@ -74,6 +80,19 @@ export const defaultTokenLimitRiskPolicy: TokenLimitRiskPolicy = {
   maxToxicScoreBps: 8_000,
   maxUserOpenNotionalUsd: "2000000",
   maxPairOpenNotionalUsd: "5000000",
+  portfolioVar: {
+    modelVersion: "component-sum-v1",
+    maxPortfolioVarUsd: "500000",
+    confidenceMultiplierBps: 23_300,
+    horizonSeconds: 86_400,
+    maxSnapshotAgeMs: 5_000,
+    maxFutureSkewMs: 5_000,
+    valuationPairs: [{
+      chainId: 1,
+      tokenAddress: "0x0000000000000000000000000000000000000002",
+      usdReferenceTokenAddress: "0x0000000000000000000000000000000000000003",
+    }],
+  },
   minLiquidityUsd: "1000000",
   maxVolatilityBps: 500,
   maxSlippageBps: 500,
@@ -89,6 +108,7 @@ const policyFields = [
   "maxToxicScoreBps",
   "maxUserOpenNotionalUsd",
   "maxPairOpenNotionalUsd",
+  "portfolioVar",
   "minLiquidityUsd",
   "maxVolatilityBps",
   "maxSlippageBps",
@@ -135,6 +155,23 @@ export class TokenLimitRiskEngine implements RiskEngine {
         metadata: requireTokenMetadata(tokenRegistry, limit.chainId, limit.tokenAddress, "Risk policy"),
       },
     ]));
+    const portfolioVar = normalizePortfolioVarPolicy(this.policy.portfolioVar, tokenRegistry);
+    const valuationAssets = new Set(
+      portfolioVar.valuationPairs.map((pair) => tokenLimitKey(pair.chainId, pair.tokenAddress)),
+    );
+    for (const [key, limit] of this.limitsByToken) {
+      if (!limit.metadata.usdReference && !valuationAssets.has(key)) {
+        throw new Error(`Portfolio VaR policy has no valuation pair for risk token ${key}`);
+      }
+    }
+    for (const pair of portfolioVar.valuationPairs) {
+      if (!this.limitsByToken.has(tokenLimitKey(pair.chainId, pair.tokenAddress))) {
+        throw new Error("Portfolio VaR valuation asset must have a token risk limit");
+      }
+      if (!this.limitsByToken.has(tokenLimitKey(pair.chainId, pair.usdReferenceTokenAddress))) {
+        throw new Error("Portfolio VaR USD reference must have a token risk limit");
+      }
+    }
     this.restrictedUsers = new Set(this.policy.restrictedUsers.map((user) => user.toLowerCase()));
     this.toxicFlowScores = new Map(
       this.policy.toxicFlowScores.map((score) => [score.user.toLowerCase(), score.scoreBps]),
@@ -151,6 +188,7 @@ export class TokenLimitRiskEngine implements RiskEngine {
     return {
       maxUserOpenNotionalUsd: this.policy.maxUserOpenNotionalUsd,
       maxPairOpenNotionalUsd: this.policy.maxPairOpenNotionalUsd,
+      portfolioVar: clonePortfolioVarPolicy(this.policy.portfolioVar),
     };
   }
 
@@ -260,6 +298,7 @@ export function assertTokenLimitRiskPolicy(value: unknown): asserts value is Tok
     value.maxPairOpenNotionalUsd,
     "Token limit risk policy.maxPairOpenNotionalUsd",
   );
+  assertPortfolioVarPolicy(value.portfolioVar);
   assertPositiveUint256String(value.minLiquidityUsd, "Token limit risk policy.minLiquidityUsd");
   assertBps(value.maxVolatilityBps, "Token limit risk policy.maxVolatilityBps");
   assertBps(value.maxSlippageBps, "Token limit risk policy.maxSlippageBps");
@@ -352,6 +391,18 @@ function cloneTokenLimitRiskPolicy(policy: TokenLimitRiskPolicy): TokenLimitRisk
     toxicFlowScores: policy.toxicFlowScores.map((score) => ({
       ...score,
       user: score.user.toLowerCase() as Address,
+    })),
+    portfolioVar: clonePortfolioVarPolicy(policy.portfolioVar),
+  };
+}
+
+function clonePortfolioVarPolicy(policy: PortfolioVarPolicy): PortfolioVarPolicy {
+  return {
+    ...policy,
+    valuationPairs: policy.valuationPairs.map((pair) => ({
+      ...pair,
+      tokenAddress: pair.tokenAddress.toLowerCase() as Address,
+      usdReferenceTokenAddress: pair.usdReferenceTokenAddress.toLowerCase() as Address,
     })),
   };
 }

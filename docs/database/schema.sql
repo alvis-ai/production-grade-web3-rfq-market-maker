@@ -209,6 +209,8 @@ CREATE TABLE quote_exposure_reservations (
   user_address TEXT NOT NULL,
   token_low TEXT NOT NULL,
   token_high TEXT NOT NULL,
+  token_in TEXT NOT NULL,
+  amount_in NUMERIC(78, 0) NOT NULL,
   token_out TEXT NOT NULL,
   amount_out NUMERIC(78, 0) NOT NULL,
   notional_usd_e18 NUMERIC(96, 0) NOT NULL,
@@ -216,6 +218,7 @@ CREATE TABLE quote_exposure_reservations (
   treasury_address TEXT,
   treasury_available_balance NUMERIC(78, 0),
   treasury_block_number NUMERIC(78, 0),
+  var_evaluation JSONB,
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_quote_exposure_chain_id CHECK (chain_id BETWEEN 1 AND 9007199254740991),
@@ -228,6 +231,35 @@ CREATE TABLE quote_exposure_reservations (
   CONSTRAINT chk_quote_exposure_notional CHECK (notional_usd_e18 > 0),
   CONSTRAINT chk_quote_exposure_output CHECK (
     token_out ~ '^0x[0-9a-f]{40}$' AND amount_out > 0
+  ),
+  CONSTRAINT chk_quote_exposure_input CHECK (
+    token_in ~ '^0x[0-9a-f]{40}$' AND amount_in > 0 AND token_in <> token_out
+  ),
+  CONSTRAINT chk_quote_exposure_var_evaluation CHECK (
+    var_evaluation IS NULL
+    OR (
+      jsonb_typeof(var_evaluation) = 'object'
+      AND var_evaluation ?& ARRAY[
+        'modelVersion',
+        'horizonSeconds',
+        'preTradeVarUsdE18',
+        'postTradeVarUsdE18',
+        'varLimitUsdE18',
+        'preTradeComponents',
+        'postTradeComponents'
+      ]
+      AND (var_evaluation - ARRAY[
+        'modelVersion',
+        'horizonSeconds',
+        'preTradeVarUsdE18',
+        'postTradeVarUsdE18',
+        'varLimitUsdE18',
+        'preTradeComponents',
+        'postTradeComponents'
+      ]) = '{}'::jsonb
+      AND jsonb_typeof(var_evaluation->'preTradeComponents') = 'array'
+      AND jsonb_typeof(var_evaluation->'postTradeComponents') = 'array'
+    )
   ),
   CONSTRAINT chk_quote_exposure_treasury_evidence CHECK (
     (
@@ -339,6 +371,7 @@ CREATE TABLE risk_decisions (
         'USER_OPEN_NOTIONAL_LIMIT_EXCEEDED',
         'PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED',
         'TREASURY_LIQUIDITY_INSUFFICIENT',
+        'PORTFOLIO_VAR_LIMIT_EXCEEDED',
         'USD_REFERENCE_REQUIRED',
         'SLIPPAGE_TOO_WIDE',
         'QUOTED_SPREAD_TOO_WIDE',
@@ -1686,4 +1719,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('018', 'quote-control'),
   ('019', 'pair-quote-control'),
   ('020', 'toxic-flow-scores'),
-  ('021', 'toxic-flow-markouts');
+  ('021', 'toxic-flow-markouts'),
+  ('022', 'portfolio-var-reservations');

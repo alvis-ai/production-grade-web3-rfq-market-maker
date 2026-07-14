@@ -820,6 +820,7 @@ test -s backend/src/db/migrations/013-market-spread-attribution.sql
 test -s backend/src/db/migrations/014-hedge-execution-evidence.sql
 test -s backend/src/db/migrations/015-hedge-fee-reconciliation.sql
 test -s backend/src/db/migrations/016-treasury-liquidity-reservations.sql
+test -s backend/src/db/migrations/022-portfolio-var-reservations.sql
 test -s backend/src/db/migrations/017-quote-principal-ownership.sql
 test -s backend/src/modules/risk/treasury-liquidity.provider.ts
 test -s backend/src/modules/hedge/hedge-fee-worker.ts
@@ -828,8 +829,17 @@ test -s backend/test/hedge-fee-worker.test.mjs
 test -s backend/test/postgres-hedge-fee-store.test.mjs
 test -s backend/src/modules/risk/quote-exposure.store.ts
 test -s backend/src/modules/risk/postgres-quote-exposure.store.ts
+test -s backend/src/modules/risk/portfolio-var.ts
+test -s backend/src/modules/risk/in-memory-portfolio-var.ts
+test -s backend/src/modules/risk/postgres-portfolio-var.ts
 test -s backend/test/quote-exposure-store.test.mjs
 test -s backend/test/postgres-quote-exposure-store.test.mjs
+test -s backend/test/portfolio-var.test.mjs
+grep -q 'PORTFOLIO_VAR_LIMIT_EXCEEDED' backend/src/modules/risk/risk.engine.ts
+grep -q 'quote-exposure:portfolio:' backend/src/modules/risk/postgres-quote-exposure.store.ts
+grep -q 'LOCK TABLE inventory_positions IN SHARE MODE' backend/src/modules/risk/postgres-portfolio-var.ts
+grep -q 'var_evaluation' docs/database/schema.sql
+grep -q "('022', 'portfolio-var-reservations')" docs/database/schema.sql
 test -s backend/test/submit-reservation-store.test.mjs
 test -s backend/test/postgres-submit-reservation-store.test.mjs
 test -s backend/test/api-submit-reservation.test.mjs
@@ -3385,6 +3395,7 @@ grep -q 'rfq_quote_responses_total' book/Volume7-ProductionDeployment/Chapter05-
 grep -q 'RFQQuoteLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteRiskRejectSpike' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQTreasuryLiquidityInsufficient' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQPortfolioVarLimitExceeded' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQRiskDependencyUnavailable' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'TREASURY_LIQUIDITY_INSUFFICIENT' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQSignerErrors' infra/prometheus/rules/rfq-alerts.yml

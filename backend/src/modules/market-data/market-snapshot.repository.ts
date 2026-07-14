@@ -41,6 +41,11 @@ export interface MarketSnapshotStore {
   checkHealth?(): void | Promise<void>;
   saveSnapshot(input: SaveMarketSnapshotInput): Promise<MarketSnapshotRecord>;
   findBySnapshotId(snapshotId: string): Promise<MarketSnapshotRecord | undefined>;
+  findLatestForPair?(
+    chainId: number,
+    tokenA: Address,
+    tokenB: Address,
+  ): Promise<MarketSnapshotRecord | undefined>;
 }
 
 export class InMemoryMarketSnapshotRepository implements MarketSnapshotStore {
@@ -69,6 +74,44 @@ export class InMemoryMarketSnapshotRepository implements MarketSnapshotStore {
     assertMarketSnapshotIdentifier(snapshotId, "snapshotId");
     const record = this.recordsBySnapshotId.get(snapshotId);
     return record ? cloneMarketSnapshotRecord(record) : undefined;
+  }
+
+  async findLatestForPair(
+    chainId: number,
+    tokenA: Address,
+    tokenB: Address,
+  ): Promise<MarketSnapshotRecord | undefined> {
+    assertMarketSnapshotPair(chainId, tokenA, tokenB);
+    const normalizedA = tokenA.toLowerCase();
+    const normalizedB = tokenB.toLowerCase();
+    let latest: MarketSnapshotRecord | undefined;
+    for (const record of this.recordsBySnapshotId.values()) {
+      if (record.chainId !== chainId) continue;
+      const tokenIn = record.tokenIn.toLowerCase();
+      const tokenOut = record.tokenOut.toLowerCase();
+      if (!(
+        (tokenIn === normalizedA && tokenOut === normalizedB) ||
+        (tokenIn === normalizedB && tokenOut === normalizedA)
+      )) continue;
+      if (!latest || record.observedAt > latest.observedAt ||
+          (record.observedAt === latest.observedAt && record.snapshotId > latest.snapshotId)) {
+        latest = record;
+      }
+    }
+    return latest ? cloneMarketSnapshotRecord(latest) : undefined;
+  }
+}
+
+export function assertMarketSnapshotPair(chainId: number, tokenA: Address, tokenB: Address): void {
+  if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+    throw new Error("Market snapshot pair chainId must be a positive safe integer");
+  }
+  if (typeof tokenA !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(tokenA) ||
+      typeof tokenB !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(tokenB)) {
+    throw new Error("Market snapshot pair tokens must be 20-byte hex addresses");
+  }
+  if (tokenA.toLowerCase() === tokenB.toLowerCase()) {
+    throw new Error("Market snapshot pair tokens must be distinct");
   }
 }
 

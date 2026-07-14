@@ -57,6 +57,7 @@
 - 所有错误响应必须包含 `traceId`，并且 `ErrorResponse` 是闭合 schema，只允许 `code`、`message` 和 `traceId` 三个字段。
 - 风控拒绝应记录内部 `reasonCode` 和 `policyVersion`，但对外只返回通用说明。
 - Treasury 余额不足使用内部 `TREASURY_LIQUIDITY_INSUFFICIENT`；RPC/合约读取异常使用 `RISK_ENGINE_UNAVAILABLE`。两者对外仍保持闭合的 `RISK_REJECTED`，不得暴露资金阈值或 custody 地址细节。
+- Portfolio VaR 超限使用内部 `PORTFOLIO_VAR_LIMIT_EXCEEDED`；估值 snapshot、inventory 或 reservation 状态不可用则使用 `RISK_ENGINE_UNAVAILABLE`。公共响应不得暴露 VaR budget、position、volatility 或 snapshot 细节。
 - `RATE_LIMITED` 响应必须返回 HTTP 429，并带 `Retry-After` header。
 - 依赖不可用使用 503，业务状态冲突使用 409。
 - 框架级解析错误也必须映射为结构化 `ErrorResponse`，包括 malformed JSON、body too large 和 unsupported content type。

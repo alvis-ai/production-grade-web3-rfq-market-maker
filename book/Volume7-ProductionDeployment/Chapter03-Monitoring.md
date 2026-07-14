@@ -103,7 +103,7 @@ Key metrics include:
 - `rfq_quote_responses_total`
 - `rfq_quote_errors_total`
 - `rfq_quote_latency_seconds`
-- `rfq_quote_rejections_total` with bounded `reason`; alert separately on `TREASURY_LIQUIDITY_INSUFFICIENT` and `RISK_ENGINE_UNAVAILABLE`
+- `rfq_quote_rejections_total` with bounded `reason`; alert separately on `TREASURY_LIQUIDITY_INSUFFICIENT`, `PORTFOLIO_VAR_LIMIT_EXCEEDED` and `RISK_ENGINE_UNAVAILABLE`
 - `rfq_quote_paused`
 - `rfq_quote_pairs_paused` without chain or token labels
 - `rfq_quote_control_updates_total` for successful global or pair CAS updates

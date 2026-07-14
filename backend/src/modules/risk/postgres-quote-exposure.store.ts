@@ -10,6 +10,8 @@ import {
   type QuoteExposureStore,
   type ReserveQuoteExposureInput,
 } from "./quote-exposure.store.js";
+import { PostgresPortfolioVarEvaluator } from "./postgres-portfolio-var.js";
+import type { PortfolioVarEvaluation } from "./portfolio-var.js";
 
 interface ExposureTotalsRow {
   user_open_notional_usd_e18: string;
@@ -23,6 +25,7 @@ interface OutputReservationTotalRow {
 export class PostgresQuoteExposureStore implements QuoteExposureStore {
   private readonly maxUserOpenNotionalUsdE18: bigint;
   private readonly maxPairOpenNotionalUsdE18: bigint;
+  private readonly portfolioVarEvaluator?: PostgresPortfolioVarEvaluator;
 
   constructor(
     private readonly pool: pg.Pool,
@@ -39,6 +42,13 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
     const limits = normalizeQuoteExposurePolicy(policy);
     this.maxUserOpenNotionalUsdE18 = limits.maxUserOpenNotionalUsdE18;
     this.maxPairOpenNotionalUsdE18 = limits.maxPairOpenNotionalUsdE18;
+    if (policy.portfolioVar) {
+      this.portfolioVarEvaluator = new PostgresPortfolioVarEvaluator(
+        policy.portfolioVar,
+        tokenRegistry,
+        () => this.nowSeconds() * 1_000,
+      );
+    }
   }
 
   async checkHealth(): Promise<void> {
@@ -57,7 +67,7 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
     try {
       await client.query("BEGIN");
       transactionOpen = true;
-      const scopes = exposureLockScopes(reservation).sort();
+      const scopes = exposureLockScopes(reservation, this.portfolioVarEvaluator !== undefined).sort();
       for (const scope of scopes) {
         await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [scope]);
       }
@@ -75,11 +85,13 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
 
       const existingResult = await client.query(
         `SELECT exposure.quote_id, exposure.chain_id, exposure.user_address,
-          exposure.token_low, exposure.token_high, exposure.token_out,
+          exposure.token_low, exposure.token_high, exposure.token_in,
+          exposure.amount_in::text, exposure.token_out,
           exposure.amount_out::text, exposure.notional_usd_e18::text,
           exposure.settlement_address, exposure.treasury_address,
           exposure.treasury_available_balance::text,
           exposure.treasury_block_number::text,
+          exposure.var_evaluation,
           extract(epoch FROM exposure.expires_at)::bigint::text AS deadline,
           exposure.expires_at > now() AND quote.status IN ('requested', 'signed', 'failed') AS active
          FROM quote_exposure_reservations exposure
@@ -95,7 +107,12 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
         assertSameReservation(normalizeReservationRow(existingResult.rows[0]), reservation);
         await client.query("COMMIT");
         transactionOpen = false;
-        return { status: "reserved", notionalUsdE18: reservation.notionalUsdE18.toString() };
+        const portfolioVar = normalizeOptionalPortfolioVar(existingResult.rows[0].var_evaluation);
+        return {
+          status: "reserved",
+          notionalUsdE18: reservation.notionalUsdE18.toString(),
+          ...(portfolioVar ? { portfolioVar } : {}),
+        };
       }
 
       const totalsResult = await client.query<ExposureTotalsRow>(
@@ -146,14 +163,26 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
         }
       }
 
+      let portfolioVar: PortfolioVarEvaluation | undefined;
+      if (this.portfolioVarEvaluator) {
+        portfolioVar = await this.portfolioVarEvaluator.evaluate(client, reservation);
+        if (this.portfolioVarEvaluator.exceedsLimit(portfolioVar)) {
+          await client.query("ROLLBACK");
+          transactionOpen = false;
+          return { status: "rejected", reasonCode: "PORTFOLIO_VAR_LIMIT_EXCEEDED" };
+        }
+      }
+
       const insertResult = await client.query(
         `INSERT INTO quote_exposure_reservations (
-          quote_id, chain_id, user_address, token_low, token_high, token_out, amount_out,
+          quote_id, chain_id, user_address, token_low, token_high, token_in, amount_in,
+          token_out, amount_out,
           notional_usd_e18, settlement_address, treasury_address,
-          treasury_available_balance, treasury_block_number, expires_at
+          treasury_available_balance, treasury_block_number, var_evaluation, expires_at
         )
-        SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, to_timestamp($13)
-        WHERE to_timestamp($13) > now()
+        SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+          $15::jsonb, to_timestamp($16)
+        WHERE to_timestamp($16) > now()
           AND EXISTS (SELECT 1 FROM quotes WHERE id = $1 AND status = 'requested')
         RETURNING quote_id`,
         [
@@ -162,6 +191,8 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
           reservation.user,
           reservation.tokenLow,
           reservation.tokenHigh,
+          reservation.tokenIn,
+          reservation.amountIn.toString(),
           reservation.tokenOut,
           reservation.amountOut.toString(),
           reservation.notionalUsdE18.toString(),
@@ -169,6 +200,7 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
           reservation.treasuryLiquidity?.treasuryAddress ?? null,
           reservation.treasuryLiquidity?.availableBalance.toString() ?? null,
           reservation.treasuryLiquidity?.blockNumber.toString() ?? null,
+          portfolioVar ? JSON.stringify(portfolioVar) : null,
           reservation.deadline,
         ],
       );
@@ -177,7 +209,11 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
       }
       await client.query("COMMIT");
       transactionOpen = false;
-      return { status: "reserved", notionalUsdE18: reservation.notionalUsdE18.toString() };
+      return {
+        status: "reserved",
+        notionalUsdE18: reservation.notionalUsdE18.toString(),
+        ...(portfolioVar ? { portfolioVar } : {}),
+      };
     } catch (error) {
       if (transactionOpen) {
         try {
@@ -197,20 +233,52 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
       throw new Error("Postgres quote exposure quoteId must be a safe identifier");
     }
     const client = await this.pool.connect();
+    let transactionOpen = false;
     try {
+      await client.query("BEGIN");
+      transactionOpen = true;
+      const chainResult = await client.query(
+        "SELECT chain_id FROM quote_exposure_reservations WHERE quote_id = $1",
+        [quoteId],
+      );
+      const chainId = chainResult.rows.length === 0
+        ? undefined
+        : parsePositiveSafeInteger(chainResult.rows[0]?.chain_id, "release chain_id");
+      const lockScopes = [
+        `quote-exposure:quote:${quoteId}`,
+        ...(chainId !== undefined && this.portfolioVarEvaluator
+          ? [`quote-exposure:portfolio:${chainId}`]
+          : []),
+      ].sort();
+      for (const scope of lockScopes) {
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [scope]);
+      }
       await client.query("DELETE FROM quote_exposure_reservations WHERE quote_id = $1", [quoteId]);
+      await client.query("COMMIT");
+      transactionOpen = false;
+    } catch (error) {
+      if (transactionOpen) {
+        try {
+          await client.query("ROLLBACK");
+        } catch {}
+      }
+      throw error;
     } finally {
       client.release();
     }
   }
 }
 
-function exposureLockScopes(reservation: NormalizedQuoteExposureReservation): string[] {
+function exposureLockScopes(
+  reservation: NormalizedQuoteExposureReservation,
+  portfolioVarEnabled: boolean,
+): string[] {
   return [
     `quote-exposure:quote:${reservation.quoteId}`,
     `quote-exposure:user:${reservation.chainId}:${reservation.user}`,
     `quote-exposure:pair:${reservation.chainId}:${reservation.tokenLow}:${reservation.tokenHigh}`,
     `quote-liquidity:${reservation.chainId}:${reservation.tokenOut}`,
+    ...(portfolioVarEnabled ? [`quote-exposure:portfolio:${reservation.chainId}`] : []),
   ];
 }
 
@@ -231,6 +299,7 @@ function normalizeReservationRow(row: Record<string, unknown>): NormalizedQuoteE
   const user = requireAddress(row.user_address, "user_address");
   const tokenLow = requireAddress(row.token_low, "token_low");
   const tokenHigh = requireAddress(row.token_high, "token_high");
+  const tokenIn = requireAddress(row.token_in, "token_in");
   const tokenOut = requireAddress(row.token_out, "token_out");
   const deadline = Number(row.deadline);
   if (!Number.isSafeInteger(deadline) || deadline <= 0) {
@@ -242,12 +311,57 @@ function normalizeReservationRow(row: Record<string, unknown>): NormalizedQuoteE
     user,
     tokenLow,
     tokenHigh,
+    tokenIn,
+    amountIn: parsePositiveInteger(row.amount_in, "amount_in"),
     tokenOut,
     amountOut: parsePositiveInteger(row.amount_out, "amount_out"),
     notionalUsdE18: parseNonNegativeInteger(row.notional_usd_e18, "notional_usd_e18"),
     deadline,
     ...normalizeOptionalLiquidityRow(row),
   };
+}
+
+function normalizeOptionalPortfolioVar(value: unknown): PortfolioVarEvaluation | undefined {
+  if (value === null || value === undefined) return undefined;
+  const parsed = typeof value === "string" ? parseJson(value) : value;
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("Postgres quote exposure var_evaluation must be an object");
+  }
+  const evaluation = parsed as Record<string, unknown>;
+  const fields = [
+    "modelVersion",
+    "horizonSeconds",
+    "preTradeVarUsdE18",
+    "postTradeVarUsdE18",
+    "varLimitUsdE18",
+    "preTradeComponents",
+    "postTradeComponents",
+  ];
+  if (Object.keys(evaluation).length !== fields.length || fields.some((field) => !(field in evaluation))) {
+    throw new Error("Postgres quote exposure var_evaluation has invalid fields");
+  }
+  if (typeof evaluation.modelVersion !== "string" || !/^[A-Za-z0-9_:-]{1,128}$/.test(evaluation.modelVersion)) {
+    throw new Error("Postgres quote exposure var_evaluation modelVersion is invalid");
+  }
+  const horizonSeconds = Number(evaluation.horizonSeconds);
+  if (!Number.isSafeInteger(horizonSeconds) || horizonSeconds <= 0) {
+    throw new Error("Postgres quote exposure var_evaluation horizonSeconds is invalid");
+  }
+  for (const field of ["preTradeVarUsdE18", "postTradeVarUsdE18", "varLimitUsdE18"] as const) {
+    parseNonNegativeInteger(evaluation[field], `var_evaluation ${field}`);
+  }
+  if (!Array.isArray(evaluation.preTradeComponents) || !Array.isArray(evaluation.postTradeComponents)) {
+    throw new Error("Postgres quote exposure var_evaluation components must be arrays");
+  }
+  return evaluation as unknown as PortfolioVarEvaluation;
+}
+
+function parseJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Error("Postgres quote exposure var_evaluation must contain valid JSON");
+  }
 }
 
 function normalizeOptionalLiquidityRow(
@@ -288,6 +402,14 @@ function parsePositiveInteger(value: unknown, label: string): bigint {
     throw new Error(`Postgres quote exposure ${label} must be a canonical positive integer`);
   }
   return BigInt(value);
+}
+
+function parsePositiveSafeInteger(value: unknown, label: string): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`Postgres quote exposure ${label} must be a positive safe integer`);
+  }
+  return parsed;
 }
 
 function requireString(value: unknown, label: string): string {

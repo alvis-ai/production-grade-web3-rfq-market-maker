@@ -21,6 +21,9 @@ test("RFQ API degrades readiness when storage dependency probes fail", async () 
       async findBySnapshotId() {
         return undefined;
       },
+      async findLatestForPair() {
+        throw new Error("market snapshot store offline");
+      },
     },
     riskDecisionStore: {
       checkHealth() {

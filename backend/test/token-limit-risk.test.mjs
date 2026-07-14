@@ -22,6 +22,9 @@ test("TokenLimitRiskEngine scopes token authorization by chain and address", asy
       limit(10, tokenC, "100", "1", "1000"),
       limit(10, tokenD, "100", "1", "1000"),
     ],
+    portfolioVar: portfolioVarPolicy([
+      { chainId: 10, tokenAddress: tokenC, usdReferenceTokenAddress: tokenD },
+    ]),
   }), tokenRegistry([
     token(1, tokenA, 18, true),
     token(1, tokenB, 6, true),
@@ -111,13 +114,14 @@ test("TokenLimitRiskEngine enforces the smaller token USD notional limit across 
   }))).status, "approved");
 });
 
-test("TokenLimitRiskEngine fails closed when a pair has no USD-reference token", async () => {
-  const engine = new TokenLimitRiskEngine(policy(), tokenRegistry([
-    token(1, tokenA, 18, false),
-    token(1, tokenB, 6, false),
-  ]));
-
-  assert.equal((await engine.evaluate(riskInput())).reasonCode, "USD_REFERENCE_REQUIRED");
+test("TokenLimitRiskEngine fails closed at construction when VaR has no USD-reference token", () => {
+  assert.throws(
+    () => new TokenLimitRiskEngine(policy(), tokenRegistry([
+      token(1, tokenA, 18, false),
+      token(1, tokenB, 6, false),
+    ])),
+    /must be a USD-reference token/,
+  );
 });
 
 test("TokenLimitRiskEngine applies each projected inventory limit in that token's raw units", async () => {
@@ -172,6 +176,7 @@ test("TokenLimitRiskEngine snapshots policy and returns defensive token limits",
   assert.deepEqual(engine.getQuoteExposurePolicy(), {
     maxUserOpenNotionalUsd: "2000000",
     maxPairOpenNotionalUsd: "5000000",
+    portfolioVar: portfolioVarPolicy(),
   });
   assert.deepEqual(await engine.evaluate(riskInput()), {
     status: "approved",
@@ -263,11 +268,28 @@ function policy(overrides = {}) {
     maxToxicScoreBps: 8000,
     maxUserOpenNotionalUsd: "2000000",
     maxPairOpenNotionalUsd: "5000000",
+    portfolioVar: portfolioVarPolicy(),
     minLiquidityUsd: "1000000",
     maxVolatilityBps: 500,
     maxSlippageBps: 500,
     maxQuotedSpreadBps: 1000,
     ...overrides,
+  };
+}
+
+function portfolioVarPolicy(valuationPairs = [{
+  chainId: 1,
+  tokenAddress: tokenA,
+  usdReferenceTokenAddress: tokenB,
+}]) {
+  return {
+    modelVersion: "component-sum-v1",
+    maxPortfolioVarUsd: "500000",
+    confidenceMultiplierBps: 23_300,
+    horizonSeconds: 86_400,
+    maxSnapshotAgeMs: 5_000,
+    maxFutureSkewMs: 5_000,
+    valuationPairs,
   };
 }
 

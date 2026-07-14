@@ -91,6 +91,26 @@ test("PostgresInventoryService rebuilds canonical settlement and terminal hedge 
   assert.match(client.queries[2].sql, /SUM\(delta\)/);
 });
 
+test("PostgresInventoryService lists a chain portfolio in deterministic token order", async () => {
+  const { pool, client } = fakePool(async (sql, params) => {
+    assert.match(sql, /ORDER BY token_address/);
+    assert.deepEqual(params, [1]);
+    return {
+      rows: [
+        { token_address: tokenA, balance: "1000" },
+        { token_address: tokenB, balance: "-990" },
+      ],
+      rowCount: 2,
+    };
+  });
+  const positions = await new PostgresInventoryService(pool).listPositions(1);
+  assert.deepEqual(positions, [
+    { chainId: 1, token: tokenA, balance: 1000n },
+    { chainId: 1, token: tokenB, balance: -990n },
+  ]);
+  assert.equal(client.released, true);
+});
+
 test("PostgresInventoryService rejects unsafe dependencies and malformed rows", async () => {
   assert.throws(() => new PostgresInventoryService(null), /pool\.connect must be a function/);
   const { pool } = fakePool(async () => ({ rows: [{ balance: "01" }], rowCount: 1 }));

@@ -45,9 +45,12 @@ test("PostgresQuoteExposureStore locks both scopes before atomically inserting",
     user,
     tokenA,
     tokenB,
+    tokenA,
+    "100000000",
     tokenB,
     "101000000000000000000",
     "101000000000000000000",
+    null,
     null,
     null,
     null,
@@ -136,7 +139,11 @@ test("PostgresQuoteExposureStore validates pool, totals, and conditional release
 
   const released = fakePool(async () => ({ rows: [], rowCount: 1 }));
   await createStore(released.pool).release("q_release_pg");
-  assert.deepEqual(released.clients[0].queries[0].params, ["q_release_pg"]);
+  const releaseDelete = released.clients[0].queries.find(({ sql }) =>
+    sql.startsWith("DELETE FROM quote_exposure_reservations WHERE quote_id"));
+  assert.deepEqual(releaseDelete.params, ["q_release_pg"]);
+  assert.equal(released.clients[0].queries[0].sql, "BEGIN");
+  assert.equal(released.clients[0].queries.at(-1).sql, "COMMIT");
   assert.equal(released.clients[0].released, true);
 });
 
@@ -150,6 +157,74 @@ test("PostgresQuoteExposureStore rolls back when database time considers the dea
 
   await assert.rejects(createStore(pool).reserve(input("q_db_expired")), /deadline is not active by database time/);
   assert.equal(clients[0].queries.at(-1).sql, "ROLLBACK");
+});
+
+test("PostgresQuoteExposureStore evaluates inventory and active quotes under one portfolio lock", async () => {
+  const { pool, clients } = portfolioPool();
+  const store = new PostgresQuoteExposureStore(
+    pool,
+    { ...policy(), portfolioVar: portfolioVarPolicy("30") },
+    registry(false),
+    () => now,
+  );
+
+  assert.deepEqual(await store.reserve(input("q_pg_var_rejected")), {
+    status: "rejected",
+    reasonCode: "PORTFOLIO_VAR_LIMIT_EXCEEDED",
+  });
+  const queries = clients[0].queries;
+  const lockScopes = queries
+    .filter(({ sql }) => sql.includes("pg_advisory_xact_lock"))
+    .map(({ params }) => params[0]);
+  assert.ok(lockScopes.includes("quote-exposure:portfolio:1"));
+  assert.ok(queries.some(({ sql }) => sql === "LOCK TABLE inventory_positions IN SHARE MODE"));
+  assert.ok(queries.some(({ sql }) => sql.includes("SELECT lower(exposure.token_in)")));
+  assert.ok(queries.some(({ sql }) => sql.includes("ranked_snapshots")));
+  assert.equal(queries.some(({ sql }) => sql.startsWith("INSERT INTO quote_exposure_reservations")), false);
+  assert.equal(queries.at(-1).sql, "ROLLBACK");
+});
+
+test("PostgresQuoteExposureStore persists replayable portfolio VaR evidence", async () => {
+  const { pool, clients } = portfolioPool();
+  const store = new PostgresQuoteExposureStore(
+    pool,
+    { ...policy(), portfolioVar: portfolioVarPolicy("50") },
+    registry(false),
+    () => now,
+  );
+
+  const result = await store.reserve(input("q_pg_var_reserved"));
+  assert.equal(result.status, "reserved");
+  assert.equal(result.portfolioVar.preTradeVarUsdE18, "20200000000000000000");
+  assert.equal(result.portfolioVar.postTradeVarUsdE18, "40400000000000000000");
+  const insert = clients[0].queries.find(({ sql }) => sql.startsWith("INSERT INTO quote_exposure_reservations"));
+  assert.deepEqual(JSON.parse(insert.params[14]), result.portfolioVar);
+  assert.equal(clients[0].queries.at(-1).sql, "COMMIT");
+});
+
+test("PostgresQuoteExposureStore serializes portfolio reservation release on the same chain lock", async () => {
+  const { pool, clients } = fakePool(async (sql) => {
+    if (sql.startsWith("SELECT chain_id FROM quote_exposure_reservations")) {
+      return { rows: [{ chain_id: "1" }], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 1 };
+  });
+  const store = new PostgresQuoteExposureStore(
+    pool,
+    { ...policy(), portfolioVar: portfolioVarPolicy("50") },
+    registry(false),
+    () => now,
+  );
+
+  await store.release("q_pg_var_release");
+  const scopes = clients[0].queries
+    .filter(({ sql }) => sql.includes("pg_advisory_xact_lock"))
+    .map(({ params }) => params[0]);
+  assert.deepEqual(scopes, [
+    "quote-exposure:portfolio:1",
+    "quote-exposure:quote:q_pg_var_release",
+  ]);
+  assert.equal(clients[0].queries.at(-1).sql, "COMMIT");
 });
 
 function createStore(pool) {
@@ -200,16 +275,16 @@ function policy() {
   return { maxUserOpenNotionalUsd: "250", maxPairOpenNotionalUsd: "500" };
 }
 
-function registry() {
+function registry(allUsdReference = true) {
   return new ConfiguredTokenRegistry({
     tokens: [
-      token(tokenA, 6),
-      token(tokenB, 18),
+      token(tokenA, 6, allUsdReference),
+      token(tokenB, 18, true),
     ],
   });
 }
 
-function token(tokenAddress, decimals) {
+function token(tokenAddress, decimals, usdReference = true) {
   return {
     chainId: 1,
     tokenAddress,
@@ -217,8 +292,64 @@ function token(tokenAddress, decimals) {
     decimals,
     isWhitelisted: true,
     riskTier: "low",
-    usdReference: true,
+    usdReference,
   };
+}
+
+function portfolioVarPolicy(maxPortfolioVarUsd) {
+  return {
+    modelVersion: "component-sum-v1",
+    maxPortfolioVarUsd,
+    confidenceMultiplierBps: 20_000,
+    horizonSeconds: 86_400,
+    maxSnapshotAgeMs: 5_000,
+    maxFutureSkewMs: 5_000,
+    valuationPairs: [{
+      chainId: 1,
+      tokenAddress: tokenA,
+      usdReferenceTokenAddress: tokenB,
+    }],
+  };
+}
+
+function portfolioPool() {
+  return fakePool(async (sql) => {
+    if (sql.includes("user_open_notional_usd_e18")) {
+      return {
+        rows: [{ user_open_notional_usd_e18: "0", pair_open_notional_usd_e18: "0" }],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes("FROM inventory_positions")) {
+      return { rows: [{ token_address: tokenA, balance: "50000000" }], rowCount: 1 };
+    }
+    if (sql.includes("SELECT lower(exposure.token_in)")) {
+      return {
+        rows: [{
+          token_in: tokenA,
+          amount_in: "50000000",
+          token_out: tokenB,
+          amount_out: "50500000000000000000",
+        }],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes("ranked_snapshots")) {
+      return {
+        rows: [{
+          id: "snap_pg_var",
+          chain_id: 1,
+          token_in: tokenA,
+          token_out: tokenB,
+          mid_price: "1.01",
+          volatility_bps: 1_000,
+          observed_at: new Date(now * 1_000),
+        }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: sql.startsWith("INSERT INTO quote_exposure_reservations") ? 1 : 0 };
+  });
 }
 
 function fakePool(handler) {

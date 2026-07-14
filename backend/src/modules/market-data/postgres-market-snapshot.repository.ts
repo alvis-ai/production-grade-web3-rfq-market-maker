@@ -1,6 +1,7 @@
 import pg from "pg";
 import {
   assertMarketSnapshotIdentifier,
+  assertMarketSnapshotPair,
   toMarketSnapshotRecord,
   type MarketSnapshotRecord,
   type SaveMarketSnapshotInput,
@@ -85,6 +86,33 @@ export class PostgresMarketSnapshotStore implements MarketSnapshotStore {
       );
       if (!result.rowCount) return undefined;
 
+      return rowToRecord(result.rows[0]);
+    } finally {
+      client.release();
+    }
+  }
+
+  async findLatestForPair(
+    chainId: number,
+    tokenA: `0x${string}`,
+    tokenB: `0x${string}`,
+  ): Promise<MarketSnapshotRecord | undefined> {
+    assertMarketSnapshotPair(chainId, tokenA, tokenB);
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT id, chain_id, token_in, token_out, mid_price, liquidity_usd,
+          market_spread_bps, volatility_bps, source, observed_at, created_at
+         FROM market_snapshots
+         WHERE chain_id = $1
+           AND ((lower(token_in) = $2 AND lower(token_out) = $3)
+             OR (lower(token_in) = $3 AND lower(token_out) = $2))
+         ORDER BY observed_at DESC, id DESC
+         LIMIT 1`,
+        [chainId, tokenA.toLowerCase(), tokenB.toLowerCase()],
+      );
+      if (!result.rowCount) return undefined;
+      if (result.rows.length !== 1) throw new Error("Postgres latest market snapshot query returned multiple rows");
       return rowToRecord(result.rows[0]);
     } finally {
       client.release();

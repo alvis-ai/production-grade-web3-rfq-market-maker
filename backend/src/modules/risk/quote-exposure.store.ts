@@ -5,15 +5,26 @@ import {
   type TokenRegistry,
 } from "../pricing/token-registry.js";
 import type { TreasuryLiquiditySnapshot } from "./treasury-liquidity.provider.js";
+import {
+  InMemoryPortfolioVarEvaluator,
+  type InMemoryPortfolioVarDependencies,
+} from "./in-memory-portfolio-var.js";
+import {
+  assertPortfolioVarPolicy,
+  type PortfolioVarEvaluation,
+  type PortfolioVarPolicy,
+} from "./portfolio-var.js";
 
 export type QuoteExposureRejectReason =
   | "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED"
   | "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED"
-  | "TREASURY_LIQUIDITY_INSUFFICIENT";
+  | "TREASURY_LIQUIDITY_INSUFFICIENT"
+  | "PORTFOLIO_VAR_LIMIT_EXCEEDED";
 
 export interface QuoteExposurePolicy {
   maxUserOpenNotionalUsd: string;
   maxPairOpenNotionalUsd: string;
+  portfolioVar?: PortfolioVarPolicy;
 }
 
 export interface ReserveQuoteExposureInput {
@@ -25,7 +36,7 @@ export interface ReserveQuoteExposureInput {
 }
 
 export type QuoteExposureReservationResult =
-  | { status: "reserved"; notionalUsdE18: string }
+  | { status: "reserved"; notionalUsdE18: string; portfolioVar?: PortfolioVarEvaluation }
   | { status: "rejected"; reasonCode: QuoteExposureRejectReason };
 
 export interface QuoteExposureStore {
@@ -40,6 +51,8 @@ export interface NormalizedQuoteExposureReservation {
   user: `0x${string}`;
   tokenLow: `0x${string}`;
   tokenHigh: `0x${string}`;
+  tokenIn: `0x${string}`;
+  amountIn: bigint;
   tokenOut: `0x${string}`;
   amountOut: bigint;
   notionalUsdE18: bigint;
@@ -63,16 +76,30 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
   private readonly reservations = new Map<string, ActiveQuoteExposure>();
   private readonly maxUserOpenNotionalUsdE18: bigint;
   private readonly maxPairOpenNotionalUsdE18: bigint;
+  private readonly portfolioVarEvaluator?: InMemoryPortfolioVarEvaluator;
+  private readonly chainLocks = new Map<number, Promise<void>>();
 
   constructor(
     policy: QuoteExposurePolicy,
     private readonly tokenRegistry: TokenRegistry,
     private readonly nowSeconds: () => number = () => Math.floor(Date.now() / 1_000),
+    portfolioVarDependencies?: InMemoryPortfolioVarDependencies,
   ) {
     const limits = normalizeQuoteExposurePolicy(policy);
     assertNowSecondsProvider(nowSeconds);
     this.maxUserOpenNotionalUsdE18 = limits.maxUserOpenNotionalUsdE18;
     this.maxPairOpenNotionalUsdE18 = limits.maxPairOpenNotionalUsdE18;
+    if (policy.portfolioVar) {
+      if (!portfolioVarDependencies) {
+        throw new Error("In-memory quote exposure portfolio VaR dependencies are required");
+      }
+      this.portfolioVarEvaluator = new InMemoryPortfolioVarEvaluator(
+        policy.portfolioVar,
+        tokenRegistry,
+        portfolioVarDependencies,
+        () => readNowSeconds(this.nowSeconds) * 1_000,
+      );
+    }
   }
 
   async checkHealth(): Promise<void> {}
@@ -80,6 +107,13 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
   async reserve(input: ReserveQuoteExposureInput): Promise<QuoteExposureReservationResult> {
     const nowSeconds = readNowSeconds(this.nowSeconds);
     const reservation = normalizeQuoteExposureReservation(input, this.tokenRegistry, nowSeconds);
+    return this.withChainLock(reservation.chainId, () => this.reserveNormalized(reservation, nowSeconds));
+  }
+
+  private async reserveNormalized(
+    reservation: NormalizedQuoteExposureReservation,
+    nowSeconds: number,
+  ): Promise<QuoteExposureReservationResult> {
     this.purgeExpired(nowSeconds);
 
     const existing = this.reservations.get(reservation.quoteId);
@@ -113,18 +147,53 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
       return { status: "rejected", reasonCode: "TREASURY_LIQUIDITY_INSUFFICIENT" };
     }
 
+    let portfolioVar: PortfolioVarEvaluation | undefined;
+    if (this.portfolioVarEvaluator) {
+      portfolioVar = await this.portfolioVarEvaluator.evaluate(
+        reservation.chainId,
+        [...this.reservations.values()],
+        reservation,
+      );
+      if (this.portfolioVarEvaluator.exceedsLimit(portfolioVar)) {
+        return { status: "rejected", reasonCode: "PORTFOLIO_VAR_LIMIT_EXCEEDED" };
+      }
+    }
+
     this.reservations.set(reservation.quoteId, reservation);
-    return { status: "reserved", notionalUsdE18: reservation.notionalUsdE18.toString() };
+    return {
+      status: "reserved",
+      notionalUsdE18: reservation.notionalUsdE18.toString(),
+      ...(portfolioVar ? { portfolioVar } : {}),
+    };
   }
 
   async release(quoteId: string): Promise<void> {
     assertSafeIdentifier(quoteId, "Quote exposure quoteId");
-    this.reservations.delete(quoteId);
+    const existing = this.reservations.get(quoteId);
+    if (!existing) return;
+    await this.withChainLock(existing.chainId, async () => {
+      this.reservations.delete(quoteId);
+    });
   }
 
   private purgeExpired(nowSeconds: number): void {
     for (const [quoteId, reservation] of this.reservations) {
       if (reservation.deadline <= nowSeconds) this.reservations.delete(quoteId);
+    }
+  }
+
+  private async withChainLock<T>(chainId: number, action: () => Promise<T>): Promise<T> {
+    const previous = this.chainLocks.get(chainId) ?? Promise.resolve();
+    let unlock!: () => void;
+    const gate = new Promise<void>((resolve) => { unlock = resolve; });
+    const tail = previous.then(() => gate);
+    this.chainLocks.set(chainId, tail);
+    await previous;
+    try {
+      return await action();
+    } finally {
+      unlock();
+      if (this.chainLocks.get(chainId) === tail) this.chainLocks.delete(chainId);
     }
   }
 }
@@ -138,7 +207,9 @@ export function normalizeQuoteExposurePolicy(policy: QuoteExposurePolicy): {
     policy,
     ["maxUserOpenNotionalUsd", "maxPairOpenNotionalUsd"],
     "Quote exposure policy",
+    ["portfolioVar"],
   );
+  if (policy.portfolioVar !== undefined) assertPortfolioVarPolicy(policy.portfolioVar);
   const maxUserOpenNotionalUsd = parsePositiveUint256(
     policy.maxUserOpenNotionalUsd,
     "Quote exposure policy.maxUserOpenNotionalUsd",
@@ -233,6 +304,8 @@ export function normalizeQuoteExposureReservation(
     user: input.request.user.toLowerCase() as `0x${string}`,
     tokenLow: tokenLow as `0x${string}`,
     tokenHigh: tokenHigh as `0x${string}`,
+    tokenIn: input.request.tokenIn.toLowerCase() as `0x${string}`,
+    amountIn: BigInt(input.request.amountIn),
     tokenOut: input.request.tokenOut.toLowerCase() as `0x${string}`,
     amountOut: BigInt(input.pricing.amountOut),
     notionalUsdE18,
@@ -251,6 +324,8 @@ export function assertSameReservation(
     existing.user !== expected.user ||
     existing.tokenLow !== expected.tokenLow ||
     existing.tokenHigh !== expected.tokenHigh ||
+    existing.tokenIn !== expected.tokenIn ||
+    existing.amountIn !== expected.amountIn ||
     existing.tokenOut !== expected.tokenOut ||
     existing.amountOut !== expected.amountOut ||
     existing.notionalUsdE18 !== expected.notionalUsdE18 ||

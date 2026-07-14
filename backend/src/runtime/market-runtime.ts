@@ -33,6 +33,7 @@ import {
   InMemoryQuoteExposureStore,
   type QuoteExposureStore,
 } from "../modules/risk/quote-exposure.store.js";
+import type { InMemoryPortfolioVarDependencies } from "../modules/risk/in-memory-portfolio-var.js";
 import { PostgresQuoteExposureStore } from "../modules/risk/postgres-quote-exposure.store.js";
 import {
   defaultTokenLimitRiskPolicy,
@@ -217,13 +218,14 @@ export function resolveQuoteExposureStore(
   postgresPool: pg.Pool | undefined,
   defaultRiskEngine: TokenLimitRiskEngine | undefined,
   tokenRegistry: TokenRegistry,
+  inMemoryPortfolioVarDependencies?: InMemoryPortfolioVarDependencies,
 ): QuoteExposureStore | undefined {
   if (configuredStore) return configuredStore;
   if (!defaultRiskEngine) return undefined;
   const policy = defaultRiskEngine.getQuoteExposurePolicy();
   return postgresPool
     ? new PostgresQuoteExposureStore(postgresPool, policy, tokenRegistry)
-    : new InMemoryQuoteExposureStore(policy, tokenRegistry);
+    : new InMemoryQuoteExposureStore(policy, tokenRegistry, undefined, inMemoryPortfolioVarDependencies);
 }
 
 export function readMarketDataPairs(
