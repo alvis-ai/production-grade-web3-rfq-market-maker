@@ -19,13 +19,50 @@ const gatewayRuntime = sources["backend/src/runtime/gateway-runtime.ts"];
 const marketRuntime = sources["backend/src/runtime/market-runtime.ts"];
 const serverProcess = sources["backend/src/runtime/server-process.ts"];
 const chapter = await readFile("book/Volume5-BackendEngineering/Chapter01-API-Gateway.md", "utf8");
+const quoteService = await readFile("backend/src/modules/quote/quote.service.ts", "utf8");
+const quoteServiceContract = await readFile(
+  "backend/src/modules/quote/quote-service-contract.ts",
+  "utf8",
+);
+const quoteServiceErrors = await readFile(
+  "backend/src/modules/quote/quote-service-errors.ts",
+  "utf8",
+);
+const quoteServiceResultValidation = await readFile(
+  "backend/src/modules/quote/quote-service-result-validation.ts",
+  "utf8",
+);
+const quoteServiceChapter = await readFile(
+  "book/Volume5-BackendEngineering/Chapter02-Quote-Service.md",
+  "utf8",
+);
 
 const mainLines = main.split(/\r?\n/).length;
 const gatewayApplicationLines = gatewayApplication.split(/\r?\n/).length;
+const quoteServiceLines = quoteService.split(/\r?\n/).length;
+const quoteServiceContractLines = quoteServiceContract.split(/\r?\n/).length;
+const quoteServiceErrorsLines = quoteServiceErrors.split(/\r?\n/).length;
+const quoteServiceResultValidationLines = quoteServiceResultValidation.split(/\r?\n/).length;
 assert.ok(mainLines <= 100, `backend/src/main.ts must remain a process entrypoint (got ${mainLines} lines)`);
 assert.ok(
   gatewayApplicationLines <= 350,
   `backend/src/runtime/gateway-application.ts must remain a bounded composition root (got ${gatewayApplicationLines} lines)`,
+);
+assert.ok(
+  quoteServiceLines <= 600,
+  `backend/src/modules/quote/quote.service.ts must remain a bounded orchestrator (got ${quoteServiceLines} lines)`,
+);
+assert.ok(
+  quoteServiceContractLines <= 250,
+  `quote-service-contract.ts must remain a bounded construction boundary (got ${quoteServiceContractLines} lines)`,
+);
+assert.ok(
+  quoteServiceErrorsLines <= 100,
+  `quote-service-errors.ts must remain a bounded error boundary (got ${quoteServiceErrorsLines} lines)`,
+);
+assert.ok(
+  quoteServiceResultValidationLines <= 500,
+  `quote-service-result-validation.ts must remain a bounded validation boundary (got ${quoteServiceResultValidationLines} lines)`,
 );
 assertContains(main, [
   'export { buildServer } from "./runtime/gateway-application.js"',
@@ -119,6 +156,45 @@ assertContains(serverProcess, [
   'processLike.on("SIGTERM"',
   'processLike.on("SIGINT"',
 ], "server process runtime");
+assertContains(quoteService, [
+  'from "./quote-service-contract.js"',
+  'from "./quote-service-errors.js"',
+  'from "./quote-service-result-validation.js"',
+  "export class QuoteService",
+  "async createQuote",
+  "async requireSubmittableSignedQuote",
+], "quote service orchestrator");
+for (const extractedDefinition of [
+  "function assertRoutePlan",
+  "function assertPricingResult",
+  "function assertRiskDecision",
+  "function assertQuoteServiceDeps",
+]) {
+  assert.ok(
+    !quoteService.includes(extractedDefinition),
+    `quote service orchestrator must delegate ${extractedDefinition}`,
+  );
+}
+assertContains(quoteServiceContract, [
+  "interface QuoteServiceDeps",
+  "normalizeQuoteServiceDeps",
+  "normalizeQuoteServiceConfig",
+  "normalizeQuoteAccessContext",
+], "quote service construction boundary");
+assertContains(quoteServiceResultValidation, [
+  "assertRoutePlan",
+  "assertPricingResult",
+  "assertInventoryProjection",
+  "assertQuoteExposureReservationResult",
+  "assertRiskDecision",
+], "quote service result validation boundary");
+assertContains(quoteServiceErrors, [
+  "marketDataFailure",
+  "quoteStoreFailure",
+  "pricingFailure",
+  "routingFailure",
+  "assertUsableSnapshot",
+], "quote service error boundary");
 assertContains(chapter, [
   "process-only entrypoint",
   "`backend/src/api/http-boundary.ts`",
@@ -129,9 +205,16 @@ assertContains(chapter, [
   "`backend/src/runtime/market-runtime.ts`",
   "`make api-composition-check`",
 ], "API Gateway chapter");
+assertContains(quoteServiceChapter, [
+  "`quote.service.ts`",
+  "`quote-service-contract.ts`",
+  "`quote-service-errors.ts`",
+  "`quote-service-result-validation.ts`",
+  "`make api-composition-check`",
+], "Quote Service chapter");
 
 console.log(
-  `API composition consistency check passed (main.ts ${mainLines} lines, gateway application ${gatewayApplicationLines} lines)`,
+  `API composition consistency check passed (main.ts ${mainLines} lines, gateway application ${gatewayApplicationLines} lines, quote service ${quoteServiceLines} lines)`,
 );
 
 function assertContains(source, needles, label) {

@@ -2,6 +2,7 @@
 set -eu
 
 gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/server-process.ts"
+quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts"
 
 test -s package.json
 test -s pnpm-workspace.yaml
@@ -277,6 +278,9 @@ grep -q 'nested probe payload required fields 在构造期 fail fast' book/Volum
 grep -q 'snapshots `ReadinessServiceConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'ReadinessService` rejects malformed config, inherited config fields, malformed dependency map, inherited dependency entries and malformed dependency entries before reading freshness fields or probe methods' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 test -s backend/src/modules/quote/quote.service.ts
+test -s backend/src/modules/quote/quote-service-contract.ts
+test -s backend/src/modules/quote/quote-service-errors.ts
+test -s backend/src/modules/quote/quote-service-result-validation.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
 grep -q 'checkHealth' backend/src/modules/quote/quote.repository.ts
@@ -302,8 +306,8 @@ grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' backend/src/modules/ris
 grep -q 'assertSafeIdentifier(buildRiskDecisionId(input.quoteId), "riskDecisionId")' backend/src/modules/risk/risk-decision.repository.ts
 grep -q 'assertSafeIdentifier(quoteId, "quoteId")' backend/src/modules/risk/risk-decision.repository.ts
 grep -q 'Risk decision ${field} must be a primitive string' backend/src/modules/risk/risk-decision.repository.ts
-grep -q 'riskDecisionStore: RiskDecisionStore' backend/src/modules/quote/quote.service.ts
-grep -q 'await this.saveRiskDecision' backend/src/modules/quote/quote.service.ts
+grep -q 'riskDecisionStore: RiskDecisionStore' $quote_service_sources
+grep -q 'await this.saveRiskDecision' $quote_service_sources
 grep -q 'riskDecisionStoreStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'riskDecisionStore' backend/src/modules/metrics/metrics.service.ts
 grep -q 'InMemoryRiskDecisionRepository stores idempotent approved and rejected decisions' backend/test/risk-decision.test.mjs
@@ -428,8 +432,8 @@ grep -q 'Market snapshot observedAt must be a canonical UTC ISO timestamp' backe
 grep -q 'observedAt: "2026-06-29"' backend/test/market-data-validation.test.mjs
 grep -q 'observedAt: "June 29, 2026"' backend/test/market-data-validation.test.mjs
 grep -q 'observedAt: "2026-02-31T00:00:00.000Z"' backend/test/market-data-validation.test.mjs
-grep -q 'marketSnapshotStore: MarketSnapshotStore' backend/src/modules/quote/quote.service.ts
-grep -q 'await this.saveMarketSnapshot' backend/src/modules/quote/quote.service.ts
+grep -q 'marketSnapshotStore: MarketSnapshotStore' $quote_service_sources
+grep -q 'await this.saveMarketSnapshot' $quote_service_sources
 grep -q 'marketSnapshotStoreStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'marketSnapshotStore' backend/src/modules/metrics/metrics.service.ts
 grep -q 'getMarketSnapshotIssue' backend/src/modules/market-data/market-data.service.ts
@@ -944,61 +948,61 @@ grep -q 'HEDGE_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
 grep -q 'SETTLEMENT_EVENT_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
 grep -q 'PNL_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
-grep -q 'getSnapshot' backend/src/modules/quote/quote.service.ts
-grep -q 'getUsableSnapshot' backend/src/modules/quote/quote.service.ts
-grep -q 'validateQuoteRequest(request)' backend/src/modules/quote/quote.service.ts
-grep -q 'marketDataFailure' backend/src/modules/quote/quote.service.ts
-grep -q 'assertUsableSnapshot' backend/src/modules/quote/quote.service.ts
-grep -q 'getMarketSnapshotIssue' backend/src/modules/quote/quote.service.ts
-grep -q 'maxSnapshotAgeMs' backend/src/modules/quote/quote.service.ts
-grep -q 'maxSnapshotFutureSkewMs' backend/src/modules/quote/quote.service.ts
-grep -q 'assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs")' backend/src/modules/quote/quote.service.ts
-grep -q 'assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds")' backend/src/modules/quote/quote.service.ts
-grep -q 'assertOwnFields(config, quoteServiceConfigFields, "config")' backend/src/modules/quote/quote.service.ts
-grep -q 'assertOwnFields(deps, quoteServiceDepsFields, "deps")' backend/src/modules/quote/quote.service.ts
-grep -q 'assertOptionalOwnField(deps, "hedgeService", "deps")' backend/src/modules/quote/quote.service.ts
-grep -q 'Quote service ${path}.${field} must be an own field' backend/src/modules/quote/quote.service.ts
-grep -q 'Quote service ${path}.${field} must be an own field when provided' backend/src/modules/quote/quote.service.ts
-grep -q 'assertQuoteServiceDeps(deps)' backend/src/modules/quote/quote.service.ts
-grep -q 'assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByChainUserNonce")' backend/src/modules/quote/quote.service.ts
-grep -q 'cloneQuoteServiceDeps' backend/src/modules/quote/quote.service.ts
-grep -q 'cloneQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
-grep -q 'MARKET_DATA_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
-grep -q 'ROUTING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
-grep -q 'routingFailure' backend/src/modules/quote/quote.service.ts
-grep -q 'routePlanFields = \["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"\]' backend/src/modules/quote/quote.service.ts
-grep -q 'inventoryProjectionFields = \["tokenIn", "tokenOut"\]' backend/src/modules/quote/quote.service.ts
-grep -q 'assertRoutePlan(routeResult, validatedRequest)' backend/src/modules/quote/quote.service.ts
-grep -q 'Quote service route plan token pair must match quote request token pair' backend/src/modules/quote/quote.service.ts
-grep -q 'PRICING_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
-grep -q 'pricingFailure' backend/src/modules/quote/quote.service.ts
-grep -q 'assertInventorySkewBps(inventorySkewResult)' backend/src/modules/quote/quote.service.ts
-grep -q 'pairPenalties.forEach(assertHedgeRiskPenaltyBps)' backend/src/modules/quote/quote.service.ts
-grep -Fq 'assertPricingAdjustmentBps(inventorySkewBps + hedgeCostBps)' backend/src/modules/quote/quote.service.ts
-grep -q 'Quote service pricing adjustment bps must be a safe bps integer' backend/src/modules/quote/quote.service.ts
-grep -q 'pricingResultFields' backend/src/modules/quote/quote.service.ts
-grep -q 'assertPricingResult(pricingResult)' backend/src/modules/quote/quote.service.ts
-grep -q 'Quote service pricing result.amountOut must be greater than or equal to pricing result.minAmountOut' backend/src/modules/quote/quote.service.ts
-grep -q 'assertInventoryProjection(projectionResult, validatedRequest)' backend/src/modules/quote/quote.service.ts
-grep -q 'Quote service inventory projection.${field} must match quote request ${field}' backend/src/modules/quote/quote.service.ts
-grep -q 'evaluateRisk' backend/src/modules/quote/quote.service.ts
-grep -q 'RISK_ENGINE_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
-grep -q 'riskUnavailableDecision()' backend/src/modules/quote/quote.service.ts
-grep -q 'assertRiskDecision(riskDecision)' backend/src/modules/quote/quote.service.ts
-grep -q 'Quote service risk decision.status must be approved or rejected' backend/src/modules/quote/quote.service.ts
-grep -q 'Quote service risk decision.reasonCode must be a stable risk reject reason' backend/src/modules/quote/quote.service.ts
-grep -q 'saveRejectedQuoteBestEffort' backend/src/modules/quote/quote.service.ts
-grep -q 'selectRoute' backend/src/modules/quote/quote.service.ts
-grep -q 'quoteRepository.saveRequested' backend/src/modules/quote/quote.service.ts
-grep -q 'quoteRepository.saveSigned' backend/src/modules/quote/quote.service.ts
-grep -q 'quoteRepository.markFailed' backend/src/modules/quote/quote.service.ts
-grep -q 'markQuoteFailedBestEffort' backend/src/modules/quote/quote.service.ts
-grep -q 'quoteStoreFailure' backend/src/modules/quote/quote.service.ts
-grep -q 'QUOTE_STORE_UNAVAILABLE' backend/src/modules/quote/quote.service.ts
-grep -q 'quoteFailureCode' backend/src/modules/quote/quote.service.ts
-grep -q 'quoteTtlSeconds' backend/src/modules/quote/quote.service.ts
-grep -q 'defaultQuoteServiceConfig' backend/src/modules/quote/quote.service.ts
-grep -q 'validateSubmitQuoteRequest({ quote, signature }, { allowExpired: true })' backend/src/modules/quote/quote.service.ts
+grep -q 'getSnapshot' $quote_service_sources
+grep -q 'getUsableSnapshot' $quote_service_sources
+grep -q 'validateQuoteRequest(request)' $quote_service_sources
+grep -q 'marketDataFailure' $quote_service_sources
+grep -q 'assertUsableSnapshot' $quote_service_sources
+grep -q 'getMarketSnapshotIssue' $quote_service_sources
+grep -q 'maxSnapshotAgeMs' $quote_service_sources
+grep -q 'maxSnapshotFutureSkewMs' $quote_service_sources
+grep -q 'assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs")' $quote_service_sources
+grep -q 'assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds")' $quote_service_sources
+grep -q 'assertOwnFields(config, quoteServiceConfigFields, "config")' $quote_service_sources
+grep -q 'assertOwnFields(deps, quoteServiceDepsFields, "deps")' $quote_service_sources
+grep -q 'assertOptionalOwnField(deps, "hedgeService", "deps")' $quote_service_sources
+grep -q 'Quote service ${path}.${field} must be an own field' $quote_service_sources
+grep -q 'Quote service ${path}.${field} must be an own field when provided' $quote_service_sources
+grep -q 'assertQuoteServiceDeps(deps)' $quote_service_sources
+grep -q 'assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByChainUserNonce")' $quote_service_sources
+grep -q 'normalizeQuoteServiceDeps' $quote_service_sources
+grep -q 'normalizeQuoteServiceConfig' $quote_service_sources
+grep -q 'MARKET_DATA_UNAVAILABLE' $quote_service_sources
+grep -q 'ROUTING_UNAVAILABLE' $quote_service_sources
+grep -q 'routingFailure' $quote_service_sources
+grep -q 'routePlanFields = \["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"\]' $quote_service_sources
+grep -q 'inventoryProjectionFields = \["tokenIn", "tokenOut"\]' $quote_service_sources
+grep -q 'assertRoutePlan(routeResult, validatedRequest)' $quote_service_sources
+grep -q 'Quote service route plan token pair must match quote request token pair' $quote_service_sources
+grep -q 'PRICING_UNAVAILABLE' $quote_service_sources
+grep -q 'pricingFailure' $quote_service_sources
+grep -q 'assertInventorySkewBps(inventorySkewResult)' $quote_service_sources
+grep -q 'pairPenalties.forEach(assertHedgeRiskPenaltyBps)' $quote_service_sources
+grep -Fq 'assertPricingAdjustmentBps(inventorySkewBps + hedgeCostBps)' $quote_service_sources
+grep -q 'Quote service pricing adjustment bps must be a safe bps integer' $quote_service_sources
+grep -q 'pricingResultFields' $quote_service_sources
+grep -q 'assertPricingResult(pricingResult)' $quote_service_sources
+grep -q 'Quote service pricing result.amountOut must be greater than or equal to pricing result.minAmountOut' $quote_service_sources
+grep -q 'assertInventoryProjection(projectionResult, validatedRequest)' $quote_service_sources
+grep -q 'Quote service inventory projection.${field} must match quote request ${field}' $quote_service_sources
+grep -q 'evaluateRisk' $quote_service_sources
+grep -q 'RISK_ENGINE_UNAVAILABLE' $quote_service_sources
+grep -q 'riskUnavailableDecision()' $quote_service_sources
+grep -q 'assertRiskDecision(riskDecision)' $quote_service_sources
+grep -q 'Quote service risk decision.status must be approved or rejected' $quote_service_sources
+grep -q 'Quote service risk decision.reasonCode must be a stable risk reject reason' $quote_service_sources
+grep -q 'saveRejectedQuoteBestEffort' $quote_service_sources
+grep -q 'selectRoute' $quote_service_sources
+grep -q 'quoteRepository.saveRequested' $quote_service_sources
+grep -q 'quoteRepository.saveSigned' $quote_service_sources
+grep -q 'quoteRepository.markFailed' $quote_service_sources
+grep -q 'markQuoteFailedBestEffort' $quote_service_sources
+grep -q 'quoteStoreFailure' $quote_service_sources
+grep -q 'QUOTE_STORE_UNAVAILABLE' $quote_service_sources
+grep -q 'quoteFailureCode' $quote_service_sources
+grep -q 'quoteTtlSeconds' $quote_service_sources
+grep -q 'defaultQuoteServiceConfig' $quote_service_sources
+grep -q 'validateSubmitQuoteRequest({ quote, signature }, { allowExpired: true })' $quote_service_sources
 grep -q 'allowExpired' backend/src/shared/validation/submit-request.ts
 grep -q 'SUBMIT_VALIDATION_OPTION_FIELDS = \["allowExpired"\]' backend/src/shared/validation/submit-request.ts
 grep -q 'normalizeValidationOptions(options)' backend/src/shared/validation/submit-request.ts
@@ -1013,9 +1017,9 @@ grep -q 'assert.equal(signAttempts, 0)' backend/test/quote-service-pricing-depen
 grep -q 'QuoteService fails closed on malformed risk engine decisions before signing' backend/test/quote-service-risk-dependencies.test.mjs
 grep -q 'TEMPORARY_RISK_REASON' backend/test/quote-service-risk-dependencies.test.mjs
 grep -q 'approvedWithInheritedReason' backend/test/quote-service-risk-dependencies.test.mjs
-grep -q 'assertRecord(config, "config")' backend/src/modules/quote/quote.service.ts
-grep -q 'assertRecord(deps, "deps")' backend/src/modules/quote/quote.service.ts
-grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/quote/quote.service.ts
+grep -q 'assertRecord(config, "config")' $quote_service_sources
+grep -q 'assertRecord(deps, "deps")' $quote_service_sources
+grep -q 'assertRecord(dependency, dependencyName)' $quote_service_sources
 grep -q 'Quote service config must be an object' backend/test/quote-service-config.test.mjs
 grep -q 'Quote service config.maxSnapshotAgeMs must be an own field' backend/test/quote-service-config.test.mjs
 grep -q 'Quote service config.quoteTtlSeconds must be an own field' backend/test/quote-service-config.test.mjs
@@ -1218,11 +1222,11 @@ grep -q 'RFQ API rejects issued quotes with high-s malleated signatures' backend
 grep -q 'canonical low-s ECDSA' docs/api/errors.md
 grep -Fq -- '- [x] Signer verification rejects non-canonical high-s ECDSA signatures before submit settlement.' docs/security/audit-checklist.md
 grep -q 'Local signer verification rejects high-s ECDSA signatures' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
-grep -q 'RISK_REJECTED' backend/src/modules/quote/quote.service.ts
-grep -q 'requireSubmittableSignedQuote' backend/src/modules/quote/quote.service.ts
-grep -q 'QUOTE_FAILED' backend/src/modules/quote/quote.service.ts
-grep -q 'markQuoteExpiredBestEffort' backend/src/modules/quote/quote.service.ts
-grep -q 'QUOTE_EXPIRED' backend/src/modules/quote/quote.service.ts
+grep -q 'RISK_REJECTED' $quote_service_sources
+grep -q 'requireSubmittableSignedQuote' $quote_service_sources
+grep -q 'QUOTE_FAILED' $quote_service_sources
+grep -q 'markQuoteExpiredBestEffort' $quote_service_sources
+grep -q 'QUOTE_EXPIRED' $quote_service_sources
 grep -q 'findSignedQuoteByChainUserNonce' backend/src/modules/quote/quote.repository.ts
 grep -q 'findSignedQuoteByQuoteId' backend/src/modules/quote/quote.repository.ts
 grep -q 'chainUserNonceKey' backend/src/modules/quote/quote.repository.ts
@@ -1594,11 +1598,11 @@ grep -q 'sizeImpactBps: input.sizeImpactBps' backend/src/modules/quote/quote.rep
 grep -q 'inventorySkewBps: input.inventorySkewBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'volatilityPremiumBps: input.volatilityPremiumBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'hedgeCostBps: input.hedgeCostBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'spreadBps: pricing.spreadBps' backend/src/modules/quote/quote.service.ts
-grep -q 'sizeImpactBps: pricing.sizeImpactBps' backend/src/modules/quote/quote.service.ts
-grep -q 'inventorySkewBps: pricing.inventorySkewBps' backend/src/modules/quote/quote.service.ts
-grep -q 'volatilityPremiumBps: pricing.volatilityPremiumBps' backend/src/modules/quote/quote.service.ts
-grep -q 'hedgeCostBps: pricing.hedgeCostBps' backend/src/modules/quote/quote.service.ts
+grep -q 'spreadBps: pricing.spreadBps' $quote_service_sources
+grep -q 'sizeImpactBps: pricing.sizeImpactBps' $quote_service_sources
+grep -q 'inventorySkewBps: pricing.inventorySkewBps' $quote_service_sources
+grep -q 'volatilityPremiumBps: pricing.volatilityPremiumBps' $quote_service_sources
+grep -q 'hedgeCostBps: pricing.hedgeCostBps' $quote_service_sources
 grep -q 'record.slippageBps === input.request.slippageBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'record.slippageBps === input.slippageBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'record.spreadBps === input.spreadBps' backend/src/modules/quote/quote.repository.ts
@@ -1944,7 +1948,7 @@ grep -q 'canonical positive uint string without leading zeros' book/Volume5-Back
 grep -q 'inherited object properties' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'Hedge status lookups validate `hedgeOrderId` and `settlementEventId` as primitive-string `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'Malformed hedge config, intent and risk feedback root payloads are rejected before field access or state mutation' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
-grep -q 'hedgeRiskPenaltyResult' backend/src/modules/quote/quote.service.ts
+grep -q 'hedgeRiskPenaltyResult' $quote_service_sources
 grep -q 'interface PnlStore' backend/src/modules/pnl/pnl.service.ts
 grep -q 'class PnlService' backend/src/modules/pnl/pnl.service.ts
 grep -q 'recordSettlement' backend/src/modules/pnl/pnl.service.ts

@@ -1,0 +1,187 @@
+import { assertPrincipalId, localPrincipalId } from "../../shared/validation/principal-id.js";
+import type { IInventoryService } from "../inventory/inventory.service.js";
+import {
+  defaultMaxSnapshotFutureSkewMs,
+  type MarketDataService,
+} from "../market-data/market-data.service.js";
+import type { MarketSnapshotStore } from "../market-data/market-snapshot.repository.js";
+import type { HedgeIntentService } from "../hedge/hedge.service.js";
+import type { PricingEngine } from "../pricing/pricing.engine.js";
+import type { RiskDecisionStore } from "../risk/risk-decision.repository.js";
+import type { QuoteExposureStore } from "../risk/quote-exposure.store.js";
+import type { RiskEngine } from "../risk/risk.engine.js";
+import type { TreasuryLiquidityProvider } from "../risk/treasury-liquidity.provider.js";
+import type { RoutingEngine } from "../routing/routing.engine.js";
+import type { SignerService } from "../signer/signer.service.js";
+import type { QuoteRepository } from "./quote.repository.js";
+
+export interface QuoteServiceDeps {
+  inventoryService: IInventoryService;
+  marketDataService: MarketDataService;
+  marketSnapshotStore: MarketSnapshotStore;
+  pricingEngine: PricingEngine;
+  hedgeService?: HedgeIntentService;
+  quoteRepository: QuoteRepository;
+  quoteExposureStore?: QuoteExposureStore;
+  treasuryLiquidityProvider?: TreasuryLiquidityProvider;
+  riskDecisionStore: RiskDecisionStore;
+  riskEngine: RiskEngine;
+  routingEngine: RoutingEngine;
+  signerService: SignerService;
+}
+
+export interface QuoteServiceConfig {
+  maxSnapshotAgeMs: number;
+  maxSnapshotFutureSkewMs: number;
+  quoteTtlSeconds: number;
+}
+
+export interface QuoteAccessContext {
+  principalId: string;
+}
+
+export interface SubmittableQuoteOptions {
+  allowExpired?: boolean;
+  principalId?: string;
+}
+
+export const defaultQuoteServiceConfig: QuoteServiceConfig = {
+  maxSnapshotAgeMs: 5_000,
+  maxSnapshotFutureSkewMs: defaultMaxSnapshotFutureSkewMs,
+  quoteTtlSeconds: 30,
+};
+
+const quoteServiceConfigFields = ["maxSnapshotAgeMs", "maxSnapshotFutureSkewMs", "quoteTtlSeconds"] as const;
+const quoteServiceDepsFields = [
+  "inventoryService",
+  "marketDataService",
+  "marketSnapshotStore",
+  "pricingEngine",
+  "quoteRepository",
+  "riskDecisionStore",
+  "riskEngine",
+  "routingEngine",
+  "signerService",
+] as const;
+const quoteAccessContextFields = ["principalId"] as const;
+
+export function normalizeQuoteServiceConfig(config: QuoteServiceConfig): QuoteServiceConfig {
+  assertRecord(config, "config");
+  assertOwnFields(config, quoteServiceConfigFields, "config");
+  assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
+  assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
+  assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds");
+  return { ...config };
+}
+
+export function normalizeQuoteServiceDeps(deps: QuoteServiceDeps): QuoteServiceDeps {
+  assertQuoteServiceDeps(deps);
+  return { ...deps };
+}
+
+export function normalizeQuoteAccessContext(context: QuoteAccessContext | undefined): QuoteAccessContext {
+  const value = context ?? { principalId: localPrincipalId };
+  assertRecord(value, "access context");
+  assertOwnFields(value, quoteAccessContextFields, "access context");
+  const unknownField = Object.keys(value).find((field) => !quoteAccessContextFields.includes(field as "principalId"));
+  if (unknownField) throw new Error(`Quote service access context contains unknown field ${unknownField}`);
+  assertPrincipalId(value.principalId, "Quote service access context.principalId");
+  return { principalId: value.principalId };
+}
+
+function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
+  assertRecord(deps, "deps");
+  assertOwnFields(deps, quoteServiceDepsFields, "deps");
+  assertOptionalOwnField(deps, "hedgeService", "deps");
+  assertOptionalOwnField(deps, "quoteExposureStore", "deps");
+  assertOptionalOwnField(deps, "treasuryLiquidityProvider", "deps");
+  assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
+  assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "saveSnapshot");
+  assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
+  assertDependencyMethod(deps.pricingEngine, "pricingEngine", "price");
+  assertDependencyMethod(deps.inventoryService, "inventoryService", "calculateQuoteSkewBps");
+  assertDependencyMethod(deps.inventoryService, "inventoryService", "projectSettlement");
+  assertOptionalDependencyMethod(deps.hedgeService, "hedgeService", "quoteRiskPenaltyBps");
+  if (deps.quoteExposureStore !== undefined) {
+    assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "reserve");
+    assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "release");
+  }
+  if (deps.treasuryLiquidityProvider !== undefined) {
+    if (deps.quoteExposureStore === undefined) {
+      throw new Error("Quote service treasuryLiquidityProvider requires quoteExposureStore");
+    }
+    assertDependencyMethod(deps.treasuryLiquidityProvider, "treasuryLiquidityProvider", "getLiquidity");
+  }
+  assertDependencyMethod(deps.riskEngine, "riskEngine", "evaluate");
+  assertDependencyMethod(deps.riskDecisionStore, "riskDecisionStore", "saveDecision");
+  assertDependencyMethod(deps.signerService, "signerService", "signQuote");
+  assertDependencyMethod(deps.signerService, "signerService", "verifyQuoteSignature");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRequested");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRejected");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveSigned");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findStatus");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findPrincipalId");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markStatus");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markFailed");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByChainUserNonce");
+}
+
+function assertDependencyMethod(
+  dependency: unknown,
+  dependencyName: keyof QuoteServiceDeps,
+  methodName: string,
+): void {
+  assertRecord(dependency, dependencyName);
+  const method = (dependency as Record<string, unknown>)[methodName];
+  if (typeof method !== "function") {
+    throw new Error(`Quote service ${dependencyName}.${methodName} must be a function`);
+  }
+}
+
+function assertOptionalDependencyMethod(
+  dependency: unknown,
+  dependencyName: keyof QuoteServiceDeps,
+  methodName: string,
+): void {
+  if (dependency === undefined) return;
+  if (!isRecord(dependency)) {
+    throw new Error(`Quote service ${dependencyName} must be an object when provided`);
+  }
+  const method = dependency[methodName];
+  if (method !== undefined && typeof method !== "function") {
+    throw new Error(`Quote service ${dependencyName}.${methodName} must be a function when provided`);
+  }
+}
+
+function assertRecord(
+  value: unknown,
+  field: "config" | "deps" | "access context" | keyof QuoteServiceDeps,
+): asserts value is Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new Error(`Quote service ${field} must be an object`);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Quote service ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertOptionalOwnField(value: object, field: string, path: string): void {
+  if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
+    throw new Error(`Quote service ${path}.${field} must be an own field when provided`);
+  }
+}
+
+function assertPositiveSafeInteger(value: number, field: keyof QuoteServiceConfig): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Quote service ${field} must be a positive safe integer`);
+  }
+}

@@ -12,121 +12,58 @@ import { APIError } from "../../shared/errors/api-error.js";
 import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "../../shared/validation/submit-request.js";
 import { assertPrincipalId, localPrincipalId } from "../../shared/validation/principal-id.js";
-import type { InventoryProjection, IInventoryService } from "../inventory/inventory.service.js";
-import {
-  defaultMaxSnapshotFutureSkewMs,
-  getMarketDataSnapshotSource,
-  getMarketSnapshotIssue,
-  type MarketDataService,
-} from "../market-data/market-data.service.js";
-import type { MarketSnapshotStore, SaveMarketSnapshotInput } from "../market-data/market-snapshot.repository.js";
-import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
-import type { HedgeIntentService } from "../hedge/hedge.service.js";
+import { getMarketDataSnapshotSource } from "../market-data/market-data.service.js";
+import type { SaveMarketSnapshotInput } from "../market-data/market-snapshot.repository.js";
+import type { PricingResult } from "../pricing/pricing.engine.js";
 import type {
-  QuoteRepository,
   QuoteRecord,
   QuoteStatusMetadata,
   SaveRejectedQuoteInput,
   SaveRequestedQuoteInput,
   SaveSignedQuoteInput,
 } from "./quote.repository.js";
-import type { RiskDecision, RiskEngine, RiskInput, RiskRejectReasonCode } from "../risk/risk.engine.js";
-import type { RiskDecisionStore, SaveRiskDecisionInput } from "../risk/risk-decision.repository.js";
-import type {
-  QuoteExposureReservationResult,
-  QuoteExposureStore,
-} from "../risk/quote-exposure.store.js";
-import type { TreasuryLiquidityProvider } from "../risk/treasury-liquidity.provider.js";
-import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
-import type { SignerService } from "../signer/signer.service.js";
+import type { RiskDecision, RiskInput } from "../risk/risk.engine.js";
+import type { SaveRiskDecisionInput } from "../risk/risk-decision.repository.js";
+import type { RoutePlan } from "../routing/routing.engine.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
+import {
+  defaultQuoteServiceConfig,
+  normalizeQuoteAccessContext,
+  normalizeQuoteServiceConfig,
+  normalizeQuoteServiceDeps,
+  type QuoteAccessContext,
+  type QuoteServiceConfig,
+  type QuoteServiceDeps,
+  type SubmittableQuoteOptions,
+} from "./quote-service-contract.js";
+import {
+  assertUsableSnapshot,
+  marketDataFailure,
+  pricingFailure,
+  quoteFailureCode,
+  quoteStoreFailure,
+  routingFailure,
+} from "./quote-service-errors.js";
+import {
+  assertHedgeRiskPenaltyBps,
+  assertInventoryProjection,
+  assertInventorySkewBps,
+  assertPricingAdjustmentBps,
+  assertPricingResult,
+  assertQuoteExposureReservationResult,
+  assertRiskDecision,
+  assertRoutePlan,
+  isExactSignedQuote,
+  riskUnavailableDecision,
+} from "./quote-service-result-validation.js";
 
-export interface QuoteServiceDeps {
-  inventoryService: IInventoryService;
-  marketDataService: MarketDataService;
-  marketSnapshotStore: MarketSnapshotStore;
-  pricingEngine: PricingEngine;
-  hedgeService?: HedgeIntentService;
-  quoteRepository: QuoteRepository;
-  quoteExposureStore?: QuoteExposureStore;
-  treasuryLiquidityProvider?: TreasuryLiquidityProvider;
-  riskDecisionStore: RiskDecisionStore;
-  riskEngine: RiskEngine;
-  routingEngine: RoutingEngine;
-  signerService: SignerService;
-}
-
-export interface QuoteServiceConfig {
-  maxSnapshotAgeMs: number;
-  maxSnapshotFutureSkewMs: number;
-  quoteTtlSeconds: number;
-}
-
-export interface QuoteAccessContext {
-  principalId: string;
-}
-
-export const defaultQuoteServiceConfig: QuoteServiceConfig = {
-  maxSnapshotAgeMs: 5_000,
-  maxSnapshotFutureSkewMs: defaultMaxSnapshotFutureSkewMs,
-  quoteTtlSeconds: 30,
-};
-
-const quoteServiceConfigFields = ["maxSnapshotAgeMs", "maxSnapshotFutureSkewMs", "quoteTtlSeconds"] as const;
-const quoteServiceDepsFields = [
-  "inventoryService",
-  "marketDataService",
-  "marketSnapshotStore",
-  "pricingEngine",
-  "quoteRepository",
-  "riskDecisionStore",
-  "riskEngine",
-  "routingEngine",
-  "signerService",
-] as const;
-const routePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"] as const;
-const inventoryProjectionFields = ["tokenIn", "tokenOut"] as const;
-const inventoryPositionFields = ["chainId", "token", "balance"] as const;
-const pricingResultFields = [
-  "amountOut",
-  "minAmountOut",
-  "spreadBps",
-  "sizeImpactBps",
-  "marketSpreadBps",
-  "inventorySkewBps",
-  "volatilityPremiumBps",
-  "hedgeCostBps",
-  "pricingVersion",
-] as const;
-const riskDecisionBaseFields = ["status", "policyVersion"] as const;
-const rejectedRiskDecisionFields = ["reasonCode"] as const;
-const rejectedRiskDecisionFullFields = ["status", "policyVersion", "reasonCode"] as const;
-const riskRejectReasonCodes = new Set<string>([
-  "CHAIN_NOT_ENABLED",
-  "TOKEN_NOT_ALLOWED",
-  "MARKET_LIQUIDITY_TOO_LOW",
-  "MARKET_VOLATILITY_LIMIT_EXCEEDED",
-  "AMOUNT_IN_LIMIT_EXCEEDED",
-  "AMOUNT_OUT_TOO_SMALL",
-  "QUOTE_NOTIONAL_LIMIT_EXCEEDED",
-  "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED",
-  "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED",
-  "TREASURY_LIQUIDITY_INSUFFICIENT",
-  "PORTFOLIO_VAR_LIMIT_EXCEEDED",
-  "USD_REFERENCE_REQUIRED",
-  "SLIPPAGE_TOO_WIDE",
-  "QUOTED_SPREAD_TOO_WIDE",
-  "TOXIC_FLOW_RESTRICTED_USER",
-  "TOXIC_FLOW_SCORE_EXCEEDED",
-  "TOKEN_IN_INVENTORY_LIMIT_EXCEEDED",
-  "TOKEN_OUT_INVENTORY_LIMIT_EXCEEDED",
-  "RISK_ENGINE_UNAVAILABLE",
-]);
-const positiveUIntStringPattern = /^[1-9][0-9]*$/;
-const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
-const maxSafeIdentifierLength = 128;
-const maxBps = 10_000;
-const quoteAccessContextFields = ["principalId"] as const;
+export { defaultQuoteServiceConfig } from "./quote-service-contract.js";
+export type {
+  QuoteAccessContext,
+  QuoteServiceConfig,
+  QuoteServiceDeps,
+  SubmittableQuoteOptions,
+} from "./quote-service-contract.js";
 
 export class QuoteService {
   private readonly identityGenerator = new QuoteIdentityGenerator();
@@ -137,14 +74,8 @@ export class QuoteService {
     deps: QuoteServiceDeps,
     config: QuoteServiceConfig = defaultQuoteServiceConfig,
   ) {
-    assertRecord(config, "config");
-    assertOwnFields(config, quoteServiceConfigFields, "config");
-    assertPositiveSafeInteger(config.maxSnapshotAgeMs, "maxSnapshotAgeMs");
-    assertPositiveSafeInteger(config.maxSnapshotFutureSkewMs, "maxSnapshotFutureSkewMs");
-    assertPositiveSafeInteger(config.quoteTtlSeconds, "quoteTtlSeconds");
-    assertQuoteServiceDeps(deps);
-    this.deps = cloneQuoteServiceDeps(deps);
-    this.config = cloneQuoteServiceConfig(config);
+    this.deps = normalizeQuoteServiceDeps(deps);
+    this.config = normalizeQuoteServiceConfig(config);
   }
 
   async createQuote(request: QuoteRequest, context?: QuoteAccessContext): Promise<QuoteResponse> {
@@ -523,7 +454,7 @@ export class QuoteService {
   async requireSubmittableSignedQuote(
     quote: SignedQuote,
     signature: `0x${string}`,
-    options: { allowExpired?: boolean; principalId?: string } = {},
+    options: SubmittableQuoteOptions = {},
   ): Promise<string> {
     if (typeof options !== "object" || options === null || Array.isArray(options)) {
       throw new APIError("INVALID_REQUEST", "Submit quote lookup options must be an object", 400);
@@ -588,517 +519,4 @@ export class QuoteService {
 
     return record.quoteId;
   }
-}
-
-function normalizeQuoteAccessContext(context: QuoteAccessContext | undefined): QuoteAccessContext {
-  const value = context ?? { principalId: localPrincipalId };
-  assertRecord(value, "access context");
-  assertOwnFields(value, quoteAccessContextFields, "access context");
-  const unknownField = Object.keys(value).find((field) => !quoteAccessContextFields.includes(field as "principalId"));
-  if (unknownField) throw new Error(`Quote service access context contains unknown field ${unknownField}`);
-  assertPrincipalId(value.principalId, "Quote service access context.principalId");
-  return { principalId: value.principalId };
-}
-
-function quoteFailureCode(error: unknown): string {
-  if (error instanceof APIError) {
-    return error.code;
-  }
-
-  return "INTERNAL_ERROR";
-}
-
-function marketDataFailure(error: unknown): APIError {
-  if (error instanceof APIError) {
-    return error;
-  }
-
-  return new APIError("MARKET_DATA_UNAVAILABLE", "Market data unavailable", 503);
-}
-
-function quoteStoreFailure(error: unknown): APIError {
-  if (error instanceof APIError) {
-    return error;
-  }
-
-  return new APIError("QUOTE_STORE_UNAVAILABLE", "Quote store unavailable", 503);
-}
-
-function pricingFailure(error: unknown): APIError {
-  if (error instanceof APIError) {
-    return error;
-  }
-
-  return new APIError("PRICING_UNAVAILABLE", "Pricing engine unavailable", 503);
-}
-
-function routingFailure(error: unknown): APIError {
-  if (error instanceof APIError) {
-    return error;
-  }
-
-  return new APIError("ROUTING_UNAVAILABLE", "Routing engine unavailable", 503);
-}
-
-function assertUsableSnapshot(
-  snapshot: MarketSnapshot,
-  maxSnapshotAgeMs: number,
-  maxSnapshotFutureSkewMs: number,
-): void {
-  const issue = getMarketSnapshotIssue(snapshot, maxSnapshotAgeMs, maxSnapshotFutureSkewMs);
-  if (issue) {
-    throw new APIError("MARKET_DATA_UNAVAILABLE", `Market data ${issue}`, 503);
-  }
-}
-
-function cloneQuoteServiceConfig(config: QuoteServiceConfig): QuoteServiceConfig {
-  return { ...config };
-}
-
-function cloneQuoteServiceDeps(deps: QuoteServiceDeps): QuoteServiceDeps {
-  return { ...deps };
-}
-
-function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
-  assertRecord(deps, "deps");
-  assertOwnFields(deps, quoteServiceDepsFields, "deps");
-  assertOptionalOwnField(deps, "hedgeService", "deps");
-  assertOptionalOwnField(deps, "quoteExposureStore", "deps");
-  assertOptionalOwnField(deps, "treasuryLiquidityProvider", "deps");
-  assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
-  assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "saveSnapshot");
-  assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
-  assertDependencyMethod(deps.pricingEngine, "pricingEngine", "price");
-  assertDependencyMethod(deps.inventoryService, "inventoryService", "calculateQuoteSkewBps");
-  assertDependencyMethod(deps.inventoryService, "inventoryService", "projectSettlement");
-  assertOptionalDependencyMethod(deps.hedgeService, "hedgeService", "quoteRiskPenaltyBps");
-  if (deps.quoteExposureStore !== undefined) {
-    assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "reserve");
-    assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "release");
-  }
-  if (deps.treasuryLiquidityProvider !== undefined) {
-    if (deps.quoteExposureStore === undefined) {
-      throw new Error("Quote service treasuryLiquidityProvider requires quoteExposureStore");
-    }
-    assertDependencyMethod(deps.treasuryLiquidityProvider, "treasuryLiquidityProvider", "getLiquidity");
-  }
-  assertDependencyMethod(deps.riskEngine, "riskEngine", "evaluate");
-  assertDependencyMethod(deps.riskDecisionStore, "riskDecisionStore", "saveDecision");
-  assertDependencyMethod(deps.signerService, "signerService", "signQuote");
-  assertDependencyMethod(deps.signerService, "signerService", "verifyQuoteSignature");
-  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRequested");
-  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRejected");
-  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveSigned");
-  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findStatus");
-  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findPrincipalId");
-  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markStatus");
-  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markFailed");
-  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByChainUserNonce");
-}
-
-function assertDependencyMethod(
-  dependency: unknown,
-  dependencyName: keyof QuoteServiceDeps,
-  methodName: string,
-): void {
-  assertRecord(dependency, dependencyName);
-  const method = (dependency as Record<string, unknown>)[methodName];
-  if (typeof method !== "function") {
-    throw new Error(`Quote service ${dependencyName}.${methodName} must be a function`);
-  }
-}
-
-function assertOptionalDependencyMethod(
-  dependency: unknown,
-  dependencyName: keyof QuoteServiceDeps,
-  methodName: string,
-): void {
-  if (dependency === undefined) {
-    return;
-  }
-  if (!isRecord(dependency)) {
-    throw new Error(`Quote service ${dependencyName} must be an object when provided`);
-  }
-
-  const method = (dependency as Record<string, unknown>)[methodName];
-  if (method !== undefined && typeof method !== "function") {
-    throw new Error(`Quote service ${dependencyName}.${methodName} must be a function when provided`);
-  }
-}
-
-function assertRecord(
-  value: unknown,
-  field: "config" | "deps" | "access context" | keyof QuoteServiceDeps,
-): void {
-  if (!isRecord(value)) {
-    throw new Error(`Quote service ${field} must be an object`);
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function assertOwnFields(value: object, fields: readonly string[], path: string): void {
-  for (const field of fields) {
-    if (!Object.prototype.hasOwnProperty.call(value, field)) {
-      throw new Error(`Quote service ${path}.${field} must be an own field`);
-    }
-  }
-}
-
-function assertOptionalOwnField(value: object, field: string, path: string): void {
-  if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
-    throw new Error(`Quote service ${path}.${field} must be an own field when provided`);
-  }
-}
-
-function assertPositiveSafeInteger(value: number, field: keyof QuoteServiceConfig): void {
-  if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`Quote service ${field} must be a positive safe integer`);
-  }
-}
-
-function assertRoutePlan(value: unknown, request: QuoteRequest): asserts value is RoutePlan {
-  if (!isRecord(value)) {
-    throw new Error("Quote service route plan must be an object");
-  }
-
-  assertOwnFields(value, routePlanFields, "route plan");
-  assertNoUnknownFields(value, routePlanFields, "route plan");
-  assertRouteSafeIdentifier(value.routeId);
-  if (value.venue !== "internal_inventory") {
-    throw new Error("Quote service route plan.venue must be internal_inventory");
-  }
-
-  const tokenIn = value.tokenIn;
-  const tokenOut = value.tokenOut;
-  assertRouteAddress(tokenIn, "tokenIn");
-  assertRouteAddress(tokenOut, "tokenOut");
-  if (
-    tokenIn.toLowerCase() !== request.tokenIn.toLowerCase() ||
-    tokenOut.toLowerCase() !== request.tokenOut.toLowerCase()
-  ) {
-    throw new Error("Quote service route plan token pair must match quote request token pair");
-  }
-
-  assertRouteExpectedLiquidity(value.expectedLiquidityUsd);
-}
-
-function assertRouteSafeIdentifier(value: unknown): asserts value is string {
-  if (
-    typeof value !== "string" ||
-    value.trim().length === 0 ||
-    value.length > maxSafeIdentifierLength ||
-    !safeIdentifierPattern.test(value)
-  ) {
-    throw new Error("Quote service route plan.routeId must be a safe identifier");
-  }
-}
-
-function assertRouteAddress(value: unknown, field: "tokenIn" | "tokenOut"): asserts value is Address {
-  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
-    throw new Error(`Quote service route plan.${field} must be a 20-byte hex address`);
-  }
-}
-
-function assertRouteExpectedLiquidity(value: unknown): asserts value is UIntString {
-  if (typeof value !== "string" || !positiveUIntStringPattern.test(value)) {
-    throw new Error("Quote service route plan.expectedLiquidityUsd must be a positive uint string");
-  }
-}
-
-function assertInventorySkewBps(value: unknown): asserts value is number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || Math.abs(value) > maxBps) {
-    throw new Error("Quote service inventory skew bps must be a safe bps integer");
-  }
-}
-
-function assertHedgeRiskPenaltyBps(value: unknown): asserts value is number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > maxBps) {
-    throw new Error("Quote service hedge risk penalty bps must be a non-negative bps integer");
-  }
-}
-
-function assertPricingAdjustmentBps(value: unknown): asserts value is number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || Math.abs(value) > maxBps) {
-    throw new Error("Quote service pricing adjustment bps must be a safe bps integer");
-  }
-}
-
-function assertInventoryProjection(value: unknown, request: QuoteRequest): asserts value is InventoryProjection {
-  if (!isRecord(value)) {
-    throw new Error("Quote service inventory projection must be an object");
-  }
-
-  assertOwnFields(value, inventoryProjectionFields, "inventory projection");
-  assertNoUnknownFields(value, inventoryProjectionFields, "inventory projection");
-  assertInventoryProjectionPosition(value.tokenIn, request.chainId, request.tokenIn, "tokenIn");
-  assertInventoryProjectionPosition(value.tokenOut, request.chainId, request.tokenOut, "tokenOut");
-}
-
-function assertInventoryProjectionPosition(
-  value: unknown,
-  expectedChainId: number,
-  expectedToken: Address,
-  field: "tokenIn" | "tokenOut",
-): asserts value is InventoryProjection["tokenIn"] {
-  if (!isRecord(value)) {
-    throw new Error(`Quote service inventory projection.${field} must be an object`);
-  }
-
-  assertOwnFields(value, inventoryPositionFields, `inventory projection.${field}`);
-  assertNoUnknownFields(value, inventoryPositionFields, `inventory projection.${field}`);
-  const chainId = value.chainId;
-  const token = value.token;
-  const balance = value.balance;
-  if (typeof chainId !== "number" || !Number.isSafeInteger(chainId) || chainId <= 0) {
-    throw new Error(`Quote service inventory projection.${field}.chainId must be a positive safe integer`);
-  }
-  assertInventoryProjectionAddress(token, field);
-  if (chainId !== expectedChainId || token.toLowerCase() !== expectedToken.toLowerCase()) {
-    throw new Error(`Quote service inventory projection.${field} must match quote request ${field}`);
-  }
-  if (typeof balance !== "bigint") {
-    throw new Error(`Quote service inventory projection.${field}.balance must be a bigint`);
-  }
-}
-
-function assertInventoryProjectionAddress(value: unknown, field: "tokenIn" | "tokenOut"): asserts value is Address {
-  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
-    throw new Error(`Quote service inventory projection.${field}.token must be a 20-byte hex address`);
-  }
-}
-
-function assertPricingResult(value: unknown): asserts value is PricingResult {
-  if (!isRecord(value)) {
-    throw new Error("Quote service pricing result must be an object");
-  }
-
-  assertOwnFields(value, pricingResultFields, "pricing result");
-  assertNoUnknownFields(value, pricingResultFields, "pricing result");
-  const amountOut = value.amountOut;
-  const minAmountOut = value.minAmountOut;
-  assertPricingUIntString(amountOut, "amountOut");
-  assertPricingUIntString(minAmountOut, "minAmountOut");
-
-  if (BigInt(amountOut) < BigInt(minAmountOut)) {
-    throw new Error(
-      "Quote service pricing result.amountOut must be greater than or equal to pricing result.minAmountOut",
-    );
-  }
-
-  assertNonNegativeBpsInteger(value.spreadBps, "spreadBps");
-  assertNonNegativeBpsInteger(value.sizeImpactBps, "sizeImpactBps");
-  assertNonNegativeBpsInteger(value.marketSpreadBps, "marketSpreadBps");
-  assertBpsMagnitudeInteger(value.inventorySkewBps, "inventorySkewBps");
-  assertNonNegativeBpsInteger(value.volatilityPremiumBps, "volatilityPremiumBps");
-  assertNonNegativeBpsInteger(value.hedgeCostBps, "hedgeCostBps");
-  assertPricingSafeIdentifier(value.pricingVersion);
-}
-
-function assertQuoteExposureReservationResult(
-  value: unknown,
-): asserts value is QuoteExposureReservationResult {
-  if (!isRecord(value)) {
-    throw new Error("Quote service exposure reservation result must be an object");
-  }
-  if (value.status === "reserved") {
-    assertOwnFields(value, ["status", "notionalUsdE18"], "exposure reservation result");
-    assertOptionalOwnField(value, "portfolioVar", "exposure reservation result");
-    assertNoUnknownFields(value, ["status", "notionalUsdE18", "portfolioVar"], "exposure reservation result");
-    if (typeof value.notionalUsdE18 !== "string" || !positiveUIntStringPattern.test(value.notionalUsdE18)) {
-      throw new Error("Quote service exposure reservation notionalUsdE18 must be a positive uint string");
-    }
-    if (value.portfolioVar !== undefined) assertPortfolioVarEvaluation(value.portfolioVar);
-    return;
-  }
-  if (value.status === "rejected") {
-    assertOwnFields(value, ["status", "reasonCode"], "exposure reservation result");
-    assertNoUnknownFields(value, ["status", "reasonCode"], "exposure reservation result");
-    if (
-      value.reasonCode !== "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED" &&
-      value.reasonCode !== "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED" &&
-      value.reasonCode !== "TREASURY_LIQUIDITY_INSUFFICIENT" &&
-      value.reasonCode !== "PORTFOLIO_VAR_LIMIT_EXCEEDED"
-    ) {
-      throw new Error("Quote service exposure reservation reasonCode is invalid");
-    }
-    return;
-  }
-  throw new Error("Quote service exposure reservation status is invalid");
-}
-
-function assertPortfolioVarEvaluation(value: unknown): void {
-  if (!isRecord(value)) throw new Error("Quote service portfolio VaR evaluation must be an object");
-  const fields = [
-    "modelVersion",
-    "horizonSeconds",
-    "preTradeVarUsdE18",
-    "postTradeVarUsdE18",
-    "varLimitUsdE18",
-    "preTradeComponents",
-    "postTradeComponents",
-  ] as const;
-  assertOwnFields(value, fields, "portfolio VaR evaluation");
-  assertNoUnknownFields(value, fields, "portfolio VaR evaluation");
-  if (typeof value.modelVersion !== "string" || !safeIdentifierPattern.test(value.modelVersion)) {
-    throw new Error("Quote service portfolio VaR modelVersion must be a safe identifier");
-  }
-  if (!Number.isSafeInteger(value.horizonSeconds) || Number(value.horizonSeconds) <= 0) {
-    throw new Error("Quote service portfolio VaR horizonSeconds must be a positive safe integer");
-  }
-  for (const field of ["preTradeVarUsdE18", "postTradeVarUsdE18", "varLimitUsdE18"] as const) {
-    if (typeof value[field] !== "string" || !/^(0|[1-9][0-9]*)$/.test(value[field])) {
-      throw new Error(`Quote service portfolio VaR ${field} must be a canonical non-negative integer`);
-    }
-  }
-  if (!Array.isArray(value.preTradeComponents) || !Array.isArray(value.postTradeComponents)) {
-    throw new Error("Quote service portfolio VaR components must be arrays");
-  }
-  for (const component of [...value.preTradeComponents, ...value.postTradeComponents]) {
-    assertPortfolioVarComponent(component);
-  }
-}
-
-function assertPortfolioVarComponent(value: unknown): void {
-  if (!isRecord(value)) throw new Error("Quote service portfolio VaR component must be an object");
-  const fields = [
-    "tokenAddress",
-    "balance",
-    "exposureUsdE18",
-    "volatilityBps",
-    "componentVarUsdE18",
-    "snapshotId",
-  ] as const;
-  assertOwnFields(value, fields, "portfolio VaR component");
-  assertNoUnknownFields(value, fields, "portfolio VaR component");
-  if (typeof value.tokenAddress !== "string" || !/^0x[0-9a-f]{40}$/.test(value.tokenAddress)) {
-    throw new Error("Quote service portfolio VaR tokenAddress must be normalized");
-  }
-  for (const field of ["balance", "exposureUsdE18"] as const) {
-    if (typeof value[field] !== "string" || !/^(0|-?[1-9][0-9]*)$/.test(value[field])) {
-      throw new Error(`Quote service portfolio VaR ${field} must be a canonical integer`);
-    }
-  }
-  if (typeof value.componentVarUsdE18 !== "string" || !/^(0|[1-9][0-9]*)$/.test(value.componentVarUsdE18)) {
-    throw new Error("Quote service portfolio VaR componentVarUsdE18 must be a canonical non-negative integer");
-  }
-  if (!Number.isSafeInteger(value.volatilityBps) || Number(value.volatilityBps) < 0 ||
-      Number(value.volatilityBps) > maxBps) {
-    throw new Error("Quote service portfolio VaR volatilityBps must be an integer from 0 to 10000");
-  }
-  if (typeof value.snapshotId !== "string" || !safeIdentifierPattern.test(value.snapshotId)) {
-    throw new Error("Quote service portfolio VaR snapshotId must be a safe identifier");
-  }
-}
-
-function assertNoUnknownFields(value: object, fields: readonly string[], path: string): void {
-  for (const field of Object.keys(value)) {
-    if (!fields.includes(field)) {
-      throw new Error(`Quote service ${path} must not include unknown field ${field}`);
-    }
-  }
-}
-
-function assertPricingUIntString(value: unknown, field: "amountOut" | "minAmountOut"): asserts value is UIntString {
-  if (typeof value !== "string" || !positiveUIntStringPattern.test(value)) {
-    throw new Error(`Quote service pricing result.${field} must be a positive uint string`);
-  }
-}
-
-function assertNonNegativeBpsInteger(
-  value: unknown,
-  field: "spreadBps" | "sizeImpactBps" | "marketSpreadBps" | "volatilityPremiumBps" | "hedgeCostBps",
-): asserts value is number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > maxBps) {
-    throw new Error(`Quote service pricing result.${field} must be a non-negative bps integer`);
-  }
-}
-
-function assertBpsMagnitudeInteger(value: unknown, field: "inventorySkewBps"): asserts value is number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || Math.abs(value) > maxBps) {
-    throw new Error(`Quote service pricing result.${field} must be a safe bps integer`);
-  }
-}
-
-function assertPricingSafeIdentifier(value: unknown): void {
-  if (
-    typeof value !== "string" ||
-    value.trim().length === 0 ||
-    value.length > maxSafeIdentifierLength ||
-    !safeIdentifierPattern.test(value)
-  ) {
-    throw new Error("Quote service pricing result.pricingVersion must be a safe identifier");
-  }
-}
-
-function assertRiskDecision(value: unknown): asserts value is RiskDecision {
-  if (!isRecord(value)) {
-    throw new Error("Quote service risk decision must be an object");
-  }
-
-  assertOwnFields(value, riskDecisionBaseFields, "risk decision");
-  assertOptionalOwnField(value, "reasonCode", "risk decision");
-  const status = value.status;
-  if (status !== "approved" && status !== "rejected") {
-    throw new Error("Quote service risk decision.status must be approved or rejected");
-  }
-  assertRiskPolicyVersion(value.policyVersion);
-
-  if (status === "approved") {
-    assertNoUnknownFields(value, riskDecisionBaseFields, "risk decision");
-    return;
-  }
-
-  assertOwnFields(value, rejectedRiskDecisionFields, "risk decision");
-  assertNoUnknownFields(value, rejectedRiskDecisionFullFields, "risk decision");
-  assertRiskRejectReasonCode(value.reasonCode);
-}
-
-function assertRiskPolicyVersion(value: unknown): asserts value is string {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error("Quote service risk decision.policyVersion must be a non-empty string");
-  }
-}
-
-function assertRiskRejectReasonCode(value: unknown): asserts value is RiskRejectReasonCode {
-  if (typeof value !== "string" || !riskRejectReasonCodes.has(value)) {
-    throw new Error("Quote service risk decision.reasonCode must be a stable risk reject reason");
-  }
-}
-
-function riskUnavailableDecision(): RiskDecision {
-  return {
-    status: "rejected",
-    reasonCode: "RISK_ENGINE_UNAVAILABLE",
-    policyVersion: "risk-engine-unavailable",
-  };
-}
-
-function isExactSignedQuote(
-  record: {
-    chainId: number;
-    user: string;
-    tokenIn: string;
-    tokenOut: string;
-    amountIn: string;
-    amountOut?: string;
-    minAmountOut?: string;
-    nonce?: string;
-    deadline?: number;
-  },
-  quote: SignedQuote,
-): boolean {
-  return (
-    record.chainId === quote.chainId &&
-    record.user.toLowerCase() === quote.user.toLowerCase() &&
-    record.tokenIn.toLowerCase() === quote.tokenIn.toLowerCase() &&
-    record.tokenOut.toLowerCase() === quote.tokenOut.toLowerCase() &&
-    record.amountIn === quote.amountIn &&
-    record.amountOut === quote.amountOut &&
-    record.minAmountOut === quote.minAmountOut &&
-    record.nonce === quote.nonce &&
-    record.deadline === quote.deadline
-  );
 }

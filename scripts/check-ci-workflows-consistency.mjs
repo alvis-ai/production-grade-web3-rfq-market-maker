@@ -66,6 +66,8 @@ assertContains(workflows.docs, [
   '- "backend/src/main.ts"',
   '- "backend/src/api/**"',
   '- "backend/src/runtime/**"',
+  '- "backend/src/modules/quote/quote.service.ts"',
+  '- "backend/src/modules/quote/quote-service-*.ts"',
   '- "sdk/src/client.ts"',
   '- "sdk/src/types.ts"',
   '- "sdk/test/sdk-client-config.test.mjs"',
