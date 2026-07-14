@@ -100,9 +100,13 @@ export class BinanceConnector {
       const ws = new WebSocket(`${WS_BASE}/${this.symbol}@depth@100ms`);
       this.ws = ws;
       ws.onopen = () => {
+        if (this.ws !== ws || this.stopped) return;
         void this.fetchAndApplySnapshot();
       };
-      ws.onmessage = (event: MessageEvent) => this.handleMessage(event.data);
+      ws.onmessage = (event: MessageEvent) => {
+        if (this.ws !== ws || this.stopped) return;
+        this.handleMessage(event.data);
+      };
       ws.onclose = () => {
         if (this.ws !== ws) return;
         this.ws = null;
@@ -110,7 +114,10 @@ export class BinanceConnector {
         this.resetState();
         this.scheduleReconnect();
       };
-      ws.onerror = () => this.reportError(new Error("Binance WebSocket error"));
+      ws.onerror = () => {
+        if (this.ws !== ws || this.stopped) return;
+        this.reportError(new Error("Binance WebSocket error"));
+      };
     } catch (error) {
       this.reportError(error, "Binance WebSocket setup failed");
       this.ws = null;

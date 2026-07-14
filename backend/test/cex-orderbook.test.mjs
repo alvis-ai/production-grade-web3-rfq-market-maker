@@ -278,9 +278,13 @@ test("BinanceConnector bridges buffered updates and resynchronizes sequence gaps
   const firstResponse = deferred();
   const secondResponse = deferred();
   const responses = [firstResponse, secondResponse];
+  let fetchCalls = 0;
   const errors = [];
   globalThis.WebSocket = FakeWebSocket;
-  globalThis.fetch = async () => responses.shift().promise;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return responses.shift().promise;
+  };
   const eventTime = Date.now();
 
   const connector = new BinanceConnector("ETHUSDT", undefined, (error) => errors.push(error.message));
@@ -318,6 +322,12 @@ test("BinanceConnector bridges buffered updates and resynchronizes sequence gaps
     socket.message(depthUpdate(104, 104, [], [], eventTime + 20, "BTCUSDT"));
     assert.equal(connector.isReady(), false);
     assert.equal(errors.includes("Binance depth update symbol does not match subscription"), true);
+
+    socket.open();
+    socket.message(depthUpdate(104, 104, [["101", "9"]], [], eventTime + 30));
+    await settle();
+    assert.equal(fetchCalls, 2);
+    assert.equal(connector.getOrderBook().bids.size, 0);
   } finally {
     connector.stop();
     globalThis.WebSocket = OriginalWebSocket;
@@ -371,6 +381,46 @@ test("CoinbaseConnector validates snapshots, event time, and level updates", () 
     });
     assert.equal(connector.isReady(), false);
     assert.equal(errors.includes("Coinbase order book timestamp is invalid"), true);
+  } finally {
+    connector.stop();
+    globalThis.WebSocket = OriginalWebSocket;
+    FakeWebSocket.instances.length = 0;
+  }
+});
+
+test("CoinbaseConnector reconnects when the initial snapshot times out", (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const OriginalWebSocket = globalThis.WebSocket;
+  const errors = [];
+  globalThis.WebSocket = FakeWebSocket;
+  const connector = new CoinbaseConnector("ETH-USD", undefined, (error) => errors.push(error.message));
+
+  try {
+    connector.start();
+    const expiredSocket = FakeWebSocket.instances.at(-1);
+    expiredSocket.open();
+
+    context.mock.timers.tick(10_000);
+    assert.equal(connector.isReady(), false);
+    assert.equal(expiredSocket.readyState, FakeWebSocket.CLOSED);
+    assert.equal(errors.includes("Coinbase initial order book snapshot timed out"), true);
+
+    context.mock.timers.tick(1_000);
+    const replacementSocket = FakeWebSocket.instances.at(-1);
+    assert.notEqual(replacementSocket, expiredSocket);
+    replacementSocket.open();
+
+    expiredSocket.message(coinbaseSnapshot("2026-07-11T01:02:03.123Z"));
+    assert.equal(connector.isReady(), false);
+    assert.equal(connector.getOrderBook().bids.size, 0);
+
+    replacementSocket.message(coinbaseSnapshot("2026-07-11T01:02:04.123Z"));
+    assert.equal(connector.isReady(), true);
+    assert.equal(connector.getOrderBook().bids.get("99"), "2");
+
+    context.mock.timers.tick(10_000);
+    assert.equal(connector.isReady(), true);
+    assert.equal(replacementSocket.readyState, FakeWebSocket.OPEN);
   } finally {
     connector.stop();
     globalThis.WebSocket = OriginalWebSocket;
@@ -437,6 +487,7 @@ class FakeConnector {
 
 class FakeWebSocket {
   static OPEN = 1;
+  static CLOSED = 3;
   static instances = [];
   readyState = 0;
   sent = [];
@@ -471,6 +522,16 @@ class FakeWebSocket {
 
 function depthUpdate(first, last, bids, asks, eventTime, symbol = "ETHUSDT") {
   return { e: "depthUpdate", E: eventTime, s: symbol, U: first, u: last, b: bids, a: asks };
+}
+
+function coinbaseSnapshot(time) {
+  return {
+    type: "snapshot",
+    product_id: "ETH-USD",
+    time,
+    bids: [["99", "2"]],
+    asks: [["101", "2"]],
+  };
 }
 
 function jsonResponse(payload) {
