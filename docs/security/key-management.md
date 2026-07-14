@@ -39,7 +39,8 @@ flowchart LR
 ## API Key Controls
 
 - Issue `keyId.secret` credentials through an out-of-band secret channel and place only `SHA-256(secret)` in `RFQ_API_KEY_CONFIG_JSON`.
-- Assign the minimum fixed scopes from `quote:write`, `submit:write`, `status:read`, and `pnl:read`; do not give browser bundles or ordinary quote clients `pnl:read`.
+- Assign the minimum fixed scopes from `quote:write`, `submit:write`, `status:read`, `pnl:read`, `admin:read`, and `admin:write`; do not give browser bundles or ordinary quote clients PnL or admin scopes. Use a dedicated operations principal/key for `admin:write`, and separate read-only automation onto `admin:read`.
+- Every quote pause/resume requires a non-empty incident/change reason and compare-and-swap `expectedVersion`; retain the resulting authenticated actor and version in `quote_control_audit`.
 - Keep API key configuration in `rfq-backend-secrets` / Helm `apiKeySecret`, never in the ConfigMap, image, repository, log, trace, metric label, or worker Secret.
 - Rotate by adding a new key id, updating clients, observing old-key traffic at the edge, then removing the old digest. Use `expiresAt` as a hard upper bound, not as the only revocation mechanism.
 - Authentication failures return one generic response. Operators diagnose bounded `missing|malformed|invalid|expired|scope_denied` metrics without exposing a key id or principal label.

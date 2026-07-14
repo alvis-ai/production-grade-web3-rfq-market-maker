@@ -103,7 +103,7 @@ stateDiagram-v2
 
 ## API Design
 
-`GET /health` 只表示 liveness，`GET /ready` 表示 readiness 和关键组件状态。`GET /metrics` 暴露延迟、错误率、依赖状态和业务风险指标。管理员接口后续应支持暂停 quote 或降低限额，但必须有权限控制。
+`GET /health` 只表示 liveness，`GET /ready` 表示 readiness 和关键组件状态。`GET /metrics` 暴露延迟、错误率、依赖状态和业务风险指标。当前管理员接口使用 `GET /admin/quote-control` 读取共享状态，使用 `PUT /admin/quote-control` 携带 `expectedVersion` 和强制 reason 原子暂停或恢复新 quote 签发；读写分别要求 `admin:read` 和 `admin:write`。PostgreSQL 不可用时 `POST /quote` fail closed，已签发 quote 的 submit、链上索引、库存、对冲和 reconciliation 继续运行。按 pair/chain 降低限额仍属于后续风险策略能力。
 
 ## Engineering Decisions
 

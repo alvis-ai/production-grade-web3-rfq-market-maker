@@ -36,6 +36,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
       "risk",
       "signer",
       "quoteRepository",
+      "quoteControl",
       "riskDecisionStore",
       "rateLimitStore",
       "inventory",

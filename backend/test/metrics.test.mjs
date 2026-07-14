@@ -40,6 +40,7 @@ const readinessResponse = {
     risk: "ok",
     signer: "degraded",
     quoteRepository: "ok",
+    quoteControl: "ok",
     riskDecisionStore: "ok",
     rateLimitStore: "ok",
     inventory: "ok",
@@ -61,6 +62,7 @@ test("MetricsService renders fixed readiness and dependency labels", () => {
   assert.match(output, /rfq_dependency_status\{component="signer",status="degraded"\} 1/);
   assert.match(output, /rfq_dependency_status\{component="marketData",status="ok"\} 1/);
   assert.match(output, /rfq_dependency_status\{component="marketSnapshotStore",status="ok"\} 1/);
+  assert.match(output, /rfq_dependency_status\{component="quoteControl",status="ok"\} 1/);
   assert.match(output, /rfq_dependency_status\{component="riskDecisionStore",status="ok"\} 1/);
   assert.match(output, /rfq_dependency_status\{component="rateLimitStore",status="ok"\} 1/);
   assert.match(output, /rfq_dependency_status\{component="settlementEventStore",status="ok"\} 1/);
@@ -81,6 +83,9 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
     balance: -998400000n,
   });
   metrics.recordPnlTrade(pnlTradeRecord);
+  metrics.recordQuoteControlState(true);
+  metrics.recordQuoteControlUpdate();
+  metrics.recordQuoteControlError("read");
 
   const output = metrics.renderPrometheus();
 
@@ -94,6 +99,9 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   assert.match(output, /rfq_inventory_balance\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} -998400000/);
   assert.match(output, /rfq_pnl_trades_total 1/);
   assert.match(output, /rfq_realized_pnl_token_out\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} 1600000/);
+  assert.match(output, /rfq_quote_paused 1/);
+  assert.match(output, /rfq_quote_control_updates_total 1/);
+  assert.match(output, /rfq_quote_control_errors_total\{operation="read"\} 1/);
 });
 
 test("MetricsService snapshots inventory positions before storing gauges", () => {

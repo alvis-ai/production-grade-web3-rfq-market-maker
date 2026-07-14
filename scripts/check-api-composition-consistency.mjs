@@ -10,6 +10,7 @@ const sources = Object.fromEntries(await Promise.all(
 const main = sources["backend/src/main.ts"];
 const boundary = sources["backend/src/api/http-boundary.ts"];
 const routes = sources["backend/src/api/trading-routes.ts"];
+const quoteControlRoutes = sources["backend/src/api/quote-control-routes.ts"];
 const environment = sources["backend/src/runtime/environment.ts"];
 const gatewayRuntime = sources["backend/src/runtime/gateway-runtime.ts"];
 const marketRuntime = sources["backend/src/runtime/market-runtime.ts"];
@@ -22,6 +23,7 @@ assertContains(main, [
   "export function buildServer",
   "installGatewayBoundary(server",
   "registerTradingRoutes(server",
+  "registerQuoteControlRoutes(server",
   "readDefaultMarketDataRuntime()",
   "resolvePostgresPool(options)",
   "export async function startServer",
@@ -49,6 +51,13 @@ assertContains(routes, [
   "recordPnlSettlementBestEffort",
 ], "trading routes");
 assert.ok(!routes.includes("process.env"), "trading routes must not read process environment");
+assertContains(quoteControlRoutes, [
+  "registerQuoteControlRoutes",
+  'server.get("/admin/quote-control"',
+  'server.put("/admin/quote-control"',
+  "normalizeQuoteControlUpdate",
+], "quote-control routes");
+assert.ok(!quoteControlRoutes.includes("process.env"), "quote-control routes must not read process environment");
 
 assertContains(environment, [
   "readOwnEnvValue",

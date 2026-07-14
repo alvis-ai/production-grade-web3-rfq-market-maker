@@ -69,6 +69,8 @@ GET /quote/:id
 GET /settlements/:id
 GET /hedges/:id
 GET /pnl
+GET /admin/quote-control
+PUT /admin/quote-control
 GET /health
 GET /ready
 GET /metrics
@@ -139,6 +141,7 @@ RFQ_TRUST_PROXY=false
 RFQ_RATE_LIMIT_BACKEND=memory
 # RFQ_REDIS_URL=redis://127.0.0.1:6379/0
 # RFQ_API_KEY_CONFIG_JSON={"keys":[{"keyId":"client_primary","principalId":"institution_a","secretSha256":"...","scopes":["quote:write","submit:write","status:read","pnl:read"]}]}
+# Use a separate operations key with only admin:read/admin:write for quote-control changes.
 VITE_RFQ_API_BASE_URL=http://localhost:3000
 VITE_RFQ_SETTLEMENT_ADDRESS=0x...
 VITE_WALLETCONNECT_PROJECT_ID=00000000000000000000000000000000
@@ -168,6 +171,8 @@ The backend signer uses the same `ProductionGradeRFQ` EIP-712 domain as the SDK 
 The same pre-sign reservation also protects actual Treasury output capacity in receipt-confirmed runtimes. Using the chain RPC already declared by `RFQ_RECEIPT_CONFIG_JSON`, the backend reads `RFQSettlement.treasury()` and `tokenOut.balanceOf(treasury)` at one block, then acquires a `(chainId, tokenOut)` PostgreSQL advisory lock and compares that observed balance with the sum of every unexpired quote's `amountOut`. A quote that would oversubscribe the asset is rejected internally as `TREASURY_LIQUIDITY_INSUFFICIENT` before KMS signing. Output reservations remain counted until TTL even after settlement, so a stale pre-settlement RPC observation cannot reuse balance during the non-atomic chain/database transition. RPC errors or malformed contract results fail closed as risk unavailable and degrade risk readiness.
 
 `RFQ_API_KEY_CONFIG_JSON` is optional for local development and required for every non-local `NODE_ENV`. Each entry stores a public key id, stable principal id, fixed scopes, optional canonical expiry timestamp, and only `SHA-256(secret)`; clients send `x-api-key: keyId.secret`. The gateway uses constant-time digest comparison, returns one generic 401 response for missing, malformed, unknown, expired, or incorrect credentials, and keys distributed rate limits by authenticated key id. Quote ownership is bound to the stable principal rather than the key id, so rotated keys for one institution retain access while another principal receives the same 404 response as a missing quote for quote, settlement, and hedge lookups; submit validation and PnL summaries use the same boundary. The direct browser demo should remain local or sit behind a trusted backend-for-frontend; never embed an institutional API secret in a `VITE_*` variable.
+
+The API quote kill switch is shared across replicas through PostgreSQL. `GET /admin/quote-control` requires `admin:read`; `PUT /admin/quote-control` requires `admin:write`, a non-empty reason, and the last observed `expectedVersion`. The compare-and-swap update increments the version and appends `quote_control_audit` with the authenticated principal/key actor. `POST /quote` checks this state before pricing and signing: paused state returns `QUOTE_PAUSED`/503, while an unreadable store returns `QUOTE_CONTROL_UNAVAILABLE`/503. Existing signed quotes, `/submit`, status queries, settlement indexing, inventory updates, hedging, and reconciliation remain available so an incident pause cannot hide or abandon already-created economic obligations.
 
 `RFQ_SUBMIT_RESERVATION_LEASE_MS` defaults to `900000` and must be between `60000` and `3600000`. Local mode uses an in-memory quote reservation; PostgreSQL mode uses `quote_submit_reservations` to atomically claim a quote across API replicas before receipt verification and post-trade effects. Release is owner-token conditional, stale rows become claimable using database time, reservation store failures return `SUBMIT_RESERVATION_UNAVAILABLE`/503, and contention returns the existing `QUOTE_ALREADY_USED`/409 contract.
 

@@ -34,6 +34,9 @@
 | `QUOTE_EXPIRED` | 409 | quote 已过期 | 重新询价 |
 | `QUOTE_ALREADY_USED` | 409 | quote nonce 已使用 | 重新询价 |
 | `QUOTE_FAILED` | 409 | quote 已进入失败终态，不能再次提交 | 重新询价 |
+| `QUOTE_PAUSED` | 503 | 运维熔断已暂停创建新的 signed quote；已签发 quote 的查询、提交和结算链路不受该开关阻断 | 不要循环重试 `/quote`；等待运维恢复后重新询价 |
+| `QUOTE_CONTROL_CONFLICT` | 409 | 管理端更新使用的 `expectedVersion` 已过期，另一个操作员或副本已更新状态 | 重新读取 `GET /admin/quote-control`，复核状态后使用新 version 重试 |
+| `QUOTE_CONTROL_UNAVAILABLE` | 503 | 共享 quote-control 存储不可读取或不可更新，系统无法证明报价开关处于 enabled | 保持 fail-closed，不绕过共享状态；恢复 PostgreSQL 后重新读取状态 |
 | `HEDGE_NOT_FOUND` | 404 | hedgeOrderId 不存在或已不在当前执行存储中 | 查询 submit 响应返回的 hedgeOrderId，必要时重新提交 |
 | `HEDGE_STORE_UNAVAILABLE` | 503 | hedge execution store 或 hedge intent 查询依赖不可用 | 稍后重试，必要时通过 submit 响应和执行日志核对 hedge 状态 |
 | `SETTLEMENT_EVENT_NOT_FOUND` | 404 | settlementEventId 不存在或当前执行存储尚未消费该事件 | 查询 submit 响应返回的 settlementEventId，或等待索引器消费链上事件 |
@@ -60,7 +63,7 @@
 - CORS preflight origin 不在 `RFQ_CORS_ALLOWED_ORIGINS` 时返回结构化 `INVALID_REQUEST` 和 HTTP 403，且不返回 `access-control-allow-origin`。`RFQ_CORS_ALLOWED_ORIGINS` 只接受 HTTP(S) URL origin；path、query、fragment、credentials 和 wildcard 会在启动期被拒绝。
 - 未匹配路由或不支持的方法必须返回结构化 `INVALID_REQUEST` 和 HTTP 404，不能返回 Fastify 默认错误对象。
 - 非本地环境必须配置 `RFQ_API_KEY_CONFIG_JSON`。服务端只保存 `SHA-256(secret)`，使用常量时间摘要比较，并对 unknown key id 执行同样的摘要路径。认证失败统一返回 `AUTHENTICATION_REQUIRED`，不区分 key 是否存在、是否过期或 secret 是否错误。
-- Scope 固定为 `quote:write`、`submit:write`、`status:read` 和 `pnl:read`；`/health`、`/ready`、`/metrics` 以及 CORS preflight 不要求 API key。
+- Scope 固定为 `quote:write`、`submit:write`、`status:read`、`pnl:read`、`admin:read` 和 `admin:write`；普通交易 key 不得拥有 admin scope，读写运维权限也应分离。`/health`、`/ready`、`/metrics` 以及 CORS preflight 不要求 API key。
 - 资源所有权绑定稳定 `principalId` 而不是 `keyId`。同一机构轮换 key 后仍可访问；跨 principal 的 quote、settlement 和 hedge 查询统一返回对应 404，submit 按 principal 查找已签名报价，`/pnl` 只聚合当前 principal 的成交，避免 IDOR 和资源枚举。
 
 ## Rate Limit Policy
@@ -73,4 +76,4 @@ Before settlement verification, `/submit` atomically acquires a quote-scoped res
 | --- | --- | ---: | --- |
 | `quote` | `POST /quote` | 120 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |
 | `submit` | `POST /submit` | 60 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |
-| `status` | `GET /quote/:quoteId`, `GET /settlements/:settlementEventId`, `GET /hedges/:hedgeOrderId`, `GET /pnl` | 300 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |
+| `status` | `GET /quote/:quoteId`, `GET /settlements/:settlementEventId`, `GET /hedges/:hedgeOrderId`, `GET /pnl`, `GET/PUT /admin/quote-control` | 300 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |

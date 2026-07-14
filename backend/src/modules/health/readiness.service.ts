@@ -20,6 +20,10 @@ import type { TreasuryLiquidityProvider } from "../risk/treasury-liquidity.provi
 import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
 import type { SubmitReservationStore } from "../execution/submit-reservation.store.js";
+import {
+  assertQuoteControlState,
+  type QuoteControlStore,
+} from "../quote-control/quote-control.store.js";
 
 export type ReadinessComponentStatus = "ok" | "degraded";
 export type ReadinessComponentName =
@@ -30,6 +34,7 @@ export type ReadinessComponentName =
   | "risk"
   | "signer"
   | "quoteRepository"
+  | "quoteControl"
   | "riskDecisionStore"
   | "rateLimitStore"
   | "inventory"
@@ -54,6 +59,7 @@ export interface ReadinessServiceDeps {
   treasuryLiquidityProvider?: TreasuryLiquidityProvider;
   signerService: SignerService;
   quoteRepository: QuoteRepository;
+  quoteControlStore: QuoteControlStore;
   riskDecisionStore: RiskDecisionStore;
   rateLimiter: Pick<RateLimiter, "checkHealth">;
   inventoryService: IInventoryService;
@@ -141,6 +147,7 @@ const readinessServiceDepsFields = [
   "riskEngine",
   "signerService",
   "quoteRepository",
+  "quoteControlStore",
   "riskDecisionStore",
   "rateLimiter",
   "inventoryService",
@@ -212,6 +219,7 @@ export class ReadinessService {
     const riskStatus = await this.checkRisk();
     const signerStatus = await this.checkSigner();
     const quoteRepositoryStatus = await this.checkDependency(this.deps.quoteRepository);
+    const quoteControlStatus = await this.checkQuoteControl();
     const riskDecisionStoreStatus = await this.checkDependency(this.deps.riskDecisionStore);
     const rateLimitStoreStatus = await this.checkDependency(this.deps.rateLimiter);
     const inventoryStatus = await this.checkDependency(this.deps.inventoryService);
@@ -228,6 +236,7 @@ export class ReadinessService {
       risk: riskStatus,
       signer: signerStatus,
       quoteRepository: quoteRepositoryStatus,
+      quoteControl: quoteControlStatus,
       riskDecisionStore: riskDecisionStoreStatus,
       rateLimitStore: rateLimitStoreStatus,
       inventory: inventoryStatus,
@@ -330,6 +339,17 @@ export class ReadinessService {
     }
   }
 
+  private async checkQuoteControl(): Promise<ReadinessComponentStatus> {
+    try {
+      const state = await this.deps.quoteControlStore.getState();
+      assertQuoteControlState(state);
+      this.deps.metricsService.recordQuoteControlState(state.paused);
+      return "ok";
+    } catch {
+      return "degraded";
+    }
+  }
+
   private async checkDependency(dependency: { checkHealth?: () => void | Promise<void> }): Promise<ReadinessComponentStatus> {
     try {
       await dependency.checkHealth?.();
@@ -392,6 +412,8 @@ function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
   assertDependencyMethod(deps.signerService, "signerService", "verifyQuoteSignature");
   assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "checkHealth");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "checkHealth");
+  assertDependencyMethod(deps.quoteControlStore, "quoteControlStore", "checkHealth");
+  assertDependencyMethod(deps.quoteControlStore, "quoteControlStore", "getState");
   assertDependencyMethod(deps.riskDecisionStore, "riskDecisionStore", "checkHealth");
   assertDependencyMethod(deps.rateLimiter, "rateLimiter", "checkHealth");
   assertDependencyMethod(deps.inventoryService, "inventoryService", "checkHealth");

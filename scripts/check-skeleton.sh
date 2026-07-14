@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/server-process.ts"
+gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/server-process.ts"
 
 test -s package.json
 test -s pnpm-workspace.yaml
@@ -16,6 +16,7 @@ test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
 test -s backend/src/api/http-boundary.ts
 test -s backend/src/api/trading-routes.ts
+test -s backend/src/api/quote-control-routes.ts
 test -s backend/src/runtime/environment.ts
 test -s backend/src/runtime/gateway-runtime.ts
 test -s backend/src/runtime/market-runtime.ts
@@ -2063,12 +2064,12 @@ grep -q 'rfq_readiness_status' book/Volume5-BackendEngineering/Chapter08-Metrics
 grep -q 'rfq_dependency_status' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_rate_limited_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'marketData、marketSnapshotStore、routing、pricing' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
-grep -q 'riskDecisionStore、inventory' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
+grep -q 'quoteControl、riskDecisionStore、rateLimitStore、inventory' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_readiness_status' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_dependency_status' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_rate_limited_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'marketData|marketSnapshotStore|routing|pricing' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
-grep -q 'riskDecisionStore|rateLimitStore|inventory' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
+grep -q 'quoteControl|riskDecisionStore|rateLimitStore|inventory' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfq_rate_limited_total' infra/grafana/provisioning/dashboards/rfq-overview.json
 grep -q 'RFQReadinessDegraded' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_readiness_status{status="degraded"} == 1' infra/prometheus/rules/rfq-alerts.yml
@@ -3590,5 +3591,22 @@ grep -q 'filledAmount !== targetAmount' backend/src/modules/hedge/hedge-worker.t
 grep -q 'HedgeWorker requires FILLED cumulative quantity to equal the quantized target' backend/test/hedge-worker.test.mjs
 grep -q 'HedgeWorker permits only sub-step dust between intent and a complete venue fill' backend/test/hedge-worker.test.mjs
 grep -q 'make hedge-execution-check' .github/workflows/docs-ci.yml
+
+test -s backend/src/db/migrations/018-quote-control.sql
+test -s backend/src/modules/quote-control/quote-control.store.ts
+test -s backend/src/modules/quote-control/postgres-quote-control.store.ts
+test -s backend/test/quote-control.test.mjs
+test -s backend/test/postgres-quote-control-store.test.mjs
+test -s backend/test/api-quote-control.test.mjs
+grep -q 'server.get("/admin/quote-control"' backend/src/api/quote-control-routes.ts
+grep -q 'server.put("/admin/quote-control"' backend/src/api/quote-control-routes.ts
+grep -q 'QUOTE_PAUSED' backend/src/api/trading-routes.ts
+grep -q 'QUOTE_CONTROL_UNAVAILABLE' backend/src/api/trading-routes.ts
+grep -q 'assertDependencyMethod(deps.quoteControlStore, "quoteControlStore", "getState")' backend/src/modules/health/readiness.service.ts
+grep -q 'rfq_quote_paused 1' backend/test/readiness.test.mjs
+grep -q 'expectedVersion' docs/api/openapi.yaml
+grep -q 'quote_control_audit' docs/database/schema.sql
+grep -q 'RFQQuoteCreationPaused' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'admin:write' docs/security/key-management.md
 
 echo "skeleton check passed"

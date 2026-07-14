@@ -62,6 +62,7 @@ export type ReadinessComponentName =
   | "risk"
   | "signer"
   | "quoteRepository"
+  | "quoteControl"
   | "riskDecisionStore"
   | "rateLimitStore"
   | "inventory"
@@ -209,6 +210,9 @@ export const rfqErrorCodes = [
   "QUOTE_EXPIRED",
   "QUOTE_ALREADY_USED",
   "QUOTE_FAILED",
+  "QUOTE_PAUSED",
+  "QUOTE_CONTROL_CONFLICT",
+  "QUOTE_CONTROL_UNAVAILABLE",
   "HEDGE_NOT_FOUND",
   "HEDGE_STORE_UNAVAILABLE",
   "SETTLEMENT_EVENT_NOT_FOUND",

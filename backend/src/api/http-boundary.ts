@@ -162,6 +162,8 @@ function requiredApiKeyScope(request: FastifyRequest): ApiKeyScope | undefined {
   if (request.method === "GET" &&
       (route === "/quote/:quoteId" || route === "/hedges/:hedgeOrderId" ||
        route === "/settlements/:settlementEventId")) return "status:read";
+  if (request.method === "GET" && route === "/admin/quote-control") return "admin:read";
+  if (request.method === "PUT" && route === "/admin/quote-control") return "admin:write";
   return undefined;
 }
 
@@ -175,7 +177,7 @@ function applyCorsHeaders(
 
   reply.header("access-control-allow-origin", origin);
   reply.header("vary", "Origin");
-  reply.header("access-control-allow-methods", "GET,POST,OPTIONS");
+  reply.header("access-control-allow-methods", "GET,POST,PUT,OPTIONS");
   reply.header("access-control-allow-headers", "content-type,x-api-key,x-trace-id");
   reply.header("access-control-max-age", "600");
 }

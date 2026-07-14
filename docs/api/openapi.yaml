@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Production-Grade Web3 RFQ Market Maker API
   version: 0.1.0
-  description: API draft for RFQ quote, submit, health, and metrics flows. Every response includes an x-trace-id header for request correlation; structured error bodies also include the same traceId value. Clients may send a safe tr_-prefixed x-trace-id request header, which the gateway echoes after length and character validation; unsafe values fall back to a generated request id. Business routes require a scoped x-api-key in non-local deployments; only the key id and SHA-256 secret digest are stored server-side. Quotes belong to the authenticated stable principal, not an individual key id, so same-principal key rotation preserves access while cross-principal quote, settlement, and hedge lookups return the same 404 response as an absent resource; submit and PnL are scoped identically. The principal is off-chain authorization metadata and is never part of a public response or EIP-712 payload. Browser access is controlled by the RFQ_CORS_ALLOWED_ORIGINS allowlist, which only accepts normalized HTTP(S) URL origins without path, query, fragment, credentials, or wildcards. The gateway emits no-store cache control and baseline browser security headers on every response. Unknown routes and unsupported methods return the standard ErrorResponse shape.
+  description: API draft for RFQ quote, submit, administrative quote control, health, and metrics flows. Every response includes an x-trace-id header for request correlation; structured error bodies also include the same traceId value. Clients may send a safe tr_-prefixed x-trace-id request header, which the gateway echoes after length and character validation; unsafe values fall back to a generated request id. Business and administrative routes require a scoped x-api-key in non-local deployments; only the key id and SHA-256 secret digest are stored server-side. Quotes belong to the authenticated stable principal, not an individual key id, so same-principal key rotation preserves access while cross-principal quote, settlement, and hedge lookups return the same 404 response as an absent resource; submit and PnL are scoped identically. The principal is off-chain authorization metadata and is never part of a public response or EIP-712 payload. Browser access is controlled by the RFQ_CORS_ALLOWED_ORIGINS allowlist, which only accepts normalized HTTP(S) URL origins without path, query, fragment, credentials, or wildcards. The gateway emits no-store cache control and baseline browser security headers on every response. Unknown routes and unsupported methods return the standard ErrorResponse shape.
 servers:
   - url: http://localhost:3000
 security:
@@ -13,7 +13,9 @@ paths:
       operationId: createQuote
       summary: Request an RFQ quote
       description: >
-        Prices and risk-checks the request before signing. Receipt-confirmed runtimes
+        Prices and risk-checks the request before signing. The shared administrative
+        quote-control state is checked first; a pause or unreadable state fails closed
+        without invalidating signed quotes already issued. Receipt-confirmed runtimes
         also read the configured settlement contract treasury and tokenOut balance at
         one chain block, then atomically reserve unexpired output capacity across API
         replicas. Insufficient or unavailable Treasury liquidity fails closed before
@@ -115,7 +117,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: Rate limit store unavailable, market data unavailable, stale, too far in the future, invalid, routing unavailable, quote store unavailable, signer unavailable, or another quote dependency unavailable
+          description: Quote creation paused, quote-control or rate-limit store unavailable, market data unavailable, stale, too far in the future, invalid, routing unavailable, quote store unavailable, signer unavailable, or another quote dependency unavailable
           headers:
             x-trace-id:
               $ref: "#/components/headers/TraceId"
@@ -544,6 +546,151 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /admin/quote-control:
+    get:
+      operationId: getQuoteControl
+      summary: Read the global quote-creation control state
+      description: Returns the shared cross-replica state and CAS version. This operation does not change the state.
+      x-required-scope: admin:read
+      tags:
+        - Administration
+      responses:
+        "200":
+          description: Current quote-control state
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteControlState"
+        "401":
+          description: Missing, malformed, invalid, or expired API key
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: API key lacks admin:read
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+            Retry-After:
+              description: Seconds until the operator may retry.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Quote-control or rate-limit store unavailable
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateQuoteControl
+      summary: Pause or resume global quote creation
+      description: Atomically updates the shared state when expectedVersion matches and appends an immutable operator audit row. Pausing affects only new POST /quote requests; existing signed quotes remain queryable and submittable.
+      x-required-scope: admin:write
+      tags:
+        - Administration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteControlUpdate"
+            examples:
+              pause:
+                value:
+                  paused: true
+                  reason: "CEX market data incident INC-2026-0714"
+                  expectedVersion: 0
+      responses:
+        "200":
+          description: Updated quote-control state
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteControlState"
+        "400":
+          description: Invalid closed update payload, reason, or expectedVersion
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, malformed, invalid, or expired API key
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: API key lacks admin:write
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: expectedVersion no longer matches the shared state
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+            Retry-After:
+              description: Seconds until the operator may retry.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Quote-control or rate-limit store unavailable
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /health:
     get:
       security: []
@@ -643,6 +790,56 @@ components:
       maxLength: 128
       pattern: "^[A-Za-z0-9_:-]+$"
       description: Resource identifier containing only letters, numbers, underscore, colon, or hyphen.
+    QuoteControlState:
+      type: object
+      additionalProperties: false
+      required:
+        - paused
+        - version
+        - reason
+        - updatedBy
+        - updatedAt
+      properties:
+        paused:
+          type: boolean
+        version:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        reason:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 256
+          description: Required and non-null while paused; records the incident or reviewed resume reason.
+        updatedBy:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[A-Za-z0-9_:-]+$"
+        updatedAt:
+          type: string
+          format: date-time
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    QuoteControlUpdate:
+      type: object
+      additionalProperties: false
+      required:
+        - paused
+        - reason
+        - expectedVersion
+      properties:
+        paused:
+          type: boolean
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 256
+        expectedVersion:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
     QuoteRequest:
       type: object
       additionalProperties: false
@@ -1194,6 +1391,7 @@ components:
             - risk
             - signer
             - quoteRepository
+            - quoteControl
             - riskDecisionStore
             - rateLimitStore
             - inventory
@@ -1215,6 +1413,8 @@ components:
             signer:
               $ref: "#/components/schemas/ReadinessComponentStatus"
             quoteRepository:
+              $ref: "#/components/schemas/ReadinessComponentStatus"
+            quoteControl:
               $ref: "#/components/schemas/ReadinessComponentStatus"
             riskDecisionStore:
               $ref: "#/components/schemas/ReadinessComponentStatus"
@@ -1264,6 +1464,9 @@ components:
             - QUOTE_EXPIRED
             - QUOTE_ALREADY_USED
             - QUOTE_FAILED
+            - QUOTE_PAUSED
+            - QUOTE_CONTROL_CONFLICT
+            - QUOTE_CONTROL_UNAVAILABLE
             - HEDGE_NOT_FOUND
             - HEDGE_STORE_UNAVAILABLE
             - SETTLEMENT_EVENT_NOT_FOUND

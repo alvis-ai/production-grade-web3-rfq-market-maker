@@ -11,6 +11,10 @@ import { MetricsService } from "../modules/metrics/metrics.service.js";
 import type { PnlStore, RecordPnlInput } from "../modules/pnl/pnl.service.js";
 import { convertBaseUnitAmount, normalizeHumanPrice } from "../modules/pricing/price-normalization.js";
 import type { QuoteRepository } from "../modules/quote/quote.repository.js";
+import {
+  assertQuoteControlState,
+  type QuoteControlStore,
+} from "../modules/quote-control/quote-control.store.js";
 import type { QuoteService } from "../modules/quote/quote.service.js";
 import type { RateLimiter } from "../modules/rate-limit/rate-limit.service.js";
 import type { SettlementEventStore } from "../modules/settlement/settlement-event.service.js";
@@ -75,6 +79,7 @@ export interface TradingRouteDependencies {
   metricsService: MetricsService;
   pnlService: PnlStore;
   quoteRepository: QuoteRepository;
+  quoteControlStore: QuoteControlStore;
   quoteService: QuoteService;
   rateLimiter?: RateLimiter;
   readinessService: ReadinessService;
@@ -92,6 +97,7 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
     metricsService,
     pnlService,
     quoteRepository,
+    quoteControlStore,
     quoteService,
     rateLimiter,
     readinessService,
@@ -254,6 +260,8 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
         return rateLimitResult.response;
       }
 
+      await requireQuoteEnabled(quoteControlStore, metricsService);
+
       const response = await quoteService.createQuote(validateQuoteRequest(request.body), {
         principalId: principal?.principalId ?? localPrincipalId,
       });
@@ -350,6 +358,22 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
       metricsService.recordSubmitLatency(elapsedSeconds(startedAt));
     }
   });
+}
+
+async function requireQuoteEnabled(
+  quoteControlStore: QuoteControlStore,
+  metricsService: MetricsService,
+): Promise<void> {
+  let state;
+  try {
+    state = await quoteControlStore.getState();
+    assertQuoteControlState(state);
+  } catch {
+    metricsService.recordQuoteControlError("read");
+    throw new APIError("QUOTE_CONTROL_UNAVAILABLE", "Quote control store unavailable", 503);
+  }
+  metricsService.recordQuoteControlState(state.paused);
+  if (state.paused) throw new APIError("QUOTE_PAUSED", "Quote creation is paused", 503);
 }
 
 async function requireQuoteOwnership(

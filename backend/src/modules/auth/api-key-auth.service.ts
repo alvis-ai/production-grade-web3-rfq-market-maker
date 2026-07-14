@@ -2,7 +2,14 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 import { assertPrincipalId } from "../../shared/validation/principal-id.js";
 
-export const apiKeyScopes = ["quote:write", "submit:write", "status:read", "pnl:read"] as const;
+export const apiKeyScopes = [
+  "quote:write",
+  "submit:write",
+  "status:read",
+  "pnl:read",
+  "admin:read",
+  "admin:write",
+] as const;
 
 export type ApiKeyScope = (typeof apiKeyScopes)[number];
 export type ApiKeyRejectionReason = "missing" | "malformed" | "invalid" | "expired";

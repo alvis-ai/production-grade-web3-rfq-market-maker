@@ -9,6 +9,7 @@ import { MetricsService } from "../dist/modules/metrics/metrics.service.js";
 import { PnlService } from "../dist/modules/pnl/pnl.service.js";
 import { FormulaPricingEngine } from "../dist/modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
+import { InMemoryQuoteControlStore } from "../dist/modules/quote-control/quote-control.store.js";
 import { InMemoryRiskDecisionRepository } from "../dist/modules/risk/risk-decision.repository.js";
 import { BasicRiskEngine } from "../dist/modules/risk/risk.engine.js";
 import { InternalInventoryRoutingEngine } from "../dist/modules/routing/routing.engine.js";
@@ -24,6 +25,7 @@ const readinessComponents = [
   "risk",
   "signer",
   "quoteRepository",
+  "quoteControl",
   "riskDecisionStore",
   "rateLimitStore",
   "inventory",
@@ -84,6 +86,48 @@ test("ReadinessService degrades when the distributed rate limit store is unavail
   assert.equal(readiness.status, "degraded");
   assert.equal(readiness.components.rateLimitStore, "degraded");
   assert.equal(readiness.components.quoteRepository, "ok");
+});
+
+test("ReadinessService degrades when the quote control store is unavailable", async () => {
+  const readiness = await createReadinessService({
+    quoteControlStore: {
+      async checkHealth() { throw new Error("quote control unavailable"); },
+      async getState() { throw new Error("quote control unavailable"); },
+      async updateState() { throw new Error("quote control unavailable"); },
+    },
+  }).check();
+
+  assert.equal(readiness.status, "degraded");
+  assert.equal(readiness.components.quoteControl, "degraded");
+  assert.equal(readiness.components.quoteRepository, "ok");
+});
+
+test("ReadinessService reports intentional quote pause as healthy and refreshes its gauge", async () => {
+  const deps = readinessServiceDeps();
+  await deps.quoteControlStore.updateState({
+    paused: true,
+    reason: "incident response",
+    expectedVersion: 0,
+  }, "institution_ops:ops_writer");
+
+  const readiness = await new ReadinessService(deps).check();
+
+  assert.equal(readiness.status, "ready");
+  assert.equal(readiness.components.quoteControl, "ok");
+  assert.match(deps.metricsService.renderPrometheus(), /rfq_quote_paused 1/);
+});
+
+test("ReadinessService degrades quote control on malformed shared state", async () => {
+  const readiness = await createReadinessService({
+    quoteControlStore: {
+      checkHealth() {},
+      async getState() { return { paused: false }; },
+      async updateState() { return { paused: false }; },
+    },
+  }).check();
+
+  assert.equal(readiness.status, "degraded");
+  assert.equal(readiness.components.quoteControl, "degraded");
 });
 
 test("ReadinessService degrades execution when the submit reservation store is unavailable", async () => {
@@ -239,6 +283,7 @@ function readinessServiceDeps(overrides = {}) {
       settlementAddress: "0x0000000000000000000000000000000000000004",
     }),
     quoteRepository: overrides.quoteRepository ?? new InMemoryQuoteRepository(),
+    quoteControlStore: overrides.quoteControlStore ?? new InMemoryQuoteControlStore(),
     riskDecisionStore: overrides.riskDecisionStore ?? new InMemoryRiskDecisionRepository(),
     rateLimiter: overrides.rateLimiter ?? { checkHealth() {} },
     inventoryService,

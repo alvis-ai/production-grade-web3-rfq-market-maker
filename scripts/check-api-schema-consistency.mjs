@@ -36,6 +36,8 @@ const closedOpenApiSchemas = [
   "PnlSummary",
   "HealthResponse",
   "ReadinessResponse",
+  "QuoteControlState",
+  "QuoteControlUpdate",
 ];
 const inlineEnumMappings = [
   ["SubmitQuoteResponse", "SubmitQuoteResponse", "SubmitQuoteResponse", "status"],
@@ -86,6 +88,17 @@ for (const [backendName, sdkName, openapiName] of schemaMappings) {
 for (const schemaName of closedOpenApiSchemas) {
   assertOpenApiSchemaClosed(schemaName);
 }
+
+assert.deepEqual(
+  extractOpenApiSchema(openapiSource, "QuoteControlState").properties,
+  ["paused", "version", "reason", "updatedBy", "updatedAt"],
+  "QuoteControlState OpenAPI properties must match the administrative response",
+);
+assert.deepEqual(
+  extractOpenApiSchema(openapiSource, "QuoteControlUpdate").properties,
+  ["paused", "reason", "expectedVersion"],
+  "QuoteControlUpdate OpenAPI properties must match the closed CAS request",
+);
 
 for (const [backendName, sdkName, openapiName, propertyName] of inlineEnumMappings) {
   const backendValues = extractInterfacePropertyEnumValues(backendTypesSource, backendName, propertyName);

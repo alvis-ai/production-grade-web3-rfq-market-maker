@@ -104,6 +104,9 @@ Key metrics include:
 - `rfq_quote_errors_total`
 - `rfq_quote_latency_seconds`
 - `rfq_quote_rejections_total` with bounded `reason`; alert separately on `TREASURY_LIQUIDITY_INSUFFICIENT` and `RISK_ENGINE_UNAVAILABLE`
+- `rfq_quote_paused`
+- `rfq_quote_control_updates_total`
+- `rfq_quote_control_errors_total` with bounded `operation="read|update"`
 - `rfq_submit_requests_total`
 - `rfq_submit_accepted_total`
 - `rfq_submit_errors_total`
@@ -172,7 +175,8 @@ Key metrics include:
 - No quoteId/user address labels in Prometheus.
 - Signer metrics use only the low-cardinality `operation` label: `sign` or `verify`.
 - Rate-limit metrics use only the fixed `endpoint` label: `quote`, `submit` or `status`; dynamic route params must stay out of Prometheus labels.
-- Readiness metrics mirror the last `/ready` probe with fixed labels: `rfq_readiness_status{status="ready|degraded"}` and `rfq_dependency_status{component="marketData|marketSnapshotStore|routing|pricing|risk|signer|quoteRepository|riskDecisionStore|rateLimitStore|inventory|execution|settlementEventStore|pnl|metrics",status="ok|degraded"}`.
+- Readiness metrics mirror the last `/ready` probe with fixed labels: `rfq_readiness_status{status="ready|degraded"}` and `rfq_dependency_status{component="marketData|marketSnapshotStore|routing|pricing|risk|signer|quoteRepository|quoteControl|riskDecisionStore|rateLimitStore|inventory|execution|settlementEventStore|pnl|metrics",status="ok|degraded"}`.
+- Quote-control metrics intentionally exclude operator identity and free-form reason. A pause gauge indicates the current safety state, update count supplies an audit correlation signal, and operation errors identify failed read/update paths without creating high-cardinality labels.
 - Readiness alerting should page on sustained degraded status, then route by the degraded component instead of relying on a single generic health alarm.
 - Dependency component alerting uses the fixed `component` label from readiness probes so operators can route incidents without parsing error messages.
 - Quote error alerting should correlate errors with risk rejection, rate limit, market data, pricing and signer metrics before changing quote availability.

@@ -38,7 +38,7 @@ const [
   readFile("docs/security/threat-model.md", "utf8"),
 ]);
 
-for (const scope of ["quote:write", "submit:write", "status:read", "pnl:read"]) {
+for (const scope of ["quote:write", "submit:write", "status:read", "pnl:read", "admin:read", "admin:write"]) {
   assert.ok(authSource.includes(`"${scope}"`), `backend auth service must define ${scope}`);
   assert.ok(openapiSource.includes(`x-required-scope: ${scope}`), `OpenAPI must map ${scope} to an operation`);
   assert.ok(keyManagementSource.includes(`\`${scope}\``), `key management must document ${scope}`);
@@ -64,6 +64,8 @@ for (const runtimeControl of [
   'return "submit:write"',
   'return "status:read"',
   'return "pnl:read"',
+  'return "admin:read"',
+  'return "admin:write"',
   "api-key:${principal.keyId.toLowerCase()}",
   'request.headers["x-api-key"]',
 ]) {

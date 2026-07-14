@@ -103,7 +103,7 @@ test("RFQ API emits CORS headers for allowed browser origins", async () => {
     assert.equal(response.statusCode, 200);
     assert.equal(response.headers["access-control-allow-origin"], "https://app.example.com");
     assert.equal(response.headers.vary, "Origin");
-    assert.equal(response.headers["access-control-allow-methods"], "GET,POST,OPTIONS");
+    assert.equal(response.headers["access-control-allow-methods"], "GET,POST,PUT,OPTIONS");
     assert.equal(response.headers["access-control-allow-headers"], "content-type,x-api-key,x-trace-id");
     assert.equal(response.headers["access-control-max-age"], "600");
   } finally {
@@ -130,7 +130,7 @@ test("RFQ API answers CORS preflight for allowed origins", async () => {
 
     assert.equal(response.statusCode, 204);
     assert.equal(response.headers["access-control-allow-origin"], "https://app.example.com");
-    assert.equal(response.headers["access-control-allow-methods"], "GET,POST,OPTIONS");
+    assert.equal(response.headers["access-control-allow-methods"], "GET,POST,PUT,OPTIONS");
     assert.equal(response.payload, "");
   } finally {
     await server.close();

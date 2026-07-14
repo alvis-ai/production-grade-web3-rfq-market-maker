@@ -69,6 +69,20 @@ const endpoints = [
   },
   {
     method: "get",
+    backendPath: "/admin/quote-control",
+    openapiPath: "/admin/quote-control",
+    operationId: "getQuoteControl",
+    operationsOnly: true,
+  },
+  {
+    method: "put",
+    backendPath: "/admin/quote-control",
+    openapiPath: "/admin/quote-control",
+    operationId: "updateQuoteControl",
+    operationsOnly: true,
+  },
+  {
+    method: "get",
     backendPath: "/health",
     openapiPath: "/health",
     operationId: "getHealth",
@@ -102,8 +116,10 @@ for (const endpoint of endpoints) {
   if (endpoint.pathParameter) {
     assertOpenApiNonEmptyPathParameter(endpoint.openapiPath, endpoint.pathParameter);
   }
-  assertSdkMethod(endpoint.sdkMethod, endpoint.sdkPath);
-  assertSmokeCoverage(endpoint.method, endpoint.smokePath);
+  if (!endpoint.operationsOnly) {
+    assertSdkMethod(endpoint.sdkMethod, endpoint.sdkPath);
+    assertSmokeCoverage(endpoint.method, endpoint.smokePath);
+  }
 }
 
 assert.deepEqual(
@@ -206,7 +222,7 @@ function assertSmokeCoverage(method, pathFragment) {
 }
 
 function extractBackendRoutes(source) {
-  return [...source.matchAll(/server\.(get|post)\("([^"]+)"/g)].map(
+  return [...source.matchAll(/server\.(get|post|put)\("([^"]+)"/g)].map(
     ([, method, path]) => `${method.toUpperCase()} ${path}`,
   );
 }
@@ -224,7 +240,7 @@ function extractOpenApiRoutes(source) {
       continue;
     }
 
-    const methodMatch = line.match(/^    (get|post):$/);
+    const methodMatch = line.match(/^    (get|post|put):$/);
     if (currentPath && methodMatch) {
       routes.push(`${methodMatch[1].toUpperCase()} ${currentPath}`);
     }

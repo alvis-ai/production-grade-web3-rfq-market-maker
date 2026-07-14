@@ -124,6 +124,9 @@ Future admin APIs may support disabling quote signing, lowering limits, disablin
 | `RFQQuoteTrafficStopped` | Confirm whether quote demand stopped or the API stopped receiving `/quote`. | Check ingress, rate limiting, market data and signer readiness before restarting services. | `rfq_quote_requests_total` increases and sample `/quote` requests complete. |
 | `RFQQuoteErrorsSpike` | Compare `rfq_quote_errors_total` with rate limits, validation failures, risk rejection labels, market data freshness, pricing and signer health. | Fail closed for unsafe pairs, fix client payload or config drift, and only restart pods after dependency health is understood. | Quote errors return to baseline while valid quote requests receive signed responses within latency SLO. |
 | `RFQQuoteResponsesStalled` | Compare `rfq_quote_requests_total`, `rfq_quote_responses_total`, quote errors, risk rejections and signer metrics. | Fail closed for unsafe tokens, restore signer or market data dependencies, and avoid widening limits until signed quote responses recover. | Valid `/quote` requests produce signed responses and `rfq_quote_responses_total` increases again. |
+| `RFQQuoteCreationPaused` | Read `GET /admin/quote-control`, verify reason, version, actor and matching incident/change approval; distinguish intentional pause from stale operational state. | Keep new quote creation paused until the incident commander approves recovery; do not disable submit, indexer, hedge or reconciliation paths for existing signed quotes. | Approved resume increments the CAS version, `rfq_quote_paused` returns 0 and a bounded quote canary succeeds. |
+| `RFQQuoteControlChanged` | Correlate the counter increase with `quote_control_audit`, authenticated actor, reason and the incident/change timeline. | Revert only through a new reviewed CAS update; never edit or delete the current/audit rows directly. | Current state matches the approved action and every observed version has one immutable audit row. |
+| `RFQQuoteControlErrors` | Break down by `operation`, inspect `/ready.components.quoteControl`, PostgreSQL connectivity, migration 018, table permissions, invalid payloads and CAS conflicts. | Keep `/quote` fail-closed, restore the shared store or reread the latest version; never fall back to pod-local enabled state. | Read/update errors stop, readiness reports `quoteControl=ok`, and pause/resume canaries preserve CAS and audit behavior. |
 | `RFQSubmitTrafficSpike` | Inspect submit source, quote TTL distribution and nonce reuse signals. | Tighten rate limits and lower per-user submit burst while preserving valid settlement flow. | `rfq_submit_requests_total` returns to baseline and duplicate or invalid submit errors do not rise. |
 | `RFQSubmitErrorsSpike` | Compare `rfq_submit_errors_total` with `rfq_rate_limited_total`, validation errors, quote status failures and settlement reverts. | Pause risky submit traffic only if settlement or replay protection is uncertain; otherwise fix client payloads, limits or dependency health by root cause. | Submit errors return to baseline while valid signed quotes still settle and inventory, hedge and PnL paths advance. |
 | `RFQSubmitLatencyP95High` | Break down settlement verification, quote repository, inventory update, hedge intent and PnL attribution latency. | Reduce submit concurrency, pause risky pairs if settlement state is lagging, and keep valid replay protection active. | `rfq_submit_latency_seconds` p95 returns below threshold and accepted submissions still produce settlement, hedge and PnL records. |
@@ -196,13 +199,13 @@ For a confirmed chain reorg, call the settlement removal path with exact `chainI
 Use this procedure when signer compromise, settlement replay uncertainty, treasury exposure, broken token whitelist, or unsafe market data could put funds at risk. Pausing settlement is a privileged action and must be recorded in the incident timeline.
 
 1. Declare incident severity, assign an incident commander and capture the triggering alert, traceId or transaction hash.
-2. Stop new quote signing for affected chains or pairs so users cannot receive fresh executable quotes during the pause decision.
+2. Read `GET /admin/quote-control` with an `admin:read` key, record the returned version, then call `PUT /admin/quote-control` with an `admin:write` key and `{ "paused": true, "reason": "<incident/change id>", "expectedVersion": <version> }`. A 409 requires reread and human review; never overwrite a concurrent action blindly.
 3. Call `RFQSettlement.setPaused(true)` from the owner-controlled admin path and record the transaction hash, operator identity and approval trail.
 4. Verify `RFQSettlement.paused()` is true and run a negative submit canary that must revert with `Paused`.
-5. Keep `/quote` fail-closed or risk-limited for affected pairs, and keep `/submit` status endpoints available so clients and operators can inspect already observed settlements.
+5. Verify `rfq_quote_paused == 1` and a negative `/quote` canary returns `QUOTE_PAUSED`/503. Keep `/submit`, status endpoints, settlement indexer, inventory, hedge and reconciliation available so existing signed economic obligations continue to converge.
 6. Reconcile settlement, inventory, hedge and PnL state from `QuoteSettled` events before unpausing; do not manually replay settlement side effects from API logs.
 7. Before unpause, verify signer allowlist, token whitelist, treasury address, nonce replay protection, readiness and alert health.
-8. Call `RFQSettlement.setPaused(false)` only after two-person approval, then run a small quote/submit canary and watch `rfq_submit_errors_total`, `rfq_settlements_total`, inventory exposure and hedge lag.
+8. Call `RFQSettlement.setPaused(false)` only after two-person approval. Then reread quote control, use its latest version to `PUT` `{ "paused": false, "reason": "<approved recovery/change id>", "expectedVersion": <version> }`, run a small quote/submit canary and watch quote-control, submit, settlement, inventory and hedge metrics.
 9. Close the pause window with a postmortem link, affected block range, reconciled settlement count and remaining follow-up actions.
 
 ### Market Data Stale
@@ -290,7 +293,7 @@ Alerts: Kubernetes rollout timeout, elevated 5xx during deployment, pods killed 
 
 ## Security Considerations
 
-Runbook operations are privileged. Require multi-person approval for signer removal, contract pause/unpause and treasury operations.
+Runbook operations are privileged. Require multi-person approval for signer removal, API quote pause/resume, contract pause/unpause and treasury operations. Keep `admin:write` credentials out of browser and ordinary trading clients; every change must retain a reason, CAS version and authenticated audit actor.
 
 ## Performance Considerations
 

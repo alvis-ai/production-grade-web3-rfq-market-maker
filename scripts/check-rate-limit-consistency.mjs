@@ -10,6 +10,7 @@ const mainSource = await readBackendGatewaySource();
 const apiGatewayEnvTestSource = await readFile("backend/test/api-gateway-env.test.mjs", "utf8");
 const apiGatewayTestSource = await readFile("backend/test/api-gateway.test.mjs", "utf8");
 const apiRateLimitTestSource = await readFile("backend/test/api-rate-limit.test.mjs", "utf8");
+const apiQuoteControlTestSource = await readFile("backend/test/api-quote-control.test.mjs", "utf8");
 const apiRedisRateLimitTestSource = await readFile("backend/test/api-redis-rate-limit.test.mjs", "utf8");
 const rateLimitTestSource = await readFile("backend/test/rate-limit.test.mjs", "utf8");
 const redisRateLimitTestSource = await readFile("backend/test/redis-rate-limit.test.mjs", "utf8");
@@ -201,6 +202,13 @@ for (const path of ["/quote:", "/submit:", "/quote/{quoteId}:", "/hedges/{hedgeO
   assert.ok(pathBlock.includes("Retry-After:"), `OpenAPI ${path} must document Retry-After header`);
   assert.ok(pathBlock.includes("#/components/schemas/ErrorResponse"), `OpenAPI ${path} 429 must use ErrorResponse`);
 }
+const quoteControlPathBlock = extractOpenapiPathBlock(openapiSource, "/admin/quote-control:");
+assert.equal([...quoteControlPathBlock.matchAll(/^        "429":$/gm)].length, 2, "OpenAPI quote-control GET and PUT must document HTTP 429");
+assert.equal([...quoteControlPathBlock.matchAll(/Retry-After:/g)].length, 2, "OpenAPI quote-control GET and PUT must document Retry-After");
+assertContains(apiQuoteControlTestSource, [
+  "quote control admin routes share the distributed status rate-limit bucket",
+  'assert.equal(limited.body.code, "RATE_LIMITED")',
+], "backend/test/api-quote-control.test.mjs");
 
 assertContains(errorDocsSource, [
   "| `RATE_LIMITED` | 429 |",
@@ -208,7 +216,7 @@ assertContains(errorDocsSource, [
   "## Rate Limit Policy",
   "| `quote` | `POST /quote` | 120 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
   "| `submit` | `POST /submit` | 60 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
-  "| `status` | `GET /quote/:quoteId`, `GET /settlements/:settlementEventId`, `GET /hedges/:hedgeOrderId`, `GET /pnl` | 300 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
+  "| `status` | `GET /quote/:quoteId`, `GET /settlements/:settlementEventId`, `GET /hedges/:hedgeOrderId`, `GET /pnl`, `GET/PUT /admin/quote-control` | 300 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
   "`x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`",
   "forwarded client identities longer than 128 characters or outside `[A-Za-z0-9_.:-]` are rejected as `INVALID_REQUEST`/400",
   "| `RATE_LIMIT_UNAVAILABLE` | 503 |",

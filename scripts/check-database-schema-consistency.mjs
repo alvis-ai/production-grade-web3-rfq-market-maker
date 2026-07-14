@@ -70,6 +70,14 @@ const quotePrincipalOwnershipMigrationSource = await readFile(
   "backend/src/db/migrations/017-quote-principal-ownership.sql",
   "utf8",
 );
+const quoteControlMigrationSource = await readFile(
+  "backend/src/db/migrations/018-quote-control.sql",
+  "utf8",
+);
+const postgresQuoteControlSource = await readFile(
+  "backend/src/modules/quote-control/postgres-quote-control.store.ts",
+  "utf8",
+);
 const treasuryLiquidityProviderSource = await readFile(
   "backend/src/modules/risk/treasury-liquidity.provider.ts",
   "utf8",
@@ -278,6 +286,8 @@ const requiredTables = {
     "notional_usd_e18",
     "expires_at",
   ],
+  quote_control: ["singleton", "paused", "version", "reason", "updated_by", "updated_at"],
+  quote_control_audit: ["version", "paused", "reason", "updated_by", "updated_at"],
   _migrations: ["version", "name", "applied_at"],
 };
 
@@ -473,6 +483,18 @@ const requiredCheckConstraints = {
     ["chk_quote_exposure_chain_id", "quote exposure must constrain chain id"],
     ["chk_quote_exposure_addresses", "quote exposure must constrain normalized scope addresses"],
     ["chk_quote_exposure_notional", "quote exposure must constrain positive notional"],
+  ],
+  quote_control: [
+    ["chk_quote_control_version", "quote control must constrain version to JavaScript safe integer range"],
+    ["chk_quote_control_reason", "quote control must constrain operator reasons"],
+    ["chk_quote_control_paused_reason", "paused quote control must require a reason"],
+    ["chk_quote_control_updated_by", "quote control must constrain actor identity"],
+  ],
+  quote_control_audit: [
+    ["chk_quote_control_audit_version", "quote control audit must constrain version to JavaScript safe integer range"],
+    ["chk_quote_control_audit_reason", "quote control audit must constrain reasons"],
+    ["chk_quote_control_audit_paused_reason", "paused audit rows must require a reason"],
+    ["chk_quote_control_audit_updated_by", "quote control audit must constrain actor identity"],
   ],
 };
 
@@ -1077,6 +1099,8 @@ for (const erNode of [
   "PNL_RECORDS",
   "ANALYTICS_OUTBOX",
   "POST_TRADE_RECONCILIATION_JOBS",
+  "QUOTE_CONTROL",
+  "QUOTE_CONTROL_AUDIT",
 ]) {
   assert.ok(new RegExp(`\\b${erNode}\\b`).test(erDiagramSource), `ER diagram must include ${erNode}`);
 }
@@ -1353,6 +1377,26 @@ assert.ok(
     erDiagramSource.includes("text principal_id") &&
     schemaSource.includes("('017', 'quote-principal-ownership')"),
   "quote ownership migration must isolate legacy rows and enforce principal-scoped lookup",
+);
+assert.ok(
+  quoteControlMigrationSource.includes("CREATE TABLE quote_control") &&
+    quoteControlMigrationSource.includes("CREATE TABLE quote_control_audit") &&
+    quoteControlMigrationSource.includes("singleton = TRUE") &&
+    quoteControlMigrationSource.includes("version BETWEEN 0 AND 9007199254740991") &&
+    quoteControlMigrationSource.includes("chk_quote_control_paused_reason") &&
+    quoteControlMigrationSource.includes("INSERT INTO quote_control_audit") &&
+    schemaSource.includes("('018', 'quote-control')") &&
+    erDiagramSource.includes("QUOTE_CONTROL ||--o{ QUOTE_CONTROL_AUDIT"),
+  "quote-control migration and docs must install one auditable shared state",
+);
+assert.ok(
+  postgresQuoteControlSource.includes("WITH updated AS") &&
+    postgresQuoteControlSource.includes("version = version + 1") &&
+    postgresQuoteControlSource.includes("version = $4") &&
+    postgresQuoteControlSource.includes("INSERT INTO quote_control_audit") &&
+    postgresQuoteControlSource.includes("FROM updated") &&
+    postgresQuoteControlSource.includes("QuoteControlConflictError"),
+  "Postgres quote-control store must update by CAS and append audit evidence atomically",
 );
 assert.ok(
   postgresQuoteExposureSource.includes("pg_advisory_xact_lock") &&

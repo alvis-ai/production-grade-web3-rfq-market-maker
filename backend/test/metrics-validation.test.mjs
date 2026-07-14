@@ -12,6 +12,7 @@ const readinessResponse = {
     risk: "ok",
     signer: "degraded",
     quoteRepository: "ok",
+    quoteControl: "ok",
     riskDecisionStore: "ok",
     rateLimitStore: "ok",
     inventory: "ok",
@@ -36,6 +37,14 @@ test("MetricsService rejects unsupported fixed-label inputs before mutating stat
   assert.throws(
     () => metrics.recordSignerLatency("rotate", 0.1),
     /Metrics signer operation must be sign or verify/,
+  );
+  assert.throws(
+    () => metrics.recordQuoteControlError("delete"),
+    /Metrics quote control operation must be read or update/,
+  );
+  assert.throws(
+    () => metrics.recordQuoteControlState("true"),
+    /Metrics quote control paused state must be a boolean/,
   );
   assert.throws(
     () =>

@@ -105,7 +105,7 @@ function extractOpenApiResponses(source) {
       continue;
     }
 
-    const methodMatch = lines[index].match(/^    (get|post):$/);
+    const methodMatch = lines[index].match(/^    (get|post|put):$/);
     if (methodMatch) {
       currentMethod = methodMatch[1].toUpperCase();
       continue;
@@ -118,7 +118,7 @@ function extractOpenApiResponses(source) {
 
     const block = [];
     for (const line of lines.slice(index + 1)) {
-      if (/^        "\d{3}":$/.test(line) || /^    (get|post):$/.test(line) || /^  \/[^:]+:$/.test(line)) {
+      if (/^        "\d{3}":$/.test(line) || /^    (get|post|put):$/.test(line) || /^  \/[^:]+:$/.test(line)) {
         break;
       }
       block.push(line);

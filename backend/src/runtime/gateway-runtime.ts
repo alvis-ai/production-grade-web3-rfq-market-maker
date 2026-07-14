@@ -26,6 +26,12 @@ import type { PnlStore } from "../modules/pnl/pnl.service.js";
 import type { PricingEngine } from "../modules/pricing/pricing.engine.js";
 import type { TokenRegistry } from "../modules/pricing/token-registry.js";
 import type { QuoteRepository } from "../modules/quote/quote.repository.js";
+import {
+  InMemoryQuoteControlStore,
+  assertQuoteControlStore,
+  type QuoteControlStore,
+} from "../modules/quote-control/quote-control.store.js";
+import { PostgresQuoteControlStore } from "../modules/quote-control/postgres-quote-control.store.js";
 import { defaultQuoteServiceConfig } from "../modules/quote/quote.service.js";
 import {
   InMemoryRateLimiter,
@@ -80,6 +86,7 @@ const buildServerOptionFields = [
   "pnlService",
   "pricingEngine",
   "quoteRepository",
+  "quoteControlStore",
   "quoteExposureStore",
   "quoteTtlSeconds",
   "rateLimit",
@@ -107,6 +114,7 @@ export interface BuildServerOptions {
   marketSnapshotStore?: MarketSnapshotStore;
   pricingEngine?: PricingEngine;
   quoteRepository?: QuoteRepository;
+  quoteControlStore?: QuoteControlStore;
   quoteExposureStore?: QuoteExposureStore;
   riskDecisionStore?: RiskDecisionStore;
   riskEngine?: RiskEngine;
@@ -268,6 +276,17 @@ export function resolveSubmitReservationStore(
   return postgresPool
     ? new PostgresSubmitReservationStore(postgresPool, config)
     : new InMemorySubmitReservationStore(config);
+}
+
+export function resolveQuoteControlStore(
+  configured: QuoteControlStore | undefined,
+  postgresPool: pg.Pool | undefined,
+): QuoteControlStore {
+  if (configured !== undefined) {
+    assertQuoteControlStore(configured);
+    return configured;
+  }
+  return postgresPool ? new PostgresQuoteControlStore(postgresPool) : new InMemoryQuoteControlStore();
 }
 
 export function resolveRateLimiter(options: BuildServerOptions): RateLimiter | undefined {

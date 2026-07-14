@@ -39,6 +39,7 @@ import {
   maxStatusIdentifierRouteParamLength,
 } from "./api/http-boundary.js";
 import { registerTradingRoutes } from "./api/trading-routes.js";
+import { registerQuoteControlRoutes } from "./api/quote-control-routes.js";
 import {
   buildDefaultSettlementVerifierPolicy,
   buildRuntimeSettlementEvidenceProvider,
@@ -46,6 +47,7 @@ import {
   readGatewayServerSettings,
   resolveApiKeyAuthenticator,
   resolvePostgresPool,
+  resolveQuoteControlStore,
   resolveRateLimiter,
   resolveSubmitReservationStore,
   type BuildServerOptions,
@@ -117,6 +119,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const signerService = options.signerService ?? defaultSignerRuntime!.service;
   const postgresPool = resolvePostgresPool(options);
   const ownsPostgresPool = postgresPool !== undefined && options.databasePool === undefined;
+  const quoteControlStore = resolveQuoteControlStore(options.quoteControlStore, postgresPool);
   const hedgeService = options.hedgeService ?? (
     postgresPool ? new PostgresHedgeService(postgresPool) : new HedgeService()
   );
@@ -259,6 +262,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     pricingEngine,
     quoteExposureStore,
     quoteRepository,
+    quoteControlStore,
     riskDecisionStore,
     riskEngine,
     rateLimiter: rateLimiter ?? disabledRateLimiterHealth,
@@ -279,11 +283,19 @@ export function buildServer(options: BuildServerOptions = {}) {
     metricsService,
     pnlService,
     quoteRepository,
+    quoteControlStore,
     quoteService,
     rateLimiter,
     readinessService,
     settlementEventService,
     submitReservationStore,
+    trustProxy,
+  });
+  registerQuoteControlRoutes(server, {
+    authenticatedPrincipals,
+    metricsService,
+    quoteControlStore,
+    rateLimiter,
     trustProxy,
   });
 
