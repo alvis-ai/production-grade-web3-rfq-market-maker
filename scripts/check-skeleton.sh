@@ -2132,7 +2132,7 @@ grep -q 'amount fields and nonce must be canonical positive uint strings without
 ! grep -q 'rfq_inventory_exposure_usd' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'rfqClient.quote' frontend/src/pages/QuotePage.tsx
 grep -q 'rfqClient.submit' frontend/src/pages/QuotePage.tsx
-grep -q 'rfqClient.getQuote' frontend/src/pages/QuotePage.tsx
+grep -q 'client.getQuote' frontend/src/lib/quote-lifecycle.ts
 grep -q 'RFQClientError' frontend/src/lib/errors.ts
 grep -q 'traceId' frontend/src/lib/errors.ts
 grep -q 'retryAfterSeconds' frontend/src/lib/errors.ts
@@ -2141,6 +2141,9 @@ test -s frontend/test/quote-page.test.mjs
 test -s frontend/test/quote-status-panel.test.mjs
 test -s frontend/test/wallet-submit-control.test.mjs
 test -s frontend/test/component-render.test.mjs
+test -s frontend/test/quote-lifecycle.test.mjs
+test -s frontend/src/hooks/useQuoteLifecyclePolling.ts
+test -s frontend/src/lib/quote-lifecycle.ts
 grep -q 'QuoteForm component invokes controlled field changes and submit handlers' frontend/test/component-render.test.mjs
 grep -q 'QuoteStatusPanel component renders post-trade state and wires actions' frontend/test/component-render.test.mjs
 grep -q 'QuotePage component renders the initial trading workspace' frontend/test/component-render.test.mjs
@@ -2167,6 +2170,8 @@ grep -q 'QuotePage clears quote session when request changes' frontend/test/quot
 grep -q 'QuotePage ignores stale quote responses after request edits' frontend/test/quote-page.test.mjs
 grep -q 'QuotePage drives submit eligibility from a ticking TTL clock' frontend/test/quote-page.test.mjs
 grep -q 'QuotePage rejects expired API submit attempts inside the handler' frontend/test/quote-page.test.mjs
+grep -q 'QuotePage isolates submit, refresh, wallet, and polling updates by quote session' frontend/test/quote-page.test.mjs
+grep -q 'QuotePage starts lifecycle tracking after API acceptance or wallet broadcast' frontend/test/quote-page.test.mjs
 grep -q 'QuoteStatusPanel renders the quote TTL countdown field' frontend/test/quote-status-panel.test.mjs
 grep -q 'WalletSubmitControl enables onchain submit only for matching wallet state' frontend/test/wallet-submit-control.test.mjs
 grep -q 'WalletSubmitControl disables onchain submit for mismatch and pending states' frontend/test/wallet-submit-control.test.mjs
@@ -2178,10 +2183,10 @@ grep -q 'in-flight quote responses are ignored when their session version is no 
 grep -q 'TTL countdown is driven by a one-second UI clock while a quote is active' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'API submit is fail-closed inside the `submitQuote()` handler' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q '组件层测试应实际执行 `QuotePage`、`QuoteForm`、`QuoteStatusPanel` 和 `WalletSubmitControl` 的 React render path' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
-grep -q 'setQuoteStatus(status)' frontend/src/pages/QuotePage.tsx
-grep -q 'rfqClient.getSettlement' frontend/src/pages/QuotePage.tsx
-grep -q 'rfqClient.getHedge' frontend/src/pages/QuotePage.tsx
-grep -q 'rfqClient.pnl' frontend/src/pages/QuotePage.tsx
+grep -q 'setQuoteStatus(lifecycle.quoteStatus)' frontend/src/pages/QuotePage.tsx
+grep -q 'client.getSettlement' frontend/src/lib/quote-lifecycle.ts
+grep -q 'client.getHedge' frontend/src/lib/quote-lifecycle.ts
+grep -q 'client.pnl' frontend/src/lib/quote-lifecycle.ts
 grep -q 'validateQuoteFormRequest(request)' frontend/src/pages/QuotePage.tsx
 grep -q 'tokenIn and tokenOut must be different' frontend/src/lib/quote-request.ts
 grep -q 'amountIn must be a positive uint string' frontend/src/lib/quote-request.ts
@@ -2198,17 +2203,25 @@ grep -q 'validateQuoteFormRequest rejects boxed string address fields' frontend/
 grep -q 'validateQuoteFormRequest rejects boxed string amountIn' frontend/test/quote-request.test.mjs
 grep -q 'requires closed own quote form request fields' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'boxed `String` objects or other non-primitive values fail before regex validation' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
-grep -q 'loadPostTradeSurfaces(status, response)' frontend/src/pages/QuotePage.tsx
-grep -q 'loadPostTradeSurfaces(status, submitResult)' frontend/src/pages/QuotePage.tsx
+grep -q 'loadQuoteLifecycle(rfqClient, quote.quoteId, response)' frontend/src/pages/QuotePage.tsx
+grep -q 'loadQuoteLifecycle(rfqClient, quote.quoteId, submitResult)' frontend/src/pages/QuotePage.tsx
+grep -q 'useQuoteLifecyclePolling' frontend/src/pages/QuotePage.tsx
+grep -q 'pollQuoteLifecycle' frontend/src/hooks/useQuoteLifecyclePolling.ts
+grep -q 'Promise.allSettled' frontend/src/lib/quote-lifecycle.ts
+grep -q 'nextQuoteLifecyclePollDelayMs' frontend/src/lib/quote-lifecycle.ts
+grep -q 'controller.abort()' frontend/src/hooks/useQuoteLifecyclePolling.ts
+grep -q 'loadQuoteLifecycle preserves successful surfaces when one projection is unavailable' frontend/test/quote-lifecycle.test.mjs
+grep -q 'pollQuoteLifecycle retries transient failures and stops at a terminal snapshot' frontend/test/quote-lifecycle.test.mjs
+grep -q 'pollQuoteLifecycle stops without another request when the quote session aborts' frontend/test/quote-lifecycle.test.mjs
 grep -q 'parseIntegerInput' frontend/src/components/QuoteForm.tsx
 grep -q '../lib/integer-input' frontend/src/components/QuoteForm.tsx
 grep -Fq 'typeof value !== "string" || !integerInputPattern.test(value)' frontend/src/lib/integer-input.ts
 grep -q 'parseIntegerInput rejects boxed strings before regex coercion' frontend/test/integer-input.test.mjs
 grep -q 'boxed `String` objects and out-of-range values do not poison request state' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'Number.MAX_SAFE_INTEGER' frontend/src/components/QuoteForm.tsx
-grep -q 'status.settlementEventId' frontend/src/pages/QuotePage.tsx
-grep -q 'status.hedgeOrderId' frontend/src/pages/QuotePage.tsx
-grep -q 'status.pnlId' frontend/src/pages/QuotePage.tsx
+grep -q 'quoteStatus.settlementEventId' frontend/src/lib/quote-lifecycle.ts
+grep -q 'quoteStatus.hedgeOrderId' frontend/src/lib/quote-lifecycle.ts
+grep -q 'quoteStatus.pnlId' frontend/src/lib/quote-lifecycle.ts
 grep -q 'rfqApiBaseUrl' frontend/src/pages/QuotePage.tsx
 grep -q 'lazy(() => import("../components/WalletSubmitControl"))' frontend/src/pages/QuotePage.tsx
 grep -q 'manualChunks' frontend/vite.config.ts

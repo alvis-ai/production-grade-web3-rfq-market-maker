@@ -43,6 +43,27 @@ test("QuotePage ignores stale quote responses after request edits", () => {
   }
 });
 
+test("QuotePage isolates submit, refresh, wallet, and polling updates by quote session", () => {
+  for (const expected of [
+    "const renderedQuoteSession = quoteSessionVersion.current;",
+    "if (quoteSessionVersion.current !== renderedQuoteSession) return;",
+    "applyQuoteLifecycle(lifecycle, quoteSession);",
+    "if (quoteSessionVersion.current === quoteSession) {",
+    "useQuoteLifecyclePolling({",
+    "enabled: shouldTrackLifecycle,",
+    "onUpdate: applyTrackedLifecycle,",
+  ]) {
+    assert.ok(source.includes(expected), expected);
+  }
+});
+
+test("QuotePage starts lifecycle tracking after API acceptance or wallet broadcast", () => {
+  assert.ok(source.includes("const shouldTrackLifecycle = Boolean(quote && (chainTxHash || submitResult));"));
+  assert.ok(source.includes("loadQuoteLifecycle(rfqClient, quote.quoteId, submitResult)"));
+  assert.ok(source.includes("isStatusPolling={isStatusPolling}"));
+  assert.ok(source.includes("error={error ?? pollingError}"));
+});
+
 test("QuotePage drives submit eligibility from a ticking TTL clock", () => {
   for (const expected of [
     "useEffect",

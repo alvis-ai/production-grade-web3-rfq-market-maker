@@ -12,8 +12,13 @@ import type {
 } from "@rfq-market-maker/sdk";
 import { QuoteForm } from "../components/QuoteForm";
 import { QuoteStatusPanel } from "../components/QuoteStatusPanel";
+import { useQuoteLifecyclePolling } from "../hooks/useQuoteLifecyclePolling";
 import { toUIError, type UIError } from "../lib/errors";
 import { rfqApiBaseUrl, rfqSettlementAddress } from "../lib/config";
+import {
+  loadQuoteLifecycle,
+  type QuoteLifecycleSnapshot,
+} from "../lib/quote-lifecycle";
 import { buildQuoteFromResponse, rfqClient } from "../lib/rfq";
 import { validateQuoteFormRequest } from "../lib/quote-request";
 import type { WalletState } from "../lib/wallet-submit";
@@ -46,6 +51,7 @@ export function QuotePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));
   const quoteSessionVersion = useRef(0);
+  const renderedQuoteSession = quoteSessionVersion.current;
 
   const clearQuoteSession = useCallback(() => {
     quoteSessionVersion.current += 1;
@@ -83,18 +89,31 @@ export function QuotePage() {
   }, [clearQuoteSession]);
 
   const handleOnchainError = useCallback((nextError: UIError | undefined) => {
+    if (quoteSessionVersion.current !== renderedQuoteSession) return;
     setError(nextError);
-  }, []);
+  }, [renderedQuoteSession]);
 
   const signedQuote = useMemo<Quote | undefined>(() => {
     if (!quote || !quotedRequest) return undefined;
     return buildQuoteFromResponse(quotedRequest, quote);
   }, [quote, quotedRequest]);
 
+  const applyQuoteLifecycle = useCallback((
+    lifecycle: QuoteLifecycleSnapshot,
+    expectedSession = renderedQuoteSession,
+  ) => {
+    if (quoteSessionVersion.current !== expectedSession) return;
+    setQuoteStatus(lifecycle.quoteStatus);
+    if (!lifecycle.resourceErrors?.settlement) setSettlementStatus(lifecycle.settlementStatus);
+    if (!lifecycle.resourceErrors?.hedge) setHedgeStatus(lifecycle.hedgeStatus);
+    if (!lifecycle.resourceErrors?.pnl) setPnlSummary(lifecycle.pnlSummary);
+  }, [renderedQuoteSession]);
+
   const handleChainTxHash = useCallback((txHash: `0x${string}`) => {
+    if (quoteSessionVersion.current !== renderedQuoteSession) return;
     setChainTxHash(txHash);
     if (!quote || !signedQuote) return;
-    const quoteSession = quoteSessionVersion.current;
+    const quoteSession = renderedQuoteSession;
     setIsConfirmingOnchain(true);
     setError(undefined);
     void (async () => {
@@ -106,10 +125,8 @@ export function QuotePage() {
         });
         if (quoteSessionVersion.current !== quoteSession) return;
         setSubmitResult(response);
-        const status = await rfqClient.getQuote(quote.quoteId);
-        if (quoteSessionVersion.current !== quoteSession) return;
-        setQuoteStatus(status);
-        await loadPostTradeSurfaces(status, response);
+        const lifecycle = await loadQuoteLifecycle(rfqClient, quote.quoteId, response);
+        applyQuoteLifecycle(lifecycle, quoteSession);
       } catch (caught) {
         if (quoteSessionVersion.current === quoteSession) {
           setError(toUIError(caught, "Onchain confirmation failed"));
@@ -118,7 +135,7 @@ export function QuotePage() {
         if (quoteSessionVersion.current === quoteSession) setIsConfirmingOnchain(false);
       }
     })();
-  }, [quote, signedQuote]);
+  }, [applyQuoteLifecycle, quote, renderedQuoteSession, signedQuote]);
 
   useEffect(() => {
     if (!quote) return undefined;
@@ -133,6 +150,22 @@ export function QuotePage() {
 
   const expiresInSeconds = quote ? Math.max(0, quote.deadline - nowSeconds) : undefined;
   const canSubmit = Boolean(signedQuote && quote && expiresInSeconds !== undefined && expiresInSeconds > 0);
+
+  const loadTrackedLifecycle = useCallback(async () => {
+    if (!quote) throw new Error("No active quote to track");
+    return loadQuoteLifecycle(rfqClient, quote.quoteId, submitResult);
+  }, [quote, submitResult]);
+
+  const applyTrackedLifecycle = useCallback((lifecycle: QuoteLifecycleSnapshot) => {
+    applyQuoteLifecycle(lifecycle, renderedQuoteSession);
+  }, [applyQuoteLifecycle, renderedQuoteSession]);
+
+  const shouldTrackLifecycle = Boolean(quote && (chainTxHash || submitResult));
+  const { isPolling: isStatusPolling, pollingError } = useQuoteLifecyclePolling({
+    enabled: shouldTrackLifecycle,
+    load: loadTrackedLifecycle,
+    onUpdate: applyTrackedLifecycle,
+  });
 
   async function requestQuote() {
     clearQuoteSession();
@@ -163,53 +196,34 @@ export function QuotePage() {
     }
 
     setError(undefined);
+    const quoteSession = quoteSessionVersion.current;
     try {
       const response = await rfqClient.submit({
         quote: signedQuote,
         signature: quote.signature,
       });
+      if (quoteSessionVersion.current !== quoteSession) return;
       setSubmitResult(response);
-      const status = await rfqClient.getQuote(quote.quoteId);
-      setQuoteStatus(status);
-      await loadPostTradeSurfaces(status, response);
+      const lifecycle = await loadQuoteLifecycle(rfqClient, quote.quoteId, response);
+      applyQuoteLifecycle(lifecycle, quoteSession);
     } catch (caught) {
-      setError(toUIError(caught, "Submit failed"));
+      if (quoteSessionVersion.current === quoteSession) {
+        setError(toUIError(caught, "Submit failed"));
+      }
     }
   }
 
   async function refreshStatus() {
     if (!quote) return;
     setError(undefined);
+    const quoteSession = quoteSessionVersion.current;
     try {
-      const status = await rfqClient.getQuote(quote.quoteId);
-      setQuoteStatus(status);
-      await loadPostTradeSurfaces(status, submitResult);
+      const lifecycle = await loadQuoteLifecycle(rfqClient, quote.quoteId, submitResult);
+      applyQuoteLifecycle(lifecycle, quoteSession);
     } catch (caught) {
-      setError(toUIError(caught, "Status refresh failed"));
-    }
-  }
-
-  async function loadPostTradeSurfaces(status: QuoteStatus, fallback?: SubmitQuoteResponse) {
-    const settlementEventId = status.settlementEventId ?? fallback?.settlementEventId;
-    const hedgeOrderId = status.hedgeOrderId ?? fallback?.hedgeOrderId;
-    const pnlId = status.pnlId ?? fallback?.pnlId;
-
-    if (settlementEventId) {
-      setSettlementStatus(await rfqClient.getSettlement(settlementEventId));
-    } else {
-      setSettlementStatus(undefined);
-    }
-
-    if (hedgeOrderId) {
-      setHedgeStatus(await rfqClient.getHedge(hedgeOrderId));
-    } else {
-      setHedgeStatus(undefined);
-    }
-
-    if (pnlId) {
-      setPnlSummary(await rfqClient.pnl());
-    } else {
-      setPnlSummary(undefined);
+      if (quoteSessionVersion.current === quoteSession) {
+        setError(toUIError(caught, "Status refresh failed"));
+      }
     }
   }
 
@@ -237,8 +251,9 @@ export function QuotePage() {
             hedgeStatus={hedgeStatus}
             pnlSummary={pnlSummary}
             submitResult={submitResult}
-            error={error}
+            error={error ?? pollingError}
             canSubmit={canSubmit}
+            isStatusPolling={isStatusPolling}
             expiresInSeconds={expiresInSeconds}
             walletAddress={walletState.address}
             activeChainId={walletState.chainId}

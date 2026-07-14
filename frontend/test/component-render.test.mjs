@@ -71,12 +71,20 @@ async function importQuotePageModule() {
         `import { QuoteStatusPanel } from ${JSON.stringify(quoteStatusPanelUrl)};`,
       )
       .replace(
+        'import { useQuoteLifecyclePolling } from "../hooks/useQuoteLifecyclePolling";',
+        "const useQuoteLifecyclePolling = () => ({ isPolling: false, pollingError: undefined });",
+      )
+      .replace(
         'import { toUIError, type UIError } from "../lib/errors";',
         'const toUIError = (caught, fallback) => ({ message: caught instanceof Error ? caught.message : fallback });',
       )
       .replace(
         'import { rfqApiBaseUrl, rfqSettlementAddress } from "../lib/config";',
         'const rfqApiBaseUrl = "http://localhost:3000";\nconst rfqSettlementAddress = "0x0000000000000000000000000000000000000004";',
+      )
+      .replace(
+        /import \{\s*loadQuoteLifecycle,\s*type QuoteLifecycleSnapshot,\s*\} from "\.\.\/lib\/quote-lifecycle";/,
+        "const loadQuoteLifecycle = async () => { throw new Error('mock lifecycle should not be called during server render'); };",
       )
       .replace(
         'import { buildQuoteFromResponse, rfqClient } from "../lib/rfq";',
@@ -302,6 +310,7 @@ test("QuoteStatusPanel component renders post-trade state and wires actions", as
       retryAfterSeconds: 12,
     },
     canSubmit: true,
+    isStatusPolling: true,
     expiresInSeconds: 42,
     walletAddress: request.user,
     activeChainId: request.chainId,
@@ -328,6 +337,8 @@ test("QuoteStatusPanel component renders post-trade state and wires actions", as
   for (const expected of [
     "q_component",
     "snapshot_component",
+    "Status Tracking",
+    "active",
     "42s",
     "se_component",
     "applied",
@@ -368,6 +379,7 @@ test("QuoteStatusPanel component renders post-trade state and wires actions", as
 
   const emptyTree = QuoteStatusPanel({
     canSubmit: false,
+    isStatusPolling: false,
     onSubmit: () => {
       throw new Error("submit should be disabled");
     },

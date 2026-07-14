@@ -18,6 +18,7 @@ interface QuoteStatusPanelProps {
   submitResult?: SubmitQuoteResponse;
   error?: UIError;
   canSubmit: boolean;
+  isStatusPolling: boolean;
   expiresInSeconds?: number;
   walletAddress?: string;
   activeChainId?: number;
@@ -37,6 +38,7 @@ export function QuoteStatusPanel({
   submitResult,
   error,
   canSubmit,
+  isStatusPolling,
   expiresInSeconds,
   walletAddress,
   activeChainId,
@@ -58,6 +60,10 @@ export function QuoteStatusPanel({
         <div>
           <dt>Status</dt>
           <dd>{quoteStatus?.status ?? (quote ? "signed" : "not requested")}</dd>
+        </div>
+        <div>
+          <dt>Status Tracking</dt>
+          <dd>{isStatusPolling ? "active" : "idle"}</dd>
         </div>
         <div>
           <dt>Quote ID</dt>

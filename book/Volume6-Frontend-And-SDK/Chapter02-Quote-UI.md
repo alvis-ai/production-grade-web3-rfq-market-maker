@@ -120,6 +120,8 @@ client.quote(request: QuoteRequest): Promise<QuoteResponse>
 - TTL countdown is driven by a one-second UI clock while a quote is active. `canSubmit` depends on `expiresInSeconds > 0`, and `QuoteStatusPanel` renders the remaining seconds so users see the signed quote lifecycle rather than a static Unix deadline only.
 - Post-trade hedge state displays both the internal hedge lifecycle status and venue reconciliation metadata: `Hedge External Order` shows `hedgeStatus.externalOrderId`, `Hedge Venue` identifies the persisted venue symbol, `Hedge Executed Quote` shows cumulative quote-asset execution when `executionEvidenceVersion=base-and-quote-v2`, and `Hedge Updated` shows the latest transition timestamp. A `base-only-v1` response intentionally omits quote execution because historical price evidence is unavailable.
 - API submit is fail-closed inside the `submitQuote()` handler as well as through disabled buttons: when `canSubmit` is false, the page shows `Quote expired; request a new quote` and does not call `RFQClient.submit()`.
+- Quote session version guards apply to quote creation, simulated submit, wallet receipt confirmation, manual refresh and background lifecycle polling. Editing any form field or changing the connected wallet increments the version and clears the active state; a response from an older version cannot restore its quote, settlement, hedge, PnL, transaction hash or error into the new form session.
+- `Status Tracking` is an operational state rather than a settlement claim. It becomes active only after `/submit` is accepted or a wallet transaction hash exists, and polling errors are shown separately without discarding the last authoritative lifecycle snapshot.
 
 ## Failure Scenarios
 
@@ -138,7 +140,7 @@ Avoid firing quote request on every keystroke. Use explicit request button or de
 
 ## Testing Strategy
 
-测试 valid input、invalid input、numeric field parsing, submit-time request validation, quote loading、risk rejected、expired countdown 和 disabled submit。组件层测试应实际执行 `QuotePage`、`QuoteForm`、`QuoteStatusPanel` 和 `WalletSubmitControl` 的 React render path，覆盖初始 trading workspace、受控输入、submit、refresh、wallet state、contract write 和 action handlers，而不仅依赖源码字符串匹配。
+测试 valid input、invalid input、numeric field parsing, submit-time request validation、quote loading、risk rejected、expired countdown、disabled submit、stale-session response isolation 和 lifecycle tracking state。组件层测试应实际执行 `QuotePage`、`QuoteForm`、`QuoteStatusPanel` 和 `WalletSubmitControl` 的 React render path，覆盖初始 trading workspace、受控输入、submit、refresh、wallet state、contract write 和 action handlers，而不仅依赖源码字符串匹配。纯 lifecycle 测试另外覆盖 authoritative pointer hydration、resource identity mismatch、terminal detection、transient failure recovery 和 bounded backoff。
 
 ## Interview Notes
 

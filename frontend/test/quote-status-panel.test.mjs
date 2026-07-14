@@ -25,3 +25,13 @@ test("QuoteStatusPanel renders terminal hedge outcome fields", () => {
     assert.ok(source.includes(expected), expected);
   }
 });
+
+test("QuoteStatusPanel exposes automatic lifecycle tracking state", () => {
+  for (const expected of [
+    "isStatusPolling: boolean;",
+    "<dt>Status Tracking</dt>",
+    'isStatusPolling ? "active" : "idle"',
+  ]) {
+    assert.ok(source.includes(expected), expected);
+  }
+});

@@ -144,6 +144,9 @@ Wallet broadcast 后调用 `POST /submit` 并携带 `quote`、`signature` 和 `t
 - `prepareWalletSubmit()` rejects inherited or unknown signed quote fields and inherited quote response signature fields before copying `signature` into the SDK write request, so UI readiness and calldata construction share the same closed own-field boundary.
 - Refresh hydrates settlement, hedge and PnL panels from `QuoteStatus` pointers first, with the `/submit` response only as immediate fallback.
 - tx confirmed is not equal to indexed settled until status refresh confirms.
+- A wallet transaction hash or accepted `/submit` response starts automatic lifecycle polling immediately. Each iteration reads `GET /quote/:id`, resolves settlement, hedge and PnL pointers from the authoritative quote status with the accepted submit response only as a temporary fallback, then fetches the referenced post-trade resources concurrently. Returned quote, settlement and hedge identifiers must match the requested resource before the UI applies them. Post-trade fetches use partial-success semantics: a temporarily missing hedge cannot hide a newer quote or settlement status, and an unavailable resource does not erase a previously validated surface while polling retries it.
+- Polling uses bounded exponential delay from 1 to 8 seconds for both healthy pending states and transient failures. It continues through `signed` / `submitted`, queued hedge execution and pending fee reconciliation, and stops on rejected / expired / failed quote or after settled state plus every currently referenced settlement, PnL, hedge and fee surface has converged. Changing the quote request aborts the polling controller and the quote-session version guard rejects any already-resolving callback.
+- Manual refresh and both submit paths capture the active quote-session version before awaiting network work. A user edit or wallet change therefore cannot be overwritten by an older submit response, status response or post-trade fetch. Polling failure remains retryable and does not erase the last valid status.
 
 ## Failure Scenarios
 
@@ -165,7 +168,7 @@ Polling quote status should backoff. Do not spam `/quote/:id` during chain conge
 
 ## Testing Strategy
 
-测试 wallet disconnected、wallet user mismatch、wrong chain、expired quote、user rejected、tx pending、tx reverted、settled。
+测试 wallet disconnected、wallet user mismatch、wrong chain、expired quote、user rejected、tx pending、tx reverted、settled、stale submit / refresh isolation、fallback pointer convergence、queued hedge、pending fee reconciliation、identity mismatch、poll abort 和 bounded exponential backoff。
 
 ## Interview Notes
 
