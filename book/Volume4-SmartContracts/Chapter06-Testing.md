@@ -107,8 +107,8 @@ stateDiagram-v2
 - SDK typed data helper 必须有单独测试。
 - 每个 revert reason 或 custom error 都应覆盖。
 - `RFQSettlement.t.sol` includes focused fuzz tests for bounded valid settlement amounts, `amountOut < minAmountOut` rejection, expired-deadline rejection, and per-user nonce isolation. The valid fuzz path signs random bounded quote amounts/nonces and asserts exact token deltas plus nonce consumption; rejection fuzz paths assert `AmountOutBelowMinimum` and `QuoteExpired` leave nonce and balances unchanged; the nonce isolation path proves two distinct users may settle signed quotes that intentionally reuse the same nonce value without colliding.
-- Deploy script test must assert both `RFQSettlement` and `Treasury` are deployed, and that Treasury trusts the deployed settlement address.
-- Deploy script must fail fast before contract creation when `RFQ_TRUSTED_SIGNER` is zero, `RFQ_TOKEN_WHITELIST_JSON` yields an empty whitelist, contains a zero token, or repeats a token.
+- Deploy script test must assert the atomic `RFQDeploymentFactory` creates both `RFQSettlement` and `Treasury`, wires Treasury to Settlement, applies every whitelist token, transfers both owners and `DEFAULT_ADMIN_ROLE` to `RFQ_CONTRACT_ADMIN`, and retains no factory admin role.
+- Deploy script must fail fast before factory creation when `RFQ_TRUSTED_SIGNER` or `RFQ_CONTRACT_ADMIN` is zero, or when `RFQ_TOKEN_WHITELIST_JSON` yields an empty whitelist, contains a zero token, or repeats a token.
 
 ## Failure Scenarios
 

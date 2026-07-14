@@ -15,6 +15,7 @@
 - [x] Pausable can stop settlement during incident response.
 - [x] AccessControl protects signer and token whitelist updates.
 - [x] DEFAULT_ADMIN_ROLE cannot be orphaned by revoking the last admin.
+- [x] Deployment atomically wires Settlement and Treasury, validates postconditions, transfers both ownership boundaries to an explicit final admin, and leaves the factory without roles.
 - [x] Events contain enough data for idempotent indexing.
 
 ## Backend

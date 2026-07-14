@@ -4,19 +4,26 @@ pragma solidity ^0.8.24;
 import { DeployRFQSettlement } from "../script/Deploy.s.sol";
 
 contract DeployRFQSettlementTest {
-    function testDeployInitializesTrustedSignerAndWhitelist() public {
+    function testDeployAtomicallyConfiguresStackAndTransfersAdministration() public {
         DeployRFQSettlement script = new DeployRFQSettlement();
         address trustedSigner = address(0xA11CE);
-        address[] memory tokens = new address[](2);
-        tokens[0] = address(0x1001);
-        tokens[1] = address(0x1002);
+        address contractAdmin = address(0xAD11);
+        address[] memory tokens = _tokens();
 
-        DeployRFQSettlement.Deployment memory deployment = script.deploy(trustedSigner, tokens);
+        DeployRFQSettlement.Deployment memory deployment =
+            script.deploy(trustedSigner, contractAdmin, tokens);
 
         require(address(deployment.settlement) != address(0), "settlement not deployed");
         require(address(deployment.treasury) != address(0), "treasury not deployed");
-        require(deployment.settlement.owner() == address(script), "owner mismatch");
-        require(deployment.treasury.owner() == address(script), "treasury owner mismatch");
+        require(address(deployment.factory) != address(0), "factory not deployed");
+        require(deployment.contractAdmin == contractAdmin, "admin metadata mismatch");
+        require(deployment.settlement.owner() == contractAdmin, "owner mismatch");
+        require(deployment.treasury.owner() == contractAdmin, "treasury owner mismatch");
+        _assertRoleHandoff(deployment, deployment.settlement.DEFAULT_ADMIN_ROLE(), contractAdmin);
+        _assertRoleHandoff(deployment, deployment.settlement.SIGNER_ADMIN_ROLE(), contractAdmin);
+        _assertRoleHandoff(deployment, deployment.settlement.TOKEN_ADMIN_ROLE(), contractAdmin);
+        _assertRoleHandoff(deployment, deployment.settlement.TREASURY_ADMIN_ROLE(), contractAdmin);
+        _assertRoleHandoff(deployment, deployment.settlement.PAUSER_ROLE(), contractAdmin);
         require(
             deployment.treasury.settlement() == address(deployment.settlement),
             "treasury settlement mismatch"
@@ -30,16 +37,14 @@ contract DeployRFQSettlementTest {
         require(deployment.settlement.tokenWhitelist(tokens[1]), "token 1 not whitelisted");
     }
 
-    function testDeployRejectsUnsafeDeploymentConfig() public {
+    function testDeployRejectsUnsafeDeploymentConfigBeforeCreatingFactory() public {
         DeployRFQSettlement script = new DeployRFQSettlement();
         address trustedSigner = address(0xA11CE);
-        address[] memory tokens = new address[](2);
-        tokens[0] = address(0x1001);
-        tokens[1] = address(0x1002);
+        address[] memory tokens = _tokens();
 
-        address[] memory emptyTokens = new address[](0);
         _expectInvalidTrustedSigner(script, tokens);
-        _expectEmptyTokenWhitelist(script, trustedSigner, emptyTokens);
+        _expectInvalidContractAdmin(script, trustedSigner, tokens);
+        _expectEmptyTokenWhitelist(script, trustedSigner, new address[](0));
 
         tokens[1] = address(0);
         _expectInvalidWhitelistToken(script, trustedSigner, tokens);
@@ -51,7 +56,7 @@ contract DeployRFQSettlementTest {
     function _expectInvalidTrustedSigner(DeployRFQSettlement script, address[] memory tokens)
         private
     {
-        try script.deploy(address(0), tokens) {
+        try script.deploy(address(0), address(this), tokens) {
             revert("expected invalid trusted signer");
         } catch (bytes memory reason) {
             require(
@@ -61,12 +66,27 @@ contract DeployRFQSettlementTest {
         }
     }
 
+    function _expectInvalidContractAdmin(
+        DeployRFQSettlement script,
+        address trustedSigner,
+        address[] memory tokens
+    ) private {
+        try script.deploy(trustedSigner, address(0), tokens) {
+            revert("expected invalid contract admin");
+        } catch (bytes memory reason) {
+            require(
+                _selector(reason) == DeployRFQSettlement.InvalidContractAdmin.selector,
+                "invalid contract admin selector mismatch"
+            );
+        }
+    }
+
     function _expectEmptyTokenWhitelist(
         DeployRFQSettlement script,
         address trustedSigner,
         address[] memory tokens
     ) private {
-        try script.deploy(trustedSigner, tokens) {
+        try script.deploy(trustedSigner, address(this), tokens) {
             revert("expected empty token whitelist");
         } catch (bytes memory reason) {
             require(
@@ -81,7 +101,7 @@ contract DeployRFQSettlementTest {
         address trustedSigner,
         address[] memory tokens
     ) private {
-        try script.deploy(trustedSigner, tokens) {
+        try script.deploy(trustedSigner, address(this), tokens) {
             revert("expected invalid whitelist token");
         } catch (bytes memory reason) {
             require(
@@ -96,7 +116,7 @@ contract DeployRFQSettlementTest {
         address trustedSigner,
         address[] memory tokens
     ) private {
-        try script.deploy(trustedSigner, tokens) {
+        try script.deploy(trustedSigner, address(this), tokens) {
             revert("expected duplicate whitelist token");
         } catch (bytes memory reason) {
             require(
@@ -104,6 +124,24 @@ contract DeployRFQSettlementTest {
                 "duplicate whitelist token selector mismatch"
             );
         }
+    }
+
+    function _tokens() private pure returns (address[] memory tokens) {
+        tokens = new address[](2);
+        tokens[0] = address(0x1001);
+        tokens[1] = address(0x1002);
+    }
+
+    function _assertRoleHandoff(
+        DeployRFQSettlement.Deployment memory deployment,
+        bytes32 role,
+        address contractAdmin
+    ) private view {
+        require(deployment.settlement.hasRole(role, contractAdmin), "admin role not transferred");
+        require(
+            !deployment.settlement.hasRole(role, address(deployment.factory)),
+            "factory retained admin role"
+        );
     }
 
     function _selector(bytes memory reason) private pure returns (bytes4 selector) {

@@ -2684,17 +2684,26 @@ grep -q 'testSubmitQuoteRejectsNonContractTokenOut' contracts/test/RFQSettlement
 grep -q 'testSubmitQuoteRejectsAmountOutBelowMinimum' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsZeroNonce' contracts/test/RFQSettlement.t.sol
 grep -q 'contract DeployRFQSettlement' contracts/script/Deploy.s.sol
+grep -q 'contract RFQDeploymentFactory' contracts/script/Deploy.s.sol
 grep -q 'new Treasury' contracts/script/Deploy.s.sol
 grep -q 'treasury.setSettlement' contracts/script/Deploy.s.sol
+grep -q '_assertDeploymentInvariants' contracts/script/Deploy.s.sol
+grep -q '_assertRoleHandoff' contracts/script/Deploy.s.sol
+grep -q 'settlement.transferOwnership(contractAdmin)' contracts/script/Deploy.s.sol
+grep -q 'treasury.transferOwnership(contractAdmin)' contracts/script/Deploy.s.sol
 grep -q 'RFQ_TRUSTED_SIGNER' contracts/script/Deploy.s.sol
+grep -q 'RFQ_CONTRACT_ADMIN' contracts/script/Deploy.s.sol
 grep -q 'RFQ_TOKEN_WHITELIST_JSON' contracts/script/Deploy.s.sol
 grep -q 'validateDeploymentConfig' contracts/script/Deploy.s.sol
 grep -q 'EmptyTokenWhitelist' contracts/script/Deploy.s.sol
 grep -q 'DuplicateWhitelistToken' contracts/script/Deploy.s.sol
-grep -q 'testDeployInitializesTrustedSignerAndWhitelist' contracts/test/Deploy.t.sol
-grep -q 'testDeployRejectsUnsafeDeploymentConfig' contracts/test/Deploy.t.sol
+grep -q 'testDeployAtomicallyConfiguresStackAndTransfersAdministration' contracts/test/Deploy.t.sol
+grep -q 'testDeployRejectsUnsafeDeploymentConfigBeforeCreatingFactory' contracts/test/Deploy.t.sol
+grep -q 'factory retained admin role' contracts/test/Deploy.t.sol
 grep -q 'treasury settlement mismatch' contracts/test/Deploy.t.sol
 grep -q 'settlement treasury mismatch' contracts/test/Deploy.t.sol
+grep -q 'RFQ_CONTRACT_ADMIN=0x' README.md
+grep -q 'factory retains no authority' README.md
 grep -q 'contract-test' Makefile
 grep -q 'contract-abi-check' Makefile
 grep -q 'compose-check' Makefile

@@ -126,9 +126,12 @@ Local deployment script:
 ```sh
 cd contracts
 RFQ_TRUSTED_SIGNER=0x0000000000000000000000000000000000000001 \
+RFQ_CONTRACT_ADMIN=0x0000000000000000000000000000000000000003 \
 RFQ_TOKEN_WHITELIST_JSON='{"tokens":["0x0000000000000000000000000000000000000002"]}' \
 forge script script/Deploy.s.sol:DeployRFQSettlement
 ```
+
+`RFQ_CONTRACT_ADMIN` is the final owner and `DEFAULT_ADMIN_ROLE` holder and should be a multisig or governed administration address in production. The script deploys a dedicated `RFQDeploymentFactory`; one factory transaction creates both contracts, wires Treasury to Settlement, applies the complete token whitelist, verifies postconditions, and then transfers both ownership boundaries plus all Settlement admin roles to that address. The factory retains no authority over the deployed stack.
 
 ## Local Configuration
 

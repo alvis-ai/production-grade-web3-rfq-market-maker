@@ -104,7 +104,7 @@ stateDiagram-v2
 
 ## API Design
 
-管理函数应包括 signer 管理、token whitelist 管理、pause/unpause。所有管理函数受角色控制。
+管理函数应包括 signer 管理、token whitelist 管理、pause/unpause。所有管理函数受角色控制。生产部署通过 `RFQDeploymentFactory` 在单笔交易中创建和配置 Settlement/Treasury，再把 owner 与全部管理角色交给显式 `RFQ_CONTRACT_ADMIN`；最终地址应是 multisig 或治理执行器，factory 不得保留任何角色。
 
 ## Engineering Decisions
 
