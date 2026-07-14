@@ -98,6 +98,39 @@ contract FalseReturnERC20 {
     }
 }
 
+contract FeeOnTransferERC20 {
+    mapping(address account => uint256 balance) public balanceOf;
+    mapping(address owner => mapping(address spender => uint256 amount)) public allowance;
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        _transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        require(allowance[from][msg.sender] >= amount, "ALLOWANCE");
+        allowance[from][msg.sender] -= amount;
+        _transfer(from, to, amount);
+        return true;
+    }
+
+    function _transfer(address from, address to, uint256 amount) private {
+        require(balanceOf[from] >= amount, "BALANCE");
+        uint256 fee = amount / 100;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount - fee;
+    }
+}
+
 contract RFQSettlementTest {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -707,6 +740,68 @@ contract RFQSettlementTest {
         );
         require(tokenIn.balanceOf(address(treasury)) == 0, "tokenIn transfer was not rolled back");
         require(falseTokenOut.balanceOf(user) == 0, "user received false-return tokenOut");
+    }
+
+    function testSubmitQuoteRejectsFeeOnTransferTokenInAndRollsBack() public {
+        FeeOnTransferERC20 feeTokenIn = new FeeOnTransferERC20();
+        feeTokenIn.mint(user, 1_000 ether);
+        settlement.setTokenWhitelist(address(feeTokenIn), true);
+        vm.prank(user);
+        feeTokenIn.approve(address(settlement), type(uint256).max);
+
+        IRFQSettlement.Quote memory quote = _quote(86);
+        quote.tokenIn = address(feeTokenIn);
+        bytes memory signature = _sign(quote);
+        uint256 expectedCredit = quote.amountIn - (quote.amountIn / 100);
+
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RFQSettlement.InputTransferAmountMismatch.selector,
+                quote.amountIn,
+                quote.amountIn,
+                expectedCredit
+            )
+        );
+        settlement.submitQuote(quote, signature);
+
+        require(!settlement.usedNonces(user, quote.nonce), "fee tokenIn consumed nonce");
+        require(feeTokenIn.balanceOf(user) == 1_000 ether, "fee tokenIn user balance changed");
+        require(
+            feeTokenIn.balanceOf(address(treasury)) == 0, "fee tokenIn treasury balance changed"
+        );
+        require(tokenOut.balanceOf(user) == 0, "fee tokenIn paid tokenOut");
+    }
+
+    function testSubmitQuoteRejectsFeeOnTransferTokenOutAndRollsBack() public {
+        FeeOnTransferERC20 feeTokenOut = new FeeOnTransferERC20();
+        feeTokenOut.mint(address(treasury), 1_000 ether);
+        settlement.setTokenWhitelist(address(feeTokenOut), true);
+
+        IRFQSettlement.Quote memory quote = _quote(87);
+        quote.tokenOut = address(feeTokenOut);
+        bytes memory signature = _sign(quote);
+        uint256 expectedCredit = quote.amountOut - (quote.amountOut / 100);
+
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RFQSettlement.OutputTransferAmountMismatch.selector,
+                quote.amountOut,
+                quote.amountOut,
+                expectedCredit
+            )
+        );
+        settlement.submitQuote(quote, signature);
+
+        require(!settlement.usedNonces(user, quote.nonce), "fee tokenOut consumed nonce");
+        require(tokenIn.balanceOf(user) == 1_000 ether, "fee tokenOut debited tokenIn");
+        require(tokenIn.balanceOf(address(treasury)) == 0, "fee tokenOut credited tokenIn");
+        require(feeTokenOut.balanceOf(user) == 0, "fee tokenOut user balance changed");
+        require(
+            feeTokenOut.balanceOf(address(treasury)) == 1_000 ether,
+            "fee tokenOut treasury balance changed"
+        );
     }
 
     function testSubmitQuoteRejectsInvalidTokenPair() public {

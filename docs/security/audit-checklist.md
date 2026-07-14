@@ -9,6 +9,7 @@
 - [x] `submitQuote` rejects untrusted signer.
 - [x] `submitQuote` rejects unsupported tokenIn or tokenOut.
 - [x] `submitQuote` uses SafeERC20 for transfers.
+- [x] `submitQuote` verifies exact user/Treasury balance deltas and rejects fee-on-transfer or rebasing settlement drift.
 - [x] State updates are ordered safely around external calls.
 - [x] ReentrancyGuard protects settlement.
 - [x] Pausable can stop settlement during incident response.

@@ -37,6 +37,7 @@ flowchart LR
 | Cross-replica submit race | Multiple API replicas verify or relay the same signed quote concurrently | PostgreSQL quote-scoped lease with server-time expiry and owner-token release; fail closed when unavailable; contract nonce remains authoritative |
 | Cross-chain replay | Quote valid on unintended chain | EIP-712 domain and Quote `chainId` |
 | Quote field tampering | User changes amount or token | EIP-712 typed data verification |
+| Non-standard ERC20 settlement drift | Fee-on-transfer, sender-fee or rebasing behavior makes recorded amounts differ from actual debits and credits | Exact pre/post user and Treasury balance-delta checks on both token legs; any mismatch atomically reverts the nonce and transfers |
 | Stale market data | Mispriced quote | snapshot TTL, market data health check, conservative fallback |
 | Risk bypass | Unsafe quote gets signed | signer only accepts approved risk decision |
 | Mempool MEV | User or hedge transaction exploited | short TTL, minAmountOut, private submission where possible |

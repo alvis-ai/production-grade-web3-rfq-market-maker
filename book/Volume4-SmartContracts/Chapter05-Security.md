@@ -121,7 +121,7 @@ stateDiagram-v2
 
 ## Security Considerations
 
-不要支持不标准 token，尤其 fee-on-transfer、rebasing、黑名单 token，除非专门适配。Treasury 权限必须单独审计：`release` 只能由 settlement 调用，`emergencyWithdraw` 只能由 owner 调用，两条路径都必须使用安全转账和重入保护。
+不要支持不标准 token，尤其 fee-on-transfer、rebasing、黑名单 token，除非专门适配。白名单配置不是唯一防线：settlement 必须比较转账前后 user 与 Treasury 的实际余额差额，确保输入和输出两条腿都与签名金额精确一致，否则原子回滚。Treasury 权限必须单独审计：`release` 只能由 settlement 调用，`emergencyWithdraw` 只能由 owner 调用，两条路径都必须使用安全转账和重入保护。
 
 ## Performance Considerations
 

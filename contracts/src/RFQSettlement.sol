@@ -54,6 +54,12 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
     error InvalidNonce();
     error AmountOutBelowMinimum();
     error TransferFailed();
+    error InputTransferAmountMismatch(
+        uint256 expectedAmount, uint256 actualUserDebit, uint256 actualTreasuryCredit
+    );
+    error OutputTransferAmountMismatch(
+        uint256 expectedAmount, uint256 actualTreasuryDebit, uint256 actualUserCredit
+    );
     error MissingRole(bytes32 role, address account);
     error CannotRevokeLastAdmin();
 
@@ -94,10 +100,8 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
         _verifySignature(hashTypedData(quoteHash), signature);
 
         usedNonces[quote.user][quote.nonce] = true;
-        if (!IERC20(quote.tokenIn).trySafeTransferFrom(quote.user, treasury, quote.amountIn)) {
-            revert TransferFailed();
-        }
-        ITreasuryMinimal(treasury).release(quote.tokenOut, quote.user, quote.amountOut);
+        _collectTokenIn(quote);
+        _releaseTokenOut(quote);
 
         emit QuoteSettled(
             quoteHash,
@@ -247,6 +251,54 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
         if (recoverError != ECDSA.RecoverError.NoError || recovered != trustedSigner) {
             revert InvalidSigner();
         }
+    }
+
+    function _collectTokenIn(Quote calldata quote) internal {
+        IERC20 token = IERC20(quote.tokenIn);
+        if (quote.tokenIn.code.length == 0) revert TransferFailed();
+        uint256 userBalanceBefore = token.balanceOf(quote.user);
+        uint256 treasuryBalanceBefore = token.balanceOf(treasury);
+
+        if (!token.trySafeTransferFrom(quote.user, treasury, quote.amountIn)) {
+            revert TransferFailed();
+        }
+
+        uint256 userDebit = _observedDecrease(userBalanceBefore, token.balanceOf(quote.user));
+        uint256 treasuryCredit = _observedIncrease(treasuryBalanceBefore, token.balanceOf(treasury));
+        if (userDebit != quote.amountIn || treasuryCredit != quote.amountIn) {
+            revert InputTransferAmountMismatch(quote.amountIn, userDebit, treasuryCredit);
+        }
+    }
+
+    function _releaseTokenOut(Quote calldata quote) internal {
+        IERC20 token = IERC20(quote.tokenOut);
+        if (quote.tokenOut.code.length == 0) revert TransferFailed();
+        uint256 treasuryBalanceBefore = token.balanceOf(treasury);
+        uint256 userBalanceBefore = token.balanceOf(quote.user);
+
+        ITreasuryMinimal(treasury).release(quote.tokenOut, quote.user, quote.amountOut);
+
+        uint256 treasuryDebit = _observedDecrease(treasuryBalanceBefore, token.balanceOf(treasury));
+        uint256 userCredit = _observedIncrease(userBalanceBefore, token.balanceOf(quote.user));
+        if (treasuryDebit != quote.amountOut || userCredit != quote.amountOut) {
+            revert OutputTransferAmountMismatch(quote.amountOut, treasuryDebit, userCredit);
+        }
+    }
+
+    function _observedDecrease(uint256 balanceBefore, uint256 balanceAfter)
+        internal
+        pure
+        returns (uint256)
+    {
+        return balanceBefore > balanceAfter ? balanceBefore - balanceAfter : 0;
+    }
+
+    function _observedIncrease(uint256 balanceBefore, uint256 balanceAfter)
+        internal
+        pure
+        returns (uint256)
+    {
+        return balanceAfter > balanceBefore ? balanceAfter - balanceBefore : 0;
     }
 
     function _checkRole(bytes32 role, address account) internal view override {

@@ -422,6 +422,24 @@ export const rfqSettlementAbi = [
   { type: "error", name: "TransferFailed", inputs: [] },
   {
     type: "error",
+    name: "InputTransferAmountMismatch",
+    inputs: [
+      { name: "expectedAmount", type: "uint256" },
+      { name: "actualUserDebit", type: "uint256" },
+      { name: "actualTreasuryCredit", type: "uint256" },
+    ],
+  },
+  {
+    type: "error",
+    name: "OutputTransferAmountMismatch",
+    inputs: [
+      { name: "expectedAmount", type: "uint256" },
+      { name: "actualTreasuryDebit", type: "uint256" },
+      { name: "actualUserCredit", type: "uint256" },
+    ],
+  },
+  {
+    type: "error",
     name: "MissingRole",
     inputs: [
       { name: "role", type: "bytes32" },

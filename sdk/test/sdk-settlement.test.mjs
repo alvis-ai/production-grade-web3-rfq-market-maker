@@ -246,6 +246,8 @@ test("Contract ABIs expose custom errors for revert decoding", () => {
     "AmountOutBelowMinimum",
     "CannotRevokeLastAdmin",
     "EnforcedPause",
+    "InputTransferAmountMismatch",
+    "OutputTransferAmountMismatch",
     "ReentrancyGuardReentrantCall",
   ]) {
     assert.ok(
@@ -261,6 +263,32 @@ test("Contract ABIs expose custom errors for revert decoding", () => {
   assert.deepEqual(
     missingRoleError.inputs.map((input) => `${input.name}:${input.type}`),
     ["role:bytes32", "account:address"],
+  );
+
+  const inputAmountMismatch = rfqSettlementAbi.find(
+    (item) => item.type === "error" && item.name === "InputTransferAmountMismatch",
+  );
+  assert.ok(inputAmountMismatch, "missing RFQSettlement error InputTransferAmountMismatch");
+  assert.deepEqual(
+    inputAmountMismatch.inputs.map((input) => `${input.name}:${input.type}`),
+    [
+      "expectedAmount:uint256",
+      "actualUserDebit:uint256",
+      "actualTreasuryCredit:uint256",
+    ],
+  );
+
+  const outputAmountMismatch = rfqSettlementAbi.find(
+    (item) => item.type === "error" && item.name === "OutputTransferAmountMismatch",
+  );
+  assert.ok(outputAmountMismatch, "missing RFQSettlement error OutputTransferAmountMismatch");
+  assert.deepEqual(
+    outputAmountMismatch.inputs.map((input) => `${input.name}:${input.type}`),
+    [
+      "expectedAmount:uint256",
+      "actualTreasuryDebit:uint256",
+      "actualUserCredit:uint256",
+    ],
   );
 
   for (const name of [

@@ -2634,6 +2634,12 @@ grep -q '@openzeppelin/contracts/utils/ReentrancyGuard.sol' contracts/src/RFQSet
 grep -q 'ECDSA.tryRecover' contracts/src/RFQSettlement.sol
 grep -q 'trySafeTransferFrom' contracts/src/RFQSettlement.sol
 grep -q 'using SafeERC20 for IERC20' contracts/src/RFQSettlement.sol
+grep -q 'InputTransferAmountMismatch' contracts/src/RFQSettlement.sol
+grep -q 'OutputTransferAmountMismatch' contracts/src/RFQSettlement.sol
+grep -q '_collectTokenIn(quote)' contracts/src/RFQSettlement.sol
+grep -q '_releaseTokenOut(quote)' contracts/src/RFQSettlement.sol
+grep -q '_observedDecrease' contracts/src/RFQSettlement.sol
+grep -q '_observedIncrease' contracts/src/RFQSettlement.sol
 grep -q 'contract Treasury' contracts/src/Treasury.sol
 grep -q 'function release' contracts/src/Treasury.sol
 grep -q 'function emergencyWithdraw' contracts/src/Treasury.sol
@@ -3539,11 +3545,14 @@ grep -Fq -- '- [x] ClickHouse analytics do not become operational source of trut
 grep -Fq -- '- [x] Signer key rotation is documented.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Emergency pause procedure is documented.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] `submitQuote` uses SafeERC20 for transfers.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] `submitQuote` verifies exact user/Treasury balance deltas and rejects fee-on-transfer or rebasing settlement drift.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] AccessControl protects signer and token whitelist updates.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] DEFAULT_ADMIN_ROLE cannot be orphaned by revoking the last admin.' docs/security/audit-checklist.md
 grep -q 'SettlementEventService.removeSettlementEvent()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'allow the worker to find the common ancestor' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q '固定使用 OpenZeppelin Contracts `5.6.1`' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
+grep -q 'user debit == treasury credit == amountIn' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
+grep -q 'Non-standard ERC20 settlement drift' docs/security/threat-model.md
 grep -q 'SIGNER_ADMIN_ROLE' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'TOKEN_ADMIN_ROLE' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'includes focused fuzz tests for bounded valid settlement amounts' book/Volume4-SmartContracts/Chapter06-Testing.md
@@ -3551,6 +3560,8 @@ grep -q 'rejection fuzz paths assert `AmountOutBelowMinimum` and `QuoteExpired` 
 grep -q 'testSubmitQuoteAcceptsNoReturnERC20Transfers' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsFalseReturnTokenInBeforeConsumingNonce' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsFalseReturnTokenOutAndRollsBackTokenIn' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsFeeOnTransferTokenInAndRollsBack' contracts/test/RFQSettlement.t.sol
+grep -q 'testSubmitQuoteRejectsFeeOnTransferTokenOutAndRollsBack' contracts/test/RFQSettlement.t.sol
 grep -q 'testAccessControlSeparatesSignerAndTokenWhitelistRoles' contracts/test/RFQSettlement.t.sol
 grep -q 'testAccessControlRevocationRemovesAdminCapability' contracts/test/RFQSettlement.t.sol
 grep -q 'testCannotRevokeLastDefaultAdminRole' contracts/test/RFQSettlement.t.sol
