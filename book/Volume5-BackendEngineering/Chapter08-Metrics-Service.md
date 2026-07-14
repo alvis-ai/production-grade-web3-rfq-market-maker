@@ -121,6 +121,7 @@ Prometheus metrics:
 - `rfq_quote_rejections_total`
 - `rfq_quote_latency_seconds`
 - `rfq_quote_paused`
+- `rfq_quote_pairs_paused`
 - `rfq_quote_control_updates_total`
 - `rfq_quote_control_errors_total`
 - `rfq_submit_requests_total`
@@ -216,7 +217,7 @@ The settlement indexer exports durable cursor, safe-head, lag, range, event, bou
 - `rfq_pnl_record_errors_total` 使用低基数 `reason` label，记录 settlement 已应用后 PnL 归因写入失败；该指标用于触发 settlement-to-PnL reconciliation，不能让已应用 settlement 返回错误。
 - Metrics Service validates inventory gauge positions and PnL trade records before mutating counters or gauges. Inventory position fields and PnL trade record fields must be own fields; inventory token, PnL user/token fields, signed PnL strings, amount fields and nonce must be runtime strings before regex validation, so inherited object properties or `String` wrapper objects cannot rely on JavaScript `RegExp.test()` coercion. PnL trade `pnlId` and `quoteId` must be primitive-string `SafeIdentifier` values with 1-128 characters matching `[A-Za-z0-9_:-]`, amount fields and nonce must be canonical positive uint strings without leading zeros, signed PnL strings must be canonical integer strings without leading zeros or negative zero, `realizedAt` must be a canonical UTC ISO timestamp generated with `Date.prototype.toISOString()`, and invalid metric inputs must fail before incrementing `rfq_pnl_trades_total` or writing `rfq_realized_pnl_token_out`; stored inventory positions are defensive copies so caller-side object mutation cannot rewrite Prometheus output.
 - The submit handler records `rfq_inventory_balance` best-effort after settlement acceptance. Execution Service first validates post-settlement inventory positions from the inventory adapter, and the API wraps the final gauge mutation so malformed, inherited or mismatched inventory position samples cannot convert an already-applied settlement into a submit error.
-- `rfq_quote_paused` 是 0/1 gauge；`rfq_quote_control_updates_total` 记录成功 CAS 更新；`rfq_quote_control_errors_total{operation="read|update"}` 记录闭合校验、CAS、限流或存储导致的管理操作失败，不使用 actor、reason 或 version 作为 label。
+- `rfq_quote_paused` 是全局状态的 0/1 gauge；`rfq_quote_pairs_paused` 是 readiness 刷新的 paused pair 总数且不带动态标签；`rfq_quote_control_updates_total` 记录成功的全局或 pair CAS 更新；`rfq_quote_control_errors_total{operation="read|update"}` 记录闭合校验、CAS、限流或存储导致的全局/pair 操作失败，不使用 actor、reason、version、chain 或 token 作为 label。具体 pair 由管理 API 与审计表查询，避免把动态交易对注入 Prometheus label。
 - 当前后端实现已暴露 `rfq_readiness_status{status="ready|degraded"}` 和 `rfq_dependency_status{component="...",status="ok|degraded"}`，用于把最近一次 `/ready` 探测结果转成 Prometheus gauge。组件 label 固定为 marketData、marketSnapshotStore、routing、pricing、risk、signer、quoteRepository、quoteControl、riskDecisionStore、rateLimitStore、inventory、execution、settlementEventStore、pnl 和 metrics，不能使用动态下游地址、错误消息或实例 ID。
 - `rfq_readiness_status` 只表达最近一次 readiness 业务探测结果，不替代进程存活、HTTP availability 或 Kubernetes liveness。生产告警应同时查看 `/health` 可达性、`up`、HTTP error rate 和业务依赖状态。
 - ClickHouse is an analytics replica only: `/quote`, `/submit`, `/ready`, settlement reconciliation, inventory mutation, hedge intent creation and PnL attribution must read operational truth from PostgreSQL, settlement events and in-process service state, never from ClickHouse query results.

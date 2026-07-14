@@ -14,8 +14,9 @@ paths:
       summary: Request an RFQ quote
       description: >
         Prices and risk-checks the request before signing. The shared administrative
-        quote-control state is checked first; a pause or unreadable state fails closed
-        without invalidating signed quotes already issued. Receipt-confirmed runtimes
+        global quote-control state is checked first, followed by the normalized chain
+        and token-pair state after request validation; either pause or an unreadable
+        state fails closed without invalidating signed quotes already issued. Receipt-confirmed runtimes
         also read the configured settlement contract treasury and tokenOut balance at
         one chain block, then atomically reserve unexpired output capacity across API
         replicas. Insufficient or unavailable Treasury liquidity fails closed before
@@ -691,6 +692,172 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /admin/quote-control/pairs/{chainId}/{tokenA}/{tokenB}:
+    parameters:
+      - name: chainId
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+      - name: tokenA
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/Address"
+      - name: tokenB
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/Address"
+    get:
+      operationId: getPairQuoteControl
+      summary: Read one chain and token-pair quote control
+      description: Normalizes token order and returns the shared state. A null state means the pair has never been configured and is enabled unless the global control is paused.
+      x-required-scope: admin:read
+      tags:
+        - Administration
+      responses:
+        "200":
+          description: Normalized pair scope and optional current state
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairQuoteControlLookup"
+        "400":
+          description: Invalid chain or token pair
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, malformed, invalid, or expired API key
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: API key lacks admin:read
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+            Retry-After:
+              description: Seconds until the operator may retry.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Quote-control or rate-limit store unavailable
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updatePairQuoteControl
+      summary: Pause or resume quote creation for one chain and token pair
+      description: Creates version 1 only with expectedVersion 0, then performs compare-and-swap updates and appends immutable audit evidence. Both token directions share one control.
+      x-required-scope: admin:write
+      tags:
+        - Administration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteControlUpdate"
+      responses:
+        "200":
+          description: Updated normalized pair quote-control state
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairQuoteControlState"
+        "400":
+          description: Invalid chain, token pair, or closed update payload
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, malformed, invalid, or expired API key
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: API key lacks admin:write
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: expectedVersion no longer matches the pair state
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+            Retry-After:
+              description: Seconds until the operator may retry.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Quote-control or rate-limit store unavailable
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /health:
     get:
       security: []
@@ -840,6 +1007,75 @@ components:
           type: integer
           minimum: 0
           maximum: 9007199254740991
+    PairQuoteControlScope:
+      type: object
+      additionalProperties: false
+      required:
+        - chainId
+        - tokenLow
+        - tokenHigh
+      properties:
+        chainId:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        tokenLow:
+          $ref: "#/components/schemas/Address"
+        tokenHigh:
+          $ref: "#/components/schemas/Address"
+    PairQuoteControlState:
+      type: object
+      additionalProperties: false
+      required:
+        - chainId
+        - tokenLow
+        - tokenHigh
+        - paused
+        - version
+        - reason
+        - updatedBy
+        - updatedAt
+      properties:
+        chainId:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        tokenLow:
+          $ref: "#/components/schemas/Address"
+        tokenHigh:
+          $ref: "#/components/schemas/Address"
+        paused:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 256
+        updatedBy:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[A-Za-z0-9_:-]+$"
+        updatedAt:
+          type: string
+          format: date-time
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    PairQuoteControlLookup:
+      type: object
+      additionalProperties: false
+      required:
+        - scope
+        - state
+      properties:
+        scope:
+          $ref: "#/components/schemas/PairQuoteControlScope"
+        state:
+          oneOf:
+            - $ref: "#/components/schemas/PairQuoteControlState"
+            - type: "null"
     QuoteRequest:
       type: object
       additionalProperties: false

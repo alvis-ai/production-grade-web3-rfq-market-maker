@@ -46,6 +46,15 @@ groups:
           summary: RFQ API quote creation is administratively paused
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQQuotePairsPaused
+        expr: max(rfq_quote_pairs_paused) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: One or more RFQ chain and token pairs are administratively paused
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQQuoteControlChanged
         expr: sum(increase(rfq_quote_control_updates_total[5m])) > 0
         for: 1m

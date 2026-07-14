@@ -164,6 +164,10 @@ function requiredApiKeyScope(request: FastifyRequest): ApiKeyScope | undefined {
        route === "/settlements/:settlementEventId")) return "status:read";
   if (request.method === "GET" && route === "/admin/quote-control") return "admin:read";
   if (request.method === "PUT" && route === "/admin/quote-control") return "admin:write";
+  if (request.method === "GET" &&
+      route === "/admin/quote-control/pairs/:chainId/:tokenA/:tokenB") return "admin:read";
+  if (request.method === "PUT" &&
+      route === "/admin/quote-control/pairs/:chainId/:tokenA/:tokenB") return "admin:write";
   return undefined;
 }
 

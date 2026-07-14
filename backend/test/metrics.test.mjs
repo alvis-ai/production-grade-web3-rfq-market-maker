@@ -84,6 +84,7 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   });
   metrics.recordPnlTrade(pnlTradeRecord);
   metrics.recordQuoteControlState(true);
+  metrics.recordPausedQuotePairCount(2);
   metrics.recordQuoteControlUpdate();
   metrics.recordQuoteControlError("read");
 
@@ -100,6 +101,7 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   assert.match(output, /rfq_pnl_trades_total 1/);
   assert.match(output, /rfq_realized_pnl_token_out\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} 1600000/);
   assert.match(output, /rfq_quote_paused 1/);
+  assert.match(output, /rfq_quote_pairs_paused 2/);
   assert.match(output, /rfq_quote_control_updates_total 1/);
   assert.match(output, /rfq_quote_control_errors_total\{operation="read"\} 1/);
 });

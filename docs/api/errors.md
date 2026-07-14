@@ -34,8 +34,8 @@
 | `QUOTE_EXPIRED` | 409 | quote 已过期 | 重新询价 |
 | `QUOTE_ALREADY_USED` | 409 | quote nonce 已使用 | 重新询价 |
 | `QUOTE_FAILED` | 409 | quote 已进入失败终态，不能再次提交 | 重新询价 |
-| `QUOTE_PAUSED` | 503 | 运维熔断已暂停创建新的 signed quote；已签发 quote 的查询、提交和结算链路不受该开关阻断 | 不要循环重试 `/quote`；等待运维恢复后重新询价 |
-| `QUOTE_CONTROL_CONFLICT` | 409 | 管理端更新使用的 `expectedVersion` 已过期，另一个操作员或副本已更新状态 | 重新读取 `GET /admin/quote-control`，复核状态后使用新 version 重试 |
+| `QUOTE_PAUSED` | 503 | 全局或该 `chainId + token pair` 运维熔断已暂停创建新的 signed quote；已签发 quote 的查询、提交和结算链路不受该开关阻断 | 不要循环重试 `/quote`；读取对应控制状态并等待运维恢复后重新询价 |
+| `QUOTE_CONTROL_CONFLICT` | 409 | 全局或 pair 管理更新使用的 `expectedVersion` 已过期，另一个操作员或副本已更新状态 | 重新读取同一全局或 pair 控制，复核状态后使用新 version 重试 |
 | `QUOTE_CONTROL_UNAVAILABLE` | 503 | 共享 quote-control 存储不可读取或不可更新，系统无法证明报价开关处于 enabled | 保持 fail-closed，不绕过共享状态；恢复 PostgreSQL 后重新读取状态 |
 | `HEDGE_NOT_FOUND` | 404 | hedgeOrderId 不存在或已不在当前执行存储中 | 查询 submit 响应返回的 hedgeOrderId，必要时重新提交 |
 | `HEDGE_STORE_UNAVAILABLE` | 503 | hedge execution store 或 hedge intent 查询依赖不可用 | 稍后重试，必要时通过 submit 响应和执行日志核对 hedge 状态 |
@@ -76,4 +76,4 @@ Before settlement verification, `/submit` atomically acquires a quote-scoped res
 | --- | --- | ---: | --- |
 | `quote` | `POST /quote` | 120 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |
 | `submit` | `POST /submit` | 60 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |
-| `status` | `GET /quote/:quoteId`, `GET /settlements/:settlementEventId`, `GET /hedges/:hedgeOrderId`, `GET /pnl`, `GET/PUT /admin/quote-control` | 300 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |
+| `status` | quote、settlement、hedge、PnL 状态查询及全局/pair quote-control 管理接口 | 300 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |

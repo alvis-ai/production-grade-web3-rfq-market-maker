@@ -205,6 +205,12 @@ for (const path of ["/quote:", "/submit:", "/quote/{quoteId}:", "/hedges/{hedgeO
 const quoteControlPathBlock = extractOpenapiPathBlock(openapiSource, "/admin/quote-control:");
 assert.equal([...quoteControlPathBlock.matchAll(/^        "429":$/gm)].length, 2, "OpenAPI quote-control GET and PUT must document HTTP 429");
 assert.equal([...quoteControlPathBlock.matchAll(/Retry-After:/g)].length, 2, "OpenAPI quote-control GET and PUT must document Retry-After");
+const pairQuoteControlPathBlock = extractOpenapiPathBlock(
+  openapiSource,
+  "/admin/quote-control/pairs/{chainId}/{tokenA}/{tokenB}:",
+);
+assert.equal([...pairQuoteControlPathBlock.matchAll(/^        "429":$/gm)].length, 2, "OpenAPI pair quote-control GET and PUT must document HTTP 429");
+assert.equal([...pairQuoteControlPathBlock.matchAll(/Retry-After:/g)].length, 2, "OpenAPI pair quote-control GET and PUT must document Retry-After");
 assertContains(apiQuoteControlTestSource, [
   "quote control admin routes share the distributed status rate-limit bucket",
   'assert.equal(limited.body.code, "RATE_LIMITED")',
@@ -216,7 +222,7 @@ assertContains(errorDocsSource, [
   "## Rate Limit Policy",
   "| `quote` | `POST /quote` | 120 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
   "| `submit` | `POST /submit` | 60 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
-  "| `status` | `GET /quote/:quoteId`, `GET /settlements/:settlementEventId`, `GET /hedges/:hedgeOrderId`, `GET /pnl`, `GET/PUT /admin/quote-control` | 300 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
+  "| `status` | quote、settlement、hedge、PnL 状态查询及全局/pair quote-control 管理接口 | 300 requests / 60 seconds | HTTP 429, `RATE_LIMITED`, `Retry-After` |",
   "`x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`",
   "forwarded client identities longer than 128 characters or outside `[A-Za-z0-9_.:-]` are rejected as `INVALID_REQUEST`/400",
   "| `RATE_LIMIT_UNAVAILABLE` | 503 |",

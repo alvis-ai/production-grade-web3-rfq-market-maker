@@ -71,6 +71,8 @@ GET /hedges/:id
 GET /pnl
 GET /admin/quote-control
 PUT /admin/quote-control
+GET /admin/quote-control/pairs/:chainId/:tokenA/:tokenB
+PUT /admin/quote-control/pairs/:chainId/:tokenA/:tokenB
 GET /health
 GET /ready
 GET /metrics
@@ -172,7 +174,7 @@ The same pre-sign reservation also protects actual Treasury output capacity in r
 
 `RFQ_API_KEY_CONFIG_JSON` is optional for local development and required for every non-local `NODE_ENV`. Each entry stores a public key id, stable principal id, fixed scopes, optional canonical expiry timestamp, and only `SHA-256(secret)`; clients send `x-api-key: keyId.secret`. The gateway uses constant-time digest comparison, returns one generic 401 response for missing, malformed, unknown, expired, or incorrect credentials, and keys distributed rate limits by authenticated key id. Quote ownership is bound to the stable principal rather than the key id, so rotated keys for one institution retain access while another principal receives the same 404 response as a missing quote for quote, settlement, and hedge lookups; submit validation and PnL summaries use the same boundary. The direct browser demo should remain local or sit behind a trusted backend-for-frontend; never embed an institutional API secret in a `VITE_*` variable.
 
-The API quote kill switch is shared across replicas through PostgreSQL. `GET /admin/quote-control` requires `admin:read`; `PUT /admin/quote-control` requires `admin:write`, a non-empty reason, and the last observed `expectedVersion`. The compare-and-swap update increments the version and appends `quote_control_audit` with the authenticated principal/key actor. `POST /quote` checks this state before pricing and signing: paused state returns `QUOTE_PAUSED`/503, while an unreadable store returns `QUOTE_CONTROL_UNAVAILABLE`/503. Existing signed quotes, `/submit`, status queries, settlement indexing, inventory updates, hedging, and reconciliation remain available so an incident pause cannot hide or abandon already-created economic obligations.
+The API quote kill switch is shared across replicas through PostgreSQL. `GET/PUT /admin/quote-control` manages the global state, while `GET/PUT /admin/quote-control/pairs/:chainId/:tokenA/:tokenB` manages one normalized, direction-independent pair. Reads require `admin:read`; writes require `admin:write`, a non-empty reason, and the last observed `expectedVersion`. Global updates append `quote_control_audit`; pair updates start at version 1 and atomically append `quote_pair_control_audit` with the authenticated principal/key actor. `POST /quote` checks both states before pricing and signing: either pause returns `QUOTE_PAUSED`/503, while an unreadable or malformed state returns `QUOTE_CONTROL_UNAVAILABLE`/503. Existing signed quotes, `/submit`, status queries, settlement indexing, inventory updates, hedging, and reconciliation remain available so an incident pause cannot hide or abandon already-created economic obligations.
 
 `RFQ_SUBMIT_RESERVATION_LEASE_MS` defaults to `900000` and must be between `60000` and `3600000`. Local mode uses an in-memory quote reservation; PostgreSQL mode uses `quote_submit_reservations` to atomically claim a quote across API replicas before receipt verification and post-trade effects. Release is owner-token conditional, stale rows become claimable using database time, reservation store failures return `SUBMIT_RESERVATION_UNAVAILABLE`/503, and contention returns the existing `QUOTE_ALREADY_USED`/409 contract.
 

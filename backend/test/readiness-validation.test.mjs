@@ -231,6 +231,13 @@ test("ReadinessService rejects unsafe dependency configuration at construction",
     /Readiness service quoteControlStore.getState must be a function/,
   );
   assert.throws(
+    () => new ReadinessService({
+      ...deps,
+      quoteControlStore: { checkHealth() {}, async getState() {} },
+    }),
+    /Readiness service quoteControlStore.getPausedPairCount must be a function/,
+  );
+  assert.throws(
     () =>
       new ReadinessService({
         ...deps,

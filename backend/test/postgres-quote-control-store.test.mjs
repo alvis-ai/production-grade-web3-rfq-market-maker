@@ -38,6 +38,7 @@ test("PostgresQuoteControlStore reads and atomically audits CAS updates", async 
   }, "institution_a:ops_key")).version, 1);
 
   const update = pool.calls[1];
+  assert.match(pool.calls[0].sql, /pair_table_probe/);
   assert.match(update.sql, /WITH updated AS/);
   assert.match(update.sql, /INSERT INTO quote_control_audit/);
   assert.match(update.sql, /version = \$4/);
@@ -71,6 +72,91 @@ test("PostgresQuoteControlStore validates updates before opening a database conn
     /printable characters/,
   );
   assert.equal(pool.connectCount, 0);
+});
+
+test("PostgresQuoteControlStore reads normalized pair state and atomically audits first CAS update", async () => {
+  const tokenLow = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const tokenHigh = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const pairRow = {
+    chain_id: "8453",
+    token_low: tokenLow,
+    token_high: tokenHigh,
+    paused: true,
+    version: "1",
+    reason: "venue incident",
+    updated_by: "institution_a:ops_key",
+    updated_at: new Date("2026-07-14T00:01:00.000Z"),
+  };
+  const pool = fakePool([{ rows: [] }, { rows: [pairRow] }, { rows: [pairRow] }]);
+  const store = new PostgresQuoteControlStore(pool);
+  const reverseScope = { chainId: 8453, tokenLow: tokenHigh, tokenHigh: tokenLow };
+
+  assert.equal(await store.getPairState(reverseScope), null);
+  assert.deepEqual(await store.getPairState(reverseScope), {
+    chainId: 8453,
+    tokenLow,
+    tokenHigh,
+    paused: true,
+    version: 1,
+    reason: "venue incident",
+    updatedBy: "institution_a:ops_key",
+    updatedAt: "2026-07-14T00:01:00.000Z",
+  });
+  assert.equal((await store.updatePairState(reverseScope, {
+    paused: true,
+    reason: "venue incident",
+    expectedVersion: 0,
+  }, "institution_a:ops_key")).version, 1);
+
+  const update = pool.calls[2];
+  assert.match(update.sql, /WITH updated AS/);
+  assert.match(update.sql, /INSERT INTO quote_pair_control/);
+  assert.match(update.sql, /ON CONFLICT \(chain_id, token_low, token_high\) DO NOTHING/);
+  assert.match(update.sql, /INSERT INTO quote_pair_control_audit/);
+  assert.deepEqual(update.params, [
+    8453,
+    tokenLow,
+    tokenHigh,
+    true,
+    "venue incident",
+    "institution_a:ops_key",
+    0,
+  ]);
+});
+
+test("PostgresQuoteControlStore reports pair CAS conflicts without creating a stale version", async () => {
+  const scope = {
+    chainId: 1,
+    tokenLow: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    tokenHigh: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  };
+  const pool = fakePool([{ rows: [] }, { rows: [{ version: "2" }] }]);
+  await assert.rejects(
+    new PostgresQuoteControlStore(pool).updatePairState(scope, {
+      paused: false,
+      reason: "stale recovery",
+      expectedVersion: 1,
+    }, "institution_a:ops_key"),
+    QuoteControlConflictError,
+  );
+  assert.equal(pool.calls.length, 2);
+});
+
+test("PostgresQuoteControlStore exposes a bounded paused pair count for readiness metrics", async () => {
+  const pool = fakePool([{ rows: [{ paused_count: "2" }] }]);
+  assert.equal(await new PostgresQuoteControlStore(pool).getPausedPairCount(), 2);
+  assert.match(pool.calls[0].sql, /WHERE paused = TRUE/);
+
+  const malformed = fakePool([{ rows: [{ paused_count: "9007199254740992" }] }]);
+  await assert.rejects(
+    new PostgresQuoteControlStore(malformed).getPausedPairCount(),
+    /pausedCount is invalid/,
+  );
+  const negative = fakePool([{ rows: [{ paused_count: -1 }] }]);
+  await assert.rejects(
+    new PostgresQuoteControlStore(negative).getPausedPairCount(),
+    /pausedCount is invalid/,
+  );
 });
 
 function fakePool(results) {

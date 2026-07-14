@@ -74,6 +74,10 @@ const quoteControlMigrationSource = await readFile(
   "backend/src/db/migrations/018-quote-control.sql",
   "utf8",
 );
+const pairQuoteControlMigrationSource = await readFile(
+  "backend/src/db/migrations/019-pair-quote-control.sql",
+  "utf8",
+);
 const postgresQuoteControlSource = await readFile(
   "backend/src/modules/quote-control/postgres-quote-control.store.ts",
   "utf8",
@@ -1397,6 +1401,27 @@ assert.ok(
     postgresQuoteControlSource.includes("FROM updated") &&
     postgresQuoteControlSource.includes("QuoteControlConflictError"),
   "Postgres quote-control store must update by CAS and append audit evidence atomically",
+);
+assert.ok(
+  pairQuoteControlMigrationSource.includes("CREATE TABLE quote_pair_control") &&
+    pairQuoteControlMigrationSource.includes("CREATE TABLE quote_pair_control_audit") &&
+    pairQuoteControlMigrationSource.includes("PRIMARY KEY (chain_id, token_low, token_high)") &&
+    pairQuoteControlMigrationSource.includes("token_low < token_high") &&
+    pairQuoteControlMigrationSource.includes("idx_quote_pair_control_paused") &&
+    pairQuoteControlMigrationSource.includes("version BETWEEN 1 AND 9007199254740991") &&
+    schemaSource.includes("('019', 'pair-quote-control')") &&
+    erDiagramSource.includes("QUOTE_PAIR_CONTROL ||--o{ QUOTE_PAIR_CONTROL_AUDIT"),
+  "pair quote-control migration and docs must install normalized auditable pair state",
+);
+assert.ok(
+  postgresQuoteControlSource.includes("async getPairState") &&
+    postgresQuoteControlSource.includes("async updatePairState") &&
+    postgresQuoteControlSource.includes("INSERT INTO quote_pair_control") &&
+    postgresQuoteControlSource.includes("ON CONFLICT (chain_id, token_low, token_high) DO NOTHING") &&
+    postgresQuoteControlSource.includes("INSERT INTO quote_pair_control_audit") &&
+    postgresQuoteControlSource.includes("FROM changed") &&
+    postgresQuoteControlSource.includes("QuoteControlConflictError"),
+  "Postgres pair quote-control store must normalize, CAS-upsert, and audit atomically",
 );
 assert.ok(
   postgresQuoteExposureSource.includes("pg_advisory_xact_lock") &&

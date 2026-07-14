@@ -343,7 +343,9 @@ export class ReadinessService {
     try {
       const state = await this.deps.quoteControlStore.getState();
       assertQuoteControlState(state);
+      const pausedPairCount = await this.deps.quoteControlStore.getPausedPairCount();
       this.deps.metricsService.recordQuoteControlState(state.paused);
+      this.deps.metricsService.recordPausedQuotePairCount(pausedPairCount);
       return "ok";
     } catch {
       return "degraded";
@@ -414,6 +416,7 @@ function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "checkHealth");
   assertDependencyMethod(deps.quoteControlStore, "quoteControlStore", "checkHealth");
   assertDependencyMethod(deps.quoteControlStore, "quoteControlStore", "getState");
+  assertDependencyMethod(deps.quoteControlStore, "quoteControlStore", "getPausedPairCount");
   assertDependencyMethod(deps.riskDecisionStore, "riskDecisionStore", "checkHealth");
   assertDependencyMethod(deps.rateLimiter, "rateLimiter", "checkHealth");
   assertDependencyMethod(deps.inventoryService, "inventoryService", "checkHealth");

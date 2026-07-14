@@ -83,6 +83,20 @@ const endpoints = [
   },
   {
     method: "get",
+    backendPath: "/admin/quote-control/pairs/:chainId/:tokenA/:tokenB",
+    openapiPath: "/admin/quote-control/pairs/{chainId}/{tokenA}/{tokenB}",
+    operationId: "getPairQuoteControl",
+    operationsOnly: true,
+  },
+  {
+    method: "put",
+    backendPath: "/admin/quote-control/pairs/:chainId/:tokenA/:tokenB",
+    openapiPath: "/admin/quote-control/pairs/{chainId}/{tokenA}/{tokenB}",
+    operationId: "updatePairQuoteControl",
+    operationsOnly: true,
+  },
+  {
+    method: "get",
     backendPath: "/health",
     openapiPath: "/health",
     operationId: "getHealth",

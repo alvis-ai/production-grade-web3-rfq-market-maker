@@ -67,6 +67,7 @@ export class MetricsService {
   private quoteResponses = 0;
   private quoteErrors = 0;
   private quotePaused = 0;
+  private quotePairsPaused = 0;
   private quoteControlUpdates = 0;
   private readonly quoteControlErrors = new Map<QuoteControlMetricOperation, number>();
   private submitRequests = 0;
@@ -155,6 +156,13 @@ export class MetricsService {
   recordQuoteControlState(paused: boolean): void {
     if (typeof paused !== "boolean") throw new Error("Metrics quote control paused state must be a boolean");
     this.quotePaused = paused ? 1 : 0;
+  }
+
+  recordPausedQuotePairCount(count: number): void {
+    if (!Number.isSafeInteger(count) || count < 0) {
+      throw new Error("Metrics paused quote pair count must be a non-negative safe integer");
+    }
+    this.quotePairsPaused = count;
   }
 
   recordQuoteControlUpdate(): void {
@@ -292,6 +300,9 @@ export class MetricsService {
       "# HELP rfq_quote_paused Whether quote creation is administratively paused (1) or enabled (0).",
       "# TYPE rfq_quote_paused gauge",
       `rfq_quote_paused ${this.quotePaused}`,
+      "# HELP rfq_quote_pairs_paused Number of normalized chain and token pairs with quote creation paused.",
+      "# TYPE rfq_quote_pairs_paused gauge",
+      `rfq_quote_pairs_paused ${this.quotePairsPaused}`,
       "# HELP rfq_quote_control_updates_total Total successful administrative quote-control updates.",
       "# TYPE rfq_quote_control_updates_total counter",
       `rfq_quote_control_updates_total ${this.quoteControlUpdates}`,

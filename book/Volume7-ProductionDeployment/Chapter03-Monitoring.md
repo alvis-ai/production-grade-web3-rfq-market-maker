@@ -105,8 +105,9 @@ Key metrics include:
 - `rfq_quote_latency_seconds`
 - `rfq_quote_rejections_total` with bounded `reason`; alert separately on `TREASURY_LIQUIDITY_INSUFFICIENT` and `RISK_ENGINE_UNAVAILABLE`
 - `rfq_quote_paused`
-- `rfq_quote_control_updates_total`
-- `rfq_quote_control_errors_total` with bounded `operation="read|update"`
+- `rfq_quote_pairs_paused` without chain or token labels
+- `rfq_quote_control_updates_total` for successful global or pair CAS updates
+- `rfq_quote_control_errors_total` with bounded `operation="read|update"`; pair identifiers stay in the audit table rather than metric labels
 - `rfq_submit_requests_total`
 - `rfq_submit_accepted_total`
 - `rfq_submit_errors_total`

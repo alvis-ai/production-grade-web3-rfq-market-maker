@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   InMemoryQuoteControlStore,
   QuoteControlConflictError,
+  assertPairQuoteControlState,
+  normalizePairQuoteControlScope,
   normalizeQuoteControlUpdate,
 } from "../dist/modules/quote-control/quote-control.store.js";
 
@@ -75,5 +77,83 @@ test("quote control rejects unsafe update envelopes, actors, reasons, and clocks
   await assert.rejects(
     store.updateState({ paused: true, reason: "incident", expectedVersion: 0 }, "bad/actor"),
     /actor must be a safe identifier/,
+  );
+});
+
+test("pair quote control normalizes direction and applies independent CAS versions", async () => {
+  let now = Date.parse("2026-07-14T00:00:00.000Z");
+  const store = new InMemoryQuoteControlStore(() => now);
+  const high = "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+  const low = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const scope = normalizePairQuoteControlScope({ chainId: "8453", tokenLow: high, tokenHigh: low });
+  assert.deepEqual(scope, {
+    chainId: 8453,
+    tokenLow: low,
+    tokenHigh: high.toLowerCase(),
+  });
+  assert.equal(await store.getPairState(scope), null);
+
+  now += 1_000;
+  const paused = await store.updatePairState(scope, {
+    paused: true,
+    reason: "venue book unavailable",
+    expectedVersion: 0,
+  }, "institution_a:ops_key");
+  assert.equal(paused.version, 1);
+  assert.equal(paused.paused, true);
+  assert.equal(await store.getPausedPairCount(), 1);
+
+  const reverse = await store.getPairState({
+    chainId: 8453,
+    tokenLow: high,
+    tokenHigh: low,
+  });
+  assert.deepEqual(reverse, paused);
+  reverse.paused = false;
+  assert.equal((await store.getPairState(scope)).paused, true);
+
+  await assert.rejects(
+    store.updatePairState(scope, {
+      paused: false,
+      reason: "stale recovery",
+      expectedVersion: 0,
+    }, "institution_a:ops_key"),
+    QuoteControlConflictError,
+  );
+  assert.equal((await store.getState()).version, 0);
+  assert.equal(await store.getPausedPairCount(), 1);
+});
+
+test("pair quote control rejects malformed, identical, and unsafe scopes", () => {
+  const token = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  assert.throws(
+    () => normalizePairQuoteControlScope({ chainId: 1, tokenLow: token, tokenHigh: token }),
+    /tokens must be distinct/,
+  );
+  assert.throws(
+    () => normalizePairQuoteControlScope({ chainId: "01", tokenLow: token, tokenHigh: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }),
+    /chainId must be a positive safe integer/,
+  );
+  assert.throws(
+    () => normalizePairQuoteControlScope({
+      chainId: 1,
+      tokenLow: token,
+      tokenHigh: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      extra: true,
+    }),
+    /fields are invalid/,
+  );
+  assert.throws(
+    () => assertPairQuoteControlState({
+      chainId: 1,
+      tokenLow: token,
+      tokenHigh: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      paused: false,
+      version: 0,
+      reason: "invalid initial state",
+      updatedBy: "system",
+      updatedAt: "2026-07-14T00:00:00.000Z",
+    }),
+    /version must be a positive safe integer/,
   );
 });

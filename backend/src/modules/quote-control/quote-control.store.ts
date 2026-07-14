@@ -1,4 +1,5 @@
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
+import type { Address } from "../../shared/types/rfq.js";
 
 export interface QuoteControlState {
   paused: boolean;
@@ -14,10 +15,25 @@ export interface UpdateQuoteControlInput {
   expectedVersion: number;
 }
 
+export interface PairQuoteControlScope {
+  chainId: number;
+  tokenLow: Address;
+  tokenHigh: Address;
+}
+
+export interface PairQuoteControlState extends QuoteControlState, PairQuoteControlScope {}
+
 export interface QuoteControlStore {
   checkHealth(): Promise<void> | void;
   getState(): Promise<QuoteControlState>;
   updateState(input: UpdateQuoteControlInput, actor: string): Promise<QuoteControlState>;
+  getPairState(scope: PairQuoteControlScope): Promise<PairQuoteControlState | null>;
+  getPausedPairCount(): Promise<number>;
+  updatePairState(
+    scope: PairQuoteControlScope,
+    input: UpdateQuoteControlInput,
+    actor: string,
+  ): Promise<PairQuoteControlState>;
 }
 
 export class QuoteControlConflictError extends Error {
@@ -28,13 +44,17 @@ export class QuoteControlConflictError extends Error {
 }
 
 const stateFields = ["paused", "version", "reason", "updatedBy", "updatedAt"] as const;
+const pairStateFields = ["chainId", "tokenLow", "tokenHigh", ...stateFields] as const;
+const pairScopeFields = ["chainId", "tokenLow", "tokenHigh"] as const;
 const updateFields = ["paused", "reason", "expectedVersion"] as const;
+const addressPattern = /^0x[a-fA-F0-9]{40}$/;
 const actorPattern = /^[A-Za-z0-9_:-]+$/;
 const maxActorLength = 256;
 const maxReasonLength = 256;
 
 export class InMemoryQuoteControlStore implements QuoteControlStore {
   private state: QuoteControlState;
+  private readonly pairStates = new Map<string, PairQuoteControlState>();
 
   constructor(private readonly now: () => number = Date.now) {
     if (typeof now !== "function") throw new Error("Quote control clock dependency must be a function");
@@ -68,6 +88,63 @@ export class InMemoryQuoteControlStore implements QuoteControlStore {
     };
     return { ...this.state };
   }
+
+  async getPairState(scope: PairQuoteControlScope): Promise<PairQuoteControlState | null> {
+    const normalizedScope = normalizePairQuoteControlScope(scope);
+    const state = this.pairStates.get(pairScopeKey(normalizedScope));
+    return state ? { ...state } : null;
+  }
+
+  async getPausedPairCount(): Promise<number> {
+    let count = 0;
+    for (const state of this.pairStates.values()) {
+      if (state.paused) count += 1;
+    }
+    return count;
+  }
+
+  async updatePairState(
+    scope: PairQuoteControlScope,
+    input: UpdateQuoteControlInput,
+    actor: string,
+  ): Promise<PairQuoteControlState> {
+    const normalizedScope = normalizePairQuoteControlScope(scope);
+    const normalized = normalizeQuoteControlUpdate(input);
+    assertQuoteControlActor(actor);
+    const key = pairScopeKey(normalizedScope);
+    const current = this.pairStates.get(key);
+    const currentVersion = current?.version ?? 0;
+    if (normalized.expectedVersion !== currentVersion) throw new QuoteControlConflictError();
+    const state = {
+      ...normalizedScope,
+      paused: normalized.paused,
+      version: currentVersion + 1,
+      reason: normalized.reason,
+      updatedBy: actor,
+      updatedAt: timestampFromClock(this.now),
+    };
+    this.pairStates.set(key, state);
+    return { ...state };
+  }
+}
+
+export function normalizePairQuoteControlScope(value: unknown): PairQuoteControlScope {
+  assertRecord(value, "Pair quote control scope");
+  assertExactFields(value, pairScopeFields, "Pair quote control scope");
+  const chainId = normalizeChainId(value.chainId);
+  const first = normalizeAddress(value.tokenLow, "tokenLow");
+  const second = normalizeAddress(value.tokenHigh, "tokenHigh");
+  if (first === second) throw new Error("Pair quote control tokens must be distinct");
+  const [tokenLow, tokenHigh] = first < second ? [first, second] : [second, first];
+  return { chainId, tokenLow, tokenHigh };
+}
+
+export function pairQuoteControlScope(
+  chainId: number,
+  tokenA: Address,
+  tokenB: Address,
+): PairQuoteControlScope {
+  return normalizePairQuoteControlScope({ chainId, tokenLow: tokenA, tokenHigh: tokenB });
 }
 
 export function normalizeQuoteControlUpdate(value: unknown): UpdateQuoteControlInput {
@@ -109,11 +186,60 @@ export function assertQuoteControlState(value: unknown): asserts value is QuoteC
   }
 }
 
+export function assertPairQuoteControlState(value: unknown): asserts value is PairQuoteControlState {
+  assertRecord(value, "Pair quote control state");
+  assertExactFields(value, pairStateFields, "Pair quote control state");
+  if (!Number.isSafeInteger(value.version) || Number(value.version) < 1) {
+    throw new Error("Pair quote control state version must be a positive safe integer");
+  }
+  const normalizedScope = normalizePairQuoteControlScope({
+    chainId: value.chainId,
+    tokenLow: value.tokenLow,
+    tokenHigh: value.tokenHigh,
+  });
+  if (value.tokenLow !== normalizedScope.tokenLow || value.tokenHigh !== normalizedScope.tokenHigh) {
+    throw new Error("Pair quote control state tokens must be normalized");
+  }
+  assertQuoteControlState({
+    paused: value.paused,
+    version: value.version,
+    reason: value.reason,
+    updatedBy: value.updatedBy,
+    updatedAt: value.updatedAt,
+  });
+}
+
 export function assertQuoteControlStore(value: unknown): asserts value is QuoteControlStore {
   assertRecord(value, "Quote control store");
-  for (const method of ["checkHealth", "getState", "updateState"] as const) {
+  for (const method of [
+    "checkHealth",
+    "getState",
+    "updateState",
+    "getPairState",
+    "getPausedPairCount",
+    "updatePairState",
+  ] as const) {
     if (typeof value[method] !== "function") throw new Error(`Quote control store.${method} must be a function`);
   }
+}
+
+function normalizeChainId(value: unknown): number {
+  const normalized = typeof value === "string" && /^[1-9][0-9]*$/.test(value) ? Number(value) : value;
+  if (!Number.isSafeInteger(normalized) || Number(normalized) <= 0) {
+    throw new Error("Pair quote control chainId must be a positive safe integer");
+  }
+  return Number(normalized);
+}
+
+function normalizeAddress(value: unknown, field: string): Address {
+  if (typeof value !== "string" || !addressPattern.test(value)) {
+    throw new Error(`Pair quote control ${field} must be a 20-byte address`);
+  }
+  return value.toLowerCase() as Address;
+}
+
+function pairScopeKey(scope: PairQuoteControlScope): string {
+  return `${scope.chainId}:${scope.tokenLow}:${scope.tokenHigh}`;
 }
 
 export function assertQuoteControlActor(value: unknown): asserts value is string {

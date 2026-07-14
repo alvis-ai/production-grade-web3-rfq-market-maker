@@ -55,6 +55,9 @@ assertContains(quoteControlRoutes, [
   "registerQuoteControlRoutes",
   'server.get("/admin/quote-control"',
   'server.put("/admin/quote-control"',
+  'server.get("/admin/quote-control/pairs/:chainId/:tokenA/:tokenB"',
+  'server.put("/admin/quote-control/pairs/:chainId/:tokenA/:tokenB"',
+  "normalizePairQuoteControlScope",
   "normalizeQuoteControlUpdate",
 ], "quote-control routes");
 assert.ok(!quoteControlRoutes.includes("process.env"), "quote-control routes must not read process environment");

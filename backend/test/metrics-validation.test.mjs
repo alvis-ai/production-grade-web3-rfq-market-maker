@@ -47,6 +47,14 @@ test("MetricsService rejects unsupported fixed-label inputs before mutating stat
     /Metrics quote control paused state must be a boolean/,
   );
   assert.throws(
+    () => metrics.recordPausedQuotePairCount(-1),
+    /Metrics paused quote pair count must be a non-negative safe integer/,
+  );
+  assert.throws(
+    () => metrics.recordPausedQuotePairCount(1.5),
+    /Metrics paused quote pair count must be a non-negative safe integer/,
+  );
+  assert.throws(
     () =>
       metrics.recordReadiness({
         ...readinessResponse,

@@ -103,7 +103,7 @@ stateDiagram-v2
 
 ## API Design
 
-`GET /health` 只表示 liveness，`GET /ready` 表示 readiness 和关键组件状态。`GET /metrics` 暴露延迟、错误率、依赖状态和业务风险指标。当前管理员接口使用 `GET /admin/quote-control` 读取共享状态，使用 `PUT /admin/quote-control` 携带 `expectedVersion` 和强制 reason 原子暂停或恢复新 quote 签发；读写分别要求 `admin:read` 和 `admin:write`。PostgreSQL 不可用时 `POST /quote` fail closed，已签发 quote 的 submit、链上索引、库存、对冲和 reconciliation 继续运行。按 pair/chain 降低限额仍属于后续风险策略能力。
+`GET /health` 只表示 liveness，`GET /ready` 表示 readiness 和关键组件状态。`GET /metrics` 暴露延迟、错误率、依赖状态和业务风险指标。管理员使用 `GET/PUT /admin/quote-control` 管理全局开关，使用 `GET/PUT /admin/quote-control/pairs/:chainId/:tokenA/:tokenB` 管理无方向 pair 开关；写操作都携带 `expectedVersion` 和强制 reason，读写分别要求 `admin:read` 和 `admin:write`。Pair 首次写入从 version 1 开始，之后与全局状态一样通过 CAS 防止并发覆盖并留下不可变审计记录。PostgreSQL 或任一控制表不可用时 `POST /quote` fail closed，已签发 quote 的 submit、链上索引、库存、对冲和 reconciliation 继续运行。动态调整 pair/chain 风险数值限额仍属于后续风险策略能力。
 
 ## Engineering Decisions
 

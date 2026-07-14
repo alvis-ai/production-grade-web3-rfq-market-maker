@@ -27,6 +27,7 @@ erDiagram
   HEDGE_EXECUTION_FILLS ||--o{ ANALYTICS_OUTBOX : emits
   PNL_RECORDS ||--o{ ANALYTICS_OUTBOX : emits
   QUOTE_CONTROL ||--o{ QUOTE_CONTROL_AUDIT : records
+  QUOTE_PAIR_CONTROL ||--o{ QUOTE_PAIR_CONTROL_AUDIT : records
 
   QUOTES {
     text id PK
@@ -261,6 +262,28 @@ erDiagram
     varchar updated_by
     timestamptz updated_at
   }
+
+  QUOTE_PAIR_CONTROL {
+    bigint chain_id PK
+    char token_low PK
+    char token_high PK
+    boolean paused
+    bigint version
+    varchar reason
+    varchar updated_by
+    timestamptz updated_at
+  }
+
+  QUOTE_PAIR_CONTROL_AUDIT {
+    bigint chain_id PK
+    char token_low PK
+    char token_high PK
+    bigint version PK
+    boolean paused
+    varchar reason
+    varchar updated_by
+    timestamptz updated_at
+  }
 ```
 
 ## Notes
@@ -278,6 +301,8 @@ erDiagram
 - `quotes.principal_id` 是链下机构授权边界：创建 quote 时写入并保持不可变，轮换 API key 只更换 `keyId` 而保持 principal。quote status、submit、derived settlement/hedge status 和 PnL 查询都从该字段判定所有权；wallet address 不替代 tenant ownership，且该字段不进入 EIP-712 或公共响应。
 - `quote_control` 是全局单行控制状态，`singleton=TRUE` 约束阻止多行分叉。管理端以 `expectedVersion` 执行 compare-and-swap，成功时递增 version，并在同一数据库语句中向 `quote_control_audit` 写入 paused、reason、认证 actor 和数据库时间；冲突必须重新读取后人工复核。
 - `quote_control_audit.version` 一一对应每个成功状态版本，初始 migration 状态为 version 0；当前表和 audit 表都把 version 限制在 JavaScript safe integer `0..9007199254740991`。reason 必须非空、去除首尾空白且不含控制字符；paused 状态不能缺少 reason。生产报价读取失败时 fail closed，不允许退回 pod-local enabled 状态。
+- `quote_pair_control` 使用 `(chain_id, token_low, token_high)` 保存无方向交易对控制。地址写入前统一为 lowercase 并排序，避免 `A/B` 与 `B/A` 形成两个独立开关；不存在的 pair row 表示从未配置且默认 enabled。首次 CAS 更新要求 `expectedVersion=0` 并创建 version 1，后续只更新精确匹配的 version。每个成功版本在同一 SQL statement 中写入 `quote_pair_control_audit`，因此多副本和并发操作员不能静默覆盖状态。
+- `/quote` 先读取全局控制，再校验请求并读取对应 pair 控制；任一状态 paused 都在定价和签名前返回 `QUOTE_PAUSED`，任一表不可读、状态畸形或 migration 缺失都返回 `QUOTE_CONTROL_UNAVAILABLE`。pair 暂停与全局暂停一样只限制新 signed quote，不改变既有 quote 的 submit、settlement、inventory、hedge 或 reconciliation 义务。
 - `quote_exposure_reservations` 以 `quote_id` 为主键并级联绑定 requested quote，保存 `(chain_id, normalized user)`、排序后的无方向 `(token_low, token_high)`、方向性的 `token_out/amount_out`、18-decimal USD 定点名义金额和 `expires_at`。生产 quote 还保存同一 block 读取的 settlement、treasury、token balance 和 block number 证据。只有尚未过期且 quote 状态仍为 requested/signed/failed 的行参与累计名义限额；failed signed quote 的链上 nonce 未必已消耗，必须保守计数。submitted/settled 有成交证据后暂不计入名义限额但保留行，reorg 恢复 signed 状态时自动重新纳入。
 - PostgreSQL exposure store 对 quote、user、pair 与 `(chainId, tokenOut)` liquidity scope 按字符串稳定排序后逐个获取 transaction-scoped advisory locks，再执行 SUM 和 INSERT；这让多 API replica 无法通过 write skew 同时越过 user/pair limit 或超卖 Treasury。输出流动性 SUM 计算所有未过期 reservation，不因 submitted/settled 提前释放，避免 RPC 余额下降与数据库状态切换之间重复使用余额；expired 行由有界 `FOR UPDATE SKIP LOCKED` 清理。
 - 数据库层使用 CHECK constraints 固化应用层关键不变量：操作表 primary id 使用 SafeIdentifier 约束、quote lifecycle status、risk decision status / reason_code consistency、hedge side/status（`queued`、`filled`、`failed`）、hedge `venue` 非空、PnL attribution model / model description、20-byte address、distinct token pair、market snapshot `source` 非空、market snapshot `bid_price <= mid_price <= ask_price`、market snapshot `market_spread_bps` 与 market snapshot `volatility_bps` 在 0..10000 bps、signed quote pricing bps component ranges、32-byte tx/quote hash、65-byte canonical low-s EIP-712 signature with `v` in 27/28、`amount_out >= min_amount_out`，以及正数 signed amount/nonce、settled amount/nonce 和 hedge amount。

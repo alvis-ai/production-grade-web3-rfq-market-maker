@@ -12,7 +12,9 @@ import type { PnlStore, RecordPnlInput } from "../modules/pnl/pnl.service.js";
 import { convertBaseUnitAmount, normalizeHumanPrice } from "../modules/pricing/price-normalization.js";
 import type { QuoteRepository } from "../modules/quote/quote.repository.js";
 import {
+  assertPairQuoteControlState,
   assertQuoteControlState,
+  pairQuoteControlScope,
   type QuoteControlStore,
 } from "../modules/quote-control/quote-control.store.js";
 import type { QuoteService } from "../modules/quote/quote.service.js";
@@ -261,8 +263,10 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
       }
 
       await requireQuoteEnabled(quoteControlStore, metricsService);
+      const quoteRequest = validateQuoteRequest(request.body);
+      await requirePairQuoteEnabled(quoteControlStore, metricsService, quoteRequest);
 
-      const response = await quoteService.createQuote(validateQuoteRequest(request.body), {
+      const response = await quoteService.createQuote(quoteRequest, {
         principalId: principal?.principalId ?? localPrincipalId,
       });
       metricsService.recordQuoteResponse();
@@ -374,6 +378,24 @@ async function requireQuoteEnabled(
   }
   metricsService.recordQuoteControlState(state.paused);
   if (state.paused) throw new APIError("QUOTE_PAUSED", "Quote creation is paused", 503);
+}
+
+async function requirePairQuoteEnabled(
+  quoteControlStore: QuoteControlStore,
+  metricsService: MetricsService,
+  request: ReturnType<typeof validateQuoteRequest>,
+): Promise<void> {
+  let state;
+  try {
+    state = await quoteControlStore.getPairState(
+      pairQuoteControlScope(request.chainId, request.tokenIn, request.tokenOut),
+    );
+    if (state) assertPairQuoteControlState(state);
+  } catch {
+    metricsService.recordQuoteControlError("read");
+    throw new APIError("QUOTE_CONTROL_UNAVAILABLE", "Quote control store unavailable", 503);
+  }
+  if (state?.paused) throw new APIError("QUOTE_PAUSED", "Quote creation is paused for this pair", 503);
 }
 
 async function requireQuoteOwnership(

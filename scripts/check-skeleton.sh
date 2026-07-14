@@ -3593,6 +3593,7 @@ grep -q 'HedgeWorker permits only sub-step dust between intent and a complete ve
 grep -q 'make hedge-execution-check' .github/workflows/docs-ci.yml
 
 test -s backend/src/db/migrations/018-quote-control.sql
+test -s backend/src/db/migrations/019-pair-quote-control.sql
 test -s backend/src/modules/quote-control/quote-control.store.ts
 test -s backend/src/modules/quote-control/postgres-quote-control.store.ts
 test -s backend/test/quote-control.test.mjs
@@ -3600,13 +3601,19 @@ test -s backend/test/postgres-quote-control-store.test.mjs
 test -s backend/test/api-quote-control.test.mjs
 grep -q 'server.get("/admin/quote-control"' backend/src/api/quote-control-routes.ts
 grep -q 'server.put("/admin/quote-control"' backend/src/api/quote-control-routes.ts
+grep -q 'server.get("/admin/quote-control/pairs/:chainId/:tokenA/:tokenB"' backend/src/api/quote-control-routes.ts
+grep -q 'server.put("/admin/quote-control/pairs/:chainId/:tokenA/:tokenB"' backend/src/api/quote-control-routes.ts
+grep -q 'getPairState' backend/src/api/trading-routes.ts
 grep -q 'QUOTE_PAUSED' backend/src/api/trading-routes.ts
 grep -q 'QUOTE_CONTROL_UNAVAILABLE' backend/src/api/trading-routes.ts
 grep -q 'assertDependencyMethod(deps.quoteControlStore, "quoteControlStore", "getState")' backend/src/modules/health/readiness.service.ts
 grep -q 'rfq_quote_paused 1' backend/test/readiness.test.mjs
+grep -q 'rfq_quote_pairs_paused 1' backend/test/readiness.test.mjs
 grep -q 'expectedVersion' docs/api/openapi.yaml
 grep -q 'quote_control_audit' docs/database/schema.sql
+grep -q 'quote_pair_control_audit' docs/database/schema.sql
 grep -q 'RFQQuoteCreationPaused' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQQuotePairsPaused' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'admin:write' docs/security/key-management.md
 
 echo "skeleton check passed"

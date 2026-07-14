@@ -94,6 +94,7 @@ test("ReadinessService degrades when the quote control store is unavailable", as
       async checkHealth() { throw new Error("quote control unavailable"); },
       async getState() { throw new Error("quote control unavailable"); },
       async updateState() { throw new Error("quote control unavailable"); },
+      async getPausedPairCount() { throw new Error("quote control unavailable"); },
     },
   }).check();
 
@@ -109,12 +110,22 @@ test("ReadinessService reports intentional quote pause as healthy and refreshes 
     reason: "incident response",
     expectedVersion: 0,
   }, "institution_ops:ops_writer");
+  await deps.quoteControlStore.updatePairState({
+    chainId: 1,
+    tokenLow: "0x0000000000000000000000000000000000000002",
+    tokenHigh: "0x0000000000000000000000000000000000000003",
+  }, {
+    paused: true,
+    reason: "pair incident response",
+    expectedVersion: 0,
+  }, "institution_ops:ops_writer");
 
   const readiness = await new ReadinessService(deps).check();
 
   assert.equal(readiness.status, "ready");
   assert.equal(readiness.components.quoteControl, "ok");
   assert.match(deps.metricsService.renderPrometheus(), /rfq_quote_paused 1/);
+  assert.match(deps.metricsService.renderPrometheus(), /rfq_quote_pairs_paused 1/);
 });
 
 test("ReadinessService degrades quote control on malformed shared state", async () => {
@@ -123,6 +134,7 @@ test("ReadinessService degrades quote control on malformed shared state", async 
       checkHealth() {},
       async getState() { return { paused: false }; },
       async updateState() { return { paused: false }; },
+      async getPausedPairCount() { return 0; },
     },
   }).check();
 

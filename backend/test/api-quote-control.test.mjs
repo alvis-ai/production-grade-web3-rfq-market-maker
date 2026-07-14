@@ -93,11 +93,127 @@ test("quote control pauses and resumes quote creation with CAS semantics", async
   }
 });
 
+test("pair quote control pauses both directions without blocking existing signed quote submission", async () => {
+  let now = Date.parse("2026-07-14T00:00:00.000Z");
+  const quoteControlStore = new InMemoryQuoteControlStore(() => now);
+  const server = buildServer({ logger: false, quoteControlStore });
+  const pairPath = `/admin/quote-control/pairs/${quoteRequest.chainId}/${quoteRequest.tokenOut}/${quoteRequest.tokenIn}`;
+
+  try {
+    await server.ready();
+    const unconfigured = await inject(server, "GET", pairPath);
+    assert.equal(unconfigured.statusCode, 200);
+    assert.equal(unconfigured.body.state, null);
+    assert.deepEqual(unconfigured.body.scope, {
+      chainId: 1,
+      tokenLow: quoteRequest.tokenIn,
+      tokenHigh: quoteRequest.tokenOut,
+    });
+    const invalidScope = await inject(
+      server,
+      "GET",
+      `/admin/quote-control/pairs/01/${quoteRequest.tokenIn}/${quoteRequest.tokenIn}`,
+    );
+    assert.equal(invalidScope.statusCode, 400);
+    assert.equal(invalidScope.body.code, "INVALID_REQUEST");
+
+    const issued = await inject(server, "POST", "/quote", quoteRequest);
+    assert.equal(issued.statusCode, 200, JSON.stringify(issued.body));
+
+    now += 1_000;
+    const paused = await inject(server, "PUT", pairPath, {
+      paused: true,
+      reason: "pair venue incident",
+      expectedVersion: 0,
+    });
+    assert.equal(paused.statusCode, 200);
+    assert.equal(paused.body.paused, true);
+    assert.equal(paused.body.version, 1);
+    assert.equal(paused.body.tokenLow, quoteRequest.tokenIn);
+    assert.equal((await inject(server, "GET", "/admin/quote-control")).body.paused, false);
+
+    const blocked = await inject(server, "POST", "/quote", quoteRequest);
+    assert.equal(blocked.statusCode, 503);
+    assert.equal(blocked.body.code, "QUOTE_PAUSED");
+
+    const blockedReverse = await inject(server, "POST", "/quote", {
+      ...quoteRequest,
+      tokenIn: quoteRequest.tokenOut,
+      tokenOut: quoteRequest.tokenIn,
+    });
+    assert.equal(blockedReverse.statusCode, 503);
+    assert.equal(blockedReverse.body.code, "QUOTE_PAUSED");
+
+    const submit = await inject(server, "POST", "/submit", {
+      quote: {
+        user: quoteRequest.user,
+        tokenIn: quoteRequest.tokenIn,
+        tokenOut: quoteRequest.tokenOut,
+        amountIn: quoteRequest.amountIn,
+        amountOut: issued.body.amountOut,
+        minAmountOut: issued.body.minAmountOut,
+        nonce: issued.body.nonce,
+        deadline: issued.body.deadline,
+        chainId: quoteRequest.chainId,
+      },
+      signature: issued.body.signature,
+    });
+    assert.equal(submit.statusCode, 202, JSON.stringify(submit.body));
+
+    const conflict = await inject(server, "PUT", pairPath, {
+      paused: false,
+      reason: "stale recovery",
+      expectedVersion: 0,
+    });
+    assert.equal(conflict.statusCode, 409);
+    assert.equal(conflict.body.code, "QUOTE_CONTROL_CONFLICT");
+
+    now += 1_000;
+    const resumed = await inject(server, "PUT", pairPath, {
+      paused: false,
+      reason: "pair venue recovered",
+      expectedVersion: 1,
+    });
+    assert.equal(resumed.statusCode, 200);
+    assert.equal(resumed.body.version, 2);
+    assert.equal((await inject(server, "POST", "/quote", quoteRequest)).statusCode, 200);
+  } finally {
+    await server.close();
+  }
+});
+
+test("quote creation and readiness fail closed when only pair control storage is unavailable", async () => {
+  const store = new InMemoryQuoteControlStore();
+  store.getPairState = async () => { throw new Error("pair table unavailable"); };
+  store.getPausedPairCount = async () => { throw new Error("pair table unavailable"); };
+  const server = buildServer({ logger: false, quoteControlStore: store });
+  const pairPath = `/admin/quote-control/pairs/1/${quoteRequest.tokenIn}/${quoteRequest.tokenOut}`;
+
+  try {
+    await server.ready();
+    assert.equal((await inject(server, "GET", "/admin/quote-control")).statusCode, 200);
+    const readiness = await inject(server, "GET", "/ready");
+    assert.equal(readiness.statusCode, 503);
+    assert.equal(readiness.body.components.quoteControl, "degraded");
+    const quote = await inject(server, "POST", "/quote", quoteRequest);
+    assert.equal(quote.statusCode, 503);
+    assert.equal(quote.body.code, "QUOTE_CONTROL_UNAVAILABLE");
+    const pair = await inject(server, "GET", pairPath);
+    assert.equal(pair.statusCode, 503);
+    assert.equal(pair.body.code, "QUOTE_CONTROL_UNAVAILABLE");
+  } finally {
+    await server.close();
+  }
+});
+
 test("quote control fails closed when shared state is unavailable", async () => {
   const unavailable = {
     async checkHealth() { throw new Error("database unavailable"); },
     async getState() { throw new Error("database unavailable"); },
     async updateState() { throw new Error("database unavailable"); },
+    async getPairState() { throw new Error("database unavailable"); },
+    async getPausedPairCount() { throw new Error("database unavailable"); },
+    async updatePairState() { throw new Error("database unavailable"); },
   };
   const server = buildServer({ logger: false, quoteControlStore: unavailable });
 
@@ -124,6 +240,9 @@ test("quote control rejects malformed store state before quote or admin response
     checkHealth() {},
     async getState() { return { paused: false }; },
     async updateState() { return { paused: false }; },
+    async getPairState() { return { paused: false }; },
+    async getPausedPairCount() { return 0; },
+    async updatePairState() { return { paused: false }; },
   };
   const server = buildServer({ logger: false, quoteControlStore: malformed });
 
@@ -165,6 +284,14 @@ test("quote control admin routes enforce separate read and write scopes", async 
     assert.equal((await inject(server, "GET", "/admin/quote-control", undefined, apiKey("ops_reader", secrets.read))).statusCode, 200);
     assert.equal((await inject(server, "GET", "/admin/quote-control", undefined, apiKey("ops_writer", secrets.write))).statusCode, 403);
     assert.equal((await inject(server, "PUT", "/admin/quote-control", {
+      paused: true,
+      reason: "risk incident",
+      expectedVersion: 0,
+    }, apiKey("ops_reader", secrets.read))).statusCode, 403);
+    const pairPath = `/admin/quote-control/pairs/1/${quoteRequest.tokenIn}/${quoteRequest.tokenOut}`;
+    assert.equal((await inject(server, "GET", pairPath, undefined, apiKey("ops_reader", secrets.read))).statusCode, 200);
+    assert.equal((await inject(server, "GET", pairPath, undefined, apiKey("ops_writer", secrets.write))).statusCode, 403);
+    assert.equal((await inject(server, "PUT", pairPath, {
       paused: true,
       reason: "risk incident",
       expectedVersion: 0,
