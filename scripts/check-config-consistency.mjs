@@ -177,7 +177,7 @@ assert.ok(
 );
 assert.ok(
   backendSource.includes("DATABASE_URL is required when NODE_ENV=") &&
-    backendSource.includes("resolvePostgresPool(options)"),
+    backendSource.includes("resolvePostgresPool(options, server.log)"),
   "backend must require PostgreSQL persistence outside local environments",
 );
 assert.ok(

@@ -13,6 +13,7 @@ run_step make docs-check
 run_step make book-template-check
 run_step make adr-check
 run_step make security-check
+run_step make logging-check
 run_step make metrics-check
 run_step make runbook-check
 run_step make grafana-check

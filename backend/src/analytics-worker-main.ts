@@ -25,6 +25,7 @@ import {
   type AnalyticsKafkaSaslConfig,
 } from "./modules/analytics/kafka-analytics.producer.js";
 import { PostgresAnalyticsOutboxStore } from "./modules/analytics/postgres-analytics-outbox.store.js";
+import { createStructuredLogger, logProcessFailure } from "./shared/logger/structured-logger.js";
 
 export interface AnalyticsWorkerRuntimeConfig {
   publisher: AnalyticsOutboxPublisherConfig;
@@ -105,14 +106,15 @@ export function readAnalyticsWorkerRuntimeConfig(
 
 export async function startAnalyticsWorker(): Promise<void> {
   const config = readAnalyticsWorkerRuntimeConfig();
-  const pool = getPool();
+  const logger = createStructuredLogger("analytics-worker");
+  const pool = getPool(undefined, logger);
   const store = new PostgresAnalyticsOutboxStore(pool);
   const sink = new ClickHouseAnalyticsSink(config.clickhouse);
   const producer = new KafkaAnalyticsProducer(config.kafka);
   const metrics = new AnalyticsWorkerMetrics();
-  const publisher = new AnalyticsOutboxPublisher(store, producer, config.publisher, metrics);
+  const publisher = new AnalyticsOutboxPublisher(store, producer, config.publisher, metrics, logger);
   const consumer = new KafkaAnalyticsConsumer(config.consumer, sink, metrics);
-  const server = Fastify({ logger: false });
+  const server = Fastify({ logger, disableRequestLogging: true });
   server.get("/health", async () => ({ status: "ok" }));
   server.get("/ready", async (_request, reply) => {
     try {
@@ -268,7 +270,7 @@ function defaultWorkerId(): string {
 const processLike = globalThis.process;
 if (processLike?.argv?.[1] && import.meta.url.endsWith(processLike.argv[1])) {
   startAnalyticsWorker().catch((error: unknown) => {
-    console.error(error);
+    logProcessFailure("analytics-worker", error);
     processLike.exitCode = 1;
   });
 }

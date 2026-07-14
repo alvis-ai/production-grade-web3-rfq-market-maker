@@ -112,7 +112,10 @@ export class HedgeWorker {
         }
       } catch (error) {
         this.observer.recordIterationError();
-        this.logger.error({ error: errorMessage(error) }, "hedge worker iteration failed");
+        this.logger.error(
+          { errorCode: normalizeJobError(error).errorCode },
+          "hedge worker iteration failed",
+        );
       }
       if (!this.stopped) await delay(this.config.pollIntervalMs);
     }
@@ -375,10 +378,6 @@ function assertInteger(value: number, field: string, min: number, max: number): 
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unknown hedge worker error";
 }
 
 const consoleLogger: HedgeWorkerLogger = {

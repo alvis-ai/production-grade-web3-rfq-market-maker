@@ -75,7 +75,7 @@ assertContains(gatewayApplication, [
   "registerTradingRoutes(server",
   "registerQuoteControlRoutes(server",
   "buildGatewayMarketDataRuntime(options.marketDataService",
-  "resolvePostgresPool(options)",
+  "resolvePostgresPool(options, server.log)",
 ], "gateway application runtime");
 assertContains(gatewayMarketData, [
   "buildGatewayMarketDataRuntime",

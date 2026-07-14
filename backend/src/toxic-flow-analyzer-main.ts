@@ -14,6 +14,7 @@ import {
   ToxicFlowAnalyzerWorker,
   type ToxicFlowAnalyzerConfig,
 } from "./modules/risk/toxic-flow-analyzer.worker.js";
+import { createStructuredLogger, logProcessFailure } from "./shared/logger/structured-logger.js";
 
 export interface ToxicFlowAnalyzerRuntimeConfig {
   worker: ToxicFlowAnalyzerConfig;
@@ -89,7 +90,8 @@ export function readToxicFlowAnalyzerRuntimeConfig(
 
 export async function startToxicFlowAnalyzer(): Promise<void> {
   const config = readToxicFlowAnalyzerRuntimeConfig();
-  const pool = getPool();
+  const logger = createStructuredLogger("toxic-flow-analyzer");
+  const pool = getPool(undefined, logger);
   const markouts = new PostgresToxicFlowMarkoutStore(pool);
   const scores = new PostgresToxicFlowScoreStore(pool);
   const metrics = new ToxicFlowAnalyzerMetrics();
@@ -99,8 +101,9 @@ export async function startToxicFlowAnalyzer(): Promise<void> {
     config.tokenRegistry,
     config.worker,
     metrics,
+    logger,
   );
-  const server = Fastify({ logger: false });
+  const server = Fastify({ logger, disableRequestLogging: true });
   server.get("/health", async () => ({ status: "ok" }));
   server.get("/ready", async (_request, reply) => {
     try {
@@ -197,7 +200,7 @@ function defaultWorkerId(): string {
 const processLike = globalThis.process;
 if (processLike?.argv?.[1] && import.meta.url.endsWith(processLike.argv[1])) {
   startToxicFlowAnalyzer().catch((error: unknown) => {
-    console.error(error);
+    logProcessFailure("toxic-flow-analyzer", error);
     processLike.exitCode = 1;
   });
 }

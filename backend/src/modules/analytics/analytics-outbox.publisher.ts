@@ -87,7 +87,10 @@ export class AnalyticsOutboxPublisher {
         }
       } catch (error) {
         this.observer.recordIterationError();
-        this.logger.error({ error: errorMessage(error) }, "analytics publisher iteration failed");
+        this.logger.error(
+          { errorCode: analyticsIterationErrorCode(error) },
+          "analytics publisher iteration failed",
+        );
       }
       if (!this.stopped) await this.waitForNextPoll();
     }
@@ -208,7 +211,8 @@ const consoleLogger: AnalyticsPublisherLogger = {
   },
 };
 
-function errorMessage(error: unknown): string {
-  const value = error instanceof Error ? error.message : "unknown error";
-  return value.length > 512 ? `${value.slice(0, 509)}...` : value;
+function analyticsIterationErrorCode(error: unknown): string {
+  return error instanceof Error && /^[A-Z][A-Z0-9_:-]{0,127}$/.test(error.message)
+    ? error.message
+    : "ANALYTICS_PUBLISHER_INTERNAL";
 }

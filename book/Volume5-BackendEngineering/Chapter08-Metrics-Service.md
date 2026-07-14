@@ -200,6 +200,7 @@ The standalone toxic-flow analyzer exports `rfq_toxic_flow_markouts_total`, `rfq
 The settlement indexer exports durable cursor, safe-head, lag, range, event, bounded error, reorg, removed-event, last-poll, and cursor-age metrics. Labels are limited to configured `chain_id`, `outcome=applied|duplicate`, and the closed error-code enum; transaction hash, quote hash, user and RPC URL remain absent.
 
 - No high-cardinality quoteId labels in Prometheus.
+- Structured JSON logs complement Prometheus without turning dynamic identifiers into metric labels. API logs correlate a normalized route template with `traceId`、status and duration; worker logs bind bounded outcomes or durable audit ids to a fixed service name. The shared logger redacts credential-shaped fields and request serializers omit all headers, while `RFQ_LOG_LEVEL` applies consistently to API、hedge、analytics、reconciliation、settlement-indexer and toxic-flow processes.
 - Use ClickHouse for quote-level analysis.
 - Metrics failures must not break quote path.
 - 当前后端实现已暴露 quote 和 submit latency histogram，使用固定 bucket，不带 user、quoteId 或 wallet label。

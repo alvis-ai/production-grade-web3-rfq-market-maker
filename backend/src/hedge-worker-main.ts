@@ -9,6 +9,7 @@ import { parseHedgeRoutesJson, type HedgeRouteTable } from "./modules/hedge/hedg
 import { PostgresHedgeFeeStore } from "./modules/hedge/postgres-hedge-fee.store.js";
 import { PostgresHedgeJobStore } from "./modules/hedge/postgres-hedge-job.store.js";
 import { ConfiguredTokenRegistry, parseTokenRegistryConfig } from "./modules/pricing/token-registry.js";
+import { createStructuredLogger, logProcessFailure } from "./shared/logger/structured-logger.js";
 
 export interface HedgeWorkerRuntimeConfig {
   worker: HedgeWorkerConfig;
@@ -59,7 +60,8 @@ export function readHedgeWorkerRuntimeConfig(
 
 export async function startHedgeWorker(): Promise<void> {
   const config = readHedgeWorkerRuntimeConfig();
-  const pool = getPool();
+  const logger = createStructuredLogger("hedge-worker");
+  const pool = getPool(undefined, logger);
   await checkPoolHealth(pool);
   const store = new PostgresHedgeJobStore(pool);
   const feeStore = new PostgresHedgeFeeStore(pool);
@@ -74,7 +76,7 @@ export async function startHedgeWorker(): Promise<void> {
     config.routes,
     adapters,
     config.worker,
-    undefined,
+    logger,
     metrics,
   );
   const feeWorker = new HedgeFeeWorker(
@@ -82,10 +84,10 @@ export async function startHedgeWorker(): Promise<void> {
     config.routes,
     adapters,
     config.worker,
-    undefined,
+    logger,
     feeMetrics,
   );
-  const server = Fastify({ logger: false });
+  const server = Fastify({ logger, disableRequestLogging: true });
   server.get("/health", async () => ({ status: "ok" }));
   server.get("/ready", async (_request, reply) => {
     try {
@@ -176,7 +178,7 @@ function defaultWorkerId(): string {
 const processLike = globalThis.process;
 if (processLike?.argv?.[1] && import.meta.url.endsWith(processLike.argv[1])) {
   startHedgeWorker().catch((error: unknown) => {
-    console.error(error);
+    logProcessFailure("hedge-worker", error);
     processLike.exitCode = 1;
   });
 }

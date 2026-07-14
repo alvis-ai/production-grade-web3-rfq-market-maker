@@ -56,6 +56,10 @@ export interface CexOrderBookObserver {
   recordCexOrderBookConnectorError(exchange: OrderBookPairConfig["exchange"]): void;
 }
 
+export interface CexOrderBookLogger {
+  warn(fields: Readonly<Record<string, unknown>>, message: string): void;
+}
+
 const defaultConfig: CexOrderBookConfig = {
   pairs: [],
   depthRangeBps: 50,
@@ -71,6 +75,10 @@ const defaultConfig: CexOrderBookConfig = {
 const noopObserver: CexOrderBookObserver = {
   recordCexOrderBookCycle() {},
   recordCexOrderBookConnectorError() {},
+};
+
+const noopLogger: CexOrderBookLogger = {
+  warn() {},
 };
 
 interface SourceMetrics {
@@ -109,6 +117,7 @@ export class CEXOrderBookMonitor {
   private readonly cache: SharedPriceCache;
   private readonly observer: CexOrderBookObserver;
   private readonly connectorFactory: ExchangeConnectorFactory;
+  private readonly logger: CexOrderBookLogger;
   private readonly connectors = new Map<string, ExchangeConnector>();
   private readonly priceHistory = new Map<string, number[]>();
   private readonly lastPublishedFingerprint = new Map<string, string>();
@@ -120,6 +129,7 @@ export class CEXOrderBookMonitor {
     config: Partial<CexOrderBookConfig> = {},
     observer: CexOrderBookObserver = noopObserver,
     connectorFactory: ExchangeConnectorFactory = createConnector,
+    logger: CexOrderBookLogger = noopLogger,
   ) {
     if (!(cache instanceof SharedPriceCache)) {
       throw new Error("CEX order book monitor cache must be a SharedPriceCache");
@@ -128,10 +138,12 @@ export class CEXOrderBookMonitor {
     if (typeof connectorFactory !== "function") {
       throw new Error("CEX order book connectorFactory must be a function");
     }
+    assertLogger(logger);
     this.cache = cache;
     this.config = normalizeConfig(config);
     this.observer = observer;
     this.connectorFactory = connectorFactory;
+    this.logger = logger;
   }
 
   start(): void {
@@ -208,9 +220,13 @@ export class CEXOrderBookMonitor {
   private startConnector(pair: OrderBookPairConfig): void {
     const key = connectorKey(pair.exchange, pair.symbol);
     if (this.connectors.has(key)) return;
-    const connector = this.connectorFactory(pair.exchange, pair.symbol, (error) => {
+    const connector = this.connectorFactory(pair.exchange, pair.symbol, () => {
       this.observer.recordCexOrderBookConnectorError(pair.exchange);
-      console.warn(`[CEX-${pair.exchange}] ${pair.symbol}: ${error.message}`);
+      this.logger.warn({
+        exchange: pair.exchange,
+        symbol: pair.symbol,
+        errorCode: "CEX_ORDER_BOOK_CONNECTOR_ERROR",
+      }, "CEX order book connector failed");
     });
     assertConnector(connector);
     connector.start();
@@ -526,6 +542,12 @@ function assertObserver(value: unknown): asserts value is CexOrderBookObserver {
   if (!isRecord(value)) throw new Error("CEX order book observer must be an object");
   for (const method of ["recordCexOrderBookCycle", "recordCexOrderBookConnectorError"] as const) {
     if (typeof value[method] !== "function") throw new Error(`CEX order book observer.${method} must be a function`);
+  }
+}
+
+function assertLogger(value: unknown): asserts value is CexOrderBookLogger {
+  if (!isRecord(value) || typeof value.warn !== "function") {
+    throw new Error("CEX order book logger.warn must be a function");
   }
 }
 

@@ -56,7 +56,10 @@ export class PostTradeReconciliationWorker {
         if (!processed) await this.waitForPoll();
       } catch (error) {
         this.observer.recordIterationError();
-        this.logger.error({ error: stableErrorMessage(error) }, "post-trade reconciliation iteration failed");
+        this.logger.error(
+          { errorCode: reconciliationErrorCode(error) },
+          "post-trade reconciliation iteration failed",
+        );
         await this.waitForPoll();
       }
     }
@@ -208,14 +211,6 @@ function reconciliationErrorCode(error: unknown): string {
 function retryDelay(baseDelayMs: number, attemptCount: number): number {
   const exponent = Math.min(Math.max(attemptCount - 1, 0), 10);
   return Math.min(baseDelayMs * (2 ** exponent), 3_600_000);
-}
-
-function stableErrorMessage(error: unknown): string {
-  return error instanceof ReconciliationWorkerError
-    ? error.code
-    : error instanceof Error
-      ? error.name
-      : "unknown";
 }
 
 function assertStore(store: unknown): asserts store is PostTradeReconciliationJobStore {

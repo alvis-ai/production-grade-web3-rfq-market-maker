@@ -39,6 +39,7 @@
 - [x] Production `/submit` uses a PostgreSQL quote-scoped lease with server-time expiry and owner-token release across API replicas.
 - [x] Submit reservation acquisition failures fail closed and active contention is rejected before settlement verification.
 - [x] All errors include traceId.
+- [x] API and worker logs are structured, level-controlled, trace-correlated where applicable, and redact credentials, signatures, private keys, cookies and request headers.
 - [x] Public API responses include no-store cache control and baseline browser security headers.
 - [x] Browser access is restricted by a CORS origin allowlist.
 - [x] Browser bundles never receive institutional API secrets; production browser access requires a trusted backend-for-frontend or another approved session boundary.

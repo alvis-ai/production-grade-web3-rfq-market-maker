@@ -34,6 +34,11 @@ export interface ToxicFlowAnalyzerObserver {
   recordIterationError(): void;
 }
 
+export interface ToxicFlowAnalyzerLogger {
+  info(fields: Readonly<Record<string, unknown>>, message: string): void;
+  error(fields: Readonly<Record<string, unknown>>, message: string): void;
+}
+
 export class ToxicFlowAnalyzerMetrics implements ToxicFlowAnalyzerObserver {
   private scored = 0;
   private invalidated = 0;
@@ -92,6 +97,11 @@ const noopObserver: ToxicFlowAnalyzerObserver = {
   recordIterationError(): void {},
 };
 
+const noopLogger: ToxicFlowAnalyzerLogger = {
+  info(): void {},
+  error(): void {},
+};
+
 export class ToxicFlowAnalyzerWorker {
   private stopped = false;
 
@@ -101,8 +111,10 @@ export class ToxicFlowAnalyzerWorker {
     private readonly tokens: TokenRegistry,
     private readonly config: ToxicFlowAnalyzerConfig,
     private readonly observer: ToxicFlowAnalyzerObserver = noopObserver,
+    private readonly logger: ToxicFlowAnalyzerLogger = noopLogger,
   ) {
     assertConfig(config);
+    assertLogger(logger);
   }
 
   async runOnce(): Promise<ToxicFlowAnalyzerResult> {
@@ -169,8 +181,15 @@ export class ToxicFlowAnalyzerWorker {
       try {
         const result = await this.runOnce();
         this.observer.recordResult(result);
-      } catch {
+        if (result.status !== "idle") {
+          this.logger.info({ ...result }, "toxic-flow analyzer job processed");
+        }
+      } catch (error) {
         this.observer.recordIterationError();
+        this.logger.error(
+          { errorCode: errorCode(error) },
+          "toxic-flow analyzer iteration failed",
+        );
       }
       if (!this.stopped) await delay(this.config.pollIntervalMs);
     }
@@ -271,6 +290,14 @@ function assertConfig(config: ToxicFlowAnalyzerConfig): void {
   if (config.windowSeconds < config.horizonSeconds ||
       config.horizonSeconds + config.maxSnapshotLagSeconds > 604_800) {
     throw new Error("Toxic-flow analyzer config is invalid");
+  }
+}
+
+function assertLogger(logger: unknown): asserts logger is ToxicFlowAnalyzerLogger {
+  if (typeof logger !== "object" || logger === null || Array.isArray(logger) ||
+      typeof (logger as { info?: unknown }).info !== "function" ||
+      typeof (logger as { error?: unknown }).error !== "function") {
+    throw new Error("Toxic-flow analyzer logger must expose info and error functions");
   }
 }
 

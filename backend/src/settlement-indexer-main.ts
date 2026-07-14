@@ -15,6 +15,7 @@ import {
 } from "./modules/indexer/settlement-indexer.worker.js";
 import { PostgresQuoteRepository } from "./modules/quote/postgres-quote.repository.js";
 import { PostgresSettlementEventStore } from "./modules/settlement/postgres-settlement-event.store.js";
+import { createStructuredLogger, logProcessFailure } from "./shared/logger/structured-logger.js";
 
 export interface SettlementIndexerRuntimeConfig {
   indexer: SettlementIndexerConfig;
@@ -52,7 +53,8 @@ export function readSettlementIndexerRuntimeConfig(
 
 export async function startSettlementIndexer(): Promise<void> {
   const config = readSettlementIndexerRuntimeConfig();
-  const pool = getPool();
+  const logger = createStructuredLogger("settlement-indexer");
+  const pool = getPool(undefined, logger);
   const inventory = new PostgresInventoryService(pool);
   const settlementEvents = new PostgresSettlementEventStore(pool, inventory);
   const quoteRepository = new PostgresQuoteRepository(pool);
@@ -65,8 +67,9 @@ export async function startSettlementIndexer(): Promise<void> {
     settlementEvents,
     config.worker,
     metrics,
+    logger,
   );
-  const server = Fastify({ logger: false });
+  const server = Fastify({ logger, disableRequestLogging: true });
   server.get("/health", async () => ({ status: "ok" }));
   server.get("/ready", async (_request, reply) => {
     try {
@@ -162,7 +165,7 @@ function defaultWorkerId(): string {
 const processLike = globalThis.process;
 if (processLike?.argv?.[1] && import.meta.url.endsWith(processLike.argv[1])) {
   startSettlementIndexer().catch((error: unknown) => {
-    console.error(error);
+    logProcessFailure("settlement-indexer", error);
     processLike.exitCode = 1;
   });
 }

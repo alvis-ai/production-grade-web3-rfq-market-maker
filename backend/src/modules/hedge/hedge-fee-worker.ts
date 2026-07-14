@@ -88,7 +88,10 @@ export class HedgeFeeWorker {
         if (result.status !== "idle") this.logger.info({ ...result }, "hedge fee job processed");
       } catch (error) {
         this.observer.recordIterationError();
-        this.logger.error({ error: errorMessage(error) }, "hedge fee worker iteration failed");
+        this.logger.error(
+          { errorCode: normalizeFeeError(error).errorCode },
+          "hedge fee worker iteration failed",
+        );
       }
       if (!this.stopped) await delay(this.config.pollIntervalMs);
     }
@@ -219,10 +222,6 @@ function retryBackoffMs(baseDelayMs: number, attemptCount: number): number {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unknown hedge fee worker error";
 }
 
 const consoleLogger: HedgeWorkerLogger = {

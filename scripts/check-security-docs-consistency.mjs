@@ -164,6 +164,7 @@ const implementedAuditControls = [
   "Production `/submit` uses a PostgreSQL quote-scoped lease with server-time expiry and owner-token release across API replicas.",
   "Submit reservation acquisition failures fail closed and active contention is rejected before settlement verification.",
   "All errors include traceId.",
+  "API and worker logs are structured, level-controlled, trace-correlated where applicable, and redact credentials, signatures, private keys, cookies and request headers.",
   "Public API responses include no-store cache control and baseline browser security headers.",
   "Browser access is restricted by a CORS origin allowlist.",
   "Sensitive thresholds are not exposed to users.",

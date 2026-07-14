@@ -1,7 +1,10 @@
 import type { MarketDataService } from "../modules/market-data/market-data.service.js";
 import type { MarketSnapshotStore } from "../modules/market-data/market-snapshot.repository.js";
 import { CachedMarketDataService } from "../modules/market-data/cached-market-data.service.js";
-import { CEXOrderBookMonitor } from "../modules/market-data/cex-orderbook/cex-orderbook-monitor.js";
+import {
+  CEXOrderBookMonitor,
+  type CexOrderBookLogger,
+} from "../modules/market-data/cex-orderbook/cex-orderbook-monitor.js";
 import type { OrderBookPairConfig } from "../modules/market-data/cex-orderbook/orderbook.js";
 import {
   BackgroundMarketSnapshotSampler,
@@ -38,6 +41,7 @@ export interface GatewayMarketDataRuntime {
 export function buildGatewayMarketDataRuntime(
   configuredService: MarketDataService | undefined,
   metricsService: MetricsService,
+  logger: CexOrderBookLogger,
 ): GatewayMarketDataRuntime {
   const defaultMarketData = configuredService ? undefined : readDefaultMarketDataRuntime();
   const rawMarketDataService = configuredService ?? defaultMarketData!.service;
@@ -79,7 +83,7 @@ export function buildGatewayMarketDataRuntime(
           })
         : undefined;
       const cexMonitor = defaultMarketData && cexPriceCache && cexConfig
-        ? new CEXOrderBookMonitor(cexPriceCache, cexConfig.monitor, metricsService)
+        ? new CEXOrderBookMonitor(cexPriceCache, cexConfig.monitor, metricsService, undefined, logger)
         : undefined;
       const snapshotSamplerCaches = cexPriceCache && basePriceCache
         ? [cexPriceCache, basePriceCache]

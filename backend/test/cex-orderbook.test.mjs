@@ -131,6 +131,37 @@ test("CEXOrderBookMonitor publishes only changed fresh source events", () => {
   assert.equal(connectors.get("coinbase:ETH-USDT").stopped, true);
 });
 
+test("CEXOrderBookMonitor logs connector failures without raw exception text", () => {
+  const warnings = [];
+  const observer = new FakeObserver();
+  let reportError;
+  const monitor = new CEXOrderBookMonitor(
+    new SharedPriceCache(),
+    { pairs: [{ chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT" }] },
+    observer,
+    (exchange, symbol, onError) => {
+      reportError = onError;
+      return new FakeConnector(exchange, symbol);
+    },
+    { warn(fields, message) { warnings.push([fields, message]); } },
+  );
+
+  monitor.start();
+  try {
+    reportError(new Error("wss://api-key:raw-secret@stream.example.invalid"));
+  } finally {
+    monitor.stop();
+  }
+
+  assert.deepEqual(observer.connectorErrors, ["binance"]);
+  assert.deepEqual(warnings, [[{
+    exchange: "binance",
+    symbol: "ETHUSDT",
+    errorCode: "CEX_ORDER_BOOK_CONNECTOR_ERROR",
+  }, "CEX order book connector failed"]]);
+  assert.ok(!JSON.stringify(warnings).includes("raw-secret"));
+});
+
 test("RFQ API prices the inverse USD-to-base direction from executable asks", async () => {
   const cache = new SharedPriceCache(60_000);
   let connector;
@@ -269,6 +300,16 @@ test("CEXOrderBookMonitor rejects unsafe quorum and dependency configuration", (
   assert.throws(
     () => new CEXOrderBookMonitor(new SharedPriceCache(), { pairs: [pair] }, {}),
     /observer.recordCexOrderBookCycle/,
+  );
+  assert.throws(
+    () => new CEXOrderBookMonitor(
+      new SharedPriceCache(),
+      { pairs: [pair] },
+      new FakeObserver(),
+      () => new FakeConnector("binance", "ETHUSDT"),
+      {},
+    ),
+    /logger.warn/,
   );
 });
 

@@ -74,8 +74,8 @@ test("RFQ API marks graceful shutdown failures as process failures", async () =>
   };
 
   installGracefulShutdown(fakeServer, fakeProcess, {
-    error(input) {
-      logged.push(input);
+    error(fields, message) {
+      logged.push([fields, message]);
     },
   });
 
@@ -83,7 +83,10 @@ test("RFQ API marks graceful shutdown failures as process failures", async () =>
   await flushMicrotasks();
 
   assert.equal(fakeProcess.exitCode, 1);
-  assert.match(String(logged[0]), /close failed/);
+  assert.deepEqual(logged, [[
+    { errorCode: "SERVER_SHUTDOWN_FAILED" },
+    "Server shutdown failed",
+  ]]);
 });
 
 test("RFQ API emits CORS headers for allowed browser origins", async () => {

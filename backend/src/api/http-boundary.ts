@@ -36,7 +36,9 @@ export function installGatewayBoundary(
   options: GatewayBoundaryOptions,
 ): AuthenticatedPrincipals {
   const authenticatedPrincipals: AuthenticatedPrincipals = new WeakMap();
+  const requestStartedAt = new WeakMap<FastifyRequest, number>();
   server.addHook("onRequest", async (request, reply) => {
+    requestStartedAt.set(request, Date.now());
     reply.header("x-trace-id", requestTraceId(request));
     applySecurityHeaders(reply, options.enableHsts);
     applyCorsHeaders(request, reply, options.allowedOrigins);
@@ -54,11 +56,21 @@ export function installGatewayBoundary(
     }
     authenticatedPrincipals.set(request, result.principal);
   });
+  server.addHook("onResponse", async (request, reply) => {
+    const fields = requestLogFields(request, reply.statusCode, requestStartedAt.get(request));
+    requestStartedAt.delete(request);
+    if (isProbeRoute(request)) request.log.debug(fields, "HTTP request completed");
+    else request.log.info(fields, "HTTP request completed");
+  });
   server.setErrorHandler((error, request, reply) => {
-    return sendError(reply, requestTraceId(request), frameworkErrorToAPIError(error));
+    const apiError = frameworkErrorToAPIError(error);
+    logRequestFailure(request, apiError);
+    return sendError(reply, requestTraceId(request), apiError);
   });
   server.setNotFoundHandler((request, reply) => {
-    return sendError(reply, requestTraceId(request), new APIError("INVALID_REQUEST", "Route not found", 404));
+    const error = new APIError("INVALID_REQUEST", "Route not found", 404);
+    logRequestFailure(request, error);
+    return sendError(reply, requestTraceId(request), error);
   });
   return authenticatedPrincipals;
 }
@@ -171,6 +183,42 @@ function requiredApiKeyScope(request: FastifyRequest): ApiKeyScope | undefined {
   if (request.method === "GET" && route === "/admin/toxic-flow/scores/:chainId/:user") return "admin:read";
   if (request.method === "PUT" && route === "/admin/toxic-flow/scores/:chainId/:user") return "admin:write";
   return undefined;
+}
+
+function requestLogFields(
+  request: FastifyRequest,
+  statusCode: number,
+  startedAt: number | undefined,
+): Record<string, unknown> {
+  return {
+    traceId: requestTraceId(request),
+    method: request.method,
+    route: requestRoute(request),
+    statusCode,
+    durationMs: startedAt === undefined ? 0 : Math.max(0, Date.now() - startedAt),
+  };
+}
+
+function logRequestFailure(request: FastifyRequest, error: APIError): void {
+  const fields = {
+    traceId: requestTraceId(request),
+    method: request.method,
+    route: requestRoute(request),
+    statusCode: error.statusCode,
+    errorCode: error.code,
+  };
+  if (error.statusCode >= 500) request.log.error(fields, "HTTP request failed");
+  else request.log.warn(fields, "HTTP request rejected");
+}
+
+function requestRoute(request: FastifyRequest): string {
+  const route = request.routeOptions.url;
+  return typeof route === "string" && route.length > 0 ? route : "unmatched";
+}
+
+function isProbeRoute(request: FastifyRequest): boolean {
+  const route = requestRoute(request);
+  return route === "/health" || route === "/ready" || route === "/metrics";
 }
 
 function applyCorsHeaders(

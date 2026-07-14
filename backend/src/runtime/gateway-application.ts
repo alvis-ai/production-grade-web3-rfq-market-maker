@@ -60,6 +60,7 @@ import {
 } from "./market-runtime.js";
 import { buildGatewayMarketDataRuntime } from "./gateway-market-data.js";
 import { DynamicToxicFlowRiskEngine } from "../modules/risk/dynamic-toxic-flow-risk.engine.js";
+import { structuredLoggerConfig } from "../shared/logger/structured-logger.js";
 
 export type { BuildServerOptions } from "./gateway-runtime.js";
 
@@ -76,12 +77,13 @@ export function buildServer(options: BuildServerOptions = {}) {
     trustProxy,
   } = readGatewayServerSettings(options);
   const server = Fastify({
-    logger,
+    logger: logger ? structuredLoggerConfig("rfq-api") : false,
+    disableRequestLogging: true,
     bodyLimit: bodyLimitBytes,
     maxParamLength: maxStatusIdentifierRouteParamLength,
   });
   const metricsService = new MetricsService();
-  const marketRuntime = buildGatewayMarketDataRuntime(options.marketDataService, metricsService);
+  const marketRuntime = buildGatewayMarketDataRuntime(options.marketDataService, metricsService, server.log);
   const {
     cexPairs,
     managedRiskPairs,
@@ -96,7 +98,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     ? createSignerRuntime(signerRuntimeConfig)
     : undefined;
   const signerService = options.signerService ?? defaultSignerRuntime!.service;
-  const postgresPool = resolvePostgresPool(options);
+  const postgresPool = resolvePostgresPool(options, server.log);
   const ownsPostgresPool = postgresPool !== undefined && options.databasePool === undefined;
   const quoteControlStore = resolveQuoteControlStore(options.quoteControlStore, postgresPool);
   const toxicFlowScoreStore = resolveToxicFlowScoreStore(options.toxicFlowScoreStore, postgresPool);

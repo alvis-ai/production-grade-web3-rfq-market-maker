@@ -1,5 +1,5 @@
 import type pg from "pg";
-import { getPool } from "../db/pool.js";
+import { getPool, type DatabasePoolLogger } from "../db/pool.js";
 import {
   Sha256ApiKeyAuthenticator,
   parseApiKeyAuthConfig,
@@ -314,7 +314,10 @@ export function resolveApiKeyAuthenticator(options: BuildServerOptions): ApiKeyA
   return new Sha256ApiKeyAuthenticator(parseApiKeyAuthConfig(serialized));
 }
 
-export function resolvePostgresPool(options: BuildServerOptions): pg.Pool | undefined {
+export function resolvePostgresPool(
+  options: BuildServerOptions,
+  logger?: DatabasePoolLogger,
+): pg.Pool | undefined {
   if (options.databasePool !== undefined) {
     if (!isRecord(options.databasePool) || typeof options.databasePool.connect !== "function") {
       throw new Error("buildServer databasePool.connect must be a function");
@@ -331,7 +334,7 @@ export function resolvePostgresPool(options: BuildServerOptions): pg.Pool | unde
     }
     return undefined;
   }
-  return getPool();
+  return getPool(undefined, logger);
 }
 
 export function resolveSubmitReservationStore(

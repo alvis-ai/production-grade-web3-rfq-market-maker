@@ -12,13 +12,19 @@ export interface RuntimeProcess {
 }
 
 interface ShutdownLogger {
-  error: (...input: unknown[]) => void;
+  error(fields: Readonly<Record<string, unknown>>, message: string): void;
 }
+
+const consoleShutdownLogger: ShutdownLogger = {
+  error(fields, message) {
+    console.error(message, fields);
+  },
+};
 
 export function installGracefulShutdown(
   server: Pick<FastifyInstance, "close">,
   processLike: RuntimeProcess | undefined = runtimeProcess(),
-  logger: ShutdownLogger = console,
+  logger: ShutdownLogger = consoleShutdownLogger,
 ): void {
   if (!processLike?.on) {
     return;
@@ -35,8 +41,8 @@ export function installGracefulShutdown(
       .then(() => {
         processLike.exitCode = 0;
       })
-      .catch((error: unknown) => {
-        logger.error(error);
+      .catch(() => {
+        logger.error({ errorCode: "SERVER_SHUTDOWN_FAILED" }, "Server shutdown failed");
         processLike.exitCode = 1;
       });
   };

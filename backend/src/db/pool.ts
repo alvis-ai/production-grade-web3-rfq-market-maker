@@ -6,7 +6,20 @@ const { Pool } = pg;
 let pool: pg.Pool | undefined;
 let currentConfig: DatabaseConfig | undefined;
 
-export function getPool(config?: DatabaseConfig): pg.Pool {
+export interface DatabasePoolLogger {
+  error(fields: Readonly<Record<string, unknown>>, message: string): void;
+}
+
+const consolePoolLogger: DatabasePoolLogger = {
+  error(fields, message) {
+    console.error(message, fields);
+  },
+};
+
+export function getPool(
+  config?: DatabaseConfig,
+  logger: DatabasePoolLogger = consolePoolLogger,
+): pg.Pool {
   if (pool && config === undefined) {
     return pool;
   }
@@ -27,8 +40,8 @@ export function getPool(config?: DatabaseConfig): pg.Pool {
     max: resolvedConfig.maxPoolSize,
   });
 
-  pool.on("error", (error: Error) => {
-    console.error("Unexpected database pool error:", error);
+  pool.on("error", () => {
+    logger.error({ errorCode: "DATABASE_POOL_ERROR" }, "Unexpected database pool error");
   });
 
   return pool;

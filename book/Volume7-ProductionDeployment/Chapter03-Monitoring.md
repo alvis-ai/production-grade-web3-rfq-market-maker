@@ -175,6 +175,7 @@ Key metrics include:
 
 ## Engineering Decisions
 
+- Every long-running backend process writes one-line structured JSON through the shared logger. `service` distinguishes `rfq-api`、`hedge-worker`、`analytics-worker`、`reconciliation-worker`、`settlement-indexer` and `toxic-flow-analyzer`; `RFQ_LOG_LEVEL` is validated at startup and is propagated by Docker Compose、raw Kubernetes and every Helm worker values block. Log aggregation should index service、level、traceId、route、errorCode and durable job ids, but must not index or retain API keys、CEX secrets、signatures、private keys、cookies、request bodies or credential-bearing headers.
 - No quoteId/user address labels in Prometheus.
 - Signer metrics use only the low-cardinality `operation` label: `sign` or `verify`.
 - Rate-limit metrics use only the fixed `endpoint` label: `quote`, `submit` or `status`; dynamic route params must stay out of Prometheus labels.

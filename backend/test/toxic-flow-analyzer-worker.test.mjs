@@ -55,6 +55,36 @@ test("ToxicFlowAnalyzerWorker recomputes aggregate after score CAS conflict", as
   assert.equal(updates, 2);
 });
 
+test("ToxicFlowAnalyzerWorker records and logs iteration failures without leaking raw exceptions", async () => {
+  const errors = [];
+  let iterationErrors = 0;
+  let worker;
+  const markouts = store({ calls: [] });
+  markouts.claimNext = async () => {
+    worker.stop();
+    throw new Error("MARKOUT_STORE_UNAVAILABLE");
+  };
+  worker = new ToxicFlowAnalyzerWorker(
+    markouts,
+    new InMemoryToxicFlowScoreStore(),
+    tokens(),
+    { ...config(), pollIntervalMs: 10 },
+    { recordResult() {}, recordIterationError() { iterationErrors += 1; } },
+    { info() {}, error(fields, message) { errors.push([fields, message]); } },
+  );
+
+  await worker.run();
+  assert.equal(iterationErrors, 1);
+  assert.deepEqual(errors, [[
+    { errorCode: "MARKOUT_STORE_UNAVAILABLE" },
+    "toxic-flow analyzer iteration failed",
+  ]]);
+  assert.throws(
+    () => new ToxicFlowAnalyzerWorker(markouts, new InMemoryToxicFlowScoreStore(), tokens(), config(), undefined, {}),
+    /logger/,
+  );
+});
+
 function store({ calls, claimed, snapshot: postSnapshot, aggregate: scoreAggregate }) {
   return { async checkHealth() {}, async claimNext() { calls.push(["claim"]); return claimed; },
     async findPostTradeSnapshot() { calls.push(["snapshot"]); return postSnapshot; },
