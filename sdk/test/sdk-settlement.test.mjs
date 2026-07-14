@@ -171,7 +171,16 @@ test("RFQSettlement ABI exposes treasury custody controls", () => {
 });
 
 test("RFQSettlement ABI exposes public state getters for operations", () => {
-  for (const name of ["owner", "trustedSigner", "paused", "tokenWhitelist", "usedNonces"]) {
+  for (const name of [
+    "MAX_TRUSTED_SIGNERS",
+    "owner",
+    "trustedSigner",
+    "trustedSigners",
+    "trustedSignerCount",
+    "paused",
+    "tokenWhitelist",
+    "usedNonces",
+  ]) {
     assert.ok(
       rfqSettlementAbi.some((item) => item.type === "function" && item.name === name),
       `missing RFQSettlement getter ${name}`,
@@ -203,6 +212,19 @@ test("RFQSettlement ABI exposes public state getters for operations", () => {
     usedNoncesGetter.outputs.map((output) => `${output.name}:${output.type}`),
     ["used:bool"],
   );
+
+  const trustedSignersGetter = rfqSettlementAbi.find(
+    (item) => item.type === "function" && item.name === "trustedSigners",
+  );
+  assert.ok(trustedSignersGetter, "missing RFQSettlement getter trustedSigners");
+  assert.deepEqual(
+    trustedSignersGetter.inputs.map((input) => `${input.name}:${input.type}`),
+    ["signer:address"],
+  );
+  assert.deepEqual(
+    trustedSignersGetter.outputs.map((output) => `${output.name}:${output.type}`),
+    ["authorized:bool"],
+  );
 });
 
 test("RFQSettlement ABI exposes role-based admin controls", () => {
@@ -220,6 +242,7 @@ test("RFQSettlement ABI exposes role-based admin controls", () => {
     "hasRole",
     "supportsInterface",
     "setTrustedSigner",
+    "setTrustedSignerAuthorization",
     "setTokenWhitelist",
   ]) {
     assert.ok(
@@ -232,11 +255,19 @@ test("RFQSettlement ABI exposes role-based admin controls", () => {
   assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "RoleRevoked"));
   assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "Paused"));
   assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "Unpaused"));
+  assert.ok(
+    rfqSettlementAbi.some(
+      (item) => item.type === "event" && item.name === "TrustedSignerAuthorizationUpdated",
+    ),
+  );
 });
 
 test("Contract ABIs expose custom errors for revert decoding", () => {
   for (const name of [
     "InvalidSigner",
+    "TooManyTrustedSigners",
+    "CannotRevokePrimaryTrustedSigner",
+    "CannotRevokeLastTrustedSigner",
     "InvalidSignatureLength",
     "InvalidSignatureS",
     "InvalidSignatureV",

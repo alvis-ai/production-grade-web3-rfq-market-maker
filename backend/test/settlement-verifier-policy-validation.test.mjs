@@ -124,6 +124,68 @@ test("LocalSettlementVerifier rejects unsafe policy configuration at constructio
     () =>
       new LocalSettlementVerifier({
         ...defaultLocalSettlementVerifierPolicy,
+        trustedSignerOverlapAddresses: undefined,
+      }),
+    /Local settlement verifier trustedSignerOverlapAddresses must be an array/,
+  );
+
+  for (const signer of [
+    "0x00000000000000000000000000000000000000zz",
+    "0x0000000000000000000000000000000000000000",
+    new String("0x00000000000000000000000000000000000000aa"),
+  ]) {
+    assert.throws(
+      () =>
+        new LocalSettlementVerifier({
+          ...defaultLocalSettlementVerifierPolicy,
+          trustedSignerOverlapAddresses: [signer],
+        }),
+      /Local settlement verifier trustedSignerOverlapAddresses/,
+    );
+  }
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
+        trustedSignerOverlapAddresses: [
+          defaultLocalSettlementVerifierPolicy.trustedSignerAddress.toUpperCase().replace("0X", "0x"),
+        ],
+      }),
+    /trusted signer addresses must not contain duplicates/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
+        trustedSignerOverlapAddresses: [
+          "0x00000000000000000000000000000000000000aa",
+          "0x00000000000000000000000000000000000000AA",
+        ],
+      }),
+    /trusted signer addresses must not contain duplicates/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
+        trustedSignerOverlapAddresses: [
+          "0x0000000000000000000000000000000000000011",
+          "0x0000000000000000000000000000000000000012",
+          "0x0000000000000000000000000000000000000013",
+          "0x0000000000000000000000000000000000000014",
+          "0x0000000000000000000000000000000000000015",
+        ],
+      }),
+    /must contain at most 4 addresses/,
+  );
+
+  assert.throws(
+    () =>
+      new LocalSettlementVerifier({
+        ...defaultLocalSettlementVerifierPolicy,
         tokenWhitelist: [
           "0x00000000000000000000000000000000000000cc",
           "0x00000000000000000000000000000000000000CC",

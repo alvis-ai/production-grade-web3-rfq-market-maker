@@ -14,6 +14,7 @@
 - [x] ReentrancyGuard protects settlement.
 - [x] Pausable can stop settlement during incident response.
 - [x] AccessControl protects signer and token whitelist updates.
+- [x] Trusted signer authorization is capped at five entries, cannot remove the primary or final signer, and emits an event for every membership change.
 - [x] DEFAULT_ADMIN_ROLE cannot be orphaned by revoking the last admin.
 - [x] Deployment atomically wires Settlement and Treasury, validates postconditions, transfers both ownership boundaries to an explicit final admin, and leaves the factory without roles.
 - [x] Events contain enough data for idempotent indexing.
@@ -28,6 +29,7 @@
 - [x] Signer verification rejects non-canonical high-s ECDSA signatures before submit settlement.
 - [x] Non-local standalone runtime requires AWS KMS and rejects raw signer private keys.
 - [x] KMS signatures are strictly DER-decoded and accepted only when recovery matches the configured trusted signer.
+- [x] Settlement verification accepts one primary plus at most four validated overlap signers and snapshots that trust policy at startup.
 - [x] Quote persistence includes snapshotId and riskPolicyVersion.
 - [x] Rejected quotes are logged without returning signatures.
 - [x] Rate limits protect public trading endpoints.
@@ -59,6 +61,7 @@
 ## Operations
 
 - [x] Signer key rotation is documented.
+- [x] Signer rotation uses two backend rollouts, waits through TTL and settlement-observation buffers, and explicitly retires the old signer on chain and in backend configuration.
 - [x] Emergency pause procedure is documented.
 - [x] Alerts exist for signer failures, risk reject spikes, event lag and hedge failures.
 - [x] Dashboards cover quote latency, settlement failures and inventory exposure.

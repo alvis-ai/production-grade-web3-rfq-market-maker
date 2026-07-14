@@ -161,6 +161,7 @@ contract RFQSettlementTest {
         uint256 amountOut,
         uint256 nonce
     );
+    event TrustedSignerAuthorizationUpdated(address indexed signer, bool authorized);
 
     function setUp() public {
         signer = vm.addr(SIGNER_KEY);
@@ -441,6 +442,11 @@ contract RFQSettlementTest {
         settlement.setTrustedSigner(newSigner);
         require(settlement.trustedSigner() == newSigner, "signer admin did not rotate signer");
 
+        address standbySigner = address(0xA11CE04);
+        vm.prank(signerAdmin);
+        settlement.setTrustedSignerAuthorization(standbySigner, true);
+        require(settlement.trustedSigners(standbySigner), "signer admin did not authorize signer");
+
         vm.prank(signerAdmin);
         _expectMissingRole(TOKEN_ADMIN_ROLE, signerAdmin);
         settlement.setTokenWhitelist(address(tokenIn), false);
@@ -454,6 +460,10 @@ contract RFQSettlementTest {
         vm.prank(tokenAdmin);
         _expectMissingRole(SIGNER_ADMIN_ROLE, tokenAdmin);
         settlement.setTrustedSigner(signer);
+
+        vm.prank(tokenAdmin);
+        _expectMissingRole(SIGNER_ADMIN_ROLE, tokenAdmin);
+        settlement.setTrustedSignerAuthorization(standbySigner, false);
     }
 
     function testAccessControlRevocationRemovesAdminCapability() public {
@@ -508,22 +518,83 @@ contract RFQSettlementTest {
     function testOwnerCanRotateTrustedSigner() public {
         address newSigner = vm.addr(NEW_SIGNER_KEY);
 
+        vm.expectEmit(true, false, false, true);
+        emit TrustedSignerAuthorizationUpdated(newSigner, true);
         settlement.setTrustedSigner(newSigner);
         require(settlement.trustedSigner() == newSigner, "signer mismatch");
+        require(settlement.trustedSigners(signer), "old signer overlap missing");
+        require(settlement.trustedSigners(newSigner), "new signer not authorized");
+        require(settlement.trustedSignerCount() == 2, "signer count mismatch");
 
         IRFQSettlement.Quote memory quote = _quote(41);
         bytes memory oldSignature = _signWith(SIGNER_KEY, quote);
 
         vm.prank(user);
-        vm.expectRevert(RFQSettlement.InvalidSigner.selector);
-        settlement.submitQuote(quote, oldSignature);
+        uint256 oldSignerAmountOut = settlement.submitQuote(quote, oldSignature);
+        require(oldSignerAmountOut == quote.amountOut, "overlap signer quote rejected");
 
+        quote.nonce = 42;
         bytes memory newSignature = _signWith(NEW_SIGNER_KEY, quote);
 
         vm.prank(user);
         uint256 amountOut = settlement.submitQuote(quote, newSignature);
 
         require(amountOut == quote.amountOut, "rotated signer quote rejected");
+
+        vm.expectEmit(true, false, false, true);
+        emit TrustedSignerAuthorizationUpdated(signer, false);
+        settlement.setTrustedSignerAuthorization(signer, false);
+        require(!settlement.trustedSigners(signer), "old signer still authorized");
+        require(settlement.trustedSignerCount() == 1, "retired signer count mismatch");
+
+        quote.nonce = 43;
+        oldSignature = _signWith(SIGNER_KEY, quote);
+        vm.prank(user);
+        vm.expectRevert(RFQSettlement.InvalidSigner.selector);
+        settlement.submitQuote(quote, oldSignature);
+    }
+
+    function testSignerAuthorizationCannotRemovePrimaryOrLastSigner() public {
+        settlement.setTrustedSignerAuthorization(address(0xBEEF), false);
+        require(settlement.trustedSignerCount() == 1, "unknown signer revocation changed count");
+
+        vm.expectRevert(RFQSettlement.CannotRevokeLastTrustedSigner.selector);
+        settlement.setTrustedSignerAuthorization(signer, false);
+
+        address standbySigner = vm.addr(NEW_SIGNER_KEY);
+        settlement.setTrustedSignerAuthorization(standbySigner, true);
+        require(settlement.trustedSignerCount() == 2, "standby signer not counted");
+
+        vm.expectRevert(RFQSettlement.CannotRevokePrimaryTrustedSigner.selector);
+        settlement.setTrustedSignerAuthorization(signer, false);
+
+        settlement.setTrustedSignerAuthorization(standbySigner, false);
+        require(settlement.trustedSignerCount() == 1, "standby signer not retired");
+    }
+
+    function testSignerAuthorizationIsBoundedAndIdempotent() public {
+        address[4] memory additionalSigners =
+            [address(0xB000), address(0xB001), address(0xB002), address(0xB003)];
+        for (uint256 index = 0; index < additionalSigners.length; index += 1) {
+            settlement.setTrustedSignerAuthorization(additionalSigners[index], true);
+        }
+        require(
+            settlement.trustedSignerCount() == settlement.MAX_TRUSTED_SIGNERS(),
+            "trusted signer limit not reached"
+        );
+
+        address existingSigner = address(0xB000);
+        settlement.setTrustedSignerAuthorization(existingSigner, true);
+        require(
+            settlement.trustedSignerCount() == settlement.MAX_TRUSTED_SIGNERS(),
+            "duplicate authorization changed signer count"
+        );
+
+        vm.expectRevert(RFQSettlement.TooManyTrustedSigners.selector);
+        settlement.setTrustedSignerAuthorization(address(0xB100), true);
+
+        vm.expectRevert(RFQSettlement.TooManyTrustedSigners.selector);
+        settlement.setTrustedSigner(address(0xB101));
     }
 
     function testOwnerCanRotateTreasury() public {
@@ -595,6 +666,9 @@ contract RFQSettlementTest {
 
         vm.expectRevert(RFQSettlement.InvalidAddress.selector);
         settlement.setTrustedSigner(address(0));
+
+        vm.expectRevert(RFQSettlement.InvalidAddress.selector);
+        settlement.setTrustedSignerAuthorization(address(0), true);
 
         vm.expectRevert(RFQSettlement.InvalidAddress.selector);
         settlement.setTreasury(address(0));

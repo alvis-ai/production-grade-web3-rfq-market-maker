@@ -25,6 +25,7 @@ interface IRFQSettlement {
     );
     event OwnerUpdated(address indexed oldOwner, address indexed newOwner);
     event TrustedSignerUpdated(address indexed oldSigner, address indexed newSigner);
+    event TrustedSignerAuthorizationUpdated(address indexed signer, bool authorized);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event TokenWhitelistUpdated(address indexed token, bool whitelisted);
     event PausedUpdated(bool paused);
@@ -36,6 +37,10 @@ interface IRFQSettlement {
     function revokeRole(bytes32 role, address account) external;
     function hasRole(bytes32 role, address account) external view returns (bool);
     function setTrustedSigner(address newTrustedSigner) external;
+    function setTrustedSignerAuthorization(address signer, bool authorized) external;
+    function MAX_TRUSTED_SIGNERS() external view returns (uint256);
+    function trustedSigners(address signer) external view returns (bool);
+    function trustedSignerCount() external view returns (uint256);
     function setTreasury(address newTreasury) external;
     function setTokenWhitelist(address token, bool whitelisted) external;
     function setPaused(bool newPaused) external;

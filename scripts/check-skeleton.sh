@@ -1843,7 +1843,7 @@ grep -q 'assertObject(input.request.quote, "request.quote")' backend/src/modules
 grep -q 'assertChainIds(policy.enabledChainIds)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertTokenWhitelist(policy.tokenWhitelist)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'assertAddress(policy.settlementAddress, "settlementAddress")' backend/src/modules/settlement/settlement-verifier.service.ts
-grep -q 'assertAddress(policy.trustedSignerAddress, "trustedSignerAddress")' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'assertTrustedSignerAddresses(' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'cloneLocalSettlementVerifierPolicy' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'Local settlement verifier enabledChainIds must not contain duplicate chain ids' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'Local settlement verifier tokenWhitelist must not contain duplicate addresses' backend/src/modules/settlement/settlement-verifier.service.ts
@@ -3576,8 +3576,8 @@ grep -q 'testAccessControlRevocationRemovesAdminCapability' contracts/test/RFQSe
 grep -q 'testCannotRevokeLastDefaultAdminRole' contracts/test/RFQSettlement.t.sol
 grep -q 'testDefaultAdminCanBeRevokedAfterGrantingReplacement' contracts/test/RFQSettlement.t.sol
 grep -q 'DEFAULT_ADMIN_ROLE` 使用成员计数防止最后一个默认管理员被撤销' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
-grep -q 'Run a canary through the normal quote path' docs/security/key-management.md
-grep -q 'negative canary using the old signer' docs/security/key-management.md
+grep -q 'run the normal quote-path canary in staging' docs/security/key-management.md
+grep -q 'RFQSettlement.setTrustedSignerAuthorization(oldSigner, false)' docs/security/key-management.md
 grep -q 'Emergency Pause Procedure' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'RFQSettlement.setPaused(true)' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'negative submit canary' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
@@ -3690,5 +3690,13 @@ grep -q "('020', 'toxic-flow-scores')" docs/database/schema.sql
 grep -q 'RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS' infra/k8s/configmap.yaml
 grep -q 'rfq_toxic_flow_score_updates_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'RFQToxicFlowScoreErrors' infra/prometheus/rules/rfq-alerts.yml
+
+test -s docs/adr/ADR-0008-Use-Bounded-Signer-Overlap-For-Key-Rotation.md
+grep -q 'MAX_TRUSTED_SIGNERS = 5' contracts/src/RFQSettlement.sol
+grep -q 'setTrustedSignerAuthorization' contracts/src/RFQSettlement.sol
+grep -q 'trustedSignerOverlapAddresses' backend/src/modules/settlement/settlement-verifier.service.ts
+grep -q 'RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES' backend/src/modules/signer/signer-runtime.ts
+grep -q 'accepts an explicitly configured overlap signer' backend/test/settlement-verifier.test.mjs
+grep -q 'Signer rotation uses two backend rollouts' docs/security/audit-checklist.md
 
 echo "skeleton check passed"

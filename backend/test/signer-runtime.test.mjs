@@ -9,6 +9,10 @@ import {
 const privateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const settlementAddress = "0x0000000000000000000000000000000000000004";
 const trustedSignerAddress = privateKeyToAccount(privateKey).address;
+const overlapSignerAddresses = [
+  "0x00000000000000000000000000000000000000aa",
+  "0x00000000000000000000000000000000000000bb",
+];
 
 test("signer runtime keeps local defaults inside local environments only", async () => {
   const config = readSignerRuntimeConfig({});
@@ -16,6 +20,7 @@ test("signer runtime keeps local defaults inside local environments only", async
   assert.equal(config.privateKey, privateKey);
   assert.equal(config.settlementAddress, settlementAddress);
   assert.equal(config.trustedSignerAddress, trustedSignerAddress.toLowerCase());
+  assert.deepEqual(config.trustedSignerOverlapAddresses, []);
 
   const runtime = createSignerRuntime(config);
   const quote = fixedQuote();
@@ -56,11 +61,62 @@ test("signer runtime parses complete AWS KMS configuration without private key m
     mode: "aws-kms",
     settlementAddress,
     trustedSignerAddress: trustedSignerAddress.toLowerCase(),
+    trustedSignerOverlapAddresses: [],
     keyId: "alias/rfq-production-signer",
     region: "us-east-1",
     maxAttempts: 4,
   });
   assert.equal(Object.hasOwn(config, "privateKey"), false);
+});
+
+test("signer runtime parses a bounded trusted signer overlap window", () => {
+  const config = readSignerRuntimeConfig({
+    ...awsEnvironment(),
+    RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES: overlapSignerAddresses.join(","),
+  });
+
+  assert.deepEqual(config.trustedSignerOverlapAddresses, overlapSignerAddresses);
+});
+
+test("signer runtime rejects unsafe trusted signer overlap configuration", () => {
+  const base = awsEnvironment();
+  for (const value of [
+    "",
+    ` ${overlapSignerAddresses[0]}`,
+    `${overlapSignerAddresses[0]} `,
+    "0x0000000000000000000000000000000000000000",
+    "0x00000000000000000000000000000000000000zz",
+  ]) {
+    assert.throws(
+      () => readSignerRuntimeConfig({ ...base, RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES: value }),
+      /RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES/,
+    );
+  }
+
+  assert.throws(
+    () => readSignerRuntimeConfig({
+      ...base,
+      RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES: trustedSignerAddress.toUpperCase().replace("0X", "0x"),
+    }),
+    /must not duplicate/,
+  );
+  assert.throws(
+    () => readSignerRuntimeConfig({
+      ...base,
+      RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES:
+        `${overlapSignerAddresses[0]},${overlapSignerAddresses[0].toUpperCase().replace("0X", "0x")}`,
+    }),
+    /must not duplicate/,
+  );
+  assert.throws(
+    () => readSignerRuntimeConfig({
+      ...base,
+      RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES: [1, 2, 3, 4, 5]
+        .map((value) => `0x${value.toString(16).padStart(40, "0")}`)
+        .join(","),
+    }),
+    /at most 4 addresses/,
+  );
 });
 
 test("signer runtime rejects incomplete, placeholder, and ambiguous AWS KMS configuration", () => {
@@ -97,7 +153,12 @@ test("external signer mode requires injection and excludes conflicting KMS field
     RFQ_TRUSTED_SIGNER_ADDRESS: trustedSignerAddress,
   };
   assert.throws(() => readSignerRuntimeConfig(external), /requires an injected signerService/);
-  assert.equal(readSignerRuntimeConfig(external, { allowExternal: true }).mode, "external");
+  assert.deepEqual(readSignerRuntimeConfig(external, { allowExternal: true }), {
+    mode: "external",
+    settlementAddress,
+    trustedSignerAddress: trustedSignerAddress.toLowerCase(),
+    trustedSignerOverlapAddresses: [],
+  });
   assert.throws(
     () => readSignerRuntimeConfig({ ...external, RFQ_AWS_KMS_KEY_ID: "alias/conflict" }, { allowExternal: true }),
     /only allowed when RFQ_SIGNER_MODE=aws-kms/,

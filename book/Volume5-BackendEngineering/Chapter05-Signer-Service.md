@@ -115,6 +115,7 @@ signQuote(input: SignQuoteInput): Promise<`0x${string}`>
 - Signer 验证 approved context。
 - 本地开发使用 `RFQ_SIGNER_MODE=local`、`RFQ_SIGNER_PRIVATE_KEY` 和 `RFQ_SETTLEMENT_ADDRESS`。默认 Anvil key 只允许用于 unset `NODE_ENV`、`development` 或 `test`；任何非本地环境都拒绝 local mode 和原始私钥。
 - 独立生产进程使用 `RFQ_SIGNER_MODE=aws-kms`。启动必须同时获得 `RFQ_AWS_KMS_KEY_ID`、`RFQ_AWS_KMS_REGION`、`RFQ_TRUSTED_SIGNER_ADDRESS` 和 `RFQ_SETTLEMENT_ADDRESS`；通过 `buildServer` 注入其他 HSM 实现时使用 `external` mode，并仍显式声明 trusted signer 与 verifying contract。
+- `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES` 只在 key rotation window 使用，最多包含四个 distinct non-zero 地址。它允许 settlement verifier 接受旧/新 quote，但 Signer Service 始终只使用 `RFQ_TRUSTED_SIGNER_ADDRESS` 对应的当前 KMS key 生成新签名。
 - `AwsKmsSignerProvider` 固定调用 `Sign` 的 `MessageType=DIGEST` 与 `SigningAlgorithm=ECDSA_SHA_256`，只发送本地计算的 32-byte EIP-712 digest。AWS SDK credential chain 使用 workload identity；API Pod 不挂载 AWS access key 或 Ethereum private key。
 - `KmsSignerService` 对 DER sequence、short-form length、INTEGER tag、unsigned canonical padding、secp256k1 order 和 trailing bytes 做严格校验。KMS 返回 high-s 时转换为 low-s，再尝试 recovery id 27/28；只有恢复地址唯一匹配显式 `RFQ_TRUSTED_SIGNER_ADDRESS` 才返回签名，不允许从首个 KMS 响应自举信任地址。
 - 当前后端使用 `ObservedSignerService` 包装 signer，记录 `rfq_signer_requests_total`、`rfq_signer_errors_total` 和 `rfq_signer_latency_seconds`，固定 `operation` label 为 `sign` 或 `verify`。
@@ -127,7 +128,7 @@ signQuote(input: SignQuoteInput): Promise<`0x${string}`>
 - Production code does not ship a placeholder signer; tests that need signer behavior inject a local cryptographic signer while retaining the same explicit signer identity boundary.
 - `LocalEIP712SignerService` snapshots `LocalEIP712SignerConfig` at construction after validation. External callers must not be able to mutate the settlement address after construction and silently change the EIP-712 verifying contract.
 - Production signer 使用 KMS/HSM，并保持同一 `signQuote` 接口；默认 AWS 实现关闭时会释放其 SDK client。
-- Key rotation 写入 runbook。
+- Key rotation 使用两阶段 backend rollout：先让全部 replica 验证 old/new signer，再切换 KMS signing primary；等待最后 old quote 的 TTL、receipt/finality 与 indexer buffer 后，在链上和 backend 显式退休 old signer。
 
 ## Failure Scenarios
 

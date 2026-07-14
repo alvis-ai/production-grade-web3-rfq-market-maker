@@ -60,7 +60,9 @@ contract RFQDeploymentFactory {
 
         settlement.transferOwnership(contractAdmin);
         treasury.transferOwnership(contractAdmin);
-        _assertDeploymentInvariants(settlement, treasury, contractAdmin, tokenWhitelist);
+        _assertDeploymentInvariants(
+            settlement, treasury, trustedSigner, contractAdmin, tokenWhitelist
+        );
 
         emit DeploymentCompleted(
             address(settlement), address(treasury), contractAdmin, trustedSigner
@@ -95,6 +97,7 @@ contract RFQDeploymentFactory {
     function _assertDeploymentInvariants(
         RFQSettlement settlement,
         Treasury treasury,
+        address trustedSigner,
         address contractAdmin,
         address[] calldata tokenWhitelist
     ) private view {
@@ -102,6 +105,8 @@ contract RFQDeploymentFactory {
             settlement.owner() != contractAdmin || treasury.owner() != contractAdmin
                 || treasury.settlement() != address(settlement)
                 || settlement.treasury() != address(treasury)
+                || settlement.trustedSigner() != trustedSigner
+                || !settlement.trustedSigners(trustedSigner) || settlement.trustedSignerCount() != 1
         ) {
             revert DeploymentInvariantViolation();
         }

@@ -33,6 +33,11 @@ contract DeployRFQSettlementTest {
             "settlement treasury mismatch"
         );
         require(deployment.settlement.trustedSigner() == trustedSigner, "trusted signer mismatch");
+        require(
+            deployment.settlement.trustedSigners(trustedSigner),
+            "initial trusted signer not authorized"
+        );
+        require(deployment.settlement.trustedSignerCount() == 1, "trusted signer count mismatch");
         require(deployment.settlement.tokenWhitelist(tokens[0]), "token 0 not whitelisted");
         require(deployment.settlement.tokenWhitelist(tokens[1]), "token 1 not whitelisted");
     }

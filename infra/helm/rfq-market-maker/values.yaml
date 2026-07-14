@@ -56,6 +56,9 @@ signerSecret:
   name: rfq-backend-secrets
   kmsKeyIdKey: RFQ_AWS_KMS_KEY_ID
   trustedSignerAddressKey: RFQ_TRUSTED_SIGNER_ADDRESS
+  trustedSignerOverlapAddresses:
+    enabled: false
+    key: RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES
   settlementAddressKey: RFQ_SETTLEMENT_ADDRESS
 
 chainlinkConfigSecret:

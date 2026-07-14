@@ -139,6 +139,13 @@ export const rfqSettlementAbi = [
   },
   {
     type: "function",
+    name: "MAX_TRUSTED_SIGNERS",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
     name: "owner",
     stateMutability: "view",
     inputs: [],
@@ -150,6 +157,20 @@ export const rfqSettlementAbi = [
     stateMutability: "view",
     inputs: [],
     outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "trustedSigners",
+    stateMutability: "view",
+    inputs: [{ name: "signer", type: "address" }],
+    outputs: [{ name: "authorized", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "trustedSignerCount",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
   },
   {
     type: "function",
@@ -251,6 +272,16 @@ export const rfqSettlementAbi = [
     name: "setTrustedSigner",
     stateMutability: "nonpayable",
     inputs: [{ name: "newTrustedSigner", type: "address" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "setTrustedSignerAuthorization",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "signer", type: "address" },
+      { name: "authorized", type: "bool" },
+    ],
     outputs: [],
   },
   {
@@ -383,6 +414,14 @@ export const rfqSettlementAbi = [
   },
   {
     type: "event",
+    name: "TrustedSignerAuthorizationUpdated",
+    inputs: [
+      { name: "signer", type: "address", indexed: true },
+      { name: "authorized", type: "bool", indexed: false },
+    ],
+  },
+  {
+    type: "event",
     name: "Unpaused",
     inputs: [{ name: "account", type: "address", indexed: false }],
   },
@@ -407,6 +446,9 @@ export const rfqSettlementAbi = [
   },
   { type: "error", name: "InvalidAddress", inputs: [] },
   { type: "error", name: "InvalidSigner", inputs: [] },
+  { type: "error", name: "TooManyTrustedSigners", inputs: [] },
+  { type: "error", name: "CannotRevokePrimaryTrustedSigner", inputs: [] },
+  { type: "error", name: "CannotRevokeLastTrustedSigner", inputs: [] },
   { type: "error", name: "InvalidSignatureLength", inputs: [] },
   { type: "error", name: "InvalidSignatureS", inputs: [] },
   { type: "error", name: "InvalidSignatureV", inputs: [] },

@@ -30,17 +30,23 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
     bytes32 public constant TOKEN_ADMIN_ROLE = keccak256("TOKEN_ADMIN_ROLE");
     bytes32 public constant TREASURY_ADMIN_ROLE = keccak256("TREASURY_ADMIN_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    uint256 public constant MAX_TRUSTED_SIGNERS = 5;
 
     address public owner;
     address public trustedSigner;
     address public treasury;
+    mapping(address signer => bool authorized) public trustedSigners;
     mapping(address token => bool whitelisted) public tokenWhitelist;
     mapping(address user => mapping(uint256 nonce => bool used)) public usedNonces;
     mapping(bytes32 role => uint256 count) private _roleMemberCounts;
+    uint256 private _trustedSignerCount;
 
     error NotOwner();
     error InvalidAddress();
     error InvalidSigner();
+    error TooManyTrustedSigners();
+    error CannotRevokePrimaryTrustedSigner();
+    error CannotRevokeLastTrustedSigner();
     error InvalidSignatureLength();
     error InvalidSignatureS();
     error InvalidSignatureV();
@@ -77,6 +83,7 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
         owner = msg.sender;
         trustedSigner = initialTrustedSigner;
         treasury = initialTreasury;
+        _setTrustedSignerAuthorization(initialTrustedSigner, true);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(SIGNER_ADMIN_ROLE, msg.sender);
         _grantRole(TOKEN_ADMIN_ROLE, msg.sender);
@@ -145,8 +152,25 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
 
     function setTrustedSigner(address newTrustedSigner) external onlyRole(SIGNER_ADMIN_ROLE) {
         if (newTrustedSigner == address(0)) revert InvalidAddress();
+        _setTrustedSignerAuthorization(newTrustedSigner, true);
         emit TrustedSignerUpdated(trustedSigner, newTrustedSigner);
         trustedSigner = newTrustedSigner;
+    }
+
+    function setTrustedSignerAuthorization(address signer, bool authorized)
+        external
+        onlyRole(SIGNER_ADMIN_ROLE)
+    {
+        if (signer == address(0)) revert InvalidAddress();
+        if (!authorized && trustedSigners[signer]) {
+            if (_trustedSignerCount <= 1) revert CannotRevokeLastTrustedSigner();
+            if (signer == trustedSigner) revert CannotRevokePrimaryTrustedSigner();
+        }
+        _setTrustedSignerAuthorization(signer, authorized);
+    }
+
+    function trustedSignerCount() external view returns (uint256) {
+        return _trustedSignerCount;
     }
 
     function setTreasury(address newTreasury) external onlyRole(TREASURY_ADMIN_ROLE) {
@@ -248,9 +272,25 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
 
         (address recovered, ECDSA.RecoverError recoverError,) = ECDSA.tryRecover(digest, v, r, s);
         if (recoverError == ECDSA.RecoverError.InvalidSignatureS) revert InvalidSignatureS();
-        if (recoverError != ECDSA.RecoverError.NoError || recovered != trustedSigner) {
+        if (recoverError != ECDSA.RecoverError.NoError || !trustedSigners[recovered]) {
             revert InvalidSigner();
         }
+    }
+
+    function _setTrustedSignerAuthorization(address signer, bool authorized) internal {
+        bool current = trustedSigners[signer];
+        if (current == authorized) return;
+        if (authorized && _trustedSignerCount >= MAX_TRUSTED_SIGNERS) {
+            revert TooManyTrustedSigners();
+        }
+        if (!authorized && _trustedSignerCount <= 1) revert CannotRevokeLastTrustedSigner();
+        trustedSigners[signer] = authorized;
+        if (authorized) {
+            _trustedSignerCount += 1;
+        } else {
+            _trustedSignerCount -= 1;
+        }
+        emit TrustedSignerAuthorizationUpdated(signer, authorized);
     }
 
     function _collectTokenIn(Quote calldata quote) internal {

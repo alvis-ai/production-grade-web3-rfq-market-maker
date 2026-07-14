@@ -107,7 +107,7 @@ stateDiagram-v2
 
 ## Data Model
 
-On-chain state includes `trustedSigner`, `treasury`, `tokenWhitelist`, `usedNonces`, roles and pause state. Quote itself does not need to be permanently stored if event contains enough settlement data.
+On-chain state includes the operational `trustedSigner`, bounded `trustedSigners` authorization mapping, `trustedSignerCount`, `treasury`, `tokenWhitelist`, `usedNonces`, roles and pause state. Quote itself does not need to be permanently stored if event contains enough settlement data.
 
 ## API Design
 
@@ -129,7 +129,8 @@ function submitQuote(
 - 安全转账直接使用 OpenZeppelin `SafeERC20.trySafeTransferFrom` / `trySafeTransfer`：低层调用必须成功，返回 `false` 必须 revert，无返回值 ERC20 被视为成功，非合约地址会被拒绝；失败统一映射为项目 ABI 中的 `TransferFailed`。
 - SafeERC20 成功不等于实际金额一致。合约在输入侧校验 `user debit == treasury credit == amountIn`，在输出侧校验 `treasury debit == user credit == amountOut`；fee-on-transfer、sender-fee、rebasing 或伪造余额语义造成的差额会以 `InputTransferAmountMismatch` / `OutputTransferAmountMismatch` 原子回滚。
 - 用户在调用 `submitQuote` 前必须授权 RFQSettlement 拉取 `tokenIn.amountIn`。参考前端读取 allowance 并只授权本次 quote 的精确数量；合约不依赖无限授权，allowance 不足时 `safeTransferFrom` 原子回滚。
-- `SIGNER_ADMIN_ROLE` 独立保护 `setTrustedSigner`，`TOKEN_ADMIN_ROLE` 独立保护 `setTokenWhitelist`，默认管理员只能通过 `grantRole` 和 `revokeRole` 委托或收回这些权限。
+- `SIGNER_ADMIN_ROLE` 独立保护 `setTrustedSigner` 与 `setTrustedSignerAuthorization`。`setTrustedSigner` 先授权并切换 primary，但保留旧 signer 直到显式撤销，使未过期 quote 可跨 KMS rolling rotation 继续结算。授权集合最多 5 个地址，不能撤销当前 primary 或最后一个 signer；真实集合变化发出 `TrustedSignerAuthorizationUpdated`。
+- `TOKEN_ADMIN_ROLE` 独立保护 `setTokenWhitelist`，默认管理员只能通过 `grantRole` 和 `revokeRole` 委托或收回这些权限。
 - `DEFAULT_ADMIN_ROLE` 使用成员计数防止最后一个默认管理员被撤销；`transferOwnership` 先授予新 owner 全量管理角色，再撤销旧 owner 角色，避免 role administration 被永久锁死。
 
 ## Failure Scenarios
@@ -150,7 +151,7 @@ Quote 字段应保持最小，避免 gas 膨胀。事件字段应足够索引，
 
 ## Testing Strategy
 
-测试 happy path、wrong signer、wrong user、expired deadline、replay nonce、unsupported token、pause、transfer failure 和 event emission。SafeERC20 语义必须覆盖 no-return ERC20 成功路径、false-return `tokenIn` 失败回滚、false-return `tokenOut` 失败回滚和非合约 token 拒绝；余额差额测试必须覆盖 fee-on-transfer 输入与输出，并证明 nonce、两侧余额及前序转账全部回滚。AccessControl 测试必须覆盖 signer admin 与 token admin 分离、角色撤销后失效、无权限账户无法更新 signer 或 token whitelist。
+测试 happy path、wrong signer、wrong user、expired deadline、replay nonce、unsupported token、pause、transfer failure 和 event emission。SafeERC20 语义必须覆盖 no-return ERC20 成功路径、false-return `tokenIn` 失败回滚、false-return `tokenOut` 失败回滚和非合约 token 拒绝；余额差额测试必须覆盖 fee-on-transfer 输入与输出，并证明 nonce、两侧余额及前序转账全部回滚。AccessControl 测试必须覆盖 signer admin 与 token admin 分离、角色撤销后失效、无权限账户无法更新 signer 或 token whitelist。轮换测试还必须证明旧、新 signer 在 overlap window 都可结算，显式退休后旧 signer 失败，primary/last signer 不可撤销，并且第 6 个 signer 被拒绝。
 
 ## Interview Notes
 

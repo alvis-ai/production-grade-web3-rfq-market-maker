@@ -33,6 +33,7 @@ flowchart LR
 | --- | --- | --- |
 | Signer key compromise | Attacker can authorize malicious quotes | AWS KMS workload identity, key-scoped `kms:Sign`, explicit signer address, notional limits, pause, key rotation |
 | Wrong KMS key or malformed DER | Quotes are signed by an unintended key or parser ambiguity changes signature meaning | explicit trusted signer, strict DER integer/length validation, low-s normalization, address recovery |
+| Signer rotation ordering gap | A rolling fleet rejects valid old/new quotes, or a stale authorized key remains usable indefinitely | bounded five-signer contract set, primary plus at most four backend overlap signers, two-phase rollout, TTL/finality buffer, explicit retirement event |
 | Quote replay | Same quote executed multiple times | Nonce replay protection in contract |
 | Cross-replica submit race | Multiple API replicas verify or relay the same signed quote concurrently | PostgreSQL quote-scoped lease with server-time expiry and owner-token release; fail closed when unavailable; contract nonce remains authoritative |
 | Cross-chain replay | Quote valid on unintended chain | EIP-712 domain and Quote `chainId` |
@@ -58,6 +59,7 @@ flowchart LR
 ## Security Requirements
 
 - Signer Service must not expose arbitrary signing.
+- Signer rotation must establish old/new verification overlap before changing the signing key, then retire the old signer after the last old quote and settlement-observation buffers expire.
 - Contract must reject untrusted signer, used nonce, expired quote, unsupported token and wrong chain.
 - Non-local API replicas must acquire the shared submit reservation before settlement verification; they must not fall back to process-local state or bypass it during a database incident.
 - API must validate all addresses and integer strings.

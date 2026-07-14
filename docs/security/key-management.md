@@ -31,6 +31,7 @@ flowchart LR
 - `RFQ_SIGNER_MODE=aws-kms` for standalone non-local runtime; local private-key mode is rejected.
 - Workload identity with `kms:Sign` restricted to one asymmetric signing key; no static AWS credentials.
 - Explicit `RFQ_TRUSTED_SIGNER_ADDRESS` independent from KMS output.
+- Optional `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES` contains at most four explicit prior or next signer addresses and is used only for settlement verification during a bounded rotation window.
 - Strict DER parsing, low-s normalization and address recovery before returning a signature.
 - Per-token and per-chain notional limits.
 - Audit logs for every signing request and response.
@@ -48,25 +49,25 @@ flowchart LR
 
 ## Rotation Procedure
 
-1. Open a change record with the current signer address, proposed signer address, affected chains and rollback owner.
-2. Configure Signer Service with the new key in staging and verify that the derived address matches the planned `newSigner`.
-3. Run a canary through the normal quote path, verify its `quoteId`, `snapshotId`, `riskPolicyVersion` audit record and trace log, then verify the EIP-712 digest against the SDK and contract domain.
-4. Stop issuing new quotes from the old signer by failing closed at the Signer Service or routing layer.
-5. Wait for old quotes to expire. Wait at least `RFQ_QUOTE_TTL_SECONDS` plus clock-skew buffer so all old signed quotes are no longer executable.
-6. Call `RFQSettlement.setTrustedSigner(newSigner)` through an account with `SIGNER_ADMIN_ROLE` and record the transaction hash.
-7. Run a post-rotation quote canary with the new signer and a negative canary using the old signer, confirming the old signature is rejected.
-8. Archive signer audit logs for both keys, including the change record, KMS key id, operator identity and contract transaction hash.
-9. Keep the old key disabled but recoverable until the incident or maintenance window is closed; destroy it only after audit sign-off.
+1. Open a change record with both signer addresses, affected chains, the maximum quote TTL, receipt-confirmation allowance, indexer catch-up buffer and rollback owner.
+2. Create the new KMS key, verify its recovered address out of band, and run the normal quote-path canary in staging.
+3. Call `RFQSettlement.setTrustedSigner(newSigner)` through `SIGNER_ADMIN_ROLE`. Confirm that both addresses return true from `trustedSigners`, `trustedSignerCount` is within `MAX_TRUSTED_SIGNERS = 5`, and record the transaction hash. This does not revoke the old signer.
+4. Roll out a verifier-only transition to every backend replica while the old KMS key still signs: keep `RFQ_TRUSTED_SIGNER_ADDRESS=oldSigner` and set `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES=newSigner`. Confirm mixed old/new signatures are accepted before proceeding.
+5. Roll out the new KMS key and `RFQ_TRUSTED_SIGNER_ADDRESS=newSigner`, retaining `oldSigner` in `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES`. Record the final old-key signing time and run a new-key quote and settlement canary.
+6. Wait for old quotes to expire. The retirement time must be later than the final old-key signature by `RFQ_QUOTE_TTL_SECONDS` plus clock-skew, receipt-confirmation and indexer catch-up buffers.
+7. Reconcile old-key quotes, then call `RFQSettlement.setTrustedSignerAuthorization(oldSigner, false)`. Confirm old signatures are rejected on chain while new signatures still settle.
+8. Remove `oldSigner` from `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES` in a final rollout and confirm all replicas expose healthy signer and settlement readiness.
+9. Archive both rollout revisions, signer-set events, KMS key ids, canary evidence and reconciliation results. Disable the old key immediately after retirement and destroy it only after audit sign-off.
 
-The runtime uses AWS KMS `MessageType=DIGEST` with `ECDSA_SHA_256`; the key spec must be `ECC_SECG_P256K1` and key usage must be `SIGN_VERIFY`. Rotation changes both the KMS key id and `RFQ_TRUSTED_SIGNER_ADDRESS`, but they must not be rolled out until the corresponding `RFQSettlement` trusted signer transition is confirmed.
+The runtime uses AWS KMS `MessageType=DIGEST` with `ECDSA_SHA_256`; the key spec must be `ECC_SECG_P256K1` and key usage must be `SIGN_VERIFY`. Never remove the old signer before the overlap rollouts and expiry buffers complete. Never leave an overlap address configured after its on-chain authorization has been retired.
 
 ## Incident Response
 
 If signer compromise is suspected:
 
 1. Pause settlement if blast radius is unclear.
-2. Replace compromised signer with a clean signer using `RFQSettlement.setTrustedSigner` from a `SIGNER_ADMIN_ROLE` account.
-3. Stop Signer Service.
-4. Invalidate in-flight quotes by waiting out TTL.
-5. Reconcile settlement events and inventory.
-6. Publish incident report and mitigation.
+2. Stop Signer Service and preserve signing audit evidence.
+3. Authorize a clean key with `RFQSettlement.setTrustedSigner(cleanSigner)`, then immediately revoke the now non-primary compromised address with `setTrustedSignerAuthorization(compromisedSigner, false)`.
+4. Reconfigure backend trust without the compromised overlap and keep settlement paused until the mixed-fleet rollout is complete.
+5. Reconcile settlement events, signed quotes, inventory and hedge activity across the compromise window.
+6. Resume only after a clean-key canary and publish the incident report and mitigation.

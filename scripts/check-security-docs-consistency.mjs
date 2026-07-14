@@ -53,6 +53,7 @@ const requiredTerms = {
     "Inventory positions",
     "Hedge venue credentials",
     "Signer key compromise",
+    "Signer rotation ordering gap",
     "Quote replay",
     "Cross-replica submit race",
     "Cross-chain replay",
@@ -80,6 +81,7 @@ const requiredTerms = {
     "ReentrancyGuard protects settlement",
     "Pausable can stop settlement during incident response",
     "AccessControl protects signer and token whitelist updates",
+    "Trusted signer authorization is capped at five entries",
     "`/quote` validates address format and amount strings",
     "Risk Engine runs before Signer Service",
     "Signer Service cannot be called directly from public API",
@@ -88,6 +90,7 @@ const requiredTerms = {
     "All errors include traceId",
     "Settlement events use `(chainId, txHash, logIndex)` idempotency",
     "Signer key rotation is documented",
+    "Signer rotation uses two backend rollouts",
     "Emergency pause procedure is documented",
   ],
   keyManagement: [
@@ -102,12 +105,14 @@ const requiredTerms = {
     "Workload identity with `kms:Sign`",
     "no static AWS credentials",
     "Explicit `RFQ_TRUSTED_SIGNER_ADDRESS`",
+    "`RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES` contains at most four",
     "Strict DER parsing",
     "Per-token and per-chain notional limits",
     "Audit logs for every signing request",
     "Emergency signer removal from `RFQSettlement`",
     "Wait for old quotes to expire",
     "`RFQSettlement.setTrustedSigner(newSigner)`",
+    "`RFQSettlement.setTrustedSignerAuthorization(oldSigner, false)`",
     "Pause settlement if blast radius is unclear",
   ],
 };
@@ -145,12 +150,14 @@ const implementedAuditControls = [
   "ReentrancyGuard protects settlement.",
   "Pausable can stop settlement during incident response.",
   "AccessControl protects signer and token whitelist updates.",
+  "Trusted signer authorization is capped at five entries, cannot remove the primary or final signer, and emits an event for every membership change.",
   "Events contain enough data for idempotent indexing.",
   "`/quote` validates address format and amount strings.",
   "Risk Engine runs before Signer Service.",
   "Signer Service cannot be called directly from public API.",
   "Non-local standalone runtime requires AWS KMS and rejects raw signer private keys.",
   "KMS signatures are strictly DER-decoded and accepted only when recovery matches the configured trusted signer.",
+  "Settlement verification accepts one primary plus at most four validated overlap signers and snapshots that trust policy at startup.",
   "Quote persistence includes snapshotId and riskPolicyVersion.",
   "Rejected quotes are logged without returning signatures.",
   "Rate limits protect public trading endpoints.",
@@ -169,6 +176,7 @@ const implementedAuditControls = [
   "Dashboards cover quote latency, settlement failures and inventory exposure.",
   "Alerts and runbooks cover submit reservation persistence errors and contention spikes.",
   "Signer key rotation is documented.",
+  "Signer rotation uses two backend rollouts, waits through TTL and settlement-observation buffers, and explicitly retires the old signer on chain and in backend configuration.",
   "Emergency pause procedure is documented.",
 ];
 
@@ -190,10 +198,10 @@ for (const control of intentionallyOpenAuditControls) {
 
 for (const term of [
   "Open a change record",
-  "Run a canary through the normal quote path",
-  "Wait at least `RFQ_QUOTE_TTL_SECONDS` plus clock-skew buffer",
+  "run the normal quote-path canary in staging",
+  "The retirement time must be later than the final old-key signature",
   "`RFQSettlement.setTrustedSigner(newSigner)`",
-  "negative canary using the old signer",
+  "`RFQSettlement.setTrustedSignerAuthorization(oldSigner, false)`",
 ]) {
   assert.ok(docs.keyManagement.includes(term), `key management rotation procedure must include: ${term}`);
 }

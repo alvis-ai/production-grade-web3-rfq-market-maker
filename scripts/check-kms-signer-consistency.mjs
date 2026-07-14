@@ -9,12 +9,15 @@ const paths = [
   "backend/src/main.ts",
   "backend/src/modules/health/readiness.service.ts",
   "backend/src/modules/signer/signer-runtime.ts",
+  "backend/src/modules/settlement/settlement-verifier.service.ts",
   "backend/src/modules/signer/kms-signer.service.ts",
   "backend/src/modules/signer/aws-kms-signer.provider.ts",
   "backend/test/kms-signer.test.mjs",
   "backend/test/aws-kms-signer-provider.test.mjs",
   "backend/test/api-readiness.test.mjs",
   "backend/test/signer-runtime.test.mjs",
+  "backend/test/settlement-verifier.test.mjs",
+  "backend/test/settlement-verifier-policy-validation.test.mjs",
   "docker-compose.yml",
   "infra/k8s/configmap.yaml",
   "infra/k8s/backend-secret.yaml",
@@ -24,6 +27,8 @@ const paths = [
   "infra/helm/rfq-market-maker/templates/deployment.yaml",
   "infra/helm/rfq-market-maker/templates/service-account.yaml",
   "docs/adr/ADR-0005-Use-KMS-For-Production-Signing.md",
+  "docs/adr/ADR-0008-Use-Bounded-Signer-Overlap-For-Key-Rotation.md",
+  "docs/security/key-management.md",
   "README.md",
 ];
 const files = Object.fromEntries(await Promise.all(
@@ -64,6 +69,13 @@ assertContains("backend/src/modules/signer/signer-runtime.ts", [
   'RFQ_SIGNER_MODE=external requires an injected signerService',
   'requireConfigured(keyIdValue, "RFQ_AWS_KMS_KEY_ID")',
   'requireConfigured(trustedSignerValue, "RFQ_TRUSTED_SIGNER_ADDRESS")',
+  '"RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES"',
+  "must contain at most 4 addresses",
+]);
+assertContains("backend/src/modules/settlement/settlement-verifier.service.ts", [
+  "trustedSignerOverlapAddresses",
+  "this.trustedSignerAddresses.has",
+  "must contain at most 4 addresses",
 ]);
 assertContains("backend/src/main.ts", [
   "readSignerRuntimeConfig",
@@ -94,6 +106,16 @@ assertContains("backend/test/api-readiness.test.mjs", [
 assertContains("backend/test/signer-runtime.test.mjs", [
   "requires AWS KMS or explicit injection outside local environments",
   "without private key material",
+  "parses a bounded trusted signer overlap window",
+  "rejects unsafe trusted signer overlap configuration",
+]);
+assertContains("backend/test/settlement-verifier.test.mjs", [
+  "accepts an explicitly configured overlap signer",
+  "trustedSignerOverlapAddresses.length = 0",
+]);
+assertContains("backend/test/settlement-verifier-policy-validation.test.mjs", [
+  "trusted signer addresses must not contain duplicates",
+  "must contain at most 4 addresses",
 ]);
 assertContains("docker-compose.yml", [
   "NODE_ENV: development",
@@ -123,6 +145,8 @@ assertContains("infra/helm/rfq-market-maker/values.yaml", [
   "RFQ_SIGNER_MODE: aws-kms",
   "kmsKeyIdKey: RFQ_AWS_KMS_KEY_ID",
   "trustedSignerAddressKey: RFQ_TRUSTED_SIGNER_ADDRESS",
+  "trustedSignerOverlapAddresses:",
+  "key: RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES",
 ]);
 assertContains("infra/helm/rfq-market-maker/templates/service-account.yaml", [
   ".Values.serviceAccount.annotations",
@@ -139,6 +163,17 @@ assertContains("README.md", [
   "do not mount static AWS access keys",
   "strictly decodes the returned DER signature",
   "caches both successful and degraded signer status for 30 seconds",
+  "RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES",
+  "two-rollout procedure",
+]);
+assertContains("docs/adr/ADR-0008-Use-Bounded-Signer-Overlap-For-Key-Rotation.md", [
+  "MAX_TRUSTED_SIGNERS",
+  "at most four distinct non-zero addresses",
+  "two backend rollouts",
+]);
+assertContains("docs/security/key-management.md", [
+  "RFQSettlement.setTrustedSignerAuthorization(oldSigner, false)",
+  "receipt-confirmation and indexer catch-up buffers",
 ]);
 
 console.log("KMS signer consistency check passed: explicit trust root and workload identity");

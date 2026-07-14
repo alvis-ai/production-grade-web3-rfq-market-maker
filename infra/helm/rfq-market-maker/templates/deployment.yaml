@@ -49,6 +49,13 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.signerSecret.name }}
                   key: {{ .Values.signerSecret.trustedSignerAddressKey }}
+            {{- if .Values.signerSecret.trustedSignerOverlapAddresses.enabled }}
+            - name: RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.signerSecret.name }}
+                  key: {{ .Values.signerSecret.trustedSignerOverlapAddresses.key }}
+            {{- end }}
             - name: RFQ_SETTLEMENT_ADDRESS
               valueFrom:
                 secretKeyRef:

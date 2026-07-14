@@ -16,6 +16,7 @@ const defaultAwsKmsMaxAttempts = 3;
 interface SignerIdentity {
   settlementAddress: `0x${string}`;
   trustedSignerAddress: `0x${string}`;
+  trustedSignerOverlapAddresses: readonly `0x${string}`[];
 }
 
 export interface LocalSignerRuntimeConfig extends SignerIdentity {
@@ -59,6 +60,10 @@ export function readSignerRuntimeConfig(
 
   const settlementAddressValue = readOwnEnvValue(env, "RFQ_SETTLEMENT_ADDRESS");
   const trustedSignerValue = readOwnEnvValue(env, "RFQ_TRUSTED_SIGNER_ADDRESS");
+  const trustedSignerOverlapValue = readOwnEnvValue(
+    env,
+    "RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES",
+  );
   const privateKeyValue = readOwnEnvValue(env, "RFQ_SIGNER_PRIVATE_KEY");
   const keyIdValue = readOwnEnvValue(env, "RFQ_AWS_KMS_KEY_ID");
   const regionValue = readOwnEnvValue(env, "RFQ_AWS_KMS_REGION");
@@ -86,6 +91,10 @@ export function readSignerRuntimeConfig(
       privateKey,
       settlementAddress,
       trustedSignerAddress: derivedSigner,
+      trustedSignerOverlapAddresses: parseTrustedSignerOverlapAddresses(
+        trustedSignerOverlapValue,
+        derivedSigner,
+      ),
     };
   }
 
@@ -100,19 +109,29 @@ export function readSignerRuntimeConfig(
     requireConfigured(trustedSignerValue, "RFQ_TRUSTED_SIGNER_ADDRESS"),
     "RFQ_TRUSTED_SIGNER_ADDRESS",
   );
+  const trustedSignerOverlapAddresses = parseTrustedSignerOverlapAddresses(
+    trustedSignerOverlapValue,
+    trustedSignerAddress,
+  );
 
   if (mode === "external") {
     if (!options.allowExternal) {
       throw new Error("RFQ_SIGNER_MODE=external requires an injected signerService");
     }
     rejectConfiguredKmsFields(keyIdValue, regionValue, maxAttemptsValue);
-    return { mode, settlementAddress, trustedSignerAddress };
+    return {
+      mode,
+      settlementAddress,
+      trustedSignerAddress,
+      trustedSignerOverlapAddresses,
+    };
   }
 
   const awsConfig = {
     mode,
     settlementAddress,
     trustedSignerAddress,
+    trustedSignerOverlapAddresses,
     keyId: requireConfigured(keyIdValue, "RFQ_AWS_KMS_KEY_ID"),
     region: requireConfigured(regionValue, "RFQ_AWS_KMS_REGION"),
     maxAttempts: parsePositiveInteger(maxAttemptsValue, defaultAwsKmsMaxAttempts, "RFQ_AWS_KMS_MAX_ATTEMPTS", 10),
@@ -191,6 +210,34 @@ function parsePrivateKey(value: string, name: string): `0x${string}` {
     throw new Error(`${name} must be a 32-byte hex string`);
   }
   return value as `0x${string}`;
+}
+
+function parseTrustedSignerOverlapAddresses(
+  value: string | undefined,
+  primarySigner: `0x${string}`,
+): readonly `0x${string}`[] {
+  if (value === undefined) return [];
+  if (value.length === 0 || value.trim() !== value) {
+    throw new Error(
+      "RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES must be a comma-separated address list without surrounding whitespace",
+    );
+  }
+
+  const entries = value.split(",");
+  if (entries.length > 4) {
+    throw new Error("RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES must contain at most 4 addresses");
+  }
+  const seen = new Set([primarySigner.toLowerCase()]);
+  return entries.map((entry) => {
+    const signer = parseAddress(entry, "RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES entry");
+    if (seen.has(signer)) {
+      throw new Error(
+        "RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES must not duplicate the primary signer or another overlap signer",
+      );
+    }
+    seen.add(signer);
+    return signer;
+  });
 }
 
 function parsePositiveInteger(

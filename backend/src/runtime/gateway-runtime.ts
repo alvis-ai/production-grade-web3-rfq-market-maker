@@ -206,6 +206,7 @@ export function buildDefaultSettlementVerifierPolicy(
     ...defaultLocalSettlementVerifierPolicy,
     settlementAddress: signerConfig.settlementAddress,
     trustedSignerAddress: signerConfig.trustedSignerAddress,
+    trustedSignerOverlapAddresses: signerConfig.trustedSignerOverlapAddresses,
   };
 }
 

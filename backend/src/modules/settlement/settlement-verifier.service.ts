@@ -12,6 +12,7 @@ const localSettlementVerifierPolicyFields = [
   "tokenWhitelist",
   "settlementAddress",
   "trustedSignerAddress",
+  "trustedSignerOverlapAddresses",
 ] as const;
 const settlementVerificationInputFields = ["quoteId", "request"] as const;
 const verificationRequestFields = ["quote", "signature"] as const;
@@ -48,10 +49,11 @@ export interface LocalSettlementVerifierPolicy {
   tokenWhitelist: readonly `0x${string}`[];
   settlementAddress: `0x${string}`;
   trustedSignerAddress: `0x${string}`;
+  trustedSignerOverlapAddresses: readonly `0x${string}`[];
 }
 
 export const defaultLocalSettlementVerifierPolicy: LocalSettlementVerifierPolicy = {
-  verifierVersion: "local-rfq-settlement-v1",
+  verifierVersion: "local-rfq-settlement-v2",
   enabledChainIds: [1, 8453, 42161],
   tokenWhitelist: [
     "0x0000000000000000000000000000000000000002",
@@ -59,13 +61,14 @@ export const defaultLocalSettlementVerifierPolicy: LocalSettlementVerifierPolicy
   ],
   settlementAddress: "0x0000000000000000000000000000000000000004",
   trustedSignerAddress: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  trustedSignerOverlapAddresses: [],
 };
 
 export class LocalSettlementVerifier implements SettlementVerifier {
   private readonly policy: LocalSettlementVerifierPolicy;
   private readonly enabledChainIds: ReadonlySet<number>;
   private readonly tokenWhitelist: ReadonlySet<string>;
-  private readonly trustedSignerAddress: string;
+  private readonly trustedSignerAddresses: ReadonlySet<string>;
 
   constructor(policy: LocalSettlementVerifierPolicy = defaultLocalSettlementVerifierPolicy) {
     assertObject(policy, "policy");
@@ -74,12 +77,18 @@ export class LocalSettlementVerifier implements SettlementVerifier {
     assertChainIds(policy.enabledChainIds);
     assertTokenWhitelist(policy.tokenWhitelist);
     assertAddress(policy.settlementAddress, "settlementAddress");
-    assertAddress(policy.trustedSignerAddress, "trustedSignerAddress");
+    assertTrustedSignerAddresses(
+      policy.trustedSignerAddress,
+      policy.trustedSignerOverlapAddresses,
+    );
 
     this.policy = cloneLocalSettlementVerifierPolicy(policy);
     this.enabledChainIds = new Set(this.policy.enabledChainIds);
     this.tokenWhitelist = new Set(this.policy.tokenWhitelist.map((token) => token.toLowerCase()));
-    this.trustedSignerAddress = this.policy.trustedSignerAddress.toLowerCase();
+    this.trustedSignerAddresses = new Set([
+      this.policy.trustedSignerAddress.toLowerCase(),
+      ...this.policy.trustedSignerOverlapAddresses.map((signer) => signer.toLowerCase()),
+    ]);
   }
 
   async verify(input: SettlementVerificationInput): Promise<SettlementVerificationResult> {
@@ -154,7 +163,7 @@ export class LocalSettlementVerifier implements SettlementVerifier {
       throw this.reverted("INVALID_SIGNATURE", "Settlement signature could not be recovered");
     }
 
-    if (recoveredSigner.toLowerCase() !== this.trustedSignerAddress) {
+    if (!this.trustedSignerAddresses.has(recoveredSigner.toLowerCase())) {
       throw this.reverted("INVALID_SIGNATURE", "Settlement signature is not from the trusted signer");
     }
   }
@@ -194,6 +203,7 @@ function cloneLocalSettlementVerifierPolicy(policy: LocalSettlementVerifierPolic
     ...policy,
     enabledChainIds: [...policy.enabledChainIds],
     tokenWhitelist: [...policy.tokenWhitelist],
+    trustedSignerOverlapAddresses: [...policy.trustedSignerOverlapAddresses],
   };
 }
 
@@ -269,6 +279,37 @@ function assertTokenWhitelist(tokens: readonly `0x${string}`[]): void {
 function assertAddress(value: string, field: string): void {
   if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
     throw new Error(`Local settlement verifier ${field} must be a 20-byte hex address`);
+  }
+}
+
+function assertTrustedSignerAddresses(
+  primarySigner: `0x${string}`,
+  overlapSigners: readonly `0x${string}`[],
+): void {
+  assertAddress(primarySigner, "trustedSignerAddress");
+  if (/^0x0{40}$/i.test(primarySigner)) {
+    throw new Error("Local settlement verifier trustedSignerAddress must not be the zero address");
+  }
+  assertArray(overlapSigners, "trustedSignerOverlapAddresses");
+  if (overlapSigners.length > 4) {
+    throw new Error("Local settlement verifier trustedSignerOverlapAddresses must contain at most 4 addresses");
+  }
+
+  const seen = new Set([primarySigner.toLowerCase()]);
+  for (const signer of overlapSigners) {
+    assertAddress(signer, "trustedSignerOverlapAddresses entry");
+    if (/^0x0{40}$/i.test(signer)) {
+      throw new Error(
+        "Local settlement verifier trustedSignerOverlapAddresses entries must not be the zero address",
+      );
+    }
+    const normalized = signer.toLowerCase();
+    if (seen.has(normalized)) {
+      throw new Error(
+        "Local settlement verifier trusted signer addresses must not contain duplicates",
+      );
+    }
+    seen.add(normalized);
   }
 }
 

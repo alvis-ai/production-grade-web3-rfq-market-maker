@@ -100,7 +100,7 @@ stateDiagram-v2
 
 ## Data Model
 
-状态包括 roles、trusted signers、token whitelist、used nonce 和 paused flag。生产实现可以支持多个 signer role，而不是单一地址。
+状态包括 roles、一个 primary `trustedSigner`、最多五个 `trustedSigners`、token whitelist、used nonce 和 paused flag。多个 signer 只服务于有时限的密钥轮换，不是长期扩大签名权限。
 
 ## API Design
 
@@ -110,11 +110,12 @@ stateDiagram-v2
 
 - 使用 OpenZeppelin 组件。
 - trusted signer 更新必须可审计。
+- `setTrustedSigner` 必须保留旧 signer 直到 TTL/finality buffer 完成，`setTrustedSignerAuthorization` 再显式退休旧地址；不能撤销 primary 或最后 signer，授权总数不得超过 5。
 - 事件字段支持库存和审计。
 
 ## Failure Scenarios
 
-- signer key 泄露：pause、移除 signer、等待旧 quote 过期。
+- signer key 泄露：pause、切换 clean primary、立即移除已泄露的非 primary signer，并对泄露窗口做 reconciliation；事故轮换不等待旧 quote TTL。
 - token 行为异常：移除 whitelist。
 - 重入尝试：ReentrancyGuard revert。
 - 管理员误操作：多签和延迟治理缓解。
@@ -129,7 +130,7 @@ stateDiagram-v2
 
 ## Testing Strategy
 
-测试权限、pause、token whitelist、reentrancy mock、SafeERC20 failure、signer rotation、Treasury release 和 emergency withdrawal path。
+测试权限、pause、token whitelist、reentrancy mock、SafeERC20 failure、bounded signer overlap、primary/last signer guards、Treasury release 和 emergency withdrawal path。
 
 ## Interview Notes
 

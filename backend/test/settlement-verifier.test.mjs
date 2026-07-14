@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { privateKeyToAccount } from "viem/accounts";
 import {
   LocalSettlementVerifier,
   defaultLocalSettlementVerifierPolicy,
@@ -10,6 +11,11 @@ const defaultSignerConfig = {
   privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
   settlementAddress: "0x0000000000000000000000000000000000000004",
 };
+const overlapSignerConfig = {
+  ...defaultSignerConfig,
+  privateKey: "0x59c6995e998f97a5a0044966f094538b2923b206d98a74dc7c90d40b3692cc62",
+};
+const overlapSignerAddress = privateKeyToAccount(overlapSignerConfig.privateKey).address;
 
 const quote = {
   user: "0x0000000000000000000000000000000000000001",
@@ -35,8 +41,25 @@ test("LocalSettlementVerifier accepts contract-shaped settlement quotes", async 
   });
 
   assert.equal(result.status, "verified");
-  assert.equal(result.verifierVersion, "local-rfq-settlement-v1");
+  assert.equal(result.verifierVersion, "local-rfq-settlement-v2");
   assert.equal(result.amountOut, quote.amountOut);
+});
+
+test("LocalSettlementVerifier accepts an explicitly configured overlap signer", async () => {
+  const verifier = new LocalSettlementVerifier({
+    ...defaultLocalSettlementVerifierPolicy,
+    trustedSignerOverlapAddresses: [overlapSignerAddress],
+  });
+  const result = await verifier.verify({
+    quoteId: "q_overlap_signer",
+    request: {
+      quote,
+      signature: await signQuote(quote, overlapSignerConfig),
+    },
+  });
+
+  assert.equal(result.status, "verified");
+  assert.equal(result.verifierVersion, "local-rfq-settlement-v2");
 });
 
 test("LocalSettlementVerifier rejects non-whitelisted settlement tokens", async () => {
@@ -211,16 +234,21 @@ test("LocalSettlementVerifier snapshots policy configuration at construction", a
     verifierVersion: "snapshot-settlement-v1",
     enabledChainIds: [1],
     tokenWhitelist: [quote.tokenIn, quote.tokenOut],
+    trustedSignerOverlapAddresses: [overlapSignerAddress],
   };
   const verifier = new LocalSettlementVerifier(mutablePolicy);
 
   mutablePolicy.verifierVersion = "mutated-settlement-v2";
   mutablePolicy.enabledChainIds.length = 0;
   mutablePolicy.tokenWhitelist.length = 0;
+  mutablePolicy.trustedSignerOverlapAddresses.length = 0;
 
   const result = await verifier.verify({
     quoteId: "q_snapshot",
-    request,
+    request: {
+      quote,
+      signature: await signQuote(quote, overlapSignerConfig),
+    },
   });
 
   assert.equal(result.status, "verified");
