@@ -2824,6 +2824,7 @@ grep -q '      - master' .github/workflows/backend-ci.yml
 grep -q '      - master' .github/workflows/docs-ci.yml
 grep -q '      - master' .github/workflows/contract-ci.yml
 grep -Eq 'actions/setup-node@[0-9a-f]{40} # v6\.' .github/workflows/docs-ci.yml
+grep -q 'submodules: recursive' .github/workflows/docs-ci.yml
 grep -q 'node-version: "22"' .github/workflows/docs-ci.yml
 grep -Eq 'actions/setup-node@[0-9a-f]{40} # v6\.' .github/workflows/contract-ci.yml
 grep -q 'node-version: "22"' .github/workflows/contract-ci.yml

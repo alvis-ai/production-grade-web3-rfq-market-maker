@@ -56,6 +56,7 @@ assertContains(workflows.backend, [
 
 assertContains(workflows.docs, [
   'name: Docs CI',
+  "submodules: recursive",
   '- "book/**"',
   '- "docs/**"',
   '- "examples/**"',
