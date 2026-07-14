@@ -105,7 +105,7 @@ Incident record includes `incidentId`, `severity`, `startTime`, `endTime`, `affe
 
 ## API Design
 
-Future admin APIs may support disabling quote signing, lowering limits, disabling tokens and pausing routes. All require authentication and audit.
+当前 `GET/PUT /admin/quote-control` 与 pair-scoped quote-control API 支持经鉴权、CAS version 和不可变审计记录暂停或恢复全局及指定交易对的报价。降低 risk limits 或修改 token registry 仍通过受审配置发布完成；合约 token whitelist 与 pause 必须由对应 on-chain AccessControl 角色执行，不能由 HTTP 管理面代签。
 
 ## Engineering Decisions
 

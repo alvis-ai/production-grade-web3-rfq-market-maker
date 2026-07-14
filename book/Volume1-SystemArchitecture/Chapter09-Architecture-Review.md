@@ -119,10 +119,10 @@ OpenAPI 已定义 `/quote`、`/submit`、`/quote/:id`、`/settlements/:id`、`/h
 
 ## Engineering Decisions
 
-- 继续使用 Fastify skeleton，后续可演进为 NestJS 或保持 Fastify。
-- 合约先以 skeleton 固定字段，安装依赖后补 OpenZeppelin 实现。
-- 前端先建立 Vite 骨架，后续接 Wagmi、Viem 和 RainbowKit。
-- 文档优先保持设计可解释，再推进可运行实现。
+- 后端保持 Fastify composition root，并已按 market data、pricing、risk、signer、execution、inventory、hedge、indexer 与 analytics 边界拆分；是否进一步拆成独立进程由故障域和扩缩容需求决定，而不是框架偏好。
+- `RFQSettlement` 已使用固定版本 OpenZeppelin 的 `SafeERC20`、`ReentrancyGuard`、`Pausable` 与 `AccessControl`，并通过 Foundry、SDK ABI 和 EIP-712 跨层一致性测试约束结算面。
+- React/Vite 前端已经接入 Wagmi、Viem、RainbowKit 与共享 SDK；API relay 路径由真实浏览器 E2E 覆盖，钱包路径由组件级 contract-write 测试覆盖。
+- 文档、实现、部署清单和 CI 检查共同维护同一组生产不变量，过期的阶段性描述不得继续充当架构事实。
 
 ## Failure Scenarios
 
@@ -138,13 +138,7 @@ OpenAPI 已定义 `/quote`、`/submit`、`/quote/:id`、`/settlements/:id`、`/h
 
 ## Testing Strategy
 
-下一阶段测试优先级：
-
-1. EIP-712 typed data 与合约 hash 一致性。
-2. Risk before signing 的服务级测试。
-3. Settlement event 幂等消费。
-4. `/quote` API validation。
-5. 前端 quote flow smoke test。
+现有测试矩阵覆盖 EIP-712/ABI 跨层一致性、Risk-before-Signing、幂等 settlement/indexer/reconciliation、API schema 与错误契约、前端组件路径，以及真实 Chromium 中的 quote-to-settlement 生命周期。生产上线仍需在目标链和目标 CEX 沙箱补充外部依赖验收，因为本地 E2E 不伪造钱包签名、链重组或交易所成交。
 
 ## Interview Notes
 
@@ -152,7 +146,7 @@ OpenAPI 已定义 `/quote`、`/submit`、`/quote/:id`、`/settlements/:id`、`/h
 
 ## Summary
 
-Volume 1 已建立 RFQ / Prop AMM 系统的架构基础。后续工作应进入 Market Data、Pricing、Risk、Smart Contract 和 Backend Engineering 的细化实现，同时保持本卷定义的核心不变量。
+Volume 1 定义的 RFQ / Prop AMM 核心不变量已经落实到可运行后端、合约、前端、SDK、部署和验证链路。后续演进应以目标链、真实流量和外部 venue 的运行证据驱动，同时保持这些不变量不被绕过。
 
 ## References
 

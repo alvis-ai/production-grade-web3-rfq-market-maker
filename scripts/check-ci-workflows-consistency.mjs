@@ -7,14 +7,16 @@ const workflows = {
   backend: await readFile(".github/workflows/backend-ci.yml", "utf8"),
   docs: await readFile(".github/workflows/docs-ci.yml", "utf8"),
   contract: await readFile(".github/workflows/contract-ci.yml", "utf8"),
+  frontendE2E: await readFile(".github/workflows/frontend-e2e.yml", "utf8"),
   release: await readFile(".github/workflows/release.yml", "utf8"),
 };
 const dependabot = await readFile(".github/dependabot.yml", "utf8");
 
-for (const [name, source] of Object.entries({
-  backend: workflows.backend,
-  docs: workflows.docs,
-  contract: workflows.contract,
+for (const [filename, source] of Object.entries({
+  "backend-ci.yml": workflows.backend,
+  "docs-ci.yml": workflows.docs,
+  "contract-ci.yml": workflows.contract,
+  "frontend-e2e.yml": workflows.frontendE2E,
 })) {
   assertContains(source, [
     "pull_request:",
@@ -26,11 +28,15 @@ for (const [name, source] of Object.entries({
     "persist-credentials: false",
     'node-version: "22"',
     "package-manager-cache: false",
-  ], `.github/workflows/${name}-ci.yml`);
+  ], `.github/workflows/${filename}`);
 }
 
 for (const [name, source] of Object.entries(workflows)) {
-  const filename = name === "release" ? "release.yml" : `${name}-ci.yml`;
+  const filename = name === "release"
+    ? "release.yml"
+    : name === "frontendE2E"
+      ? "frontend-e2e.yml"
+      : `${name}-ci.yml`;
   assertActionsPinned(source, `.github/workflows/${filename}`);
 }
 
@@ -113,6 +119,7 @@ assertContains(workflows.docs, [
   '- "scripts/check-runbook-consistency.mjs"',
   '- "scripts/check-security-docs-consistency.mjs"',
   '- ".github/workflows/release.yml"',
+  '- ".github/workflows/frontend-e2e.yml"',
   '- ".github/dependabot.yml"',
   "run: make skeleton-check",
   "run: make examples-check",
@@ -159,6 +166,22 @@ assertContains(workflows.contract, [
   "run: forge test",
 ], ".github/workflows/contract-ci.yml");
 
+assertContains(workflows.frontendE2E, [
+  "name: Frontend E2E",
+  "permissions: {}",
+  '- "backend/**"',
+  '- "frontend/**"',
+  '- "sdk/**"',
+  "submodules: recursive",
+  "persist-credentials: false",
+  "pnpm install --frozen-lockfile",
+  "playwright install --with-deps chromium",
+  "run: make frontend-e2e",
+  "frontend/playwright-report",
+  "frontend/test-results",
+  "if-no-files-found: ignore",
+], ".github/workflows/frontend-e2e.yml");
+
 assertContains(workflows.release, [
   "name: Release Artifacts",
   "workflow_dispatch:",
@@ -169,6 +192,8 @@ assertContains(workflows.release, [
   "FOUNDRY_DISABLE_NIGHTLY_WARNING",
   "pnpm install --frozen-lockfile",
   "run: make verify",
+  "playwright install --with-deps chromium",
+  "run: make frontend-e2e",
   "needs: verify",
   "actions: read",
   "contents: read",

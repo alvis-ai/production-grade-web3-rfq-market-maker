@@ -67,6 +67,7 @@ on:
       - ".github/workflows/docs-ci.yml"
       - ".github/workflows/backend-ci.yml"
       - ".github/workflows/contract-ci.yml"
+      - ".github/workflows/frontend-e2e.yml"
       - ".github/workflows/release.yml"
       - ".github/dependabot.yml"
   push:

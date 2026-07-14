@@ -37,6 +37,7 @@
     "backend:typecheck": "make backend-typecheck",
     "frontend:build": "make frontend-build",
     "frontend:test": "make frontend-test",
+    "frontend:e2e": "make frontend-e2e",
     "sdk:test": "make sdk-test",
     "sdk:typecheck": "make sdk-typecheck",
     "smoke:api": "make smoke-api",

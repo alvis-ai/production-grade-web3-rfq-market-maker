@@ -101,7 +101,7 @@ Size impact 输入包括 `amountIn`、`notionalUsd`、`liquidityUsd`、`depthBuc
 
 - size impact 单独建模，不混入 base spread。
 - 超过最大尺寸时拒绝报价。
-- 早期可用阶梯模型，后续接深度模型。
+- 当前 `formula-v4` 使用 `ceil(notionalUsd * 10000 / expectedLiquidityUsd)` 计算 size impact，并按配置上限截断；`expectedLiquidityUsd` 来自与报价方向一致的可执行深度。
 - CEX `liquidityUsd` 必须使用报价方向对应的单侧可执行 depth：base-to-quote 使用 bids，quote-to-base 使用 asks。把两侧相加会高估可对冲流动性并系统性压低 size impact。
 
 ## Failure Scenarios

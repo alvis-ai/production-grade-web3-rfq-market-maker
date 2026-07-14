@@ -1,6 +1,6 @@
 # Quote Sequence Diagram
 
-本图描述 `POST /quote` 的第一阶段目标链路。实现时，报价必须先通过市场数据、定价和风控，再进入 EIP-712 签名。
+本图描述当前 `POST /quote` 的生产链路。报价先绑定市场快照，依次通过定价、风控、Treasury capacity 与 exposure reservation，再进入 EIP-712 签名；跨层一致性检查持续约束该顺序。
 
 ```mermaid
 sequenceDiagram

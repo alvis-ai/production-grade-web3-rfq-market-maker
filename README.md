@@ -407,6 +407,14 @@ make verify
 
 `make verify` runs skeleton, examples, configuration, documentation, book template, ADR, security documentation, metrics consistency, runbook consistency, Grafana dashboard consistency, deployment manifest consistency, CI workflow consistency, Docker Compose, KMS signer, EIP-712, ABI, API rate-limit, API error-code, API schema, API route, database schema, quote and submit benchmarks, backend, SDK, frontend and local API smoke checks through one entrypoint. If Foundry is installed locally it also runs `make contract-test`; otherwise contract tests remain enforced by the dedicated GitHub Actions contract workflow.
 
+Browser end-to-end gate (install Chromium once with `pnpm --dir frontend e2e:install`):
+
+```sh
+make frontend-e2e
+```
+
+This starts an isolated in-memory backend and Vite UI on dedicated loopback ports, then drives a real Chromium session through quote creation, API settlement, authoritative quote/settlement/hedge/PnL reads, and client-side rejection without replacing backend routes with mocks. GitHub Actions runs this as a dedicated workflow and the release verifier repeats it before publishing artifacts; repository administrators should mark the workflow as required in branch protection.
+
 Local benchmarks:
 
 ```sh

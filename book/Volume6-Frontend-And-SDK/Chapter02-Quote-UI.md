@@ -140,7 +140,7 @@ Avoid firing quote request on every keystroke. Use explicit request button or de
 
 ## Testing Strategy
 
-测试 valid input、invalid input、numeric field parsing, submit-time request validation、quote loading、risk rejected、expired countdown、disabled submit、stale-session response isolation 和 lifecycle tracking state。组件层测试应实际执行 `QuotePage`、`QuoteForm`、`QuoteStatusPanel` 和 `WalletSubmitControl` 的 React render path，覆盖初始 trading workspace、受控输入、submit、refresh、wallet state、contract write 和 action handlers，而不仅依赖源码字符串匹配。纯 lifecycle 测试另外覆盖 authoritative pointer hydration、resource identity mismatch、terminal detection、transient failure recovery 和 bounded backoff。
+测试覆盖 valid input、invalid input、numeric field parsing、submit-time request validation、quote loading、risk rejected、expired countdown、disabled submit、stale-session response isolation 和 lifecycle tracking state。组件层测试实际执行 `QuotePage`、`QuoteForm`、`QuoteStatusPanel` 和 `WalletSubmitControl` 的 React render path，覆盖初始 trading workspace、受控输入、submit、refresh、wallet state、contract write 和 action handlers，而不依赖源码字符串匹配。Playwright E2E 在真实 Chromium 中连接本地 Fastify runtime，完成 `/quote -> /submit -> quote/settlement/hedge/PnL` 全链路并证明非法 pair 不产生 API 请求；纯 lifecycle 测试另外覆盖 authoritative pointer hydration、resource identity mismatch、terminal detection、transient failure recovery 和 bounded backoff。
 
 ## Interview Notes
 

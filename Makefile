@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check api-auth-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check analytics-integration-check cex-orderbook-integration-check benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check api-auth-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check analytics-integration-check cex-orderbook-integration-check benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -51,6 +51,7 @@ help:
 	@echo "  sdk-typecheck  Typecheck SDK package"
 	@echo "  frontend-build  Build frontend package"
 	@echo "  frontend-test   Run frontend validation tests"
+	@echo "  frontend-e2e    Run the browser RFQ flow against a local backend"
 	@echo "  typescript-check  Run backend, SDK, and frontend checks"
 	@echo "  contract-build  Build Foundry contracts"
 	@echo "  contract-test   Run Foundry contract tests offline"
@@ -205,6 +206,9 @@ frontend-build:
 
 frontend-test: frontend-build
 	@CI=true pnpm --dir frontend test
+
+frontend-e2e: backend-build
+	@pnpm --dir frontend e2e
 
 typescript-check: backend-typecheck sdk-typecheck frontend-build
 

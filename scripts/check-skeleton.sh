@@ -2198,7 +2198,7 @@ grep -q 'Quote UI binds every `QuoteResponse` to the validated request snapshot'
 grep -q 'in-flight quote responses are ignored when their session version is no longer current' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'TTL countdown is driven by a one-second UI clock while a quote is active' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'API submit is fail-closed inside the `submitQuote()` handler' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
-grep -q '组件层测试应实际执行 `QuotePage`、`QuoteForm`、`QuoteStatusPanel` 和 `WalletSubmitControl` 的 React render path' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
+grep -q '组件层测试实际执行 `QuotePage`、`QuoteForm`、`QuoteStatusPanel` 和 `WalletSubmitControl` 的 React render path' book/Volume6-Frontend-And-SDK/Chapter02-Quote-UI.md
 grep -q 'setQuoteStatus(lifecycle.quoteStatus)' frontend/src/pages/QuotePage.tsx
 grep -q 'client.getSettlement' frontend/src/lib/quote-lifecycle.ts
 grep -q 'client.getHedge' frontend/src/lib/quote-lifecycle.ts
@@ -3713,5 +3713,14 @@ grep -q 'trustedSignerOverlapAddresses' backend/src/modules/settlement/settlemen
 grep -q 'RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES' backend/src/modules/signer/signer-runtime.ts
 grep -q 'accepts an explicitly configured overlap signer' backend/test/settlement-verifier.test.mjs
 grep -q 'Signer rotation uses two backend rollouts' docs/security/audit-checklist.md
+
+test -s frontend/playwright.config.ts
+test -s frontend/e2e/rfq-flow.spec.ts
+test -s .github/workflows/frontend-e2e.yml
+grep -q '"@playwright/test": "1.61.0"' frontend/package.json
+grep -q 'requests, submits, and renders the authoritative RFQ lifecycle' frontend/e2e/rfq-flow.spec.ts
+grep -q 'rejects an invalid pair before sending a quote request' frontend/e2e/rfq-flow.spec.ts
+grep -q 'run: make frontend-e2e' .github/workflows/frontend-e2e.yml
+grep -q 'run: make frontend-e2e' .github/workflows/release.yml
 
 echo "skeleton check passed"

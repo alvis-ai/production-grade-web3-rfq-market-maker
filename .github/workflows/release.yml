@@ -45,6 +45,12 @@ jobs:
       - name: Verify release source
         run: make verify
 
+      - name: Install Chromium
+        run: pnpm --dir frontend exec playwright install --with-deps chromium
+
+      - name: Run browser RFQ flow
+        run: make frontend-e2e
+
   publish:
     needs: verify
     runs-on: ubuntu-latest

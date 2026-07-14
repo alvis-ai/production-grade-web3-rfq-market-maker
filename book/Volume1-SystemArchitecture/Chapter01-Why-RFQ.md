@@ -193,7 +193,7 @@ struct Quote {
 
 ## API Design
 
-第一阶段只固定 API 方向，不实现服务。未来 `POST /quote` 接收如下请求：
+当前 `POST /quote` 已按 OpenAPI、SDK 与 Fastify route 的共享契约接收如下请求；所有字段在进入市场数据、定价、风控和签名前执行封闭 schema 校验：
 
 ```json
 {

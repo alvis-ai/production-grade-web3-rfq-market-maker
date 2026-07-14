@@ -11,6 +11,8 @@ out/
 cache/
 coverage/
 target/
+playwright-report/
+test-results/
 
 # Foundry
 contracts/out/

@@ -46,4 +46,4 @@ flowchart LR
 
 ## Implementation Direction
 
-第一版后端使用 TypeScript + Fastify skeleton。模块按未来微服务边界组织，后续可以在同一个进程内运行，也可以拆成独立服务。
+后端使用 TypeScript + Fastify。Gateway composition root 组合报价与提交同步链路；hedge、settlement indexer、reconciliation、analytics 和 toxic-flow analyzer 已提供独立 worker 入口。模块边界允许按故障域与吞吐需求独立部署，同时保留本地单进程参考模式。

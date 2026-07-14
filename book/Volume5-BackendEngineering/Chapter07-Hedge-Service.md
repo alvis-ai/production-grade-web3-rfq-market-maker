@@ -37,7 +37,7 @@ Hedge Service 负责成交后风险再平衡。RFQSettlement 确认成交后，I
 - hedge 操作必须幂等。
 - external venue credential 必须隔离。
 - hedge failure 必须告警。
-- hedge 不阻塞链上 settlement；第一阶段 skeleton 中 hedge intent 只表示已进入异步队列。
+- hedge 不阻塞链上 settlement；`queued` hedge intent 表示 durable store 已接收异步工作，只有 worker 持久化 venue order/fill evidence 后才能进入后续状态。
 - hedge failure metric 必须区分于 submit error metric，避免把 post-trade 风险事件误报为 settlement 回滚。
 
 ## Existing Solutions
