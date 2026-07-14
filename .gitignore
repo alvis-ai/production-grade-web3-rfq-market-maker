@@ -3,7 +3,6 @@ node_modules/
 .pnpm-store/
 vendor/
 /lib/
-contracts/lib/
 
 # Build outputs
 dist/

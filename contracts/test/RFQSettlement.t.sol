@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { RFQSettlement } from "../src/RFQSettlement.sol";
 import { IRFQSettlement } from "../src/interfaces/IRFQSettlement.sol";
 import { Treasury } from "../src/Treasury.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 interface Vm {
     function addr(uint256 privateKey) external returns (address);
@@ -385,7 +386,7 @@ contract RFQSettlementTest {
         IRFQSettlement.Quote memory quote = _quote(4);
 
         vm.prank(user);
-        vm.expectRevert(RFQSettlement.Paused.selector);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
         settlement.submitQuote(quote, "");
     }
 
@@ -413,7 +414,9 @@ contract RFQSettlementTest {
 
         vm.prank(tokenAdmin);
         settlement.setTokenWhitelist(address(tokenIn), false);
-        require(!settlement.tokenWhitelist(address(tokenIn)), "token admin did not update whitelist");
+        require(
+            !settlement.tokenWhitelist(address(tokenIn)), "token admin did not update whitelist"
+        );
 
         vm.prank(tokenAdmin);
         _expectMissingRole(SIGNER_ADMIN_ROLE, tokenAdmin);
@@ -424,17 +427,13 @@ contract RFQSettlementTest {
         address tokenAdmin = address(0xA11CE03);
 
         settlement.grantRole(TOKEN_ADMIN_ROLE, tokenAdmin);
-        require(
-            settlement.hasRole(TOKEN_ADMIN_ROLE, tokenAdmin), "token admin role not granted"
-        );
+        require(settlement.hasRole(TOKEN_ADMIN_ROLE, tokenAdmin), "token admin role not granted");
 
         vm.prank(tokenAdmin);
         settlement.setTokenWhitelist(address(tokenIn), false);
 
         settlement.revokeRole(TOKEN_ADMIN_ROLE, tokenAdmin);
-        require(
-            !settlement.hasRole(TOKEN_ADMIN_ROLE, tokenAdmin), "token admin role not revoked"
-        );
+        require(!settlement.hasRole(TOKEN_ADMIN_ROLE, tokenAdmin), "token admin role not revoked");
 
         vm.prank(tokenAdmin);
         _expectMissingRole(TOKEN_ADMIN_ROLE, tokenAdmin);
@@ -446,8 +445,7 @@ contract RFQSettlementTest {
         settlement.revokeRole(DEFAULT_ADMIN_ROLE, address(this));
 
         require(
-            settlement.hasRole(DEFAULT_ADMIN_ROLE, address(this)),
-            "default admin role was revoked"
+            settlement.hasRole(DEFAULT_ADMIN_ROLE, address(this)), "default admin role was revoked"
         );
     }
 
@@ -463,8 +461,7 @@ contract RFQSettlementTest {
             "old default admin role still active"
         );
         require(
-            settlement.hasRole(DEFAULT_ADMIN_ROLE, newAdmin),
-            "replacement default admin missing"
+            settlement.hasRole(DEFAULT_ADMIN_ROLE, newAdmin), "replacement default admin missing"
         );
 
         _expectMissingRole(DEFAULT_ADMIN_ROLE, address(this));

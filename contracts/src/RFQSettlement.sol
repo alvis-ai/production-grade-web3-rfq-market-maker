@@ -2,17 +2,21 @@
 pragma solidity ^0.8.24;
 
 import { IRFQSettlement } from "./interfaces/IRFQSettlement.sol";
-import { SafeERC20 } from "./libraries/SafeERC20.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 interface ITreasuryMinimal {
     function release(address token, address to, uint256 amount) external;
 }
 
 /// @notice RFQ settlement contract for validating EIP-712 signed quotes and settling token flows.
-/// @dev This dependency-free implementation mirrors the intended OpenZeppelin production surface:
-/// EIP712, SafeERC20, ReentrancyGuard, Pausable, and role-gated administrative controls.
-contract RFQSettlement is IRFQSettlement {
-    using SafeERC20 for address;
+contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
 
     bytes32 public constant QUOTE_TYPEHASH = keccak256(
         "Quote(address user,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut,uint256 minAmountOut,uint256 nonce,uint256 deadline,uint256 chainId)"
@@ -22,31 +26,19 @@ contract RFQSettlement is IRFQSettlement {
     );
     bytes32 public constant NAME_HASH = keccak256("ProductionGradeRFQ");
     bytes32 public constant VERSION_HASH = keccak256("1");
-    bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
     bytes32 public constant SIGNER_ADMIN_ROLE = keccak256("SIGNER_ADMIN_ROLE");
     bytes32 public constant TOKEN_ADMIN_ROLE = keccak256("TOKEN_ADMIN_ROLE");
     bytes32 public constant TREASURY_ADMIN_ROLE = keccak256("TREASURY_ADMIN_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
-    uint256 private constant _NOT_ENTERED = 1;
-    uint256 private constant _ENTERED = 2;
-    uint256 private constant _SECP256K1N_HALF =
-        0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
-
     address public owner;
     address public trustedSigner;
     address public treasury;
-    bool public paused;
     mapping(address token => bool whitelisted) public tokenWhitelist;
     mapping(address user => mapping(uint256 nonce => bool used)) public usedNonces;
-    mapping(bytes32 role => mapping(address account => bool granted)) private _roles;
     mapping(bytes32 role => uint256 count) private _roleMemberCounts;
 
-    uint256 private _reentrancyStatus = _NOT_ENTERED;
-
     error NotOwner();
-    error Paused();
-    error ReentrantCall();
     error InvalidAddress();
     error InvalidSigner();
     error InvalidSignatureLength();
@@ -70,24 +62,9 @@ contract RFQSettlement is IRFQSettlement {
         _;
     }
 
-    modifier onlyRole(bytes32 role) {
-        _checkRole(role, msg.sender);
-        _;
-    }
-
-    modifier whenNotPaused() {
-        if (paused) revert Paused();
-        _;
-    }
-
-    modifier nonReentrant() {
-        if (_reentrancyStatus == _ENTERED) revert ReentrantCall();
-        _reentrancyStatus = _ENTERED;
-        _;
-        _reentrancyStatus = _NOT_ENTERED;
-    }
-
-    constructor(address initialTrustedSigner, address initialTreasury) {
+    constructor(address initialTrustedSigner, address initialTreasury)
+        EIP712("ProductionGradeRFQ", "1")
+    {
         if (initialTrustedSigner == address(0) || initialTreasury == address(0)) {
             revert InvalidAddress();
         }
@@ -117,7 +94,9 @@ contract RFQSettlement is IRFQSettlement {
         _verifySignature(hashTypedData(quoteHash), signature);
 
         usedNonces[quote.user][quote.nonce] = true;
-        quote.tokenIn.safeTransferFrom(quote.user, treasury, quote.amountIn);
+        if (!IERC20(quote.tokenIn).trySafeTransferFrom(quote.user, treasury, quote.amountIn)) {
+            revert TransferFailed();
+        }
         ITreasuryMinimal(treasury).release(quote.tokenOut, quote.user, quote.amountOut);
 
         emit QuoteSettled(
@@ -133,18 +112,31 @@ contract RFQSettlement is IRFQSettlement {
         return quote.amountOut;
     }
 
-    function grantRole(bytes32 role, address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function grantRole(bytes32 role, address account)
+        public
+        override(AccessControl, IRFQSettlement)
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         if (account == address(0)) revert InvalidAddress();
         _grantRole(role, account);
     }
 
-    function revokeRole(bytes32 role, address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function revokeRole(bytes32 role, address account)
+        public
+        override(AccessControl, IRFQSettlement)
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         if (account == address(0)) revert InvalidAddress();
         _revokeRole(role, account);
     }
 
-    function hasRole(bytes32 role, address account) external view returns (bool) {
-        return _roles[role][account];
+    function hasRole(bytes32 role, address account)
+        public
+        view
+        override(AccessControl, IRFQSettlement)
+        returns (bool)
+    {
+        return super.hasRole(role, account);
     }
 
     function setTrustedSigner(address newTrustedSigner) external onlyRole(SIGNER_ADMIN_ROLE) {
@@ -159,15 +151,28 @@ contract RFQSettlement is IRFQSettlement {
         treasury = newTreasury;
     }
 
-    function setTokenWhitelist(address token, bool whitelisted) external onlyRole(TOKEN_ADMIN_ROLE) {
+    function setTokenWhitelist(address token, bool whitelisted)
+        external
+        onlyRole(TOKEN_ADMIN_ROLE)
+    {
         if (token == address(0)) revert InvalidAddress();
         tokenWhitelist[token] = whitelisted;
         emit TokenWhitelistUpdated(token, whitelisted);
     }
 
     function setPaused(bool newPaused) external onlyRole(PAUSER_ROLE) {
-        paused = newPaused;
+        if (newPaused != paused()) {
+            if (newPaused) {
+                _pause();
+            } else {
+                _unpause();
+            }
+        }
         emit PausedUpdated(newPaused);
+    }
+
+    function paused() public view override returns (bool) {
+        return super.paused();
     }
 
     function transferOwnership(address newOwner) external onlyOwner {
@@ -182,13 +187,11 @@ contract RFQSettlement is IRFQSettlement {
     }
 
     function domainSeparator() public view returns (bytes32) {
-        return keccak256(
-            abi.encode(DOMAIN_TYPEHASH, NAME_HASH, VERSION_HASH, block.chainid, address(this))
-        );
+        return _domainSeparatorV4();
     }
 
     function hashTypedData(bytes32 structHash) public view returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+        return _hashTypedDataV4(structHash);
     }
 
     function hashQuote(Quote calldata quote) public pure returns (bytes32) {
@@ -236,16 +239,18 @@ contract RFQSettlement is IRFQSettlement {
             v := byte(0, calldataload(add(signature.offset, 0x40)))
         }
 
-        if (uint256(s) > _SECP256K1N_HALF) revert InvalidSignatureS();
         if (v < 27) v += 27;
         if (v != 27 && v != 28) revert InvalidSignatureV();
 
-        address recovered = ecrecover(digest, v, r, s);
-        if (recovered == address(0) || recovered != trustedSigner) revert InvalidSigner();
+        (address recovered, ECDSA.RecoverError recoverError,) = ECDSA.tryRecover(digest, v, r, s);
+        if (recoverError == ECDSA.RecoverError.InvalidSignatureS) revert InvalidSignatureS();
+        if (recoverError != ECDSA.RecoverError.NoError || recovered != trustedSigner) {
+            revert InvalidSigner();
+        }
     }
 
-    function _checkRole(bytes32 role, address account) internal view {
-        if (!_roles[role][account]) revert MissingRole(role, account);
+    function _checkRole(bytes32 role, address account) internal view override {
+        if (!hasRole(role, account)) revert MissingRole(role, account);
     }
 
     function _grantAllAdminRoles(address account) internal {
@@ -264,20 +269,19 @@ contract RFQSettlement is IRFQSettlement {
         _revokeRole(DEFAULT_ADMIN_ROLE, account);
     }
 
-    function _grantRole(bytes32 role, address account) internal {
-        if (_roles[role][account]) return;
-        _roles[role][account] = true;
-        _roleMemberCounts[role] += 1;
-        emit RoleGranted(role, account, msg.sender);
+    function _grantRole(bytes32 role, address account) internal override returns (bool) {
+        bool granted = super._grantRole(role, account);
+        if (granted) _roleMemberCounts[role] += 1;
+        return granted;
     }
 
-    function _revokeRole(bytes32 role, address account) internal {
-        if (!_roles[role][account]) return;
+    function _revokeRole(bytes32 role, address account) internal override returns (bool) {
+        if (!hasRole(role, account)) return false;
         if (role == DEFAULT_ADMIN_ROLE && _roleMemberCounts[role] <= 1) {
             revert CannotRevokeLastAdmin();
         }
-        _roles[role][account] = false;
-        _roleMemberCounts[role] -= 1;
-        emit RoleRevoked(role, account, msg.sender);
+        bool revoked = super._revokeRole(role, account);
+        if (revoked) _roleMemberCounts[role] -= 1;
+        return revoked;
     }
 }

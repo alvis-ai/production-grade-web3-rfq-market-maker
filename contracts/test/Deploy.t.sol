@@ -48,10 +48,9 @@ contract DeployRFQSettlementTest {
         _expectDuplicateWhitelistToken(script, trustedSigner, tokens);
     }
 
-    function _expectInvalidTrustedSigner(
-        DeployRFQSettlement script,
-        address[] memory tokens
-    ) private {
+    function _expectInvalidTrustedSigner(DeployRFQSettlement script, address[] memory tokens)
+        private
+    {
         try script.deploy(address(0), tokens) {
             revert("expected invalid trusted signer");
         } catch (bytes memory reason) {

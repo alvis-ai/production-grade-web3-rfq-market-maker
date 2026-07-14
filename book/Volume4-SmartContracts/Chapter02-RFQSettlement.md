@@ -69,7 +69,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-RFQSettlement 与 ERC20 token 和 Treasury 边界直接交互，并通过 role-based admin 管理 trusted signer、treasury、token whitelist 和 pause 状态。当前代码使用无外部依赖的最小实现表达 EIP-712、SafeERC20、ReentrancyGuard、Pausable 和 AccessControl 语义；后续接入 OpenZeppelin 后应保持同样的验证顺序和事件语义。`Treasury` 合约承载独立 custody 边界：RFQSettlement 把用户 `tokenIn` 转入 Treasury，并通过 settlement-only `release` 支付 `tokenOut`；owner-only `emergencyWithdraw` 只用于应急资金迁移。
+RFQSettlement 与 ERC20 token 和 Treasury 边界直接交互，并通过 role-based admin 管理 trusted signer、treasury、token whitelist 和 pause 状态。当前代码固定使用 OpenZeppelin Contracts `5.6.1` 的 `EIP712`、`ECDSA`、`SafeERC20`、`ReentrancyGuard`、`Pausable` 和 `AccessControl`；依赖通过 git submodule 固定到仓库提交，CI 递归检出并验证版本。`Treasury` 合约承载独立 custody 边界：RFQSettlement 把用户 `tokenIn` 转入 Treasury，并通过 settlement-only `release` 支付 `tokenOut`；owner-only `emergencyWithdraw` 只用于应急资金迁移。
 
 ## Sequence Diagram
 
@@ -126,7 +126,7 @@ function submitQuote(
 - nonce 必须是非零正值；nonce 标记在外部 token 调用之前完成，并由 nonReentrant 防止重入提交。
 - RFQSettlement 不直接保管库存资金；常规成交通过 Treasury 放款，便于把结算权限和应急管理权限分开审计。
 - `QuoteSettled` 是链下库存更新的权威事件。
-- 当前安全转账封装采用 SafeERC20 语义：低层调用必须成功，返回 `false` 必须 revert，无返回值 ERC20 被视为成功，非合约地址会被拒绝。
+- 安全转账直接使用 OpenZeppelin `SafeERC20.trySafeTransferFrom` / `trySafeTransfer`：低层调用必须成功，返回 `false` 必须 revert，无返回值 ERC20 被视为成功，非合约地址会被拒绝；失败统一映射为项目 ABI 中的 `TransferFailed`。
 - 用户在调用 `submitQuote` 前必须授权 RFQSettlement 拉取 `tokenIn.amountIn`。参考前端读取 allowance 并只授权本次 quote 的精确数量；合约不依赖无限授权，allowance 不足时 `safeTransferFrom` 原子回滚。
 - `SIGNER_ADMIN_ROLE` 独立保护 `setTrustedSigner`，`TOKEN_ADMIN_ROLE` 独立保护 `setTokenWhitelist`，默认管理员只能通过 `grantRole` 和 `revokeRole` 委托或收回这些权限。
 - `DEFAULT_ADMIN_ROLE` 使用成员计数防止最后一个默认管理员被撤销；`transferOwnership` 先授予新 owner 全量管理角色，再撤销旧 owner 角色，避免 role administration 被永久锁死。
@@ -141,7 +141,7 @@ function submitQuote(
 
 ## Security Considerations
 
-当前实现采用本地 `SafeERC20` 库兼容返回 bool 或无返回值的 ERC20，并显式实现重入锁、暂停和 role-based admin 控制。`safeTransferFrom` 覆盖用户 `tokenIn` 转入 Treasury，`safeTransfer` 覆盖 Treasury 的 `tokenOut` 放款；两者都拒绝非合约 token、revert 调用和返回 `false` 的 token。正式审计版可替换为 OpenZeppelin `SafeERC20`、`ReentrancyGuard`、`Pausable`、`AccessControl`，但不能改变签名校验、正 nonce、deadline、白名单和转账顺序。
+当前实现不再维护本地安全组件：OpenZeppelin `SafeERC20` 负责兼容 bool / no-return ERC20，`ReentrancyGuard` 保护两个资产转移入口，`Pausable` 提供应急停止状态，`AccessControl` 提供标准角色存储与事件，`EIP712` / `ECDSA` 负责签名域和恢复约束。项目层继续固定签名校验、正 nonce、deadline、白名单和转账顺序，并保留“先标记 nonce、失败时整笔交易回滚”的原子性。
 
 ## Performance Considerations
 

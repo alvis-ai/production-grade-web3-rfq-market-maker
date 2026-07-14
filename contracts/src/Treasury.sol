@@ -1,24 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { SafeERC20 } from "./libraries/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @notice Treasury custody boundary around RFQ settlement.
-/// @dev Dependency-free custody boundary mirroring SafeERC20, ReentrancyGuard, and owner-gated controls.
-contract Treasury {
-    using SafeERC20 for address;
-
-    uint256 private constant _NOT_ENTERED = 1;
-    uint256 private constant _ENTERED = 2;
+/// @dev Uses OpenZeppelin SafeERC20 and ReentrancyGuard with owner-gated custody controls.
+contract Treasury is ReentrancyGuard {
+    using SafeERC20 for IERC20;
 
     address public settlement;
     address public owner;
 
-    uint256 private _reentrancyStatus = _NOT_ENTERED;
-
     error NotOwner();
     error NotSettlement();
-    error ReentrantCall();
     error InvalidAddress();
     error InvalidAmount();
     error TransferFailed();
@@ -45,13 +41,6 @@ contract Treasury {
     modifier onlySettlement() {
         if (msg.sender != settlement) revert NotSettlement();
         _;
-    }
-
-    modifier nonReentrant() {
-        if (_reentrancyStatus == _ENTERED) revert ReentrantCall();
-        _reentrancyStatus = _ENTERED;
-        _;
-        _reentrancyStatus = _NOT_ENTERED;
     }
 
     function setSettlement(address newSettlement) external onlyOwner {
@@ -92,6 +81,6 @@ contract Treasury {
     }
 
     function _safeTransfer(address token, address to, uint256 amount) internal {
-        token.safeTransfer(to, amount);
+        if (!IERC20(token).trySafeTransfer(to, amount)) revert TransferFailed();
     }
 }

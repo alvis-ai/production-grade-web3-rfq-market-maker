@@ -28,9 +28,6 @@ interface IRFQSettlement {
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event TokenWhitelistUpdated(address indexed token, bool whitelisted);
     event PausedUpdated(bool paused);
-    event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);
-    event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);
-
     function submitQuote(Quote calldata quote, bytes calldata signature)
         external
         returns (uint256 amountOut);

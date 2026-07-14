@@ -212,9 +212,13 @@ test("RFQSettlement ABI exposes role-based admin controls", () => {
     "SIGNER_ADMIN_ROLE",
     "TOKEN_ADMIN_ROLE",
     "TREASURY_ADMIN_ROLE",
+    "eip712Domain",
+    "getRoleAdmin",
     "grantRole",
+    "renounceRole",
     "revokeRole",
     "hasRole",
+    "supportsInterface",
     "setTrustedSigner",
     "setTokenWhitelist",
   ]) {
@@ -226,6 +230,8 @@ test("RFQSettlement ABI exposes role-based admin controls", () => {
 
   assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "RoleGranted"));
   assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "RoleRevoked"));
+  assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "Paused"));
+  assert.ok(rfqSettlementAbi.some((item) => item.type === "event" && item.name === "Unpaused"));
 });
 
 test("Contract ABIs expose custom errors for revert decoding", () => {
@@ -239,6 +245,8 @@ test("Contract ABIs expose custom errors for revert decoding", () => {
     "TokenNotWhitelisted",
     "AmountOutBelowMinimum",
     "CannotRevokeLastAdmin",
+    "EnforcedPause",
+    "ReentrancyGuardReentrantCall",
   ]) {
     assert.ok(
       rfqSettlementAbi.some((item) => item.type === "error" && item.name === name),
@@ -255,7 +263,13 @@ test("Contract ABIs expose custom errors for revert decoding", () => {
     ["role:bytes32", "account:address"],
   );
 
-  for (const name of ["NotOwner", "NotSettlement", "ReentrantCall", "InvalidAddress", "TransferFailed"]) {
+  for (const name of [
+    "NotOwner",
+    "NotSettlement",
+    "ReentrancyGuardReentrantCall",
+    "InvalidAddress",
+    "TransferFailed",
+  ]) {
     assert.ok(
       treasuryAbi.some((item) => item.type === "error" && item.name === name),
       `missing Treasury error ${name}`,

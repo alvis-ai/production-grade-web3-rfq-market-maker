@@ -2626,18 +2626,25 @@ grep -q 'CannotRevokeLastAdmin' contracts/src/RFQSettlement.sol
 grep -q 'SIGNER_ADMIN_ROLE' contracts/src/RFQSettlement.sol
 grep -q 'TOKEN_ADMIN_ROLE' contracts/src/RFQSettlement.sol
 grep -q 'function setPaused' contracts/src/RFQSettlement.sol
-grep -q 'ecrecover' contracts/src/RFQSettlement.sol
-grep -q 'safeTransferFrom' contracts/src/RFQSettlement.sol
-grep -q 'using SafeERC20 for address' contracts/src/RFQSettlement.sol
+grep -q '@openzeppelin/contracts/access/AccessControl.sol' contracts/src/RFQSettlement.sol
+grep -q '@openzeppelin/contracts/utils/cryptography/EIP712.sol' contracts/src/RFQSettlement.sol
+grep -q '@openzeppelin/contracts/utils/cryptography/ECDSA.sol' contracts/src/RFQSettlement.sol
+grep -q '@openzeppelin/contracts/utils/Pausable.sol' contracts/src/RFQSettlement.sol
+grep -q '@openzeppelin/contracts/utils/ReentrancyGuard.sol' contracts/src/RFQSettlement.sol
+grep -q 'ECDSA.tryRecover' contracts/src/RFQSettlement.sol
+grep -q 'trySafeTransferFrom' contracts/src/RFQSettlement.sol
+grep -q 'using SafeERC20 for IERC20' contracts/src/RFQSettlement.sol
 grep -q 'contract Treasury' contracts/src/Treasury.sol
 grep -q 'function release' contracts/src/Treasury.sol
 grep -q 'function emergencyWithdraw' contracts/src/Treasury.sol
 grep -q 'onlySettlement' contracts/src/Treasury.sol
 grep -q 'TransferFailed' contracts/src/Treasury.sol
-grep -q 'using SafeERC20 for address' contracts/src/Treasury.sol
-grep -q 'library SafeERC20' contracts/src/libraries/SafeERC20.sol
-grep -q 'function safeTransferFrom' contracts/src/libraries/SafeERC20.sol
-grep -q 'token.code.length' contracts/src/libraries/SafeERC20.sol
+grep -q '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol' contracts/src/Treasury.sol
+grep -q '@openzeppelin/contracts/utils/ReentrancyGuard.sol' contracts/src/Treasury.sol
+grep -q 'using SafeERC20 for IERC20' contracts/src/Treasury.sol
+grep -q 'trySafeTransfer' contracts/src/Treasury.sol
+grep -q '"version": "5.6.1"' contracts/lib/openzeppelin-contracts/package.json
+grep -q 'contracts/lib/openzeppelin-contracts' .gitmodules
 grep -q 'testSettlementCanReleaseFunds' contracts/test/Treasury.t.sol
 grep -q 'testOnlySettlementCanReleaseFunds' contracts/test/Treasury.t.sol
 grep -q 'testOwnerCanEmergencyWithdraw' contracts/test/Treasury.t.sol
@@ -3536,7 +3543,7 @@ grep -Fq -- '- [x] AccessControl protects signer and token whitelist updates.' d
 grep -Fq -- '- [x] DEFAULT_ADMIN_ROLE cannot be orphaned by revoking the last admin.' docs/security/audit-checklist.md
 grep -q 'SettlementEventService.removeSettlementEvent()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'allow the worker to find the common ancestor' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
-grep -q '本地 `SafeERC20` 库' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
+grep -q '固定使用 OpenZeppelin Contracts `5.6.1`' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'SIGNER_ADMIN_ROLE' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'TOKEN_ADMIN_ROLE' book/Volume4-SmartContracts/Chapter02-RFQSettlement.md
 grep -q 'includes focused fuzz tests for bounded valid settlement amounts' book/Volume4-SmartContracts/Chapter06-Testing.md

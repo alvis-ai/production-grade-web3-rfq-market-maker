@@ -150,7 +150,7 @@ stateDiagram-v2
 
 ## Summary
 
-RFQSettlement 测试矩阵应覆盖所有安全边界。后续实现 OpenZeppelin 版本后，测试必须成为 CI 的核心 gate。
+RFQSettlement 测试矩阵覆盖所有安全边界。OpenZeppelin 版本已经由 Foundry negative/fuzz tests、SDK ABI consistency 和专用 Contract CI 共同守护；CI 使用递归 submodule checkout，避免缺失或漂移的安全依赖被静默跳过。
 
 ## References
 
