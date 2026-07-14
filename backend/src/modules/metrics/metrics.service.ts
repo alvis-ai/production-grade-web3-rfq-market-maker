@@ -24,6 +24,7 @@ type CexPairMetricState = "usable" | "blocked";
 type ApiAuthMetricRejectionReason = ApiKeyRejectionReason | "scope_denied";
 type SubmitReservationMetricOperation = "acquire" | "release";
 type QuoteControlMetricOperation = "read" | "update";
+type ToxicFlowScoreMetricOperation = "read" | "update";
 
 const latencyBucketsSeconds = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
 const maxSafeIdentifierLength = 128;
@@ -70,6 +71,8 @@ export class MetricsService {
   private quotePairsPaused = 0;
   private quoteControlUpdates = 0;
   private readonly quoteControlErrors = new Map<QuoteControlMetricOperation, number>();
+  private toxicFlowScoreUpdates = 0;
+  private readonly toxicFlowScoreErrors = new Map<ToxicFlowScoreMetricOperation, number>();
   private submitRequests = 0;
   private submitAccepted = 0;
   private submitErrors = 0;
@@ -174,6 +177,17 @@ export class MetricsService {
       throw new Error("Metrics quote control operation must be read or update");
     }
     this.quoteControlErrors.set(operation, (this.quoteControlErrors.get(operation) ?? 0) + 1);
+  }
+
+  recordToxicFlowScoreUpdate(): void {
+    this.toxicFlowScoreUpdates += 1;
+  }
+
+  recordToxicFlowScoreError(operation: ToxicFlowScoreMetricOperation): void {
+    if (!toxicFlowScoreMetricOperations.includes(operation)) {
+      throw new Error("Metrics toxic flow score operation must be read or update");
+    }
+    this.toxicFlowScoreErrors.set(operation, (this.toxicFlowScoreErrors.get(operation) ?? 0) + 1);
   }
 
   recordSubmitRequest(): void {
@@ -309,6 +323,12 @@ export class MetricsService {
       "# HELP rfq_quote_control_errors_total Total failed quote-control operations by bounded operation.",
       "# TYPE rfq_quote_control_errors_total counter",
       ...this.renderQuoteControlErrors(),
+      "# HELP rfq_toxic_flow_score_updates_total Total successful administrative toxic-flow score updates.",
+      "# TYPE rfq_toxic_flow_score_updates_total counter",
+      `rfq_toxic_flow_score_updates_total ${this.toxicFlowScoreUpdates}`,
+      "# HELP rfq_toxic_flow_score_errors_total Total failed toxic-flow score operations by bounded operation.",
+      "# TYPE rfq_toxic_flow_score_errors_total counter",
+      ...this.renderToxicFlowScoreErrors(),
       "# HELP rfq_submit_requests_total Total submit requests handled by the RFQ API.",
       "# TYPE rfq_submit_requests_total counter",
       `rfq_submit_requests_total ${this.submitRequests}`,
@@ -421,6 +441,12 @@ export class MetricsService {
   private renderQuoteControlErrors(): string[] {
     return quoteControlMetricOperations.map((operation) => {
       return `rfq_quote_control_errors_total{operation="${operation}"} ${this.quoteControlErrors.get(operation) ?? 0}`;
+    });
+  }
+
+  private renderToxicFlowScoreErrors(): string[] {
+    return toxicFlowScoreMetricOperations.map((operation) => {
+      return `rfq_toxic_flow_score_errors_total{operation="${operation}"} ${this.toxicFlowScoreErrors.get(operation) ?? 0}`;
     });
   }
 
@@ -546,6 +572,7 @@ const apiAuthMetricRejectionReasons: readonly ApiAuthMetricRejectionReason[] = [
 ];
 const submitReservationMetricOperations: readonly SubmitReservationMetricOperation[] = ["acquire", "release"];
 const quoteControlMetricOperations: readonly QuoteControlMetricOperation[] = ["read", "update"];
+const toxicFlowScoreMetricOperations: readonly ToxicFlowScoreMetricOperation[] = ["read", "update"];
 const readinessMetricStatuses: readonly ReadinessMetricStatus[] = ["ready", "degraded"];
 const dependencyMetricStatuses: readonly DependencyMetricStatus[] = ["ok", "degraded"];
 const cexSourceMetricStates: readonly CexSourceMetricState[] = ["ready", "stale", "unavailable"];

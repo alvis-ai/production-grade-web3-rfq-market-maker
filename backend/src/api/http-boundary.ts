@@ -168,6 +168,8 @@ function requiredApiKeyScope(request: FastifyRequest): ApiKeyScope | undefined {
       route === "/admin/quote-control/pairs/:chainId/:tokenA/:tokenB") return "admin:read";
   if (request.method === "PUT" &&
       route === "/admin/quote-control/pairs/:chainId/:tokenA/:tokenB") return "admin:write";
+  if (request.method === "GET" && route === "/admin/toxic-flow/scores/:chainId/:user") return "admin:read";
+  if (request.method === "PUT" && route === "/admin/toxic-flow/scores/:chainId/:user") return "admin:write";
   return undefined;
 }
 

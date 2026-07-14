@@ -3525,7 +3525,7 @@ grep -q 'Emergency Pause Procedure' book/Volume7-ProductionDeployment/Chapter05-
 grep -q 'RFQSettlement.setPaused(true)' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'negative submit canary' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'two-person approval' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
-grep -q 'OpenAPI public contract must not expose sensitive risk field' scripts/check-security-docs-consistency.mjs
+grep -q 'OpenAPI trading contract must not expose sensitive risk field' scripts/check-security-docs-consistency.mjs
 grep -q 'Public API responses must not expose internal risk thresholds' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'policyVersion or internal reasonCode values' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'approved decision 的 `reasonCode` 为 NULL' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
@@ -3615,5 +3615,23 @@ grep -q 'quote_pair_control_audit' docs/database/schema.sql
 grep -q 'RFQQuoteCreationPaused' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuotePairsPaused' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'admin:write' docs/security/key-management.md
+
+test -s backend/src/db/migrations/020-toxic-flow-scores.sql
+test -s backend/src/modules/risk/toxic-flow-score.store.ts
+test -s backend/src/modules/risk/postgres-toxic-flow-score.store.ts
+test -s backend/src/modules/risk/dynamic-toxic-flow-risk.engine.ts
+test -s backend/src/api/toxic-flow-score-routes.ts
+test -s backend/test/toxic-flow-score-store.test.mjs
+test -s backend/test/postgres-toxic-flow-score-store.test.mjs
+test -s backend/test/dynamic-toxic-flow-risk.test.mjs
+test -s backend/test/api-toxic-flow-score.test.mjs
+grep -q 'server.get("/admin/toxic-flow/scores/:chainId/:user"' backend/src/api/toxic-flow-score-routes.ts
+grep -q 'server.put("/admin/toxic-flow/scores/:chainId/:user"' backend/src/api/toxic-flow-score-routes.ts
+grep -q 'DynamicToxicFlowRiskEngine' backend/src/main.ts
+grep -q 'toxic_flow_score_audit' docs/database/schema.sql
+grep -q "('020', 'toxic-flow-scores')" docs/database/schema.sql
+grep -q 'RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS' infra/k8s/configmap.yaml
+grep -q 'rfq_toxic_flow_score_updates_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'RFQToxicFlowScoreErrors' infra/prometheus/rules/rfq-alerts.yml
 
 echo "skeleton check passed"

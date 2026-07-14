@@ -108,6 +108,8 @@ Key metrics include:
 - `rfq_quote_pairs_paused` without chain or token labels
 - `rfq_quote_control_updates_total` for successful global or pair CAS updates
 - `rfq_quote_control_errors_total` with bounded `operation="read|update"`; pair identifiers stay in the audit table rather than metric labels
+- `rfq_toxic_flow_score_updates_total` for successful versioned analyzer writes
+- `rfq_toxic_flow_score_errors_total` with bounded `operation="read|update"`; chain/user evidence stays in PostgreSQL audit rows
 - `rfq_submit_requests_total`
 - `rfq_submit_accepted_total`
 - `rfq_submit_errors_total`

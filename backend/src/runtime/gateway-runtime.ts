@@ -44,6 +44,12 @@ import {
 } from "../modules/rate-limit/redis-rate-limit.service.js";
 import type { RiskDecisionStore } from "../modules/risk/risk-decision.repository.js";
 import type { RiskEngine } from "../modules/risk/risk.engine.js";
+import {
+  InMemoryToxicFlowScoreStore,
+  assertToxicFlowScoreStore,
+  type ToxicFlowScoreStore,
+} from "../modules/risk/toxic-flow-score.store.js";
+import { PostgresToxicFlowScoreStore } from "../modules/risk/postgres-toxic-flow-score.store.js";
 import type { QuoteExposureStore } from "../modules/risk/quote-exposure.store.js";
 import {
   OnchainTreasuryLiquidityProvider,
@@ -101,6 +107,7 @@ const buildServerOptionFields = [
   "submitReservationLeaseMs",
   "submitReservationStore",
   "tokenRegistry",
+  "toxicFlowScoreStore",
   "treasuryLiquidityProvider",
   "trustProxy",
 ] as const;
@@ -128,6 +135,7 @@ export interface BuildServerOptions {
   submitReservationLeaseMs?: number;
   submitReservationStore?: SubmitReservationStore;
   tokenRegistry?: TokenRegistry;
+  toxicFlowScoreStore?: ToxicFlowScoreStore;
   treasuryLiquidityProvider?: TreasuryLiquidityProvider;
   rateLimit?: Partial<RateLimitConfig> | false;
   rateLimiter?: RateLimiter;
@@ -146,6 +154,19 @@ export interface GatewayServerSettings {
   quoteTtlSeconds: number;
   submitReservationLeaseMs: number;
   trustProxy: boolean;
+}
+
+export function resolveToxicFlowScoreStore(
+  configuredStore: ToxicFlowScoreStore | undefined,
+  postgresPool: pg.Pool | undefined,
+): ToxicFlowScoreStore {
+  if (configuredStore !== undefined) {
+    assertToxicFlowScoreStore(configuredStore);
+    return configuredStore;
+  }
+  return postgresPool
+    ? new PostgresToxicFlowScoreStore(postgresPool)
+    : new InMemoryToxicFlowScoreStore();
 }
 
 export function readGatewayServerSettings(options: BuildServerOptions): GatewayServerSettings {

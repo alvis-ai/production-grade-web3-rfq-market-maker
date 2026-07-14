@@ -37,6 +37,8 @@
 | `QUOTE_PAUSED` | 503 | 全局或该 `chainId + token pair` 运维熔断已暂停创建新的 signed quote；已签发 quote 的查询、提交和结算链路不受该开关阻断 | 不要循环重试 `/quote`；读取对应控制状态并等待运维恢复后重新询价 |
 | `QUOTE_CONTROL_CONFLICT` | 409 | 全局或 pair 管理更新使用的 `expectedVersion` 已过期，另一个操作员或副本已更新状态 | 重新读取同一全局或 pair 控制，复核状态后使用新 version 重试 |
 | `QUOTE_CONTROL_UNAVAILABLE` | 503 | 共享 quote-control 存储不可读取或不可更新，系统无法证明报价开关处于 enabled | 保持 fail-closed，不绕过共享状态；恢复 PostgreSQL 后重新读取状态 |
+| `TOXIC_FLOW_SCORE_CONFLICT` | 409 | analyzer 或操作员提交的 `expectedVersion` 已落后于同一 chain/user 的最新 score | 重新读取 score，复核新样本窗口后再基于最新 version 更新 |
+| `TOXIC_FLOW_SCORE_UNAVAILABLE` | 503 | 动态 toxic-flow score 存储不可读取或不可更新 | 保持 fail-closed，不回退到进程内静态 score；恢复 PostgreSQL 后重试 |
 | `HEDGE_NOT_FOUND` | 404 | hedgeOrderId 不存在或已不在当前执行存储中 | 查询 submit 响应返回的 hedgeOrderId，必要时重新提交 |
 | `HEDGE_STORE_UNAVAILABLE` | 503 | hedge execution store 或 hedge intent 查询依赖不可用 | 稍后重试，必要时通过 submit 响应和执行日志核对 hedge 状态 |
 | `SETTLEMENT_EVENT_NOT_FOUND` | 404 | settlementEventId 不存在或当前执行存储尚未消费该事件 | 查询 submit 响应返回的 settlementEventId，或等待索引器消费链上事件 |

@@ -28,6 +28,9 @@ const localExpected = {
   RFQ_TRUST_PROXY: "false",
   RFQ_RATE_LIMIT_BACKEND: "memory",
   RFQ_CEX_REQUIRE_LIVE_BOOK: "false",
+  RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS: "86400000",
+  RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS: "60000",
+  RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE: "5",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
   VITE_RFQ_API_BASE_URL: "http://localhost:3000",
@@ -51,6 +54,9 @@ const composeExpected = {
   RFQ_RATE_LIMIT_BACKEND: "redis",
   RFQ_REDIS_URL: "redis://redis:6379/0",
   RFQ_CEX_REQUIRE_LIVE_BOOK: "${RFQ_CEX_REQUIRE_LIVE_BOOK:-false}",
+  RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS: "86400000",
+  RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS: "60000",
+  RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE: "5",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
   RFQ_SIGNER_MODE: "local",
@@ -72,6 +78,9 @@ const productionExpected = {
   RFQ_RATE_LIMIT_BACKEND: "redis",
   RFQ_SIGNER_MODE: "aws-kms",
   RFQ_CEX_REQUIRE_LIVE_BOOK: "true",
+  RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS: "86400000",
+  RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS: "60000",
+  RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE: "5",
   RFQ_AWS_KMS_REGION: "us-east-1",
   RFQ_AWS_KMS_MAX_ATTEMPTS: "3",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
@@ -126,6 +135,13 @@ assert.ok(
     backendSource.includes("maxSubmitReservationLeaseMs") &&
     backendSource.includes("minSubmitReservationLeaseMs"),
   "backend must enforce submit reservation lease bounds",
+);
+assert.ok(
+  backendSource.includes('name: "RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS"') &&
+    backendSource.includes('name: "RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS"') &&
+    backendSource.includes('name: "RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE"') &&
+    backendSource.includes("readDynamicToxicFlowRiskConfig"),
+  "backend must validate dynamic toxic-flow freshness and sample configuration",
 );
 assert.ok(
   backendSource.includes('assertIntegerOption(options.bodyLimitBytes, "bodyLimitBytes", 1024, 1_048_576)') &&

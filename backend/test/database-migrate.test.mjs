@@ -25,6 +25,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "017", name: "quote-principal-ownership", applied_at: "2026-07-14T00:08:00.000Z" },
         { version: "018", name: "quote-control", applied_at: "2026-07-14T00:09:00.000Z" },
         { version: "019", name: "pair-quote-control", applied_at: "2026-07-14T00:10:00.000Z" },
+        { version: "020", name: "toxic-flow-scores", applied_at: "2026-07-14T00:11:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -604,6 +605,37 @@ test("database migration runner adds auditable pair quote control state", async 
   assert.equal(client.queries.some(({ sql }) => sql.includes("idx_quote_pair_control_paused")), true);
   assert.equal(client.queries.some(({ sql, params }) =>
     sql.includes("INSERT INTO _migrations") && params[0] === "019"), true);
+});
+
+test("database migration runner adds auditable toxic-flow score state", async () => {
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: [
+        ["001", "base-schema"], ["002", "settlement-canonical"], ["003", "hedge-worker-queue"],
+        ["004", "analytics-outbox"], ["005", "post-trade-reconciliation"], ["006", "quote-snapshot-pnl"],
+        ["007", "settlement-indexer"], ["008", "submit-reservations"], ["009", "risk-notional-reasons"],
+        ["010", "risk-market-regime-reasons"], ["011", "open-quote-exposure"], ["012", "pricing-attribution"],
+        ["013", "market-spread-attribution"], ["014", "hedge-execution-evidence"],
+        ["015", "hedge-fee-reconciliation"], ["016", "treasury-liquidity-reservations"],
+        ["017", "quote-principal-ownership"], ["018", "quote-control"], ["019", "pair-quote-control"],
+      ].map(([version, name]) => ({ version, name, applied_at: "2026-07-14T00:00:00.000Z" })) };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "020");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("CREATE TABLE toxic_flow_scores")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("CREATE TABLE toxic_flow_score_audit")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("chk_toxic_flow_scores_score")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("idx_toxic_flow_scores_observed_at")), true);
+  assert.equal(client.queries.some(({ sql, params }) =>
+    sql.includes("INSERT INTO _migrations") && params[0] === "020"), true);
 });
 
 function fakePool(handler) {

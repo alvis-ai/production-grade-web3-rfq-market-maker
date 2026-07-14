@@ -12,6 +12,7 @@ import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.
 import { InMemoryQuoteControlStore } from "../dist/modules/quote-control/quote-control.store.js";
 import { InMemoryRiskDecisionRepository } from "../dist/modules/risk/risk-decision.repository.js";
 import { BasicRiskEngine } from "../dist/modules/risk/risk.engine.js";
+import { InMemoryToxicFlowScoreStore } from "../dist/modules/risk/toxic-flow-score.store.js";
 import { InternalInventoryRoutingEngine } from "../dist/modules/routing/routing.engine.js";
 import { SettlementEventService } from "../dist/modules/settlement/settlement-event.service.js";
 import { LocalEIP712SignerService } from "../dist/modules/signer/signer.service.js";
@@ -174,6 +175,19 @@ test("ReadinessService degrades risk when the quote exposure store is unavailabl
   assert.equal(readiness.components.quoteRepository, "ok");
 });
 
+test("ReadinessService degrades risk when dynamic toxic flow score storage is unavailable", async () => {
+  const readiness = await createReadinessService({
+    toxicFlowScoreStore: {
+      async checkHealth() { throw new Error("toxic score database unavailable"); },
+      async getScore() { return null; },
+      async updateScore() {},
+    },
+  }).check();
+
+  assert.equal(readiness.status, "degraded");
+  assert.equal(readiness.components.risk, "degraded");
+});
+
 test("ReadinessService degrades risk when the treasury liquidity RPC is unavailable", async () => {
   const readiness = await createReadinessService({
     treasuryLiquidityProvider: {
@@ -286,6 +300,7 @@ function readinessServiceDeps(overrides = {}) {
     routingEngine: overrides.routingEngine ?? new InternalInventoryRoutingEngine(),
     pricingEngine: overrides.pricingEngine ?? new FormulaPricingEngine(),
     riskEngine: overrides.riskEngine ?? new BasicRiskEngine(),
+    toxicFlowScoreStore: overrides.toxicFlowScoreStore ?? new InMemoryToxicFlowScoreStore(),
     ...(overrides.quoteExposureStore ? { quoteExposureStore: overrides.quoteExposureStore } : {}),
     ...(overrides.treasuryLiquidityProvider
       ? { treasuryLiquidityProvider: overrides.treasuryLiquidityProvider }

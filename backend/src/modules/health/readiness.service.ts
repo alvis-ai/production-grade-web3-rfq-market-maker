@@ -15,6 +15,7 @@ import type { QuoteRepository } from "../quote/quote.repository.js";
 import type { RateLimiter } from "../rate-limit/rate-limit.service.js";
 import type { RiskDecisionStore } from "../risk/risk-decision.repository.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
+import type { ToxicFlowScoreStore } from "../risk/toxic-flow-score.store.js";
 import type { QuoteExposureStore } from "../risk/quote-exposure.store.js";
 import type { TreasuryLiquidityProvider } from "../risk/treasury-liquidity.provider.js";
 import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
@@ -55,6 +56,7 @@ export interface ReadinessServiceDeps {
   routingEngine: RoutingEngine;
   pricingEngine: PricingEngine;
   riskEngine: RiskEngine;
+  toxicFlowScoreStore: ToxicFlowScoreStore;
   quoteExposureStore?: QuoteExposureStore;
   treasuryLiquidityProvider?: TreasuryLiquidityProvider;
   signerService: SignerService;
@@ -145,6 +147,7 @@ const readinessServiceDepsFields = [
   "routingEngine",
   "pricingEngine",
   "riskEngine",
+  "toxicFlowScoreStore",
   "signerService",
   "quoteRepository",
   "quoteControlStore",
@@ -326,6 +329,7 @@ export class ReadinessService {
 
   private async checkRisk(): Promise<ReadinessComponentStatus> {
     try {
+      await this.deps.toxicFlowScoreStore.checkHealth();
       await this.deps.quoteExposureStore?.checkHealth?.();
       await this.deps.treasuryLiquidityProvider?.checkHealth();
       const decision = await this.deps.riskEngine.evaluate({
@@ -404,6 +408,7 @@ function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
   assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
   assertDependencyMethod(deps.pricingEngine, "pricingEngine", "price");
   assertDependencyMethod(deps.riskEngine, "riskEngine", "evaluate");
+  assertDependencyMethod(deps.toxicFlowScoreStore, "toxicFlowScoreStore", "checkHealth");
   if (deps.quoteExposureStore !== undefined) {
     assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "checkHealth");
   }

@@ -18,7 +18,9 @@
         { "expr": "max(rfq_quote_paused)", "legendFormat": "paused", "refId": "E" },
         { "expr": "sum(rfq_quote_control_updates_total)", "legendFormat": "control updates", "refId": "F" },
         { "expr": "sum by (operation) (rfq_quote_control_errors_total)", "legendFormat": "control {{operation}} errors", "refId": "G" },
-        { "expr": "max(rfq_quote_pairs_paused)", "legendFormat": "paused pairs", "refId": "H" }
+        { "expr": "max(rfq_quote_pairs_paused)", "legendFormat": "paused pairs", "refId": "H" },
+        { "expr": "sum(rfq_toxic_flow_score_updates_total)", "legendFormat": "toxic score updates", "refId": "I" },
+        { "expr": "sum by (operation) (rfq_toxic_flow_score_errors_total)", "legendFormat": "toxic score {{operation}} errors", "refId": "J" }
       ]
     },
     {

@@ -40,6 +40,7 @@ import {
 } from "./api/http-boundary.js";
 import { registerTradingRoutes } from "./api/trading-routes.js";
 import { registerQuoteControlRoutes } from "./api/quote-control-routes.js";
+import { registerToxicFlowScoreRoutes } from "./api/toxic-flow-score-routes.js";
 import {
   buildDefaultSettlementVerifierPolicy,
   buildRuntimeSettlementEvidenceProvider,
@@ -50,6 +51,7 @@ import {
   resolveQuoteControlStore,
   resolveRateLimiter,
   resolveSubmitReservationStore,
+  resolveToxicFlowScoreStore,
   type BuildServerOptions,
 } from "./runtime/gateway-runtime.js";
 import {
@@ -60,10 +62,12 @@ import {
   readCexOrderBookPairs,
   readDefaultMarketDataRuntime,
   readMarketDataPairs,
+  readDynamicToxicFlowRiskConfig,
   readTokenRegistry,
   resolveQuoteExposureStore,
   resolvePricingRuntime,
 } from "./runtime/market-runtime.js";
+import { DynamicToxicFlowRiskEngine } from "./modules/risk/dynamic-toxic-flow-risk.engine.js";
 import {
   installGracefulShutdown,
   readServerListenConfig,
@@ -120,6 +124,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const postgresPool = resolvePostgresPool(options);
   const ownsPostgresPool = postgresPool !== undefined && options.databasePool === undefined;
   const quoteControlStore = resolveQuoteControlStore(options.quoteControlStore, postgresPool);
+  const toxicFlowScoreStore = resolveToxicFlowScoreStore(options.toxicFlowScoreStore, postgresPool);
   const hedgeService = options.hedgeService ?? (
     postgresPool ? new PostgresHedgeService(postgresPool) : new HedgeService()
   );
@@ -144,7 +149,11 @@ export function buildServer(options: BuildServerOptions = {}) {
   const defaultRiskEngine = options.riskEngine === undefined
     ? buildDefaultRiskEngine(runtimeTokenRegistry, managedRiskPairs)
     : undefined;
-  const riskEngine = options.riskEngine ?? defaultRiskEngine!;
+  const riskEngine = options.riskEngine ?? new DynamicToxicFlowRiskEngine(
+    defaultRiskEngine!,
+    toxicFlowScoreStore,
+    readDynamicToxicFlowRiskConfig(defaultRiskEngine!.getMaxToxicScoreBps()),
+  );
   const quoteExposureStore = resolveQuoteExposureStore(
     options.quoteExposureStore,
     postgresPool,
@@ -265,6 +274,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     quoteControlStore,
     riskDecisionStore,
     riskEngine,
+    toxicFlowScoreStore,
     rateLimiter: rateLimiter ?? disabledRateLimiterHealth,
     routingEngine,
     settlementEventService,
@@ -296,6 +306,13 @@ export function buildServer(options: BuildServerOptions = {}) {
     metricsService,
     quoteControlStore,
     rateLimiter,
+    trustProxy,
+  });
+  registerToxicFlowScoreRoutes(server, {
+    authenticatedPrincipals,
+    metricsService,
+    rateLimiter,
+    toxicFlowScoreStore,
     trustProxy,
   });
 

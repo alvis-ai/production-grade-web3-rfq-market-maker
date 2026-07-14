@@ -5,6 +5,7 @@ export const backendGatewaySourcePaths = [
   "backend/src/api/http-boundary.ts",
   "backend/src/api/trading-routes.ts",
   "backend/src/api/quote-control-routes.ts",
+  "backend/src/api/toxic-flow-score-routes.ts",
   "backend/src/runtime/environment.ts",
   "backend/src/runtime/gateway-runtime.ts",
   "backend/src/runtime/market-runtime.ts",

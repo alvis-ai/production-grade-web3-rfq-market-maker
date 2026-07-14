@@ -43,6 +43,10 @@ test("MetricsService rejects unsupported fixed-label inputs before mutating stat
     /Metrics quote control operation must be read or update/,
   );
   assert.throws(
+    () => metrics.recordToxicFlowScoreError("delete"),
+    /Metrics toxic flow score operation must be read or update/,
+  );
+  assert.throws(
     () => metrics.recordQuoteControlState("true"),
     /Metrics quote control paused state must be a boolean/,
   );
@@ -103,6 +107,9 @@ test("MetricsService rejects unsupported fixed-label inputs before mutating stat
   assert.match(output, /rfq_rate_limited_total\{endpoint="status"\} 0/);
   assert.match(output, /rfq_signer_requests_total\{operation="sign"\} 0/);
   assert.match(output, /rfq_signer_latency_seconds_count\{operation="sign"\} 0/);
+  assert.match(output, /rfq_toxic_flow_score_updates_total 0/);
+  assert.match(output, /rfq_toxic_flow_score_errors_total\{operation="read"\} 0/);
+  assert.match(output, /rfq_toxic_flow_score_errors_total\{operation="update"\} 0/);
   assert.match(output, /rfq_readiness_status\{status="ready"\} 0/);
   assert.match(output, /rfq_readiness_status\{status="degraded"\} 0/);
   assert.match(output, /rfq_dependency_status\{component="signer",status="ok"\} 0/);

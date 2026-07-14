@@ -41,6 +41,10 @@ import {
   type TokenLimitRiskPolicy,
 } from "../modules/risk/token-limit-risk.engine.js";
 import {
+  defaultDynamicToxicFlowRiskConfig,
+  type DynamicToxicFlowRiskConfig,
+} from "../modules/risk/dynamic-toxic-flow-risk.engine.js";
+import {
   readDecimalIntegerConfig,
   readOptionalBoolean,
   readOwnEnvValue,
@@ -179,6 +183,33 @@ export function buildDefaultRiskEngine(
     }
   }
   return engine;
+}
+
+export function readDynamicToxicFlowRiskConfig(
+  maxToxicScoreBps: number,
+): DynamicToxicFlowRiskConfig {
+  const env = runtimeEnvironment();
+  return {
+    maxScoreAgeMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS"), {
+      defaultValue: defaultDynamicToxicFlowRiskConfig.maxScoreAgeMs,
+      min: 1_000,
+      max: 604_800_000,
+      name: "RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS",
+    }),
+    maxFutureSkewMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS"), {
+      defaultValue: defaultDynamicToxicFlowRiskConfig.maxFutureSkewMs,
+      min: 0,
+      max: 300_000,
+      name: "RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS",
+    }),
+    minSampleSize: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE"), {
+      defaultValue: defaultDynamicToxicFlowRiskConfig.minSampleSize,
+      min: 1,
+      max: 1_000_000,
+      name: "RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE",
+    }),
+    maxToxicScoreBps,
+  };
 }
 
 export function resolveQuoteExposureStore(

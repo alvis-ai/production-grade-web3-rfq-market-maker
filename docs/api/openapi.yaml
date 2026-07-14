@@ -858,6 +858,167 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /admin/toxic-flow/scores/{chainId}/{user}:
+    parameters:
+      - name: chainId
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+      - name: user
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/Address"
+    get:
+      operationId: getToxicFlowScore
+      summary: Read the latest dynamic toxic-flow score for one chain and user
+      description: Returns the normalized key and latest versioned score. A null state means no dynamic score exists and base risk policy remains authoritative.
+      x-required-scope: admin:read
+      tags:
+        - Administration
+      responses:
+        "200":
+          description: Normalized score key and optional current state
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToxicFlowScoreLookup"
+        "400":
+          description: Invalid chain or user address
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, malformed, invalid, or expired API key
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: API key lacks admin:read
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+            Retry-After:
+              description: Seconds until the operator may retry.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Toxic-flow score or rate-limit store unavailable
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateToxicFlowScore
+      summary: Publish a versioned toxic-flow score for one chain and user
+      description: Creates version 1 only with expectedVersion 0, then performs compare-and-swap updates and atomically appends immutable analyzer audit evidence.
+      x-required-scope: admin:write
+      tags:
+        - Administration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToxicFlowScoreUpdate"
+      responses:
+        "200":
+          description: Updated toxic-flow score state
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToxicFlowScoreState"
+        "400":
+          description: Invalid chain, user, or closed score update payload
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, malformed, invalid, or expired API key
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: API key lacks admin:write
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: expectedVersion no longer matches the chain-user score state
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+            Retry-After:
+              description: Seconds until the analyzer may retry.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Toxic-flow score or rate-limit store unavailable
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /health:
     get:
       security: []
@@ -1075,6 +1236,127 @@ components:
         state:
           oneOf:
             - $ref: "#/components/schemas/PairQuoteControlState"
+            - type: "null"
+    ToxicFlowScoreKey:
+      type: object
+      additionalProperties: false
+      required:
+        - chainId
+        - user
+      properties:
+        chainId:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        user:
+          $ref: "#/components/schemas/Address"
+    ToxicFlowScoreState:
+      type: object
+      additionalProperties: false
+      required:
+        - chainId
+        - user
+        - scoreBps
+        - postTradeDriftBps
+        - sampleSize
+        - windowSeconds
+        - policyVersion
+        - observedAt
+        - version
+        - updatedBy
+        - updatedAt
+      properties:
+        chainId:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        user:
+          $ref: "#/components/schemas/Address"
+        scoreBps:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        postTradeDriftBps:
+          type: integer
+          minimum: -10000
+          maximum: 10000
+        sampleSize:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        windowSeconds:
+          type: integer
+          minimum: 1
+          maximum: 604800
+        policyVersion:
+          $ref: "#/components/schemas/SafeIdentifier"
+        observedAt:
+          type: string
+          format: date-time
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        version:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        updatedBy:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[A-Za-z0-9_:-]+$"
+        updatedAt:
+          type: string
+          format: date-time
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    ToxicFlowScoreUpdate:
+      type: object
+      additionalProperties: false
+      required:
+        - scoreBps
+        - postTradeDriftBps
+        - sampleSize
+        - windowSeconds
+        - policyVersion
+        - observedAt
+        - expectedVersion
+      properties:
+        scoreBps:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        postTradeDriftBps:
+          type: integer
+          minimum: -10000
+          maximum: 10000
+        sampleSize:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        windowSeconds:
+          type: integer
+          minimum: 1
+          maximum: 604800
+        policyVersion:
+          $ref: "#/components/schemas/SafeIdentifier"
+        observedAt:
+          type: string
+          format: date-time
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        expectedVersion:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+    ToxicFlowScoreLookup:
+      type: object
+      additionalProperties: false
+      required:
+        - key
+        - state
+      properties:
+        key:
+          $ref: "#/components/schemas/ToxicFlowScoreKey"
+        state:
+          oneOf:
+            - $ref: "#/components/schemas/ToxicFlowScoreState"
             - type: "null"
     QuoteRequest:
       type: object
@@ -1703,6 +1985,8 @@ components:
             - QUOTE_PAUSED
             - QUOTE_CONTROL_CONFLICT
             - QUOTE_CONTROL_UNAVAILABLE
+            - TOXIC_FLOW_SCORE_CONFLICT
+            - TOXIC_FLOW_SCORE_UNAVAILABLE
             - HEDGE_NOT_FOUND
             - HEDGE_STORE_UNAVAILABLE
             - SETTLEMENT_EVENT_NOT_FOUND

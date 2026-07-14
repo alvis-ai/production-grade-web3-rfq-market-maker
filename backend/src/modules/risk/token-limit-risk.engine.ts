@@ -154,6 +154,10 @@ export class TokenLimitRiskEngine implements RiskEngine {
     };
   }
 
+  getMaxToxicScoreBps(): number {
+    return this.policy.maxToxicScoreBps;
+  }
+
   async evaluate(input: RiskInput): Promise<RiskDecision> {
     assertRiskInput(input);
     if (!this.enabledChainIds.has(input.request.chainId)) return this.reject("CHAIN_NOT_ENABLED");

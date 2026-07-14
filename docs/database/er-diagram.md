@@ -28,6 +28,7 @@ erDiagram
   PNL_RECORDS ||--o{ ANALYTICS_OUTBOX : emits
   QUOTE_CONTROL ||--o{ QUOTE_CONTROL_AUDIT : records
   QUOTE_PAIR_CONTROL ||--o{ QUOTE_PAIR_CONTROL_AUDIT : records
+  TOXIC_FLOW_SCORES ||--o{ TOXIC_FLOW_SCORE_AUDIT : records
 
   QUOTES {
     text id PK
@@ -284,6 +285,34 @@ erDiagram
     varchar updated_by
     timestamptz updated_at
   }
+
+  TOXIC_FLOW_SCORES {
+    bigint chain_id PK
+    char user_address PK
+    integer score_bps
+    integer post_trade_drift_bps
+    bigint sample_size
+    integer window_seconds
+    varchar policy_version
+    timestamptz observed_at
+    bigint version
+    varchar updated_by
+    timestamptz updated_at
+  }
+
+  TOXIC_FLOW_SCORE_AUDIT {
+    bigint chain_id PK
+    char user_address PK
+    bigint version PK
+    integer score_bps
+    integer post_trade_drift_bps
+    bigint sample_size
+    integer window_seconds
+    varchar policy_version
+    timestamptz observed_at
+    varchar updated_by
+    timestamptz updated_at
+  }
 ```
 
 ## Notes
@@ -302,6 +331,8 @@ erDiagram
 - `quote_control` 是全局单行控制状态，`singleton=TRUE` 约束阻止多行分叉。管理端以 `expectedVersion` 执行 compare-and-swap，成功时递增 version，并在同一数据库语句中向 `quote_control_audit` 写入 paused、reason、认证 actor 和数据库时间；冲突必须重新读取后人工复核。
 - `quote_control_audit.version` 一一对应每个成功状态版本，初始 migration 状态为 version 0；当前表和 audit 表都把 version 限制在 JavaScript safe integer `0..9007199254740991`。reason 必须非空、去除首尾空白且不含控制字符；paused 状态不能缺少 reason。生产报价读取失败时 fail closed，不允许退回 pod-local enabled 状态。
 - `quote_pair_control` 使用 `(chain_id, token_low, token_high)` 保存无方向交易对控制。地址写入前统一为 lowercase 并排序，避免 `A/B` 与 `B/A` 形成两个独立开关；不存在的 pair row 表示从未配置且默认 enabled。首次 CAS 更新要求 `expectedVersion=0` 并创建 version 1，后续只更新精确匹配的 version。每个成功版本在同一 SQL statement 中写入 `quote_pair_control_audit`，因此多副本和并发操作员不能静默覆盖状态。
+- `toxic_flow_scores` 以 `(chain_id, normalized user_address)` 保存最新的派生毒性分数、成交后漂移、样本量、观察窗口和 analyzer policy version。它不是原始成交事实；自动 markout analyzer 或人工回填只能通过 expectedVersion CAS 更新，并在同一 SQL statement 中向 `toxic_flow_score_audit` 写入完整版本。未知用户沿用基础风控，已知但过期、超前或畸形的 score 必须 fail closed 为 `RISK_ENGINE_UNAVAILABLE`。
+- `toxic_flow_score_audit` 保留每次成功更新的 actor、数据库时间和 analyzer 观察时间。生产排障应将 quote 的 `risk_policy_version` 中 `:tf<version>` 与此表关联，禁止覆盖或删除旧版本来修正模型结果。
 - `/quote` 先读取全局控制，再校验请求并读取对应 pair 控制；任一状态 paused 都在定价和签名前返回 `QUOTE_PAUSED`，任一表不可读、状态畸形或 migration 缺失都返回 `QUOTE_CONTROL_UNAVAILABLE`。pair 暂停与全局暂停一样只限制新 signed quote，不改变既有 quote 的 submit、settlement、inventory、hedge 或 reconciliation 义务。
 - `quote_exposure_reservations` 以 `quote_id` 为主键并级联绑定 requested quote，保存 `(chain_id, normalized user)`、排序后的无方向 `(token_low, token_high)`、方向性的 `token_out/amount_out`、18-decimal USD 定点名义金额和 `expires_at`。生产 quote 还保存同一 block 读取的 settlement、treasury、token balance 和 block number 证据。只有尚未过期且 quote 状态仍为 requested/signed/failed 的行参与累计名义限额；failed signed quote 的链上 nonce 未必已消耗，必须保守计数。submitted/settled 有成交证据后暂不计入名义限额但保留行，reorg 恢复 signed 状态时自动重新纳入。
 - PostgreSQL exposure store 对 quote、user、pair 与 `(chainId, tokenOut)` liquidity scope 按字符串稳定排序后逐个获取 transaction-scoped advisory locks，再执行 SUM 和 INSERT；这让多 API replica 无法通过 write skew 同时越过 user/pair limit 或超卖 Treasury。输出流动性 SUM 计算所有未过期 reservation，不因 submitted/settled 提前释放，避免 RPC 余额下降与数据库状态切换之间重复使用余额；expired 行由有界 `FOR UPDATE SKIP LOCKED` 清理。

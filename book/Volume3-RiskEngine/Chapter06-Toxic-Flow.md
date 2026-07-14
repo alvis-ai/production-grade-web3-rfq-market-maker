@@ -71,12 +71,16 @@ sequenceDiagram
   autonumber
   participant CH as ClickHouse
   participant T as Toxic Flow Analyzer
+  participant S as PostgreSQL Score Store
   participant R as Risk Engine
-  participant P as Pricing Engine
+  participant Q as Quote Service
 
   CH->>T: settled trades and price drift
-  T-->>R: toxic score cache
-  R-->>P: risk adjustment signal
+  T->>S: CAS publish score and audit version
+  Q->>R: validated request, pricing and inventory
+  R->>S: getScore(chainId, user)
+  S-->>R: current score or null
+  R-->>Q: approved or stable rejection
 ```
 
 ## State Machine
@@ -93,11 +97,11 @@ stateDiagram-v2
 
 ## Data Model
 
-`ToxicFlowSignal` 包含 `subjectType`、`subjectId`、`scoreBps`、`windowSeconds`、`postTradeDriftBps`、`sampleSize`、`policyVersion`。
+当前 `ToxicFlowScoreState` 以 `(chainId, normalized user)` 为键，包含 `scoreBps`、`postTradeDriftBps`、`sampleSize`、`windowSeconds`、`policyVersion`、`observedAt`、单调 `version`、`updatedBy` 和 `updatedAt`。`toxic_flow_scores` 保存最新版本，`toxic_flow_score_audit` 保存每个成功 CAS 版本；原始 settled trade 和 markout 证据仍应保留在操作库/分析库，不能用派生 score 反向替代事实。
 
 ## API Design
 
-Toxic flow 不通过公开 API 暴露。Risk Decision 可以记录内部 reason code。
+Toxic flow 不通过交易 API 暴露。受保护的 `GET/PUT /admin/toxic-flow/scores/:chainId/:user` 只供 analyzer 和运维控制面读取或以 `expectedVersion` 发布 score；公共 quote 响应仍只返回 `RISK_REJECTED`。Risk Decision 记录内部 reason code，并把 score version 组合到 `policyVersion` 的 `:tf<version>` 后缀中以便回放。
 
 ## Engineering Decisions
 
@@ -105,16 +109,19 @@ Toxic flow 不通过公开 API 暴露。Risk Decision 可以记录内部 reason 
 - toxic score 可扩大 spread 或降低 limit。
 - 严重 toxic flow 可拒绝签名。
 - 当前默认 `TokenLimitRiskEngine` 与保留的 `BasicRiskEngine` 都支持 restricted user 和 per-user `toxicFlowScores`；分数超过 `maxToxicScoreBps` 时返回 `TOXIC_FLOW_SCORE_EXCEEDED`，restricted user 返回 `TOXIC_FLOW_RESTRICTED_USER`。
+- 默认运行时在 `TokenLimitRiskEngine` 外层装配 `DynamicToxicFlowRiskEngine`。基础 chain、token、market、inventory 和静态策略先执行并可短路拒绝；基础批准后才读取共享动态 score。未知用户继续使用基础决定，样本量低于 `RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE` 的新 score 只参与版本审计而不触发强拒绝。
+- 已知 score 必须满足 `RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS` 和 `RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS`。过期、来自过远未来、畸形或存储不可读都视为 `RISK_ENGINE_UNAVAILABLE` 并阻断 signer；生产多副本不得回退到 pod-local score。
+- 注入自定义 `RiskEngine` 表示调用方接管完整策略，因此默认动态 wrapper 不会再次叠加；自定义实现必须自行提供等价的 freshness、审计与 fail-closed 保证。
 
 ## Failure Scenarios
 
-- 分析任务延迟：使用上一版本评分。
+- 分析任务延迟：仅在上一版本仍处于 freshness 窗口时继续使用；过期后 fail closed。
 - 样本不足：不做强拒绝。
-- scoring 异常：回退到保守限额。
+- scoring 或 score store 异常：已知用户拒绝签名并记录 `RISK_ENGINE_UNAVAILABLE`，不静默降级为无 score。
 
 ## Security Considerations
 
-不能暴露具体评分规则，否则容易被规避。内部访问需要权限控制。
+不能暴露具体评分规则，否则容易被规避。读取使用独立 `admin:read` key，analyzer 写入使用最小权限的 `admin:write` key；普通 quote、submit、浏览器和分析查询凭证不得拥有这些 scope。指标不带 user、chain、score 或 actor label，具体证据从审计表查询。
 
 ## Performance Considerations
 

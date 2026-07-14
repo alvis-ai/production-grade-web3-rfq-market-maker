@@ -97,6 +97,20 @@ const endpoints = [
   },
   {
     method: "get",
+    backendPath: "/admin/toxic-flow/scores/:chainId/:user",
+    openapiPath: "/admin/toxic-flow/scores/{chainId}/{user}",
+    operationId: "getToxicFlowScore",
+    operationsOnly: true,
+  },
+  {
+    method: "put",
+    backendPath: "/admin/toxic-flow/scores/:chainId/:user",
+    openapiPath: "/admin/toxic-flow/scores/{chainId}/{user}",
+    operationId: "updateToxicFlowScore",
+    operationsOnly: true,
+  },
+  {
+    method: "get",
     backendPath: "/health",
     openapiPath: "/health",
     operationId: "getHealth",

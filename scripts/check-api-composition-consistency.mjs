@@ -11,6 +11,7 @@ const main = sources["backend/src/main.ts"];
 const boundary = sources["backend/src/api/http-boundary.ts"];
 const routes = sources["backend/src/api/trading-routes.ts"];
 const quoteControlRoutes = sources["backend/src/api/quote-control-routes.ts"];
+const toxicFlowScoreRoutes = sources["backend/src/api/toxic-flow-score-routes.ts"];
 const environment = sources["backend/src/runtime/environment.ts"];
 const gatewayRuntime = sources["backend/src/runtime/gateway-runtime.ts"];
 const marketRuntime = sources["backend/src/runtime/market-runtime.ts"];
@@ -61,6 +62,14 @@ assertContains(quoteControlRoutes, [
   "normalizeQuoteControlUpdate",
 ], "quote-control routes");
 assert.ok(!quoteControlRoutes.includes("process.env"), "quote-control routes must not read process environment");
+assertContains(toxicFlowScoreRoutes, [
+  "registerToxicFlowScoreRoutes",
+  'server.get("/admin/toxic-flow/scores/:chainId/:user"',
+  'server.put("/admin/toxic-flow/scores/:chainId/:user"',
+  "normalizeToxicFlowScoreKey",
+  "normalizeToxicFlowScoreUpdate",
+], "toxic-flow score routes");
+assert.ok(!toxicFlowScoreRoutes.includes("process.env"), "toxic-flow score routes must not read process environment");
 
 assertContains(environment, [
   "readOwnEnvValue",

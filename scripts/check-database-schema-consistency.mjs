@@ -78,8 +78,16 @@ const pairQuoteControlMigrationSource = await readFile(
   "backend/src/db/migrations/019-pair-quote-control.sql",
   "utf8",
 );
+const toxicFlowScoreMigrationSource = await readFile(
+  "backend/src/db/migrations/020-toxic-flow-scores.sql",
+  "utf8",
+);
 const postgresQuoteControlSource = await readFile(
   "backend/src/modules/quote-control/postgres-quote-control.store.ts",
+  "utf8",
+);
+const postgresToxicFlowScoreSource = await readFile(
+  "backend/src/modules/risk/postgres-toxic-flow-score.store.ts",
   "utf8",
 );
 const treasuryLiquidityProviderSource = await readFile(
@@ -292,6 +300,14 @@ const requiredTables = {
   ],
   quote_control: ["singleton", "paused", "version", "reason", "updated_by", "updated_at"],
   quote_control_audit: ["version", "paused", "reason", "updated_by", "updated_at"],
+  toxic_flow_scores: [
+    "chain_id", "user_address", "score_bps", "post_trade_drift_bps", "sample_size",
+    "window_seconds", "policy_version", "observed_at", "version", "updated_by", "updated_at",
+  ],
+  toxic_flow_score_audit: [
+    "chain_id", "user_address", "version", "score_bps", "post_trade_drift_bps", "sample_size",
+    "window_seconds", "policy_version", "observed_at", "updated_by", "updated_at",
+  ],
   _migrations: ["version", "name", "applied_at"],
 };
 
@@ -1422,6 +1438,26 @@ assert.ok(
     postgresQuoteControlSource.includes("FROM changed") &&
     postgresQuoteControlSource.includes("QuoteControlConflictError"),
   "Postgres pair quote-control store must normalize, CAS-upsert, and audit atomically",
+);
+assert.ok(
+  toxicFlowScoreMigrationSource.includes("CREATE TABLE toxic_flow_scores") &&
+    toxicFlowScoreMigrationSource.includes("CREATE TABLE toxic_flow_score_audit") &&
+    toxicFlowScoreMigrationSource.includes("PRIMARY KEY (chain_id, user_address)") &&
+    toxicFlowScoreMigrationSource.includes("score_bps BETWEEN 0 AND 10000") &&
+    toxicFlowScoreMigrationSource.includes("idx_toxic_flow_scores_observed_at") &&
+    schemaSource.includes("('020', 'toxic-flow-scores')") &&
+    erDiagramSource.includes("TOXIC_FLOW_SCORES ||--o{ TOXIC_FLOW_SCORE_AUDIT"),
+  "toxic-flow score migration and docs must install chain-user current state and immutable audit",
+);
+assert.ok(
+  postgresToxicFlowScoreSource.includes("async getScore") &&
+    postgresToxicFlowScoreSource.includes("async updateScore") &&
+    postgresToxicFlowScoreSource.includes("INSERT INTO toxic_flow_scores") &&
+    postgresToxicFlowScoreSource.includes("ON CONFLICT (chain_id, user_address) DO NOTHING") &&
+    postgresToxicFlowScoreSource.includes("INSERT INTO toxic_flow_score_audit") &&
+    postgresToxicFlowScoreSource.includes("FROM changed") &&
+    postgresToxicFlowScoreSource.includes("ToxicFlowScoreConflictError"),
+  "Postgres toxic-flow score store must CAS-upsert and append audit evidence atomically",
 );
 assert.ok(
   postgresQuoteExposureSource.includes("pg_advisory_xact_lock") &&

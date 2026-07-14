@@ -87,6 +87,8 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   metrics.recordPausedQuotePairCount(2);
   metrics.recordQuoteControlUpdate();
   metrics.recordQuoteControlError("read");
+  metrics.recordToxicFlowScoreUpdate();
+  metrics.recordToxicFlowScoreError("update");
 
   const output = metrics.renderPrometheus();
 
@@ -104,6 +106,8 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   assert.match(output, /rfq_quote_pairs_paused 2/);
   assert.match(output, /rfq_quote_control_updates_total 1/);
   assert.match(output, /rfq_quote_control_errors_total\{operation="read"\} 1/);
+  assert.match(output, /rfq_toxic_flow_score_updates_total 1/);
+  assert.match(output, /rfq_toxic_flow_score_errors_total\{operation="update"\} 1/);
 });
 
 test("MetricsService snapshots inventory positions before storing gauges", () => {

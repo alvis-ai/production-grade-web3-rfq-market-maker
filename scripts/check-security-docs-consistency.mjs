@@ -235,6 +235,8 @@ for (const term of [
   assert.ok(docs.riskService.includes(term), `Risk service docs must define sensitive threshold boundary: ${term}`);
 }
 
+const tradingOpenApi = docs.openapi.match(/^paths:\n([\s\S]*?)^  \/admin\//m)?.[1];
+assert.ok(tradingOpenApi, "OpenAPI must define trading routes before protected administrative routes");
 for (const sensitivePublicField of [
   "riskPolicyVersion",
   "policyVersion",
@@ -249,10 +251,18 @@ for (const sensitivePublicField of [
   "hedgeCostBps",
 ]) {
   assert.ok(
-    !docs.openapi.includes(sensitivePublicField),
-    `OpenAPI public contract must not expose sensitive risk field: ${sensitivePublicField}`,
+    !tradingOpenApi.includes(sensitivePublicField),
+    `OpenAPI trading contract must not expose sensitive risk field: ${sensitivePublicField}`,
   );
 }
+assert.ok(
+  docs.openapi.includes("/admin/toxic-flow/scores/{chainId}/{user}:") &&
+    docs.openapi.includes("x-required-scope: admin:read") &&
+    docs.openapi.includes("x-required-scope: admin:write") &&
+    docs.openapi.includes("ToxicFlowScoreState:") &&
+    docs.openapi.includes("policyVersion:"),
+  "OpenAPI may expose versioned toxic-flow evidence only through scoped administrative operations",
+);
 
 for (const term of [
   "PostgreSQL 是操作型状态来源，ClickHouse 是分析副本",

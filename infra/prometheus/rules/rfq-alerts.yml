@@ -73,6 +73,24 @@ groups:
           summary: RFQ quote-control read or update operations are failing
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQToxicFlowScoreChanged
+        expr: sum(increase(rfq_toxic_flow_score_updates_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ dynamic toxic-flow score state changed
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQToxicFlowScoreErrors
+        expr: sum by (operation) (increase(rfq_toxic_flow_score_errors_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ toxic-flow score read or update operations are failing
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQSubmitTrafficSpike
         expr: increase(rfq_submit_requests_total[5m]) > 100
         for: 5m
