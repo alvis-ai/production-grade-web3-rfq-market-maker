@@ -1,6 +1,6 @@
 apiVersion: v2
 name: rfq-market-maker
-description: Helm chart skeleton for the RFQ market maker backend.
+description: Helm chart for the RFQ market maker API and operational workers.
 type: application
 version: 0.1.0
 appVersion: "0.1.0"

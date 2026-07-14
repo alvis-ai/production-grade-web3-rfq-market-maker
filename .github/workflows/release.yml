@@ -1,0 +1,217 @@
+name: Release Artifacts
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Set up Foundry
+        uses: foundry-rs/foundry-toolchain@b00af27efadbc7b4ca8b82abbd903b17cc874d2a # v1
+        with:
+          version: stable
+
+      - name: Install dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Verify release source
+        run: make verify
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: write
+    env:
+      BACKEND_IMAGE: ghcr.io/${{ github.repository }}-backend
+      FRONTEND_IMAGE: ghcr.io/${{ github.repository }}-frontend
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.0.6
+
+      - name: Compute backend image metadata
+        id: backend-meta
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
+        with:
+          images: ${{ env.BACKEND_IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,format=long,prefix=sha-
+
+      - name: Build and publish backend image
+        id: backend-build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: .
+          file: infra/docker/backend.Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.backend-meta.outputs.tags }}
+          labels: ${{ steps.backend-meta.outputs.labels }}
+          cache-from: type=gha,scope=backend-release
+          cache-to: type=gha,mode=max,scope=backend-release
+          sbom: true
+          provenance: mode=max
+
+      - name: Sign backend image digest
+        env:
+          DIGEST: ${{ steps.backend-build.outputs.digest }}
+        run: cosign sign --yes "${BACKEND_IMAGE}@${DIGEST}"
+
+      - name: Compute frontend image metadata
+        id: frontend-meta
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
+        with:
+          images: ${{ env.FRONTEND_IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,format=long,prefix=sha-
+
+      - name: Build and publish frontend image
+        id: frontend-build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: .
+          file: infra/docker/frontend.Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.frontend-meta.outputs.tags }}
+          labels: ${{ steps.frontend-meta.outputs.labels }}
+          cache-from: type=gha,scope=frontend-release
+          cache-to: type=gha,mode=max,scope=frontend-release
+          sbom: true
+          provenance: mode=max
+
+      - name: Sign frontend image digest
+        env:
+          DIGEST: ${{ steps.frontend-build.outputs.digest }}
+        run: cosign sign --yes "${FRONTEND_IMAGE}@${DIGEST}"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        with:
+          version: v3.19.0
+
+      - name: Compute chart version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="0.1.0-sha.${GITHUB_SHA:0:12}"
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Validate Helm chart with backend digest
+        env:
+          BACKEND_DIGEST: ${{ steps.backend-build.outputs.digest }}
+        run: |
+          helm lint infra/helm/rfq-market-maker \
+            --set-string image.repository="${BACKEND_IMAGE}" \
+            --set-string image.digest="${BACKEND_DIGEST}"
+          helm template rfq-market-maker infra/helm/rfq-market-maker \
+            --set-string image.repository="${BACKEND_IMAGE}" \
+            --set-string image.digest="${BACKEND_DIGEST}" >/dev/null
+
+      - name: Package Helm chart
+        env:
+          CHART_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p dist
+          helm package infra/helm/rfq-market-maker \
+            --version "${CHART_VERSION}" \
+            --app-version "${GITHUB_SHA}" \
+            --destination dist
+
+      - name: Publish Helm chart to GHCR
+        env:
+          CHART_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io \
+            --username "${GITHUB_ACTOR}" \
+            --password-stdin
+          helm push "dist/rfq-market-maker-${CHART_VERSION}.tgz" \
+            "oci://ghcr.io/${GITHUB_REPOSITORY_OWNER}/charts"
+
+      - name: Write release manifest
+        env:
+          BACKEND_DIGEST: ${{ steps.backend-build.outputs.digest }}
+          BACKEND_TAGS: ${{ steps.backend-meta.outputs.tags }}
+          FRONTEND_DIGEST: ${{ steps.frontend-build.outputs.digest }}
+          FRONTEND_TAGS: ${{ steps.frontend-meta.outputs.tags }}
+          CHART_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          jq -n \
+            --arg commit "${GITHUB_SHA}" \
+            --arg backendImage "${BACKEND_IMAGE}" \
+            --arg backendDigest "${BACKEND_DIGEST}" \
+            --arg backendTags "${BACKEND_TAGS}" \
+            --arg frontendImage "${FRONTEND_IMAGE}" \
+            --arg frontendDigest "${FRONTEND_DIGEST}" \
+            --arg frontendTags "${FRONTEND_TAGS}" \
+            --arg chart "oci://ghcr.io/${GITHUB_REPOSITORY_OWNER}/charts/rfq-market-maker" \
+            --arg chartVersion "${CHART_VERSION}" \
+            '{schemaVersion: 1, commit: $commit, backend: {image: $backendImage, digest: $backendDigest, tags: ($backendTags | split("\n"))}, frontend: {image: $frontendImage, digest: $frontendDigest, tags: ($frontendTags | split("\n"))}, helm: {chart: $chart, version: $chartVersion}}' \
+            > dist/release-manifest.json
+
+      - name: Upload release metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-${{ steps.version.outputs.version }}
+          path: |
+            dist/rfq-market-maker-${{ steps.version.outputs.version }}.tgz
+            dist/release-manifest.json
+          if-no-files-found: error
+          retention-days: 30

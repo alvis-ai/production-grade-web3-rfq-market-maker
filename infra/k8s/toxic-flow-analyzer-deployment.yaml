@@ -18,7 +18,7 @@ spec:
       terminationGracePeriodSeconds: 30
       initContainers:
         - name: database-migrate
-          image: ghcr.io/example/rfq-backend:latest
+          image: ghcr.io/example/rfq-backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
           command: ["node", "backend/dist/db/migrate.js"]
           env:
@@ -29,7 +29,7 @@ spec:
                   key: DATABASE_URL
       containers:
         - name: toxic-flow-analyzer
-          image: ghcr.io/example/rfq-backend:latest
+          image: ghcr.io/example/rfq-backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
           command: ["node", "backend/dist/toxic-flow-analyzer-main.js"]
           ports:

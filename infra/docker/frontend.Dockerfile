@@ -16,7 +16,7 @@ ENV VITE_RFQ_API_BASE_URL=$VITE_RFQ_API_BASE_URL
 ENV VITE_RFQ_SETTLEMENT_ADDRESS=$VITE_RFQ_SETTLEMENT_ADDRESS
 ENV VITE_WALLETCONNECT_PROJECT_ID=$VITE_WALLETCONNECT_PROJECT_ID
 RUN corepack enable \
-  && pnpm install --filter @rfq-market-maker/frontend --frozen-lockfile \
+  && pnpm install --filter @rfq-market-maker/frontend... --frozen-lockfile \
   && pnpm --filter @rfq-market-maker/frontend build
 
 FROM nginx:1.27-alpine AS runtime

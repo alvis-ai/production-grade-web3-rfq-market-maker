@@ -9,7 +9,8 @@ serviceAccount:
 
 image:
   repository: ghcr.io/example/rfq-backend
-  tag: latest
+  tag: "0.1.0"
+  digest: ""
   pullPolicy: IfNotPresent
 
 service:

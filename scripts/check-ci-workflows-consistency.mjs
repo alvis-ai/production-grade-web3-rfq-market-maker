@@ -7,19 +7,31 @@ const workflows = {
   backend: await readFile(".github/workflows/backend-ci.yml", "utf8"),
   docs: await readFile(".github/workflows/docs-ci.yml", "utf8"),
   contract: await readFile(".github/workflows/contract-ci.yml", "utf8"),
+  release: await readFile(".github/workflows/release.yml", "utf8"),
 };
+const dependabot = await readFile(".github/dependabot.yml", "utf8");
 
-for (const [name, source] of Object.entries(workflows)) {
+for (const [name, source] of Object.entries({
+  backend: workflows.backend,
+  docs: workflows.docs,
+  contract: workflows.contract,
+})) {
   assertContains(source, [
     "pull_request:",
     "push:",
     "- main",
     "- master",
     "runs-on: ubuntu-latest",
-    "uses: actions/checkout@v4",
-    "uses: actions/setup-node@v4",
+    "contents: read",
+    "persist-credentials: false",
     'node-version: "22"',
+    "package-manager-cache: false",
   ], `.github/workflows/${name}-ci.yml`);
+}
+
+for (const [name, source] of Object.entries(workflows)) {
+  const filename = name === "release" ? "release.yml" : `${name}-ci.yml`;
+  assertActionsPinned(source, `.github/workflows/${filename}`);
 }
 
 assertContains(workflows.backend, [
@@ -39,6 +51,7 @@ assertContains(workflows.backend, [
   "run: corepack enable",
   "run: pnpm install --frozen-lockfile",
   "run: make verify",
+  "submodules: recursive",
 ], ".github/workflows/backend-ci.yml");
 
 assertContains(workflows.docs, [
@@ -98,6 +111,8 @@ assertContains(workflows.docs, [
   '- "scripts/check-rate-limit-consistency.mjs"',
   '- "scripts/check-runbook-consistency.mjs"',
   '- "scripts/check-security-docs-consistency.mjs"',
+  '- ".github/workflows/release.yml"',
+  '- ".github/dependabot.yml"',
   "run: make skeleton-check",
   "run: make examples-check",
   "run: make config-check",
@@ -133,7 +148,6 @@ assertContains(workflows.contract, [
   '- "scripts/check-eip712-consistency.mjs"',
   '- ".gitmodules"',
   '- "Makefile"',
-  "uses: foundry-rs/foundry-toolchain@v1",
   "version: stable",
   "FOUNDRY_DISABLE_NIGHTLY_WARNING",
   "submodules: recursive",
@@ -144,10 +158,70 @@ assertContains(workflows.contract, [
   "run: forge test",
 ], ".github/workflows/contract-ci.yml");
 
+assertContains(workflows.release, [
+  "name: Release Artifacts",
+  "workflow_dispatch:",
+  '- "v*.*.*"',
+  "cancel-in-progress: false",
+  "permissions: {}",
+  "verify:",
+  "FOUNDRY_DISABLE_NIGHTLY_WARNING",
+  "pnpm install --frozen-lockfile",
+  "run: make verify",
+  "needs: verify",
+  "actions: read",
+  "contents: read",
+  "id-token: write",
+  "packages: write",
+  "submodules: recursive",
+  "persist-credentials: false",
+  "registry: ghcr.io",
+  "flavor: latest=false",
+  "type=sha,format=long,prefix=sha-",
+  "file: infra/docker/backend.Dockerfile",
+  "file: infra/docker/frontend.Dockerfile",
+  "platforms: linux/amd64",
+  "push: true",
+  "sbom: true",
+  "provenance: mode=max",
+  'cosign sign --yes "${BACKEND_IMAGE}@${DIGEST}"',
+  'cosign sign --yes "${FRONTEND_IMAGE}@${DIGEST}"',
+  "helm lint infra/helm/rfq-market-maker",
+  "helm template rfq-market-maker infra/helm/rfq-market-maker",
+  '--set-string image.digest="${BACKEND_DIGEST}"',
+  "helm package infra/helm/rfq-market-maker",
+  "helm push",
+  "release-manifest.json",
+  "if-no-files-found: error",
+], ".github/workflows/release.yml");
+assert.ok(
+  !workflows.release.includes("pull_request:"),
+  "release workflow must never expose publishing credentials to pull requests",
+);
+
+assertContains(dependabot, [
+  "package-ecosystem: github-actions",
+  "package-ecosystem: npm",
+  "package-ecosystem: docker",
+  "interval: weekly",
+], ".github/dependabot.yml");
+
 console.log("CI workflows consistency check passed");
 
 function assertContains(source, needles, label) {
   for (const needle of needles) {
     assert.ok(source.includes(needle), `${label} must include ${needle}`);
+  }
+}
+
+function assertActionsPinned(source, label) {
+  const actionLines = source.match(/^\s*(?:-\s+)?uses:\s+\S+.*$/gm) ?? [];
+  assert.ok(actionLines.length > 0, `${label} must use at least one action`);
+  for (const line of actionLines) {
+    assert.match(
+      line,
+      /uses:\s+[A-Za-z0-9_.-]+\/[A-Za-z0-9_./-]+@[0-9a-f]{40}\s+#\s+v\S+$/,
+      `${label} action references must use a full commit SHA with an audited version comment: ${line.trim()}`,
+    );
   }
 }

@@ -378,6 +378,21 @@ The Helm chart expects the KMS key id, trusted signer address, and settlement ad
 
 API, hedge, analytics, reconciliation, settlement-indexer, and toxic-flow analyzer Kubernetes Deployments run the migration entrypoint in an init container using `migrationSecret`. Migration discovery and execution are serialized by a PostgreSQL session advisory lock, allowing multiple rollout pods to start safely while ensuring migrations through `021-toxic-flow-markouts.sql` are committed before any process checks readiness. Before applying migration 017 to an existing deployment, stop quote admission and wait at least the maximum quote TTL; historical rows receive isolated legacy principals and are intentionally unavailable through institutional APIs. The DDL-capable migrator credential is not mounted into runtime containers. Production operators must provision `rfq.analytics.v1` before starting analytics consumers; auto topic creation is intentionally disabled.
 
+Artifact release is handled by `.github/workflows/release.yml`. A `v*.*.*` tag or manual dispatch first reruns `make verify` and Foundry tests in a read-only job, then builds the backend and frontend images for `linux/amd64`, publishes them to GHCR with BuildKit SBOM and `mode=max` provenance, signs each returned digest through Cosign keyless OIDC, packages the Helm chart, publishes it as an OCI chart, and uploads `release-manifest.json`. The publishing job cannot run unless verification passes; the workflow has no pull-request trigger or cluster credentials. All Actions use full commit SHA pins; Dependabot proposes weekly updates.
+
+Production deployment must consume the backend digest from `release-manifest.json`:
+
+```sh
+helm upgrade --install rfq-market-maker \
+  oci://ghcr.io/OWNER/charts/rfq-market-maker \
+  --version RELEASE_VERSION \
+  --set-string image.repository=ghcr.io/OWNER/REPOSITORY-backend \
+  --set-string image.digest=sha256:RELEASE_DIGEST \
+  --atomic --wait
+```
+
+The Helm helper renders `repository@digest` whenever `image.digest` is set; `image.tag` is a non-production fallback. Raw manifests deliberately contain an unavailable all-zero digest and therefore fail closed until an operator replaces it with a verified release digest. Verify the Cosign issuer/workflow identity before promotion and retain the release manifest with the deployment audit record.
+
 Local API smoke path:
 
 ```sh

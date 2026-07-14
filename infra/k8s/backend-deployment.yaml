@@ -19,7 +19,7 @@ spec:
       terminationGracePeriodSeconds: 30
       initContainers:
         - name: database-migrate
-          image: ghcr.io/example/rfq-backend:latest
+          image: ghcr.io/example/rfq-backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
           command: ["node", "backend/dist/db/migrate.js"]
           env:
@@ -30,7 +30,7 @@ spec:
                   key: DATABASE_URL
       containers:
         - name: backend
-          image: ghcr.io/example/rfq-backend:latest
+          image: ghcr.io/example/rfq-backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

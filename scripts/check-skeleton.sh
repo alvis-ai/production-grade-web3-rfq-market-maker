@@ -631,6 +631,7 @@ grep -q 'VITE_RFQ_API_BASE_URL' infra/docker/frontend.Dockerfile
 grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS' infra/docker/frontend.Dockerfile
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID' infra/docker/frontend.Dockerfile
 grep -q 'COPY sdk/src sdk/src' infra/docker/frontend.Dockerfile
+grep -q '@rfq-market-maker/frontend\.\.\.' infra/docker/frontend.Dockerfile
 grep -q 'pnpm --filter @rfq-market-maker/frontend build' infra/docker/frontend.Dockerfile
 grep -q 'HEALTHCHECK' infra/docker/frontend.Dockerfile
 grep -q 'http://127.0.0.1/' infra/docker/frontend.Dockerfile
@@ -657,6 +658,7 @@ test -s infra/grafana/provisioning/datasources/prometheus.yml
 test -s infra/k8s/backend-deployment.yaml
 test -s infra/k8s/backend-secret.yaml
 test -s infra/helm/rfq-market-maker/Chart.yaml
+test -s infra/helm/rfq-market-maker/values.schema.json
 test -s scripts/smoke-api.sh
 
 grep -q 'server.post("/quote"' $gateway_sources
@@ -2810,7 +2812,9 @@ grep -Fq '"scripts/check-eip712-consistency.mjs"' .github/workflows/contract-ci.
 grep -q 'pnpm install --frozen-lockfile' .github/workflows/backend-ci.yml
 grep -q 'make verify' .github/workflows/backend-ci.yml
 grep -Fq '"pnpm-lock.yaml"' .github/workflows/backend-ci.yml
-grep -q 'actions/setup-node@v4' .github/workflows/backend-ci.yml
+grep -Eq 'actions/setup-node@[0-9a-f]{40} # v6\.' .github/workflows/backend-ci.yml
+grep -q 'submodules: recursive' .github/workflows/backend-ci.yml
+grep -q 'persist-credentials: false' .github/workflows/backend-ci.yml
 grep -q 'node-version: "22"' .github/workflows/backend-ci.yml
 grep -Fq '"infra/**"' .github/workflows/backend-ci.yml
 grep -Fq '"docker-compose.yml"' .github/workflows/backend-ci.yml
@@ -2819,10 +2823,20 @@ grep -Fq '"README.md"' .github/workflows/backend-ci.yml
 grep -q '      - master' .github/workflows/backend-ci.yml
 grep -q '      - master' .github/workflows/docs-ci.yml
 grep -q '      - master' .github/workflows/contract-ci.yml
-grep -q 'actions/setup-node@v4' .github/workflows/docs-ci.yml
+grep -Eq 'actions/setup-node@[0-9a-f]{40} # v6\.' .github/workflows/docs-ci.yml
 grep -q 'node-version: "22"' .github/workflows/docs-ci.yml
-grep -q 'actions/setup-node@v4' .github/workflows/contract-ci.yml
+grep -Eq 'actions/setup-node@[0-9a-f]{40} # v6\.' .github/workflows/contract-ci.yml
 grep -q 'node-version: "22"' .github/workflows/contract-ci.yml
+test -s .github/workflows/release.yml
+test -s .github/dependabot.yml
+grep -q 'name: Release Artifacts' .github/workflows/release.yml
+grep -q 'needs: verify' .github/workflows/release.yml
+grep -q 'run: make verify' .github/workflows/release.yml
+grep -q 'sbom: true' .github/workflows/release.yml
+grep -q 'provenance: mode=max' .github/workflows/release.yml
+grep -q 'cosign sign --yes' .github/workflows/release.yml
+grep -q 'helm package' .github/workflows/release.yml
+grep -q 'release-manifest.json' .github/workflows/release.yml
 grep -q 'make api-error-check' .github/workflows/docs-ci.yml
 grep -q 'make examples-check' .github/workflows/docs-ci.yml
 grep -q 'make config-check' .github/workflows/docs-ci.yml

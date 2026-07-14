@@ -43,6 +43,10 @@ const k8sToxicFlowAnalyzerNetworkPolicy = await readFile(
   "utf8",
 );
 const helmValues = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
+const helmHelpers = await readFile("infra/helm/rfq-market-maker/templates/_helpers.tpl", "utf8");
+const helmValuesSchema = JSON.parse(
+  await readFile("infra/helm/rfq-market-maker/values.schema.json", "utf8"),
+);
 const helmDeployment = await readFile("infra/helm/rfq-market-maker/templates/deployment.yaml", "utf8");
 const helmServiceAccount = await readFile("infra/helm/rfq-market-maker/templates/service-account.yaml", "utf8");
 const helmService = await readFile("infra/helm/rfq-market-maker/templates/service.yaml", "utf8");
@@ -102,6 +106,32 @@ const expectedRuntime = {
   cpuLimit: "500m",
   memoryLimit: "512Mi",
 };
+
+for (const [label, source] of [
+  ["backend", k8sDeployment],
+  ["hedge worker", k8sHedgeDeployment],
+  ["analytics worker", k8sAnalyticsDeployment],
+  ["reconciliation worker", k8sReconciliationDeployment],
+  ["settlement indexer", k8sIndexerDeployment],
+  ["toxic-flow analyzer", k8sToxicFlowAnalyzerDeployment],
+]) {
+  assert.ok(!source.includes(":latest"), `${label} manifest must not use a mutable latest tag`);
+  const digestImages = source.match(/image:\s+\S+@sha256:[0-9a-f]{64}/g) ?? [];
+  assert.equal(digestImages.length, 2, `${label} manifest must pin both containers by valid digest`);
+}
+
+for (const [label, source] of [
+  ["backend", helmDeployment],
+  ["hedge worker", helmHedgeDeployment],
+  ["analytics worker", helmAnalyticsDeployment],
+  ["reconciliation worker", helmReconciliationDeployment],
+  ["settlement indexer", helmIndexerDeployment],
+  ["toxic-flow analyzer", helmToxicFlowAnalyzerDeployment],
+]) {
+  const imageReferences = source.match(/include "rfq-market-maker\.image" \. \| quote/g) ?? [];
+  assert.equal(imageReferences.length, 2, `${label} Helm template must reuse one digest-aware image reference`);
+  assert.ok(!source.includes(".Values.image.tag"), `${label} Helm template must not assemble mutable tags directly`);
+}
 
 assertContains(k8sDeployment, [
   "kind: Deployment",
@@ -401,6 +431,8 @@ assert.ok(
 );
 
 assertContains(helmValues, [
+  'tag: "0.1.0"',
+  'digest: ""',
   `replicaCount: ${expectedRuntime.replicas}`,
   `terminationGracePeriodSeconds: ${expectedRuntime.terminationGracePeriodSeconds}`,
   `preStopSleepSeconds: ${expectedRuntime.preStopSleepSeconds}`,
@@ -464,7 +496,25 @@ assertContains(helmValues, [
   "memory: 512Mi",
 ], "infra/helm/rfq-market-maker/values.yaml");
 
+assertContains(helmHelpers, [
+  'define "rfq-market-maker.image"',
+  ".Values.image.digest",
+  'printf "%s@%s" .Values.image.repository .Values.image.digest',
+  'required "image.tag is required when image.digest is empty"',
+], "infra/helm/rfq-market-maker/templates/_helpers.tpl");
+assert.deepEqual(
+  helmValuesSchema.properties.image.properties.digest.oneOf[1],
+  { type: "string", pattern: "^sha256:[0-9a-f]{64}$" },
+  "Helm values schema must require a canonical sha256 digest",
+);
+assert.equal(
+  helmValuesSchema.properties.image.properties.tag.not.const,
+  "latest",
+  "Helm values schema must reject the mutable latest tag",
+);
+
 assertContains(helmDeployment, [
+  'include "rfq-market-maker.image" . | quote',
   "replicas: {{ .Values.replicaCount }}",
   "terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}",
   "serviceAccountName: {{ .Values.serviceAccount.name }}",

@@ -21,7 +21,7 @@ spec:
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       initContainers:
         - name: database-migrate
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: {{ include "rfq-market-maker.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["node", "backend/dist/db/migrate.js"]
           env:
@@ -32,7 +32,7 @@ spec:
                   key: {{ .Values.migrationSecret.urlKey }}
       containers:
         - name: toxic-flow-analyzer
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: {{ include "rfq-market-maker.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["node", "backend/dist/toxic-flow-analyzer-main.js"]
           ports:
