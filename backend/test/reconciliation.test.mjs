@@ -326,6 +326,7 @@ test("ReconciliationService reports settlement events whose quotes are missing",
 async function saveSignedQuote(quoteRepository, quoteId, signedQuote) {
   await quoteRepository.saveSigned({
     quoteId,
+    principalId: "local",
     snapshotId: `snapshot_${quoteId}`,
     slippageBps: 50,
     spreadBps: 8,

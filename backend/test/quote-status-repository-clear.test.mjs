@@ -28,6 +28,7 @@ test("InMemoryQuoteRepository clears matching settlement status after reorg remo
 
   await quoteRepository.saveSigned({
     quoteId: "q_reorg_clear",
+    principalId: "local",
     snapshotId: "snapshot_reorg_clear",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -101,6 +102,7 @@ test("InMemoryQuoteRepository expires settlement status when removed quote is pa
 
   await quoteRepository.saveSigned({
     quoteId: "q_reorg_expired",
+    principalId: "local",
     snapshotId: "snapshot_reorg_expired",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -149,6 +151,7 @@ test("InMemoryQuoteRepository rejects unsafe settlement status clearing", async 
 
   await quoteRepository.saveSigned({
     quoteId: "q_reorg_reject",
+    principalId: "local",
     snapshotId: "snapshot_reorg_reject",
     slippageBps: request.slippageBps,
     spreadBps: 8,

@@ -4,6 +4,8 @@ Signer key management is a critical security domain for RFQ systems. A trusted s
 
 Institutional API keys are a separate credential class. They authorize HTTP operations but never grant EIP-712 signing capability, contract roles, venue access, or direct database access.
 
+Key rotation must keep the institution's `principalId` stable while issuing a new `keyId` and secret digest. Quote ownership follows `principalId`; changing it creates a separate authorization boundary and intentionally loses API access to the prior principal's quote, settlement, hedge, and PnL records.
+
 ## Principles
 
 - The signer must only sign typed RFQ quotes.

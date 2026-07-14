@@ -171,7 +171,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const pnlService = options.pnlService ?? (
     postgresPool
       ? new PostgresPnlStore(postgresPool, pnlValuationProvider)
-      : new PnlService(pnlValuationProvider)
+      : new PnlService(pnlValuationProvider, quoteRepository)
   );
   const submitReservationStore = resolveSubmitReservationStore(
     options.submitReservationStore,

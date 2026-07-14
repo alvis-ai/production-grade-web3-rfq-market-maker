@@ -10,6 +10,7 @@ const request = {
   amountIn: "1000000000",
   slippageBps: 50,
 };
+const principalId = "institution_a";
 
 test("PostgresQuoteRepository rejects requested quote rewrites when upsert conflict skips update", async () => {
   const { pool, client } = fakePool([
@@ -21,6 +22,7 @@ test("PostgresQuoteRepository rejects requested quote rewrites when upsert confl
   await assert.rejects(
     repository.saveRequested({
       quoteId: "q_requested_payload",
+      principalId,
       request,
       snapshotId: "snapshot_2",
     }),
@@ -48,6 +50,7 @@ test("PostgresQuoteRepository rejects rejected quote payload rewrites", async ()
   await assert.rejects(
     repository.saveRejected({
       quoteId: "q_1",
+      principalId,
       request,
       snapshotId: "snapshot_1",
       rejectCode: "DIFFERENT_REJECT",
@@ -203,6 +206,7 @@ function fakePool(results) {
 function quoteRow(overrides = {}) {
   return {
     quote_id: "q_1",
+    principal_id: principalId,
     chain_id: request.chainId,
     user: request.user,
     token_in: request.tokenIn,
@@ -256,6 +260,7 @@ function signedQuoteRow(overrides = {}) {
 function signedInput() {
   return {
     quoteId: "q_1",
+    principalId,
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     quote: {

@@ -66,6 +66,10 @@ const treasuryLiquidityMigrationSource = await readFile(
   "backend/src/db/migrations/016-treasury-liquidity-reservations.sql",
   "utf8",
 );
+const quotePrincipalOwnershipMigrationSource = await readFile(
+  "backend/src/db/migrations/017-quote-principal-ownership.sql",
+  "utf8",
+);
 const treasuryLiquidityProviderSource = await readFile(
   "backend/src/modules/risk/treasury-liquidity.provider.ts",
   "utf8",
@@ -1336,6 +1340,17 @@ assert.ok(
     treasuryLiquidityMigrationSource.includes("TREASURY_LIQUIDITY_INSUFFICIENT") &&
     schemaSource.includes("('016', 'treasury-liquidity-reservations')"),
   "treasury liquidity migration must persist output reservations and observed chain evidence",
+);
+assert.ok(
+  quotePrincipalOwnershipMigrationSource.includes("ADD COLUMN IF NOT EXISTS principal_id") &&
+    quotePrincipalOwnershipMigrationSource.includes("'legacy:' || md5(id)") &&
+    quotePrincipalOwnershipMigrationSource.includes("ALTER COLUMN principal_id SET NOT NULL") &&
+    quotePrincipalOwnershipMigrationSource.includes("chk_quotes_principal_id_safe") &&
+    quotePrincipalOwnershipMigrationSource.includes("idx_quotes_principal_created_at") &&
+    schemaSource.includes("principal_id TEXT NOT NULL") &&
+    erDiagramSource.includes("text principal_id") &&
+    schemaSource.includes("('017', 'quote-principal-ownership')"),
+  "quote ownership migration must isolate legacy rows and enforce principal-scoped lookup",
 );
 assert.ok(
   postgresQuoteExposureSource.includes("pg_advisory_xact_lock") &&

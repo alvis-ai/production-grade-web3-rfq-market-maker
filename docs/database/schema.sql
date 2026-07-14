@@ -1,5 +1,6 @@
 CREATE TABLE quotes (
   id TEXT PRIMARY KEY,
+  principal_id TEXT NOT NULL,
   chain_id BIGINT NOT NULL,
   user_address TEXT NOT NULL,
   token_in TEXT NOT NULL,
@@ -32,6 +33,11 @@ CREATE TABLE quotes (
     btrim(id) <> ''
     AND char_length(id) <= 128
     AND id ~ '^[A-Za-z0-9_:-]+$'
+  ),
+  CONSTRAINT chk_quotes_principal_id_safe CHECK (
+    btrim(principal_id) <> ''
+    AND char_length(principal_id) <= 128
+    AND principal_id ~ '^[A-Za-z0-9_:-]+$'
   ),
   CONSTRAINT chk_quotes_status CHECK (
     status IN ('requested', 'rejected', 'signed', 'expired', 'submitted', 'settled', 'failed')
@@ -168,6 +174,7 @@ CREATE TABLE quotes (
 );
 
 CREATE INDEX idx_quotes_user_created_at ON quotes (user_address, created_at DESC);
+CREATE INDEX idx_quotes_principal_created_at ON quotes (principal_id, created_at DESC);
 CREATE INDEX idx_quotes_status_created_at ON quotes (status, created_at DESC);
 CREATE UNIQUE INDEX uq_quotes_chain_user_nonce ON quotes (chain_id, user_address, nonce)
   WHERE nonce IS NOT NULL;
@@ -1417,4 +1424,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('013', 'market-spread-attribution'),
   ('014', 'hedge-execution-evidence'),
   ('015', 'hedge-fee-reconciliation'),
-  ('016', 'treasury-liquidity-reservations');
+  ('016', 'treasury-liquidity-reservations'),
+  ('017', 'quote-principal-ownership');

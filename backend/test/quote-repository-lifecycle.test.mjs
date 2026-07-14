@@ -10,13 +10,34 @@ const request = {
   amountIn: "1000000000",
   slippageBps: 50,
 };
+const principalId = "institution_a";
 
 test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persistence inputs", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
 
   await assert.rejects(
     quoteRepository.saveRequested({
+      quoteId: "q_missing_principal",
+      snapshotId: "snapshot_1",
+      request,
+    }),
+    /Requested quote input.principalId must be an own field/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRequested({
+      quoteId: "q_bad_principal",
+      principalId: "institution.a",
+      snapshotId: "snapshot_1",
+      request,
+    }),
+    /Requested quote principalId must be a safe identifier no longer than 128 characters/,
+  );
+
+  await assert.rejects(
+    quoteRepository.saveRequested({
       quoteId: " ",
+      principalId,
       snapshotId: "snapshot_1",
       request,
     }),
@@ -26,6 +47,7 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
   await assert.rejects(
     quoteRepository.saveRequested({
       quoteId: new String("q_requested"),
+      principalId,
       snapshotId: "snapshot_1",
       request,
     }),
@@ -35,6 +57,7 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
   await assert.rejects(
     quoteRepository.saveRequested({
       quoteId: "q.bad",
+      principalId,
       snapshotId: "snapshot_1",
       request,
     }),
@@ -44,6 +67,7 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
   await assert.rejects(
     quoteRepository.saveRequested({
       quoteId: "q_bad_snapshot",
+      principalId,
       snapshotId: "s".repeat(129),
       request,
     }),
@@ -53,6 +77,7 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
   await assert.rejects(
     quoteRepository.saveRequested({
       quoteId: "q_bad_request",
+      principalId,
       snapshotId: "snapshot_1",
       request: {
         ...request,
@@ -65,6 +90,7 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
   await assert.rejects(
     quoteRepository.saveRequested({
       quoteId: "q_bad_user_object",
+      principalId,
       snapshotId: "snapshot_1",
       request: {
         ...request,
@@ -77,6 +103,7 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
   await assert.rejects(
     quoteRepository.saveRequested({
       quoteId: "q_bad_amount_number",
+      principalId,
       snapshotId: "snapshot_1",
       request: {
         ...request,
@@ -89,6 +116,7 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
   await assert.rejects(
     quoteRepository.saveRequested({
       quoteId: "q_bad_amount_leading_zero",
+      principalId,
       snapshotId: "snapshot_1",
       request: {
         ...request,
@@ -101,6 +129,7 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
   await assert.rejects(
     quoteRepository.saveRequested({
       quoteId: "q_bad_slippage",
+      principalId,
       snapshotId: "snapshot_1",
       request: {
         ...request,
@@ -113,6 +142,7 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
   await assert.rejects(
     quoteRepository.saveRejected({
       quoteId: "q_bad_reject",
+      principalId,
       snapshotId: "snapshot_1",
       request,
       rejectCode: " ",
@@ -123,6 +153,7 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
   await assert.rejects(
     quoteRepository.saveRejected({
       quoteId: "q_bad_policy",
+      principalId,
       snapshotId: "snapshot_1",
       request,
       rejectCode: "RISK_REJECTED",
@@ -134,6 +165,7 @@ test("InMemoryQuoteRepository rejects unsafe requested and rejected quote persis
   await assert.rejects(
     quoteRepository.saveRejected({
       quoteId: "q_bad_reject_pointer",
+      principalId,
       snapshotId: "snapshot.bad",
       request,
       rejectCode: "RISK_REJECTED",
@@ -149,12 +181,20 @@ test("InMemoryQuoteRepository rejects requested quote payload rewrites", async (
   const quoteRepository = new InMemoryQuoteRepository();
   const input = {
     quoteId: "q_requested_payload",
+    principalId,
     snapshotId: "snapshot_1",
     request,
   };
 
   await quoteRepository.saveRequested(input);
   await quoteRepository.saveRequested(input);
+  assert.equal(await quoteRepository.findPrincipalId(input.quoteId), principalId);
+  assert.equal((await quoteRepository.findStatus(input.quoteId, principalId)).quoteId, input.quoteId);
+  assert.equal(await quoteRepository.findStatus(input.quoteId, "institution_b"), undefined);
+  await assert.rejects(
+    quoteRepository.saveRequested({ ...input, principalId: "institution_b" }),
+    /Requested quote payload cannot be changed/,
+  );
   await assert.rejects(
     quoteRepository.saveRequested({
       ...input,
@@ -175,6 +215,7 @@ test("InMemoryQuoteRepository rejects requested quote payload rewrites", async (
   await assert.rejects(
     quoteRepository.saveSigned({
       quoteId: "q_requested_payload",
+      principalId,
       snapshotId: "snapshot_1",
       slippageBps: request.slippageBps + 1,
       spreadBps: 8,
@@ -203,6 +244,7 @@ test("InMemoryQuoteRepository rejects requested quote payload rewrites", async (
   await assert.rejects(
     quoteRepository.saveSigned({
       quoteId: "q_requested_payload",
+      principalId,
       snapshotId: "snapshot_1",
       slippageBps: request.slippageBps,
       spreadBps: 8,
@@ -238,6 +280,7 @@ test("InMemoryQuoteRepository rejects rejected quote payload rewrites", async ()
   const quoteRepository = new InMemoryQuoteRepository();
   const requestedInput = {
     quoteId: "q_rejected_payload",
+    principalId,
     snapshotId: "snapshot_1",
     request,
   };
@@ -250,6 +293,7 @@ test("InMemoryQuoteRepository rejects rejected quote payload rewrites", async ()
   await assert.rejects(
     quoteRepository.saveRejected({
       quoteId: "q_missing_rejected",
+      principalId,
       snapshotId: "snapshot_1",
       request,
       rejectCode: "RISK_REJECTED",

@@ -19,6 +19,7 @@ import { quoteSnapshotPnlModelDescription, type PnlTradeRecord } from "../shared
 import { validateQuoteRequest } from "../shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "../shared/validation/submit-request.js";
 import { isCanonicalUtcIsoTimestamp } from "../shared/validation/timestamp.js";
+import { localPrincipalId } from "../shared/validation/principal-id.js";
 import { isRecord } from "../runtime/environment.js";
 import {
   assertStatusIdentifier,
@@ -120,6 +121,7 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
   });
   server.get("/pnl", async (request, reply) => {
     try {
+      const principal = authenticatedPrincipals.get(request);
       const rateLimitResult = await enforceRateLimit(
         rateLimiter,
         metricsService,
@@ -127,16 +129,17 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
         request,
         reply,
         trustProxy,
-        authenticatedPrincipals.get(request),
+        principal,
       );
       if (!rateLimitResult.allowed) return rateLimitResult.response;
-      return await pnlService.summary();
+      return await pnlService.summary(principal?.principalId ?? localPrincipalId);
     } catch (error) {
       return sendError(reply, requestTraceId(request), pnlStoreFailure(error));
     }
   });
   server.get("/settlements/:settlementEventId", async (request, reply) => {
     try {
+      const principal = authenticatedPrincipals.get(request);
       const rateLimitResult = await enforceRateLimit(
         rateLimiter,
         metricsService,
@@ -144,7 +147,7 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
         request,
         reply,
         trustProxy,
-        authenticatedPrincipals.get(request),
+        principal,
       );
       if (!rateLimitResult.allowed) return rateLimitResult.response;
 
@@ -158,6 +161,12 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
           new APIError("SETTLEMENT_EVENT_NOT_FOUND", "Settlement event not found", 404),
         );
       }
+      await requireQuoteOwnership(
+        quoteRepository,
+        status.quoteId,
+        principal?.principalId ?? localPrincipalId,
+        new APIError("SETTLEMENT_EVENT_NOT_FOUND", "Settlement event not found", 404),
+      );
       return status;
     } catch (error) {
       return sendError(reply, requestTraceId(request), settlementEventStatusFailure(error));
@@ -165,6 +174,7 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
   });
   server.get("/quote/:quoteId", async (request, reply) => {
     try {
+      const principal = authenticatedPrincipals.get(request);
       const rateLimitResult = await enforceRateLimit(
         rateLimiter,
         metricsService,
@@ -172,13 +182,15 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
         request,
         reply,
         trustProxy,
-        authenticatedPrincipals.get(request),
+        principal,
       );
       if (!rateLimitResult.allowed) return rateLimitResult.response;
 
       const { quoteId } = request.params as { quoteId: string };
       assertStatusIdentifier(quoteId, "quoteId");
-      const status = await quoteService.getQuoteStatus(quoteId);
+      const status = await quoteService.getQuoteStatus(quoteId, {
+        principalId: principal?.principalId ?? localPrincipalId,
+      });
       return status ?? sendError(
         reply,
         requestTraceId(request),
@@ -190,6 +202,7 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
   });
   server.get("/hedges/:hedgeOrderId", async (request, reply) => {
     try {
+      const principal = authenticatedPrincipals.get(request);
       const rateLimitResult = await enforceRateLimit(
         rateLimiter,
         metricsService,
@@ -197,18 +210,27 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
         request,
         reply,
         trustProxy,
-        authenticatedPrincipals.get(request),
+        principal,
       );
       if (!rateLimitResult.allowed) return rateLimitResult.response;
 
       const { hedgeOrderId } = request.params as { hedgeOrderId: string };
       assertStatusIdentifier(hedgeOrderId, "hedgeOrderId");
       const status = await hedgeService.getHedgeIntent(hedgeOrderId);
-      return status ?? sendError(
-        reply,
-        requestTraceId(request),
+      if (!status) {
+        return sendError(
+          reply,
+          requestTraceId(request),
+          new APIError("HEDGE_NOT_FOUND", "Hedge intent not found", 404),
+        );
+      }
+      await requireQuoteOwnership(
+        quoteRepository,
+        status.quoteId,
+        principal?.principalId ?? localPrincipalId,
         new APIError("HEDGE_NOT_FOUND", "Hedge intent not found", 404),
       );
+      return status;
     } catch (error) {
       return sendError(reply, requestTraceId(request), hedgeStatusFailure(error));
     }
@@ -217,6 +239,7 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
     const startedAt = Date.now();
     metricsService.recordQuoteRequest();
     try {
+      const principal = authenticatedPrincipals.get(request);
       const rateLimitResult = await enforceRateLimit(
         rateLimiter,
         metricsService,
@@ -224,14 +247,16 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
         request,
         reply,
         trustProxy,
-        authenticatedPrincipals.get(request),
+        principal,
       );
       if (!rateLimitResult.allowed) {
         metricsService.recordQuoteError();
         return rateLimitResult.response;
       }
 
-      const response = await quoteService.createQuote(validateQuoteRequest(request.body));
+      const response = await quoteService.createQuote(validateQuoteRequest(request.body), {
+        principalId: principal?.principalId ?? localPrincipalId,
+      });
       metricsService.recordQuoteResponse();
       return response;
     } catch (error) {
@@ -251,6 +276,7 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
     let submitReservation: SubmitReservation | undefined;
     metricsService.recordSubmitRequest();
     try {
+      const principal = authenticatedPrincipals.get(request);
       const rateLimitResult = await enforceRateLimit(
         rateLimiter,
         metricsService,
@@ -258,7 +284,7 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
         request,
         reply,
         trustProxy,
-        authenticatedPrincipals.get(request),
+        principal,
       );
       if (!rateLimitResult.allowed) {
         metricsService.recordSubmitError();
@@ -269,7 +295,10 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
       quoteId = await quoteService.requireSubmittableSignedQuote(
         submitRequest.quote,
         submitRequest.signature,
-        { allowExpired: submitRequest.txHash !== undefined },
+        {
+          allowExpired: submitRequest.txHash !== undefined,
+          principalId: principal?.principalId ?? localPrincipalId,
+        },
       );
       submitReservation = await acquireSubmitReservation(submitReservationStore, metricsService, quoteId);
       const result = await executionService.submitQuote(submitRequest, { quoteId });
@@ -321,6 +350,21 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
       metricsService.recordSubmitLatency(elapsedSeconds(startedAt));
     }
   });
+}
+
+async function requireQuoteOwnership(
+  quoteRepository: QuoteRepository,
+  quoteId: string,
+  principalId: string,
+  notFoundError: APIError,
+): Promise<void> {
+  let owner: string | undefined;
+  try {
+    owner = await quoteRepository.findPrincipalId(quoteId);
+  } catch {
+    throw new APIError("QUOTE_STORE_UNAVAILABLE", "Quote store unavailable", 503);
+  }
+  if (owner !== principalId) throw notFoundError;
 }
 
 async function acquireSubmitReservation(

@@ -10,6 +10,7 @@ const request = {
   amountIn: "1000000000",
   slippageBps: 50,
 };
+const principalId = "institution_a";
 
 test("InMemoryQuoteRepository rejects malformed quote persistence envelopes before storing", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
@@ -33,6 +34,7 @@ test("InMemoryQuoteRepository rejects malformed quote persistence envelopes befo
   await assert.rejects(
     quoteRepository.saveRequested({
       quoteId: "q_missing_request",
+      principalId,
       snapshotId: "snapshot_1",
     }),
     /Requested quote input.request must be an own field/,
@@ -41,6 +43,7 @@ test("InMemoryQuoteRepository rejects malformed quote persistence envelopes befo
   await assert.rejects(
     quoteRepository.saveRejected({
       quoteId: "q_rejected_missing_request",
+      principalId,
       snapshotId: "snapshot_1",
       rejectCode: "RISK_REJECTED",
       request: null,
@@ -51,6 +54,7 @@ test("InMemoryQuoteRepository rejects malformed quote persistence envelopes befo
   await assert.rejects(
     quoteRepository.saveSigned({
       quoteId: "q_signed_missing_quote",
+      principalId,
       snapshotId: "snapshot_1",
       slippageBps: request.slippageBps,
       spreadBps: 8,
@@ -90,6 +94,7 @@ test("InMemoryQuoteRepository rejects inherited quote persistence fields before 
     quoteRepository.saveRequested(
       Object.create({
         quoteId: "q_inherited_requested",
+        principalId,
         snapshotId: "snapshot_1",
         request,
       }),
@@ -100,6 +105,7 @@ test("InMemoryQuoteRepository rejects inherited quote persistence fields before 
   await assert.rejects(
     quoteRepository.saveRequested({
       quoteId: "q_inherited_request",
+      principalId,
       snapshotId: "snapshot_1",
       request: Object.create(request),
     }),
@@ -109,6 +115,7 @@ test("InMemoryQuoteRepository rejects inherited quote persistence fields before 
   const inheritedRiskPolicyInput = Object.create({ riskPolicyVersion: "test-risk" });
   Object.assign(inheritedRiskPolicyInput, {
     quoteId: "q_inherited_rejected_policy",
+    principalId,
     snapshotId: "snapshot_1",
     request,
     rejectCode: "RISK_REJECTED",
@@ -121,6 +128,7 @@ test("InMemoryQuoteRepository rejects inherited quote persistence fields before 
   await assert.rejects(
     quoteRepository.saveSigned({
       quoteId: "q_inherited_signed_quote",
+      principalId,
       snapshotId: "snapshot_1",
       slippageBps: request.slippageBps,
       spreadBps: 8,
@@ -141,6 +149,7 @@ test("InMemoryQuoteRepository rejects inherited quote persistence fields before 
     quoteRepository.saveSigned(
       Object.create({
         quoteId: "q_inherited_signed_input",
+        principalId,
         snapshotId: "snapshot_1",
         slippageBps: request.slippageBps,
         spreadBps: 8,

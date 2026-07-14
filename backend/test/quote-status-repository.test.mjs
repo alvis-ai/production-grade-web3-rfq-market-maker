@@ -10,6 +10,7 @@ const request = {
   amountIn: "1000000000",
   slippageBps: 50,
 };
+const principalId = "institution_a";
 
 test("InMemoryQuoteRepository preserves settlement metadata across status updates", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
@@ -27,6 +28,7 @@ test("InMemoryQuoteRepository preserves settlement metadata across status update
 
   await quoteRepository.saveSigned({
     quoteId: "q_status",
+    principalId,
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -73,6 +75,7 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
 
   await quoteRepository.saveRequested({
     quoteId: "q_requested",
+    principalId,
     snapshotId: "snapshot_requested",
     request,
   });
@@ -85,6 +88,7 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
 
   await quoteRepository.saveSigned({
     quoteId: "q_settled",
+    principalId,
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -135,11 +139,13 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
 
   await quoteRepository.saveRequested({
     quoteId: "q_rejected",
+    principalId,
     snapshotId: "snapshot_2",
     request,
   });
   await quoteRepository.saveRejected({
     quoteId: "q_rejected",
+    principalId,
     snapshotId: "snapshot_2",
     request,
     rejectCode: "RISK_REJECTED",
@@ -155,6 +161,7 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
 
   await quoteRepository.saveSigned({
     quoteId: "q_failed",
+    principalId,
     snapshotId: "snapshot_3",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -187,6 +194,7 @@ test("InMemoryQuoteRepository rejects terminal quote status regressions", async 
 
   await quoteRepository.saveSigned({
     quoteId: "q_expired",
+    principalId,
     snapshotId: "snapshot_4",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -250,6 +258,7 @@ test("InMemoryQuoteRepository rejects saveSigned lifecycle regressions", async (
   };
   const input = {
     quoteId: "q_save_signed_regression",
+    principalId,
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,

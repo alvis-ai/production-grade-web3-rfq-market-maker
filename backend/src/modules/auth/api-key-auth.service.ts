@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
+import { assertPrincipalId } from "../../shared/validation/principal-id.js";
 
 export const apiKeyScopes = ["quote:write", "submit:write", "status:read", "pnl:read"] as const;
 
@@ -38,12 +39,10 @@ const keyOptionalFields = ["expiresAt"] as const;
 const principalFields = ["keyId", "principalId", "scopes"] as const;
 const resultAuthenticatedFields = ["status", "principal"] as const;
 const resultRejectedFields = ["status", "reason"] as const;
-const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const keyIdPattern = /^[A-Za-z0-9_-]{3,64}$/;
 const keySecretPattern = /^[A-Za-z0-9_-]{32,128}$/;
 const sha256Pattern = /^[0-9a-f]{64}$/;
 const maxKeys = 1_000;
-const maxPrincipalIdLength = 128;
 const dummyDigest = createHash("sha256").update("rfq-api-key-dummy-secret").digest();
 
 interface StoredApiKey {
@@ -192,13 +191,6 @@ function assertScopes(value: unknown, label: string): asserts value is ApiKeySco
     }
     if (seen.has(scope)) throw new Error(`${label} must not contain duplicate scopes`);
     seen.add(scope);
-  }
-}
-
-function assertPrincipalId(value: unknown, label: string): asserts value is string {
-  if (typeof value !== "string" || value.length === 0 || value.length > maxPrincipalIdLength ||
-      !safeIdentifierPattern.test(value)) {
-    throw new Error(`${label} must be a safe identifier no longer than ${maxPrincipalIdLength} characters`);
   }
 }
 

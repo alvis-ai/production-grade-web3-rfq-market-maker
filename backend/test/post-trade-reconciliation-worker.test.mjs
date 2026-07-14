@@ -166,6 +166,7 @@ async function scenario(quoteId) {
   const quoteRepository = new InMemoryQuoteRepository();
   await quoteRepository.saveSigned({
     quoteId,
+    principalId: "local",
     snapshotId: `snapshot_${quoteId}`,
     slippageBps: 50,
     spreadBps: 8,

@@ -27,6 +27,7 @@ test("InMemoryQuoteRepository rejects conflicting quote status metadata rewrites
 
   await quoteRepository.saveSigned({
     quoteId: "q_status_conflict",
+    principalId: "local",
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -110,6 +111,7 @@ test("InMemoryQuoteRepository rejects malformed quote status metadata", async ()
 
   await quoteRepository.saveSigned({
     quoteId: "q_metadata",
+    principalId: "local",
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,

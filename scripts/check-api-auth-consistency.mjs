@@ -18,6 +18,8 @@ const [
   helmValuesSource,
   helmDeploymentSource,
   keyManagementSource,
+  principalIsolationTestSource,
+  threatModelSource,
 ] = await Promise.all([
   readFile("backend/src/modules/auth/api-key-auth.service.ts", "utf8"),
   readBackendGatewaySource(),
@@ -32,6 +34,8 @@ const [
   readFile("infra/helm/rfq-market-maker/values.yaml", "utf8"),
   readFile("infra/helm/rfq-market-maker/templates/deployment.yaml", "utf8"),
   readFile("docs/security/key-management.md", "utf8"),
+  readFile("backend/test/api-principal-isolation.test.mjs", "utf8"),
+  readFile("docs/security/threat-model.md", "utf8"),
 ]);
 
 for (const scope of ["quote:write", "submit:write", "status:read", "pnl:read"]) {
@@ -115,6 +119,29 @@ assert.equal(
   "Only health, readiness, and metrics operations should override API-key security",
 );
 assert.ok(errorsSource.includes("常量时间摘要比较"), "API error docs must define constant-time auth behavior");
+assert.ok(
+  mainSource.includes("principal?.principalId ?? localPrincipalId") &&
+    mainSource.includes("requireQuoteOwnership") &&
+    mainSource.includes("findPrincipalId") &&
+    mainSource.includes("pnlService.summary(principal"),
+  "gateway must scope quote and post-trade resources by authenticated principal",
+);
+for (const testCase of [
+  "stable principal",
+  "institution_a_rotated",
+  "QUOTE_NOT_FOUND",
+  "SETTLEMENT_EVENT_NOT_FOUND",
+  "HEDGE_NOT_FOUND",
+  "foreignPnl.body.totalTrades, 0",
+]) {
+  assert.ok(principalIsolationTestSource.includes(testCase), `principal isolation tests must cover ${testCase}`);
+}
+assert.ok(
+  openapiSource.includes("cross-principal") &&
+    errorsSource.includes("避免 IDOR") &&
+    threatModelSource.includes("Cross-tenant IDOR"),
+  "API and threat-model docs must define anti-enumeration tenant isolation",
+);
 
 for (const source of [envSource, k8sSecretSource, helmValuesSource, helmDeploymentSource]) {
   assert.ok(source.includes("RFQ_API_KEY_CONFIG_JSON"), "all configuration surfaces must carry API-key digest config");

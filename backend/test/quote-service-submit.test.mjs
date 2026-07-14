@@ -63,6 +63,34 @@ test("QuoteService rejects unsafe submit quotes before quote lookup or signature
   assert.equal(verifyCalls, 0);
 });
 
+test("QuoteService validates submit principal ownership options before lookup", async () => {
+  const service = new QuoteService(quoteServiceDeps());
+  const signedQuote = {
+    user: request.user,
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "998400000",
+    minAmountOut: "993408000",
+    nonce: "1",
+    deadline: 1893456000,
+    chainId: request.chainId,
+  };
+
+  await assert.rejects(
+    service.requireSubmittableSignedQuote(signedQuote, fixedSignature(), { principalId: "institution.a" }),
+    (error) => error.code === "INVALID_REQUEST" && error.statusCode === 400,
+  );
+  await assert.rejects(
+    service.requireSubmittableSignedQuote(
+      signedQuote,
+      fixedSignature(),
+      Object.create({ principalId: "institution_a" }),
+    ),
+    /principalId must be an own field/,
+  );
+});
+
 test("QuoteService rejects submit signatures that differ from the stored signed quote", async () => {
   const quoteRepository = new InMemoryQuoteRepository();
   let verifyCalls = 0;

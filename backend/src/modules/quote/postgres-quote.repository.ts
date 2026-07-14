@@ -16,6 +16,7 @@ import type {
   SignedQuote,
   UIntString,
 } from "../../shared/types/rfq.js";
+import { assertPrincipalId } from "../../shared/validation/principal-id.js";
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const maxSafeIdentifierLength = 128;
@@ -23,6 +24,7 @@ const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 
 const quoteSelectColumns = [
   "id AS quote_id",
+  "principal_id",
   "chain_id",
   "user_address AS user",
   "token_in",
@@ -69,6 +71,7 @@ export class PostgresQuoteRepository implements QuoteRepository {
 
   async saveRequested(input: SaveRequestedQuoteInput): Promise<void> {
     const quoteId = assertNonEmptyString(input.quoteId, "quoteId");
+    assertPrincipalId(input.principalId, "Postgres quote principalId");
     const chainId = assertPositiveSafeInteger(input.request.chainId, "chainId");
     const user = assertAddress(input.request.user, "user");
     const tokenIn = assertAddress(input.request.tokenIn, "tokenIn");
@@ -81,9 +84,9 @@ export class PostgresQuoteRepository implements QuoteRepository {
     const client = await this.pool.connect();
     try {
       const result = await client.query(
-        `INSERT INTO quotes (id, chain_id, user_address, token_in, token_out, amount_in,
+        `INSERT INTO quotes (id, principal_id, chain_id, user_address, token_in, token_out, amount_in,
           slippage_bps, snapshot_id, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'requested', now(), now())
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'requested', now(), now())
          ON CONFLICT (id) DO UPDATE SET
            chain_id = EXCLUDED.chain_id,
            user_address = EXCLUDED.user_address,
@@ -94,6 +97,7 @@ export class PostgresQuoteRepository implements QuoteRepository {
            snapshot_id = EXCLUDED.snapshot_id,
            updated_at = now()
          WHERE quotes.status = 'requested'
+           AND quotes.principal_id = EXCLUDED.principal_id
            AND quotes.chain_id = EXCLUDED.chain_id
            AND lower(quotes.user_address) = lower(EXCLUDED.user_address)
            AND lower(quotes.token_in) = lower(EXCLUDED.token_in)
@@ -102,7 +106,7 @@ export class PostgresQuoteRepository implements QuoteRepository {
            AND quotes.slippage_bps = EXCLUDED.slippage_bps
            AND quotes.snapshot_id = EXCLUDED.snapshot_id
         `,
-        [quoteId, chainId, user, tokenIn, tokenOut, amountIn, slippageBps, snapshotId],
+        [quoteId, input.principalId, chainId, user, tokenIn, tokenOut, amountIn, slippageBps, snapshotId],
       );
 
       if (result.rowCount === 0) {
@@ -119,6 +123,7 @@ export class PostgresQuoteRepository implements QuoteRepository {
 
   async saveRejected(input: SaveRejectedQuoteInput): Promise<void> {
     const quoteId = assertNonEmptyString(input.quoteId, "quoteId");
+    assertPrincipalId(input.principalId, "Postgres quote principalId");
     const chainId = assertPositiveSafeInteger(input.request.chainId, "chainId");
     const user = assertAddress(input.request.user, "user");
     const tokenIn = assertAddress(input.request.tokenIn, "tokenIn");
@@ -203,13 +208,13 @@ export class PostgresQuoteRepository implements QuoteRepository {
 
       // Upsert: INSERT or UPDATE from requested
       const result = await client.query(
-        `INSERT INTO quotes (id, chain_id, user_address, token_in, token_out, amount_in,
+        `INSERT INTO quotes (id, principal_id, chain_id, user_address, token_in, token_out, amount_in,
           slippage_bps, amount_out, min_amount_out, nonce, deadline, snapshot_id,
           pricing_version, spread_bps, size_impact_bps, market_spread_bps, inventory_skew_bps,
           volatility_premium_bps, hedge_cost_bps, risk_policy_version,
           status, signature, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-           $13, $14, $15, $16, $17, $18, $19, $20, 'signed', $21, now(), now())
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+           $14, $15, $16, $17, $18, $19, $20, $21, 'signed', $22, now(), now())
          ON CONFLICT (id) DO UPDATE SET
            chain_id = EXCLUDED.chain_id,
            user_address = EXCLUDED.user_address,
@@ -234,9 +239,10 @@ export class PostgresQuoteRepository implements QuoteRepository {
            signature = EXCLUDED.signature,
            updated_at = now()
          WHERE quotes.status = 'requested'
+           AND quotes.principal_id = EXCLUDED.principal_id
         `,
         [
-          quoteId, chainId, user, tokenIn, tokenOut, amountIn,
+          quoteId, input.principalId, chainId, user, tokenIn, tokenOut, amountIn,
           input.slippageBps, amountOut, minAmountOut, nonce, deadline,
           input.snapshotId, input.pricingVersion, input.spreadBps,
           input.sizeImpactBps, input.marketSpreadBps, input.inventorySkewBps,
@@ -259,16 +265,31 @@ export class PostgresQuoteRepository implements QuoteRepository {
     }
   }
 
-  async findStatus(quoteId: string): Promise<QuoteStatusResponse | undefined> {
+  async findStatus(quoteId: string, principalId?: string): Promise<QuoteStatusResponse | undefined> {
+    if (principalId !== undefined) assertPrincipalId(principalId, "Postgres quote status principalId");
     const client = await this.pool.connect();
     try {
       const result = await client.query(
-        `SELECT ${quoteSelectColumns} FROM quotes WHERE id = $1`,
-        [quoteId],
+        `SELECT ${quoteSelectColumns} FROM quotes WHERE id = $1${principalId === undefined ? "" : " AND principal_id = $2"}`,
+        principalId === undefined ? [quoteId] : [quoteId, principalId],
       );
       if (!result.rowCount) return undefined;
 
       return quoteStatusResponseFromRow(result.rows[0]);
+    } finally {
+      client.release();
+    }
+  }
+
+  async findPrincipalId(quoteId: string): Promise<string | undefined> {
+    const normalizedQuoteId = assertSafeIdentifier(quoteId, "quoteId");
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query("SELECT principal_id FROM quotes WHERE id = $1", [normalizedQuoteId]);
+      if (!result.rowCount) return undefined;
+      const principalId = result.rows[0]?.principal_id;
+      assertPrincipalId(principalId, "Postgres quote row principal_id");
+      return principalId;
     } finally {
       client.release();
     }
@@ -493,11 +514,13 @@ export class PostgresQuoteRepository implements QuoteRepository {
     }
   }
 
-  async findSignedQuoteByQuoteId(quoteId: string): Promise<QuoteRecord | undefined> {
+  async findSignedQuoteByQuoteId(quoteId: string, principalId?: string): Promise<QuoteRecord | undefined> {
+    if (principalId !== undefined) assertPrincipalId(principalId, "Postgres signed quote principalId");
     const client = await this.pool.connect();
     try {
       const result = await client.query(
         `SELECT ${quoteSelectColumns} FROM quotes WHERE id = $1
+         ${principalId === undefined ? "" : "AND principal_id = $2"}
          AND nonce IS NOT NULL
          AND amount_out IS NOT NULL
          AND min_amount_out IS NOT NULL
@@ -509,7 +532,7 @@ export class PostgresQuoteRepository implements QuoteRepository {
          AND inventory_skew_bps IS NOT NULL
          AND volatility_premium_bps IS NOT NULL
          AND hedge_cost_bps IS NOT NULL`,
-        [quoteId],
+        principalId === undefined ? [quoteId] : [quoteId, principalId],
       );
       if (!result.rowCount) return undefined;
 
@@ -523,11 +546,12 @@ export class PostgresQuoteRepository implements QuoteRepository {
     chainId: number,
     user: Address,
     nonce: UIntString,
+    principalId?: string,
   ): Promise<QuoteRecord | undefined> {
     const quoteId = await this.findQuoteIdByChainUserNonce(chainId, user, nonce);
     if (!quoteId) return undefined;
 
-    return this.findSignedQuoteByQuoteId(quoteId);
+    return this.findSignedQuoteByQuoteId(quoteId, principalId);
   }
 }
 
@@ -558,8 +582,11 @@ function quoteStatusResponseFromRow(row: Record<string, unknown>): QuoteStatusRe
 }
 
 function quoteRecordFromRow(row: Record<string, unknown>): QuoteRecord {
+  const principalId = row.principal_id;
+  assertPrincipalId(principalId, "Postgres quote row principal_id");
   return {
     quoteId: String(row.quote_id),
+    principalId,
     chainId: Number(row.chain_id),
     user: String(row.user) as Address,
     tokenIn: String(row.token_in) as Address,
@@ -644,6 +671,7 @@ function assertCanSaveSignedQuote(record: QuoteRecord, input: SaveSignedQuoteInp
 function isSameRequestedQuotePayload(record: QuoteRecord, input: SaveRequestedQuoteInput | SaveRejectedQuoteInput): boolean {
   return (
     record.quoteId === input.quoteId &&
+    record.principalId === input.principalId &&
     record.chainId === input.request.chainId &&
     record.user.toLowerCase() === input.request.user.toLowerCase() &&
     record.tokenIn.toLowerCase() === input.request.tokenIn.toLowerCase() &&
@@ -665,6 +693,7 @@ function isSameRejectedQuotePayload(record: QuoteRecord, input: SaveRejectedQuot
 function isSameRequestedQuotePayloadAsSigned(record: QuoteRecord, input: SaveSignedQuoteInput): boolean {
   return (
     record.quoteId === input.quoteId &&
+    record.principalId === input.principalId &&
     record.chainId === input.quote.chainId &&
     record.user.toLowerCase() === input.quote.user.toLowerCase() &&
     record.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
@@ -678,6 +707,7 @@ function isSameRequestedQuotePayloadAsSigned(record: QuoteRecord, input: SaveSig
 function isSameSignedQuotePayload(record: QuoteRecord, input: SaveSignedQuoteInput): boolean {
   return (
     record.quoteId === input.quoteId &&
+    record.principalId === input.principalId &&
     record.chainId === input.quote.chainId &&
     record.user.toLowerCase() === input.quote.user.toLowerCase() &&
     record.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
@@ -785,6 +815,7 @@ function assertSettlementStatusFields(
 
 function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertNonEmptyString(input.quoteId, "quoteId");
+  assertPrincipalId(input.principalId, "Postgres quote principalId");
   assertNonEmptyString(input.snapshotId, "snapshotId");
   assertNonEmptyString(input.pricingVersion, "pricingVersion");
   assertNonEmptyString(input.riskPolicyVersion, "riskPolicyVersion");

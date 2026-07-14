@@ -61,6 +61,7 @@
 - 未匹配路由或不支持的方法必须返回结构化 `INVALID_REQUEST` 和 HTTP 404，不能返回 Fastify 默认错误对象。
 - 非本地环境必须配置 `RFQ_API_KEY_CONFIG_JSON`。服务端只保存 `SHA-256(secret)`，使用常量时间摘要比较，并对 unknown key id 执行同样的摘要路径。认证失败统一返回 `AUTHENTICATION_REQUIRED`，不区分 key 是否存在、是否过期或 secret 是否错误。
 - Scope 固定为 `quote:write`、`submit:write`、`status:read` 和 `pnl:read`；`/health`、`/ready`、`/metrics` 以及 CORS preflight 不要求 API key。
+- 资源所有权绑定稳定 `principalId` 而不是 `keyId`。同一机构轮换 key 后仍可访问；跨 principal 的 quote、settlement 和 hedge 查询统一返回对应 404，submit 按 principal 查找已签名报价，`/pnl` 只聚合当前 principal 的成交，避免 IDOR 和资源枚举。
 
 ## Rate Limit Policy
 

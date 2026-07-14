@@ -10,6 +10,7 @@ import {
   type UIntString,
 } from "../../shared/types/rfq.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
+import { assertPrincipalId } from "../../shared/validation/principal-id.js";
 
 const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 const MIN_SAFE_INTEGER_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
@@ -67,17 +68,27 @@ export interface PnlStore {
   recordSettlement(input: RecordPnlInput): PnlTradeRecord | Promise<PnlTradeRecord>;
   getPnlRecordByQuoteId(quoteId: string): PnlTradeRecord | undefined | Promise<PnlTradeRecord | undefined>;
   removePnlRecord(input: RemovePnlRecordInput): RemovePnlRecordResult | Promise<RemovePnlRecordResult>;
-  summary(): PnlSummaryResponse | Promise<PnlSummaryResponse>;
+  summary(principalId?: string): PnlSummaryResponse | Promise<PnlSummaryResponse>;
+}
+
+export interface QuoteOwnershipReader {
+  findPrincipalId(quoteId: string): Promise<string | undefined>;
 }
 
 export class PnlService implements PnlStore {
   private readonly trades = new Map<string, PnlTradeRecord>();
   private readonly pnlIdsByQuoteModel = new Map<string, string>();
   private readonly valuationProvider: PnlValuationProvider;
+  private readonly quoteOwnershipReader?: QuoteOwnershipReader;
 
-  constructor(valuationProvider: PnlValuationProvider = missingPnlValuationProvider) {
+  constructor(
+    valuationProvider: PnlValuationProvider = missingPnlValuationProvider,
+    quoteOwnershipReader?: QuoteOwnershipReader,
+  ) {
     assertPnlValuationProvider(valuationProvider);
+    if (quoteOwnershipReader !== undefined) assertQuoteOwnershipReader(quoteOwnershipReader);
     this.valuationProvider = { resolve: valuationProvider.resolve.bind(valuationProvider) };
+    this.quoteOwnershipReader = quoteOwnershipReader;
   }
 
   checkHealth(): void {
@@ -141,8 +152,21 @@ export class PnlService implements PnlStore {
     };
   }
 
-  summary(): PnlSummaryResponse {
+  summary(): PnlSummaryResponse;
+  summary(principalId: string): Promise<PnlSummaryResponse>;
+  summary(principalId?: string): PnlSummaryResponse | Promise<PnlSummaryResponse> {
+    if (principalId !== undefined) return this.summaryForPrincipal(principalId);
     return buildPnlSummary([...this.trades.values()]);
+  }
+
+  private async summaryForPrincipal(principalId: string): Promise<PnlSummaryResponse> {
+    assertPrincipalId(principalId, "PnL summary principalId");
+    if (!this.quoteOwnershipReader) throw new Error("PnL quote ownership reader is required for principal summary");
+    const owned: PnlTradeRecord[] = [];
+    for (const trade of this.trades.values()) {
+      if (await this.quoteOwnershipReader.findPrincipalId(trade.quoteId) === principalId) owned.push(trade);
+    }
+    return buildPnlSummary(owned);
   }
 
   private quoteModelKey(quoteId: string, model: PnlTradeRecord["model"]): string {
@@ -350,6 +374,13 @@ function assertPnlValuationProvider(value: unknown): asserts value is PnlValuati
   if (typeof value !== "object" || value === null || Array.isArray(value) ||
       typeof (value as Record<string, unknown>).resolve !== "function") {
     throw new Error("Pnl valuationProvider.resolve must be a function");
+  }
+}
+
+function assertQuoteOwnershipReader(value: unknown): asserts value is QuoteOwnershipReader {
+  if (typeof value !== "object" || value === null || Array.isArray(value) ||
+      typeof (value as Record<string, unknown>).findPrincipalId !== "function") {
+    throw new Error("PnL quoteOwnershipReader.findPrincipalId must be a function");
   }
 }
 

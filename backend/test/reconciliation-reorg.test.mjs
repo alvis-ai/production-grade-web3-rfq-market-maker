@@ -206,6 +206,7 @@ test("ReconciliationService skips removed events when quote points at a replacem
 async function saveSignedQuote(quoteRepository, quoteId, signedQuote) {
   await quoteRepository.saveSigned({
     quoteId,
+    principalId: "local",
     snapshotId: `snapshot_${quoteId}`,
     slippageBps: 50,
     spreadBps: 8,

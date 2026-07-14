@@ -6,18 +6,20 @@ import type {
   SignedQuote,
   UIntString,
 } from "../../shared/types/rfq.js";
+import { assertPrincipalId } from "../../shared/validation/principal-id.js";
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
-const requestedQuoteInputFields = ["quoteId", "request", "snapshotId"] as const;
-const rejectedQuoteInputFields = ["quoteId", "request", "snapshotId", "rejectCode"] as const;
+const requestedQuoteInputFields = ["quoteId", "principalId", "request", "snapshotId"] as const;
+const rejectedQuoteInputFields = ["quoteId", "principalId", "request", "snapshotId", "rejectCode"] as const;
 const rejectedQuoteOptionalFields = ["riskPolicyVersion"] as const;
 const clearSettlementStatusInputFields = ["quoteId", "txHash", "settlementEventId"] as const;
 const clearSettlementStatusOptionalFields = ["nowSeconds"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const signedQuoteInputFields = [
   "quoteId",
+  "principalId",
   "snapshotId",
   "slippageBps",
   "quote",
@@ -45,6 +47,7 @@ const signedQuoteFields = [
 
 export interface QuoteRecord {
   quoteId: string;
+  principalId: string;
   chainId: number;
   user: Address;
   tokenIn: Address;
@@ -97,24 +100,32 @@ export interface QuoteRepository {
   saveRequested(input: SaveRequestedQuoteInput): Promise<void>;
   saveRejected(input: SaveRejectedQuoteInput): Promise<void>;
   saveSigned(input: SaveSignedQuoteInput): Promise<void>;
-  findStatus(quoteId: string): Promise<QuoteStatusResponse | undefined>;
+  findStatus(quoteId: string, principalId?: string): Promise<QuoteStatusResponse | undefined>;
+  findPrincipalId(quoteId: string): Promise<string | undefined>;
   markFailed(quoteId: string, errorCode: string): Promise<void>;
   markStatus(quoteId: string, status: QuoteLifecycleStatus, metadata?: QuoteStatusMetadata): Promise<void>;
   restoreSettlementStatus(quoteId: string, metadata: QuoteStatusMetadata): Promise<void>;
   clearSettlementStatus(input: ClearSettlementStatusInput): Promise<ClearSettlementStatusResult>;
-  findSignedQuoteByQuoteId(quoteId: string): Promise<QuoteRecord | undefined>;
+  findSignedQuoteByQuoteId(quoteId: string, principalId?: string): Promise<QuoteRecord | undefined>;
   findQuoteIdByChainUserNonce(chainId: number, user: Address, nonce: UIntString): Promise<string | undefined>;
-  findSignedQuoteByChainUserNonce(chainId: number, user: Address, nonce: UIntString): Promise<QuoteRecord | undefined>;
+  findSignedQuoteByChainUserNonce(
+    chainId: number,
+    user: Address,
+    nonce: UIntString,
+    principalId?: string,
+  ): Promise<QuoteRecord | undefined>;
 }
 
 export interface SaveRequestedQuoteInput {
   quoteId: string;
+  principalId: string;
   request: QuoteRequest;
   snapshotId: string;
 }
 
 export interface SaveRejectedQuoteInput {
   quoteId: string;
+  principalId: string;
   request: QuoteRequest;
   snapshotId: string;
   rejectCode: string;
@@ -123,6 +134,7 @@ export interface SaveRejectedQuoteInput {
 
 export interface SaveSignedQuoteInput {
   quoteId: string;
+  principalId: string;
   snapshotId: string;
   slippageBps: number;
   quote: SignedQuote;
@@ -156,6 +168,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
 
     this.records.set(input.quoteId, {
       quoteId: input.quoteId,
+      principalId: input.principalId,
       chainId: input.request.chainId,
       user: input.request.user,
       tokenIn: input.request.tokenIn,
@@ -179,6 +192,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     this.records.set(input.quoteId, {
       ...current,
       quoteId: input.quoteId,
+      principalId: input.principalId,
       chainId: input.request.chainId,
       user: input.request.user,
       tokenIn: input.request.tokenIn,
@@ -214,6 +228,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     this.records.set(input.quoteId, {
       ...(current ?? {}),
       quoteId: input.quoteId,
+      principalId: input.principalId,
       chainId: input.quote.chainId,
       user: input.quote.user,
       tokenIn: input.quote.tokenIn,
@@ -239,11 +254,17 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     this.quoteIdsByChainUserNonce.set(key, input.quoteId);
   }
 
-  async findStatus(quoteId: string): Promise<QuoteStatusResponse | undefined> {
+  async findStatus(quoteId: string, principalId?: string): Promise<QuoteStatusResponse | undefined> {
+    if (principalId !== undefined) assertPrincipalId(principalId, "Quote status principalId");
     const record = this.records.get(quoteId);
-    if (!record) return undefined;
+    if (!record || (principalId !== undefined && record.principalId !== principalId)) return undefined;
 
     return quoteStatusResponseFromRecord(record);
+  }
+
+  async findPrincipalId(quoteId: string): Promise<string | undefined> {
+    assertSafeIdentifier(quoteId, "quoteId", "Quote ownership");
+    return this.records.get(quoteId)?.principalId;
   }
 
   async markFailed(quoteId: string, errorCode: string): Promise<void> {
@@ -343,9 +364,11 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     return this.quoteIdsByChainUserNonce.get(this.chainUserNonceKey(chainId, user, nonce));
   }
 
-  async findSignedQuoteByQuoteId(quoteId: string): Promise<QuoteRecord | undefined> {
+  async findSignedQuoteByQuoteId(quoteId: string, principalId?: string): Promise<QuoteRecord | undefined> {
+    if (principalId !== undefined) assertPrincipalId(principalId, "Signed quote principalId");
     const record = this.records.get(quoteId);
     if (
+      (principalId !== undefined && record?.principalId !== principalId) ||
       !record?.nonce ||
       !record.amountOut ||
       !record.minAmountOut ||
@@ -368,11 +391,12 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     chainId: number,
     user: Address,
     nonce: UIntString,
+    principalId?: string,
   ): Promise<QuoteRecord | undefined> {
     const quoteId = await this.findQuoteIdByChainUserNonce(chainId, user, nonce);
     if (!quoteId) return undefined;
 
-    return this.findSignedQuoteByQuoteId(quoteId);
+    return this.findSignedQuoteByQuoteId(quoteId, principalId);
   }
 
   private chainUserNonceKey(chainId: number, user: Address, nonce: UIntString): string {
@@ -411,6 +435,7 @@ function assertRequestedQuoteInput(input: SaveRequestedQuoteInput): void {
   assertOwnFields(input, requestedQuoteInputFields, "input", "Requested quote");
   assertObject(input.request, "request", "Requested quote");
   assertSafeIdentifier(input.quoteId, "quoteId", "Requested quote");
+  assertPrincipalId(input.principalId, "Requested quote principalId");
   assertSafeIdentifier(input.snapshotId, "snapshotId", "Requested quote");
   assertQuoteRequest(input.request, "Requested quote");
 }
@@ -421,6 +446,7 @@ function assertRejectedQuoteInput(input: SaveRejectedQuoteInput): void {
   assertOwnOptionalFields(input, rejectedQuoteOptionalFields, "input", "Rejected quote");
   assertObject(input.request, "request", "Rejected quote");
   assertSafeIdentifier(input.quoteId, "quoteId", "Rejected quote");
+  assertPrincipalId(input.principalId, "Rejected quote principalId");
   assertSafeIdentifier(input.snapshotId, "snapshotId", "Rejected quote");
   assertNonEmptyString(input.rejectCode, "rejectCode", "Rejected quote");
   if (input.riskPolicyVersion !== undefined) {
@@ -471,6 +497,7 @@ function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertOwnFields(input, signedQuoteInputFields, "input", "Signed quote");
   assertObject(input.quote, "quote", "Signed quote");
   assertSafeIdentifier(input.quoteId, "quoteId");
+  assertPrincipalId(input.principalId, "Signed quote principalId");
   assertSafeIdentifier(input.snapshotId, "snapshotId");
   assertNonEmptyString(input.pricingVersion, "pricingVersion");
   assertNonEmptyString(input.riskPolicyVersion, "riskPolicyVersion");
@@ -705,6 +732,7 @@ function shouldExpireAfterSettlementRemoval(record: QuoteRecord, nowSeconds: num
 function isSameRequestedQuotePayload(record: QuoteRecord, input: SaveRequestedQuoteInput | SaveRejectedQuoteInput): boolean {
   return (
     record.quoteId === input.quoteId &&
+    record.principalId === input.principalId &&
     record.chainId === input.request.chainId &&
     record.user.toLowerCase() === input.request.user.toLowerCase() &&
     record.tokenIn.toLowerCase() === input.request.tokenIn.toLowerCase() &&
@@ -726,6 +754,7 @@ function isSameRejectedQuotePayload(record: QuoteRecord, input: SaveRejectedQuot
 function isSameRequestedQuotePayloadAsSigned(record: QuoteRecord, input: SaveSignedQuoteInput): boolean {
   return (
     record.quoteId === input.quoteId &&
+    record.principalId === input.principalId &&
     record.chainId === input.quote.chainId &&
     record.user.toLowerCase() === input.quote.user.toLowerCase() &&
     record.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
@@ -739,6 +768,7 @@ function isSameRequestedQuotePayloadAsSigned(record: QuoteRecord, input: SaveSig
 function isSameSignedQuotePayload(record: QuoteRecord, input: SaveSignedQuoteInput): boolean {
   return (
     record.quoteId === input.quoteId &&
+    record.principalId === input.principalId &&
     record.chainId === input.quote.chainId &&
     record.user.toLowerCase() === input.quote.user.toLowerCase() &&
     record.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&

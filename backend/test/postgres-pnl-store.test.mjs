@@ -90,6 +90,18 @@ test("PostgresPnlStore summarizes durable rows by output token and removes reorg
   assert.equal(removed.record.pnlId, pnlRow().id);
 });
 
+test("PostgresPnlStore scopes summary rows by quote principal", async () => {
+  const { pool, client } = fakePool(async () => ({ rows: [pnlRow()], rowCount: 1 }));
+  const store = new PostgresPnlStore(pool, valuationProvider);
+
+  const summary = await store.summary("institution_a");
+
+  assert.equal(summary.totalTrades, 1);
+  assert.match(client.queries[0].sql, /JOIN quotes quote ON quote\.id = pnl\.quote_id/);
+  assert.match(client.queries[0].sql, /WHERE quote\.principal_id = \$1/);
+  assert.deepEqual(client.queries[0].params, ["institution_a"]);
+});
+
 test("PostgresPnlStore rejects malformed dependencies and rows", async () => {
   assert.throws(() => new PostgresPnlStore(null, valuationProvider), /pool\.connect must be a function/);
   const { pool } = fakePool(async () => ({ rows: [pnlRow({ amount_in: "01000" })], rowCount: 1 }));

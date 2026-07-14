@@ -22,6 +22,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "014", name: "hedge-execution-evidence", applied_at: "2026-07-14T00:05:00.000Z" },
         { version: "015", name: "hedge-fee-reconciliation", applied_at: "2026-07-14T00:06:00.000Z" },
         { version: "016", name: "treasury-liquidity-reservations", applied_at: "2026-07-14T00:07:00.000Z" },
+        { version: "017", name: "quote-principal-ownership", applied_at: "2026-07-14T00:08:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -507,6 +508,36 @@ test("database migration runner adds treasury output liquidity reservations", as
   assert.equal(client.queries.some(({ sql }) => sql.includes("TREASURY_LIQUIDITY_INSUFFICIENT")), true);
   assert.equal(client.queries.some(({ sql, params }) =>
     sql.includes("INSERT INTO _migrations") && params[0] === "016"), true);
+});
+
+test("database migration runner adds fail-closed quote principal ownership", async () => {
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: [
+        ["001", "base-schema"], ["002", "settlement-canonical"], ["003", "hedge-worker-queue"],
+        ["004", "analytics-outbox"], ["005", "post-trade-reconciliation"], ["006", "quote-snapshot-pnl"],
+        ["007", "settlement-indexer"], ["008", "submit-reservations"], ["009", "risk-notional-reasons"],
+        ["010", "risk-market-regime-reasons"], ["011", "open-quote-exposure"], ["012", "pricing-attribution"],
+        ["013", "market-spread-attribution"], ["014", "hedge-execution-evidence"],
+        ["015", "hedge-fee-reconciliation"], ["016", "treasury-liquidity-reservations"],
+      ].map(([version, name]) => ({ version, name, applied_at: "2026-07-14T00:00:00.000Z" })) };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "017");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("ADD COLUMN IF NOT EXISTS principal_id")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("'legacy:' || md5(id)")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("ALTER COLUMN principal_id SET NOT NULL")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("idx_quotes_principal_created_at")), true);
+  assert.equal(client.queries.some(({ sql, params }) =>
+    sql.includes("INSERT INTO _migrations") && params[0] === "017"), true);
 });
 
 function fakePool(handler) {

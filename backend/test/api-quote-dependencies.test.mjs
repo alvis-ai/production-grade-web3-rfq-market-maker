@@ -70,12 +70,18 @@ test("RFQ API maps quote store failures before signing", async () => {
       async findStatus() {
         return undefined;
       },
+      async findPrincipalId() {
+        return undefined;
+      },
       async markFailed() {},
       async markStatus() {},
       async findQuoteIdByChainUserNonce() {
         return undefined;
       },
       async findSignedQuoteByChainUserNonce() {
+        return undefined;
+      },
+      async findSignedQuoteByQuoteId() {
         return undefined;
       },
     },

@@ -38,6 +38,7 @@ const pnlService = new PnlService(pnlValuationProvider);
 
 await quoteRepository.saveSigned({
   quoteId: "q_reconciliation_check",
+  principalId: "local",
   snapshotId: "snapshot_reconciliation_check",
   slippageBps: 50,
   spreadBps: 8,
@@ -99,6 +100,7 @@ const reorgQuoteRepository = new InMemoryQuoteRepository();
 const reorgSettlementEventService = new SettlementEventService(new InventoryService());
 await reorgQuoteRepository.saveSigned({
   quoteId: "q_reconciliation_reorg_check",
+  principalId: "local",
   snapshotId: "snapshot_reconciliation_reorg_check",
   slippageBps: 50,
   spreadBps: 8,

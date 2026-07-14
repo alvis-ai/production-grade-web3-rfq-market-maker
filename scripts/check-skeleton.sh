@@ -815,6 +815,7 @@ test -s backend/src/db/migrations/013-market-spread-attribution.sql
 test -s backend/src/db/migrations/014-hedge-execution-evidence.sql
 test -s backend/src/db/migrations/015-hedge-fee-reconciliation.sql
 test -s backend/src/db/migrations/016-treasury-liquidity-reservations.sql
+test -s backend/src/db/migrations/017-quote-principal-ownership.sql
 test -s backend/src/modules/risk/treasury-liquidity.provider.ts
 test -s backend/src/modules/hedge/hedge-fee-worker.ts
 test -s backend/src/modules/hedge/postgres-hedge-fee.store.ts
@@ -1215,8 +1216,9 @@ grep -q 'assertRejectedQuoteInput(input)' backend/src/modules/quote/quote.reposi
 grep -q 'assertObject(input, "input", "Requested quote")' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertObject(request, "request", subject)' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertObject(input.quote, "quote", "Signed quote")' backend/src/modules/quote/quote.repository.ts
-grep -q 'requestedQuoteInputFields = \["quoteId", "request", "snapshotId"\]' backend/src/modules/quote/quote.repository.ts
-grep -q 'rejectedQuoteInputFields = \["quoteId", "request", "snapshotId", "rejectCode"\]' backend/src/modules/quote/quote.repository.ts
+grep -q 'requestedQuoteInputFields = \["quoteId", "principalId", "request", "snapshotId"\]' backend/src/modules/quote/quote.repository.ts
+grep -q 'rejectedQuoteInputFields = \["quoteId", "principalId", "request", "snapshotId", "rejectCode"\]' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertPrincipalId(input.principalId, "Requested quote principalId")' backend/src/modules/quote/quote.repository.ts
 grep -q 'rejectedQuoteOptionalFields = \["riskPolicyVersion"\]' backend/src/modules/quote/quote.repository.ts
 grep -q 'quoteRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' backend/src/modules/quote/quote.repository.ts
 grep -q 'assertOwnFields(input, requestedQuoteInputFields, "input", "Requested quote")' backend/src/modules/quote/quote.repository.ts

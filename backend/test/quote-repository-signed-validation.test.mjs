@@ -26,6 +26,7 @@ test("InMemoryQuoteRepository rejects unsafe signed quote persistence inputs", a
   };
   const input = {
     quoteId: "q_invalid",
+    principalId: "local",
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,

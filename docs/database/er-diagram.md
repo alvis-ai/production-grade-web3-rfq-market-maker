@@ -29,6 +29,7 @@ erDiagram
 
   QUOTES {
     text id PK
+    text principal_id
     bigint chain_id
     text user_address
     text token_in
@@ -256,6 +257,7 @@ erDiagram
 - `settlement_indexer_checkpoints` 保存已提交 range 末端的 block hash。每次扫描先比较最近 checkpoint；分叉时在 `reorgLookbackBlocks` 内寻找共同祖先，按 reverse chain order 标记 orphaned settlement events non-canonical，再回退 cursor。超出窗口时 fail closed 并等待人工确认。
 - `idx_settlement_events_canonical_chain_block` 支持 indexer 在 crash-before-cursor-commit 和 reorg 恢复时只读取受影响链与 block range，不对完整事件表做全量扫描。
 - `quotes` 使用 partial unique index `(chain_id, user_address, nonce) WHERE nonce IS NOT NULL`，保证 signed quote 的 `chainId:user:nonce` 本地查找键唯一，同时允许 requested / rejected quote 在签名前没有 nonce。
+- `quotes.principal_id` 是链下机构授权边界：创建 quote 时写入并保持不可变，轮换 API key 只更换 `keyId` 而保持 principal。quote status、submit、derived settlement/hedge status 和 PnL 查询都从该字段判定所有权；wallet address 不替代 tenant ownership，且该字段不进入 EIP-712 或公共响应。
 - `quote_exposure_reservations` 以 `quote_id` 为主键并级联绑定 requested quote，保存 `(chain_id, normalized user)`、排序后的无方向 `(token_low, token_high)`、方向性的 `token_out/amount_out`、18-decimal USD 定点名义金额和 `expires_at`。生产 quote 还保存同一 block 读取的 settlement、treasury、token balance 和 block number 证据。只有尚未过期且 quote 状态仍为 requested/signed/failed 的行参与累计名义限额；failed signed quote 的链上 nonce 未必已消耗，必须保守计数。submitted/settled 有成交证据后暂不计入名义限额但保留行，reorg 恢复 signed 状态时自动重新纳入。
 - PostgreSQL exposure store 对 quote、user、pair 与 `(chainId, tokenOut)` liquidity scope 按字符串稳定排序后逐个获取 transaction-scoped advisory locks，再执行 SUM 和 INSERT；这让多 API replica 无法通过 write skew 同时越过 user/pair limit 或超卖 Treasury。输出流动性 SUM 计算所有未过期 reservation，不因 submitted/settled 提前释放，避免 RPC 余额下降与数据库状态切换之间重复使用余额；expired 行由有界 `FOR UPDATE SKIP LOCKED` 清理。
 - 数据库层使用 CHECK constraints 固化应用层关键不变量：操作表 primary id 使用 SafeIdentifier 约束、quote lifecycle status、risk decision status / reason_code consistency、hedge side/status（`queued`、`filled`、`failed`）、hedge `venue` 非空、PnL attribution model / model description、20-byte address、distinct token pair、market snapshot `source` 非空、market snapshot `bid_price <= mid_price <= ask_price`、market snapshot `market_spread_bps` 与 market snapshot `volatility_bps` 在 0..10000 bps、signed quote pricing bps component ranges、32-byte tx/quote hash、65-byte canonical low-s EIP-712 signature with `v` in 27/28、`amount_out >= min_amount_out`，以及正数 signed amount/nonce、settled amount/nonce 和 hedge amount。

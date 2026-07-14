@@ -27,6 +27,7 @@ test("InMemoryQuoteRepository rejects settlement statuses without chain pointers
 
   await quoteRepository.saveSigned({
     quoteId: "q_missing_settlement_metadata",
+    principalId: "local",
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -80,6 +81,7 @@ test("InMemoryQuoteRepository rejects non-settlement statuses with settlement po
 
   await quoteRepository.saveSigned({
     quoteId: "q_expired_metadata",
+    principalId: "local",
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -129,6 +131,7 @@ test("InMemoryQuoteRepository rejects malformed failed quote metadata", async ()
 
   await quoteRepository.saveSigned({
     quoteId: "q_failed_metadata",
+    principalId: "local",
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,

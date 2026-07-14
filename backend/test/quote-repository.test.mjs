@@ -26,6 +26,7 @@ test("InMemoryQuoteRepository indexes signed quotes by chain, user, and nonce", 
 
   await quoteRepository.saveSigned({
     quoteId: "q_chain_1",
+    principalId: "local",
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -44,6 +45,7 @@ test("InMemoryQuoteRepository indexes signed quotes by chain, user, and nonce", 
   });
   await quoteRepository.saveSigned({
     quoteId: "q_chain_137",
+    principalId: "local",
     snapshotId: "snapshot_137",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -95,6 +97,7 @@ test("InMemoryQuoteRepository returns defensive copies of signed quote records",
 
   await quoteRepository.saveSigned({
     quoteId: "q_copy",
+    principalId: "local",
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -142,6 +145,7 @@ test("InMemoryQuoteRepository rejects signed quote nonce key conflicts", async (
 
   await quoteRepository.saveSigned({
     quoteId: "q_original",
+    principalId: "local",
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -159,6 +163,7 @@ test("InMemoryQuoteRepository rejects signed quote nonce key conflicts", async (
   await assert.rejects(
     quoteRepository.saveSigned({
       quoteId: "q_conflict",
+      principalId: "local",
       snapshotId: "snapshot_2",
       slippageBps: request.slippageBps,
       spreadBps: 8,
@@ -199,6 +204,7 @@ test("InMemoryQuoteRepository rejects signed quote identity rewrites", async () 
 
   await quoteRepository.saveSigned({
     quoteId: "q_original",
+    principalId: "local",
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,
@@ -216,6 +222,7 @@ test("InMemoryQuoteRepository rejects signed quote identity rewrites", async () 
   await assert.rejects(
     quoteRepository.saveSigned({
       quoteId: "q_original",
+      principalId: "local",
       snapshotId: "snapshot_2",
       slippageBps: request.slippageBps,
       spreadBps: 8,
@@ -255,6 +262,7 @@ test("InMemoryQuoteRepository rejects signed quote payload rewrites", async () =
   };
   const input = {
     quoteId: "q_payload",
+    principalId: "local",
     snapshotId: "snapshot_1",
     slippageBps: request.slippageBps,
     spreadBps: 8,

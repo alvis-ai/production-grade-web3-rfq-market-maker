@@ -31,6 +31,7 @@
 - [x] Rate limits protect public trading endpoints.
 - [x] Non-local business routes require scoped API keys whose plaintext secrets are never stored server-side.
 - [x] API key verification uses constant-time digest comparison, generic 401 responses, expiry, and fixed route scopes.
+- [x] Quote ownership is immutable and principal-scoped across quote status, submit, settlement, hedge, and PnL; mismatches use anti-enumeration 404 responses.
 - [x] Production `/submit` uses a PostgreSQL quote-scoped lease with server-time expiry and owner-token release across API replicas.
 - [x] Submit reservation acquisition failures fail closed and active contention is rejected before settlement verification.
 - [x] All errors include traceId.

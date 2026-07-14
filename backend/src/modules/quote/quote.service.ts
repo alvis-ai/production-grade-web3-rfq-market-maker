@@ -11,6 +11,7 @@ import type {
 import { APIError } from "../../shared/errors/api-error.js";
 import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "../../shared/validation/submit-request.js";
+import { assertPrincipalId, localPrincipalId } from "../../shared/validation/principal-id.js";
 import type { InventoryProjection, IInventoryService } from "../inventory/inventory.service.js";
 import {
   defaultMaxSnapshotFutureSkewMs,
@@ -59,6 +60,10 @@ export interface QuoteServiceConfig {
   maxSnapshotAgeMs: number;
   maxSnapshotFutureSkewMs: number;
   quoteTtlSeconds: number;
+}
+
+export interface QuoteAccessContext {
+  principalId: string;
 }
 
 export const defaultQuoteServiceConfig: QuoteServiceConfig = {
@@ -120,6 +125,7 @@ const positiveUIntStringPattern = /^[1-9][0-9]*$/;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const maxSafeIdentifierLength = 128;
 const maxBps = 10_000;
+const quoteAccessContextFields = ["principalId"] as const;
 
 export class QuoteService {
   private readonly identityGenerator = new QuoteIdentityGenerator();
@@ -140,7 +146,8 @@ export class QuoteService {
     this.config = cloneQuoteServiceConfig(config);
   }
 
-  async createQuote(request: QuoteRequest): Promise<QuoteResponse> {
+  async createQuote(request: QuoteRequest, context?: QuoteAccessContext): Promise<QuoteResponse> {
+    const access = normalizeQuoteAccessContext(context);
     const validatedRequest = validateQuoteRequest(request);
     const snapshot = await this.getUsableSnapshot(validatedRequest);
     const snapshotSource = getMarketDataSnapshotSource(snapshot);
@@ -154,6 +161,7 @@ export class QuoteService {
     const quoteId = identity.quoteId;
     await this.saveRequestedQuote({
       quoteId,
+      principalId: access.principalId,
       snapshotId: snapshot.snapshotId,
       request: validatedRequest,
     });
@@ -275,6 +283,7 @@ export class QuoteService {
     if (risk.status !== "approved") {
       await this.saveRejectedQuoteBestEffort({
         quoteId,
+        principalId: access.principalId,
         snapshotId: snapshot.snapshotId,
         request: validatedRequest,
         rejectCode: risk.reasonCode ?? "RISK_REJECTED",
@@ -317,6 +326,7 @@ export class QuoteService {
     try {
       await this.saveSignedQuote({
         quoteId,
+        principalId: access.principalId,
         snapshotId: snapshot.snapshotId,
         slippageBps: validatedRequest.slippageBps,
         quote: signedQuote,
@@ -346,8 +356,9 @@ export class QuoteService {
     };
   }
 
-  async getQuoteStatus(quoteId: string): Promise<QuoteStatusResponse | undefined> {
-    const status = await this.findQuoteStatus(quoteId);
+  async getQuoteStatus(quoteId: string, context?: QuoteAccessContext): Promise<QuoteStatusResponse | undefined> {
+    const access = normalizeQuoteAccessContext(context);
+    const status = await this.findQuoteStatus(quoteId, access.principalId);
     if (!status) return undefined;
 
     if (status.status === "signed" && status.deadline && status.deadline < Math.floor(Date.now() / 1000)) {
@@ -429,9 +440,9 @@ export class QuoteService {
     }
   }
 
-  private async findQuoteStatus(quoteId: string): Promise<QuoteStatusResponse | undefined> {
+  private async findQuoteStatus(quoteId: string, principalId: string): Promise<QuoteStatusResponse | undefined> {
     try {
-      return await this.deps.quoteRepository.findStatus(quoteId);
+      return await this.deps.quoteRepository.findStatus(quoteId, principalId);
     } catch (error) {
       throw quoteStoreFailure(error);
     }
@@ -478,9 +489,10 @@ export class QuoteService {
     chainId: number,
     user: Address,
     nonce: UIntString,
+    principalId: string,
   ): Promise<QuoteRecord | undefined> {
     try {
-      return await this.deps.quoteRepository.findSignedQuoteByChainUserNonce(chainId, user, nonce);
+      return await this.deps.quoteRepository.findSignedQuoteByChainUserNonce(chainId, user, nonce, principalId);
     } catch (error) {
       throw quoteStoreFailure(error);
     }
@@ -510,12 +522,14 @@ export class QuoteService {
   async requireSubmittableSignedQuote(
     quote: SignedQuote,
     signature: `0x${string}`,
-    options: { allowExpired?: boolean } = {},
+    options: { allowExpired?: boolean; principalId?: string } = {},
   ): Promise<string> {
     if (typeof options !== "object" || options === null || Array.isArray(options)) {
       throw new APIError("INVALID_REQUEST", "Submit quote lookup options must be an object", 400);
     }
-    const unknownOption = Object.keys(options).find((field) => field !== "allowExpired");
+    const unknownOption = Object.keys(options).find(
+      (field) => field !== "allowExpired" && field !== "principalId",
+    );
     if (unknownOption) {
       throw new APIError("INVALID_REQUEST", `Submit quote lookup options contain unknown field ${unknownOption}`, 400);
     }
@@ -525,13 +539,23 @@ export class QuoteService {
     if (options.allowExpired !== undefined && typeof options.allowExpired !== "boolean") {
       throw new APIError("INVALID_REQUEST", "Submit quote lookup allowExpired must be a boolean", 400);
     }
+    if ("principalId" in options && !Object.prototype.hasOwnProperty.call(options, "principalId")) {
+      throw new APIError("INVALID_REQUEST", "Submit quote lookup principalId must be an own field", 400);
+    }
+    try {
+      assertPrincipalId(options.principalId ?? localPrincipalId, "Submit quote lookup principalId");
+    } catch (error) {
+      throw new APIError("INVALID_REQUEST", error instanceof Error ? error.message : "Invalid principalId", 400);
+    }
     const allowExpired = options.allowExpired ?? false;
+    const principalId = options.principalId ?? localPrincipalId;
     const validatedSubmitRequest = validateSubmitQuoteRequest({ quote, signature }, { allowExpired: true });
     const validatedQuote = validatedSubmitRequest.quote;
     const record = await this.findSignedQuoteByChainUserNonce(
       validatedQuote.chainId,
       validatedQuote.user,
       validatedQuote.nonce,
+      principalId,
     );
     if (!record || !isExactSignedQuote(record, validatedQuote)) {
       throw new APIError("QUOTE_NOT_FOUND", "Signed quote not found", 404);
@@ -563,6 +587,16 @@ export class QuoteService {
 
     return record.quoteId;
   }
+}
+
+function normalizeQuoteAccessContext(context: QuoteAccessContext | undefined): QuoteAccessContext {
+  const value = context ?? { principalId: localPrincipalId };
+  assertRecord(value, "access context");
+  assertOwnFields(value, quoteAccessContextFields, "access context");
+  const unknownField = Object.keys(value).find((field) => !quoteAccessContextFields.includes(field as "principalId"));
+  if (unknownField) throw new Error(`Quote service access context contains unknown field ${unknownField}`);
+  assertPrincipalId(value.principalId, "Quote service access context.principalId");
+  return { principalId: value.principalId };
 }
 
 function quoteFailureCode(error: unknown): string {
@@ -655,6 +689,7 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRejected");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveSigned");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findStatus");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findPrincipalId");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markStatus");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "markFailed");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByChainUserNonce");
@@ -690,7 +725,10 @@ function assertOptionalDependencyMethod(
   }
 }
 
-function assertRecord(value: unknown, field: "config" | "deps" | keyof QuoteServiceDeps): void {
+function assertRecord(
+  value: unknown,
+  field: "config" | "deps" | "access context" | keyof QuoteServiceDeps,
+): void {
   if (!isRecord(value)) {
     throw new Error(`Quote service ${field} must be an object`);
   }

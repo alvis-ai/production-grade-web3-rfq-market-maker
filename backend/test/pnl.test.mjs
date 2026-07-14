@@ -57,6 +57,22 @@ test("PnlService records quote-snapshot PnL and aggregates by output token", asy
   assert.deepEqual(summary.trades.map((trade) => trade.pnlId).sort(), ["pnl_q_gain", "pnl_q_loss"]);
 });
 
+test("PnlService scopes summaries through quote ownership", async () => {
+  const owners = new Map([["q_owned", "institution_a"], ["q_foreign", "institution_b"]]);
+  const pnl = new PnlService(createTestPnlValuationProvider(), {
+    async findPrincipalId(quoteId) { return owners.get(quoteId); },
+  });
+  await pnl.recordSettlement(pnlInput("q_owned", baseQuote));
+  await pnl.recordSettlement(pnlInput("q_foreign", { ...baseQuote, nonce: "2" }));
+
+  const owned = await pnl.summary("institution_a");
+  const foreign = await pnl.summary("institution_b");
+  assert.equal(owned.totalTrades, 1);
+  assert.deepEqual(owned.trades.map(({ quoteId }) => quoteId), ["q_owned"]);
+  assert.equal(foreign.totalTrades, 1);
+  assert.deepEqual(foreign.trades.map(({ quoteId }) => quoteId), ["q_foreign"]);
+});
+
 test("PnlService normalizes cross-decimal valuation before calculating PnL", async () => {
   const pnl = new PnlService(createTestPnlValuationProvider({
     midPrice: "2000",

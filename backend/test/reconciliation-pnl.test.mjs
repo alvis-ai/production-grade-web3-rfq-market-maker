@@ -170,6 +170,7 @@ test("ReconciliationService requires PnL service for settlement-to-PnL repair", 
 async function saveSignedQuote(quoteRepository, quoteId, signedQuote) {
   await quoteRepository.saveSigned({
     quoteId,
+    principalId: "local",
     snapshotId: `snapshot_${quoteId}`,
     slippageBps: 50,
     spreadBps: 8,

@@ -9,6 +9,7 @@ import {
 } from "../../shared/types/rfq.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 import { normalizeHumanPrice } from "../pricing/price-normalization.js";
+import { assertPrincipalId } from "../../shared/validation/principal-id.js";
 import {
   buildPnlSummary,
   buildPnlTradeRecord,
@@ -28,6 +29,10 @@ const pnlColumns = `
   mid_price, token_in_decimals, token_out_decimals, fair_amount_out, valuation_observed_at,
   gross_pnl_token_out, gross_pnl_bps, model, model_description, realized_at
 `;
+const qualifiedPnlColumns = pnlColumns
+  .split(",")
+  .map((column) => `pnl.${column.trim()}`)
+  .join(", ");
 
 export class PostgresPnlStore implements PnlStore {
   private readonly valuationProvider: PnlValuationProvider;
@@ -121,11 +126,17 @@ export class PostgresPnlStore implements PnlStore {
     }
   }
 
-  async summary(): Promise<PnlSummaryResponse> {
+  async summary(principalId?: string): Promise<PnlSummaryResponse> {
+    if (principalId !== undefined) assertPrincipalId(principalId, "Postgres PnL summary principalId");
     const client = await this.pool.connect();
     try {
       const result = await client.query(
-        `SELECT ${pnlColumns} FROM pnl_records ORDER BY realized_at ASC, id ASC`,
+        `SELECT ${qualifiedPnlColumns}
+         FROM pnl_records pnl
+         ${principalId === undefined ? "" : "JOIN quotes quote ON quote.id = pnl.quote_id"}
+         ${principalId === undefined ? "" : "WHERE quote.principal_id = $1"}
+         ORDER BY pnl.realized_at ASC, pnl.id ASC`,
+        principalId === undefined ? [] : [principalId],
       );
       return buildPnlSummary(result.rows.map(parsePnlRow));
     } finally {
