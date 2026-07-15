@@ -34,6 +34,7 @@ export class BackgroundMarketSnapshotSampler {
   private readonly intervalMs: number;
   private readonly lastSavedSnapshotIds = new Map<string, string>();
   private timer: ReturnType<typeof setInterval> | undefined;
+  private activeSample: Promise<MarketSnapshotSampleResult> | undefined;
 
   constructor(
     private readonly store: MarketSnapshotStore,
@@ -54,13 +55,26 @@ export class BackgroundMarketSnapshotSampler {
     this.timer.unref();
   }
 
-  stop(): void {
-    if (!this.timer) return;
-    clearInterval(this.timer);
-    this.timer = undefined;
+  async stop(): Promise<void> {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = undefined;
+    }
+    await this.activeSample;
   }
 
-  async sampleOnce(): Promise<MarketSnapshotSampleResult> {
+  sampleOnce(): Promise<MarketSnapshotSampleResult> {
+    if (this.activeSample) return this.activeSample;
+    const sample = this.performSampleOnce();
+    this.activeSample = sample;
+    void sample.then(
+      () => this.clearActiveSample(sample),
+      () => this.clearActiveSample(sample),
+    );
+    return sample;
+  }
+
+  private async performSampleOnce(): Promise<MarketSnapshotSampleResult> {
     const results = await Promise.all(this.pairs.map((pair) => this.samplePair(pair)));
     return results.reduce<MarketSnapshotSampleResult>((total, outcome) => {
       total[outcome] += 1;
@@ -90,6 +104,10 @@ export class BackgroundMarketSnapshotSampler {
     } catch {
       return "failed";
     }
+  }
+
+  private clearActiveSample(sample: Promise<MarketSnapshotSampleResult>): void {
+    if (this.activeSample === sample) this.activeSample = undefined;
   }
 }
 

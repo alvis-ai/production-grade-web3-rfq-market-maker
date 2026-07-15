@@ -70,6 +70,39 @@ test("BackgroundMarketSnapshotSampler retries failed persistence and builds both
   assert.equal(attempts, 2);
 });
 
+test("BackgroundMarketSnapshotSampler coalesces overlapping cycles and waits for them during stop", async () => {
+  const cache = new SharedPriceCache(60_000);
+  cache.set(pairKey(1, tokenA, tokenB), snapshot("snap_slow", "chainlink"));
+  const gate = deferred();
+  let writes = 0;
+  const sampler = new BackgroundMarketSnapshotSampler(
+    {
+      async saveSnapshot() {
+        writes += 1;
+        await gate.promise;
+        return {};
+      },
+    },
+    { pairs: [request], caches: [cache], requiredPrimaryCacheKeys: [], intervalMs: 5_000 },
+  );
+
+  sampler.start();
+  sampler.start();
+  const overlapping = sampler.sampleOnce();
+  assert.equal(writes, 1);
+
+  let stopped = false;
+  const stopping = sampler.stop().then(() => { stopped = true; });
+  await Promise.resolve();
+  assert.equal(stopped, false);
+
+  gate.resolve();
+  assert.deepEqual(await overlapping, { saved: 1, unchanged: 0, unavailable: 0, failed: 0 });
+  await stopping;
+  assert.equal(stopped, true);
+  assert.equal(writes, 1);
+});
+
 function snapshot(snapshotId, source) {
   return tagMarketDataSnapshot({
     snapshotId,
@@ -79,4 +112,10 @@ function snapshot(snapshotId, source) {
     volatilityBps: 20,
     observedAt: "2026-07-14T00:00:00.000Z",
   }, source);
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
 }

@@ -219,31 +219,19 @@ export function buildServer(options: BuildServerOptions = {}) {
     marketSnapshotStore,
     postgresPool !== undefined,
   );
-  if (stopMarketBackgroundTasks) {
-    server.addHook("onClose", async () => {
-      stopMarketBackgroundTasks();
-    });
-  }
-  if (ownsPostgresPool) {
-    server.addHook("onClose", async () => {
-      await endPool();
-    });
-  }
   if (postgresSettlementEventStore) {
     server.addHook("onReady", async () => {
       await postgresSettlementEventStore.initialize();
     });
   }
-  if (rateLimiter?.close) {
-    server.addHook("onClose", async () => {
-      await rateLimiter.close?.();
-    });
-  }
-  if (defaultSignerRuntime?.close) {
-    server.addHook("onClose", async () => {
-      await defaultSignerRuntime.close?.();
-    });
-  }
+  server.addHook("onClose", async () => {
+    await closeGatewayResources([
+      ...(stopMarketBackgroundTasks ? [stopMarketBackgroundTasks] : []),
+      ...(rateLimiter?.close ? [() => rateLimiter.close!()] : []),
+      ...(defaultSignerRuntime?.close ? [() => defaultSignerRuntime.close!()] : []),
+      ...(ownsPostgresPool ? [() => endPool()] : []),
+    ]);
+  });
 
   const readinessService = new ReadinessService({
     hedgeService,
@@ -307,4 +295,20 @@ export function buildServer(options: BuildServerOptions = {}) {
   marketRuntime.assertProductionPolicy();
 
   return server;
+}
+
+export async function closeGatewayResources(
+  closers: readonly (() => void | Promise<void>)[],
+): Promise<void> {
+  let firstError: unknown;
+  let failed = false;
+  for (const close of closers) {
+    try {
+      await close();
+    } catch (error) {
+      if (!failed) firstError = error;
+      failed = true;
+    }
+  }
+  if (failed) throw firstError;
 }

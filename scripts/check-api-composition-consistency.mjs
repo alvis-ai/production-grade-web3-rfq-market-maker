@@ -112,6 +112,9 @@ assertContains(main, [
 ], "backend/src/main.ts");
 assertContains(gatewayApplication, [
   "export function buildServer",
+  "closeGatewayResources([",
+  "...(stopMarketBackgroundTasks ? [stopMarketBackgroundTasks] : [])",
+  "...(ownsPostgresPool ? [() => endPool()] : [])",
   "installGatewayBoundary(server",
   "registerTradingRoutes(server",
   "registerQuoteControlRoutes(server",

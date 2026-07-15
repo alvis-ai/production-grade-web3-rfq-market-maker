@@ -16,6 +16,8 @@ Use one shared bounded-shutdown controller for the API, hedge worker, analytics 
 
 The first termination signal starts the deadline before invoking the component stop callback. API shutdown stops Fastify immediately; workers stop claiming or polling for new work and let the current bounded operation return before closing health servers and dependencies. Successful cleanup clears the deadline and removes both signal listeners. A second signal means an operator or supervisor requires immediate termination, so the process logs bounded metadata and exits with code 1. Deadline expiry does the same with `PROCESS_SHUTDOWN_TIMEOUT`; raw errors, request data, credentials, and task identifiers are not logged.
 
+API resource cleanup uses one explicit dependency-ordered chain instead of relying on Fastify's reverse `onClose` hook order. It first clears market-data timers and awaits the single in-flight price refresh or snapshot persistence cycle, then closes Redis/KMS resources, and closes the owned PostgreSQL pool last. A cleanup failure is retained as the shutdown result but does not prevent later resources from being released.
+
 Every backend Kubernetes Deployment uses `terminationGracePeriodSeconds=30` and a five-second `preStop` sleep. The reviewed budget is therefore five seconds for endpoint removal, twenty seconds for application cleanup, and five seconds of kubelet margin. Helm schema validates each scalar and a template helper rejects any combination where shutdown timeout plus `preStop` plus the five-second margin exceeds the termination grace period. Compose applies the same application deadline without Kubernetes `preStop`.
 
 ## Consequences

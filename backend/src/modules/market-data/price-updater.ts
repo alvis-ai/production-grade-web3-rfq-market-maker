@@ -32,6 +32,7 @@ export class BackgroundPriceUpdater {
   private readonly pairs: QuoteRequest[];
   private readonly intervalMs: number;
   private timer: ReturnType<typeof setInterval> | undefined;
+  private activeUpdate: Promise<void> | undefined;
 
   constructor(
     marketData: MarketDataService,
@@ -45,20 +46,33 @@ export class BackgroundPriceUpdater {
   }
 
   start(): void {
-    this.updateAll();
-    this.timer = setInterval(() => this.updateAll(), this.intervalMs);
+    if (this.timer) return;
+    void this.refreshOnce();
+    this.timer = setInterval(() => void this.refreshOnce(), this.intervalMs);
     this.timer.unref();
   }
 
-  stop(): void {
+  async stop(): Promise<void> {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = undefined;
     }
+    await this.activeUpdate;
   }
 
   getCache(): SharedPriceCache {
     return this.cache;
+  }
+
+  refreshOnce(): Promise<void> {
+    if (this.activeUpdate) return this.activeUpdate;
+    const update = this.updateAll();
+    this.activeUpdate = update;
+    void update.then(
+      () => this.clearActiveUpdate(update),
+      () => this.clearActiveUpdate(update),
+    );
+    return update;
   }
 
   private async updateAll(): Promise<void> {
@@ -72,5 +86,9 @@ export class BackgroundPriceUpdater {
     } catch {
       // Cache retains previous entry; next updater cycle will retry.
     }
+  }
+
+  private clearActiveUpdate(update: Promise<void>): void {
+    if (this.activeUpdate === update) this.activeUpdate = undefined;
   }
 }

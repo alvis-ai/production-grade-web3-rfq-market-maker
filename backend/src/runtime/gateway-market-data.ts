@@ -37,7 +37,7 @@ export interface GatewayMarketDataRuntime {
   startBackgroundTasks(
     marketSnapshotStore: MarketSnapshotStore,
     persistSnapshots: boolean,
-  ): (() => void) | undefined;
+  ): (() => Promise<void>) | undefined;
 }
 
 export function buildGatewayMarketDataRuntime(
@@ -112,10 +112,13 @@ export function buildGatewayMarketDataRuntime(
       cexMonitor?.start();
       snapshotSampler?.start();
       if (!priceUpdater && !cexMonitor && !snapshotSampler) return undefined;
-      return () => {
-        priceUpdater?.stop();
+      return async () => {
+        const priceUpdaterStop = priceUpdater?.stop();
         cexMonitor?.stop();
-        snapshotSampler?.stop();
+        const snapshotSamplerStop = snapshotSampler?.stop();
+        const results = await Promise.allSettled([priceUpdaterStop, snapshotSamplerStop]);
+        const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+        if (failure) throw failure.reason;
       };
     },
   };
