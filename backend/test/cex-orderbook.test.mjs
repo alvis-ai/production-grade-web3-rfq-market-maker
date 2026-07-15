@@ -469,6 +469,95 @@ test("CoinbaseConnector reconnects when the initial snapshot times out", (contex
   }
 });
 
+test("CEX connectors reconnect when WebSocket handshakes stall", (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const OriginalWebSocket = globalThis.WebSocket;
+  const binanceErrors = [];
+  const coinbaseErrors = [];
+  globalThis.WebSocket = FakeWebSocket;
+  const binance = new BinanceConnector("ETHUSDT", undefined, (error) => binanceErrors.push(error.message));
+  const coinbase = new CoinbaseConnector("ETH-USD", undefined, (error) => coinbaseErrors.push(error.message));
+
+  try {
+    binance.start();
+    const stalledBinanceSocket = FakeWebSocket.instances.at(-1);
+    coinbase.start();
+    const stalledCoinbaseSocket = FakeWebSocket.instances.at(-1);
+
+    context.mock.timers.tick(10_000);
+    assert.equal(stalledBinanceSocket.readyState, FakeWebSocket.CLOSED);
+    assert.equal(stalledCoinbaseSocket.readyState, FakeWebSocket.CLOSED);
+    assert.equal(binanceErrors.includes("Binance WebSocket connection timed out"), true);
+    assert.equal(coinbaseErrors.includes("Coinbase WebSocket connection timed out"), true);
+
+    context.mock.timers.tick(1_000);
+    assert.notEqual(FakeWebSocket.instances.at(-2), stalledBinanceSocket);
+    assert.notEqual(FakeWebSocket.instances.at(-1), stalledCoinbaseSocket);
+  } finally {
+    binance.stop();
+    coinbase.stop();
+    globalThis.WebSocket = OriginalWebSocket;
+    FakeWebSocket.instances.length = 0;
+  }
+});
+
+test("CEX connectors close errored sockets before backoff", (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const OriginalWebSocket = globalThis.WebSocket;
+  const errors = [];
+  globalThis.WebSocket = FakeWebSocket;
+  const binance = new BinanceConnector("ETHUSDT", undefined, (error) => errors.push(error.message));
+  const coinbase = new CoinbaseConnector("ETH-USD", undefined, (error) => errors.push(error.message));
+
+  try {
+    binance.start();
+    const failedBinanceSocket = FakeWebSocket.instances.at(-1);
+    coinbase.start();
+    const failedCoinbaseSocket = FakeWebSocket.instances.at(-1);
+
+    failedBinanceSocket.error();
+    failedCoinbaseSocket.error();
+    assert.equal(failedBinanceSocket.readyState, FakeWebSocket.CLOSED);
+    assert.equal(failedCoinbaseSocket.readyState, FakeWebSocket.CLOSED);
+    assert.equal(errors.includes("Binance WebSocket error"), true);
+    assert.equal(errors.includes("Coinbase WebSocket error"), true);
+
+    context.mock.timers.tick(1_000);
+    assert.notEqual(FakeWebSocket.instances.at(-2), failedBinanceSocket);
+    assert.notEqual(FakeWebSocket.instances.at(-1), failedCoinbaseSocket);
+  } finally {
+    binance.stop();
+    coinbase.stop();
+    globalThis.WebSocket = OriginalWebSocket;
+    FakeWebSocket.instances.length = 0;
+  }
+});
+
+test("CoinbaseConnector reconnects when subscription send fails", (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const OriginalWebSocket = globalThis.WebSocket;
+  const errors = [];
+  globalThis.WebSocket = FakeWebSocket;
+  const connector = new CoinbaseConnector("ETH-USD", undefined, (error) => errors.push(error.message));
+
+  try {
+    connector.start();
+    const failedSocket = FakeWebSocket.instances.at(-1);
+    failedSocket.sendError = new Error("subscription write failed");
+    failedSocket.open();
+
+    assert.equal(failedSocket.readyState, FakeWebSocket.CLOSED);
+    assert.deepEqual(errors, ["subscription write failed"]);
+
+    context.mock.timers.tick(1_000);
+    assert.notEqual(FakeWebSocket.instances.at(-1), failedSocket);
+  } finally {
+    connector.stop();
+    globalThis.WebSocket = OriginalWebSocket;
+    FakeWebSocket.instances.length = 0;
+  }
+});
+
 class FakeObserver {
   cycles = [];
   connectorErrors = [];
@@ -532,6 +621,7 @@ class FakeWebSocket {
   static instances = [];
   readyState = 0;
   sent = [];
+  sendError;
   onopen;
   onmessage;
   onclose;
@@ -547,11 +637,16 @@ class FakeWebSocket {
   }
 
   send(payload) {
+    if (this.sendError) throw this.sendError;
     this.sent.push(payload);
   }
 
   message(payload) {
     this.onmessage?.({ data: JSON.stringify(payload) });
+  }
+
+  error() {
+    this.onerror?.();
   }
 
   close() {

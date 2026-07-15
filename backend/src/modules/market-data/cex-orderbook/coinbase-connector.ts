@@ -29,6 +29,7 @@ type CoinbaseMessage = CoinbaseSnapshotMessage | CoinbaseL2UpdateMessage;
 const WS_URL = "wss://ws-feed.exchange.coinbase.com";
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const INITIAL_RECONNECT_DELAY_MS = 1_000;
+const CONNECTION_TIMEOUT_MS = 10_000;
 const SNAPSHOT_TIMEOUT_MS = 10_000;
 
 // ─── CoinbaseConnector ────────────────────────────────────────────
@@ -50,6 +51,7 @@ export class CoinbaseConnector {
   private readonly book = new OrderBook();
   private ws: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private connectionTimer: ReturnType<typeof setTimeout> | null = null;
   private snapshotTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
   private snapshotReceived = false;
@@ -91,6 +93,7 @@ export class CoinbaseConnector {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.clearConnectionTimer();
     this.clearSnapshotTimer();
     if (this.ws) {
       try { this.ws.close(); } catch { /* ignore */ }
@@ -129,12 +132,18 @@ export class CoinbaseConnector {
 
       ws.onopen = () => {
         if (this.ws !== ws || this.stopped) return;
-        const subscribe: CoinbaseSubscribeMessage = {
-          type: "subscribe",
-          channels: [{ name: "level2", product_ids: [this.productId] }],
-        };
-        ws.send(JSON.stringify(subscribe));
-        this.armSnapshotTimeout(ws);
+        this.clearConnectionTimer();
+        try {
+          const subscribe: CoinbaseSubscribeMessage = {
+            type: "subscribe",
+            channels: [{ name: "level2", product_ids: [this.productId] }],
+          };
+          ws.send(JSON.stringify(subscribe));
+          this.armSnapshotTimeout(ws);
+        } catch (error) {
+          this.reportError(error, "Coinbase subscription failed");
+          this.reconnectNow();
+        }
       };
 
       ws.onmessage = (event: MessageEvent) => {
@@ -157,6 +166,7 @@ export class CoinbaseConnector {
       ws.onclose = () => {
         if (this.ws !== ws) return;
         this.ws = null;
+        this.clearConnectionTimer();
         this.clearSnapshotTimer();
         this.snapshotReceived = false;
         this.lastUpdateAtMs = undefined;
@@ -167,9 +177,12 @@ export class CoinbaseConnector {
       ws.onerror = () => {
         if (this.ws !== ws || this.stopped) return;
         this.reportError(new Error("Coinbase WebSocket error"));
+        this.reconnectNow();
       };
+      this.armConnectionTimeout(ws);
     } catch (error) {
       this.reportError(error, "Coinbase WebSocket setup failed");
+      this.ws = null;
       this.scheduleReconnect();
     }
   }
@@ -230,6 +243,7 @@ export class CoinbaseConnector {
   }
 
   private reconnectNow(): void {
+    this.clearConnectionTimer();
     this.clearSnapshotTimer();
     this.snapshotReceived = false;
     this.lastUpdateAtMs = undefined;
@@ -238,6 +252,23 @@ export class CoinbaseConnector {
     this.ws = null;
     try { ws?.close(); } catch { /* ignored before reconnect */ }
     this.scheduleReconnect();
+  }
+
+  private armConnectionTimeout(ws: WebSocket): void {
+    this.clearConnectionTimer();
+    this.connectionTimer = setTimeout(() => {
+      this.connectionTimer = null;
+      if (this.stopped || this.ws !== ws || ws.readyState === WebSocket.OPEN) return;
+      this.reportError(new Error("Coinbase WebSocket connection timed out"));
+      this.reconnectNow();
+    }, CONNECTION_TIMEOUT_MS);
+    this.connectionTimer.unref();
+  }
+
+  private clearConnectionTimer(): void {
+    if (!this.connectionTimer) return;
+    clearTimeout(this.connectionTimer);
+    this.connectionTimer = null;
   }
 
   private armSnapshotTimeout(ws: WebSocket): void {

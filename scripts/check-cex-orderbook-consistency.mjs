@@ -132,6 +132,15 @@ assert.ok(
 assert.ok(binanceSource.includes("E: number") && binanceSource.includes("s: string"), "Binance updates must validate event time and symbol");
 assert.ok(binanceSource.includes("bridgesUpdateId"), "Binance updates must enforce update-id continuity");
 assert.ok(coinbaseSource.includes("time: string") && coinbaseSource.includes("parseCoinbaseTimestamp"), "Coinbase updates must preserve exchange event time");
+for (const [exchange, source] of [["Binance", binanceSource], ["Coinbase", coinbaseSource]]) {
+  assert.ok(
+    source.includes("CONNECTION_TIMEOUT_MS = 10_000") &&
+      source.includes("armConnectionTimeout") &&
+      source.includes("clearConnectionTimer") &&
+      source.includes("WebSocket connection timed out"),
+    `${exchange} must bound stalled WebSocket handshakes and reconnect with clean state`,
+  );
+}
 assert.ok(metricsSource.includes("rfq_cex_order_book_sources"), "backend metrics must expose CEX source health");
 assert.ok(metricsSource.includes("rfq_cex_order_book_pairs"), "backend metrics must expose CEX pair health");
 
@@ -146,6 +155,12 @@ const dashboard = JSON.parse(dashboardSource);
 assert.ok(dashboard.panels.some((panel) => panel.title === "CEX Order Book Health"), "Grafana must include CEX order-book health");
 assert.ok(testSource.includes("publishes only changed fresh source events"), "tests must cover source-event freshness");
 assert.ok(testSource.includes("invalidates stale and cross-venue divergent books"), "tests must cover stale and divergent source invalidation");
+assert.ok(
+  testSource.includes("CEX connectors reconnect when WebSocket handshakes stall") &&
+    testSource.includes("CEX connectors close errored sockets before backoff") &&
+    testSource.includes("CoinbaseConnector reconnects when subscription send fails"),
+  "tests must cover bounded CEX connection establishment and explicit socket errors",
+);
 assert.ok(testSource.includes('asks: [["101", "1000"]]'), "tests must prove ask quantity cannot inflate executable liquidity");
 assert.ok(testSource.includes("marketSpreadBps"), "tests must cover executable market spread attribution");
 assert.ok(testSource.includes("inverseFallback"), "tests must cover inverse ask-side snapshot publication");
@@ -166,7 +181,15 @@ assert.ok(
 );
 assert.ok(marketDataChapter.includes("developers.binance.com"), "market-data chapter must reference official Binance synchronization rules");
 assert.ok(marketDataChapter.includes("docs.cdp.coinbase.com"), "market-data chapter must reference official Coinbase Level-2 rules");
+assert.ok(
+  marketDataChapter.includes("WebSocket handshake") && marketDataChapter.includes("10 秒"),
+  "market-data chapter must document the bounded CEX connection lifecycle",
+);
 assert.ok(readmeSource.includes("make cex-orderbook-integration-check"), "README must document the live CEX check");
+assert.ok(
+  readmeSource.includes("WebSocket handshakes have a ten-second deadline"),
+  "README must document bounded CEX connection establishment",
+);
 assert.ok(
   readmeSource.includes("Non-local `static` mode is accepted only") &&
     marketDataChapter.includes("non-empty `RFQ_CEX_PAIRS`"),

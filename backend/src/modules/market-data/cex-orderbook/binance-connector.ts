@@ -20,6 +20,7 @@ const REST_BASE = "https://api.binance.com";
 const WS_BASE = "wss://stream.binance.com:9443/ws";
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const INITIAL_RECONNECT_DELAY_MS = 1_000;
+const CONNECTION_TIMEOUT_MS = 10_000;
 const SNAPSHOT_TIMEOUT_MS = 10_000;
 const MAX_BUFFERED_UPDATES = 10_000;
 
@@ -31,6 +32,7 @@ export class BinanceConnector {
   private readonly book = new OrderBook();
   private ws: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private connectionTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
   private lastUpdateId = 0;
   private pendingUpdates: BinanceDepthUpdate[] = [];
@@ -70,6 +72,7 @@ export class BinanceConnector {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.clearConnectionTimer();
     const ws = this.ws;
     this.ws = null;
     try { ws?.close(); } catch { /* ignored during shutdown */ }
@@ -101,6 +104,7 @@ export class BinanceConnector {
       this.ws = ws;
       ws.onopen = () => {
         if (this.ws !== ws || this.stopped) return;
+        this.clearConnectionTimer();
         void this.fetchAndApplySnapshot();
       };
       ws.onmessage = (event: MessageEvent) => {
@@ -110,6 +114,7 @@ export class BinanceConnector {
       ws.onclose = () => {
         if (this.ws !== ws) return;
         this.ws = null;
+        this.clearConnectionTimer();
         this.snapshotGeneration += 1;
         this.resetState();
         this.scheduleReconnect();
@@ -117,7 +122,9 @@ export class BinanceConnector {
       ws.onerror = () => {
         if (this.ws !== ws || this.stopped) return;
         this.reportError(new Error("Binance WebSocket error"));
+        this.reconnectNow();
       };
+      this.armConnectionTimeout(ws);
     } catch (error) {
       this.reportError(error, "Binance WebSocket setup failed");
       this.ws = null;
@@ -227,6 +234,7 @@ export class BinanceConnector {
   }
 
   private reconnectNow(): void {
+    this.clearConnectionTimer();
     this.snapshotGeneration += 1;
     this.resetState();
     const ws = this.ws;
@@ -244,6 +252,23 @@ export class BinanceConnector {
       this.connectWebSocket();
     }, delay);
     this.reconnectTimer.unref();
+  }
+
+  private armConnectionTimeout(ws: WebSocket): void {
+    this.clearConnectionTimer();
+    this.connectionTimer = setTimeout(() => {
+      this.connectionTimer = null;
+      if (this.stopped || this.ws !== ws || ws.readyState === WebSocket.OPEN) return;
+      this.reportError(new Error("Binance WebSocket connection timed out"));
+      this.reconnectNow();
+    }, CONNECTION_TIMEOUT_MS);
+    this.connectionTimer.unref();
+  }
+
+  private clearConnectionTimer(): void {
+    if (!this.connectionTimer) return;
+    clearTimeout(this.connectionTimer);
+    this.connectionTimer = null;
   }
 
   private resetState(): void {
