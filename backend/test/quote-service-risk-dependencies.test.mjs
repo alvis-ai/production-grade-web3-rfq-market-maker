@@ -358,6 +358,67 @@ test("QuoteService fails closed on malformed exposure reservation results", asyn
   }
 });
 
+test("QuoteService binds settlement indexer risk to the observed treasury head before signing", async () => {
+  let observedGuardInput;
+  let reserveCalls = 0;
+  let signCalls = 0;
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    treasuryLiquidityProvider: {
+      async getLiquidity() {
+        return {
+          chainId: 1,
+          settlementAddress: "0x0000000000000000000000000000000000000044",
+          treasuryAddress: "0x0000000000000000000000000000000000000055",
+          token: request.tokenOut,
+          availableBalance: "1000000000000000000000000",
+          blockNumber: 123n,
+        };
+      },
+    },
+    settlementIndexerRiskGuard: {
+      async checkHealth() {},
+      async assertQuoteSafe(input) { observedGuardInput = input; },
+    },
+    quoteExposureStore: {
+      async reserve() {
+        reserveCalls += 1;
+        return { status: "reserved", notionalUsdE18: "1000000000000000000" };
+      },
+      async release() {},
+    },
+    signerService: {
+      async signQuote() { signCalls += 1; return fixedSignature(); },
+      async verifyQuoteSignature() { return true; },
+    },
+  });
+
+  await service.createQuote(request);
+  assert.deepEqual(observedGuardInput, { chainId: 1, observedHead: 123n });
+  assert.equal(reserveCalls, 1);
+  assert.equal(signCalls, 1);
+
+  const blockedRiskStore = new InMemoryRiskDecisionRepository();
+  let blockedSignCalls = 0;
+  const blocked = new QuoteService({
+    ...quoteServiceDeps(),
+    riskDecisionStore: blockedRiskStore,
+    settlementIndexerRiskGuard: {
+      async checkHealth() {},
+      async assertQuoteSafe() { throw new Error("indexer lagged"); },
+    },
+    signerService: {
+      async signQuote() { blockedSignCalls += 1; return fixedSignature(); },
+      async verifyQuoteSignature() { return true; },
+    },
+  });
+  await assert.rejects(
+    blocked.createQuote(request),
+    (error) => error.code === "RISK_REJECTED" && error.internalReasonCode === "RISK_ENGINE_UNAVAILABLE",
+  );
+  assert.equal(blockedSignCalls, 0);
+});
+
 test("QuoteService releases cumulative exposure when a quote leaves open status", async () => {
   const releasedQuoteIds = [];
   const service = new QuoteService({

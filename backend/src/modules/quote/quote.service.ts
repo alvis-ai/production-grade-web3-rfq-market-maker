@@ -246,29 +246,35 @@ export class QuoteService {
         snapshot,
         inventoryProjection: projectionResult,
       });
-      if (risk.status === "approved" && this.deps.quoteExposureStore) {
+      if (risk.status === "approved") {
         const treasuryLiquidity = this.deps.treasuryLiquidityProvider
           ? await this.deps.treasuryLiquidityProvider.getLiquidity({
               chainId: validatedRequest.chainId,
               token: validatedRequest.tokenOut,
             })
           : undefined;
-        const exposure = await this.deps.quoteExposureStore.reserve({
-          quoteId,
-          request: validatedRequest,
-          pricing,
-          deadline,
-          ...(treasuryLiquidity ? { treasuryLiquidity } : {}),
+        await this.deps.settlementIndexerRiskGuard?.assertQuoteSafe({
+          chainId: validatedRequest.chainId,
+          ...(treasuryLiquidity ? { observedHead: treasuryLiquidity.blockNumber } : {}),
         });
-        assertQuoteExposureReservationResult(exposure);
-        if (exposure.status === "reserved") {
-          exposureReserved = true;
-        } else {
-          risk = {
-            status: "rejected",
-            policyVersion: risk.policyVersion,
-            reasonCode: exposure.reasonCode,
-          };
+        if (this.deps.quoteExposureStore) {
+          const exposure = await this.deps.quoteExposureStore.reserve({
+            quoteId,
+            request: validatedRequest,
+            pricing,
+            deadline,
+            ...(treasuryLiquidity ? { treasuryLiquidity } : {}),
+          });
+          assertQuoteExposureReservationResult(exposure);
+          if (exposure.status === "reserved") {
+            exposureReserved = true;
+          } else {
+            risk = {
+              status: "rejected",
+              policyVersion: risk.policyVersion,
+              reasonCode: exposure.reasonCode,
+            };
+          }
         }
       }
     } catch {

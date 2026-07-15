@@ -109,7 +109,7 @@ stateDiagram-v2
 
 - 不确定市场数据时不签名。
 - Signer 异常时返回错误，不使用未审计 fallback。
-- Indexer lag 时降低 quote notional。
+- Indexer cursor 缺失、过期或落后确认后链头超过阈值时，在 signer 前 fail closed；恢复后自动重新允许报价。
 - Hedge failure 影响后续 pricing 和 risk。
 
 ## Failure Scenarios
@@ -118,7 +118,7 @@ stateDiagram-v2
 - Signer unavailable：返回 503，保留 API health。
 - Signer compromise：pause contract，rotate key。
 - Settlement revert spike：检查合约、token 和签名字段。
-- Indexer lag：启动 replay，收紧库存相关限额。
+- Indexer lag：`risk` readiness 降级且新 quote 返回内部 `RISK_ENGINE_UNAVAILABLE`；检查 cursor age、确认后 block lag、RPC chain identity 与 Settlement address，完成 replay 后再恢复。
 - Hedge venue down：暂停相关资产或扩大 spread。
 
 ## Security Considerations

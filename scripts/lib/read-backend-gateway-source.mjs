@@ -10,6 +10,7 @@ export const backendGatewaySourcePaths = [
   "backend/src/runtime/gateway-application.ts",
   "backend/src/runtime/gateway-hedge-risk.ts",
   "backend/src/runtime/gateway-market-data.ts",
+  "backend/src/runtime/gateway-settlement-indexer-risk.ts",
   "backend/src/runtime/gateway-runtime.ts",
   "backend/src/runtime/market-runtime.ts",
   "backend/src/runtime/process-shutdown.ts",

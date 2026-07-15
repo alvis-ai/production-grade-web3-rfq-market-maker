@@ -62,6 +62,7 @@ import {
 } from "./market-runtime.js";
 import { buildGatewayMarketDataRuntime } from "./gateway-market-data.js";
 import { readGatewayHedgeServiceConfig } from "./gateway-hedge-risk.js";
+import { buildRuntimeSettlementIndexerRiskGuard } from "./gateway-settlement-indexer-risk.js";
 import { DynamicToxicFlowRiskEngine } from "../modules/risk/dynamic-toxic-flow-risk.engine.js";
 import { structuredLoggerConfig } from "../shared/logger/structured-logger.js";
 
@@ -105,6 +106,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const signerService = options.signerService ?? defaultSignerRuntime!.service;
   const postgresPool = resolvePostgresPool(options, server.log);
   const ownsPostgresPool = postgresPool !== undefined && options.databasePool === undefined;
+  const settlementIndexerRiskGuard = buildRuntimeSettlementIndexerRiskGuard(postgresPool);
   const quoteControlStore = resolveQuoteControlStore(options.quoteControlStore, postgresPool);
   const toxicFlowScoreStore = resolveToxicFlowScoreStore(options.toxicFlowScoreStore, postgresPool);
   const hedgeServiceConfig = options.hedgeService === undefined
@@ -205,6 +207,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     riskDecisionStore,
     riskEngine,
     routingEngine,
+    settlementIndexerRiskGuard,
     signerService: new ObservedSignerService(signerService, metricsService),
     treasuryLiquidityProvider,
   }, {
@@ -257,6 +260,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     quoteControlStore,
     riskDecisionStore,
     riskEngine,
+    settlementIndexerRiskGuard,
     toxicFlowScoreStore,
     rateLimiter: rateLimiter ?? disabledRateLimiterHealth,
     routingEngine,

@@ -213,6 +213,13 @@ test("ReadinessService rejects unsafe dependency configuration at construction",
     /Readiness service hedgeRouteRulesHealth.checkHealth must be a function/,
   );
   assert.throws(
+    () => new ReadinessService({
+      ...deps,
+      settlementIndexerRiskGuard: { checkHealth() {} },
+    }),
+    /Readiness service settlementIndexerRiskGuard.assertQuoteSafe must be a function/,
+  );
+  assert.throws(
     () =>
       new ReadinessService({
         ...deps,

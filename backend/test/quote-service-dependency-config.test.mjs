@@ -251,6 +251,13 @@ test("QuoteService rejects unsafe dependency configuration at construction", () 
     }),
     /Quote service treasuryLiquidityProvider.getLiquidity must be a function/,
   );
+  assert.throws(
+    () => new QuoteService({
+      ...deps,
+      settlementIndexerRiskGuard: { checkHealth() {} },
+    }),
+    /Quote service settlementIndexerRiskGuard.assertQuoteSafe must be a function/,
+  );
 });
 
 function fixedSignature() {

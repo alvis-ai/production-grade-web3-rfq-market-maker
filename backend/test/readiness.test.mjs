@@ -132,6 +132,19 @@ test("ReadinessService degrades when the distributed rate limit store is unavail
   assert.equal(readiness.components.quoteRepository, "ok");
 });
 
+test("ReadinessService degrades risk when settlement indexer evidence is unsafe", async () => {
+  const readiness = await createReadinessService({
+    settlementIndexerRiskGuard: {
+      async checkHealth() { throw new Error("indexer lagged"); },
+      async assertQuoteSafe() {},
+    },
+  }).check();
+
+  assert.equal(readiness.status, "degraded");
+  assert.equal(readiness.components.risk, "degraded");
+  assert.equal(readiness.components.inventory, "ok");
+});
+
 test("ReadinessService degrades when the quote control store is unavailable", async () => {
   const readiness = await createReadinessService({
     quoteControlStore: {
@@ -345,6 +358,9 @@ function readinessServiceDeps(overrides = {}) {
     riskEngine: overrides.riskEngine ?? new BasicRiskEngine(),
     toxicFlowScoreStore: overrides.toxicFlowScoreStore ?? new InMemoryToxicFlowScoreStore(),
     ...(overrides.quoteExposureStore ? { quoteExposureStore: overrides.quoteExposureStore } : {}),
+    ...(overrides.settlementIndexerRiskGuard
+      ? { settlementIndexerRiskGuard: overrides.settlementIndexerRiskGuard }
+      : {}),
     ...(overrides.treasuryLiquidityProvider
       ? { treasuryLiquidityProvider: overrides.treasuryLiquidityProvider }
       : {}),

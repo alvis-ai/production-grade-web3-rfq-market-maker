@@ -190,6 +190,8 @@ RFQ_CEX_MAX_SPREAD_BPS=100
 RFQ_HEDGE_FAILURE_PENALTY_BPS=25
 RFQ_HEDGE_MAX_FAILURE_PENALTY_BPS=150
 RFQ_HEDGE_FAILURE_LOOKBACK_MS=300000
+RFQ_SETTLEMENT_INDEXER_MAX_CURSOR_AGE_MS=60000
+RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG=2
 # RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS=300000
 # RFQ_MARKET_DATA_PROVIDER=chainlink
 # RFQ_CHAINLINK_CONFIG_JSON={...}
@@ -235,6 +237,8 @@ PnL attribution exposes two independent models. `quote_snapshot_edge_v1` uses th
 The reconciliation worker (`pnpm --dir backend start:reconciliation-worker`) continuously converges those post-trade projections and exposes health and metrics on port 3003. Multiple replicas lease quote-scoped desired revisions with `FOR UPDATE SKIP LOCKED`; a canonical revision restores hedge, PnL, and complete quote pointers, while a no-canonical revision removes only reversible projections. A canonical state change increments the desired revision without stealing an active lease, so an old worker cannot mark newer chain state processed. Exponential retries retain stable low-cardinality error codes and no job is discarded because of retry count.
 
 The settlement indexer (`pnpm --dir backend start:settlement-indexer`) independently discovers confirmed `QuoteSettled` logs, so post-trade state does not depend on the browser successfully calling `/submit` after wallet broadcast. `RFQ_SETTLEMENT_INDEXER_CONFIG_JSON` fixes each chain RPC, settlement address, deployment start block, confirmation depth, scan range, reorg window, and request timeout. Non-local indexer RPC URLs must use HTTPS. Startup and every chain poll verify `eth_chainId` before reading the head or claiming a PostgreSQL cursor; a mismatch reports `RPC_OR_STORE_UNAVAILABLE`, leaves the cursor unchanged, and keeps readiness unavailable. For every log it resolves the complete signed quote by `(chainId, user, nonce)`, verifies the on-chain `quoteHash` and all emitted fields, and only then applies the existing idempotent settlement path. PostgreSQL leases and revision/next-block CAS support multiple replicas. Range-end block-hash checkpoints detect reorgs; orphan events are marked non-canonical before the cursor rolls back, causing inventory rebuild and durable quote/hedge/PnL reconciliation. An unknown quote or a reorg deeper than `reorgLookbackBlocks` stops that chain and alerts instead of silently skipping economic state.
+
+Receipt-confirmed API runtimes also treat that cursor as pre-sign risk evidence. After reading Treasury liquidity at one RPC head, Quote Service subtracts the configured receipt confirmations, compares the resulting safe head with `settlement_indexer_cursors.next_block`, and rejects signing as `RISK_ENGINE_UNAVAILABLE` when the cursor row is missing, belongs to another Settlement contract, is older than `RFQ_SETTLEMENT_INDEXER_MAX_CURSOR_AGE_MS`, or exceeds `RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG`. Confirmation depth is therefore not mistaken for indexer lag, while initial backfills and stalled workers cannot leave the API quoting against an unboundedly stale inventory projection. The same all-chain check is folded into readiness's fixed `risk` component; local synthetic-settlement mode has no receipt chains and leaves the guard disabled.
 
 The destructive integration check requires an explicit acknowledgement and a disposable PostgreSQL database. It verifies initial convergence, reorg cleanup, and a replacement canonical transaction for the same quote, then removes its uniquely named fixtures:
 

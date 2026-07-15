@@ -38,6 +38,8 @@ const localExpected = {
   RFQ_HEDGE_FAILURE_PENALTY_BPS: "25",
   RFQ_HEDGE_MAX_FAILURE_PENALTY_BPS: "150",
   RFQ_HEDGE_FAILURE_LOOKBACK_MS: "300000",
+  RFQ_SETTLEMENT_INDEXER_MAX_CURSOR_AGE_MS: "60000",
+  RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG: "2",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
   VITE_RFQ_API_BASE_URL: "http://localhost:3000",
@@ -68,6 +70,8 @@ const composeExpected = {
   RFQ_HEDGE_FAILURE_PENALTY_BPS: "${RFQ_HEDGE_FAILURE_PENALTY_BPS:-25}",
   RFQ_HEDGE_MAX_FAILURE_PENALTY_BPS: "${RFQ_HEDGE_MAX_FAILURE_PENALTY_BPS:-150}",
   RFQ_HEDGE_FAILURE_LOOKBACK_MS: "${RFQ_HEDGE_FAILURE_LOOKBACK_MS:-300000}",
+  RFQ_SETTLEMENT_INDEXER_MAX_CURSOR_AGE_MS: "${RFQ_SETTLEMENT_INDEXER_MAX_CURSOR_AGE_MS:-60000}",
+  RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG: "${RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG:-2}",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
   RFQ_HEDGE_ROUTES_JSON: hedgeRoutesJson,
@@ -106,6 +110,8 @@ const productionExpected = {
   RFQ_HEDGE_FAILURE_PENALTY_BPS: "25",
   RFQ_HEDGE_MAX_FAILURE_PENALTY_BPS: "150",
   RFQ_HEDGE_FAILURE_LOOKBACK_MS: "300000",
+  RFQ_SETTLEMENT_INDEXER_MAX_CURSOR_AGE_MS: "60000",
+  RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG: "2",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
   RFQ_HEDGE_ROUTES_JSON: hedgeRoutesJson,
@@ -194,6 +200,12 @@ assert.ok(
     backendSource.includes('name: "RFQ_HEDGE_FAILURE_LOOKBACK_MS"') &&
     backendSource.includes("readGatewayHedgeServiceConfig"),
   "backend must validate bounded hedge failure feedback configuration",
+);
+assert.ok(
+  backendSource.includes('name: "RFQ_SETTLEMENT_INDEXER_MAX_CURSOR_AGE_MS"') &&
+    backendSource.includes('name: "RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG"') &&
+    backendSource.includes("buildRuntimeSettlementIndexerRiskGuard"),
+  "backend must validate and compose the settlement indexer pre-sign risk guard",
 );
 assert.ok(
   backendSource.includes('assertIntegerOption(options.bodyLimitBytes, "bodyLimitBytes", 1024, 1_048_576)') &&

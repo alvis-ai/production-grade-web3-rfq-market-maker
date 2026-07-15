@@ -20,6 +20,7 @@ import type { RiskEngine } from "../risk/risk.engine.js";
 import type { ToxicFlowScoreStore } from "../risk/toxic-flow-score.store.js";
 import type { QuoteExposureStore } from "../risk/quote-exposure.store.js";
 import type { TreasuryLiquidityProvider } from "../risk/treasury-liquidity.provider.js";
+import type { SettlementIndexerRiskGuard } from "../risk/settlement-indexer-risk.guard.js";
 import type { RoutePlan, RoutingEngine } from "../routing/routing.engine.js";
 import type { SettlementEventStore } from "../settlement/settlement-event.service.js";
 import type { SubmitReservationStore } from "../execution/submit-reservation.store.js";
@@ -60,6 +61,7 @@ export interface ReadinessServiceDeps {
   riskEngine: RiskEngine;
   toxicFlowScoreStore: ToxicFlowScoreStore;
   quoteExposureStore?: QuoteExposureStore;
+  settlementIndexerRiskGuard?: SettlementIndexerRiskGuard;
   treasuryLiquidityProvider?: TreasuryLiquidityProvider;
   signerService: SignerService;
   quoteRepository: QuoteRepository;
@@ -348,6 +350,7 @@ export class ReadinessService {
     try {
       await this.deps.toxicFlowScoreStore.checkHealth();
       await this.deps.quoteExposureStore?.checkHealth?.();
+      await this.deps.settlementIndexerRiskGuard?.checkHealth();
       await this.deps.treasuryLiquidityProvider?.checkHealth();
       const decision = await this.deps.riskEngine.evaluate({
         request: this.config.probeRequest,
@@ -429,6 +432,12 @@ function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
     throw new Error("Readiness service deps.treasuryLiquidityProvider must be an own field when provided");
   }
   if (
+    "settlementIndexerRiskGuard" in deps &&
+    !Object.prototype.hasOwnProperty.call(deps, "settlementIndexerRiskGuard")
+  ) {
+    throw new Error("Readiness service deps.settlementIndexerRiskGuard must be an own field when provided");
+  }
+  if (
     "hedgeRouteRulesHealth" in deps &&
     !Object.prototype.hasOwnProperty.call(deps, "hedgeRouteRulesHealth")
   ) {
@@ -444,6 +453,10 @@ function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
   }
   if (deps.treasuryLiquidityProvider !== undefined) {
     assertDependencyMethod(deps.treasuryLiquidityProvider, "treasuryLiquidityProvider", "checkHealth");
+  }
+  if (deps.settlementIndexerRiskGuard !== undefined) {
+    assertDependencyMethod(deps.settlementIndexerRiskGuard, "settlementIndexerRiskGuard", "checkHealth");
+    assertDependencyMethod(deps.settlementIndexerRiskGuard, "settlementIndexerRiskGuard", "assertQuoteSafe");
   }
   assertDependencyMethod(deps.signerService, "signerService", "signQuote");
   assertDependencyMethod(deps.signerService, "signerService", "verifyQuoteSignature");

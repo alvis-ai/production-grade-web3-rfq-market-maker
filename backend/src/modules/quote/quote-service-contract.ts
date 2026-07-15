@@ -10,6 +10,7 @@ import type { PricingEngine } from "../pricing/pricing.engine.js";
 import type { RiskDecisionStore } from "../risk/risk-decision.repository.js";
 import type { QuoteExposureStore } from "../risk/quote-exposure.store.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
+import type { SettlementIndexerRiskGuard } from "../risk/settlement-indexer-risk.guard.js";
 import type { TreasuryLiquidityProvider } from "../risk/treasury-liquidity.provider.js";
 import type { RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
@@ -29,6 +30,7 @@ export interface QuoteServiceDeps {
   riskDecisionStore: RiskDecisionStore;
   riskEngine: RiskEngine;
   routingEngine: RoutingEngine;
+  settlementIndexerRiskGuard?: SettlementIndexerRiskGuard;
   signerService: SignerService;
 }
 
@@ -115,6 +117,7 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   assertOptionalOwnField(deps, "hedgeService", "deps");
   assertOptionalOwnField(deps, "quoteIdempotencyStore", "deps");
   assertOptionalOwnField(deps, "quoteExposureStore", "deps");
+  assertOptionalOwnField(deps, "settlementIndexerRiskGuard", "deps");
   assertOptionalOwnField(deps, "treasuryLiquidityProvider", "deps");
   assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
   assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "saveSnapshot");
@@ -137,6 +140,10 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
       throw new Error("Quote service treasuryLiquidityProvider requires quoteExposureStore");
     }
     assertDependencyMethod(deps.treasuryLiquidityProvider, "treasuryLiquidityProvider", "getLiquidity");
+  }
+  if (deps.settlementIndexerRiskGuard !== undefined) {
+    assertDependencyMethod(deps.settlementIndexerRiskGuard, "settlementIndexerRiskGuard", "checkHealth");
+    assertDependencyMethod(deps.settlementIndexerRiskGuard, "settlementIndexerRiskGuard", "assertQuoteSafe");
   }
   assertDependencyMethod(deps.riskEngine, "riskEngine", "evaluate");
   assertDependencyMethod(deps.riskDecisionStore, "riskDecisionStore", "saveDecision");
