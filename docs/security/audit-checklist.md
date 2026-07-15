@@ -31,6 +31,7 @@
 - [x] Chainlink feeds require HTTPS remote RPC, non-zero proxy identity, exact onchain description/decimals, reviewed raw answer bounds, timestamp and L2 sequencer checks, plus a redacted target-environment read canary.
 - [x] CEX reference sources validate price without inflating executable liquidity; every published pair retains an accepted Binance hedge source bound to the API and worker shared route table.
 - [x] CEX connectors bound WebSocket and REST payload bytes before JSON decoding, reject binary frames and event-time regression, clear invalid books, and reconnect with capped equal jitter.
+- [x] CEX connector failure logs are transition-based per exchange/symbol; repeated retries remain metrics-only until a synchronized valid book records recovery, and observer/logger failures cannot interrupt reconnect control flow.
 - [x] Coinbase Level2 subscribes to heartbeat, ignores pre-snapshot liveness, and refreshes unchanged-book freshness only from monotonic heartbeat time, sequence and trade-id evidence.
 - [x] CEX hedge submissions use a persisted tick-aligned `LIMIT GTC` boundary derived from immutable quote economics and reviewed route slippage; the adapter contains no unbounded `MARKET` submit path.
 - [x] New CEX hedge orders persist a bounded maximum lifetime; PostgreSQL authorizes and records cancellation before the external call, and ambiguous cancel results remain query-first under the original client id.

@@ -128,6 +128,14 @@ assert.ok(monitorSource.includes("connector.restart()"), "stale or invalid CEX s
 assert.ok(monitorSource.includes("Math.min(...sources.map(({ observedAtMs })"), "aggregate observedAt must use source event time");
 assert.ok(monitorSource.includes("lastPublishedFingerprint"), "unchanged CEX events must not refresh snapshots");
 assert.ok(
+  monitorSource.includes("failedConnectors") &&
+    monitorSource.includes("recordConnectorFailure") &&
+    monitorSource.includes("recordConnectorRecovery") &&
+    monitorSource.includes('errorCode: "CEX_ORDER_BOOK_CONNECTOR_RECOVERED"') &&
+    monitorSource.includes("this.logger[level](fields, message)"),
+  "CEX connector logs must mark bounded failure/recovery transitions without changing reconnect outcomes",
+);
+assert.ok(
   monitorSource.includes('accepted.some(({ role }) => role === "hedge")') &&
     monitorSource.includes('.filter(({ role }) => role === "hedge")'),
   "reference sources must validate price without contributing unroutable liquidity",
@@ -224,6 +232,15 @@ const dashboard = JSON.parse(dashboardSource);
 assert.ok(dashboard.panels.some((panel) => panel.title === "CEX Order Book Health"), "Grafana must include CEX order-book health");
 assert.ok(testSource.includes("publishes only changed fresh source events"), "tests must cover source-event freshness");
 assert.ok(testSource.includes("invalidates stale and cross-venue divergent books"), "tests must cover stale and divergent source invalidation");
+assert.ok(
+  integrationSource.includes("info() {}") && integrationSource.includes("warn(fields, message)"),
+  "live CEX integration must provide both connector transition log levels",
+);
+assert.ok(
+  testSource.includes("logs only connector failure and recovery transitions") &&
+    testSource.includes("isolates observer and logger failures from connector recovery"),
+  "tests must cover CEX connector log throttling and telemetry failure isolation",
+);
 assert.ok(
   testSource.includes("CEX connectors reconnect when WebSocket handshakes stall") &&
     testSource.includes("CEX connectors close errored sockets before backoff") &&

@@ -22,6 +22,7 @@ const paths = {
   toxicTest: "backend/test/toxic-flow-analyzer-worker.test.mjs",
   priceUpdaterTest: "backend/test/price-updater.test.mjs",
   snapshotSamplerTest: "backend/test/market-snapshot-sampler.test.mjs",
+  cexMonitorTest: "backend/test/cex-orderbook.test.mjs",
   env: ".env.example",
   compose: "docker-compose.yml",
   helmValues: "infra/helm/rfq-market-maker/values.yaml",
@@ -100,8 +101,20 @@ for (const name of ["analyticsPublisher", "hedgeWorker", "hedgeFeeWorker", "reco
 
 assert.ok(
   files.cexMonitor.includes('errorCode: "CEX_ORDER_BOOK_CONNECTOR_ERROR"') &&
-    files.cexMonitor.includes("this.logger.warn") && !files.cexMonitor.includes("console.warn"),
-  "CEX monitor must route connector failures through the structured logger",
+    files.cexMonitor.includes('errorCode: "CEX_ORDER_BOOK_CONNECTOR_RECOVERED"') &&
+    files.cexMonitor.includes("failedConnectors") &&
+    files.cexMonitor.includes("recordConnectorFailure") &&
+    files.cexMonitor.includes("recordConnectorRecovery") &&
+    files.cexMonitor.includes("this.logger[level](fields, message)") &&
+    !files.cexMonitor.includes("console.warn"),
+  "CEX monitor must log bounded connector failure and recovery transitions",
+);
+assert.ok(
+  files.cexMonitorTest.includes("logs only connector failure and recovery transitions") &&
+    files.cexMonitorTest.includes("isolates observer and logger failures") &&
+    files.cexMonitorTest.includes("private connector detail") &&
+    files.cexMonitorTest.includes("CEX_ORDER_BOOK_CONNECTOR_RECOVERED"),
+  "CEX monitor tests must cover transition throttling, dependency isolation, and raw error omission",
 );
 for (const [name, failureCode, recoveryCode, stateSet] of [
   ["priceUpdater", "MARKET_DATA_REFRESH_FAILED", "MARKET_DATA_REFRESH_RECOVERED", "failedPairs"],
@@ -162,11 +175,11 @@ assert.ok(
 assert.ok(files.k8sConfig.includes("RFQ_LOG_LEVEL: info"), "raw Kubernetes config must configure log level");
 
 for (const [name, terms] of Object.entries({
-  readme: ["`RFQ_LOG_LEVEL` accepts only", "service-bound JSON records", "route template", "MARKET_DATA_REFRESH_FAILED"],
+  readme: ["`RFQ_LOG_LEVEL` accepts only", "service-bound JSON records", "route template", "MARKET_DATA_REFRESH_FAILED", "CEX_ORDER_BOOK_CONNECTOR_RECOVERED"],
   apiDocs: ["Pino JSON completion record", "dynamic URL", "debug|info|warn|error"],
-  metricsDocs: ["Structured JSON logs complement Prometheus", "shared logger redacts", "MARKET_SNAPSHOT_PERSIST_FAILED"],
-  monitoringDocs: ["Every long-running backend process writes one-line structured JSON", "must not index or retain API keys", "failure transition"],
-  security: ["API and worker logs are structured, level-controlled, trace-correlated", "Market-data background failure logs are transition-based"],
+  metricsDocs: ["Structured JSON logs complement Prometheus", "shared logger redacts", "MARKET_SNAPSHOT_PERSIST_FAILED", "CEX_ORDER_BOOK_CONNECTOR_ERROR"],
+  monitoringDocs: ["Every long-running backend process writes one-line structured JSON", "must not index or retain API keys", "failure transition", "CEX_ORDER_BOOK_CONNECTOR_RECOVERED"],
+  security: ["API and worker logs are structured, level-controlled, trace-correlated", "Market-data background failure logs are transition-based", "CEX connector failure logs are transition-based"],
 })) {
   for (const term of terms) {
     assert.ok(files[name].includes(term), `${paths[name]} must document: ${term}`);

@@ -57,6 +57,7 @@ export interface CexOrderBookObserver {
 }
 
 export interface CexOrderBookLogger {
+  info(fields: Readonly<Record<string, unknown>>, message: string): void;
   warn(fields: Readonly<Record<string, unknown>>, message: string): void;
 }
 
@@ -78,8 +79,14 @@ const noopObserver: CexOrderBookObserver = {
 };
 
 const noopLogger: CexOrderBookLogger = {
+  info() {},
   warn() {},
 };
+
+interface ConnectorLogContext {
+  exchange: OrderBookPairConfig["exchange"];
+  symbol: string;
+}
 
 interface SourceMetrics {
   connectorKey: string;
@@ -120,6 +127,8 @@ export class CEXOrderBookMonitor {
   private readonly connectorFactory: ExchangeConnectorFactory;
   private readonly logger: CexOrderBookLogger;
   private readonly connectors = new Map<string, ExchangeConnector>();
+  private readonly connectorLogContexts = new Map<string, ConnectorLogContext>();
+  private readonly failedConnectors = new Set<string>();
   private readonly priceHistory = new Map<string, number[]>();
   private readonly lastPublishedFingerprint = new Map<string, string>();
   private flushTimer: ReturnType<typeof setInterval> | undefined;
@@ -161,6 +170,8 @@ export class CEXOrderBookMonitor {
     }
     for (const connector of this.connectors.values()) connector.stop();
     this.connectors.clear();
+    this.connectorLogContexts.clear();
+    this.failedConnectors.clear();
     for (const key of groupDirectedPairs(this.config.pairs).keys()) this.cache.delete(key);
     this.lastPublishedFingerprint.clear();
     this.priceHistory.clear();
@@ -211,7 +222,7 @@ export class CEXOrderBookMonitor {
     }
 
     const states = [...inspected.values()];
-    this.observer.recordCexOrderBookCycle({
+    this.recordCycle({
       configuredSources: states.length,
       readySources: states.filter(({ state }) => state === "ready").length,
       staleSources: states.filter(({ state }) => state === "stale").length,
@@ -226,13 +237,10 @@ export class CEXOrderBookMonitor {
   private startConnector(pair: OrderBookPairConfig): void {
     const key = connectorKey(pair.exchange, pair.symbol);
     if (this.connectors.has(key)) return;
+    const context = { exchange: pair.exchange, symbol: pair.symbol };
+    this.connectorLogContexts.set(key, context);
     const connector = this.connectorFactory(pair.exchange, pair.symbol, () => {
-      this.observer.recordCexOrderBookConnectorError(pair.exchange);
-      this.logger.warn({
-        exchange: pair.exchange,
-        symbol: pair.symbol,
-        errorCode: "CEX_ORDER_BOOK_CONNECTOR_ERROR",
-      }, "CEX order book connector failed");
+      this.recordConnectorFailure(key, context);
     });
     assertConnector(connector);
     connector.start();
@@ -263,6 +271,7 @@ export class CEXOrderBookMonitor {
       try {
         const metrics = connector.getOrderBook().getMetrics(this.config.depthRangeBps);
         const midPriceValue = usableMidPrice(metrics, this.config.maxSpreadBps);
+        this.recordConnectorRecovery(key);
         result.set(key, { state: "ready", metrics, midPriceValue, observedAtMs, ageMs: Math.max(0, ageMs) });
       } catch {
         result.set(key, { state: "unavailable", observedAtMs, ageMs: Math.max(0, ageMs) });
@@ -358,6 +367,44 @@ export class CEXOrderBookMonitor {
   private invalidatePair(cacheKey: string): void {
     this.cache.delete(cacheKey);
     this.lastPublishedFingerprint.delete(cacheKey);
+  }
+
+  private recordCycle(observation: CexOrderBookCycleObservation): void {
+    try {
+      this.observer.recordCexOrderBookCycle(observation);
+    } catch {}
+  }
+
+  private recordConnectorFailure(key: string, context: ConnectorLogContext): void {
+    try {
+      this.observer.recordCexOrderBookConnectorError(context.exchange);
+    } catch {}
+    if (this.failedConnectors.has(key)) return;
+    this.failedConnectors.add(key);
+    this.logConnectorTransition("warn", {
+      ...context,
+      errorCode: "CEX_ORDER_BOOK_CONNECTOR_ERROR",
+    }, "CEX order book connector failed");
+  }
+
+  private recordConnectorRecovery(key: string): void {
+    if (!this.failedConnectors.delete(key)) return;
+    const context = this.connectorLogContexts.get(key);
+    if (!context) return;
+    this.logConnectorTransition("info", {
+      ...context,
+      errorCode: "CEX_ORDER_BOOK_CONNECTOR_RECOVERED",
+    }, "CEX order book connector recovered");
+  }
+
+  private logConnectorTransition(
+    level: "info" | "warn",
+    fields: Readonly<Record<string, unknown>>,
+    message: string,
+  ): void {
+    try {
+      this.logger[level](fields, message);
+    } catch {}
   }
 }
 
@@ -564,8 +611,8 @@ function assertObserver(value: unknown): asserts value is CexOrderBookObserver {
 }
 
 function assertLogger(value: unknown): asserts value is CexOrderBookLogger {
-  if (!isRecord(value) || typeof value.warn !== "function") {
-    throw new Error("CEX order book logger.warn must be a function");
+  if (!isRecord(value) || typeof value.info !== "function" || typeof value.warn !== "function") {
+    throw new Error("CEX order book logger.info and logger.warn must be functions");
   }
 }
 

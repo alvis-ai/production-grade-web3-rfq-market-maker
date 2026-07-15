@@ -146,35 +146,83 @@ test("CEXOrderBookMonitor publishes only changed fresh source events", () => {
   assert.equal(connectors.get("coinbase:ETH-USDT").stopped, true);
 });
 
-test("CEXOrderBookMonitor logs connector failures without raw exception text", () => {
-  const warnings = [];
+test("CEXOrderBookMonitor logs only connector failure and recovery transitions without raw exception text", () => {
+  const records = [];
   const observer = new FakeObserver();
   let reportError;
+  let connector;
   const monitor = new CEXOrderBookMonitor(
     new SharedPriceCache(),
     { pairs: [{ chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT", role: "hedge" }] },
     observer,
     (exchange, symbol, onError) => {
       reportError = onError;
-      return new FakeConnector(exchange, symbol);
+      connector = new FakeConnector(exchange, symbol);
+      return connector;
     },
-    { warn(fields, message) { warnings.push([fields, message]); } },
+    transitionLogger(records),
   );
+  const now = Date.now();
 
   monitor.start();
   try {
     reportError(new Error("wss://api-key:raw-secret@stream.example.invalid"));
+    reportError(new Error("repeated private connector detail"));
+    connector.setSnapshot([["99.75", "2"]], [["100.25", "2"]], now);
+    monitor.flushOnce(now);
+    reportError(new Error("failure after recovery"));
   } finally {
     monitor.stop();
   }
 
-  assert.deepEqual(observer.connectorErrors, ["binance"]);
-  assert.deepEqual(warnings, [[{
+  assert.deepEqual(observer.connectorErrors, ["binance", "binance", "binance"]);
+  assert.deepEqual(records.map(({ level, fields }) => [level, fields.errorCode]), [
+    ["warn", "CEX_ORDER_BOOK_CONNECTOR_ERROR"],
+    ["info", "CEX_ORDER_BOOK_CONNECTOR_RECOVERED"],
+    ["warn", "CEX_ORDER_BOOK_CONNECTOR_ERROR"],
+  ]);
+  assert.deepEqual(records[0].fields, {
     exchange: "binance",
     symbol: "ETHUSDT",
     errorCode: "CEX_ORDER_BOOK_CONNECTOR_ERROR",
-  }, "CEX order book connector failed"]]);
-  assert.ok(!JSON.stringify(warnings).includes("raw-secret"));
+  });
+  assert.ok(!JSON.stringify(records).includes("raw-secret"));
+  assert.ok(!JSON.stringify(records).includes("private connector detail"));
+});
+
+test("CEXOrderBookMonitor isolates observer and logger failures from connector recovery", () => {
+  const cache = new SharedPriceCache();
+  let reportError;
+  let connector;
+  const monitor = new CEXOrderBookMonitor(
+    cache,
+    { pairs: [{ chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT", role: "hedge" }] },
+    {
+      recordCexOrderBookCycle() { throw new Error("observer cycle failed"); },
+      recordCexOrderBookConnectorError() { throw new Error("observer connector failed"); },
+    },
+    (exchange, symbol, onError) => {
+      reportError = onError;
+      connector = new FakeConnector(exchange, symbol);
+      return connector;
+    },
+    {
+      info() { throw new Error("logger info failed"); },
+      warn() { throw new Error("logger warn failed"); },
+    },
+  );
+  const now = Date.now();
+
+  monitor.start();
+  try {
+    assert.doesNotThrow(() => reportError(new Error("connector failed")));
+    connector.setSnapshot([["99.75", "2"]], [["100.25", "2"]], now);
+    assert.doesNotThrow(() => monitor.flushOnce(now));
+    assert.ok(cache.get(pairKey(1, tokenIn, tokenOut)));
+    assert.doesNotThrow(() => reportError(new Error("connector failed again")));
+  } finally {
+    monitor.stop();
+  }
 });
 
 test("RFQ API prices the inverse USD-to-base direction from executable asks", async () => {
@@ -334,9 +382,9 @@ test("CEXOrderBookMonitor rejects unsafe quorum and dependency configuration", (
       { pairs: [pair] },
       new FakeObserver(),
       () => new FakeConnector("binance", "ETHUSDT"),
-      {},
+      { warn() {} },
     ),
-    /logger.warn/,
+    /logger.info and logger.warn/,
   );
 });
 
@@ -792,6 +840,13 @@ class FakeObserver {
   recordCexOrderBookConnectorError(exchange) {
     this.connectorErrors.push(exchange);
   }
+}
+
+function transitionLogger(records) {
+  return {
+    info(fields, message) { records.push({ level: "info", fields, message }); },
+    warn(fields, message) { records.push({ level: "warn", fields, message }); },
+  };
 }
 
 class FakeConnector {

@@ -83,6 +83,7 @@ const monitor = new CEXOrderBookMonitor(
     return connector;
   },
   {
+    info() {},
     warn(fields, message) {
       warnings.push({ fields, message });
       while (warnings.length > 100) warnings.shift();
