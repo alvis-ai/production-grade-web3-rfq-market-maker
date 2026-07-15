@@ -45,6 +45,7 @@
 - [x] Quote persistence includes snapshotId and riskPolicyVersion.
 - [x] Rejected quotes are logged without returning signatures.
 - [x] Rate limits protect public trading endpoints.
+- [x] Non-local API startup rejects the benchmark-only `rateLimit:false` option, so embedded startup cannot disable the mandatory limiter.
 - [x] Non-local business routes require scoped API keys whose plaintext secrets are never stored server-side.
 - [x] API key verification uses constant-time digest comparison, generic 401 responses, expiry, and fixed route scopes.
 - [x] Quote ownership is immutable and principal-scoped across quote status, submit, settlement, hedge, and PnL; mismatches use anti-enumeration 404 responses.

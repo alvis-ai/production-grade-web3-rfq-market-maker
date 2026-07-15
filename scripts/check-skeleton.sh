@@ -1178,6 +1178,8 @@ grep -q 'class RedisRateLimiter' backend/src/modules/rate-limit/redis-rate-limit
 grep -q 'redis.call("SET", KEYS\[1\], 1, "PX", ARGV\[1\])' backend/src/modules/rate-limit/redis-rate-limit.service.ts
 grep -q 'if current >= tonumber(ARGV\[2\])' backend/src/modules/rate-limit/redis-rate-limit.service.ts
 grep -q 'RFQ_RATE_LIMIT_BACKEND must be redis when NODE_ENV=' $gateway_sources
+grep -q 'rateLimit cannot be disabled when NODE_ENV=' $gateway_sources
+grep -q 'rateLimit cannot be disabled when NODE_ENV=production' backend/test/api-redis-rate-limit.test.mjs
 grep -q 'RATE_LIMIT_UNAVAILABLE' $gateway_sources
 grep -q '任何非本地 `NODE_ENV` 都强制 `RFQ_RATE_LIMIT_BACKEND=redis`' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q '超限后不继续递增计数' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md

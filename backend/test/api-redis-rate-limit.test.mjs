@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer } from "../dist/main.js";
+import { resolveRateLimiter } from "../dist/runtime/gateway-runtime.js";
 import {
   configureAwsSignerEnvironment,
   localTestSignerService,
@@ -16,6 +17,26 @@ const quoteRequest = {
   amountIn: "1000000000",
   slippageBps: 50,
 };
+
+test("RFQ API permits disabled rate limiting only in local environments", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  try {
+    for (const nodeEnv of ["production", "staging"]) {
+      process.env.NODE_ENV = nodeEnv;
+      assert.throws(
+        () => resolveRateLimiter({ rateLimit: false }),
+        new RegExp(`rateLimit cannot be disabled when NODE_ENV=${nodeEnv}`),
+      );
+    }
+    for (const nodeEnv of [undefined, "development", "test"]) {
+      if (nodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = nodeEnv;
+      assert.equal(resolveRateLimiter({ rateLimit: false }), undefined);
+    }
+  } finally {
+    restoreEnv({ NODE_ENV: originalNodeEnv });
+  }
+});
 
 test("RFQ API awaits injected distributed rate limit decisions", async () => {
   let checks = 0;
@@ -153,6 +174,15 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
         signerService: localTestSignerService(),
       }),
       /must be redis when NODE_ENV=production/,
+    );
+    assert.throws(
+      () => buildServer({
+        logger: false,
+        databasePool: fakeDatabasePool(),
+        signerService: localTestSignerService(),
+        rateLimit: false,
+      }),
+      /rateLimit cannot be disabled when NODE_ENV=production/,
     );
 
     delete process.env.RFQ_RATE_LIMIT_BACKEND;

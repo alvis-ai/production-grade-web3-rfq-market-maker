@@ -427,10 +427,14 @@ export function resolveRateLimiter(options: BuildServerOptions): RateLimiter | u
   }
 
   const config = normalizeRateLimitOption(options.rateLimit);
-  if (config === false) return undefined;
-
   const env = runtimeEnvironment();
   const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
+  if (config === false) {
+    if (requiresExplicitRuntimeConfig(nodeEnv)) {
+      throw new Error(`rateLimit cannot be disabled when NODE_ENV=${nodeEnv}`);
+    }
+    return undefined;
+  }
   const configuredBackend = readOwnEnvValue(env, "RFQ_RATE_LIMIT_BACKEND");
   const backend = configuredBackend?.trim().toLowerCase() ||
     (requiresExplicitRuntimeConfig(nodeEnv) ? "redis" : "memory");
