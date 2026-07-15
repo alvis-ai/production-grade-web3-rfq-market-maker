@@ -71,6 +71,7 @@
 - [x] The internal frontend BFF injects its dedicated key from a read-only Secret, proxies only six reviewed route/method pairs, and rejects health, readiness, metrics, admin, and unknown API paths.
 - [x] Frontend Ingress requires TLS and a non-public source-CIDR allowlist; frontend/API NetworkPolicies permit only ingress-to-frontend and frontend-to-API traffic.
 - [x] Sensitive thresholds are not exposed to users.
+- [x] Every production `usdReference` token has a dedicated reviewed token/USD feed; missing, stale, malformed or depegged evidence blocks signing and degrades risk readiness.
 - [x] Receipt-confirmed E2E broadcasts `submitQuote` on Anvil and verifies calldata, receipt, event, balances, nonce, inventory, hedge and PnL.
 
 ## Data and Events

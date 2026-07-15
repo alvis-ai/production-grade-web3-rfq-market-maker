@@ -235,6 +235,15 @@ groups:
           summary: RFQ portfolio VaR budget is exhausted
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQUsdReferenceDepeg
+        expr: sum(increase(rfq_quote_rejections_total{reason="USD_REFERENCE_DEPEG"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: A managed USD-reference token exceeded its reviewed peg-deviation limit
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQRiskDependencyUnavailable
         expr: sum(increase(rfq_quote_rejections_total{reason="RISK_ENGINE_UNAVAILABLE"}[5m])) > 0
         for: 1m

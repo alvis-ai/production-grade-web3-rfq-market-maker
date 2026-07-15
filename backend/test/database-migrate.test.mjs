@@ -35,6 +35,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "027", name: "signer-audit", applied_at: "2026-07-15T00:04:00.000Z" },
         { version: "028", name: "signer-risk-context", applied_at: "2026-07-15T00:05:00.000Z" },
         { version: "029", name: "bounded-hedge-failure-risk", applied_at: "2026-07-15T00:06:00.000Z" },
+        { version: "030", name: "usd-reference-depeg-risk", applied_at: "2026-07-16T00:00:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -952,6 +953,40 @@ test("database migration runner adds bounded hedge failure risk evidence", async
   assert.equal(client.queries.some(({ sql }) => sql.includes("idx_hedge_orders_recent_failed_risk")), true);
   assert.equal(client.queries.some(({ sql, params }) =>
     sql.includes("INSERT INTO _migrations") && params[0] === "029"), true);
+});
+
+test("database migration runner adds the durable USD-reference depeg reason", async () => {
+  const appliedNames = [
+    "base-schema", "settlement-canonical", "hedge-worker-queue", "analytics-outbox",
+    "post-trade-reconciliation", "quote-snapshot-pnl", "settlement-indexer", "submit-reservations",
+    "risk-notional-reasons", "risk-market-regime-reasons", "open-quote-exposure", "pricing-attribution",
+    "market-spread-attribution", "hedge-execution-evidence", "hedge-fee-reconciliation",
+    "treasury-liquidity-reservations", "quote-principal-ownership", "quote-control", "pair-quote-control",
+    "toxic-flow-scores", "toxic-flow-markouts", "portfolio-var-reservations", "quote-idempotency",
+    "hedge-net-pnl", "bounded-hedge-limit", "hedge-order-expiry", "signer-audit", "signer-risk-context",
+    "bounded-hedge-failure-risk",
+  ];
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: appliedNames.map((name, index) => ({
+        version: String(index + 1).padStart(3, "0"),
+        name,
+        applied_at: "2026-07-16T00:00:00.000Z",
+      })) };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "030");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("USD_REFERENCE_DEPEG")), true);
+  assert.equal(client.queries.some(({ sql, params }) =>
+    sql.includes("INSERT INTO _migrations") && params[0] === "030"), true);
 });
 
 function fakePool(handler) {

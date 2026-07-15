@@ -74,6 +74,7 @@ flowchart LR
 | Unauthorized or conflicting quote-control change | Attacker or stale operator action disables global/pair quoting or resumes unsafe signing | Separate `admin:read`/`admin:write` scopes, dedicated operations keys, normalized direction-independent pair keys, CAS version, mandatory reason, authenticated audit row and bounded metrics |
 | Quote-control database outage | Replicas disagree about whether new quotes may be signed | Shared PostgreSQL singleton, readiness degradation and fail-closed `POST /quote`; never fall back to pod-local enabled state in production |
 | Forged, stale, or conflicting toxic-flow score | Attacker suppresses a risky user or denies service to a safe user through manipulated analyzer evidence | Dedicated least-privilege analyzer database role, canonical settlement and bounded snapshot evidence, lease/revision processing, freshness checks, CAS version, immutable audit, fixed threshold policy and fail-closed shared-store reads |
+| USD-reference token depeg or forged peg evidence | Quotes treat unstable collateral as one USD or consume a wrong/stale oracle round | Dedicated token/USD feed per managed reference token, startup coverage and symbol checks, RPC chain identity, Aggregator metadata, complete fresh rounds, L2 sequencer gate, explicit answer bounds, bounded peg deviation, risk-decision round digest and fail-closed signer boundary |
 
 ## Security Requirements
 

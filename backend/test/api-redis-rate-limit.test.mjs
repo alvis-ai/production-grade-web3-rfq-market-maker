@@ -8,6 +8,10 @@ import {
   signerRuntimeEnvNames,
   testSettlementAddress as settlementAddress,
 } from "./helpers/signer-runtime-fixtures.mjs";
+import {
+  configureUsdReferenceEnvironment,
+  usdReferenceRuntimeEnvName,
+} from "./helpers/usd-reference-runtime-fixtures.mjs";
 
 const quoteRequest = {
   chainId: 1,
@@ -148,6 +152,7 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
     "RFQ_RECEIPT_CONFIG_JSON",
     "RFQ_RATE_LIMIT_BACKEND",
     "RFQ_REDIS_URL",
+    usdReferenceRuntimeEnvName,
   ];
   const original = saveEnv(names);
 
@@ -165,6 +170,7 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
 
     process.env.NODE_ENV = "production";
     configureAwsSignerEnvironment();
+    configureUsdReferenceEnvironment();
     process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig());
     process.env.RFQ_RATE_LIMIT_BACKEND = "memory";
     assert.throws(

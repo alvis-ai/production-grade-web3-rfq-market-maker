@@ -55,6 +55,8 @@ import {
   buildDefaultRiskEngine,
   buildRuntimeBinanceSymbolRulesHealth,
   buildMarketReadinessConfig,
+  buildUsdReferenceRiskEngine,
+  assertProductionUsdReferenceRiskPolicy,
   readDynamicToxicFlowRiskConfig,
   readTokenRegistry,
   resolveQuoteExposureStore,
@@ -145,10 +147,14 @@ export function buildServer(options: BuildServerOptions = {}) {
   const defaultRiskEngine = options.riskEngine === undefined
     ? buildDefaultRiskEngine(runtimeTokenRegistry, managedRiskPairs)
     : undefined;
-  const riskEngine = options.riskEngine ?? new DynamicToxicFlowRiskEngine(
-    defaultRiskEngine!,
-    toxicFlowScoreStore,
-    readDynamicToxicFlowRiskConfig(defaultRiskEngine!.getMaxToxicScoreBps()),
+  const riskEngine = options.riskEngine ?? buildUsdReferenceRiskEngine(
+    new DynamicToxicFlowRiskEngine(
+      defaultRiskEngine!,
+      toxicFlowScoreStore,
+      readDynamicToxicFlowRiskConfig(defaultRiskEngine!.getMaxToxicScoreBps()),
+    ),
+    runtimeTokenRegistry,
+    managedRiskPairs,
   );
   const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
   const inMemoryInventoryService = postgresPool ? undefined : new InventoryService();
@@ -215,6 +221,8 @@ export function buildServer(options: BuildServerOptions = {}) {
     maxSnapshotAgeMs,
     quoteTtlSeconds,
   });
+  marketRuntime.assertProductionPolicy();
+  assertProductionUsdReferenceRiskPolicy(options.riskEngine === undefined);
   const stopMarketBackgroundTasks = marketRuntime.startBackgroundTasks(
     marketSnapshotStore,
     postgresPool !== undefined,
@@ -291,8 +299,6 @@ export function buildServer(options: BuildServerOptions = {}) {
     toxicFlowScoreStore,
     trustProxy,
   });
-
-  marketRuntime.assertProductionPolicy();
 
   return server;
 }

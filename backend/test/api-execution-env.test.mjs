@@ -7,6 +7,10 @@ import {
   signerRuntimeEnvNames,
   testSettlementAddress as settlementAddress,
 } from "./helpers/signer-runtime-fixtures.mjs";
+import {
+  configureUsdReferenceEnvironment,
+  usdReferenceRuntimeEnvName,
+} from "./helpers/usd-reference-runtime-fixtures.mjs";
 
 test("RFQ API validates simulated and receipt-confirmed execution configuration", async () => {
   const original = saveEnv([
@@ -15,6 +19,7 @@ test("RFQ API validates simulated and receipt-confirmed execution configuration"
     "RFQ_ALLOW_SIMULATED_SETTLEMENT",
     "RFQ_RECEIPT_CONFIG_JSON",
     "RFQ_REDIS_URL",
+    usdReferenceRuntimeEnvName,
   ]);
 
   try {
@@ -33,6 +38,7 @@ test("RFQ API validates simulated and receipt-confirmed execution configuration"
 
     process.env.NODE_ENV = "production";
     configureAwsSignerEnvironment();
+    configureUsdReferenceEnvironment();
     delete process.env.RFQ_ALLOW_SIMULATED_SETTLEMENT;
     process.env.RFQ_REDIS_URL = "rediss://redis.example.com:6380/0";
     process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig(

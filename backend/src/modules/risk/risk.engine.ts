@@ -50,6 +50,7 @@ export type RiskRejectReasonCode =
   | "TREASURY_LIQUIDITY_INSUFFICIENT"
   | "PORTFOLIO_VAR_LIMIT_EXCEEDED"
   | "USD_REFERENCE_REQUIRED"
+  | "USD_REFERENCE_DEPEG"
   | "SLIPPAGE_TOO_WIDE"
   | "QUOTED_SPREAD_TOO_WIDE"
   | "TOXIC_FLOW_RESTRICTED_USER"
@@ -78,6 +79,7 @@ export interface RiskInput {
 
 export interface RiskEngine {
   evaluate(input: RiskInput): Promise<RiskDecision>;
+  checkHealth?(): void | Promise<void>;
 }
 
 export interface BasicRiskPolicy {

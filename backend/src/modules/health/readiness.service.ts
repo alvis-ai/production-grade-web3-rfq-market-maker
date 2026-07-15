@@ -352,6 +352,7 @@ export class ReadinessService {
       await this.deps.quoteExposureStore?.checkHealth?.();
       await this.deps.settlementIndexerRiskGuard?.checkHealth();
       await this.deps.treasuryLiquidityProvider?.checkHealth();
+      await this.deps.riskEngine.checkHealth?.();
       const decision = await this.deps.riskEngine.evaluate({
         request: this.config.probeRequest,
         pricing: this.config.probePricing,

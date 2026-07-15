@@ -264,6 +264,11 @@ chainlinkConfigSecret:
   name: rfq-backend-secrets
   key: RFQ_CHAINLINK_CONFIG_JSON
 
+usdReferenceConfigSecret:
+  enabled: true
+  name: rfq-backend-secrets
+  key: RFQ_USD_REFERENCE_CONFIG_JSON
+
 receiptConfigSecret:
   enabled: true
   name: rfq-backend-secrets

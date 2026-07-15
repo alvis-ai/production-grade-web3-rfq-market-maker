@@ -16,6 +16,14 @@ import {
 } from "../modules/market-data/market-data.service.js";
 import type { OrderBookPairConfig } from "../modules/market-data/cex-orderbook/orderbook.js";
 import { pairKey } from "../modules/market-data/price-cache.js";
+import {
+  ChainlinkUsdReferenceHealthProvider,
+} from "../modules/market-data/chainlink-usd-reference.provider.js";
+import {
+  parseChainlinkUsdReferenceConfig,
+  usdReferenceFeedKey,
+  type ChainlinkUsdReferenceConfig,
+} from "../modules/market-data/chainlink-usd-reference-config.js";
 import { parseHedgeRoutesJson } from "../modules/hedge/hedge-route.js";
 import {
   BinanceSymbolRulesService,
@@ -50,6 +58,8 @@ import {
   defaultDynamicToxicFlowRiskConfig,
   type DynamicToxicFlowRiskConfig,
 } from "../modules/risk/dynamic-toxic-flow-risk.engine.js";
+import type { RiskEngine } from "../modules/risk/risk.engine.js";
+import { UsdReferenceRiskEngine } from "../modules/risk/usd-reference-risk.engine.js";
 import {
   readDecimalIntegerConfig,
   readOptionalBoolean,
@@ -307,6 +317,70 @@ export function buildDefaultRiskEngine(
     }
   }
   return engine;
+}
+
+export function buildUsdReferenceRiskEngine(
+  baseEngine: RiskEngine,
+  tokenRegistry: TokenRegistry,
+  managedPairs: readonly { chainId: number; tokenIn: `0x${string}`; tokenOut: `0x${string}` }[],
+  env: Record<string, string | undefined> | undefined = runtimeEnvironment(),
+): RiskEngine {
+  const serializedConfig = readOwnEnvValue(env, "RFQ_USD_REFERENCE_CONFIG_JSON");
+  if (!serializedConfig) return baseEngine;
+  const config = parseChainlinkUsdReferenceConfig(serializedConfig);
+  assertUsdReferenceFeedCoverage(config, tokenRegistry, managedPairs);
+  return new UsdReferenceRiskEngine(
+    baseEngine,
+    tokenRegistry,
+    new ChainlinkUsdReferenceHealthProvider(config),
+    config.policyVersion,
+  );
+}
+
+export function assertProductionUsdReferenceRiskPolicy(
+  usingDefaultRiskEngine: boolean,
+  env: Record<string, string | undefined> | undefined = runtimeEnvironment(),
+): void {
+  if (!usingDefaultRiskEngine || !requiresExplicitRuntimeConfig(readOwnEnvValue(env, "NODE_ENV"))) return;
+  if (!readOwnEnvValue(env, "RFQ_USD_REFERENCE_CONFIG_JSON")) {
+    throw new Error("RFQ_USD_REFERENCE_CONFIG_JSON is required outside local environments");
+  }
+}
+
+export function assertUsdReferenceFeedCoverage(
+  config: ChainlinkUsdReferenceConfig,
+  tokenRegistry: TokenRegistry,
+  managedPairs: readonly { chainId: number; tokenIn: `0x${string}`; tokenOut: `0x${string}` }[],
+): void {
+  const configuredFeeds = new Map<string, string>();
+  for (const network of config.networks) {
+    for (const feed of network.feeds) {
+      const metadata = requireTokenMetadata(
+        tokenRegistry,
+        network.chainId,
+        feed.tokenAddress,
+        "USD-reference feed",
+      );
+      if (!metadata.usdReference) {
+        throw new Error(`USD-reference feed token ${network.chainId}:${feed.tokenAddress.toLowerCase()} is not marked usdReference`);
+      }
+      if (feed.description !== `${metadata.symbol} / USD`) {
+        throw new Error(`USD-reference feed description must match token symbol ${metadata.symbol} / USD`);
+      }
+      configuredFeeds.set(usdReferenceFeedKey(network.chainId, feed.tokenAddress), feed.description);
+    }
+  }
+
+  const requiredFeeds = new Set<string>();
+  for (const pair of managedPairs) {
+    for (const tokenAddress of [pair.tokenIn, pair.tokenOut]) {
+      const metadata = requireTokenMetadata(tokenRegistry, pair.chainId, tokenAddress, "USD-reference managed pair");
+      if (metadata.usdReference) requiredFeeds.add(usdReferenceFeedKey(pair.chainId, tokenAddress));
+    }
+  }
+  for (const key of requiredFeeds) {
+    if (!configuredFeeds.has(key)) throw new Error(`USD-reference config has no feed for managed token ${key}`);
+  }
 }
 
 export function readDynamicToxicFlowRiskConfig(

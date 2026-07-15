@@ -99,6 +99,7 @@ test -s backend/src/db/migrations/026-hedge-order-expiry.sql
 test -s backend/src/db/migrations/027-signer-audit.sql
 test -s backend/src/db/migrations/028-signer-risk-context.sql
 test -s backend/src/db/migrations/029-bounded-hedge-failure-risk.sql
+test -s backend/src/db/migrations/030-usd-reference-depeg-risk.sql
 test -s backend/src/modules/signer/signer-audit.store.ts
 test -s backend/test/signer-audit-store.test.mjs
 test -s backend/src/modules/hedge/hedge-net-pnl.ts
@@ -2030,6 +2031,7 @@ grep -q 'hedge.risk_failure_at >= now()' backend/src/modules/hedge/postgres-hedg
 grep -q 'idx_hedge_orders_recent_failed_risk' backend/src/db/migrations/029-bounded-hedge-failure-risk.sql
 grep -q 'trg_hedge_orders_set_risk_failure_at' backend/src/db/migrations/029-bounded-hedge-failure-risk.sql
 grep -q "('029', 'bounded-hedge-failure-risk')" docs/database/schema.sql
+grep -q "('030', 'usd-reference-depeg-risk')" docs/database/schema.sql
 grep -q 'HedgeService rejects malformed intent and risk payload envelopes before state writes' backend/test/hedge-input-shape-validation.test.mjs
 grep -q 'HedgeService rejects inherited intent and risk fields before state writes' backend/test/hedge-input-shape-validation.test.mjs
 grep -q 'Hedge config.failurePenaltyBps must be an own field' backend/test/hedge-config-validation.test.mjs

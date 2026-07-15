@@ -124,6 +124,11 @@ spec:
                 secretKeyRef:
                   name: rfq-backend-secrets
                   key: RFQ_RECEIPT_CONFIG_JSON
+            - name: RFQ_USD_REFERENCE_CONFIG_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-backend-secrets
+                  key: RFQ_USD_REFERENCE_CONFIG_JSON
           lifecycle:
             preStop:
               exec:

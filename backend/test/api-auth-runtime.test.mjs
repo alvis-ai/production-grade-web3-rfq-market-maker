@@ -9,6 +9,10 @@ import {
   signerRuntimeEnvNames,
   testSettlementAddress,
 } from "./helpers/signer-runtime-fixtures.mjs";
+import {
+  configureUsdReferenceEnvironment,
+  usdReferenceRuntimeEnvName,
+} from "./helpers/usd-reference-runtime-fixtures.mjs";
 
 const secret = "0123456789abcdefghijklmnopqrstuvwxyz_ABCD";
 const apiKey = `client_primary.${secret}`;
@@ -104,6 +108,7 @@ test("non-local RFQ API requires API key auth configuration or an injected authe
     "DATABASE_URL",
     "RFQ_API_KEY_CONFIG_JSON",
     "RFQ_RECEIPT_CONFIG_JSON",
+    usdReferenceRuntimeEnvName,
     ...signerRuntimeEnvNames,
   ];
   const original = saveEnv(names);
@@ -118,6 +123,7 @@ test("non-local RFQ API requires API key auth configuration or an injected authe
       confirmations: 2,
       receiptTimeoutMs: 120_000,
     }] });
+    configureUsdReferenceEnvironment();
     delete process.env.RFQ_API_KEY_CONFIG_JSON;
 
     const options = {

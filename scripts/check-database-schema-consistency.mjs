@@ -118,6 +118,10 @@ const boundedHedgeFailureRiskMigrationSource = await readFile(
   "backend/src/db/migrations/029-bounded-hedge-failure-risk.sql",
   "utf8",
 );
+const usdReferenceDepegRiskMigrationSource = await readFile(
+  "backend/src/db/migrations/030-usd-reference-depeg-risk.sql",
+  "utf8",
+);
 const signerAuditStoreSource = await readFile(
   "backend/src/modules/signer/signer-audit.store.ts",
   "utf8",
@@ -1671,6 +1675,14 @@ assert.ok(
     schemaSource.includes("CREATE OR REPLACE FUNCTION set_hedge_risk_failure_at()") &&
     erDiagramSource.includes("`risk_failure_at` 由数据库 trigger 只在首次进入 `failed` 时写入"),
   "bounded hedge failure risk must use stable, recent, canonical failure evidence",
+);
+assert.ok(
+  usdReferenceDepegRiskMigrationSource.includes(
+    "DROP CONSTRAINT IF EXISTS chk_risk_decisions_reason_code_consistency",
+  ) &&
+    usdReferenceDepegRiskMigrationSource.includes("USD_REFERENCE_DEPEG") &&
+    schemaSource.includes("('030', 'usd-reference-depeg-risk')"),
+  "USD-reference depeg migration must extend the durable risk rejection contract",
 );
 assert.ok(
   postgresToxicFlowMarkoutSource.includes("async claimNext") &&

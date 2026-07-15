@@ -7,6 +7,11 @@ import {
   TokenLimitRiskEngine,
   defaultTokenLimitRiskPolicy,
 } from "../dist/modules/risk/token-limit-risk.engine.js";
+import {
+  ConfiguredTokenRegistry,
+  defaultTokenRegistryConfig,
+} from "../dist/modules/pricing/token-registry.js";
+import { UsdReferenceRiskEngine } from "../dist/modules/risk/usd-reference-risk.engine.js";
 
 const baseQuoteRequest = {
   chainId: 1,
@@ -37,6 +42,47 @@ test("RFQ API rejects quotes that fail pre-trade risk policy", async () => {
     assert.match(metrics.payload, /rfq_quote_requests_total 1/);
     assert.match(metrics.payload, /rfq_quote_errors_total 1/);
     assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="SLIPPAGE_TOO_WIDE"\} 1/);
+  } finally {
+    await server.close();
+  }
+});
+
+test("RFQ API blocks signing when dedicated USD-reference evidence confirms a depeg", async () => {
+  const registry = new ConfiguredTokenRegistry(defaultTokenRegistryConfig);
+  const riskEngine = new UsdReferenceRiskEngine(
+    new BasicRiskEngine(defaultBasicRiskPolicy),
+    registry,
+    {
+      async checkHealth() { throw new Error("depegged"); },
+      async getHealth(chainId, tokenAddress) {
+        return {
+          chainId,
+          tokenAddress,
+          aggregator: "0x0000000000000000000000000000000000000005",
+          roundId: "42",
+          answer: "97000000",
+          decimals: 8,
+          deviationBps: 300,
+          observedAt: new Date().toISOString(),
+          status: "depegged",
+        };
+      },
+    },
+    "usd-reference-v1",
+  );
+  const server = buildServer({ logger: false, riskEngine, tokenRegistry: registry });
+  await server.ready();
+
+  try {
+    const readiness = await server.inject({ method: "GET", url: "/ready" });
+    assert.equal(readiness.statusCode, 503);
+    assert.equal(readiness.json().components.risk, "degraded");
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "RISK_REJECTED");
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="USD_REFERENCE_DEPEG"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
   } finally {
     await server.close();
   }

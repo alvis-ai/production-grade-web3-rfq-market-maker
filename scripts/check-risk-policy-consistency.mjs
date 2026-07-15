@@ -14,6 +14,10 @@ const files = Object.fromEntries(await Promise.all([
   "backend/src/modules/risk/in-memory-portfolio-var.ts",
   "backend/src/modules/risk/postgres-portfolio-var.ts",
   "backend/src/modules/risk/treasury-liquidity.provider.ts",
+  "backend/src/modules/risk/usd-reference-risk.engine.ts",
+  "backend/src/modules/market-data/chainlink-usd-reference-config.ts",
+  "backend/src/modules/market-data/chainlink-usd-reference.provider.ts",
+  "backend/src/runtime/market-runtime.ts",
   "backend/src/modules/quote/quote.service.ts",
   "backend/src/modules/health/readiness.service.ts",
   "backend/test/token-limit-risk.test.mjs",
@@ -23,6 +27,7 @@ const files = Object.fromEntries(await Promise.all([
   "backend/test/quote-exposure-store.test.mjs",
   "backend/test/postgres-quote-exposure-store.test.mjs",
   "backend/test/portfolio-var.test.mjs",
+  "backend/test/usd-reference-risk.test.mjs",
   "scripts/quote-exposure-integration-check.mjs",
   "Makefile",
   "package.json",
@@ -245,8 +250,30 @@ assertContains("book/Volume3-RiskEngine/Chapter04-VaR.md", [
   "var_evaluation",
   "inventory_positions",
 ]);
+assertContains("backend/src/modules/risk/usd-reference-risk.engine.ts", [
+  "USD_REFERENCE_DEPEG",
+  "healthProvider.getHealth",
+  "combinePolicyVersion",
+  "checkHealth",
+]);
+assertContains("backend/src/modules/market-data/chainlink-usd-reference.provider.ts", [
+  "answeredInRound < roundId",
+  "maxPriceAgeMs",
+  "maxDeviationBps",
+  "sequencer grace period",
+]);
+assertContains("backend/src/runtime/market-runtime.ts", [
+  "RFQ_USD_REFERENCE_CONFIG_JSON is required outside local environments",
+  "assertUsdReferenceFeedCoverage",
+  "buildUsdReferenceRiskEngine",
+]);
+assertContains("backend/test/usd-reference-risk.test.mjs", [
+  "detects depeg",
+  "fails closed on stale or mismatched evidence",
+  "production runtime requires complete USD-reference feed coverage",
+]);
 
-console.log("Risk policy consistency check passed: market-regime, atomic exposure, treasury, and portfolio VaR limits across 5 runtime config surfaces");
+console.log("Risk policy consistency check passed: market-regime, atomic exposure, treasury, portfolio VaR, and USD-reference depeg controls");
 
 function assertContains(path, needles) {
   for (const needle of needles) {

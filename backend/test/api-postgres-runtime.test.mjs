@@ -7,6 +7,10 @@ import {
   signerRuntimeEnvNames,
   testSettlementAddress as settlementAddress,
 } from "./helpers/signer-runtime-fixtures.mjs";
+import {
+  configureUsdReferenceEnvironment,
+  usdReferenceRuntimeEnvName,
+} from "./helpers/usd-reference-runtime-fixtures.mjs";
 
 test("non-local RFQ API startup requires durable PostgreSQL persistence", async () => {
   const original = saveEnv([
@@ -14,11 +18,13 @@ test("non-local RFQ API startup requires durable PostgreSQL persistence", async 
     "DATABASE_URL",
     ...signerRuntimeEnvNames,
     "RFQ_RECEIPT_CONFIG_JSON",
+    usdReferenceRuntimeEnvName,
   ]);
   try {
     process.env.NODE_ENV = "production";
     delete process.env.DATABASE_URL;
     configureAwsSignerEnvironment();
+    configureUsdReferenceEnvironment();
     process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig());
 
     assert.throws(
