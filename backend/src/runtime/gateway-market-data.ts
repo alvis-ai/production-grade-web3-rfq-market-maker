@@ -1,4 +1,5 @@
 import type { MarketDataService } from "../modules/market-data/market-data.service.js";
+import type { MarketDataBackgroundLogger } from "../modules/market-data/market-data-background-logger.js";
 import type { MarketSnapshotStore } from "../modules/market-data/market-snapshot.repository.js";
 import { CachedMarketDataService } from "../modules/market-data/cached-market-data.service.js";
 import {
@@ -43,7 +44,7 @@ export interface GatewayMarketDataRuntime {
 export function buildGatewayMarketDataRuntime(
   configuredService: MarketDataService | undefined,
   metricsService: MetricsService,
-  logger: CexOrderBookLogger,
+  logger: CexOrderBookLogger & MarketDataBackgroundLogger,
 ): GatewayMarketDataRuntime {
   const defaultMarketData = configuredService ? undefined : readDefaultMarketDataRuntime();
   const rawMarketDataService = configuredService ?? defaultMarketData!.service;
@@ -91,7 +92,7 @@ export function buildGatewayMarketDataRuntime(
             pairs: priceUpdaterPairs,
             intervalMs: 250,
             maxAgeMs: 5_000,
-          }, metricsService)
+          }, metricsService, logger)
         : undefined;
       const cexMonitor = defaultMarketData && cexPriceCache && cexConfig
         ? new CEXOrderBookMonitor(cexPriceCache, cexConfig.monitor, metricsService, undefined, logger)
@@ -105,7 +106,7 @@ export function buildGatewayMarketDataRuntime(
             caches: snapshotSamplerCaches,
             requiredPrimaryCacheKeys: requiredCexCacheKeys,
             intervalMs: defaultMarketSnapshotSampleIntervalMs,
-          }, metricsService)
+          }, metricsService, logger)
         : undefined;
 
       priceUpdater?.start();

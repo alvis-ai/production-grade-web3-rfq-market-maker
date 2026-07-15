@@ -13,10 +13,15 @@ const paths = {
   hedgeFeeWorker: "backend/src/modules/hedge/hedge-fee-worker.ts",
   reconciliationWorker: "backend/src/modules/reconciliation/post-trade-reconciliation.worker.ts",
   cexMonitor: "backend/src/modules/market-data/cex-orderbook/cex-orderbook-monitor.ts",
+  marketBackgroundLogger: "backend/src/modules/market-data/market-data-background-logger.ts",
+  priceUpdater: "backend/src/modules/market-data/price-updater.ts",
+  snapshotSampler: "backend/src/modules/market-data/market-snapshot-sampler.ts",
   databasePool: "backend/src/db/pool.ts",
   serverProcess: "backend/src/runtime/server-process.ts",
   loggerTest: "backend/test/structured-logger.test.mjs",
   toxicTest: "backend/test/toxic-flow-analyzer-worker.test.mjs",
+  priceUpdaterTest: "backend/test/price-updater.test.mjs",
+  snapshotSamplerTest: "backend/test/market-snapshot-sampler.test.mjs",
   env: ".env.example",
   compose: "docker-compose.yml",
   helmValues: "infra/helm/rfq-market-maker/values.yaml",
@@ -98,6 +103,23 @@ assert.ok(
     files.cexMonitor.includes("this.logger.warn") && !files.cexMonitor.includes("console.warn"),
   "CEX monitor must route connector failures through the structured logger",
 );
+for (const [name, failureCode, recoveryCode, stateSet] of [
+  ["priceUpdater", "MARKET_DATA_REFRESH_FAILED", "MARKET_DATA_REFRESH_RECOVERED", "failedPairs"],
+  ["snapshotSampler", "MARKET_SNAPSHOT_PERSIST_FAILED", "MARKET_SNAPSHOT_PERSIST_RECOVERED", "failedPersistencePairs"],
+]) {
+  assert.ok(
+    files[name].includes(failureCode) && files[name].includes(recoveryCode) && files[name].includes(stateSet) &&
+      files[name].includes("logMarketDataBackgroundTransition") && !files[name].includes("catch (error)"),
+    `${paths[name]} must log bounded failure/recovery transitions without raw exception values`,
+  );
+}
+assert.ok(
+  files.marketBackgroundLogger.includes("try {") && files.marketBackgroundLogger.includes("logger[level](fields, message)") &&
+    files.marketBackgroundLogger.includes("catch {}") &&
+    files.marketBackgroundLogger.includes("MarketDataBackgroundLogCode") &&
+    files.marketBackgroundLogger.includes("marketDataBackgroundLogFields"),
+  "market-data background logging must not change refresh or persistence outcomes",
+);
 assert.ok(
   files.databasePool.includes('errorCode: "DATABASE_POOL_ERROR"') &&
     files.databasePool.includes("logger.error"),
@@ -120,6 +142,13 @@ assert.ok(
   files.toxicTest.includes("records and logs iteration failures"),
   "toxic-flow worker tests must cover iteration error logging",
 );
+for (const name of ["priceUpdaterTest", "snapshotSamplerTest"]) {
+  assert.ok(
+    files[name].includes("logs only") && files[name].includes("isolates and validates its logger") &&
+      files[name].includes("secret") && files[name].includes("includes") && files[name].includes("false"),
+    `${paths[name]} must cover transition throttling, logger isolation, and raw error omission`,
+  );
+}
 
 assert.ok(files.env.includes("RFQ_LOG_LEVEL=info"), ".env.example must document RFQ_LOG_LEVEL");
 assert.ok(
@@ -133,11 +162,11 @@ assert.ok(
 assert.ok(files.k8sConfig.includes("RFQ_LOG_LEVEL: info"), "raw Kubernetes config must configure log level");
 
 for (const [name, terms] of Object.entries({
-  readme: ["`RFQ_LOG_LEVEL` accepts only", "service-bound JSON records", "route template"],
+  readme: ["`RFQ_LOG_LEVEL` accepts only", "service-bound JSON records", "route template", "MARKET_DATA_REFRESH_FAILED"],
   apiDocs: ["Pino JSON completion record", "dynamic URL", "debug|info|warn|error"],
-  metricsDocs: ["Structured JSON logs complement Prometheus", "shared logger redacts"],
-  monitoringDocs: ["Every long-running backend process writes one-line structured JSON", "must not index or retain API keys"],
-  security: ["API and worker logs are structured, level-controlled, trace-correlated"],
+  metricsDocs: ["Structured JSON logs complement Prometheus", "shared logger redacts", "MARKET_SNAPSHOT_PERSIST_FAILED"],
+  monitoringDocs: ["Every long-running backend process writes one-line structured JSON", "must not index or retain API keys", "failure transition"],
+  security: ["API and worker logs are structured, level-controlled, trace-correlated", "Market-data background failure logs are transition-based"],
 })) {
   for (const term of terms) {
     assert.ok(files[name].includes(term), `${paths[name]} must document: ${term}`);

@@ -3,6 +3,13 @@ import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
 import { getMarketDataSnapshotSource } from "./market-data.service.js";
 import type { MarketSnapshotStore } from "./market-snapshot.repository.js";
 import { pairKey, SharedPriceCache } from "./price-cache.js";
+import {
+  assertMarketDataBackgroundLogger,
+  logMarketDataBackgroundTransition,
+  marketDataBackgroundLogFields,
+  noOpMarketDataBackgroundLogger,
+  type MarketDataBackgroundLogger,
+} from "./market-data-background-logger.js";
 
 export interface MarketSnapshotSamplingPair {
   chainId: number;
@@ -40,6 +47,7 @@ export class BackgroundMarketSnapshotSampler {
   private readonly requiredPrimaryCacheKeys: ReadonlySet<string>;
   private readonly intervalMs: number;
   private readonly lastSavedSnapshotIds = new Map<string, string>();
+  private readonly failedPersistencePairs = new Set<string>();
   private timer: ReturnType<typeof setInterval> | undefined;
   private activeSample: Promise<MarketSnapshotSampleResult> | undefined;
 
@@ -47,10 +55,12 @@ export class BackgroundMarketSnapshotSampler {
     private readonly store: MarketSnapshotStore,
     config: MarketSnapshotSamplerConfig,
     private readonly observer: MarketSnapshotSamplerObserver = noOpObserver,
+    private readonly logger: MarketDataBackgroundLogger = noOpMarketDataBackgroundLogger,
   ) {
     assertStore(store);
     assertConfig(config);
     assertObserver(observer);
+    assertMarketDataBackgroundLogger(logger);
     this.pairs = config.pairs.map((pair) => validateQuoteRequest(pair));
     this.caches = [...config.caches];
     this.requiredPrimaryCacheKeys = new Set(config.requiredPrimaryCacheKeys);
@@ -103,7 +113,10 @@ export class BackgroundMarketSnapshotSampler {
       ? this.caches[0]?.get(key)
       : this.caches.map((cache) => cache.get(key)).find((candidate) => candidate !== undefined);
     if (!snapshot) return "unavailable";
-    if (this.lastSavedSnapshotIds.get(key) === snapshot.snapshotId) return "unchanged";
+    if (this.lastSavedSnapshotIds.get(key) === snapshot.snapshotId) {
+      this.recordPersistenceRecovery(request, key);
+      return "unchanged";
+    }
 
     try {
       const source = getMarketDataSnapshotSource(snapshot);
@@ -113,14 +126,37 @@ export class BackgroundMarketSnapshotSampler {
         ...(source === undefined ? {} : { source }),
       });
       this.lastSavedSnapshotIds.set(key, snapshot.snapshotId);
+      this.recordPersistenceRecovery(request, key);
       return "saved";
     } catch {
+      this.recordPersistenceFailure(request, key);
       return "failed";
     }
   }
 
   private clearActiveSample(sample: Promise<MarketSnapshotSampleResult>): void {
     if (this.activeSample === sample) this.activeSample = undefined;
+  }
+
+  private recordPersistenceFailure(request: QuoteRequest, key: string): void {
+    if (this.failedPersistencePairs.has(key)) return;
+    this.failedPersistencePairs.add(key);
+    logMarketDataBackgroundTransition(
+      this.logger,
+      "warn",
+      marketDataBackgroundLogFields(request, "MARKET_SNAPSHOT_PERSIST_FAILED"),
+      "Background market snapshot persistence failed",
+    );
+  }
+
+  private recordPersistenceRecovery(request: QuoteRequest, key: string): void {
+    if (!this.failedPersistencePairs.delete(key)) return;
+    logMarketDataBackgroundTransition(
+      this.logger,
+      "info",
+      marketDataBackgroundLogFields(request, "MARKET_SNAPSHOT_PERSIST_RECOVERED"),
+      "Background market snapshot persistence recovered",
+    );
   }
 }
 

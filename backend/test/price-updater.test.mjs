@@ -72,6 +72,59 @@ test("BackgroundPriceUpdater validates its observer", () => {
   );
 });
 
+test("BackgroundPriceUpdater logs only failure and recovery transitions", async () => {
+  let failing = true;
+  const records = [];
+  const updater = new BackgroundPriceUpdater(
+    {
+      async getSnapshot() {
+        if (failing) throw new Error("secret provider detail");
+        return snapshot("snap_recovered");
+      },
+    },
+    new SharedPriceCache(60_000),
+    { pairs: [request], intervalMs: 250, maxAgeMs: 5_000 },
+    undefined,
+    transitionLogger(records),
+  );
+
+  await updater.refreshOnce();
+  await updater.refreshOnce();
+  failing = false;
+  await updater.refreshOnce();
+  failing = true;
+  await updater.refreshOnce();
+
+  assert.deepEqual(records.map(({ level, fields }) => [level, fields.errorCode]), [
+    ["warn", "MARKET_DATA_REFRESH_FAILED"],
+    ["info", "MARKET_DATA_REFRESH_RECOVERED"],
+    ["warn", "MARKET_DATA_REFRESH_FAILED"],
+  ]);
+  assert.equal(JSON.stringify(records).includes("secret provider detail"), false);
+});
+
+test("BackgroundPriceUpdater isolates and validates its logger", async () => {
+  const updater = new BackgroundPriceUpdater(
+    { async getSnapshot() { throw new Error("provider failed"); } },
+    new SharedPriceCache(60_000),
+    { pairs: [request], intervalMs: 250, maxAgeMs: 5_000 },
+    undefined,
+    { info() { throw new Error("logger failed"); }, warn() { throw new Error("logger failed"); } },
+  );
+  await updater.refreshOnce();
+
+  assert.throws(
+    () => new BackgroundPriceUpdater(
+      { async getSnapshot() { return snapshot("unused"); } },
+      new SharedPriceCache(60_000),
+      { pairs: [request], intervalMs: 250, maxAgeMs: 5_000 },
+      undefined,
+      { warn() {} },
+    ),
+    /logger must expose info and warn methods/,
+  );
+});
+
 test("BackgroundPriceUpdater starts once and waits for an active refresh during stop", async () => {
   const gate = deferred();
   let requests = 0;
@@ -117,4 +170,11 @@ function deferred() {
   let resolve;
   const promise = new Promise((done) => { resolve = done; });
   return { promise, resolve };
+}
+
+function transitionLogger(records) {
+  return {
+    info(fields, message) { records.push({ level: "info", fields, message }); },
+    warn(fields, message) { records.push({ level: "warn", fields, message }); },
+  };
 }

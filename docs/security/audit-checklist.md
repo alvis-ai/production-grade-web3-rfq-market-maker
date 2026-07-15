@@ -58,6 +58,7 @@
 - [x] Non-local receipt RPCs require HTTPS, and receipt plus Treasury readers verify the active chain ID before consuming transaction, contract, or balance evidence.
 - [x] All errors include traceId.
 - [x] API and worker logs are structured, level-controlled, trace-correlated where applicable, and redact credentials, signatures, private keys, cookies and request headers.
+- [x] Market-data background failure logs are transition-based and bounded per configured pair; retries use metrics instead of repeated warnings, recovery is explicit, and raw provider/database exceptions are omitted.
 - [x] API and worker pods have ingress-and-egress NetworkPolicies with explicit ingress-controller and monitoring namespace selectors plus workload-specific egress ports.
 - [x] API, migration and worker containers run as UID/GID 1000 with RuntimeDefault seccomp, no privilege escalation, no Linux capabilities, read-only root filesystems and bounded `/tmp` storage.
 - [x] Every workload disables the default Kubernetes API ServiceAccount token; the API uses only the separate audience-scoped IRSA projection for KMS signing.

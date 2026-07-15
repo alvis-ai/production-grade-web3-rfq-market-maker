@@ -122,6 +122,61 @@ test("BackgroundMarketSnapshotSampler validates its observer", () => {
   );
 });
 
+test("BackgroundMarketSnapshotSampler logs only persistence failure and recovery transitions", async () => {
+  const cache = new SharedPriceCache(60_000);
+  cache.set(pairKey(1, tokenA, tokenB), snapshot("snap_log", "chainlink"));
+  let failing = true;
+  const records = [];
+  const sampler = new BackgroundMarketSnapshotSampler(
+    {
+      async saveSnapshot() {
+        if (failing) throw new Error("secret database detail");
+        return {};
+      },
+    },
+    { pairs: [request], caches: [cache], requiredPrimaryCacheKeys: [], intervalMs: 5_000 },
+    undefined,
+    transitionLogger(records),
+  );
+
+  assert.equal((await sampler.sampleOnce()).failed, 1);
+  assert.equal((await sampler.sampleOnce()).failed, 1);
+  failing = false;
+  assert.equal((await sampler.sampleOnce()).saved, 1);
+  failing = true;
+  cache.set(pairKey(1, tokenA, tokenB), snapshot("snap_log_2", "chainlink"));
+  assert.equal((await sampler.sampleOnce()).failed, 1);
+
+  assert.deepEqual(records.map(({ level, fields }) => [level, fields.errorCode]), [
+    ["warn", "MARKET_SNAPSHOT_PERSIST_FAILED"],
+    ["info", "MARKET_SNAPSHOT_PERSIST_RECOVERED"],
+    ["warn", "MARKET_SNAPSHOT_PERSIST_FAILED"],
+  ]);
+  assert.equal(JSON.stringify(records).includes("secret database detail"), false);
+});
+
+test("BackgroundMarketSnapshotSampler isolates and validates its logger", async () => {
+  const cache = new SharedPriceCache(60_000);
+  cache.set(pairKey(1, tokenA, tokenB), snapshot("snap_logger_failure", "chainlink"));
+  const sampler = new BackgroundMarketSnapshotSampler(
+    { async saveSnapshot() { throw new Error("database failed"); } },
+    { pairs: [request], caches: [cache], requiredPrimaryCacheKeys: [], intervalMs: 5_000 },
+    undefined,
+    { info() { throw new Error("logger failed"); }, warn() { throw new Error("logger failed"); } },
+  );
+  assert.equal((await sampler.sampleOnce()).failed, 1);
+
+  assert.throws(
+    () => new BackgroundMarketSnapshotSampler(
+      { async saveSnapshot() { return {}; } },
+      { pairs: [request], caches: [cache], requiredPrimaryCacheKeys: [], intervalMs: 5_000 },
+      undefined,
+      { info() {} },
+    ),
+    /logger must expose info and warn methods/,
+  );
+});
+
 function snapshot(snapshotId, source) {
   return tagMarketDataSnapshot({
     snapshotId,
@@ -137,4 +192,11 @@ function deferred() {
   let resolve;
   const promise = new Promise((done) => { resolve = done; });
   return { promise, resolve };
+}
+
+function transitionLogger(records) {
+  return {
+    info(fields, message) { records.push({ level: "info", fields, message }); },
+    warn(fields, message) { records.push({ level: "warn", fields, message }); },
+  };
 }

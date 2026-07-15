@@ -1,6 +1,13 @@
 import type { MarketDataService } from "./market-data.service.js";
 import type { MarketSnapshot, QuoteRequest } from "../../shared/types/rfq.js";
 import { SharedPriceCache, pairKey } from "./price-cache.js";
+import {
+  assertMarketDataBackgroundLogger,
+  logMarketDataBackgroundTransition,
+  marketDataBackgroundLogFields,
+  noOpMarketDataBackgroundLogger,
+  type MarketDataBackgroundLogger,
+} from "./market-data-background-logger.js";
 
 export interface PriceUpdaterConfig {
   /** Token pairs to refresh in the background */
@@ -41,6 +48,7 @@ export class BackgroundPriceUpdater {
   private readonly marketData: MarketDataService;
   private readonly pairs: QuoteRequest[];
   private readonly intervalMs: number;
+  private readonly failedPairs = new Set<string>();
   private timer: ReturnType<typeof setInterval> | undefined;
   private activeUpdate: Promise<void> | undefined;
 
@@ -49,8 +57,10 @@ export class BackgroundPriceUpdater {
     cache: SharedPriceCache,
     config: PriceUpdaterConfig = defaultPriceUpdaterConfig,
     private readonly observer: PriceUpdaterObserver = noOpObserver,
+    private readonly logger: MarketDataBackgroundLogger = noOpMarketDataBackgroundLogger,
   ) {
     assertObserver(observer);
+    assertMarketDataBackgroundLogger(logger);
     this.marketData = marketData;
     this.cache = cache;
     this.pairs = config.pairs.map((p) => ({ ...p }));
@@ -92,12 +102,15 @@ export class BackgroundPriceUpdater {
   }
 
   private async updateOne(request: QuoteRequest): Promise<void> {
+    const key = pairKey(request.chainId, request.tokenIn, request.tokenOut);
     try {
       const snapshot = await this.marketData.getSnapshot(request);
-      this.cache.set(pairKey(request.chainId, request.tokenIn, request.tokenOut), snapshot);
+      this.cache.set(key, snapshot);
       this.recordRefresh("success");
+      this.recordRecovery(request, key);
     } catch {
       this.recordRefresh("failure");
+      this.recordFailure(request, key);
       // Cache retains previous entry; next updater cycle will retry.
     }
   }
@@ -110,6 +123,27 @@ export class BackgroundPriceUpdater {
     try {
       this.observer.recordMarketDataRefresh(outcome);
     } catch {}
+  }
+
+  private recordFailure(request: QuoteRequest, key: string): void {
+    if (this.failedPairs.has(key)) return;
+    this.failedPairs.add(key);
+    logMarketDataBackgroundTransition(
+      this.logger,
+      "warn",
+      marketDataBackgroundLogFields(request, "MARKET_DATA_REFRESH_FAILED"),
+      "Background market data refresh failed",
+    );
+  }
+
+  private recordRecovery(request: QuoteRequest, key: string): void {
+    if (!this.failedPairs.delete(key)) return;
+    logMarketDataBackgroundTransition(
+      this.logger,
+      "info",
+      marketDataBackgroundLogFields(request, "MARKET_DATA_REFRESH_RECOVERED"),
+      "Background market data refresh recovered",
+    );
   }
 }
 

@@ -212,6 +212,8 @@ The API-side pre-sign guard separately exports `rfq_settlement_indexer_risk_guar
 
 API market-data background tasks export `rfq_market_data_refreshes_total{outcome}` with `success|failure` and `rfq_market_snapshot_samples_total{outcome}` with `saved|unchanged|unavailable|failed`. Refresh counts represent configured base-provider pair attempts; sample counts represent per-pair cycle results. These fixed labels expose provider and persistence failures before quote traffic encounters a cold cache without leaking token pairs, RPC endpoints, snapshot ids or storage errors. Observer exceptions are swallowed so telemetry cannot alter cache writes, retries or graceful drain.
 
+Prometheus intentionally omits the pair label. Structured logs supply configured-pair diagnosis only at state transitions: `MARKET_DATA_REFRESH_FAILED` / `MARKET_SNAPSHOT_PERSIST_FAILED` warn once until a successful cycle emits the matching `*_RECOVERED` info record. Raw RPC and PostgreSQL exceptions are discarded at this boundary, and logging failures cannot alter the metric, cache, retry, persistence or shutdown result.
+
 - No high-cardinality quoteId labels in Prometheus.
 - Structured JSON logs complement Prometheus without turning dynamic identifiers into metric labels. API logs correlate a normalized route template with `traceId`、status and duration; worker logs bind bounded outcomes or durable audit ids to a fixed service name. The shared logger redacts credential-shaped fields and request serializers omit all headers, while `RFQ_LOG_LEVEL` applies consistently to API、hedge、analytics、reconciliation、settlement-indexer and toxic-flow processes.
 - Use ClickHouse for quote-level analysis.
