@@ -9,6 +9,7 @@ const paths = [
   "backend/src/main.ts",
   "backend/src/modules/health/readiness.service.ts",
   "backend/src/modules/signer/signer-runtime.ts",
+  "backend/src/modules/signer/signer.service.ts",
   "backend/src/modules/signer/remote-signer.service.ts",
   "backend/src/modules/signer/signer-server.ts",
   "backend/src/modules/signer/signer-audit.store.ts",
@@ -28,6 +29,12 @@ const paths = [
   "backend/test/signer-process-runtime.test.mjs",
   "backend/test/settlement-verifier.test.mjs",
   "backend/test/settlement-verifier-policy-validation.test.mjs",
+  "scripts/aws-kms-integration-check.mjs",
+  "scripts/aws-kms-integration-check.test.mjs",
+  "scripts/verify.sh",
+  "Makefile",
+  "package.json",
+  "infra/docker/backend.Dockerfile",
   "docker-compose.yml",
   "infra/k8s/configmap.yaml",
   "infra/k8s/backend-secret.yaml",
@@ -43,6 +50,11 @@ const paths = [
   "docs/adr/ADR-0005-Use-KMS-For-Production-Signing.md",
   "docs/adr/ADR-0008-Use-Bounded-Signer-Overlap-For-Key-Rotation.md",
   "docs/security/key-management.md",
+  "docs/security/threat-model.md",
+  "docs/security/audit-checklist.md",
+  "book/Volume1-SystemArchitecture/Chapter09-Architecture-Review.md",
+  "book/Volume5-BackendEngineering/Chapter05-Signer-Service.md",
+  "book/Volume7-ProductionDeployment/Chapter05-Runbook.md",
   "README.md",
 ];
 const files = Object.fromEntries(await Promise.all(
@@ -50,6 +62,7 @@ const files = Object.fromEntries(await Promise.all(
 ));
 files["backend/src/main.ts"] = await readBackendGatewaySource();
 const backendPackage = JSON.parse(files["backend/package.json"]);
+const rootPackage = JSON.parse(files["package.json"]);
 
 assert.equal(
   typeof backendPackage.dependencies?.["@aws-sdk/client-kms"],
@@ -71,6 +84,11 @@ assertContains("backend/src/modules/signer/kms-signer.service.ts", [
   "SECP256K1N - s",
   "configured trusted signer",
   "assertSignature(matchingSignature)",
+]);
+assertContains("backend/src/modules/signer/signer.service.ts", [
+  "hashQuoteTypedData",
+  "recoverQuoteSigner",
+  "hashQuoteSignature",
 ]);
 assert.ok(
   !files["backend/src/modules/signer/kms-signer.service.ts"].includes("bootstrap") &&
@@ -179,6 +197,40 @@ assertContains("backend/test/settlement-verifier-policy-validation.test.mjs", [
   "trusted signer addresses must not contain duplicates",
   "must contain at most 4 addresses",
 ]);
+assertContains("scripts/aws-kms-integration-check.mjs", [
+  "RFQ_AWS_KMS_INTEGRATION_CONFIRM",
+  "sign-eip712-digest",
+  'NODE_ENV: "production"',
+  'RFQ_SIGNER_MODE: "aws-kms"',
+  "readSignerRuntimeConfig",
+  "createSignerRuntime",
+  "hashQuoteTypedData",
+  "recoverQuoteSigner",
+  "hashQuoteSignature",
+  "runtime?.close?.()",
+  "AWS KMS integration signing or recovery failed",
+]);
+assert.ok(
+  !/^\s+signature,\s*$/m.test(files["scripts/aws-kms-integration-check.mjs"]),
+  "AWS KMS integration result must not emit the raw signature",
+);
+assertContains("scripts/aws-kms-integration-check.test.mjs", [
+  "uses production runtime config and independently recovers the trusted signer",
+  "rejects missing acknowledgement and malformed quote inputs before runtime creation",
+  "closes the runtime and redacts provider failure details",
+  "rejects a valid signature from an unexpected key",
+  "redacts runtime close failures",
+]);
+assertContains("Makefile", [
+  "aws-kms-integration-check: backend-build",
+  "aws-kms-canary-check: backend-build",
+]);
+assertContains("infra/docker/backend.Dockerfile", [
+  "COPY scripts/aws-kms-integration-check.mjs scripts/aws-kms-integration-check.mjs",
+]);
+assert.equal(rootPackage.scripts?.["aws:kms:integration:check"], "make aws-kms-integration-check");
+assert.equal(rootPackage.scripts?.["aws:kms:canary:check"], "make aws-kms-canary-check");
+assertContains("scripts/verify.sh", ["run_step make aws-kms-canary-check"]);
 assertContains("backend/test/signer-server.test.mjs", [
   "does not return a signature when durable audit fails",
   "readiness degrades when the audit store is unavailable",
@@ -282,7 +334,23 @@ assertContains("docs/adr/ADR-0008-Use-Bounded-Signer-Overlap-For-Key-Rotation.md
 assertContains("docs/security/key-management.md", [
   "RFQSettlement.setTrustedSignerAuthorization(oldSigner, false)",
   "receipt-confirmation and indexer catch-up buffers",
+  "make aws-kms-integration-check",
 ]);
+assertContains("README.md", ["make aws-kms-integration-check", "make aws-kms-canary-check"]);
+assertContains("book/Volume5-BackendEngineering/Chapter05-Signer-Service.md", [
+  "make aws-kms-integration-check",
+  "make aws-kms-canary-check",
+]);
+assertContains("book/Volume7-ProductionDeployment/Chapter05-Runbook.md", [
+  "make aws-kms-integration-check",
+  "node scripts/aws-kms-integration-check.mjs",
+  "context-version-2 audit row",
+]);
+assertContains("book/Volume1-SystemArchitecture/Chapter09-Architecture-Review.md", [
+  "AWS KMS signer identity canary",
+]);
+assertContains("docs/security/threat-model.md", ["Unverified KMS rollout identity or diagnostic leakage"]);
+assertContains("docs/security/audit-checklist.md", ["target-workload AWS KMS canary"]);
 
 console.log("KMS signer consistency check passed: explicit trust root and workload identity");
 

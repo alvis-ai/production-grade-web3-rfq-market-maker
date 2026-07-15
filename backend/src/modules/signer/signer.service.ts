@@ -1,4 +1,4 @@
-import { recoverTypedDataAddress } from "viem";
+import { hashTypedData, keccak256, recoverTypedDataAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type { PrivateKeyAccount } from "viem/accounts";
 import type { SignedQuote } from "../../shared/types/rfq.js";
@@ -197,6 +197,34 @@ export function buildQuoteTypedData(quote: SignedQuote, settlementAddress: `0x${
         chainId: BigInt(quote.chainId),
       },
     } as const;
+}
+
+export function hashQuoteTypedData(
+  quote: SignedQuote,
+  settlementAddress: `0x${string}`,
+): `0x${string}` {
+  assertSignedQuote(quote);
+  assertAddress(settlementAddress, "settlementAddress");
+  return hashTypedData(buildQuoteTypedData(quote, settlementAddress));
+}
+
+export async function recoverQuoteSigner(
+  quote: SignedQuote,
+  settlementAddress: `0x${string}`,
+  signature: `0x${string}`,
+): Promise<`0x${string}`> {
+  assertSignedQuote(quote);
+  assertAddress(settlementAddress, "settlementAddress");
+  assertSignature(signature);
+  return recoverTypedDataAddress({
+    ...buildQuoteTypedData(quote, settlementAddress),
+    signature,
+  });
+}
+
+export function hashQuoteSignature(signature: `0x${string}`): `0x${string}` {
+  assertSignature(signature);
+  return keccak256(signature);
 }
 
 export function assertSignQuoteInput(input: SignQuoteInput): void {

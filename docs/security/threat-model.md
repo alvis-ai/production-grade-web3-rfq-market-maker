@@ -35,6 +35,7 @@ flowchart LR
 | --- | --- | --- |
 | Signer key compromise | Attacker can authorize malicious quotes | AWS KMS workload identity, key-scoped `kms:Sign`, explicit signer address, notional limits, pause, key rotation |
 | Wrong KMS key or malformed DER | Quotes are signed by an unintended key or parser ambiguity changes signature meaning | explicit trusted signer, strict DER integer/length validation, low-s normalization, address recovery |
+| Unverified KMS rollout identity or diagnostic leakage | A release can access the wrong key/domain, or a failed production probe exposes key ids, provider details or a reusable signature | Opt-in target-workload canary forces production KMS config, signs only a short-lived synthetic digest, independently recovers the reviewed signer, always closes the SDK client, emits only digest/signature hash and replaces provider/close failures with a fixed error |
 | Signer rotation ordering gap | A rolling fleet rejects valid old/new quotes, or a stale authorized key remains usable indefinitely | bounded five-signer contract set, primary plus at most four backend overlap signers, two-phase rollout, TTL/finality buffer, explicit retirement event |
 | Quote replay | Same quote executed multiple times | Nonce replay protection in contract |
 | Quote retry amplification | Client or proxy retries create multiple signed nonces and duplicate open-exposure reservations | principal-scoped `Idempotency-Key`, request fingerprint, PostgreSQL owner lease, quote binding before persistence, exact response replay |

@@ -37,6 +37,7 @@
 - [x] Signer verification rejects non-canonical high-s ECDSA signatures before submit settlement.
 - [x] Non-local standalone runtime requires AWS KMS and rejects raw signer private keys.
 - [x] KMS signatures are strictly DER-decoded and accepted only when recovery matches the configured trusted signer.
+- [x] The target-workload AWS KMS canary requires explicit acknowledgement, forces production signer config, independently recovers the reviewed signer and never emits a raw signature, KMS key id or provider failure detail.
 - [x] Settlement verification accepts one primary plus at most four validated overlap signers and snapshots that trust policy at startup.
 - [x] Quote persistence includes snapshotId and riskPolicyVersion.
 - [x] Rejected quotes are logged without returning signatures.

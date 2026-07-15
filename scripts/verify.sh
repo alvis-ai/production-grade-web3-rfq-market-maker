@@ -29,6 +29,7 @@ run_step make price-normalization-check
 run_step make risk-policy-check
 run_step make pnl-valuation-check
 run_step make kms-signer-check
+run_step make aws-kms-canary-check
 run_step make settlement-indexer-check
 run_step make submit-reservation-check
 run_step make api-composition-check

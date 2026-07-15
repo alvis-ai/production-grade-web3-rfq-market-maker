@@ -55,7 +55,7 @@ flowchart LR
 ## Rotation Procedure
 
 1. Open a change record with both signer addresses, affected chains, the maximum quote TTL, receipt-confirmation allowance, indexer catch-up buffer and rollback owner.
-2. Create the new KMS key, verify its recovered address out of band, and run the normal quote-path canary in staging.
+2. Create the new KMS key, run `RFQ_AWS_KMS_INTEGRATION_CONFIRM=sign-eip712-digest make aws-kms-integration-check` from the target workload identity, verify its recovered address out of band, and then run the normal quote-path canary in staging. Archive digest/hash evidence, never the raw signature or credential-bearing errors.
 3. Call `RFQSettlement.setTrustedSigner(newSigner)` through `SIGNER_ADMIN_ROLE`. Confirm that both addresses return true from `trustedSigners`, `trustedSignerCount` is within `MAX_TRUSTED_SIGNERS = 5`, and record the transaction hash. This does not revoke the old signer.
 4. Roll out a verifier-only transition to every API replica while the old signer workload still signs: keep `RFQ_TRUSTED_SIGNER_ADDRESS=oldSigner` and set `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES=newSigner`. Confirm mixed old/new signatures are accepted before proceeding.
 5. Roll the signer workload to the new KMS key and `RFQ_TRUSTED_SIGNER_ADDRESS=newSigner`, then roll API trust while retaining `oldSigner` in `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES`. Record the final old-key signing time and run a new-key quote and settlement canary.

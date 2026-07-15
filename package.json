@@ -34,6 +34,8 @@
     "cex:orderbook:integration:check": "make cex-orderbook-integration-check",
     "binance:testnet:integration:check": "make binance-testnet-integration-check",
     "binance:testnet:check": "make binance-testnet-check",
+    "aws:kms:integration:check": "make aws-kms-integration-check",
+    "aws:kms:canary:check": "make aws-kms-canary-check",
     "contract:deployment:integration:check": "make contract-deployment-integration-check",
     "contract:deployment:check": "make contract-deployment-check",
     "settlement:e2e": "make settlement-e2e",

@@ -635,6 +635,21 @@ test -s scripts/check-database-schema-consistency.mjs
 test -s scripts/reconciliation-check.mjs
 test -s scripts/verify.sh
 test -s scripts/check-kms-signer-consistency.mjs
+test -s scripts/aws-kms-integration-check.mjs
+test -s scripts/aws-kms-integration-check.test.mjs
+grep -q 'aws-kms-integration-check: backend-build' Makefile
+grep -q 'aws-kms-canary-check: backend-build' Makefile
+grep -q 'aws:kms:integration:check' package.json
+grep -q 'aws:kms:canary:check' package.json
+grep -q 'make aws-kms-canary-check' scripts/verify.sh
+grep -q 'RFQ_AWS_KMS_INTEGRATION_CONFIRM' scripts/aws-kms-integration-check.mjs
+grep -q 'NODE_ENV: "production"' scripts/aws-kms-integration-check.mjs
+grep -q 'RFQ_SIGNER_MODE: "aws-kms"' scripts/aws-kms-integration-check.mjs
+grep -q 'recoverQuoteSigner' scripts/aws-kms-integration-check.mjs
+grep -q 'hashQuoteSignature' scripts/aws-kms-integration-check.mjs
+grep -q 'runtime?.close?.()' scripts/aws-kms-integration-check.mjs
+grep -q 'AWS KMS integration signing or recovery failed' scripts/aws-kms-integration-check.mjs
+grep -q 'COPY scripts/aws-kms-integration-check.mjs scripts/aws-kms-integration-check.mjs' infra/docker/backend.Dockerfile
 test -s scripts/smoke-api.mjs
 test -s scripts/smoke-api-local.sh
 test -s infra/docker/backend.Dockerfile

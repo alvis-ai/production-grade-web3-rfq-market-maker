@@ -22,6 +22,7 @@ COPY sdk/package.json sdk/package.json
 RUN corepack enable && pnpm install --filter @rfq-market-maker/backend... --prod --frozen-lockfile --no-optional
 COPY --from=build /app/backend/dist ./backend/dist
 COPY sdk/src sdk/src
+COPY scripts/aws-kms-integration-check.mjs scripts/aws-kms-integration-check.mjs
 EXPOSE 3000 3001 3002 3003 3004 3005 3006
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD wget -qO- http://127.0.0.1:3000/health >/dev/null || exit 1
