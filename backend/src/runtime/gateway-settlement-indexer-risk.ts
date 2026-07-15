@@ -4,6 +4,7 @@ import {
   PostgresSettlementIndexerRiskGuard,
   type SettlementIndexerRiskGuard,
   type SettlementIndexerRiskGuardConfig,
+  type SettlementIndexerRiskObserver,
 } from "../modules/risk/settlement-indexer-risk.guard.js";
 import {
   readDecimalIntegerConfig,
@@ -49,8 +50,9 @@ export function readGatewaySettlementIndexerRiskConfig(
 
 export function buildRuntimeSettlementIndexerRiskGuard(
   pool: pg.Pool | undefined,
+  observer?: SettlementIndexerRiskObserver,
 ): SettlementIndexerRiskGuard | undefined {
   if (!pool) return undefined;
   const config = readGatewaySettlementIndexerRiskConfig();
-  return config ? new PostgresSettlementIndexerRiskGuard(pool, config) : undefined;
+  return config ? new PostgresSettlementIndexerRiskGuard(pool, config, undefined, observer) : undefined;
 }

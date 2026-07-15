@@ -189,6 +189,8 @@ Prometheus metrics:
 - `rfq_settlement_indexer_lag_blocks`
 - `rfq_settlement_indexer_last_poll_timestamp_seconds`
 - `rfq_settlement_indexer_cursor_update_age_seconds`
+- `rfq_settlement_indexer_risk_guard_safe`
+- `rfq_settlement_indexer_risk_guard_failures_total`
 
 ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, status and timestamps.
 
@@ -203,6 +205,8 @@ The standalone post-trade worker exports `rfq_reconciliation_jobs_total`, `rfq_r
 The standalone toxic-flow analyzer exports `rfq_toxic_flow_markouts_total`, `rfq_toxic_flow_analyzer_iteration_errors_total`, `rfq_toxic_flow_markout_pending`, `rfq_toxic_flow_markout_oldest_eligible_age_seconds`, and `rfq_toxic_flow_analyzer_last_processed_timestamp_seconds`. Outcome is bounded to scored, invalidated, or retry scheduled. User addresses, quote ids, settlement event ids, token addresses, and policy versions remain in PostgreSQL audit evidence and never become Prometheus labels.
 
 The settlement indexer exports durable cursor, safe-head, lag, range, event, bounded error, reorg, removed-event, last-poll, and cursor-age metrics. Labels are limited to configured `chain_id`, `outcome=applied|duplicate`, and the closed error-code enum; transaction hash, quote hash, user and RPC URL remain absent.
+
+The API-side pre-sign guard separately exports `rfq_settlement_indexer_risk_guard_safe{chain_id}` and `rfq_settlement_indexer_risk_guard_failures_total{chain_id,reason}`. `reason` is closed to `RPC_UNAVAILABLE|CURSOR_STORE_UNAVAILABLE|CURSOR_MISSING|CURSOR_INVALID|CONTRACT_MISMATCH|CURSOR_STALE|BLOCK_LAG`, and `chain_id` is limited to configured receipt chains. Unsupported request chains fail closed without being observed, so callers cannot create metric series. Observer failures are swallowed after the economic decision, so metrics cannot turn an allowed quote into a rejection or hide an unsafe cursor; RPC URLs, thresholds, addresses and database errors never enter labels.
 
 - No high-cardinality quoteId labels in Prometheus.
 - Structured JSON logs complement Prometheus without turning dynamic identifiers into metric labels. API logs correlate a normalized route template with `traceId`、status and duration; worker logs bind bounded outcomes or durable audit ids to a fixed service name. The shared logger redacts credential-shaped fields and request serializers omit all headers, while `RFQ_LOG_LEVEL` applies consistently to API、hedge、analytics、reconciliation、settlement-indexer and toxic-flow processes.

@@ -622,6 +622,15 @@ groups:
           summary: Confirmed QuoteSettled blocks are not being indexed
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQSettlementIndexerRiskGuardBlocked
+        expr: min by (chain_id) (rfq_settlement_indexer_risk_guard_safe) < 1 or sum by (chain_id) (increase(rfq_settlement_indexer_risk_guard_failures_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ API pre-sign settlement-indexer risk guard is blocking quotes
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQSettlementIndexerErrors
         expr: sum(increase(rfq_settlement_indexer_errors_total[10m])) > 0
         for: 2m

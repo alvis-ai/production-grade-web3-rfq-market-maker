@@ -17,6 +17,20 @@ export interface SettlementIndexerRiskGuard {
   assertQuoteSafe(input: SettlementIndexerRiskRequest): Promise<void>;
 }
 
+export type SettlementIndexerRiskFailureCode =
+  | "RPC_UNAVAILABLE"
+  | "CURSOR_STORE_UNAVAILABLE"
+  | "CURSOR_MISSING"
+  | "CURSOR_INVALID"
+  | "CONTRACT_MISMATCH"
+  | "CURSOR_STALE"
+  | "BLOCK_LAG";
+
+export interface SettlementIndexerRiskObserver {
+  recordSettlementIndexerRiskGuardSuccess(chainId: number): void;
+  recordSettlementIndexerRiskGuardFailure(chainId: number, reason: SettlementIndexerRiskFailureCode): void;
+}
+
 export interface SettlementIndexerRiskGuardConfig {
   receiptConfig: ReceiptExecutionConfig;
   maxCursorAgeMs: number;
@@ -52,12 +66,14 @@ export class PostgresSettlementIndexerRiskGuard implements SettlementIndexerRisk
     private readonly pool: pg.Pool,
     config: SettlementIndexerRiskGuardConfig,
     readerFactory: SettlementIndexerHeadReaderFactory = createSettlementIndexerHeadReader,
+    private readonly observer: SettlementIndexerRiskObserver = noOpObserver,
   ) {
     assertPool(pool);
     assertConfig(config);
     if (typeof readerFactory !== "function") {
       throw new Error("Settlement indexer risk readerFactory must be a function");
     }
+    assertObserver(observer);
     this.maxCursorAgeMs = config.maxCursorAgeMs;
     this.maxBlockLag = config.maxBlockLag;
     for (const chain of config.receiptConfig.chains) {
@@ -72,9 +88,7 @@ export class PostgresSettlementIndexerRiskGuard implements SettlementIndexerRisk
   async checkHealth(): Promise<void> {
     await Promise.all([...this.chains.values()].map(async (chain) => {
       const reader = this.readers.get(chain.chainId)!;
-      await this.assertChainIdentity(chain, reader);
-      const observedHead = parseBlockNumber(await reader.getBlockNumber(), "RPC head");
-      await this.assertCursorSafe(chain, observedHead);
+      await this.assertChainSafe(chain, reader);
     }));
   }
 
@@ -85,23 +99,45 @@ export class PostgresSettlementIndexerRiskGuard implements SettlementIndexerRisk
     if (!chain || !reader) {
       throw new Error("Settlement indexer risk is not configured for the requested chain");
     }
-    let observedHead: bigint;
-    if (input.observedHead === undefined) {
-      await this.assertChainIdentity(chain, reader);
-      observedHead = parseBlockNumber(await reader.getBlockNumber(), "RPC head");
-    } else {
-      observedHead = parseBlockNumber(input.observedHead, "observed head");
+    await this.assertChainSafe(chain, reader, input.observedHead);
+  }
+
+  private async assertChainSafe(
+    chain: ReceiptChainConfig,
+    reader: SettlementIndexerHeadReader,
+    suppliedHead?: bigint,
+  ): Promise<void> {
+    try {
+      let observedHead = suppliedHead;
+      if (observedHead === undefined) {
+        try {
+          await this.assertChainIdentity(chain, reader);
+          observedHead = parseBlockNumber(await reader.getBlockNumber(), "RPC head");
+        } catch (error) {
+          throw riskFailure("RPC_UNAVAILABLE", errorMessage(error, "Settlement indexer risk RPC is unavailable"));
+        }
+      }
+      await this.assertCursorSafe(chain, observedHead);
+      this.recordSuccess(chain.chainId);
+    } catch (error) {
+      const failure = error instanceof SettlementIndexerRiskFailure
+        ? error
+        : riskFailure("CURSOR_STORE_UNAVAILABLE", "Settlement indexer cursor store is unavailable");
+      this.recordFailure(chain.chainId, failure.code);
+      throw failure;
     }
-    await this.assertCursorSafe(chain, observedHead);
   }
 
   private async assertCursorSafe(chain: ReceiptChainConfig, observedHead: bigint): Promise<void> {
     const evidence = await this.readCursorEvidence(chain.chainId);
     if (evidence.settlementAddress.toLowerCase() !== chain.settlementAddress.toLowerCase()) {
-      throw new Error("Settlement indexer cursor contract does not match receipt configuration");
+      throw riskFailure(
+        "CONTRACT_MISMATCH",
+        "Settlement indexer cursor contract does not match receipt configuration",
+      );
     }
     if (evidence.ageMs > this.maxCursorAgeMs) {
-      throw new Error("Settlement indexer cursor is stale");
+      throw riskFailure("CURSOR_STALE", "Settlement indexer cursor is stale");
     }
     const safeHead = observedHead < BigInt(chain.confirmations)
       ? -1n
@@ -110,7 +146,7 @@ export class PostgresSettlementIndexerRiskGuard implements SettlementIndexerRisk
       ? 0n
       : safeHead - evidence.nextBlock + 1n;
     if (lag > BigInt(this.maxBlockLag)) {
-      throw new Error("Settlement indexer cursor exceeds the confirmed block lag limit");
+      throw riskFailure("BLOCK_LAG", "Settlement indexer cursor exceeds the confirmed block lag limit");
     }
   }
 
@@ -126,12 +162,31 @@ export class PostgresSettlementIndexerRiskGuard implements SettlementIndexerRisk
         [chainId],
       );
       if (result.rows.length !== 1) {
-        throw new Error("Settlement indexer cursor is missing or duplicated");
+        throw riskFailure("CURSOR_MISSING", "Settlement indexer cursor is missing or duplicated");
       }
-      return parseCursorEvidence(result.rows[0]);
+      try {
+        return parseCursorEvidence(result.rows[0]);
+      } catch (error) {
+        throw riskFailure("CURSOR_INVALID", errorMessage(error, "Settlement indexer cursor is invalid"));
+      }
+    } catch (error) {
+      if (error instanceof SettlementIndexerRiskFailure) throw error;
+      throw riskFailure("CURSOR_STORE_UNAVAILABLE", "Settlement indexer cursor store is unavailable");
     } finally {
       client.release();
     }
+  }
+
+  private recordSuccess(chainId: number): void {
+    try {
+      this.observer.recordSettlementIndexerRiskGuardSuccess(chainId);
+    } catch {}
+  }
+
+  private recordFailure(chainId: number, reason: SettlementIndexerRiskFailureCode): void {
+    try {
+      this.observer.recordSettlementIndexerRiskGuardFailure(chainId, reason);
+    } catch {}
   }
 
   private async assertChainIdentity(
@@ -239,6 +294,14 @@ function assertReader(value: unknown): asserts value is SettlementIndexerHeadRea
   }
 }
 
+function assertObserver(value: unknown): asserts value is SettlementIndexerRiskObserver {
+  if (!isRecord(value) ||
+      typeof value.recordSettlementIndexerRiskGuardSuccess !== "function" ||
+      typeof value.recordSettlementIndexerRiskGuardFailure !== "function") {
+    throw new Error("Settlement indexer risk observer methods are invalid");
+  }
+}
+
 function assertInteger(value: unknown, min: number, max: number, field: string): asserts value is number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < min || value > max) {
     throw new Error(`Settlement indexer risk ${field} must be an integer between ${min} and ${max}`);
@@ -272,3 +335,22 @@ function assertExactFields(
     }
   }
 }
+
+class SettlementIndexerRiskFailure extends Error {
+  constructor(readonly code: SettlementIndexerRiskFailureCode, message: string) {
+    super(message);
+  }
+}
+
+function riskFailure(code: SettlementIndexerRiskFailureCode, message: string): SettlementIndexerRiskFailure {
+  return new SettlementIndexerRiskFailure(code, message);
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message.length > 0 ? error.message : fallback;
+}
+
+const noOpObserver: SettlementIndexerRiskObserver = {
+  recordSettlementIndexerRiskGuardSuccess() {},
+  recordSettlementIndexerRiskGuardFailure() {},
+};

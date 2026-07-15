@@ -89,6 +89,9 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   metrics.recordQuoteControlError("read");
   metrics.recordToxicFlowScoreUpdate();
   metrics.recordToxicFlowScoreError("update");
+  metrics.recordSettlementIndexerRiskGuardSuccess(1);
+  metrics.recordSettlementIndexerRiskGuardFailure(1, "CURSOR_STALE");
+  metrics.recordSettlementIndexerRiskGuardSuccess(2);
 
   const output = metrics.renderPrometheus();
 
@@ -108,6 +111,20 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   assert.match(output, /rfq_quote_control_errors_total\{operation="read"\} 1/);
   assert.match(output, /rfq_toxic_flow_score_updates_total 1/);
   assert.match(output, /rfq_toxic_flow_score_errors_total\{operation="update"\} 1/);
+  assert.match(output, /rfq_settlement_indexer_risk_guard_safe\{chain_id="1"\} 0/);
+  assert.match(output, /rfq_settlement_indexer_risk_guard_safe\{chain_id="2"\} 1/);
+  assert.match(
+    output,
+    /rfq_settlement_indexer_risk_guard_failures_total\{chain_id="1",reason="CURSOR_STALE"\} 1/,
+  );
+  assert.throws(
+    () => metrics.recordSettlementIndexerRiskGuardFailure(1, "UNKNOWN"),
+    /reason is invalid/,
+  );
+  assert.throws(
+    () => metrics.recordSettlementIndexerRiskGuardSuccess(0),
+    /chainId must be a positive safe integer/,
+  );
 });
 
 test("MetricsService snapshots inventory positions before storing gauges", () => {

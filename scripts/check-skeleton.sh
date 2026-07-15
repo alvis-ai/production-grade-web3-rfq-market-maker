@@ -3809,6 +3809,7 @@ grep -q 'revision = \$4' backend/src/modules/indexer/postgres-settlement-indexer
 grep -q 'next_block = \$5' backend/src/modules/indexer/postgres-settlement-indexer.store.ts
 grep -q 'rfq_settlement_indexer_lag_blocks' backend/src/modules/indexer/settlement-indexer.metrics.ts
 grep -q 'settlementIndexerRiskGuard?.assertQuoteSafe' backend/src/modules/quote/quote.service.ts
+grep -q 'buildRuntimeSettlementIndexerRiskGuard(postgresPool, metricsService)' backend/src/runtime/gateway-application.ts
 grep -q 'safeHead - evidence.nextBlock + 1n' backend/src/modules/risk/settlement-indexer-risk.guard.ts
 grep -q 'RFQ_SETTLEMENT_INDEXER_MAX_CURSOR_AGE_MS' backend/src/runtime/gateway-settlement-indexer-risk.ts
 grep -q 'RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG' backend/src/runtime/gateway-settlement-indexer-risk.ts

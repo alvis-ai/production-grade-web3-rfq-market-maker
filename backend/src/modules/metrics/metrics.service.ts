@@ -9,6 +9,7 @@ import type {
   CexOrderBookCycleObservation,
 } from "../market-data/cex-orderbook/cex-orderbook-monitor.js";
 import type { OrderBookPairConfig } from "../market-data/cex-orderbook/orderbook.js";
+import type { SettlementIndexerRiskFailureCode } from "../risk/settlement-indexer-risk.guard.js";
 
 export interface InventoryMetricPosition {
   chainId: number;
@@ -110,6 +111,8 @@ export class MetricsService {
     maxUpdateAgeSeconds: 0,
   };
   private readonly cexOrderBookConnectorErrors = new Map<OrderBookPairConfig["exchange"], number>();
+  private readonly settlementIndexerRiskGuardSafe = new Map<number, boolean>();
+  private readonly settlementIndexerRiskGuardFailures = new Map<string, number>();
 
   recordMarketDataCacheHit(): void {
     this.priceCacheHits += 1;
@@ -129,6 +132,24 @@ export class MetricsService {
       throw new Error("Metrics CEX order book exchange must be binance or coinbase");
     }
     this.cexOrderBookConnectorErrors.set(exchange, (this.cexOrderBookConnectorErrors.get(exchange) ?? 0) + 1);
+  }
+
+  recordSettlementIndexerRiskGuardSuccess(chainId: number): void {
+    assertPositiveSafeInteger(chainId, "settlement indexer risk guard chainId");
+    this.settlementIndexerRiskGuardSafe.set(chainId, true);
+  }
+
+  recordSettlementIndexerRiskGuardFailure(chainId: number, reason: SettlementIndexerRiskFailureCode): void {
+    assertPositiveSafeInteger(chainId, "settlement indexer risk guard chainId");
+    if (!settlementIndexerRiskFailureCodes.includes(reason)) {
+      throw new Error("Metrics settlement indexer risk guard reason is invalid");
+    }
+    this.settlementIndexerRiskGuardSafe.set(chainId, false);
+    const key = `${chainId}:${reason}`;
+    this.settlementIndexerRiskGuardFailures.set(
+      key,
+      (this.settlementIndexerRiskGuardFailures.get(key) ?? 0) + 1,
+    );
   }
 
   checkHealth(): void {
@@ -416,6 +437,12 @@ export class MetricsService {
       "# HELP rfq_cex_order_book_connector_errors_total CEX order-book connector failures by bounded exchange.",
       "# TYPE rfq_cex_order_book_connector_errors_total counter",
       ...this.renderCexOrderBookConnectorErrors(),
+      "# HELP rfq_settlement_indexer_risk_guard_safe Whether the latest API pre-sign indexer check passed by chain.",
+      "# TYPE rfq_settlement_indexer_risk_guard_safe gauge",
+      ...this.renderSettlementIndexerRiskGuardSafe(),
+      "# HELP rfq_settlement_indexer_risk_guard_failures_total API pre-sign indexer guard failures by chain and bounded reason.",
+      "# TYPE rfq_settlement_indexer_risk_guard_failures_total counter",
+      ...this.renderSettlementIndexerRiskGuardFailures(),
       "",
     ];
 
@@ -518,6 +545,23 @@ export class MetricsService {
     });
   }
 
+  private renderSettlementIndexerRiskGuardSafe(): string[] {
+    return [...this.settlementIndexerRiskGuardSafe.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([chainId, safe]) => {
+        return `rfq_settlement_indexer_risk_guard_safe{chain_id="${chainId}"} ${safe ? 1 : 0}`;
+      });
+  }
+
+  private renderSettlementIndexerRiskGuardFailures(): string[] {
+    return [...this.settlementIndexerRiskGuardFailures.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, count]) => {
+        const [chainId, reason] = key.split(":");
+        return `rfq_settlement_indexer_risk_guard_failures_total{chain_id="${chainId}",reason="${reason}"} ${count}`;
+      });
+  }
+
   private renderSignerCounter(name: string, counter: ReadonlyMap<SignerMetricOperation, number>): string[] {
     return signerMetricOperations.map((operation) => {
       return `${name}{operation="${operation}"} ${counter.get(operation) ?? 0}`;
@@ -578,6 +622,15 @@ const dependencyMetricStatuses: readonly DependencyMetricStatus[] = ["ok", "degr
 const cexSourceMetricStates: readonly CexSourceMetricState[] = ["ready", "stale", "unavailable"];
 const cexPairMetricStates: readonly CexPairMetricState[] = ["usable", "blocked"];
 const cexOrderBookExchanges: readonly OrderBookPairConfig["exchange"][] = ["binance", "coinbase"];
+const settlementIndexerRiskFailureCodes: readonly SettlementIndexerRiskFailureCode[] = [
+  "RPC_UNAVAILABLE",
+  "CURSOR_STORE_UNAVAILABLE",
+  "CURSOR_MISSING",
+  "CURSOR_INVALID",
+  "CONTRACT_MISMATCH",
+  "CURSOR_STALE",
+  "BLOCK_LAG",
+];
 const readinessDependencyComponents: readonly ReadinessComponentName[] = [
   "marketData",
   "marketSnapshotStore",

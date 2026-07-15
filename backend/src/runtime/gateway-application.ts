@@ -106,7 +106,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const signerService = options.signerService ?? defaultSignerRuntime!.service;
   const postgresPool = resolvePostgresPool(options, server.log);
   const ownsPostgresPool = postgresPool !== undefined && options.databasePool === undefined;
-  const settlementIndexerRiskGuard = buildRuntimeSettlementIndexerRiskGuard(postgresPool);
+  const settlementIndexerRiskGuard = buildRuntimeSettlementIndexerRiskGuard(postgresPool, metricsService);
   const quoteControlStore = resolveQuoteControlStore(options.quoteControlStore, postgresPool);
   const toxicFlowScoreStore = resolveToxicFlowScoreStore(options.toxicFlowScoreStore, postgresPool);
   const hedgeServiceConfig = options.hedgeService === undefined

@@ -2,7 +2,7 @@
   "title": "RFQ Market Maker Overview",
   "uid": "rfq-market-maker-overview",
   "schemaVersion": 39,
-  "version": 6,
+  "version": 7,
   "refresh": "15s",
   "panels": [
     {
@@ -340,7 +340,9 @@
         { "expr": "max by (chain_id) (rfq_settlement_indexer_lag_blocks)", "legendFormat": "{{chain_id}} lag blocks", "refId": "C" },
         { "expr": "time() - max by (chain_id) (rfq_settlement_indexer_last_poll_timestamp_seconds)", "legendFormat": "{{chain_id}} seconds since poll", "refId": "D" },
         { "expr": "max by (chain_id) (rfq_settlement_indexer_cursor_update_age_seconds)", "legendFormat": "{{chain_id}} cursor age seconds", "refId": "E" },
-        { "expr": "sum by (chain_id) (rate(rfq_settlement_indexer_ranges_total[5m]))", "legendFormat": "{{chain_id}} ranges/s", "refId": "F" }
+        { "expr": "sum by (chain_id) (rate(rfq_settlement_indexer_ranges_total[5m]))", "legendFormat": "{{chain_id}} ranges/s", "refId": "F" },
+        { "expr": "min by (chain_id) (rfq_settlement_indexer_risk_guard_safe)", "legendFormat": "{{chain_id}} API guard safe", "refId": "G" },
+        { "expr": "sum by (chain_id, reason) (rate(rfq_settlement_indexer_risk_guard_failures_total[5m]))", "legendFormat": "{{chain_id}} guard {{reason}}/s", "refId": "H" }
       ]
     },
     {
