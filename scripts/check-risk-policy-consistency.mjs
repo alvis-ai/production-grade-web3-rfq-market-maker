@@ -23,6 +23,9 @@ const files = Object.fromEntries(await Promise.all([
   "backend/test/quote-exposure-store.test.mjs",
   "backend/test/postgres-quote-exposure-store.test.mjs",
   "backend/test/portfolio-var.test.mjs",
+  "scripts/quote-exposure-integration-check.mjs",
+  "Makefile",
+  "package.json",
   ".env.example",
   "docker-compose.yml",
   "infra/k8s/configmap.yaml",
@@ -178,6 +181,26 @@ assertContains("backend/test/postgres-quote-exposure-store.test.mjs", [
   "rejects user and pair totals without inserting",
   "one portfolio lock",
   "replayable portfolio VaR evidence",
+]);
+assertContains("scripts/quote-exposure-integration-check.mjs", [
+  "RFQ_QUOTE_EXPOSURE_INTEGRATION_CONFIRM",
+  "PostgresQuoteRepository",
+  "PostgresQuoteExposureStore",
+  "assertIndependentDatabaseSessions",
+  "Promise.all(inputs.map((input) => store.reserve(input)))",
+  "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED",
+  "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED",
+  "TREASURY_LIQUIDITY_INSUFFICIENT",
+  "winner replay must be idempotent",
+  "release must restore capacity",
+  "a normal reservation must clean expired exposure rows",
+]);
+assertContains("Makefile", [
+  "quote-exposure-integration-check: backend-build",
+  "node scripts/quote-exposure-integration-check.mjs",
+]);
+assertContains("package.json", [
+  '"quote:exposure:integration:check": "make quote-exposure-integration-check"',
 ]);
 assertContains("backend/test/portfolio-var.test.mjs", [
   "direct and reverse valuation components",

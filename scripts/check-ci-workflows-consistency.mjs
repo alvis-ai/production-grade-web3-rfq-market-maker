@@ -57,6 +57,14 @@ assertContains(workflows.backend, [
   "run: corepack enable",
   "run: pnpm install --frozen-lockfile",
   "run: make verify",
+  "services:",
+  "image: postgres:16",
+  'POSTGRES_DB: rfq_market_maker',
+  'POSTGRES_USER: rfq',
+  'pg_isready -U rfq -d rfq_market_maker',
+  "Verify PostgreSQL quote exposure concurrency",
+  "RFQ_QUOTE_EXPOSURE_INTEGRATION_CONFIRM",
+  "run: make db-migrate quote-exposure-integration-check",
   "submodules: recursive",
 ], ".github/workflows/backend-ci.yml");
 

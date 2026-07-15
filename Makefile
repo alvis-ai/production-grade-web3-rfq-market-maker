@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check chainlink-canary-check binance-testnet-check aws-kms-canary-check target-api-quote-check target-settlement-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check hedge-net-pnl-integration-check analytics-integration-check cex-orderbook-integration-check chainlink-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check target-settlement-integration-check contract-deployment-integration-check settlement-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check chainlink-canary-check binance-testnet-check aws-kms-canary-check target-api-quote-check target-settlement-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check quote-exposure-integration-check hedge-net-pnl-integration-check analytics-integration-check cex-orderbook-integration-check chainlink-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check target-settlement-integration-check contract-deployment-integration-check settlement-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -44,6 +44,7 @@ help:
 	@echo "  database-schema-check  Verify database schema matches API state surfaces"
 	@echo "  reconciliation-check  Verify settlement-to-quote and settlement-to-PnL repair flows"
 	@echo "  reconciliation-integration-check  Verify durable repair and reorg replacement against PostgreSQL"
+	@echo "  quote-exposure-integration-check  Verify concurrent quote limits against PostgreSQL"
 	@echo "  analytics-integration-check  Verify PostgreSQL -> Redpanda -> ClickHouse against running dependencies"
 	@echo "  cex-orderbook-integration-check  Verify the live Binance + Coinbase Level-2 quorum"
 	@echo "  chainlink-integration-check  Read and verify one configured target Chainlink feed"
@@ -204,6 +205,9 @@ reconciliation-check: backend-build
 
 reconciliation-integration-check: backend-build
 	@node scripts/reconciliation-integration-check.mjs
+
+quote-exposure-integration-check: backend-build
+	@node scripts/quote-exposure-integration-check.mjs
 
 hedge-net-pnl-integration-check: backend-build
 	@node scripts/hedge-net-pnl-integration-check.mjs

@@ -30,6 +30,7 @@
     "database:schema:check": "make database-schema-check",
     "reconciliation:check": "make reconciliation-check",
     "reconciliation:integration:check": "make reconciliation-integration-check",
+    "quote:exposure:integration:check": "make quote-exposure-integration-check",
     "analytics:integration:check": "make analytics-integration-check",
     "cex:orderbook:integration:check": "make cex-orderbook-integration-check",
     "chainlink:integration:check": "make chainlink-integration-check",

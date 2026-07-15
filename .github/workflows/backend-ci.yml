@@ -27,6 +27,20 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: rfq_market_maker
+          POSTGRES_USER: rfq
+          POSTGRES_PASSWORD: rfq
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rfq -d rfq_market_maker"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -42,3 +56,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Run repository quality gate
         run: make verify
+      - name: Verify PostgreSQL quote exposure concurrency
+        env:
+          NODE_ENV: test
+          DATABASE_URL: "postgres://rfq:rfq@127.0.0.1:5432/rfq_market_maker?minPool=2&maxPool=10"
+          RFQ_QUOTE_EXPOSURE_INTEGRATION_CONFIRM: "yes"
+        run: make db-migrate quote-exposure-integration-check
