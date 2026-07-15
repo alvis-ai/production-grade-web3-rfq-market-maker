@@ -44,6 +44,15 @@ test("reconciliation worker runtime rejects missing or unsafe configuration", ()
     () => readReconciliationWorkerRuntimeConfig({ ...baseEnv, RFQ_RECONCILIATION_WORKER_HOST: "bad host" }),
     /HOST is invalid/,
   );
+  assert.throws(
+    () => readReconciliationWorkerRuntimeConfig({ ...baseEnv, NODE_ENV: "production" }),
+    /sslmode=verify-full/,
+  );
+  assert.doesNotThrow(() => readReconciliationWorkerRuntimeConfig({
+    ...baseEnv,
+    NODE_ENV: "production",
+    DATABASE_URL: "postgres://reconciliation:secret@db.example.com/rfq?sslmode=verify-full",
+  }));
 });
 
 test("reconciliation worker loads the same strict token registry used for PnL valuation", () => {

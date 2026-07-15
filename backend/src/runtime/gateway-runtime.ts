@@ -394,7 +394,9 @@ export function resolveRateLimiter(options: BuildServerOptions): RateLimiter | u
   if (!redisUrl || redisUrl.trim().length === 0) {
     throw new Error("RFQ_REDIS_URL is required when RFQ_RATE_LIMIT_BACKEND=redis");
   }
-  return new RedisRateLimiter(createRedisRateLimitClient(redisUrl), config);
+  return new RedisRateLimiter(createRedisRateLimitClient(redisUrl, {
+    requireTls: requiresExplicitRuntimeConfig(nodeEnv),
+  }), config);
 }
 
 function readQuoteTtlSeconds(): number {

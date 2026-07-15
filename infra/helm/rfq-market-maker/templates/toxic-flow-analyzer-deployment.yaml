@@ -25,6 +25,8 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["node", "backend/dist/db/migrate.js"]
           env:
+            - name: NODE_ENV
+              value: {{ required "env.NODE_ENV is required for database transport policy" .Values.env.NODE_ENV | quote }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -39,6 +41,8 @@ spec:
             - name: http
               containerPort: {{ .Values.toxicFlowAnalyzer.port }}
           env:
+            - name: NODE_ENV
+              value: {{ required "env.NODE_ENV is required for worker transport policy" .Values.env.NODE_ENV | quote }}
             {{- range $key, $value := .Values.toxicFlowAnalyzer.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}

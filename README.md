@@ -308,7 +308,7 @@ Every non-local standalone backend also requires `RFQ_API_KEY_CONFIG_JSON`; star
 
 `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES` is optional and must be absent outside a bounded rotation window. When present it is a comma-separated list of no more than four unique non-zero addresses; use the two-rollout procedure in `docs/security/key-management.md` so every replica accepts old and new signatures before the KMS signing key changes.
 
-When `NODE_ENV` is set to any non-local environment such as `production` or `staging`, the standalone backend requires `RFQ_SIGNER_MODE=aws-kms`, `RFQ_AWS_KMS_KEY_ID`, `RFQ_AWS_KMS_REGION`, `RFQ_TRUSTED_SIGNER_ADDRESS`, `RFQ_SETTLEMENT_ADDRESS`, and `DATABASE_URL`. The KMS key must be an asymmetric `ECC_SECG_P256K1` signing key. The runtime sends the 32-byte EIP-712 digest with `MessageType=DIGEST` and `ECDSA_SHA_256`, strictly decodes the returned DER signature, normalizes it to low-s form, and accepts it only when address recovery equals `RFQ_TRUSTED_SIGNER_ADDRESS`. `RFQ_SIGNER_PRIVATE_KEY` is rejected outside local mode. The AWS SDK default credential chain should resolve workload identity; do not mount static AWS access keys into the Pod. The first `/ready` check performs a real sign-and-recover probe, then caches both successful and degraded signer status for 30 seconds and coalesces concurrent probes so health traffic cannot amplify into unbounded KMS calls. Production also defaults `RFQ_ALLOW_SIMULATED_SETTLEMENT` to `false`, requires at least one valid chain in `RFQ_RECEIPT_CONFIG_JSON`, forces `RFQ_RATE_LIMIT_BACKEND=redis`, and requires a valid `RFQ_REDIS_URL`. Every receipt chain settlement address must match the EIP-712 settlement address. The built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`; synthetic settlement, process-local rate limits, and in-memory operational stores have the same local-only boundary.
+When `NODE_ENV` is set to any non-local environment such as `production` or `staging`, the standalone backend requires `RFQ_SIGNER_MODE=aws-kms`, `RFQ_AWS_KMS_KEY_ID`, `RFQ_AWS_KMS_REGION`, `RFQ_TRUSTED_SIGNER_ADDRESS`, `RFQ_SETTLEMENT_ADDRESS`, and `DATABASE_URL`. Every API, worker and migration process requires `DATABASE_URL` to include `sslmode=verify-full`; weaker modes such as `require`, `verify-ca` or `no-verify` are rejected, and the normalized connection string preserves the verified mode instead of dropping it. A private database CA may be selected with an absolute `sslrootcert` path after mounting that trust bundle into the container. The KMS key must be an asymmetric `ECC_SECG_P256K1` signing key. The runtime sends the 32-byte EIP-712 digest with `MessageType=DIGEST` and `ECDSA_SHA_256`, strictly decodes the returned DER signature, normalizes it to low-s form, and accepts it only when address recovery equals `RFQ_TRUSTED_SIGNER_ADDRESS`. `RFQ_SIGNER_PRIVATE_KEY` is rejected outside local mode. The AWS SDK default credential chain should resolve workload identity; do not mount static AWS access keys into the Pod. The first `/ready` check performs a real sign-and-recover probe, then caches both successful and degraded signer status for 30 seconds and coalesces concurrent probes so health traffic cannot amplify into unbounded KMS calls. Production also defaults `RFQ_ALLOW_SIMULATED_SETTLEMENT` to `false`, requires at least one valid chain in `RFQ_RECEIPT_CONFIG_JSON`, forces `RFQ_RATE_LIMIT_BACKEND=redis`, and requires `RFQ_REDIS_URL` to use `rediss://`. Every receipt chain settlement address must match the EIP-712 settlement address. The built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`; synthetic settlement, process-local rate limits, plaintext dependency transport, and in-memory operational stores have the same local-only boundary.
 
 Leave `RFQ_TRUST_PROXY=false` unless the public API is behind a trusted load balancer or ingress that removes incoming spoofed `x-forwarded-for` headers and sets the canonical client address. When enabled, the rate limiter keys by the first `x-forwarded-for` entry after enforcing the 128 character limit and `[A-Za-z0-9_.:-]` character set; otherwise it uses the direct socket IP. Redis uses one atomic Lua operation for counter, TTL and limit decisions across replicas. Redis errors return `RATE_LIMIT_UNAVAILABLE`/503 and degrade `rateLimitStore` readiness; the gateway never silently fails open.
 
@@ -316,7 +316,7 @@ Kubernetes deployments load these values from `rfq-backend-secrets`. Replace the
 
 ```sh
 kubectl -n rfq-market-maker create secret generic rfq-backend-secrets \
-  --from-literal=DATABASE_URL=postgres://user:password@postgres.example.com:5432/rfq_market_maker \
+  --from-literal=DATABASE_URL='postgres://user:password@postgres.example.com:5432/rfq_market_maker?sslmode=verify-full' \
   --from-literal=RFQ_AWS_KMS_KEY_ID=alias/rfq-production-signer \
   --from-literal=RFQ_TRUSTED_SIGNER_ADDRESS=0x... \
   --from-literal=RFQ_SETTLEMENT_ADDRESS=0x... \
@@ -330,7 +330,7 @@ Create a separate worker Secret so API pods never receive venue credentials. The
 
 ```sh
 kubectl -n rfq-market-maker create secret generic rfq-hedge-worker-secrets \
-  --from-literal=DATABASE_URL=postgres://worker:password@postgres.example.com:5432/rfq_market_maker \
+  --from-literal=DATABASE_URL='postgres://worker:password@postgres.example.com:5432/rfq_market_maker?sslmode=verify-full' \
   --from-literal=RFQ_BINANCE_API_KEY=... \
   --from-literal=RFQ_BINANCE_API_SECRET=...
 ```
@@ -339,7 +339,7 @@ Create a separate analytics Secret so API and hedge pods never receive Kafka or 
 
 ```sh
 kubectl -n rfq-market-maker create secret generic rfq-analytics-worker-secrets \
-  --from-literal=DATABASE_URL=postgres://analytics:password@postgres.example.com:5432/rfq_market_maker \
+  --from-literal=DATABASE_URL='postgres://analytics:password@postgres.example.com:5432/rfq_market_maker?sslmode=verify-full' \
   --from-literal=RFQ_ANALYTICS_KAFKA_SASL_USERNAME=... \
   --from-literal=RFQ_ANALYTICS_KAFKA_SASL_PASSWORD=... \
   --from-literal=RFQ_CLICKHOUSE_USERNAME=... \
@@ -350,14 +350,14 @@ Create a reconciliation-only database Secret. This role needs read access to quo
 
 ```sh
 kubectl -n rfq-market-maker create secret generic rfq-reconciliation-worker-secrets \
-  --from-literal=DATABASE_URL=postgres://reconciliation:password@postgres.example.com:5432/rfq_market_maker
+  --from-literal=DATABASE_URL='postgres://reconciliation:password@postgres.example.com:5432/rfq_market_maker?sslmode=verify-full'
 ```
 
 Create a settlement-indexer Secret with an indexer database role and the RPC-bearing chain configuration. Set `startBlock` to the actual `RFQSettlement` deployment block and keep the settlement address aligned with signer and receipt verification configuration:
 
 ```sh
 kubectl -n rfq-market-maker create secret generic rfq-settlement-indexer-secrets \
-  --from-literal=DATABASE_URL=postgres://indexer:password@postgres.example.com:5432/rfq_market_maker \
+  --from-literal=DATABASE_URL='postgres://indexer:password@postgres.example.com:5432/rfq_market_maker?sslmode=verify-full' \
   --from-literal=RFQ_SETTLEMENT_INDEXER_CONFIG_JSON='{"chains":[{"chainId":1,"rpcUrl":"https://rpc.example.com","settlementAddress":"0x...","startBlock":20000000,"confirmations":12,"maxBlockRange":500,"reorgLookbackBlocks":5000,"requestTimeoutMs":10000}]}'
 ```
 
@@ -365,14 +365,14 @@ Create a toxic-flow analyzer Secret containing only its least-privilege database
 
 ```sh
 kubectl -n rfq-market-maker create secret generic rfq-toxic-flow-analyzer-secrets \
-  --from-literal=DATABASE_URL=postgres://toxic_analyzer:password@postgres.example.com:5432/rfq_market_maker
+  --from-literal=DATABASE_URL='postgres://toxic_analyzer:password@postgres.example.com:5432/rfq_market_maker?sslmode=verify-full'
 ```
 
 Use a third, migration-only Secret for the init container's DDL-capable database role. Runtime API and worker roles should not own schema privileges:
 
 ```sh
 kubectl -n rfq-market-maker create secret generic rfq-database-migration-secrets \
-  --from-literal=DATABASE_URL=postgres://migrator:password@postgres.example.com:5432/rfq_market_maker
+  --from-literal=DATABASE_URL='postgres://migrator:password@postgres.example.com:5432/rfq_market_maker?sslmode=verify-full'
 ```
 
 The API credential digest JSON is exposed to the backend only through Helm `apiKeySecret`; it is not part of the ConfigMap or worker Secrets.

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { hostname } from "node:os";
 import Fastify from "fastify";
+import { assertDatabaseUrlForEnvironment } from "./db/config.js";
 import { checkPoolHealth, endPool, getPool } from "./db/pool.js";
 import { PostgresInventoryService } from "./modules/inventory/postgres-inventory.service.js";
 import { PostgresSettlementIndexerStore } from "./modules/indexer/postgres-settlement-indexer.store.js";
@@ -27,10 +28,9 @@ export interface SettlementIndexerRuntimeConfig {
 export function readSettlementIndexerRuntimeConfig(
   env: Record<string, string | undefined> | undefined = process.env,
 ): SettlementIndexerRuntimeConfig {
+  const nodeEnv = readOptional(env, "NODE_ENV");
   const databaseUrl = readRequired(env, "DATABASE_URL");
-  if (!/^postgres(?:ql)?:\/\//.test(databaseUrl)) {
-    throw new Error("DATABASE_URL must use postgres:// or postgresql:// protocol");
-  }
+  assertDatabaseUrlForEnvironment(databaseUrl, nodeEnv);
   const indexer = parseSettlementIndexerConfig(readRequired(env, "RFQ_SETTLEMENT_INDEXER_CONFIG_JSON"));
   const worker = {
     workerId: readOptional(env, "RFQ_SETTLEMENT_INDEXER_WORKER_ID") ?? defaultWorkerId(),

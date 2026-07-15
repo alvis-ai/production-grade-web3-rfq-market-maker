@@ -8,7 +8,8 @@ const registry = JSON.stringify({ tokens: [
 ] });
 
 test("toxic-flow analyzer runtime reads bounded production configuration", () => {
-  const config = readToxicFlowAnalyzerRuntimeConfig({ DATABASE_URL: "postgres://db/rfq", RFQ_TOKEN_REGISTRY_JSON: registry,
+  const config = readToxicFlowAnalyzerRuntimeConfig({ NODE_ENV: "production",
+    DATABASE_URL: "postgres://analyzer:secret@db.example.com/rfq?sslmode=verify-full", RFQ_TOKEN_REGISTRY_JSON: registry,
     RFQ_TOXIC_FLOW_ANALYZER_WORKER_ID: "analyzer_a", RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS: "60",
     RFQ_TOXIC_FLOW_MARKOUT_MAX_SNAPSHOT_LAG_SECONDS: "120", RFQ_TOXIC_FLOW_SCORE_WINDOW_SECONDS: "3600",
     RFQ_TOXIC_FLOW_SCORE_SCALE: "200", RFQ_TOXIC_FLOW_ANALYZER_POLICY_VERSION: "markout-v2" });
@@ -27,6 +28,8 @@ test("toxic-flow analyzer runtime rejects missing or inconsistent policy", () =>
     RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS: "300", RFQ_TOXIC_FLOW_SCORE_WINDOW_SECONDS: "299" }), /inconsistent/);
   assert.throws(() => readToxicFlowAnalyzerRuntimeConfig({ DATABASE_URL: "postgres://db/rfq", RFQ_TOKEN_REGISTRY_JSON: registry,
     RFQ_TOXIC_FLOW_SCORE_SCALE: "0" }), /must be an integer/);
+  assert.throws(() => readToxicFlowAnalyzerRuntimeConfig({ NODE_ENV: "production", DATABASE_URL: "postgres://db/rfq",
+    RFQ_TOKEN_REGISTRY_JSON: registry }), /sslmode=verify-full/);
 });
 
 test("ToxicFlowAnalyzerMetrics renders bounded outcomes and backlog", () => {

@@ -9,6 +9,7 @@
     "book:template:check": "make book-template-check",
     "adr:check": "make adr-check",
     "security:check": "make security-check",
+    "transport:security:check": "make transport-security-check",
     "logging:check": "make logging-check",
     "metrics:check": "make metrics-check",
     "runbook:check": "make runbook-check",

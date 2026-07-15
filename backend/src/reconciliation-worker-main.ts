@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { hostname } from "node:os";
 import Fastify from "fastify";
+import { assertDatabaseUrlForEnvironment } from "./db/config.js";
 import { checkPoolHealth, endPool, getPool } from "./db/pool.js";
 import { PostgresHedgeService } from "./modules/hedge/postgres-hedge.service.js";
 import { DeltaNeutralHedgePlanner } from "./modules/hedge/hedge-intent-planner.js";
@@ -34,10 +35,9 @@ export interface ReconciliationWorkerRuntimeConfig {
 export function readReconciliationWorkerRuntimeConfig(
   env: Record<string, string | undefined> | undefined = process.env,
 ): ReconciliationWorkerRuntimeConfig {
+  const nodeEnv = readOptional(env, "NODE_ENV");
   const databaseUrl = readRequired(env, "DATABASE_URL");
-  if (!/^postgres(?:ql)?:\/\//.test(databaseUrl)) {
-    throw new Error("DATABASE_URL must use postgres:// or postgresql:// protocol");
-  }
+  assertDatabaseUrlForEnvironment(databaseUrl, nodeEnv);
   return {
     worker: {
       workerId: readOptional(env, "RFQ_RECONCILIATION_WORKER_ID") ?? defaultWorkerId(),

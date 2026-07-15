@@ -73,6 +73,8 @@ function configsEqual(a: DatabaseConfig, b: DatabaseConfig): boolean {
     a.user === b.user &&
     a.password === b.password &&
     a.minPoolSize === b.minPoolSize &&
-    a.maxPoolSize === b.maxPoolSize
+    a.maxPoolSize === b.maxPoolSize &&
+    a.sslMode === b.sslMode &&
+    a.sslRootCertPath === b.sslRootCertPath
   );
 }

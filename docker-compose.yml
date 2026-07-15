@@ -8,6 +8,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      NODE_ENV: development
       DATABASE_URL: postgres://rfq:rfq@postgres:5432/rfq_market_maker
     restart: "no"
 
@@ -70,6 +71,7 @@ services:
       database-migrate:
         condition: service_completed_successfully
     environment:
+      NODE_ENV: development
       DATABASE_URL: postgres://rfq:rfq@postgres:5432/rfq_market_maker
       RFQ_HEDGE_WORKER_HOST: 0.0.0.0
       RFQ_HEDGE_WORKER_PORT: 3001
@@ -107,6 +109,7 @@ services:
       clickhouse:
         condition: service_healthy
     environment:
+      NODE_ENV: development
       DATABASE_URL: postgres://rfq:rfq@postgres:5432/rfq_market_maker
       RFQ_ANALYTICS_WORKER_HOST: 0.0.0.0
       RFQ_ANALYTICS_WORKER_PORT: 3002
@@ -146,6 +149,7 @@ services:
       database-migrate:
         condition: service_completed_successfully
     environment:
+      NODE_ENV: development
       DATABASE_URL: postgres://rfq:rfq@postgres:5432/rfq_market_maker
       RFQ_RECONCILIATION_WORKER_HOST: 0.0.0.0
       RFQ_RECONCILIATION_WORKER_PORT: 3003
@@ -175,6 +179,7 @@ services:
       database-migrate:
         condition: service_completed_successfully
     environment:
+      NODE_ENV: development
       DATABASE_URL: postgres://rfq:rfq@postgres:5432/rfq_market_maker
       RFQ_SETTLEMENT_INDEXER_HOST: 0.0.0.0
       RFQ_SETTLEMENT_INDEXER_PORT: 3004
@@ -204,6 +209,7 @@ services:
       database-migrate:
         condition: service_completed_successfully
     environment:
+      NODE_ENV: development
       DATABASE_URL: postgres://rfq:rfq@postgres:5432/rfq_market_maker
       RFQ_TOXIC_FLOW_ANALYZER_HOST: 0.0.0.0
       RFQ_TOXIC_FLOW_ANALYZER_PORT: 3005

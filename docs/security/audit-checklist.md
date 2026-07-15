@@ -42,6 +42,7 @@
 - [x] All errors include traceId.
 - [x] API and worker logs are structured, level-controlled, trace-correlated where applicable, and redact credentials, signatures, private keys, cookies and request headers.
 - [x] API and worker pods have ingress-and-egress NetworkPolicies with explicit ingress-controller and monitoring namespace selectors plus workload-specific egress ports.
+- [x] Non-local API, worker and migration processes require hostname-verified PostgreSQL TLS; Redis requires `rediss://`, while analytics requires Kafka TLS/SASL and ClickHouse HTTPS.
 - [x] Public API responses include no-store cache control and baseline browser security headers.
 - [x] Browser access is restricted by a CORS origin allowlist.
 - [x] Browser bundles never receive institutional API secrets; production browser access requires a trusted backend-for-frontend or another approved session boundary.

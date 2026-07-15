@@ -37,6 +37,41 @@ test("analytics worker runtime preserves secret bytes and validates SASL pairs",
   );
 });
 
+test("analytics worker requires authenticated TLS dependencies in production", () => {
+  const productionEnv = {
+    ...baseEnv,
+    NODE_ENV: "production",
+    DATABASE_URL: "postgres://analytics:secret@db.example.com/rfq?sslmode=verify-full",
+    RFQ_ANALYTICS_KAFKA_SSL: "true",
+    RFQ_ANALYTICS_KAFKA_SASL_MECHANISM: "scram-sha-256",
+    RFQ_ANALYTICS_KAFKA_SASL_USERNAME: "analytics-user",
+    RFQ_ANALYTICS_KAFKA_SASL_PASSWORD: "analytics-secret",
+    RFQ_CLICKHOUSE_URL: "https://clickhouse.example.com:8443",
+  };
+  assert.doesNotThrow(() => readAnalyticsWorkerRuntimeConfig(productionEnv));
+  assert.throws(
+    () => readAnalyticsWorkerRuntimeConfig({ ...productionEnv, DATABASE_URL: baseEnv.DATABASE_URL }),
+    /sslmode=verify-full/,
+  );
+  assert.throws(
+    () => readAnalyticsWorkerRuntimeConfig({ ...productionEnv, RFQ_ANALYTICS_KAFKA_SSL: "false" }),
+    /KAFKA_SSL must be true/,
+  );
+  assert.throws(
+    () => readAnalyticsWorkerRuntimeConfig({
+      ...productionEnv,
+      RFQ_ANALYTICS_KAFKA_SASL_MECHANISM: undefined,
+      RFQ_ANALYTICS_KAFKA_SASL_USERNAME: undefined,
+      RFQ_ANALYTICS_KAFKA_SASL_PASSWORD: undefined,
+    }),
+    /SASL credentials are required/,
+  );
+  assert.throws(
+    () => readAnalyticsWorkerRuntimeConfig({ ...productionEnv, RFQ_CLICKHOUSE_URL: baseEnv.RFQ_CLICKHOUSE_URL }),
+    /must use https:\/\//,
+  );
+});
+
 test("analytics worker runtime rejects unsafe endpoints, topics, placeholders, and short leases", () => {
   assert.throws(
     () => readAnalyticsWorkerRuntimeConfig({ ...baseEnv, RFQ_ANALYTICS_KAFKA_BROKERS: "http://redpanda:9092" }),

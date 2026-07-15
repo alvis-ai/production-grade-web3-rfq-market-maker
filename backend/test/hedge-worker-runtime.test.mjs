@@ -76,3 +76,15 @@ test("hedge worker runtime config reads only own environment fields", () => {
   const inherited = Object.create(env);
   assert.throws(() => readHedgeWorkerRuntimeConfig(inherited), /DATABASE_URL is required/);
 });
+
+test("hedge worker requires verified PostgreSQL TLS in production", () => {
+  assert.throws(
+    () => readHedgeWorkerRuntimeConfig({ ...env, NODE_ENV: "production" }),
+    /sslmode=verify-full/,
+  );
+  assert.doesNotThrow(() => readHedgeWorkerRuntimeConfig({
+    ...env,
+    NODE_ENV: "production",
+    DATABASE_URL: "postgres://hedge:secret@db.example.com/rfq?sslmode=verify-full",
+  }));
+});

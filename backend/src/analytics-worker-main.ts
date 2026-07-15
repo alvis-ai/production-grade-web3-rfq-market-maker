@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { hostname } from "node:os";
 import Fastify from "fastify";
+import { assertDatabaseUrlForEnvironment } from "./db/config.js";
 import { checkPoolHealth, endPool, getPool } from "./db/pool.js";
 import {
   AnalyticsOutboxPublisher,
@@ -25,6 +26,7 @@ import {
   type AnalyticsKafkaSaslConfig,
 } from "./modules/analytics/kafka-analytics.producer.js";
 import { PostgresAnalyticsOutboxStore } from "./modules/analytics/postgres-analytics-outbox.store.js";
+import { requiresExplicitRuntimeConfig } from "./runtime/environment.js";
 import { createStructuredLogger, logProcessFailure } from "./shared/logger/structured-logger.js";
 
 export interface AnalyticsWorkerRuntimeConfig {
@@ -41,10 +43,9 @@ const analyticsTopic = "rfq.analytics.v1";
 export function readAnalyticsWorkerRuntimeConfig(
   env: Record<string, string | undefined> | undefined = process.env,
 ): AnalyticsWorkerRuntimeConfig {
+  const nodeEnv = readOptional(env, "NODE_ENV");
   const databaseUrl = readRequired(env, "DATABASE_URL");
-  if (!/^postgres(?:ql)?:\/\//.test(databaseUrl)) {
-    throw new Error("DATABASE_URL must use postgres:// or postgresql:// protocol");
-  }
+  assertDatabaseUrlForEnvironment(databaseUrl, nodeEnv);
   const brokers = readCsv(env, "RFQ_ANALYTICS_KAFKA_BROKERS");
   const clientId = readOptional(env, "RFQ_ANALYTICS_KAFKA_CLIENT_ID") ?? "rfq-analytics";
   const connectionTimeoutMs = readInteger(env, "RFQ_ANALYTICS_KAFKA_CONNECTION_TIMEOUT_MS", 10_000, 100, 60_000);
@@ -101,7 +102,24 @@ export function readAnalyticsWorkerRuntimeConfig(
   assertAnalyticsKafkaConfig(config.kafka);
   assertAnalyticsKafkaConsumerConfig(config.consumer);
   assertClickHouseAnalyticsConfig(config.clickhouse);
+  assertProductionAnalyticsTransportSecurity(config, nodeEnv);
   return config;
+}
+
+function assertProductionAnalyticsTransportSecurity(
+  config: AnalyticsWorkerRuntimeConfig,
+  nodeEnv: string | undefined,
+): void {
+  if (!requiresExplicitRuntimeConfig(nodeEnv)) return;
+  if (!config.kafka.ssl) {
+    throw new Error(`RFQ_ANALYTICS_KAFKA_SSL must be true when NODE_ENV=${nodeEnv}`);
+  }
+  if (!config.kafka.sasl) {
+    throw new Error(`Analytics Kafka SASL credentials are required when NODE_ENV=${nodeEnv}`);
+  }
+  if (new URL(config.clickhouse.url).protocol !== "https:") {
+    throw new Error(`RFQ_CLICKHOUSE_URL must use https:// when NODE_ENV=${nodeEnv}`);
+  }
 }
 
 export async function startAnalyticsWorker(): Promise<void> {

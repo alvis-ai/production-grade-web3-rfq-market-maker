@@ -32,6 +32,15 @@ test("settlement indexer runtime reads only own fields and rejects unsafe config
     () => readSettlementIndexerRuntimeConfig({ ...baseEnv(), RFQ_SETTLEMENT_INDEXER_HOST: " 0.0.0.0" }),
     /surrounding whitespace/,
   );
+  assert.throws(
+    () => readSettlementIndexerRuntimeConfig({ ...baseEnv(), NODE_ENV: "production" }),
+    /sslmode=verify-full/,
+  );
+  assert.doesNotThrow(() => readSettlementIndexerRuntimeConfig({
+    ...baseEnv(),
+    NODE_ENV: "production",
+    DATABASE_URL: "postgres://indexer:secret@db.example.com/rfq?sslmode=verify-full",
+  }));
 });
 
 function baseEnv() {

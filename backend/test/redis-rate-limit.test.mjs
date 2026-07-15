@@ -135,6 +135,17 @@ test("normalizeRedisUrl accepts Redis URLs and rejects unsafe schemes or fragmen
   for (const value of ["", "http://localhost:6379", "redis://", "redis://localhost:6379/0#secret"]) {
     assert.throws(() => normalizeRedisUrl(value), /RFQ_REDIS_URL/);
   }
+  assert.equal(
+    normalizeRedisUrl("rediss://redis.example.com:6380/0", { requireTls: true }),
+    "rediss://redis.example.com:6380/0",
+  );
+  assert.throws(
+    () => normalizeRedisUrl("redis://redis.example.com:6379/0", { requireTls: true }),
+    /must use rediss:\/\//,
+  );
+  for (const policy of [null, [], { requireTls: "true" }, { unknown: true }]) {
+    assert.throws(() => normalizeRedisUrl("redis://localhost:6379/0", policy), /Redis URL policy/);
+  }
 });
 
 function fakeClient(overrides = {}) {

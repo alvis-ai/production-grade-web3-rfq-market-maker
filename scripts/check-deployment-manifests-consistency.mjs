@@ -125,6 +125,21 @@ for (const [label, source] of [
 }
 
 for (const [label, source] of [
+  ["backend", k8sDeployment],
+  ["hedge worker", k8sHedgeDeployment],
+  ["analytics worker", k8sAnalyticsDeployment],
+  ["reconciliation worker", k8sReconciliationDeployment],
+  ["settlement indexer", k8sIndexerDeployment],
+  ["toxic-flow analyzer", k8sToxicFlowAnalyzerDeployment],
+]) {
+  assertContains(source, [
+    "name: NODE_ENV",
+    "configMapKeyRef:",
+    "key: NODE_ENV",
+  ], `${label} raw Deployment migration environment`);
+}
+
+for (const [label, source] of [
   ["backend", helmDeployment],
   ["hedge worker", helmHedgeDeployment],
   ["analytics worker", helmAnalyticsDeployment],
@@ -199,9 +214,9 @@ assertContains(k8sSecret, [
   "RFQ_AWS_KMS_KEY_ID: alias/replace-with-production-kms-key",
   "RFQ_TRUSTED_SIGNER_ADDRESS: replace-with-kms-signer-address",
   "RFQ_SETTLEMENT_ADDRESS: replace-with-rfq-settlement-address",
-  "RFQ_REDIS_URL: redis://replace-with-redis-service:6379/0",
+  "RFQ_REDIS_URL: rediss://replace-with-user:replace-with-password@redis.example.com:6380/0",
   "RFQ_API_KEY_CONFIG_JSON:",
-  "DATABASE_URL: postgres://rfq-user:replace-with-password@postgres.example.com:5432/rfq_market_maker",
+  "DATABASE_URL: postgres://rfq-user:replace-with-password@postgres.example.com:5432/rfq_market_maker?sslmode=verify-full",
 ], "infra/k8s/backend-secret.yaml");
 assert.ok(!k8sSecret.includes("RFQ_SIGNER_PRIVATE_KEY"), "backend Secret must not contain raw signer private keys");
 
@@ -264,7 +279,7 @@ assertContains(k8sHedgeService, [
 
 assertContains(k8sHedgeSecret, [
   "name: rfq-hedge-worker-secrets",
-  "DATABASE_URL:",
+  "DATABASE_URL: postgres://rfq-worker:replace-with-password@postgres.example.com:5432/rfq_market_maker?sslmode=verify-full",
   "RFQ_BINANCE_API_KEY:",
   "RFQ_BINANCE_API_SECRET:",
 ], "infra/k8s/hedge-worker-secret.yaml");
@@ -274,6 +289,7 @@ for (const forbidden of ["RFQ_SIGNER_PRIVATE_KEY", "RFQ_AWS_KMS_KEY_ID"]) {
 assertContains(k8sMigrationSecret, [
   "name: rfq-database-migration-secrets",
   "DATABASE_URL: postgres://rfq-migrator:",
+  "sslmode=verify-full",
 ], "infra/k8s/database-migration-secret.yaml");
 assertContains(k8sHedgeNetworkPolicy, [
   "kind: NetworkPolicy",
@@ -307,7 +323,8 @@ assertContains(k8sAnalyticsService, [
 ], "infra/k8s/analytics-worker-service.yaml");
 assertContains(k8sAnalyticsSecret, [
   "name: rfq-analytics-worker-secrets",
-  "DATABASE_URL:",
+  "DATABASE_URL: postgres://rfq-analytics:",
+  "sslmode=verify-full",
   "RFQ_ANALYTICS_KAFKA_SASL_USERNAME:",
   "RFQ_ANALYTICS_KAFKA_SASL_PASSWORD:",
   "RFQ_CLICKHOUSE_USERNAME:",
@@ -349,7 +366,8 @@ assertContains(k8sReconciliationService, [
 ], "infra/k8s/reconciliation-worker-service.yaml");
 assertContains(k8sReconciliationSecret, [
   "name: rfq-reconciliation-worker-secrets",
-  "DATABASE_URL:",
+  "DATABASE_URL: postgres://rfq-reconciliation:",
+  "sslmode=verify-full",
 ], "infra/k8s/reconciliation-worker-secret.yaml");
 for (const forbidden of [
   "RFQ_SIGNER_PRIVATE_KEY",
@@ -389,7 +407,8 @@ assertContains(k8sIndexerService, [
 ], "infra/k8s/settlement-indexer-service.yaml");
 assertContains(k8sIndexerSecret, [
   "name: rfq-settlement-indexer-secrets",
-  "DATABASE_URL:",
+  "DATABASE_URL: postgres://rfq-indexer:",
+  "sslmode=verify-full",
   "RFQ_SETTLEMENT_INDEXER_CONFIG_JSON:",
 ], "infra/k8s/settlement-indexer-secret.yaml");
 for (const forbidden of [
@@ -431,7 +450,8 @@ assertContains(k8sToxicFlowAnalyzerService, [
 ], "infra/k8s/toxic-flow-analyzer-service.yaml");
 assertContains(k8sToxicFlowAnalyzerSecret, [
   "name: rfq-toxic-flow-analyzer-secrets",
-  "DATABASE_URL:",
+  "DATABASE_URL: postgres://rfq-toxic-analyzer:",
+  "sslmode=verify-full",
 ], "infra/k8s/toxic-flow-analyzer-secret.yaml");
 for (const forbidden of [
   "RFQ_SIGNER_PRIVATE_KEY",
@@ -544,6 +564,12 @@ assert.equal(
   "latest",
   "Helm values schema must reject the mutable latest tag",
 );
+assert.ok(helmValuesSchema.required.includes("env"), "Helm values schema must require env");
+assert.equal(
+  helmValuesSchema.properties.env.properties.NODE_ENV.const,
+  "production",
+  "Helm values schema must keep deployment transport policy in production mode",
+);
 assert.ok(
   helmValuesSchema.required.includes("networkPolicy"),
   "Helm values schema must require networkPolicy configuration",
@@ -572,6 +598,7 @@ assertContains(helmDeployment, [
   "serviceAccountName: {{ .Values.serviceAccount.name }}",
   "initContainers:",
   'command: ["node", "backend/dist/db/migrate.js"]',
+  "env.NODE_ENV is required for database transport policy",
   "name: {{ .Values.migrationSecret.name }}",
   "key: {{ .Values.migrationSecret.urlKey }}",
   'command: ["sh", "-c", "sleep {{ .Values.preStopSleepSeconds }}"]',
@@ -647,6 +674,8 @@ assertContains(helmHedgeDeployment, [
   "replicas: {{ .Values.hedgeWorker.replicaCount }}",
   "initContainers:",
   'command: ["node", "backend/dist/db/migrate.js"]',
+  "env.NODE_ENV is required for database transport policy",
+  "env.NODE_ENV is required for worker transport policy",
   "name: {{ .Values.migrationSecret.name }}",
   "key: {{ .Values.migrationSecret.urlKey }}",
   'command: ["node", "backend/dist/hedge-worker-main.js"]',
@@ -680,6 +709,8 @@ assertContains(helmAnalyticsDeployment, [
   "replicas: {{ .Values.analyticsWorker.replicaCount }}",
   "initContainers:",
   'command: ["node", "backend/dist/db/migrate.js"]',
+  "env.NODE_ENV is required for database transport policy",
+  "env.NODE_ENV is required for worker transport policy",
   "name: {{ .Values.migrationSecret.name }}",
   'command: ["node", "backend/dist/analytics-worker-main.js"]',
   "key: {{ .Values.analyticsWorker.secret.databaseUrlKey }}",
@@ -707,6 +738,8 @@ assertContains(helmReconciliationDeployment, [
   "replicas: {{ .Values.reconciliationWorker.replicaCount }}",
   "initContainers:",
   'command: ["node", "backend/dist/db/migrate.js"]',
+  "env.NODE_ENV is required for database transport policy",
+  "env.NODE_ENV is required for worker transport policy",
   'command: ["node", "backend/dist/reconciliation-worker-main.js"]',
   "RFQ_TOKEN_REGISTRY_JSON",
   "env.RFQ_TOKEN_REGISTRY_JSON is required for reconciliation PnL",
@@ -731,6 +764,8 @@ assertContains(helmIndexerDeployment, [
   "replicas: {{ .Values.settlementIndexer.replicaCount }}",
   "initContainers:",
   'command: ["node", "backend/dist/db/migrate.js"]',
+  "env.NODE_ENV is required for database transport policy",
+  "env.NODE_ENV is required for worker transport policy",
   'command: ["node", "backend/dist/settlement-indexer-main.js"]',
   "key: {{ .Values.settlementIndexer.secret.databaseUrlKey }}",
   "key: {{ .Values.settlementIndexer.secret.configJsonKey }}",
@@ -755,6 +790,8 @@ assertContains(helmToxicFlowAnalyzerDeployment, [
   "replicas: {{ .Values.toxicFlowAnalyzer.replicaCount }}",
   "initContainers:",
   'command: ["node", "backend/dist/db/migrate.js"]',
+  "env.NODE_ENV is required for database transport policy",
+  "env.NODE_ENV is required for worker transport policy",
   'command: ["node", "backend/dist/toxic-flow-analyzer-main.js"]',
   "RFQ_TOKEN_REGISTRY_JSON",
   "env.RFQ_TOKEN_REGISTRY_JSON is required for toxic-flow markout decimals",

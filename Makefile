@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check logging-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check api-auth-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check analytics-integration-check cex-orderbook-integration-check settlement-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check api-auth-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check analytics-integration-check cex-orderbook-integration-check settlement-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -9,6 +9,7 @@ help:
 	@echo "  book-template-check  Verify book chapters follow the standard template"
 	@echo "  adr-check  Verify ADR numbering and template consistency"
 	@echo "  security-check  Verify security docs cover required production controls"
+	@echo "  transport-security-check  Verify production dependency TLS across runtime and deployment"
 	@echo "  logging-check  Verify structured logging, redaction, trace correlation, and deployment config"
 	@echo "  metrics-check  Verify backend metrics, alert rules, and monitoring docs match"
 	@echo "  runbook-check  Verify alert rules have actionable runbook coverage"
@@ -78,6 +79,9 @@ adr-check:
 
 security-check:
 	@node scripts/check-security-docs-consistency.mjs
+
+transport-security-check:
+	@node scripts/check-transport-security-consistency.mjs
 
 logging-check:
 	@node scripts/check-logging-consistency.mjs

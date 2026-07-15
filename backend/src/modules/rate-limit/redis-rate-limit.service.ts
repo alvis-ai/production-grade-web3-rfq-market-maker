@@ -39,6 +39,10 @@ export interface RedisRateLimiterOptions {
   keyPrefix?: string;
 }
 
+export interface RedisUrlPolicy {
+  requireTls?: boolean;
+}
+
 export class RedisRateLimiter implements RateLimiter {
   private readonly client: RedisRateLimitClient;
   private readonly config: RateLimitConfig;
@@ -118,8 +122,11 @@ export class RedisRateLimiter implements RateLimiter {
   }
 }
 
-export function createRedisRateLimitClient(redisUrl: string): RedisRateLimitClient {
-  const normalizedUrl = normalizeRedisUrl(redisUrl);
+export function createRedisRateLimitClient(
+  redisUrl: string,
+  policy: RedisUrlPolicy = {},
+): RedisRateLimitClient {
+  const normalizedUrl = normalizeRedisUrl(redisUrl, policy);
   return new Redis(normalizedUrl, {
     connectTimeout: 2_000,
     enableOfflineQueue: false,
@@ -132,7 +139,8 @@ export function createRedisRateLimitClient(redisUrl: string): RedisRateLimitClie
   }) as unknown as RedisRateLimitClient;
 }
 
-export function normalizeRedisUrl(value: string): string {
+export function normalizeRedisUrl(value: string, policy: RedisUrlPolicy = {}): string {
+  assertRedisUrlPolicy(policy);
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error("RFQ_REDIS_URL must be a non-empty redis:// or rediss:// URL");
   }
@@ -149,8 +157,22 @@ export function normalizeRedisUrl(value: string): string {
   if (url.port && (!/^[0-9]+$/.test(url.port) || Number(url.port) < 1 || Number(url.port) > 65_535)) {
     throw new Error("RFQ_REDIS_URL port must be between 1 and 65535");
   }
+  if (policy.requireTls === true && url.protocol !== "rediss:") {
+    throw new Error("RFQ_REDIS_URL must use rediss:// outside local environments");
+  }
 
   return url.toString();
+}
+
+function assertRedisUrlPolicy(value: unknown): asserts value is RedisUrlPolicy {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("Redis URL policy must be an object");
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((key) => key !== "requireTls") ||
+      (record.requireTls !== undefined && typeof record.requireTls !== "boolean")) {
+    throw new Error("Redis URL policy requireTls must be a boolean when provided");
+  }
 }
 
 function assertScriptResult(result: unknown): [0 | 1, number, number] {

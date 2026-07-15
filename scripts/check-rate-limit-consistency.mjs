@@ -70,12 +70,15 @@ assertContains(redisRateLimiterSource, [
   "enableOfflineQueue: false",
   "maxRetriesPerRequest: 1",
   "RFQ_REDIS_URL must be a valid redis:// or rediss:// URL without a fragment",
+  "RFQ_REDIS_URL must use rediss:// outside local environments",
+  "policy.requireTls === true",
 ], "backend/src/modules/rate-limit/redis-rate-limit.service.ts");
 
 assertContains(mainSource, [
   "new InMemoryRateLimiter",
   "new RedisRateLimiter",
-  "createRedisRateLimitClient(redisUrl)",
+  "createRedisRateLimitClient(redisUrl, {",
+  "requireTls: requiresExplicitRuntimeConfig(nodeEnv)",
   "resolveRateLimiter(options)",
   'readOwnEnvValue(env, "RFQ_RATE_LIMIT_BACKEND")',
   'readOwnEnvValue(env, "RFQ_REDIS_URL")',
@@ -251,6 +254,7 @@ assertContains(readmeSource, [
   "`RFQ_TRUST_PROXY=false`",
   "128 character limit and `[A-Za-z0-9_.:-]` character set",
   "forces `RFQ_RATE_LIMIT_BACKEND=redis`",
+  "requires `RFQ_REDIS_URL` to use `rediss://`",
   "Redis uses one atomic Lua operation",
   "`RATE_LIMIT_UNAVAILABLE`/503",
 ], "README.md");
@@ -263,7 +267,7 @@ assertContains(composeSource, [
   "condition: service_healthy",
 ], "docker-compose.yml");
 assertContains(k8sConfigSource, ["RFQ_RATE_LIMIT_BACKEND: redis"], "infra/k8s/configmap.yaml");
-assertContains(k8sSecretSource, ["RFQ_REDIS_URL:"], "infra/k8s/backend-secret.yaml");
+assertContains(k8sSecretSource, ["RFQ_REDIS_URL: rediss://"], "infra/k8s/backend-secret.yaml");
 assertContains(helmValuesSource, ["redisSecret:", "urlKey: RFQ_REDIS_URL"], "infra/helm/rfq-market-maker/values.yaml");
 assertContains(helmDeploymentSource, [
   "name: RFQ_REDIS_URL",

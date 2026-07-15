@@ -167,6 +167,18 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
     );
 
     process.env.RFQ_REDIS_URL = "redis://127.0.0.1:6379/0";
+    assert.throws(
+      () => buildServer({
+        apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
+        logger: false,
+        databasePool: fakeDatabasePool(),
+        marketDataService: { async getSnapshot() { throw new Error("unused market data"); } },
+        signerService: localTestSignerService(),
+      }),
+      /must use rediss:\/\//,
+    );
+
+    process.env.RFQ_REDIS_URL = "rediss://redis.example.com:6380/0";
     const server = buildServer({
       apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
       logger: false,

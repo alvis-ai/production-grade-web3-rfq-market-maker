@@ -35,7 +35,7 @@ test("RFQ API validates simulated and receipt-confirmed execution configuration"
     configureAwsSignerEnvironment();
     delete process.env.RFQ_ALLOW_SIMULATED_SETTLEMENT;
     process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig(settlementAddress));
-    process.env.RFQ_REDIS_URL = "redis://127.0.0.1:6379/0";
+    process.env.RFQ_REDIS_URL = "rediss://redis.example.com:6380/0";
     const server = buildServer({
       apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
       logger: false,

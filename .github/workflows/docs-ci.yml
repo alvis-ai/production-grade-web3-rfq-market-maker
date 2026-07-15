@@ -9,6 +9,7 @@ on:
       - "benchmark/**"
       - "backend/src/shared/types/rfq.ts"
       - "backend/src/modules/rate-limit/rate-limit.service.ts"
+      - "backend/src/modules/rate-limit/redis-rate-limit.service.ts"
       - "backend/src/modules/auth/**"
       - "backend/src/modules/signer/**"
       - "backend/src/modules/indexer/**"
@@ -26,12 +27,17 @@ on:
       - "backend/src/modules/reconciliation/post-trade-reconciliation.worker.ts"
       - "backend/src/modules/market-data/cex-orderbook/cex-orderbook-monitor.ts"
       - "backend/src/db/pool.ts"
+      - "backend/src/db/config.ts"
       - "backend/src/db/migrations/**"
       - "backend/test/*submit-reservation*"
       - "backend/test/submit-concurrency.test.mjs"
       - "backend/test/gateway-settlement-policy.test.mjs"
       - "backend/test/market-runtime.test.mjs"
       - "backend/test/structured-logger.test.mjs"
+      - "backend/test/database-config.test.mjs"
+      - "backend/test/redis-rate-limit.test.mjs"
+      - "backend/test/api-redis-rate-limit.test.mjs"
+      - "backend/test/api-execution-env.test.mjs"
       - "backend/test/toxic-flow-analyzer-worker.test.mjs"
       - "backend/src/main.ts"
       - "backend/src/api/**"
@@ -69,6 +75,7 @@ on:
       - "scripts/check-runbook-consistency.mjs"
       - "scripts/check-rate-limit-consistency.mjs"
       - "scripts/check-security-docs-consistency.mjs"
+      - "scripts/check-transport-security-consistency.mjs"
       - "scripts/settlement-e2e.mjs"
       - "scripts/settlement-e2e.sh"
       - "scripts/check-skeleton.sh"
@@ -144,6 +151,8 @@ jobs:
         run: make adr-check
       - name: Check security docs consistency
         run: make security-check
+      - name: Check production transport security
+        run: make transport-security-check
       - name: Check structured logging consistency
         run: make logging-check
       - name: Check metrics consistency

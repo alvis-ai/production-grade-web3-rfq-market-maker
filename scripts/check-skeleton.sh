@@ -661,6 +661,7 @@ test -s infra/k8s/network-policy.yaml
 test -s infra/helm/rfq-market-maker/Chart.yaml
 test -s infra/helm/rfq-market-maker/values.schema.json
 test -s infra/helm/rfq-market-maker/templates/network-policy.yaml
+test -s scripts/check-transport-security-consistency.mjs
 test -s scripts/smoke-api.sh
 
 grep -q 'server.post("/quote"' $gateway_sources
@@ -2721,6 +2722,7 @@ grep -q 'make docs-check' scripts/verify.sh
 grep -q 'make book-template-check' scripts/verify.sh
 grep -q 'make adr-check' scripts/verify.sh
 grep -q 'make security-check' scripts/verify.sh
+grep -q 'make transport-security-check' scripts/verify.sh
 grep -q 'make metrics-check' scripts/verify.sh
 grep -q 'make runbook-check' scripts/verify.sh
 grep -q 'make grafana-check' scripts/verify.sh
@@ -2756,6 +2758,8 @@ grep -q 'adr-check' Makefile
 grep -q 'adr:check' package.json
 grep -q 'security-check' Makefile
 grep -q 'security:check' package.json
+grep -q 'transport-security-check' Makefile
+grep -q 'transport:security:check' package.json
 grep -q 'metrics-check' Makefile
 grep -q 'metrics:check' package.json
 grep -q 'runbook-check' Makefile
@@ -2851,6 +2855,7 @@ grep -q 'make docs-check' .github/workflows/docs-ci.yml
 grep -q 'make book-template-check' .github/workflows/docs-ci.yml
 grep -q 'make adr-check' .github/workflows/docs-ci.yml
 grep -q 'make security-check' .github/workflows/docs-ci.yml
+grep -q 'make transport-security-check' .github/workflows/docs-ci.yml
 grep -q 'make metrics-check' .github/workflows/docs-ci.yml
 grep -q 'make runbook-check' .github/workflows/docs-ci.yml
 grep -q 'make grafana-check' .github/workflows/docs-ci.yml
