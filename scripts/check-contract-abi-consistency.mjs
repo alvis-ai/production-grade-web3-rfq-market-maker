@@ -11,6 +11,13 @@ const openZeppelinPackage = JSON.parse(
 );
 const remappings = await readFile("contracts/remappings.txt", "utf8");
 const gitmodules = await readFile(".gitmodules", "utf8");
+const deploymentIntegrationSource = await readFile("scripts/contract-deployment-integration-check.mjs", "utf8");
+const deploymentIntegrationTestSource = await readFile("scripts/contract-deployment-integration-check.test.mjs", "utf8");
+const deploymentFixtureSource = await readFile("scripts/fixtures/contract-deployment-live-rpc.mjs", "utf8");
+const readmeSource = await readFile("README.md", "utf8");
+const contractTestingChapter = await readFile("book/Volume4-SmartContracts/Chapter06-Testing.md", "utf8");
+const makefileSource = await readFile("Makefile", "utf8");
+const packageSource = await readFile("package.json", "utf8");
 
 if (openZeppelinPackage.version !== "5.6.1") {
   throw new Error(`OpenZeppelin Contracts must remain pinned to 5.6.1 (got ${openZeppelinPackage.version})`);
@@ -68,6 +75,7 @@ const contracts = [
       "owner",
       "paused",
       "renounceRole",
+      "roleMemberCount",
       "revokeRole",
       "setPaused",
       "setTreasury",
@@ -77,6 +85,7 @@ const contracts = [
       "submitQuote",
       "supportsInterface",
       "tokenWhitelist",
+      "tokenWhitelistCount",
       "treasury",
       "trustedSigner",
       "trustedSignerCount",
@@ -182,6 +191,41 @@ for (const contract of contracts) {
     if (contract.inheritedEvents.includes(name)) continue;
     assertSolidityEvent(contract.source, name, contract.label);
   }
+}
+
+for (const required of [
+  "RFQ_CHAIN_INTEGRATION_CONFIRM=yes",
+  "blockNumber: block.number",
+  "maskImmutableReferences",
+  "tokenWhitelistCount",
+  "roleMemberCount",
+  "computeDomainSeparator",
+  "factoryRetainsRoles",
+]) {
+  if (!deploymentIntegrationSource.includes(required)) {
+    throw new Error(`Target-chain deployment check must include ${required}`);
+  }
+}
+for (const required of [
+  "proves complete contract invariants at one block",
+  "rejects hidden signer membership",
+  "rejects runtime bytecode drift",
+]) {
+  if (!deploymentIntegrationTestSource.includes(required)) {
+    throw new Error(`Target-chain deployment tests must include ${required}`);
+  }
+}
+if (!deploymentFixtureSource.includes("eth_getBlockByNumber") ||
+    !deploymentFixtureSource.includes("eth_getCode") ||
+    !deploymentFixtureSource.includes("eth_call")) {
+  throw new Error("Target-chain deployment fixture must exercise block, bytecode, and contract reads");
+}
+if (!makefileSource.includes("contract-deployment-check: backend-build contract-build") ||
+    !makefileSource.includes("contract-deployment-integration-check: backend-build contract-build") ||
+    !packageSource.includes("contract:deployment:integration:check") ||
+    !readmeSource.includes("make contract-deployment-integration-check") ||
+    !contractTestingChapter.includes("fixture 通过不代替目标环境 canary")) {
+  throw new Error("Target-chain deployment verification must remain exposed and documented");
 }
 
 console.log("Contract ABI consistency check passed (OpenZeppelin Contracts 5.6.1)");

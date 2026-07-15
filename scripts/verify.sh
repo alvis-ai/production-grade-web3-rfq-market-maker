@@ -50,6 +50,7 @@ run_step make smoke-api-local
 
 if command -v forge >/dev/null 2>&1; then
   run_step make contract-test
+  run_step make contract-deployment-check
   if command -v anvil >/dev/null 2>&1; then
     run_step make settlement-e2e
   else

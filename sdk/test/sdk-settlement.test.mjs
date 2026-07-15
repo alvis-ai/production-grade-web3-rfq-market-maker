@@ -179,6 +179,8 @@ test("RFQSettlement ABI exposes public state getters for operations", () => {
     "trustedSignerCount",
     "paused",
     "tokenWhitelist",
+    "tokenWhitelistCount",
+    "roleMemberCount",
     "usedNonces",
   ]) {
     assert.ok(
@@ -198,6 +200,15 @@ test("RFQSettlement ABI exposes public state getters for operations", () => {
   assert.deepEqual(
     tokenWhitelistGetter.outputs.map((output) => `${output.name}:${output.type}`),
     ["whitelisted:bool"],
+  );
+
+  const roleMemberCountGetter = rfqSettlementAbi.find(
+    (item) => item.type === "function" && item.name === "roleMemberCount",
+  );
+  assert.ok(roleMemberCountGetter, "missing RFQSettlement getter roleMemberCount");
+  assert.deepEqual(
+    roleMemberCountGetter.inputs.map((input) => `${input.name}:${input.type}`),
+    ["role:bytes32"],
   );
 
   const usedNoncesGetter = rfqSettlementAbi.find(

@@ -111,6 +111,7 @@ stateDiagram-v2
 - Deploy script test must also prove the configured initial signer is primary, authorized, and the only member of the signer set.
 - Signer rotation tests must prove old/new overlap settlement, explicit old-key retirement, primary and last-signer guards, idempotent membership updates, and the `MAX_TRUSTED_SIGNERS = 5` bound.
 - Deploy script must fail fast before factory creation when `RFQ_TRUSTED_SIGNER` or `RFQ_CONTRACT_ADMIN` is zero, or when `RFQ_TOKEN_WHITELIST_JSON` yields an empty whitelist, contains a zero token, or repeats a token.
+- `tokenWhitelistCount()` and `roleMemberCount(role)` make the deployed authorization surface auditable without enumeration: a target-chain verifier must prove every expected member is present and the count is exact, so an extra signer, token or role holder cannot hide behind positive mapping lookups.
 
 ## Failure Scenarios
 
@@ -149,7 +150,9 @@ stateDiagram-v2
 | treasury emergency withdrawal | transfer funds |
 | treasury reentrant release | revert |
 
-单元和 fuzz tests 之外，`make settlement-e2e` 在临时 Anvil 上部署真实 token、Treasury 和 RFQSettlement，经过后端 `/quote` 生成 EIP-712 signature，再由用户账户实际广播 `submitQuote`。后端必须从 RPC 独立验证 transaction calldata、成功 receipt 和唯一匹配事件，随后测试链上余额、used nonce 与链下 inventory/hedge/PnL。该跨层门禁能捕捉 Solidity ABI、typed data、运行时 chain/token policy 和 receipt decoder 之间的组合漂移，Contract CI 必须执行。
+单元和 fuzz tests 之外，`make settlement-e2e` 在临时 Anvil 上部署真实 token，再通过 `RFQDeploymentFactory` 原子创建、绑定和交接 Treasury/RFQSettlement。测试先对真实 RPC 执行同一部署 canary，再经过后端 `/quote` 生成 EIP-712 signature，由用户账户实际广播 `submitQuote`。后端必须从 RPC 独立验证 transaction calldata、成功 receipt 和唯一匹配事件，随后测试链上余额、used nonce 与链下 inventory/hedge/PnL。该跨层门禁能捕捉 factory、Solidity runtime、ABI、typed data、运行时 chain/token policy 和 receipt decoder 之间的组合漂移，Contract CI 必须执行。
+
+目标链部署还必须执行 `RFQ_CHAIN_INTEGRATION_CONFIRM=yes make contract-deployment-integration-check`。它在同一最新区块读取 chain state，要求区块时间新鲜；对 Settlement、Treasury、factory runtime code 与当前 release artifact 做 immutable-aware 字节级比较；核对双向 wiring、owner、五类 admin role 的唯一成员、完整 trusted-signer set、完整 token whitelist、pause 状态与本地重算的 EIP-712 domain separator。`make contract-deployment-check` 使用确定性 JSON-RPC fixture 覆盖成功、隐藏 signer 和 bytecode drift，并由 Contract CI 强制执行；fixture 通过不代替目标环境 canary。
 
 ## Interview Notes
 

@@ -133,6 +133,24 @@ forge script script/Deploy.s.sol:DeployRFQSettlement
 
 `RFQ_CONTRACT_ADMIN` is the final owner and `DEFAULT_ADMIN_ROLE` holder and should be a multisig or governed administration address in production. The script deploys a dedicated `RFQDeploymentFactory`; one factory transaction creates both contracts, wires Treasury to Settlement, applies the complete token whitelist, verifies postconditions, and then transfers both ownership boundaries plus all Settlement admin roles to that address. The factory retains no authority over the deployed stack.
 
+After broadcasting from the exact release commit, run the read-only deployment canary against the target RPC before enabling quotes. It fixes every code and state read to one fresh block, compares Settlement, Treasury and factory runtime bytecode with the local Foundry artifacts while accounting for Solidity immutable slots, recomputes the EIP-712 domain, and requires exact signer, whitelist and role-member counts. The RPC URL is never printed:
+
+```sh
+RFQ_CHAIN_INTEGRATION_CONFIRM=yes \
+RFQ_CHAIN_INTEGRATION_RPC_URL=https://target-chain-rpc.example \
+RFQ_CHAIN_INTEGRATION_CHAIN_ID=1 \
+RFQ_CHAIN_INTEGRATION_SETTLEMENT_ADDRESS=0x... \
+RFQ_CHAIN_INTEGRATION_TREASURY_ADDRESS=0x... \
+RFQ_CHAIN_INTEGRATION_FACTORY_ADDRESS=0x... \
+RFQ_CHAIN_INTEGRATION_ADMIN_ADDRESS=0x... \
+RFQ_CHAIN_INTEGRATION_TRUSTED_SIGNERS_JSON='{"primary":"0x...","authorized":["0x..."]}' \
+RFQ_CHAIN_INTEGRATION_TOKEN_WHITELIST_JSON='{"tokens":["0x...","0x..."]}' \
+RFQ_CHAIN_INTEGRATION_EXPECT_PAUSED=false \
+make contract-deployment-integration-check
+```
+
+Any mismatch is a failed deployment, including stale/wrong-chain RPC data, altered bytecode, split Treasury wiring, an unexpected admin or signer, an extra whitelist member, retained factory authority, or a wrong pause/domain state. Do not copy the observed value back into the expected configuration merely to make the check pass.
+
 ## Local Configuration
 
 Copy `.env.example` for local backend configuration. The included signer key is the public Anvil development key and must only be used on local chains.
@@ -431,7 +449,7 @@ Repository quality gate:
 make verify
 ```
 
-`make verify` runs skeleton, examples, configuration, documentation, book template, ADR, security documentation, metrics consistency, runbook consistency, Grafana dashboard consistency, deployment manifest consistency, CI workflow consistency, Docker Compose, KMS signer, EIP-712, ABI, API rate-limit, API error-code, API schema, API route, database schema, quote and submit benchmarks, backend, SDK, frontend and local API smoke checks through one entrypoint. If Foundry is installed locally it also runs `make contract-test`; when both Foundry and Anvil are available it additionally runs the receipt-confirmed settlement E2E below. Contract CI always installs both tools and enforces both gates.
+`make verify` runs skeleton, examples, configuration, documentation, book template, ADR, security documentation, metrics consistency, runbook consistency, Grafana dashboard consistency, deployment manifest consistency, CI workflow consistency, Docker Compose, KMS signer, EIP-712, ABI, API rate-limit, API error-code, API schema, API route, database schema, quote and submit benchmarks, backend, SDK, frontend and local API smoke checks through one entrypoint. If Foundry is installed locally it also runs contract tests plus the deterministic target-chain deployment verifier; when both Foundry and Anvil are available it additionally runs the receipt-confirmed settlement E2E below. Contract CI always installs both tools and enforces all three gates.
 
 Receipt-confirmed settlement E2E:
 
@@ -439,7 +457,7 @@ Receipt-confirmed settlement E2E:
 make settlement-e2e
 ```
 
-This starts an isolated Anvil chain, deploys two ERC-20 fixtures plus `Treasury` and `RFQSettlement`, obtains a backend-signed quote, broadcasts the real `submitQuote` transaction from the quote user, and submits only its `txHash` to the backend. The gate independently validates transaction calldata, receipt and `QuoteSettled`, then checks on-chain balances, nonce consumption, inventory, hedge, PnL and metrics. It is distinct from synthetic API smoke coverage and does not require a persistent local chain.
+This starts an isolated Anvil chain, deploys two ERC-20 fixtures, then uses the real `RFQDeploymentFactory` to atomically create, wire and hand off `Treasury` plus `RFQSettlement`. It runs the same deployment canary against that real RPC before obtaining a backend-signed quote, broadcasting `submitQuote` from the quote user, and submitting only its `txHash` to the backend. The gate independently validates runtime artifacts, administration, transaction calldata, receipt and `QuoteSettled`, then checks on-chain balances, nonce consumption, inventory, hedge, PnL and metrics. It is distinct from synthetic API smoke coverage and does not require a persistent local chain.
 
 Browser end-to-end gate (install Chromium once with `pnpm --dir frontend e2e:install`):
 

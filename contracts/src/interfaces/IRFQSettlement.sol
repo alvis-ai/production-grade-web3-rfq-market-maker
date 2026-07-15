@@ -41,6 +41,8 @@ interface IRFQSettlement {
     function MAX_TRUSTED_SIGNERS() external view returns (uint256);
     function trustedSigners(address signer) external view returns (bool);
     function trustedSignerCount() external view returns (uint256);
+    function tokenWhitelistCount() external view returns (uint256);
+    function roleMemberCount(bytes32 role) external view returns (uint256);
     function setTreasury(address newTreasury) external;
     function setTokenWhitelist(address token, bool whitelisted) external;
     function setPaused(bool newPaused) external;

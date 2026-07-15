@@ -183,6 +183,9 @@ assertContains(workflows.contract, [
   '- "backend/test/market-runtime.test.mjs"',
   '- "scripts/settlement-e2e.mjs"',
   '- "scripts/settlement-e2e.sh"',
+  '- "scripts/contract-deployment-integration-check.mjs"',
+  '- "scripts/contract-deployment-integration-check.test.mjs"',
+  '- "scripts/fixtures/contract-deployment-live-rpc.mjs"',
   '- "package.json"',
   '- "pnpm-lock.yaml"',
   '- "pnpm-workspace.yaml"',
@@ -201,6 +204,7 @@ assertContains(workflows.contract, [
   "run: make contract-abi-check",
   "run: forge build",
   "run: forge test",
+  "run: make contract-deployment-check",
   "run: make settlement-e2e",
 ], ".github/workflows/contract-ci.yml");
 

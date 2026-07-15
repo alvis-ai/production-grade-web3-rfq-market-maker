@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 
 const requireFromBackend = createRequire(new URL("../backend/package.json", import.meta.url));
 const viem = await import(pathToFileURL(requireFromBackend.resolve("viem")).href);
@@ -11,10 +13,12 @@ const accounts = await import(pathToFileURL(requireFromBackend.resolve("viem/acc
 const {
   createPublicClient,
   createWalletClient,
+  decodeEventLog,
   defineChain,
   http,
 } = viem;
 const { privateKeyToAccount } = accounts;
+const execFileAsync = promisify(execFile);
 
 const chainId = 31_337;
 const rpcUrl = process.env.RFQ_ANVIL_RPC_URL ?? "http://127.0.0.1:18545";
@@ -35,28 +39,40 @@ const signerClient = createWalletClient({ account: signer, chain, transport: htt
 const userClient = createWalletClient({ account: user, chain, transport: http(rpcUrl) });
 
 const tokenArtifact = await loadArtifact("contracts/out/LocalE2EToken.s.sol/LocalE2EToken.json");
-const treasuryArtifact = await loadArtifact("contracts/out/Treasury.sol/Treasury.json");
 const settlementArtifact = await loadArtifact("contracts/out/RFQSettlement.sol/RFQSettlement.json");
+const factoryArtifact = await loadArtifact("contracts/out/Deploy.s.sol/RFQDeploymentFactory.json");
 
 const tokenIn = await deployContract(signerClient, tokenArtifact, ["Input Token", "TIN"]);
 const tokenOut = await deployContract(signerClient, tokenArtifact, ["Output Token", "TOUT"]);
-const treasury = await deployContract(signerClient, treasuryArtifact, [signer.address]);
-const settlement = await deployContract(signerClient, settlementArtifact, [signer.address, treasury]);
-
-await writeContract(signerClient, {
-  address: treasury,
-  abi: treasuryArtifact.abi,
-  functionName: "setSettlement",
-  args: [settlement],
+const factory = await deployContract(signerClient, factoryArtifact, []);
+const deploymentReceipt = await writeContract(signerClient, {
+  address: factory,
+  abi: factoryArtifact.abi,
+  functionName: "deploy",
+  args: [signer.address, signer.address, [tokenIn, tokenOut]],
 });
-for (const token of [tokenIn, tokenOut]) {
-  await writeContract(signerClient, {
-    address: settlement,
-    abi: settlementArtifact.abi,
-    functionName: "setTokenWhitelist",
-    args: [token, true],
-  });
-}
+const deploymentEvent = deploymentReceipt.logs.map((log) => {
+  try {
+    return decodeEventLog({ abi: factoryArtifact.abi, data: log.data, topics: log.topics });
+  } catch {
+    return undefined;
+  }
+}).find((event) => event?.eventName === "DeploymentCompleted");
+assert.ok(deploymentEvent, "RFQDeploymentFactory must emit DeploymentCompleted");
+const settlement = deploymentEvent.args.settlement;
+const treasury = deploymentEvent.args.treasury;
+assert.match(settlement, /^0x[0-9a-f]{40}$/i);
+assert.match(treasury, /^0x[0-9a-f]{40}$/i);
+
+const deploymentCanary = await runContractDeploymentCanary({
+  settlement,
+  treasury,
+  factory,
+  tokenIn,
+  tokenOut,
+});
+assert.equal(deploymentCanary.status, "ok");
+assert.equal(deploymentCanary.contracts.settlement.toLowerCase(), settlement.toLowerCase());
 
 const amountIn = 10n * 10n ** 18n;
 const initialLiquidity = 1_000n * 10n ** 18n;
@@ -189,11 +205,13 @@ try {
     chainId,
     settlement,
     treasury,
+    factory,
     tokenIn,
     tokenOut,
     quoteId: quoteResponse.body.quoteId,
     txHash: settlementTxHash,
     blockNumber: Number(settlementReceipt.blockNumber),
+    deploymentCanaryBlock: deploymentCanary.block.number,
     settlementEventId: submitResponse.body.settlementEventId,
     hedgeOrderId: submitResponse.body.hedgeOrderId,
     pnlId: submitResponse.body.pnlId,
@@ -228,6 +246,33 @@ async function waitForSuccess(hash) {
   const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
   assert.equal(receipt.status, "success", `transaction ${hash} must succeed`);
   return receipt;
+}
+
+async function runContractDeploymentCanary({ settlement, treasury, factory, tokenIn, tokenOut }) {
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    "scripts/contract-deployment-integration-check.mjs",
+  ], {
+    cwd: new URL("..", import.meta.url),
+    env: {
+      ...process.env,
+      RFQ_CHAIN_INTEGRATION_CONFIRM: "yes",
+      RFQ_CHAIN_INTEGRATION_RPC_URL: rpcUrl,
+      RFQ_CHAIN_INTEGRATION_CHAIN_ID: chainId.toString(),
+      RFQ_CHAIN_INTEGRATION_SETTLEMENT_ADDRESS: settlement,
+      RFQ_CHAIN_INTEGRATION_TREASURY_ADDRESS: treasury,
+      RFQ_CHAIN_INTEGRATION_FACTORY_ADDRESS: factory,
+      RFQ_CHAIN_INTEGRATION_ADMIN_ADDRESS: signer.address,
+      RFQ_CHAIN_INTEGRATION_TRUSTED_SIGNERS_JSON: JSON.stringify({
+        primary: signer.address,
+        authorized: [signer.address],
+      }),
+      RFQ_CHAIN_INTEGRATION_TOKEN_WHITELIST_JSON: JSON.stringify({ tokens: [tokenIn, tokenOut] }),
+      RFQ_CHAIN_INTEGRATION_EXPECT_PAUSED: "false",
+    },
+    timeout: 30_000,
+  });
+  assert.equal(stderr, "");
+  return JSON.parse(stdout);
 }
 
 async function readBalance(abi, token, account) {

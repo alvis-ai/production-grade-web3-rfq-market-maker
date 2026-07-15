@@ -15,6 +15,9 @@ on:
       - "sdk/src/eip712.ts"
       - "scripts/settlement-e2e.mjs"
       - "scripts/settlement-e2e.sh"
+      - "scripts/contract-deployment-integration-check.mjs"
+      - "scripts/contract-deployment-integration-check.test.mjs"
+      - "scripts/fixtures/contract-deployment-live-rpc.mjs"
       - "scripts/check-contract-abi-consistency.mjs"
       - "scripts/check-eip712-consistency.mjs"
       - "package.json"
@@ -64,5 +67,7 @@ jobs:
       - name: Test contracts
         working-directory: contracts
         run: forge test
+      - name: Test target-chain deployment verification
+        run: make contract-deployment-check
       - name: Test receipt-confirmed settlement end to end
         run: make settlement-e2e

@@ -41,6 +41,7 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
     mapping(address user => mapping(uint256 nonce => bool used)) public usedNonces;
     mapping(bytes32 role => uint256 count) private _roleMemberCounts;
     uint256 private _trustedSignerCount;
+    uint256 private _tokenWhitelistCount;
 
     error NotOwner();
     error InvalidAddress();
@@ -177,6 +178,14 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
         return _trustedSignerCount;
     }
 
+    function tokenWhitelistCount() external view returns (uint256) {
+        return _tokenWhitelistCount;
+    }
+
+    function roleMemberCount(bytes32 role) external view returns (uint256) {
+        return _roleMemberCounts[role];
+    }
+
     function setTreasury(address newTreasury) external onlyRole(TREASURY_ADMIN_ROLE) {
         if (newTreasury == address(0)) revert InvalidAddress();
         _requireBoundTreasury(newTreasury);
@@ -190,6 +199,10 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
     {
         if (token == address(0)) revert InvalidAddress();
         if (whitelisted && token.code.length == 0) revert InvalidTokenContract();
+        bool current = tokenWhitelist[token];
+        if (current != whitelisted) {
+            _tokenWhitelistCount = whitelisted ? _tokenWhitelistCount + 1 : _tokenWhitelistCount - 1;
+        }
         tokenWhitelist[token] = whitelisted;
         emit TokenWhitelistUpdated(token, whitelisted);
     }

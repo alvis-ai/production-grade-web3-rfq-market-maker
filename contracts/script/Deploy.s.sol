@@ -107,6 +107,7 @@ contract RFQDeploymentFactory {
                 || settlement.treasury() != address(treasury)
                 || settlement.trustedSigner() != trustedSigner
                 || !settlement.trustedSigners(trustedSigner) || settlement.trustedSignerCount() != 1
+                || settlement.tokenWhitelistCount() != tokenWhitelist.length
         ) {
             revert DeploymentInvariantViolation();
         }
@@ -126,7 +127,10 @@ contract RFQDeploymentFactory {
         private
         view
     {
-        if (!settlement.hasRole(role, contractAdmin) || settlement.hasRole(role, address(this))) {
+        if (
+            !settlement.hasRole(role, contractAdmin) || settlement.hasRole(role, address(this))
+                || settlement.roleMemberCount(role) != 1
+        ) {
             revert DeploymentInvariantViolation();
         }
     }

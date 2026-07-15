@@ -174,6 +174,13 @@ export const rfqSettlementAbi = [
   },
   {
     type: "function",
+    name: "tokenWhitelistCount",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
     name: "paused",
     stateMutability: "view",
     inputs: [],
@@ -225,6 +232,13 @@ export const rfqSettlementAbi = [
       { name: "account", type: "address" },
     ],
     outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "roleMemberCount",
+    stateMutability: "view",
+    inputs: [{ name: "role", type: "bytes32" }],
+    outputs: [{ name: "", type: "uint256" }],
   },
   {
     type: "function",

@@ -42,6 +42,7 @@ contract DeployRFQSettlementTest {
         require(deployment.settlement.trustedSignerCount() == 1, "trusted signer count mismatch");
         require(deployment.settlement.tokenWhitelist(tokens[0]), "token 0 not whitelisted");
         require(deployment.settlement.tokenWhitelist(tokens[1]), "token 1 not whitelisted");
+        require(deployment.settlement.tokenWhitelistCount() == 2, "whitelist count mismatch");
     }
 
     function testDeployRejectsUnsafeDeploymentConfigBeforeCreatingFactory() public {
@@ -150,6 +151,7 @@ contract DeployRFQSettlementTest {
         address contractAdmin
     ) private view {
         require(deployment.settlement.hasRole(role, contractAdmin), "admin role not transferred");
+        require(deployment.settlement.roleMemberCount(role) == 1, "admin role count mismatch");
         require(
             !deployment.settlement.hasRole(role, address(deployment.factory)),
             "factory retained admin role"

@@ -469,18 +469,40 @@ contract RFQSettlementTest {
     function testAccessControlRevocationRemovesAdminCapability() public {
         address tokenAdmin = address(0xA11CE03);
 
+        require(settlement.roleMemberCount(TOKEN_ADMIN_ROLE) == 1, "initial role count mismatch");
         settlement.grantRole(TOKEN_ADMIN_ROLE, tokenAdmin);
         require(settlement.hasRole(TOKEN_ADMIN_ROLE, tokenAdmin), "token admin role not granted");
+        require(settlement.roleMemberCount(TOKEN_ADMIN_ROLE) == 2, "role grant not counted");
+
+        settlement.grantRole(TOKEN_ADMIN_ROLE, tokenAdmin);
+        require(settlement.roleMemberCount(TOKEN_ADMIN_ROLE) == 2, "duplicate role grant counted");
 
         vm.prank(tokenAdmin);
         settlement.setTokenWhitelist(address(tokenIn), false);
 
         settlement.revokeRole(TOKEN_ADMIN_ROLE, tokenAdmin);
         require(!settlement.hasRole(TOKEN_ADMIN_ROLE, tokenAdmin), "token admin role not revoked");
+        require(settlement.roleMemberCount(TOKEN_ADMIN_ROLE) == 1, "role revoke not counted");
 
         vm.prank(tokenAdmin);
         _expectMissingRole(TOKEN_ADMIN_ROLE, tokenAdmin);
         settlement.setTokenWhitelist(address(tokenIn), true);
+    }
+
+    function testTokenWhitelistCountTracksOnlyMembershipChanges() public {
+        require(settlement.tokenWhitelistCount() == 2, "initial whitelist count mismatch");
+
+        settlement.setTokenWhitelist(address(tokenIn), true);
+        require(settlement.tokenWhitelistCount() == 2, "duplicate whitelist enable counted");
+
+        settlement.setTokenWhitelist(address(tokenIn), false);
+        require(settlement.tokenWhitelistCount() == 1, "whitelist disable not counted");
+
+        settlement.setTokenWhitelist(address(tokenIn), false);
+        require(settlement.tokenWhitelistCount() == 1, "duplicate whitelist disable counted");
+
+        settlement.setTokenWhitelist(address(tokenIn), true);
+        require(settlement.tokenWhitelistCount() == 2, "whitelist re-enable not counted");
     }
 
     function testCannotRevokeLastDefaultAdminRole() public {

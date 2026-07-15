@@ -2763,6 +2763,9 @@ grep -q 'DuplicateWhitelistToken' contracts/script/Deploy.s.sol
 grep -q 'testDeployAtomicallyConfiguresStackAndTransfersAdministration' contracts/test/Deploy.t.sol
 grep -q 'testDeployRejectsUnsafeDeploymentConfigBeforeCreatingFactory' contracts/test/Deploy.t.sol
 grep -q 'factory retained admin role' contracts/test/Deploy.t.sol
+grep -q 'tokenWhitelistCount' contracts/src/RFQSettlement.sol
+grep -q 'roleMemberCount' contracts/src/RFQSettlement.sol
+grep -q 'testTokenWhitelistCountTracksOnlyMembershipChanges' contracts/test/RFQSettlement.t.sol
 grep -q 'treasury settlement mismatch' contracts/test/Deploy.t.sol
 grep -q 'settlement treasury mismatch' contracts/test/Deploy.t.sol
 grep -q 'RFQ_CONTRACT_ADMIN=0x' README.md
@@ -3811,9 +3814,22 @@ grep -q 'buildDefaultSettlementVerifierPolicy(signerRuntimeConfig, managedRiskPa
 grep -q 'waitForTransactionReceipt' scripts/settlement-e2e.mjs
 grep -q 'functionName: "submitQuote"' scripts/settlement-e2e.mjs
 grep -q 'RFQ_ALLOW_SIMULATED_SETTLEMENT = "false"' scripts/settlement-e2e.mjs
+grep -q 'RFQDeploymentFactory' scripts/settlement-e2e.mjs
+grep -q 'runContractDeploymentCanary' scripts/settlement-e2e.mjs
 grep -q 'settlement-e2e: backend-build contract-build' Makefile
 grep -q 'run: make settlement-e2e' .github/workflows/contract-ci.yml
 grep -q 'run_step make settlement-e2e' scripts/verify.sh
+test -s scripts/contract-deployment-integration-check.mjs
+test -s scripts/contract-deployment-integration-check.test.mjs
+test -s scripts/fixtures/contract-deployment-live-rpc.mjs
+grep -q 'contract-deployment-integration-check: backend-build contract-build' Makefile
+grep -q 'contract-deployment-check: backend-build contract-build' Makefile
+grep -q 'contract:deployment:integration:check' package.json
+grep -q 'RFQ_CHAIN_INTEGRATION_CONFIRM=yes' scripts/contract-deployment-integration-check.mjs
+grep -q 'maskImmutableReferences' scripts/contract-deployment-integration-check.mjs
+grep -q 'blockNumber: block.number' scripts/contract-deployment-integration-check.mjs
+grep -q 'run: make contract-deployment-check' .github/workflows/contract-ci.yml
+grep -q 'run_step make contract-deployment-check' scripts/verify.sh
 
 test -s frontend/playwright.config.ts
 test -s frontend/e2e/rfq-flow.spec.ts
