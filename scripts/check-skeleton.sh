@@ -1701,30 +1701,33 @@ grep -q 'applySettlement' backend/src/modules/execution/execution.service.ts
 grep -q 'applySettlementEvent' backend/src/modules/execution/execution.service.ts
 grep -q 'settlementVerifier.verify' backend/src/modules/execution/execution.service.ts
 grep -q 'SETTLEMENT_UNAVAILABLE' backend/src/modules/execution/execution.service.ts
-grep -q 'SettlementEventStore' backend/src/modules/execution/execution.service.ts
+test -s backend/src/modules/execution/execution-service-contract.ts
+test -s backend/src/modules/execution/execution-service-result-validation.ts
+test -s backend/src/modules/execution/execution-service-post-trade-validation.ts
+grep -q 'SettlementEventStore' backend/src/modules/execution/execution-service-contract.ts
 grep -q 'settlementEventStoreFailure' backend/src/modules/execution/execution.service.ts
-grep -q 'assertExecutionServiceDeps(deps)' backend/src/modules/execution/execution.service.ts
-grep -q 'assertRecord(deps, "deps")' backend/src/modules/execution/execution.service.ts
-grep -q 'assertOwnFields(deps, executionServiceDepsFields, "deps")' backend/src/modules/execution/execution.service.ts
-grep -q 'Execution service ${path}.${field} must be an own field' backend/src/modules/execution/execution.service.ts
-grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/execution/execution.service.ts
-grep -q 'assertDependencyMethod(deps.settlementVerifier, "settlementVerifier", "verify")' backend/src/modules/execution/execution.service.ts
-grep -q 'settlementVerificationResultFields = \["status", "verifierVersion", "amountOut"\]' backend/src/modules/execution/execution.service.ts
+grep -q 'assertExecutionServiceDeps(value)' backend/src/modules/execution/execution-service-contract.ts
+grep -q 'assertRecord(value, "deps")' backend/src/modules/execution/execution-service-contract.ts
+grep -q 'assertOwnFields(value, executionServiceDepsFields, "deps")' backend/src/modules/execution/execution-service-contract.ts
+grep -q 'Execution service ${path}.${field} must be an own field' backend/src/modules/execution/execution-service-contract.ts
+grep -q 'assertRecord(dependency, dependencyName)' backend/src/modules/execution/execution-service-contract.ts
+grep -q 'assertDependencyMethod(deps.settlementVerifier, "settlementVerifier", "verify")' backend/src/modules/execution/execution-service-contract.ts
+grep -q 'settlementVerificationResultFields = \["status", "verifierVersion", "amountOut"\]' backend/src/modules/execution/execution-service-result-validation.ts
 grep -q 'assertSettlementVerificationResult(settlementVerification, request.quote.amountOut)' backend/src/modules/execution/execution.service.ts
-grep -q 'Execution service settlement verification amountOut must match quote amountOut' backend/src/modules/execution/execution.service.ts
-grep -q 'settlementEventResultFields = \["event", "duplicate"\]' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution service settlement verification amountOut must match quote amountOut' backend/src/modules/execution/execution-service-result-validation.ts
+grep -q 'settlementEventResultFields = \["event", "duplicate"\]' backend/src/modules/execution/execution-service-result-validation.ts
 grep -q 'assertApplySettlementEventResult(settlementEventResult, input)' backend/src/modules/execution/execution.service.ts
-grep -q 'Execution service settlement event quoteHash must match submitted quote' backend/src/modules/execution/execution.service.ts
-grep -q 'hedgeResultFields = \["status", "hedgeOrderId", "record"\]' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution service settlement event quoteHash must match submitted quote' backend/src/modules/execution/execution-service-result-validation.ts
+grep -q 'hedgeResultFields = \["status", "hedgeOrderId", "record"\]' backend/src/modules/execution/execution-service-post-trade-validation.ts
 grep -q 'assertHedgeResult(hedgeResult, intent)' backend/src/modules/execution/execution.service.ts
-grep -q 'Execution service hedge result.record amount must match hedge intent' backend/src/modules/execution/execution.service.ts
-grep -q 'inventoryPositionFields = \["chainId", "token", "balance"\]' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution service hedge result.record amount must match hedge intent' backend/src/modules/execution/execution-service-post-trade-validation.ts
+grep -q 'inventoryPositionFields = \["chainId", "token", "balance"\]' backend/src/modules/execution/execution-service-post-trade-validation.ts
 grep -q 'readInventoryPositions(validatedRequest)' backend/src/modules/execution/execution.service.ts
-grep -q 'Execution service inventory position.${field}.balance must be a bigint' backend/src/modules/execution/execution.service.ts
-grep -q 'cloneExecutionServiceDeps' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution service inventory position.${field}.balance must be a bigint' backend/src/modules/execution/execution-service-post-trade-validation.ts
+grep -q 'normalizeExecutionServiceDeps' backend/src/modules/execution/execution.service.ts
 grep -q 'keccak256(toBytes(payload))' backend/src/modules/execution/execution.service.ts
-grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/execution/execution.service.ts
-grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/execution/execution.service.ts
+grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/execution/execution-service-contract.ts
+grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/execution/execution-service-contract.ts
 grep -q 'buildSyntheticTxHash returns deterministic keccak256 bytes32 hashes' backend/test/execution.test.mjs
 grep -q 'buildSyntheticTxHash rejects malformed submit payloads before hashing' backend/test/execution-validation.test.mjs
 grep -q 'SkeletonExecutionService suppresses duplicate settlement side effects' backend/test/execution.test.mjs
@@ -1745,9 +1748,9 @@ grep -q 'Execution service deps.hedgeService must be an own field' backend/test/
 grep -q 'Execution service hedgeService must be an object' backend/test/execution-validation.test.mjs
 grep -q 'Execution service settlementVerifier must be an object' backend/test/execution-validation.test.mjs
 grep -q 'validateSubmitQuoteRequest(request)' backend/src/modules/execution/execution.service.ts
-grep -q 'Execution context quoteId must be an own field' backend/src/modules/execution/execution.service.ts
-grep -q 'Execution context quoteId must be a primitive string' backend/src/modules/execution/execution.service.ts
-grep -q 'Execution context quoteId must be a non-empty string' backend/src/modules/execution/execution.service.ts
+grep -q 'Execution context quoteId must be an own field' backend/src/modules/execution/execution-service-contract.ts
+grep -q 'Execution context quoteId must be a primitive string' backend/src/modules/execution/execution-service-contract.ts
+grep -q 'Execution context quoteId must be a non-empty string' backend/src/modules/execution/execution-service-contract.ts
 grep -q 'Execution context quoteId must be an own field' backend/test/execution-validation.test.mjs
 grep -q 'Execution context quoteId must be a primitive string' backend/test/execution-validation.test.mjs
 grep -q 'Execution context quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/execution-validation.test.mjs
