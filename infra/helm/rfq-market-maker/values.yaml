@@ -26,6 +26,14 @@ disruptionBudget:
   enabled: true
   maxUnavailable: 1
   unhealthyPodEvictionPolicy: AlwaysAllow
+topologySpread:
+  enabled: true
+  maxSkew: 1
+  minDomains: 2
+  whenUnsatisfiable: DoNotSchedule
+  topologyKeys:
+    - kubernetes.io/hostname
+    - topology.kubernetes.io/zone
 terminationGracePeriodSeconds: 30
 preStopSleepSeconds: 5
 tmpVolumeSizeLimit: 16Mi

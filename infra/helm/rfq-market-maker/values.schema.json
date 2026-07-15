@@ -111,6 +111,7 @@
     "serviceAccount",
     "autoscaling",
     "disruptionBudget",
+    "topologySpread",
     "replicaCount",
     "hedgeWorker",
     "analyticsWorker",
@@ -260,6 +261,43 @@
         },
         "unhealthyPodEvictionPolicy": {
           "const": "AlwaysAllow"
+        }
+      },
+      "additionalProperties": false
+    },
+    "topologySpread": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "maxSkew",
+        "minDomains",
+        "whenUnsatisfiable",
+        "topologyKeys"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "maxSkew": {
+          "const": 1
+        },
+        "minDomains": {
+          "const": 2
+        },
+        "whenUnsatisfiable": {
+          "const": "DoNotSchedule"
+        },
+        "topologyKeys": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "kubernetes.io/hostname",
+              "topology.kubernetes.io/zone"
+            ]
+          }
         }
       },
       "additionalProperties": false

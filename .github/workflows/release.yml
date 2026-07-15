@@ -174,9 +174,11 @@ jobs:
           BACKEND_DIGEST: ${{ steps.backend-build.outputs.digest }}
         run: |
           helm lint infra/helm/rfq-market-maker \
+            --kube-version 1.31.0 \
             --set-string image.repository="${BACKEND_IMAGE}" \
             --set-string image.digest="${BACKEND_DIGEST}"
           helm template rfq-market-maker infra/helm/rfq-market-maker \
+            --kube-version 1.31.0 \
             --set-string image.repository="${BACKEND_IMAGE}" \
             --set-string image.digest="${BACKEND_DIGEST}" >/dev/null
 

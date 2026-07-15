@@ -37,6 +37,15 @@ groups:
           summary: An RFQ workload disruption budget has no eviction capacity
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQPodsUnschedulable
+        expr: sum(kube_pod_status_unschedulable{namespace="rfq-market-maker"}) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ Pods cannot satisfy topology, resource, taint, or affinity constraints
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQQuoteTrafficStopped
         expr: increase(rfq_quote_requests_total[10m]) == 0
         for: 10m

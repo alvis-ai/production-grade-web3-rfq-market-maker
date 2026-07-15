@@ -101,7 +101,7 @@ stateDiagram-v2
 
 ## Data Model
 
-Kubernetes production design includes Deployment, Service, ConfigMap, Secret, ServiceAccount, NetworkPolicy, HorizontalPodAutoscaler and PodDisruptionBudget. The API HPA and six workload-specific disruption budgets are explicit resources in both raw manifests and Helm output.
+Kubernetes production design includes Deployment, Service, ConfigMap, Secret, ServiceAccount, NetworkPolicy, HorizontalPodAutoscaler and PodDisruptionBudget. The API HPA and six workload-specific disruption budgets are explicit resources in both raw manifests and Helm output. The chart declares Kubernetes `>=1.31` so `minDomains` and unhealthy-Pod eviction policy use their stable API behavior.
 
 The current runnable backend manifests use:
 
@@ -112,6 +112,7 @@ The current runnable backend manifests use:
 - All six workloads run with UID/GID 1000, `runAsNonRoot=true`, `RuntimeDefault` seccomp and a read-only root filesystem. Migration and runtime containers disable privilege escalation and drop every Linux capability; their only writable filesystem is a bounded 16Mi `/tmp` `emptyDir`. Every workload sets `automountServiceAccountToken=false` because it does not call the Kubernetes API. EKS injects a separate audience-scoped IRSA token into the API Pod through its dedicated annotated ServiceAccount for KMS access.
 - The API uses an `autoscaling/v2` HPA with 2 minimum replicas, 10 maximum replicas and a 70-percent CPU utilization target. Scale-up may double capacity or add four Pods per minute; scale-down waits through a 300-second stabilization window and removes at most 25 percent per minute. The cluster must provide `metrics.k8s.io`, and the API CPU request must remain realistic because utilization is calculated against that request.
 - API, hedge, analytics, reconciliation, settlement-indexer and toxic-flow Deployments each have an independent `policy/v1` PDB with `maxUnavailable=1` and `unhealthyPodEvictionPolicy=AlwaysAllow`. Exact component selectors prevent one workload's disruption from consuming another workload's budget. PDBs protect only eviction-aware voluntary disruption; they do not prevent direct deletion or involuntary node and zone failures.
+- Every Deployment also carries two exact `topologySpreadConstraints`: hostname and zone both use `maxSkew=1`, `minDomains=2` and `DoNotSchedule`. Each constraint selects only its own Deployment labels. The production cluster must expose `kubernetes.io/hostname` and `topology.kubernetes.io/zone` on at least two eligible nodes in two zones; otherwise the second replica remains Pending rather than sharing one failure domain. The Helm schema fixes these values so an environment override cannot silently weaken availability.
 - Workers intentionally do not use CPU HPAs. Durable queue age/depth, dependency capacity and lease safety are their scaling signals; fixed replica counts remain explicit until reviewed custom metrics and per-worker scaling bounds exist.
 - `rfq-hedge-worker-secrets` is a separate Secret containing only the worker database URL and Binance API key/secret. API pods do not mount venue credentials; worker pods do not mount signer or Redis credentials.
 - `rfq-analytics-worker-secrets` contains the least-privilege outbox database URL, Kafka SASL credentials and ClickHouse credentials. API and hedge pods do not mount these values; analytics pods do not mount signer, Redis or Binance credentials.
@@ -169,6 +170,7 @@ Ingress exposes the trading and status routes through scoped API-key authenticat
 - RPC outage or unknown on-chain quote: the affected cursor does not advance, indexer readiness becomes stale, and API quote/receipt paths remain isolated while operators repair evidence.
 - Missing Metrics Server or stale CPU samples: the API HPA reports metric errors and holds the current desired replica count; alert before traffic reaches fixed capacity.
 - Node drain with one unhealthy replica: `AlwaysAllow` permits removing the unhealthy Pod rather than deadlocking maintenance, while the Deployment creates a replacement and readiness gates availability.
+- Missing zone labels, one eligible zone, or insufficient cross-zone capacity: topology constraints keep replacement Pods Pending. Stop rollout or drain, restore labeled capacity, and never change `DoNotSchedule` to `ScheduleAnyway` merely to make the Deployment appear healthy.
 
 ## Security Considerations
 
@@ -180,7 +182,7 @@ Scale API and Quote services horizontally. The API HPA requires CPU requests and
 
 ## Testing Strategy
 
-Validate manifests with dry-run, render the API HPA and all enabled PDBs, run smoke tests after deploy, test rollback, exercise a node drain, and load-test both scale-up and stabilized scale-down. Verify HPA metric availability before shifting production traffic.
+Validate manifests with dry-run, render the API HPA, all enabled PDBs and both topology selectors for every Deployment, then inspect actual Pod node and zone placement. Run smoke tests after deploy, test rollback, exercise one node drain and one simulated zone-capacity loss, and load-test both scale-up and stabilized scale-down. Verify HPA metric availability before shifting production traffic.
 
 ## Interview Notes
 
@@ -199,3 +201,4 @@ Kubernetes 是生产部署层。RFQ 系统的部署设计必须特别保护 Sign
 - [Amazon EKS regional STS endpoints](https://docs.aws.amazon.com/eks/latest/userguide/configure-sts-endpoint.html)
 - [Horizontal Pod Autoscaling](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/)
 - [Pod disruptions](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/)
+- [Pod topology spread constraints](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/)

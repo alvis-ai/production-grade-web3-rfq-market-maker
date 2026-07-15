@@ -30,3 +30,20 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "%s:%s" .Values.image.repository (required "image.tag is required when image.digest is empty" .Values.image.tag) -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "rfq-market-maker.topologySpreadConstraints" -}}
+{{- $root := index . 0 -}}
+{{- $component := index . 1 -}}
+{{- if $root.Values.topologySpread.enabled -}}
+{{- range $topologyKey := $root.Values.topologySpread.topologyKeys }}
+- maxSkew: {{ $root.Values.topologySpread.maxSkew }}
+  minDomains: {{ $root.Values.topologySpread.minDomains }}
+  topologyKey: {{ $topologyKey }}
+  whenUnsatisfiable: {{ $root.Values.topologySpread.whenUnsatisfiable }}
+  labelSelector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" $root | nindent 6 }}
+      app.kubernetes.io/component: {{ $component }}
+{{- end }}
+{{- end }}
+{{- end -}}

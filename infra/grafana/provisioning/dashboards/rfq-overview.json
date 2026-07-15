@@ -352,7 +352,8 @@
         { "expr": "max(kube_horizontalpodautoscaler_status_desired_replicas{namespace=\"rfq-market-maker\"})", "legendFormat": "API desired replicas", "refId": "A" },
         { "expr": "max(kube_horizontalpodautoscaler_spec_max_replicas{namespace=\"rfq-market-maker\"})", "legendFormat": "API maximum replicas", "refId": "B" },
         { "expr": "max(kube_horizontalpodautoscaler_status_condition{namespace=\"rfq-market-maker\",condition=\"ScalingActive\",status=\"false\"})", "legendFormat": "HPA metrics unavailable", "refId": "C" },
-        { "expr": "min by (poddisruptionbudget) (kube_poddisruptionbudget_status_pod_disruptions_allowed{namespace=\"rfq-market-maker\"})", "legendFormat": "{{poddisruptionbudget}} allowed disruptions", "refId": "D" }
+        { "expr": "min by (poddisruptionbudget) (kube_poddisruptionbudget_status_pod_disruptions_allowed{namespace=\"rfq-market-maker\"})", "legendFormat": "{{poddisruptionbudget}} allowed disruptions", "refId": "D" },
+        { "expr": "sum(kube_pod_status_unschedulable{namespace=\"rfq-market-maker\"})", "legendFormat": "unschedulable Pods", "refId": "E" }
       ]
     }
   ]

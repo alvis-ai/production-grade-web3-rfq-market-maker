@@ -59,6 +59,7 @@ const k8sToxicFlowAnalyzerNetworkPolicy = await readFile(
   "utf8",
 );
 const helmValues = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
+const helmChart = await readFile("infra/helm/rfq-market-maker/Chart.yaml", "utf8");
 const helmHelpers = await readFile("infra/helm/rfq-market-maker/templates/_helpers.tpl", "utf8");
 const helmValuesSchema = JSON.parse(
   await readFile("infra/helm/rfq-market-maker/values.schema.json", "utf8"),
@@ -164,6 +165,10 @@ assertContains(frontendNginxConfig, [
 ], "infra/docker/nginx.conf");
 assert.ok(dockerCompose.includes('- "5173:8080"'), "frontend compose port must target rootless Nginx 8080");
 assert.ok(!dockerCompose.includes('- "5173:80"'), "frontend compose must not target privileged port 80");
+assert.ok(
+  helmChart.includes('kubeVersion: ">=1.31.0-0"'),
+  "Helm chart must reject clusters older than the stable topology/PDB feature baseline",
+);
 
 assertContains(k8sHorizontalPodAutoscaler, [
   "apiVersion: autoscaling/v2",
@@ -293,6 +298,43 @@ for (const [label, source] of [
     `${label} raw Deployment must expose only bounded temporary storage to both containers`,
   );
 }
+
+for (const [label, workloadName, source] of [
+  ["backend", "rfq-backend", k8sDeployment],
+  ["hedge worker", "rfq-hedge-worker", k8sHedgeDeployment],
+  ["analytics worker", "rfq-analytics-worker", k8sAnalyticsDeployment],
+  ["reconciliation worker", "rfq-reconciliation-worker", k8sReconciliationDeployment],
+  ["settlement indexer", "rfq-settlement-indexer", k8sIndexerDeployment],
+  ["toxic-flow analyzer", "rfq-toxic-flow-analyzer", k8sToxicFlowAnalyzerDeployment],
+]) {
+  assert.equal(
+    countOccurrences(source, "topologySpreadConstraints:"),
+    1,
+    `${label} raw Deployment must define one topology-spread list`,
+  );
+  assert.equal(countOccurrences(source, "maxSkew: 1"), 2, `${label} must bound node and zone skew`);
+  assert.equal(countOccurrences(source, "minDomains: 2"), 2, `${label} must require two failure domains`);
+  assert.equal(
+    countOccurrences(source, "whenUnsatisfiable: DoNotSchedule"),
+    2,
+    `${label} must fail closed when node or zone spreading is impossible`,
+  );
+  assert.equal(
+    countOccurrences(source, "topologyKey: kubernetes.io/hostname"),
+    1,
+    `${label} must spread replicas across nodes`,
+  );
+  assert.equal(
+    countOccurrences(source, "topologyKey: topology.kubernetes.io/zone"),
+    1,
+    `${label} must spread replicas across zones`,
+  );
+  assert.equal(
+    countOccurrences(source, `app.kubernetes.io/name: ${workloadName}`),
+    5,
+    `${label} topology selectors must match the owning Deployment labels`,
+  );
+}
 assert.ok(
   k8sDeployment.includes("automountServiceAccountToken: false"),
   "backend must not receive the default Kubernetes API token",
@@ -309,6 +351,33 @@ for (const [label, source] of [
     `${label} must not receive a Kubernetes ServiceAccount token`,
   );
 }
+
+for (const [label, component, source] of [
+  ["backend", "api", helmDeployment],
+  ["hedge worker", "hedge-worker", helmHedgeDeployment],
+  ["analytics worker", "analytics-worker", helmAnalyticsDeployment],
+  ["reconciliation worker", "reconciliation-worker", helmReconciliationDeployment],
+  ["settlement indexer", "settlement-indexer", helmIndexerDeployment],
+  ["toxic-flow analyzer", "toxic-flow-analyzer", helmToxicFlowAnalyzerDeployment],
+]) {
+  assert.equal(
+    countOccurrences(
+      source,
+      `include "rfq-market-maker.topologySpreadConstraints" (list . "${component}")`,
+    ),
+    1,
+    `Helm ${label} Deployment must render topology selectors for its own component`,
+  );
+}
+assertContains(helmHelpers, [
+  'define "rfq-market-maker.topologySpreadConstraints"',
+  ".Values.topologySpread.topologyKeys",
+  ".Values.topologySpread.maxSkew",
+  ".Values.topologySpread.minDomains",
+  ".Values.topologySpread.whenUnsatisfiable",
+  'include "rfq-market-maker.selectorLabels"',
+  "app.kubernetes.io/component:",
+], "Helm topology-spread helper");
 
 for (const [label, source] of [
   ["backend", k8sDeployment],
@@ -855,6 +924,7 @@ for (const requiredSecurityField of [
   "serviceAccount",
   "autoscaling",
   "disruptionBudget",
+  "topologySpread",
   "replicaCount",
   "hedgeWorker",
   "analyticsWorker",
@@ -904,6 +974,19 @@ assert.equal(helmValuesSchema.properties.disruptionBudget.properties.maxUnavaila
 assert.equal(
   helmValuesSchema.properties.disruptionBudget.properties.unhealthyPodEvictionPolicy.const,
   "AlwaysAllow",
+);
+assert.equal(helmValuesSchema.properties.topologySpread.properties.enabled.const, true);
+assert.equal(helmValuesSchema.properties.topologySpread.properties.maxSkew.const, 1);
+assert.equal(helmValuesSchema.properties.topologySpread.properties.minDomains.const, 2);
+assert.equal(
+  helmValuesSchema.properties.topologySpread.properties.whenUnsatisfiable.const,
+  "DoNotSchedule",
+);
+assert.equal(helmValuesSchema.properties.topologySpread.properties.topologyKeys.minItems, 2);
+assert.equal(helmValuesSchema.properties.topologySpread.properties.topologyKeys.maxItems, 2);
+assert.deepEqual(
+  helmValuesSchema.properties.topologySpread.properties.topologyKeys.items.enum,
+  ["kubernetes.io/hostname", "topology.kubernetes.io/zone"],
 );
 assert.equal(helmValuesSchema.properties.replicaCount.minimum, 2);
 for (const workerName of [
@@ -1294,6 +1377,8 @@ assertContains(kubernetesChapter, [
   "`autoscaling/v2` HPA",
   "`policy/v1` PDB",
   "Workers intentionally do not use CPU HPAs",
+  "`topologySpreadConstraints`",
+  "`minDomains=2`",
 ], "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md");
 
 console.log("Deployment manifests consistency check passed");

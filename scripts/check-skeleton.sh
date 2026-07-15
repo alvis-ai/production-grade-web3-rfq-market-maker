@@ -656,6 +656,9 @@ grep -q 'listen 8080' infra/docker/nginx.conf
 grep -q 'container-runtime-check' Makefile
 grep -q 'kind: HorizontalPodAutoscaler' infra/k8s/backend-horizontal-pod-autoscaler.yaml
 test "$(grep -c 'kind: PodDisruptionBudget' infra/k8s/pod-disruption-budgets.yaml)" -eq 6
+test "$(grep -h -c 'topologySpreadConstraints:' infra/k8s/*-deployment.yaml | awk '{ total += $1 } END { print total }')" -eq 6
+grep -q 'define "rfq-market-maker.topologySpreadConstraints"' infra/helm/rfq-market-maker/templates/_helpers.tpl
+grep -q 'topology.kubernetes.io/zone' infra/helm/rfq-market-maker/values.yaml
 grep -q 'backend:' docker-compose.yml
 grep -q 'frontend:' docker-compose.yml
 grep -q 'postgres:' docker-compose.yml

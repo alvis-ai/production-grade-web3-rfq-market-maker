@@ -36,6 +36,7 @@ const kubernetesAvailabilityMetrics = [
   "kube_horizontalpodautoscaler_spec_max_replicas",
   "kube_horizontalpodautoscaler_status_condition",
   "kube_poddisruptionbudget_status_pod_disruptions_allowed",
+  "kube_pod_status_unschedulable",
 ];
 
 assert.equal(dashboard.title, "RFQ Market Maker Overview", "Grafana dashboard title must stay stable");

@@ -171,7 +171,7 @@ Key metrics include:
 - `rfq_settlement_indexer_last_poll_timestamp_seconds`
 - `rfq_settlement_indexer_cursor_update_age_seconds`
 
-Kubernetes control-plane observability comes from kube-state-metrics rather than the application `/metrics` endpoint. Production Prometheus must ingest `kube_horizontalpodautoscaler_status_desired_replicas`, `kube_horizontalpodautoscaler_spec_max_replicas`, `kube_horizontalpodautoscaler_status_condition`, and `kube_poddisruptionbudget_status_pod_disruptions_allowed` for the dedicated `rfq-market-maker` namespace. The shipped rules alert when the API remains at its HPA ceiling, when resource metrics cannot drive scaling, or when a workload PDB has no eviction capacity. These labels contain bounded controller and namespace names, never quote or user identifiers.
+Kubernetes control-plane observability comes from kube-state-metrics rather than the application `/metrics` endpoint. Production Prometheus must ingest `kube_horizontalpodautoscaler_status_desired_replicas`, `kube_horizontalpodautoscaler_spec_max_replicas`, `kube_horizontalpodautoscaler_status_condition`, `kube_poddisruptionbudget_status_pod_disruptions_allowed`, and `kube_pod_status_unschedulable` for the dedicated `rfq-market-maker` namespace. The shipped rules alert when the API remains at its HPA ceiling, when resource metrics cannot drive scaling, when a workload PDB has no eviction capacity, or when hard node/zone topology constraints cannot be satisfied. These labels contain bounded controller and namespace names, never quote or user identifiers.
 
 ## API Design
 
@@ -243,6 +243,7 @@ Kubernetes control-plane observability comes from kube-state-metrics rather than
 - HPA remains at maximum：verify API demand and every shared dependency before raising the cap; scaling stateless Pods cannot repair a saturated KMS, database, Redis or market-data source.
 - HPA metrics unavailable：restore Metrics Server and API CPU samples while holding a reviewed manual replica count.
 - PDB disruption allowance remains zero：stop node drain and restore healthy replicas before resuming eviction-aware maintenance.
+- Pods remain unschedulable：inspect scheduler events and restore labeled multi-zone capacity; do not weaken hard topology or resource constraints to make status green.
 
 ## Security Considerations
 
