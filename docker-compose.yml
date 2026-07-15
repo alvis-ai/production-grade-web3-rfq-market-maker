@@ -237,10 +237,6 @@ services:
     build:
       context: .
       dockerfile: infra/docker/frontend.Dockerfile
-      args:
-        VITE_RFQ_API_BASE_URL: http://localhost:3000
-        VITE_RFQ_SETTLEMENT_ADDRESS: 0x0000000000000000000000000000000000000004
-        VITE_WALLETCONNECT_PROJECT_ID: "00000000000000000000000000000000"
     depends_on:
       backend:
         condition: service_healthy

@@ -9,3 +9,7 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface Window {
+  readonly __RFQ_RUNTIME_CONFIG__?: ImportMetaEnv;
+}

@@ -6,11 +6,12 @@ const defaultWalletConnectProjectId = "00000000000000000000000000000000";
 
 export interface FrontendConfig {
   rfqApiBaseUrl: string;
-  rfqSettlementAddress: Address;
+  rfqSettlementAddress?: Address;
   walletConnectProjectId: string;
 }
 
-const frontendConfig = buildFrontendConfig(import.meta.env ?? {});
+const runtimeConfigEnv = typeof window === "undefined" ? undefined : window.__RFQ_RUNTIME_CONFIG__;
+const frontendConfig = resolveFrontendConfig(runtimeConfigEnv, import.meta.env ?? {});
 
 export const rfqApiBaseUrl = frontendConfig.rfqApiBaseUrl;
 export const rfqSettlementAddress = frontendConfig.rfqSettlementAddress;
@@ -21,9 +22,30 @@ export function buildFrontendConfig(env: unknown): FrontendConfig {
 
   return {
     rfqApiBaseUrl: normalizeBaseUrl(readOwnOptionalConfigString(env, "VITE_RFQ_API_BASE_URL")),
-    rfqSettlementAddress: normalizeAddress(readOwnOptionalConfigString(env, "VITE_RFQ_SETTLEMENT_ADDRESS")),
+    rfqSettlementAddress: normalizeAddress(readOwnConfigValue(env, "VITE_RFQ_SETTLEMENT_ADDRESS")),
     walletConnectProjectId: normalizeWalletConnectProjectId(readOwnOptionalConfigString(env, "VITE_WALLETCONNECT_PROJECT_ID")),
   };
+}
+
+export function resolveFrontendConfig(runtimeEnv: unknown, buildEnv: unknown): FrontendConfig {
+  if (runtimeEnv === undefined) return buildFrontendConfig(buildEnv);
+
+  assertConfigEnv(runtimeEnv, "frontend runtime config");
+  assertConfigEnv(buildEnv, "frontend build config");
+
+  return buildFrontendConfig({
+    VITE_RFQ_API_BASE_URL: readResolvedConfigValue(runtimeEnv, buildEnv, "VITE_RFQ_API_BASE_URL"),
+    VITE_RFQ_SETTLEMENT_ADDRESS: readResolvedConfigValue(
+      runtimeEnv,
+      buildEnv,
+      "VITE_RFQ_SETTLEMENT_ADDRESS",
+    ),
+    VITE_WALLETCONNECT_PROJECT_ID: readResolvedConfigValue(
+      runtimeEnv,
+      buildEnv,
+      "VITE_WALLETCONNECT_PROJECT_ID",
+    ),
+  });
 }
 
 export function normalizeBaseUrl(value: unknown): string {
@@ -53,8 +75,10 @@ export function normalizeBaseUrl(value: unknown): string {
   return `${parsed.origin}${pathname}`;
 }
 
-export function normalizeAddress(value: unknown): Address {
-  const candidate = readOptionalConfigString(value, "VITE_RFQ_SETTLEMENT_ADDRESS") ?? defaultRFQSettlementAddress;
+export function normalizeAddress(value: unknown): Address | undefined {
+  if (value === undefined) return defaultRFQSettlementAddress;
+  const candidate = readOptionalConfigString(value, "VITE_RFQ_SETTLEMENT_ADDRESS");
+  if (candidate === undefined) return undefined;
   if (!/^0x[a-fA-F0-9]{40}$/.test(candidate)) {
     throw new Error("VITE_RFQ_SETTLEMENT_ADDRESS must be a 20-byte hex address");
   }
@@ -84,19 +108,29 @@ function readOptionalConfigString(value: unknown, name: string): string | undefi
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function assertConfigEnv(value: unknown): asserts value is object {
+function assertConfigEnv(value: unknown, label = "frontend config env"): asserts value is object {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error("frontend config env must be an object");
+    throw new Error(`${label} must be an object`);
   }
 }
 
 function readOwnOptionalConfigString(env: object, name: string): string | undefined {
+  return readOptionalConfigString(readOwnConfigValue(env, name), name);
+}
+
+function readOwnConfigValue(env: object, name: string): unknown {
   if (name in env && !Object.prototype.hasOwnProperty.call(env, name)) {
     throw new Error(`frontend config env.${name} must be an own field when provided`);
   }
 
-  const value = Object.prototype.hasOwnProperty.call(env, name)
+  return Object.prototype.hasOwnProperty.call(env, name)
     ? (env as Record<string, unknown>)[name]
     : undefined;
-  return readOptionalConfigString(value, name);
+}
+
+function readResolvedConfigValue(runtimeEnv: object, buildEnv: object, name: string): unknown {
+  const runtimeValue = readOwnConfigValue(runtimeEnv, name);
+  return Object.prototype.hasOwnProperty.call(runtimeEnv, name)
+    ? runtimeValue
+    : readOwnConfigValue(buildEnv, name);
 }

@@ -58,6 +58,12 @@ const k8sToxicFlowAnalyzerNetworkPolicy = await readFile(
   "infra/k8s/toxic-flow-analyzer-network-policy.yaml",
   "utf8",
 );
+const k8sFrontendConfig = await readFile("infra/k8s/frontend-configmap.yaml", "utf8");
+const k8sFrontendSecret = await readFile("infra/k8s/frontend-api-key-secret.yaml", "utf8");
+const k8sFrontendDeployment = await readFile("infra/k8s/frontend-deployment.yaml", "utf8");
+const k8sFrontendService = await readFile("infra/k8s/frontend-service.yaml", "utf8");
+const k8sFrontendNetworkPolicy = await readFile("infra/k8s/frontend-network-policy.yaml", "utf8");
+const k8sFrontendIngress = await readFile("infra/k8s/frontend-ingress.yaml", "utf8");
 const helmValues = await readFile("infra/helm/rfq-market-maker/values.yaml", "utf8");
 const helmChart = await readFile("infra/helm/rfq-market-maker/Chart.yaml", "utf8");
 const helmHelpers = await readFile("infra/helm/rfq-market-maker/templates/_helpers.tpl", "utf8");
@@ -125,6 +131,11 @@ const helmToxicFlowAnalyzerNetworkPolicy = await readFile(
   "infra/helm/rfq-market-maker/templates/toxic-flow-analyzer-network-policy.yaml",
   "utf8",
 );
+const helmFrontendConfig = await readFile("infra/helm/rfq-market-maker/templates/frontend-configmap.yaml", "utf8");
+const helmFrontendDeployment = await readFile("infra/helm/rfq-market-maker/templates/frontend-deployment.yaml", "utf8");
+const helmFrontendService = await readFile("infra/helm/rfq-market-maker/templates/frontend-service.yaml", "utf8");
+const helmFrontendNetworkPolicy = await readFile("infra/helm/rfq-market-maker/templates/frontend-network-policy.yaml", "utf8");
+const helmFrontendIngress = await readFile("infra/helm/rfq-market-maker/templates/frontend-ingress.yaml", "utf8");
 const kubernetesChapter = await readFile("book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md", "utf8");
 
 const expectedRuntime = {
@@ -188,17 +199,17 @@ assert.equal(
 
 assert.equal(
   countOccurrences(k8sPodDisruptionBudgets, "kind: PodDisruptionBudget"),
-  6,
+  7,
   "raw manifests must define one PodDisruptionBudget per workload",
 );
 assert.equal(
   countOccurrences(k8sPodDisruptionBudgets, "maxUnavailable: 1"),
-  6,
+  7,
   "every raw PodDisruptionBudget must permit at most one unavailable replica",
 );
 assert.equal(
   countOccurrences(k8sPodDisruptionBudgets, "unhealthyPodEvictionPolicy: AlwaysAllow"),
-  6,
+  7,
   "every raw PodDisruptionBudget must permit unhealthy Pod eviction",
 );
 for (const workloadName of [
@@ -208,6 +219,7 @@ for (const workloadName of [
   "rfq-reconciliation-worker",
   "rfq-settlement-indexer",
   "rfq-toxic-flow-analyzer",
+  "rfq-frontend",
 ]) {
   assert.ok(
     countOccurrences(k8sPodDisruptionBudgets, `app.kubernetes.io/name: ${workloadName}`) === 1,
@@ -229,17 +241,17 @@ assertContains(helmHorizontalPodAutoscaler, [
 ], "Helm API HorizontalPodAutoscaler");
 assert.equal(
   countOccurrences(helmPodDisruptionBudgets, "kind: PodDisruptionBudget"),
-  6,
+  7,
   "Helm must template one PodDisruptionBudget per workload",
 );
 assert.equal(
   countOccurrences(helmPodDisruptionBudgets, ".Values.disruptionBudget.maxUnavailable"),
-  6,
+  7,
   "every Helm PodDisruptionBudget must use the reviewed unavailable bound",
 );
 assert.equal(
   countOccurrences(helmPodDisruptionBudgets, ".Values.disruptionBudget.unhealthyPodEvictionPolicy"),
-  6,
+  7,
   "every Helm PodDisruptionBudget must use the reviewed unhealthy eviction policy",
 );
 for (const component of [
@@ -249,6 +261,7 @@ for (const component of [
   "reconciliation-worker",
   "settlement-indexer",
   "toxic-flow-analyzer",
+  "frontend",
 ]) {
   assert.equal(
     countOccurrences(helmPodDisruptionBudgets, `app.kubernetes.io/component: ${component}`),
@@ -306,6 +319,7 @@ for (const [label, workloadName, source] of [
   ["reconciliation worker", "rfq-reconciliation-worker", k8sReconciliationDeployment],
   ["settlement indexer", "rfq-settlement-indexer", k8sIndexerDeployment],
   ["toxic-flow analyzer", "rfq-toxic-flow-analyzer", k8sToxicFlowAnalyzerDeployment],
+  ["frontend", "rfq-frontend", k8sFrontendDeployment],
 ]) {
   assert.equal(
     countOccurrences(source, "topologySpreadConstraints:"),
@@ -359,6 +373,7 @@ for (const [label, component, source] of [
   ["reconciliation worker", "reconciliation-worker", helmReconciliationDeployment],
   ["settlement indexer", "settlement-indexer", helmIndexerDeployment],
   ["toxic-flow analyzer", "toxic-flow-analyzer", helmToxicFlowAnalyzerDeployment],
+  ["frontend", "frontend", helmFrontendDeployment],
 ]) {
   assert.equal(
     countOccurrences(
@@ -378,6 +393,96 @@ assertContains(helmHelpers, [
   'include "rfq-market-maker.selectorLabels"',
   "app.kubernetes.io/component:",
 ], "Helm topology-spread helper");
+
+assertContains(k8sFrontendDeployment, [
+  "name: rfq-frontend",
+  "replicas: 2",
+  "automountServiceAccountToken: false",
+  "runAsNonRoot: true",
+  "runAsUser: 101",
+  "runAsGroup: 101",
+  "fsGroup: 101",
+  "type: RuntimeDefault",
+  "allowPrivilegeEscalation: false",
+  "readOnlyRootFilesystem: true",
+  'drop: ["ALL"]',
+  "sizeLimit: 16Mi",
+  "secretName: rfq-frontend-api-key",
+  "defaultMode: 0440",
+  "mountPath: /usr/share/nginx/html/runtime-config.js",
+], "raw frontend Deployment");
+assert.match(
+  k8sFrontendDeployment,
+  /image:\s+\S+@sha256:[0-9a-f]{64}/,
+  "raw frontend Deployment must pin a valid image digest",
+);
+assertContains(k8sFrontendConfig, [
+  'VITE_RFQ_API_BASE_URL: window.location.origin + "/api"',
+  "location = /api/quote",
+  "location = /api/submit",
+  "location = /api/pnl",
+  'location ~ "^/api/settlements/[A-Za-z0-9_:-]{1,128}$"',
+  'location ~ "^/api/hedges/[A-Za-z0-9_:-]{1,128}$"',
+  "location /api/ { return 404; }",
+  "include /etc/nginx/secrets/api-key.conf;",
+], "raw frontend BFF ConfigMap");
+for (const forbiddenRoute of ["/health", "/ready", "/metrics", "/admin"]) {
+  assert.ok(!k8sFrontendConfig.includes(`location = /api${forbiddenRoute}`), `frontend BFF must not expose ${forbiddenRoute}`);
+}
+assertContains(k8sFrontendSecret, [
+  "kind: Secret",
+  "name: rfq-frontend-api-key",
+  "api-key.conf:",
+  "proxy_set_header X-API-Key",
+], "raw frontend API key Secret");
+assertContains(k8sFrontendService, ["kind: Service", "name: rfq-frontend", "port: 8080", "targetPort: http"], "raw frontend Service");
+assertContains(k8sFrontendNetworkPolicy, [
+  "kind: NetworkPolicy",
+  "app.kubernetes.io/name: rfq-frontend",
+  "kubernetes.io/metadata.name: ingress-nginx",
+  "app.kubernetes.io/name: rfq-backend",
+  "port: 8080",
+  "port: 3000",
+], "raw frontend NetworkPolicy");
+assertContains(k8sFrontendIngress, [
+  "kind: Ingress",
+  'nginx.ingress.kubernetes.io/force-ssl-redirect: "true"',
+  'nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8"',
+  "ingressClassName: nginx",
+  "secretName: rfq-frontend-tls",
+], "raw frontend Ingress");
+assert.ok(!k8sFrontendIngress.includes("0.0.0.0/0"), "raw frontend Ingress must not admit the public internet");
+
+assertContains(helmHelpers, [
+  'define "rfq-market-maker.frontendImage"',
+  ".Values.frontend.image.digest",
+], "Helm frontend image helper");
+assertContains(helmFrontendDeployment, [
+  "{{- if .Values.frontend.enabled }}",
+  'include "rfq-market-maker.frontendImage"',
+  'include "rfq-market-maker.topologySpreadConstraints" (list . "frontend")',
+  "toYaml .Values.frontend.podSecurityContext",
+  "toYaml .Values.frontend.containerSecurityContext",
+  "automountServiceAccountToken: false",
+  "checksum/frontend-config:",
+], "Helm frontend Deployment");
+assertContains(helmFrontendConfig, [
+  'window.location.origin + "/api"',
+  "location /api/ { return 404; }",
+  "include /etc/nginx/secrets/api-key.conf;",
+], "Helm frontend BFF ConfigMap");
+assertContains(helmFrontendService, ["kind: Service", ".Values.frontend.service.port"], "Helm frontend Service");
+assertContains(helmFrontendNetworkPolicy, [
+  "kind: NetworkPolicy",
+  "app.kubernetes.io/component: frontend",
+  "app.kubernetes.io/component: api",
+], "Helm frontend NetworkPolicy");
+assertContains(helmFrontendIngress, [
+  "kind: Ingress",
+  "force-ssl-redirect",
+  "whitelist-source-range",
+  ".Values.frontend.ingress.tlsSecretName",
+], "Helm frontend Ingress");
 
 for (const [label, source] of [
   ["backend", k8sDeployment],
@@ -931,6 +1036,7 @@ for (const requiredSecurityField of [
   "reconciliationWorker",
   "settlementIndexer",
   "toxicFlowAnalyzer",
+  "frontend",
 ]) {
   assert.ok(
     helmValuesSchema.required.includes(requiredSecurityField),
@@ -989,6 +1095,28 @@ assert.deepEqual(
   ["kubernetes.io/hostname", "topology.kubernetes.io/zone"],
 );
 assert.equal(helmValuesSchema.properties.replicaCount.minimum, 2);
+assert.equal(helmValuesSchema.properties.frontend.properties.enabled.const, true);
+assert.equal(helmValuesSchema.properties.frontend.properties.replicaCount.minimum, 2);
+assert.equal(
+  helmValuesSchema.properties.frontend.properties.image.properties.digest.oneOf[1].pattern,
+  "^sha256:[0-9a-f]{64}$",
+);
+assert.equal(
+  helmValuesSchema.properties.frontend.properties.ingress.properties.enabled.const,
+  true,
+);
+assert.deepEqual(
+  helmValuesSchema.properties.frontend.properties.ingress.properties.sourceRanges.items.not.enum,
+  ["0.0.0.0/0", "::/0"],
+);
+assert.equal(
+  helmValuesSchema.properties.frontend.properties.podSecurityContext.properties.runAsUser.const,
+  101,
+);
+assert.equal(
+  helmValuesSchema.properties.frontend.properties.containerSecurityContext.properties.readOnlyRootFilesystem.const,
+  true,
+);
 for (const workerName of [
   "hedgeWorker",
   "analyticsWorker",

@@ -13,6 +13,23 @@ spec:
     matchLabels:
       {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: api
+{{- if .Values.frontend.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-frontend
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  maxUnavailable: {{ .Values.disruptionBudget.maxUnavailable }}
+  unhealthyPodEvictionPolicy: {{ .Values.disruptionBudget.unhealthyPodEvictionPolicy }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+{{- end }}
 {{- if .Values.hedgeWorker.enabled }}
 ---
 apiVersion: policy/v1

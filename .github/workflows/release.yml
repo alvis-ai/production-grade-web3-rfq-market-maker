@@ -172,15 +172,20 @@ jobs:
       - name: Validate Helm chart with backend digest
         env:
           BACKEND_DIGEST: ${{ steps.backend-build.outputs.digest }}
+          FRONTEND_DIGEST: ${{ steps.frontend-build.outputs.digest }}
         run: |
           helm lint infra/helm/rfq-market-maker \
             --kube-version 1.31.0 \
             --set-string image.repository="${BACKEND_IMAGE}" \
-            --set-string image.digest="${BACKEND_DIGEST}"
+            --set-string image.digest="${BACKEND_DIGEST}" \
+            --set-string frontend.image.repository="${FRONTEND_IMAGE}" \
+            --set-string frontend.image.digest="${FRONTEND_DIGEST}"
           helm template rfq-market-maker infra/helm/rfq-market-maker \
             --kube-version 1.31.0 \
             --set-string image.repository="${BACKEND_IMAGE}" \
-            --set-string image.digest="${BACKEND_DIGEST}" >/dev/null
+            --set-string image.digest="${BACKEND_DIGEST}" \
+            --set-string frontend.image.repository="${FRONTEND_IMAGE}" \
+            --set-string frontend.image.digest="${FRONTEND_DIGEST}" >/dev/null
 
       - name: Package Helm chart
         env:

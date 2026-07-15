@@ -1,35 +1,34 @@
-{{- if .Values.networkPolicy.enabled }}
+{{- if and .Values.frontend.enabled .Values.networkPolicy.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "rfq-market-maker.fullname" . }}
+  name: {{ include "rfq-market-maker.fullname" . }}-frontend
   labels:
     {{- include "rfq-market-maker.labels" . | nindent 4 }}
-    app.kubernetes.io/component: api
+    app.kubernetes.io/component: frontend
 spec:
   podSelector:
     matchLabels:
       {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: api
+      app.kubernetes.io/component: frontend
   policyTypes:
     - Ingress
     - Egress
   ingress:
     - from:
-        {{- if .Values.frontend.enabled }}
-        - podSelector:
-            matchLabels:
-              {{- include "rfq-market-maker.selectorLabels" . | nindent 14 }}
-              app.kubernetes.io/component: frontend
-        {{- end }}
         - namespaceSelector:
             matchLabels:
               {{- toYaml .Values.networkPolicy.apiIngressNamespaceLabels | nindent 14 }}
-        - namespaceSelector:
+      ports:
+        - protocol: TCP
+          port: {{ .Values.frontend.service.port }}
+  egress:
+    - to:
+        - podSelector:
             matchLabels:
-              {{- toYaml .Values.networkPolicy.monitoringNamespaceLabels | nindent 14 }}
+              {{- include "rfq-market-maker.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: api
       ports:
         - protocol: TCP
           port: {{ .Values.service.port }}
-  egress: []
 {{- end }}

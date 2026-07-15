@@ -117,7 +117,8 @@ stateDiagram-v2
 
 - React/Vite 作为第一版前端。
 - SDK 是 API 和 EIP-712 的唯一客户端抽象。
-- `VITE_RFQ_API_BASE_URL` 是前端 API endpoint 配置入口，`frontend/src/lib/config.ts` 负责规范化 origin 和 trailing slash，同时拒绝非对象 env、继承的项目 `VITE_*` 字段、非原始字符串配置值、credentials、wildcard host、query string 和 fragment。Vite 自带的其他 env 字段可以存在，但 RFQ 配置键必须是 own optional fields。
+- `VITE_RFQ_API_BASE_URL` 是公开 API endpoint 配置键。`frontend/src/lib/config.ts` 优先读取 `window.__RFQ_RUNTIME_CONFIG__`，缺失字段才回退到 build env；两层都只接受 own fields，RFQ 配置键必须是 own optional fields，并拒绝非对象、继承字段、非原始字符串、credentials、wildcard host、query string 和 fragment。
+- 生产浏览器只调用同源 `/api`。Rootless Nginx BFF 从只读 Secret 注入机构 API Key，并只代理 quote、submit、quote/settlement/hedge status 与 PnL；健康、指标、管理接口及未知路由 fail closed。任何机构 API secret 都不得进入 `VITE_*`、runtime config、浏览器存储或 bundle。
 - `frontend/src/lib/rfq.ts` 使用 SDK `traceId` provider 为每个浏览器 API 请求生成 `tr_web_*` trace id，避免前端错误排障只能依赖后端生成值。
 - `VITE_RFQ_SETTLEMENT_ADDRESS` 是浏览器侧合约写入目标；未配置时链上提交按钮保持禁用，但 API relay 路径仍可用于本地 smoke。
 - `VITE_WALLETCONNECT_PROJECT_ID` 由 RainbowKit 使用，本地默认值只用于构建和离线开发；显式值必须是非空安全字符串，长度不超过 128，只允许字母、数字、下划线和连字符。

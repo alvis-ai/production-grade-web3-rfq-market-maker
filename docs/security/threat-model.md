@@ -13,13 +13,15 @@
 - Settlement events
 - Hedge venue credentials
 - Institutional RFQ API secrets and scope assignments
+- Internal frontend BFF credential, runtime configuration, and source allowlist
 - Kafka/ClickHouse analytics credentials and high-dimensional event data
 
 ## Trust Boundaries
 
 ```mermaid
 flowchart LR
-  User[User Wallet] --> API[Public API Boundary]
+  User[User Wallet] --> BFF[Source-Restricted Frontend BFF]
+  BFF --> API[Authenticated API Boundary]
   API --> Internal[Internal Service Boundary]
   Internal --> Signer[Signer Boundary]
   User --> Chain[Blockchain Boundary]
@@ -55,6 +57,7 @@ flowchart LR
 | Plaintext or downgrade-prone dependency transport | Database rows, Redis identities, analytics events or credentials can be observed or modified in transit | non-local PostgreSQL `sslmode=verify-full`, optional absolute CA path, Redis `rediss://`, Kafka TLS plus SASL, ClickHouse HTTPS, shared runtime validation in API, workers and migration |
 | Event poisoning or offset skip | Analytics evidence becomes incomplete or misleading | closed envelope validation, 1 MiB bound, insert-before-offset commit, replay and event-id deduplication |
 | API credential disclosure or scope escalation | Unauthorized quote, submit, status, or PnL access | SHA-256 secret digests only, constant-time comparison, fixed scopes, expiry, Secret isolation, generic rejection responses and rotation |
+| Frontend credential disclosure or proxy route expansion | Browser users recover an institutional secret or reach health, metrics, admin, or future API routes | per-institution TLS/source-restricted deployment, plaintext key only in a read-only Secret include, same-origin runtime config without secrets, exact route/method allowlist, unknown `/api/` fail-closed, dedicated NetworkPolicies, restart-on-rotation |
 | Cross-tenant IDOR or signed-quote submission | One institution reads or settles another institution's quote and derived records | Persist immutable quote `principal_id`; scope quote, submit and PnL access by principal; derive settlement and hedge ownership from quote; return not-found on mismatch |
 | Unauthorized or conflicting quote-control change | Attacker or stale operator action disables global/pair quoting or resumes unsafe signing | Separate `admin:read`/`admin:write` scopes, dedicated operations keys, normalized direction-independent pair keys, CAS version, mandatory reason, authenticated audit row and bounded metrics |
 | Quote-control database outage | Replicas disagree about whether new quotes may be signed | Shared PostgreSQL singleton, readiness degradation and fail-closed `POST /quote`; never fall back to pod-local enabled state in production |
@@ -69,6 +72,7 @@ flowchart LR
 - Non-local quote requests must claim a shared principal-scoped idempotency record before nonce generation; key reuse with a different payload, active ownership, or unavailable storage must fail closed.
 - API must validate all addresses and integer strings.
 - Every non-local business API request must authenticate with a scoped key; probes remain separately network-restricted.
+- Production browsers must use the per-institution BFF. Institutional plaintext keys must never enter Vite variables, runtime JavaScript, browser storage, images, logs, or metrics; the BFF may proxy only the six reviewed trading route/method pairs and must reject all other API paths.
 - Global and pair administrative quote-control routes require dedicated admin scopes; ordinary quote, submit, status, PnL and browser credentials must not inherit them.
 - Human toxic-flow score reads and corrections require separate least-privilege admin credentials. The automatic analyzer uses only its restricted PostgreSQL role; analyzer database credentials must not reach browser, quote, submit, signer, hedge or analytics runtimes, and admin API credentials must not reach analyzer pods.
 - API and worker pods must be selected by ingress-and-egress policies. API ingress is limited to explicitly labeled ingress-controller and monitoring namespaces; worker metrics ingress is limited to same-namespace callers and the explicit monitoring namespace. Standard Kubernetes policies declare `egress: []`; per-workload Cilium policies permit cluster DNS and exact approved KMS、CEX、Chainlink/RPC、database、cache and analytics FQDN/port pairs. Runtime URL and FQDN policy changes must deploy together, and no generic 443 or wildcard destination rule may bypass the allowlist.

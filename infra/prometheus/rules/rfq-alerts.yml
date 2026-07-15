@@ -46,6 +46,15 @@ groups:
           summary: RFQ Pods cannot satisfy topology, resource, taint, or affinity constraints
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQFrontendUnavailable
+        expr: max(kube_deployment_status_replicas_unavailable{namespace="rfq-market-maker",deployment=~".*frontend"}) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ internal frontend has unavailable replicas
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQQuoteTrafficStopped
         expr: increase(rfq_quote_requests_total[10m]) == 0
         for: 10m

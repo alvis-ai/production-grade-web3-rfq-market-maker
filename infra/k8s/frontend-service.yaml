@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rfq-frontend
+  namespace: rfq-market-maker
+  labels:
+    app.kubernetes.io/name: rfq-frontend
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: rfq-frontend
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

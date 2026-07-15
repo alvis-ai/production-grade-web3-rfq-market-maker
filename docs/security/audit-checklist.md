@@ -50,6 +50,8 @@
 - [x] Public API responses include no-store cache control and baseline browser security headers.
 - [x] Browser access is restricted by a CORS origin allowlist.
 - [x] Browser bundles never receive institutional API secrets; production browser access requires a trusted backend-for-frontend or another approved session boundary.
+- [x] The internal frontend BFF injects its dedicated key from a read-only Secret, proxies only six reviewed route/method pairs, and rejects health, readiness, metrics, admin, and unknown API paths.
+- [x] Frontend Ingress requires TLS and a non-public source-CIDR allowlist; frontend/API NetworkPolicies permit only ingress-to-frontend and frontend-to-API traffic.
 - [x] Sensitive thresholds are not exposed to users.
 - [x] Receipt-confirmed E2E broadcasts `submitQuote` on Anvil and verifies calldata, receipt, event, balances, nonce, inventory, hedge and PnL.
 

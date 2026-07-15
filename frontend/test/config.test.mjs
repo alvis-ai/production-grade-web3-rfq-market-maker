@@ -17,13 +17,19 @@ async function importConfigModule() {
   return import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`);
 }
 
-const { buildFrontendConfig, normalizeAddress, normalizeBaseUrl, normalizeWalletConnectProjectId } =
-  await importConfigModule();
+const {
+  buildFrontendConfig,
+  normalizeAddress,
+  normalizeBaseUrl,
+  normalizeWalletConnectProjectId,
+  resolveFrontendConfig,
+} = await importConfigModule();
 
 test("frontend config normalizers preserve defaults and canonical strings", () => {
   assert.equal(normalizeBaseUrl(undefined), "http://localhost:3000");
   assert.equal(normalizeBaseUrl(" https://api.example.com/rfq/ "), "https://api.example.com/rfq");
   assert.equal(normalizeAddress(undefined), "0x0000000000000000000000000000000000000004");
+  assert.equal(normalizeAddress(""), undefined);
   assert.equal(normalizeWalletConnectProjectId(undefined), "00000000000000000000000000000000");
 });
 
@@ -41,6 +47,65 @@ test("frontend config builder reads only supported own env fields", () => {
       walletConnectProjectId: "wallet_project",
     },
   );
+});
+
+test("runtime config overrides build values and inherits omitted build values", () => {
+  assert.deepEqual(
+    resolveFrontendConfig(
+      {
+        VITE_RFQ_API_BASE_URL: "https://app.example.com/api/",
+        VITE_RFQ_SETTLEMENT_ADDRESS: "0x2222222222222222222222222222222222222222",
+      },
+      {
+        VITE_RFQ_API_BASE_URL: "https://build.example.com",
+        VITE_RFQ_SETTLEMENT_ADDRESS: "0x1111111111111111111111111111111111111111",
+        VITE_WALLETCONNECT_PROJECT_ID: "build_project",
+      },
+    ),
+    {
+      rfqApiBaseUrl: "https://app.example.com/api",
+      rfqSettlementAddress: "0x2222222222222222222222222222222222222222",
+      walletConnectProjectId: "build_project",
+    },
+  );
+});
+
+test("blank runtime settlement address disables wallet submission instead of using a build value", () => {
+  assert.deepEqual(
+    resolveFrontendConfig(
+      { VITE_RFQ_SETTLEMENT_ADDRESS: "" },
+      { VITE_RFQ_SETTLEMENT_ADDRESS: "0x1111111111111111111111111111111111111111" },
+    ),
+    {
+      rfqApiBaseUrl: "http://localhost:3000",
+      rfqSettlementAddress: undefined,
+      walletConnectProjectId: "00000000000000000000000000000000",
+    },
+  );
+});
+
+test("runtime config rejects malformed and inherited fields", () => {
+  assert.throws(
+    () => resolveFrontendConfig(null, {}),
+    /frontend runtime config must be an object/,
+  );
+  assert.throws(
+    () => resolveFrontendConfig({}, null),
+    /frontend build config must be an object/,
+  );
+  assert.throws(
+    () => resolveFrontendConfig(Object.create({ VITE_RFQ_API_BASE_URL: "https://evil.example" }), {}),
+    /frontend config env\.VITE_RFQ_API_BASE_URL must be an own field when provided/,
+  );
+});
+
+test("frontend loads the external runtime config before the application bundle", async () => {
+  const indexHtml = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const runtimeScriptIndex = indexHtml.indexOf('src="/runtime-config.js"');
+  const applicationScriptIndex = indexHtml.indexOf('src="/src/app/main.tsx"');
+
+  assert.ok(runtimeScriptIndex >= 0);
+  assert.ok(applicationScriptIndex > runtimeScriptIndex);
 });
 
 test("frontend config builder rejects malformed or inherited env fields", () => {

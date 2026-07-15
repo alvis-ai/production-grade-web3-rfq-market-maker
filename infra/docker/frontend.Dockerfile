@@ -9,16 +9,11 @@ COPY frontend/package.json frontend/package.json
 COPY frontend/tsconfig.json frontend/tsconfig.json
 COPY frontend/vite.config.ts frontend/vite.config.ts
 COPY frontend/index.html frontend/index.html
+COPY frontend/public frontend/public
 COPY frontend/src frontend/src
 COPY sdk/package.json sdk/package.json
 COPY sdk/tsconfig.json sdk/tsconfig.json
 COPY sdk/src sdk/src
-ARG VITE_RFQ_API_BASE_URL=http://localhost:3000
-ARG VITE_RFQ_SETTLEMENT_ADDRESS=0x0000000000000000000000000000000000000004
-ARG VITE_WALLETCONNECT_PROJECT_ID=00000000000000000000000000000000
-ENV VITE_RFQ_API_BASE_URL=$VITE_RFQ_API_BASE_URL
-ENV VITE_RFQ_SETTLEMENT_ADDRESS=$VITE_RFQ_SETTLEMENT_ADDRESS
-ENV VITE_WALLETCONNECT_PROJECT_ID=$VITE_WALLETCONNECT_PROJECT_ID
 RUN --mount=type=cache,id=rfq-frontend-corepack,target=/root/.cache \
   --mount=type=cache,id=rfq-frontend-pnpm,target=/root/.local/share/pnpm/store \
   corepack enable \

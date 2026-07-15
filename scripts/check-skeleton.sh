@@ -636,9 +636,8 @@ grep -q 'COPY package.json pnpm-lock.yaml pnpm-workspace.yaml' infra/docker/fron
 grep -q -- '--frozen-lockfile' infra/docker/frontend.Dockerfile
 grep -q 'apk add --no-cache python3 make g++' infra/docker/frontend.Dockerfile
 grep -q 'ENV npm_config_nodedir=/usr/local' infra/docker/frontend.Dockerfile
-grep -q 'VITE_RFQ_API_BASE_URL' infra/docker/frontend.Dockerfile
-grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS' infra/docker/frontend.Dockerfile
-grep -q 'VITE_WALLETCONNECT_PROJECT_ID' infra/docker/frontend.Dockerfile
+grep -q 'COPY frontend/public frontend/public' infra/docker/frontend.Dockerfile
+! grep -q '^ARG VITE_RFQ_' infra/docker/frontend.Dockerfile
 grep -q 'COPY sdk/src sdk/src' infra/docker/frontend.Dockerfile
 grep -q '@rfq-market-maker/frontend\.\.\.' infra/docker/frontend.Dockerfile
 grep -q 'pnpm --filter @rfq-market-maker/frontend build' infra/docker/frontend.Dockerfile
@@ -655,8 +654,8 @@ grep -q 'pid /tmp/nginx.pid' infra/docker/nginx.conf
 grep -q 'listen 8080' infra/docker/nginx.conf
 grep -q 'container-runtime-check' Makefile
 grep -q 'kind: HorizontalPodAutoscaler' infra/k8s/backend-horizontal-pod-autoscaler.yaml
-test "$(grep -c 'kind: PodDisruptionBudget' infra/k8s/pod-disruption-budgets.yaml)" -eq 6
-test "$(grep -h -c 'topologySpreadConstraints:' infra/k8s/*-deployment.yaml | awk '{ total += $1 } END { print total }')" -eq 6
+test "$(grep -c 'kind: PodDisruptionBudget' infra/k8s/pod-disruption-budgets.yaml)" -eq 7
+test "$(grep -h -c 'topologySpreadConstraints:' infra/k8s/*-deployment.yaml | awk '{ total += $1 } END { print total }')" -eq 7
 grep -q 'define "rfq-market-maker.topologySpreadConstraints"' infra/helm/rfq-market-maker/templates/_helpers.tpl
 grep -q 'topology.kubernetes.io/zone' infra/helm/rfq-market-maker/values.yaml
 grep -q 'backend:' docker-compose.yml
@@ -665,9 +664,9 @@ grep -q 'postgres:' docker-compose.yml
 grep -q 'condition: service_healthy' docker-compose.yml
 grep -q 'dockerfile: infra/docker/backend.Dockerfile' docker-compose.yml
 grep -q 'dockerfile: infra/docker/frontend.Dockerfile' docker-compose.yml
-grep -q 'VITE_RFQ_API_BASE_URL: http://localhost:3000' docker-compose.yml
-grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS: 0x0000000000000000000000000000000000000004' docker-compose.yml
-grep -q 'VITE_WALLETCONNECT_PROJECT_ID: "00000000000000000000000000000000"' docker-compose.yml
+test -s frontend/public/runtime-config.js
+grep -q 'window.__RFQ_RUNTIME_CONFIG__' frontend/public/runtime-config.js
+grep -q 'src="/runtime-config.js"' frontend/index.html
 grep -q 'pg_isready -U rfq -d rfq_market_maker' docker-compose.yml
 grep -q './docs/database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro' docker-compose.yml
 grep -q 'redis-cli' docker-compose.yml

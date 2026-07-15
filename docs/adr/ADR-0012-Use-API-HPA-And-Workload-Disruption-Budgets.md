@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The API and five post-trade workers run as replicated Kubernetes Deployments, but fixed replica counts alone do not express how the system should react to API demand or voluntary node disruption. A node drain could evict multiple replicas of one component at once, while an API traffic spike could exhaust the fixed capacity even though the application is stateless and already exposes readiness probes and CPU requests.
+The API, internal frontend, and five post-trade workers run as replicated Kubernetes Deployments, but fixed replica counts alone do not express how the system should react to API demand or voluntary node disruption. A node drain could evict multiple replicas of one component at once, while an API traffic spike could exhaust the fixed capacity even though the application is stateless and already exposes readiness probes and CPU requests.
 
 CPU utilization is a defensible first autoscaling signal for the synchronous API because request processing consumes CPU and every replica serves the same routes. It is not a defensible signal for polling workers: hedge, analytics, reconciliation, settlement-indexer, and toxic-flow throughput is governed by durable backlog, external dependency latency, leases, and venue or chain limits. A worker can have low CPU while its queue is critically delayed.
 
@@ -14,7 +14,7 @@ CPU utilization is a defensible first autoscaling signal for the synchronous API
 
 Run an `autoscaling/v2` HorizontalPodAutoscaler for the API only. It keeps at least two replicas, permits up to ten, targets 70 percent average CPU utilization relative to the configured CPU request, allows prompt scale-up, and applies a 300-second scale-down stabilization window with a 25-percent-per-minute reduction limit. Metrics Server or an equivalent `metrics.k8s.io` provider is a cluster prerequisite.
 
-Create a `policy/v1` PodDisruptionBudget for the API and every enabled worker. Each budget selects exactly one Deployment component, permits at most one unavailable replica, and uses `AlwaysAllow` for unhealthy Pod eviction so a permanently unready Pod cannot deadlock node maintenance. Default Helm values keep every workload at two replicas or more; operators must not reduce a protected workload to one replica and claim high availability.
+Create a `policy/v1` PodDisruptionBudget for the API, internal frontend, and every enabled worker. Each budget selects exactly one Deployment component, permits at most one unavailable replica, and uses `AlwaysAllow` for unhealthy Pod eviction so a permanently unready Pod cannot deadlock node maintenance. Default Helm values keep every workload at two replicas or more; operators must not reduce a protected workload to one replica and claim high availability.
 
 Apply two hard `topologySpreadConstraints` to every Deployment. Both use `maxSkew=1`, `minDomains=2`, and `whenUnsatisfiable=DoNotSchedule`; one uses `kubernetes.io/hostname` and the other uses `topology.kubernetes.io/zone`. Every selector is identical to its owning Deployment selector. Production therefore requires Kubernetes 1.31 or newer and at least two eligible nodes in two correctly labeled zones. If that prerequisite is unavailable, Helm rejects the cluster version or the second replica remains Pending instead of creating a false high-availability state in one failure domain.
 

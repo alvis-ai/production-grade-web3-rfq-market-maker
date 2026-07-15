@@ -1,6 +1,18 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
+  name: rfq-frontend
+  namespace: rfq-market-maker
+spec:
+  maxUnavailable: 1
+  unhealthyPodEvictionPolicy: AlwaysAllow
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rfq-frontend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
   name: rfq-backend
   namespace: rfq-market-maker
 spec:

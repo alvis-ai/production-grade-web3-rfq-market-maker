@@ -1,0 +1,88 @@
+{{- if .Values.frontend.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-frontend
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+data:
+  runtime-config.js: |
+    window.__RFQ_RUNTIME_CONFIG__ = Object.freeze({
+      VITE_RFQ_API_BASE_URL: window.location.origin + "/api",
+      VITE_RFQ_SETTLEMENT_ADDRESS: {{ .Values.frontend.runtimeConfig.settlementAddress | quote }},
+      VITE_WALLETCONNECT_PROJECT_ID: {{ .Values.frontend.runtimeConfig.walletConnectProjectId | quote }},
+    });
+  nginx.conf: |
+    worker_processes auto;
+    pid /tmp/nginx.pid;
+    error_log /dev/stderr warn;
+
+    events { worker_connections 1024; }
+
+    http {
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+      access_log /dev/stdout;
+      sendfile on;
+      client_max_body_size 32k;
+      client_body_temp_path /tmp/client_temp;
+      proxy_temp_path /tmp/proxy_temp;
+      fastcgi_temp_path /tmp/fastcgi_temp;
+      uwsgi_temp_path /tmp/uwsgi_temp;
+      scgi_temp_path /tmp/scgi_temp;
+
+      server {
+        listen {{ .Values.frontend.service.port }};
+        server_name _;
+        root /usr/share/nginx/html;
+        index index.html;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy no-referrer always;
+        add_header X-Frame-Options DENY always;
+
+        location = /runtime-config.js {
+          add_header Cache-Control "no-store" always;
+          try_files $uri =404;
+        }
+        location = /api/quote {
+          limit_except POST { deny all; }
+          include /etc/nginx/rfq-proxy.conf;
+        }
+        location ~ "^/api/quote/[A-Za-z0-9_:-]{1,128}$" {
+          limit_except GET { deny all; }
+          include /etc/nginx/rfq-proxy.conf;
+        }
+        location = /api/submit {
+          limit_except POST { deny all; }
+          include /etc/nginx/rfq-proxy.conf;
+        }
+        location = /api/pnl {
+          limit_except GET { deny all; }
+          include /etc/nginx/rfq-proxy.conf;
+        }
+        location ~ "^/api/settlements/[A-Za-z0-9_:-]{1,128}$" {
+          limit_except GET { deny all; }
+          include /etc/nginx/rfq-proxy.conf;
+        }
+        location ~ "^/api/hedges/[A-Za-z0-9_:-]{1,128}$" {
+          limit_except GET { deny all; }
+          include /etc/nginx/rfq-proxy.conf;
+        }
+        location /api/ { return 404; }
+        location / { try_files $uri $uri/ /index.html; }
+      }
+    }
+  rfq-proxy.conf: |
+    rewrite ^/api/(.*)$ /$1 break;
+    proxy_pass http://{{ include "rfq-market-maker.fullname" . }}:{{ .Values.service.port }};
+    proxy_http_version 1.1;
+    proxy_connect_timeout 2s;
+    proxy_read_timeout 30s;
+    proxy_send_timeout 30s;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Trace-Id $http_x_trace_id;
+    include /etc/nginx/secrets/api-key.conf;
+{{- end }}

@@ -251,7 +251,7 @@ make cex-orderbook-integration-check
 
 Direct `buildServer(options)` embedding follows the same runtime bounds for `bodyLimitBytes` and `quoteTtlSeconds`, and rejects non-boolean `logger`, `enableHsts` or `trustProxy` values before the Fastify instance is created.
 
-The frontend reads `VITE_RFQ_API_BASE_URL`, `VITE_RFQ_SETTLEMENT_ADDRESS` and `VITE_WALLETCONNECT_PROJECT_ID` at Vite build/dev-server time. It shows the active API endpoint in the trading console header, sends a dynamic `tr_web_*` `x-trace-id` through the SDK for each API request, and uses Wagmi/RainbowKit with the SDK contract helpers for wallet-driven settlement. Before enabling `submitQuote`, it reads the exact `tokenIn.allowance(user, settlement)` and requests only the quoted `amountIn`; a non-zero insufficient allowance is first reset to zero for USDT-style compatibility, and every approval must have a successful receipt before the allowance is re-read. Wallet and contract-call failures are normalized into bounded UI messages, preferring viem/wagmi `shortMessage`, `details` or custom-error cause text when present. After a wallet transaction hash or accepted submit response, the console automatically follows quote, settlement, hedge, fee-reconciliation and PnL state with bounded 1-8 second exponential polling. Resource identities are checked before display, and every async path is bound to a quote-session version so edits or wallet changes prevent stale responses from repopulating a cleared trade.
+The frontend reads `VITE_RFQ_API_BASE_URL`, `VITE_RFQ_SETTLEMENT_ADDRESS` and `VITE_WALLETCONNECT_PROJECT_ID` from `/runtime-config.js` before falling back to Vite build/dev-server values. It shows the active API endpoint in the trading console header, sends a dynamic `tr_web_*` `x-trace-id` through the SDK for each API request, and uses Wagmi/RainbowKit with the SDK contract helpers for wallet-driven settlement. Before enabling `submitQuote`, it reads the exact `tokenIn.allowance(user, settlement)` and requests only the quoted `amountIn`; a non-zero insufficient allowance is first reset to zero for USDT-style compatibility, and every approval must have a successful receipt before the allowance is re-read. Wallet and contract-call failures are normalized into bounded UI messages, preferring viem/wagmi `shortMessage`, `details` or custom-error cause text when present. After a wallet transaction hash or accepted submit response, the console automatically follows quote, settlement, hedge, fee-reconciliation and PnL state with bounded 1-8 second exponential polling. Resource identities are checked before display, and every async path is bound to a quote-session version so edits or wallet changes prevent stale responses from repopulating a cleared trade. Production uses same-origin `/api`; a source-restricted rootless Nginx BFF injects the institution key from a read-only Secret and forwards only six reviewed route/method pairs.
 
 The gross model is bound to the immutable quote-time market snapshot and aggregates `/pnl` totals by `(chainId, tokenOut)`; the net model uses its separate valuation-token grouping.
 
@@ -388,7 +388,7 @@ kubectl -n rfq-market-maker create secret generic rfq-database-migration-secrets
   --from-literal=DATABASE_URL='postgres://migrator:password@postgres.example.com:5432/rfq_market_maker?sslmode=verify-full'
 ```
 
-The API credential digest JSON is exposed to the backend only through Helm `apiKeySecret`; it is not part of the ConfigMap or worker Secrets.
+The API credential digest JSON is exposed to the backend only through Helm `apiKeySecret`; it is not part of the ConfigMap or worker Secrets. The internal frontend uses a separate plaintext institutional key Secret containing `api-key.conf`; rootless Nginx injects it only for six allowlisted trading routes. Deploy one source-restricted TLS frontend per institution, never expose admin/health/metrics routes, and roll the frontend Deployment after rotating this Secret.
 
 The Helm chart expects the KMS key id, trusted signer address, and settlement address through `signerSecret`, the Redis URL through `redisSecret`, and the API PostgreSQL URL through `databaseSecret.name` / `databaseSecret.urlKey`. `serviceAccount.annotations` binds the backend Pod to a workload identity with only `kms:Sign` on the configured key. `hedgeWorker.secret` references the separate worker database and Binance credential keys; `analyticsWorker.secret` references the analytics database, Kafka SASL and ClickHouse credentials; `settlementIndexer.secret` references only its database URL and RPC-bearing chain JSON; `toxicFlowAnalyzer.secret` references only its database URL. Routing, markout policy, and broker endpoint metadata stay in non-secret values.
 
@@ -396,7 +396,7 @@ API, hedge, analytics, reconciliation, settlement-indexer, and toxic-flow analyz
 
 Artifact release is handled by `.github/workflows/release.yml`. A `v*.*.*` tag or manual dispatch first reruns `make verify` and Foundry tests in a read-only job, then builds the backend and frontend images for `linux/amd64` and publishes them to GHCR with BuildKit SBOM and `mode=max` provenance. Before either digest is signed, the workflow pulls the immutable images and probes both under a read-only root filesystem, bounded `/tmp`, non-root user, no capabilities and `no-new-privileges`. It then signs each returned digest through Cosign keyless OIDC, packages the Helm chart, publishes it as an OCI chart, and uploads `release-manifest.json`. The publishing job cannot run unless verification passes; the workflow has no pull-request trigger or cluster credentials. All Actions use full commit SHA pins; Dependabot proposes weekly updates.
 
-Production deployment must consume the backend digest from `release-manifest.json`:
+Production deployment must consume both backend and frontend digests from `release-manifest.json`:
 
 ```sh
 helm upgrade --install rfq-market-maker \
@@ -404,10 +404,12 @@ helm upgrade --install rfq-market-maker \
   --version RELEASE_VERSION \
   --set-string image.repository=ghcr.io/OWNER/REPOSITORY-backend \
   --set-string image.digest=sha256:RELEASE_DIGEST \
+  --set-string frontend.image.repository=ghcr.io/OWNER/REPOSITORY-frontend \
+  --set-string frontend.image.digest=sha256:FRONTEND_RELEASE_DIGEST \
   --atomic --wait
 ```
 
-The Helm helper renders `repository@digest` whenever `image.digest` is set; `image.tag` is a non-production fallback. Raw manifests deliberately contain an unavailable all-zero digest and therefore fail closed until an operator replaces it with a verified release digest. Verify the Cosign issuer/workflow identity before promotion and retain the release manifest with the deployment audit record.
+The Helm helpers render `repository@digest` whenever the backend or frontend digest is set; tags are non-production fallbacks. Raw manifests deliberately contain unavailable all-zero digests and therefore fail closed until an operator replaces them with verified release digests. Verify the Cosign issuer/workflow identity before promotion and retain the release manifest with the deployment audit record.
 
 Local API smoke path:
 

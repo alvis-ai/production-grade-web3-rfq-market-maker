@@ -65,5 +65,7 @@ wait_for_url "http://127.0.0.1:${backend_port}/health"
 wait_for_url "http://127.0.0.1:${frontend_port}/"
 curl -fsS "http://127.0.0.1:${backend_port}/health" | grep -q '"status":"ok"'
 curl -fsS "http://127.0.0.1:${frontend_port}/quotes/runtime-check" | grep -q '<div id="root"></div>'
+curl -fsSI "http://127.0.0.1:${frontend_port}/runtime-config.js" | grep -qi 'cache-control: no-store'
+curl -fsS "http://127.0.0.1:${frontend_port}/runtime-config.js" | grep -q 'window.__RFQ_RUNTIME_CONFIG__'
 
 echo "Restricted container runtime check passed"

@@ -256,6 +256,7 @@ assertContains(workflows.release, [
   "helm template rfq-market-maker infra/helm/rfq-market-maker",
   "--kube-version 1.31.0",
   '--set-string image.digest="${BACKEND_DIGEST}"',
+  '--set-string frontend.image.digest="${FRONTEND_DIGEST}"',
   "helm package infra/helm/rfq-market-maker",
   "helm push",
   "release-manifest.json",

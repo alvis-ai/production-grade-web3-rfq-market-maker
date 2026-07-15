@@ -1,27 +1,28 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: rfq-backend-default
+  name: rfq-frontend
   namespace: rfq-market-maker
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: rfq-backend
+      app.kubernetes.io/name: rfq-frontend
   policyTypes:
     - Ingress
     - Egress
   ingress:
     - from:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: rfq-frontend
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
-        - namespaceSelector:
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - podSelector:
             matchLabels:
-              kubernetes.io/metadata.name: monitoring
+              app.kubernetes.io/name: rfq-backend
       ports:
         - protocol: TCP
           port: 3000
-  egress: []

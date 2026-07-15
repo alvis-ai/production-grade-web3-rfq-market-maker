@@ -2,6 +2,14 @@
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{- define "rfq-market-maker.frontendImage" -}}
+{{- if .Values.frontend.image.digest -}}
+{{- printf "%s@%s" .Values.frontend.image.repository .Values.frontend.image.digest -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.frontend.image.repository (required "frontend.image.tag is required when frontend.image.digest is empty" .Values.frontend.image.tag) -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "rfq-market-maker.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}

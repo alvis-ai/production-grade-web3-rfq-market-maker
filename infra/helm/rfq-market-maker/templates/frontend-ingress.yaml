@@ -1,0 +1,29 @@
+{{- if and .Values.frontend.enabled .Values.frontend.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-frontend
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/whitelist-source-range: {{ join "," .Values.frontend.ingress.sourceRanges | quote }}
+spec:
+  ingressClassName: {{ .Values.frontend.ingress.className }}
+  tls:
+    - hosts:
+        - {{ .Values.frontend.ingress.host }}
+      secretName: {{ .Values.frontend.ingress.tlsSecretName }}
+  rules:
+    - host: {{ .Values.frontend.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "rfq-market-maker.fullname" . }}-frontend
+                port:
+                  name: http
+{{- end }}
