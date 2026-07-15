@@ -89,6 +89,19 @@ test("ReadinessService degrades quote persistence when idempotency storage is un
   assert.equal(readiness.components.quoteRepository, "degraded");
 });
 
+test("ReadinessService degrades execution when live hedge route rules drift", async () => {
+  const readiness = await createReadinessService({
+    hedgeRouteRulesHealth: {
+      async checkHealth() {
+        throw new Error("venue filters changed");
+      },
+    },
+  }).check();
+
+  assert.equal(readiness.status, "degraded");
+  assert.equal(readiness.components.execution, "degraded");
+});
+
 test("ReadinessService degrades when the distributed rate limit store is unavailable", async () => {
   const readiness = await createReadinessService({
     rateLimiter: {
@@ -330,6 +343,9 @@ function readinessServiceDeps(overrides = {}) {
     rateLimiter: overrides.rateLimiter ?? { checkHealth() {} },
     inventoryService,
     hedgeService: overrides.hedgeService ?? new HedgeService(),
+    ...(overrides.hedgeRouteRulesHealth
+      ? { hedgeRouteRulesHealth: overrides.hedgeRouteRulesHealth }
+      : {}),
     settlementEventService: overrides.settlementEventService ?? new SettlementEventService(inventoryService),
     pnlService: overrides.pnlService ?? new PnlService(),
     metricsService: overrides.metricsService ?? new MetricsService(),

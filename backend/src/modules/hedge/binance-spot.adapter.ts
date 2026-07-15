@@ -1,4 +1,8 @@
 import { createHmac } from "node:crypto";
+import {
+  BinanceSymbolRulesError,
+  type BinanceLimitOrderInput,
+} from "./binance-symbol-rules.js";
 
 export interface SubmitLimitOrderInput {
   symbol: string;
@@ -45,6 +49,7 @@ export interface CexTradeFill {
 export interface CexExecutionAdapter {
   queryOrder(input: QueryOrderInput): Promise<CexOrderResult | undefined>;
   queryOrderTrades(input: QueryOrderTradesInput): Promise<CexTradeFill[]>;
+  validateLimitOrder(input: BinanceLimitOrderInput): Promise<void>;
   submitLimitOrder(input: SubmitLimitOrderInput): Promise<CexOrderResult>;
   cancelOrder(input: CancelOrderInput): Promise<CexOrderResult>;
 }
@@ -58,6 +63,9 @@ export interface BinanceSpotAdapterConfig {
 }
 
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+type LimitOrderRulesValidator = {
+  validateLimitOrder(input: BinanceLimitOrderInput): Promise<void>;
+};
 
 export class CexVenueError extends Error {
   constructor(
@@ -92,12 +100,17 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
 
   constructor(
     config: BinanceSpotAdapterConfig,
+    private readonly rulesValidator: LimitOrderRulesValidator,
     private readonly fetchFn: FetchLike = fetch,
     private readonly now: () => number = Date.now,
   ) {
     assertConfig(config);
     if (typeof fetchFn !== "function") throw new Error("Binance fetch dependency must be a function");
     if (typeof now !== "function") throw new Error("Binance clock dependency must be a function");
+    if (typeof rulesValidator !== "object" || rulesValidator === null ||
+        typeof rulesValidator.validateLimitOrder !== "function") {
+      throw new Error("Binance rules validator must expose validateLimitOrder");
+    }
     this.apiKey = config.apiKey;
     this.apiSecret = config.apiSecret;
     this.baseUrl = normalizeBaseUrl(config.baseUrl ?? defaultBaseUrl);
@@ -136,6 +149,17 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
       throw venueErrorForResponse(response.status, error.code, error.message, parseRetryAfterMs(response));
     }
     return parseOrderResponse(await parseJson(response), input.symbol, input.clientOrderId);
+  }
+
+  async validateLimitOrder(input: BinanceLimitOrderInput): Promise<void> {
+    try {
+      await this.rulesValidator.validateLimitOrder(input);
+    } catch (error) {
+      if (error instanceof BinanceSymbolRulesError) {
+        throw new CexVenueError(error.errorCode, error.retryable);
+      }
+      throw error;
+    }
   }
 
   async cancelOrder(input: CancelOrderInput): Promise<CexOrderResult> {

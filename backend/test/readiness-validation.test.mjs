@@ -209,6 +209,10 @@ test("ReadinessService rejects unsafe dependency configuration at construction",
     /Readiness service toxicFlowScoreStore.checkHealth must be a function/,
   );
   assert.throws(
+    () => new ReadinessService({ ...deps, hedgeRouteRulesHealth: {} }),
+    /Readiness service hedgeRouteRulesHealth.checkHealth must be a function/,
+  );
+  assert.throws(
     () =>
       new ReadinessService({
         ...deps,

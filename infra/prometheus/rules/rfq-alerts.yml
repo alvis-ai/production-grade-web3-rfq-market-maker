@@ -379,6 +379,15 @@ groups:
           summary: RFQ hedge worker is repeatedly rescheduling CEX execution
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQHedgeSymbolRulesInvalid
+        expr: max(rfq_hedge_worker_symbol_rules_valid) < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Binance symbol rules no longer match configured hedge routes
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQHedgeOrderCancellations
         expr: sum(increase(rfq_hedge_worker_order_cancellations_total{status="attempted"}[10m])) > 0
         for: 1m

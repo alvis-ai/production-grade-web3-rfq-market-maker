@@ -65,6 +65,12 @@ spec:
               value: {{ required "env.RFQ_TOKEN_REGISTRY_JSON is required for hedge route decimals" (index .Values.env "RFQ_TOKEN_REGISTRY_JSON") | quote }}
             - name: RFQ_HEDGE_ROUTES_JSON
               value: {{ required "env.RFQ_HEDGE_ROUTES_JSON is required for shared API/worker route binding" (index .Values.env "RFQ_HEDGE_ROUTES_JSON") | quote }}
+            - name: RFQ_BINANCE_BASE_URL
+              value: {{ required "env.RFQ_BINANCE_BASE_URL is required for shared API/worker venue rules" (index .Values.env "RFQ_BINANCE_BASE_URL") | quote }}
+            - name: RFQ_BINANCE_REQUEST_TIMEOUT_MS
+              value: {{ required "env.RFQ_BINANCE_REQUEST_TIMEOUT_MS is required for shared API/worker venue rules" (index .Values.env "RFQ_BINANCE_REQUEST_TIMEOUT_MS") | quote }}
+            - name: RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS
+              value: {{ required "env.RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS is required for shared API/worker venue rules" (index .Values.env "RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS") | quote }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

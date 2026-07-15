@@ -206,6 +206,9 @@ env:
   RFQ_CEX_MAX_SOURCE_DEVIATION_BPS: "100"
   RFQ_CEX_MAX_SPREAD_BPS: "100"
   RFQ_HEDGE_ROUTES_JSON: '{"routes":[{"chainId":1,"token":"0x0000000000000000000000000000000000000002","venue":"binance","symbol":"ETHUSDT","baseAsset":"ETH","quoteAsset":"USDT","quoteToken":"0x0000000000000000000000000000000000000003","tokenDecimals":18,"quoteTokenDecimals":18,"stepSizeRaw":"100000000000000","priceTick":"0.01","maxSlippageBps":100}]}'
+  RFQ_BINANCE_BASE_URL: "https://api.binance.com"
+  RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000"
+  RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS: "300000"
   RFQ_ALLOW_SIMULATED_SETTLEMENT: "false"
 
 signerSecret:
@@ -255,9 +258,7 @@ hedgeWorker:
     RFQ_HEDGE_POLL_INTERVAL_MS: "250"
     RFQ_HEDGE_RETRY_DELAY_MS: "1000"
     RFQ_HEDGE_MAX_ORDER_AGE_MS: "30000"
-    RFQ_BINANCE_BASE_URL: "https://api.binance.com"
     RFQ_BINANCE_RECV_WINDOW_MS: "5000"
-    RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000"
   secret:
     name: rfq-hedge-worker-secrets
     databaseUrlKey: DATABASE_URL

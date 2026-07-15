@@ -20,6 +20,7 @@ import {
   type SubmitReservationStore,
 } from "../modules/execution/submit-reservation.store.js";
 import type { HedgeIntentService } from "../modules/hedge/hedge.service.js";
+import type { BinanceSymbolRulesHealth } from "../modules/hedge/binance-symbol-rules.js";
 import type { MarketDataService } from "../modules/market-data/market-data.service.js";
 import type { MarketSnapshotStore } from "../modules/market-data/market-snapshot.repository.js";
 import type { PnlStore } from "../modules/pnl/pnl.service.js";
@@ -96,6 +97,7 @@ const buildServerOptionFields = [
   "databasePool",
   "enableHsts",
   "hedgeService",
+  "hedgeRouteRulesHealth",
   "logger",
   "marketDataService",
   "marketSnapshotStore",
@@ -142,6 +144,7 @@ export interface BuildServerOptions {
   routingEngine?: RoutingEngine;
   settlementEvidenceProvider?: SettlementEvidenceProvider;
   hedgeService?: HedgeIntentService;
+  hedgeRouteRulesHealth?: BinanceSymbolRulesHealth;
   pnlService?: PnlStore;
   settlementEventService?: SettlementEventStore;
   settlementVerifier?: SettlementVerifier;

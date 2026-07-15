@@ -7,6 +7,7 @@ const paths = {
   route: "backend/src/modules/hedge/hedge-route.ts",
   worker: "backend/src/modules/hedge/hedge-worker.ts",
   adapter: "backend/src/modules/hedge/binance-spot.adapter.ts",
+  symbolRules: "backend/src/modules/hedge/binance-symbol-rules.ts",
   store: "backend/src/modules/hedge/postgres-hedge-job.store.ts",
   migration: "backend/src/db/migrations/014-hedge-execution-evidence.sql",
   boundedLimitMigration: "backend/src/db/migrations/025-bounded-hedge-limit.sql",
@@ -16,11 +17,17 @@ const paths = {
   feeMigration: "backend/src/db/migrations/015-hedge-fee-reconciliation.sql",
   runtime: "backend/src/hedge-worker-main.ts",
   adapterTest: "backend/test/binance-spot-adapter.test.mjs",
+  symbolRulesTest: "backend/test/binance-symbol-rules.test.mjs",
   routeTest: "backend/test/hedge-route.test.mjs",
   workerTest: "backend/test/hedge-worker.test.mjs",
   feeWorkerTest: "backend/test/hedge-fee-worker.test.mjs",
   feeStoreTest: "backend/test/postgres-hedge-fee-store.test.mjs",
   runtimeTest: "backend/test/hedge-worker-runtime.test.mjs",
+  marketRuntime: "backend/src/runtime/market-runtime.ts",
+  readiness: "backend/src/modules/health/readiness.service.ts",
+  metricsBook: "book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md",
+  monitoringBook: "book/Volume7-ProductionDeployment/Chapter03-Monitoring.md",
+  alerts: "infra/prometheus/rules/rfq-alerts.yml",
   compose: "docker-compose.yml",
   k8sConfig: "infra/k8s/configmap.yaml",
   k8sDeployment: "infra/k8s/hedge-worker-deployment.yaml",
@@ -48,10 +55,12 @@ assert.match(source.adapter, /cummulativeQuoteQty/);
 assert.match(source.worker, /parseCexQuoteQuantity\(order\.executedQuoteQuantity\)/);
 assert.match(source.worker, /if \(job\.submissionAttempted\)[\s\S]*scheduleRetry/);
 assert.match(source.worker, /if \(!job\.submissionAttempted\) \{[\s\S]*prepareRoute/);
+assert.match(source.worker, /if \(!job\.submissionAttempted\) \{[\s\S]*validateLimitOrder[\s\S]*prepareRoute/);
 assert.match(source.worker, /calculateHedgeLimitPrice\(job\.side, job\.amount, job\.referenceAmount, route\)/);
 assert.match(source.worker, /adapter\.submitLimitOrder/);
 assert.match(source.adapter, /type: "LIMIT"/);
 assert.match(source.adapter, /timeInForce: "GTC"/);
+assert.match(source.adapter, /async validateLimitOrder/);
 assert.match(source.adapter, /async cancelOrder/);
 assert.match(source.adapter, /signedRequest\("DELETE", "\/api\/v3\/order"/);
 assert.doesNotMatch(source.adapter, /type: "MARKET"/);
@@ -88,6 +97,16 @@ assert.match(source.runtime, /readRequired\(env, "RFQ_TOKEN_REGISTRY_JSON"\)/);
 assert.match(source.runtime, /routes\.validateTokenRegistry\(tokenRegistry\)/);
 assert.match(source.runtime, /must exceed four RFQ_BINANCE_REQUEST_TIMEOUT_MS windows/);
 assert.match(source.runtime, /RFQ_HEDGE_MAX_ORDER_AGE_MS/);
+assert.match(source.runtime, /RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS/);
+assert.match(source.runtime, /await checkSymbolRules\(\)/);
+assert.match(source.symbolRules, /\/api\/v3\/exchangeInfo/);
+assert.match(source.symbolRules, /PRICE_FILTER/);
+assert.match(source.symbolRules, /LOT_SIZE/);
+assert.match(source.symbolRules, /MIN_NOTIONAL/);
+assert.match(source.symbolRules, /NOTIONAL/);
+assert.match(source.symbolRules, /BigInt/);
+assert.match(source.marketRuntime, /buildRuntimeBinanceSymbolRulesHealth/);
+assert.match(source.readiness, /hedgeRouteRulesHealth/);
 assert.match(source.adapterTest, /resynchronizes clock once and retries timestamp-rejected requests/);
 assert.match(source.adapterTest, /single-flights concurrent clock synchronization/);
 assert.match(source.adapterTest, /signs cancellation and preserves cumulative execution evidence/);
@@ -101,20 +120,28 @@ assert.match(source.feeWorkerTest, /retries while myTrades lags cumulative order
 assert.match(source.feeStoreTest, /idempotently persists fills and completes reconciliation atomically/);
 assert.match(source.runtimeTest, /RFQ_TOKEN_REGISTRY_JSON is required/);
 assert.match(source.runtimeTest, /does not match token registry decimals/);
+assert.match(source.symbolRulesTest, /refreshes its bounded cache/);
+assert.match(source.symbolRulesTest, /enforces LOT_SIZE, PRICE_FILTER and NOTIONAL exactly/);
+assert.match(source.workerTest, /validates venue rules before persisting or authorizing a submission/);
 
 assert.match(source.compose, /hedge-worker:[\s\S]*RFQ_TOKEN_REGISTRY_JSON:[\s\S]*RFQ_HEDGE_ROUTES_JSON:/);
 assert.match(source.compose, /hedge-worker:[\s\S]*RFQ_HEDGE_MAX_ORDER_AGE_MS:/);
+assert.match(source.compose, /backend:[\s\S]*RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS:/);
+assert.match(source.compose, /hedge-worker:[\s\S]*RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS:/);
 assert.match(source.k8sConfig, /RFQ_TOKEN_REGISTRY_JSON:/);
 assert.match(source.k8sConfig, /RFQ_HEDGE_ROUTES_JSON:/);
 assert.match(source.k8sConfig, /RFQ_HEDGE_MAX_ORDER_AGE_MS:/);
+assert.match(source.k8sConfig, /RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS:/);
 assert.match(source.k8sDeployment, /configMapRef:[\s\S]*name: rfq-backend-config/);
 assert.match(source.helmDeployment, /name: RFQ_TOKEN_REGISTRY_JSON/);
 assert.match(source.helmDeployment, /env\.RFQ_TOKEN_REGISTRY_JSON is required for hedge route decimals/);
 assert.match(source.helmDeployment, /name: RFQ_HEDGE_ROUTES_JSON/);
 assert.match(source.helmDeployment, /index \.Values\.env "RFQ_HEDGE_ROUTES_JSON"/);
+assert.match(source.helmDeployment, /index \.Values\.env "RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS"/);
 const helmSharedEnv = source.helmValues.match(/^env:\n([\s\S]*?)^signerSecret:/m)?.[1] ?? "";
 const helmWorkerEnv = source.helmValues.match(/^hedgeWorker:\n[\s\S]*?^  env:\n([\s\S]*?)^  secret:/m)?.[1] ?? "";
 assert.match(helmSharedEnv, /RFQ_HEDGE_ROUTES_JSON:/);
+assert.match(helmSharedEnv, /RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS:/);
 assert.match(helmWorkerEnv, /RFQ_HEDGE_MAX_ORDER_AGE_MS:/);
 assert.doesNotMatch(helmWorkerEnv, /RFQ_HEDGE_ROUTES_JSON:/);
 
@@ -135,6 +162,13 @@ for (const [name, needle] of [
   ["hedgeBook", /DELETE \/api\/v3\/order/],
   ["kubernetesBook", /Migration 026/],
   ["runbook", /rfq_hedge_worker_order_cancellations_total/],
+  ["readme", /GET \/api\/v3\/exchangeInfo/],
+  ["hedgeBook", /GET \/api\/v3\/exchangeInfo/],
+  ["kubernetesBook", /RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS/],
+  ["runbook", /RFQHedgeSymbolRulesInvalid/],
+  ["metricsBook", /rfq_hedge_worker_symbol_rules_valid/],
+  ["monitoringBook", /rfq_hedge_worker_symbol_rules_valid/],
+  ["alerts", /RFQHedgeSymbolRulesInvalid/],
 ]) {
   assert.match(source[name], needle, `${paths[name]} must document hedge quantity integrity`);
 }

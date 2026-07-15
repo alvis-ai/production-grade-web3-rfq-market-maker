@@ -18,6 +18,10 @@ import type { OrderBookPairConfig } from "../modules/market-data/cex-orderbook/o
 import { pairKey } from "../modules/market-data/price-cache.js";
 import { parseHedgeRoutesJson } from "../modules/hedge/hedge-route.js";
 import {
+  BinanceSymbolRulesService,
+  type BinanceSymbolRulesHealth,
+} from "../modules/hedge/binance-symbol-rules.js";
+import {
   defaultFormulaPricingConfig,
   FormulaPricingEngine,
   type PricingEngine,
@@ -175,6 +179,34 @@ export function assertCexHedgeSourcesRoutable(
       throw new Error(`CEX hedge source ${sourceId} does not match its configured hedge route`);
     }
   }
+}
+
+export function buildRuntimeBinanceSymbolRulesHealth(
+  cexPairs: readonly OrderBookPairConfig[],
+  env: Record<string, string | undefined> | undefined = runtimeEnvironment(),
+  fetchFn: typeof fetch = fetch,
+): BinanceSymbolRulesHealth | undefined {
+  if (!cexPairs.some(({ role }) => role === "hedge")) return undefined;
+  const serializedRoutes = readOwnEnvValue(env, "RFQ_HEDGE_ROUTES_JSON");
+  if (!serializedRoutes) {
+    throw new Error("RFQ_HEDGE_ROUTES_JSON is required when RFQ_CEX_PAIRS contains hedge sources");
+  }
+  const baseUrl = readOwnEnvValue(env, "RFQ_BINANCE_BASE_URL");
+  return new BinanceSymbolRulesService({
+    ...(baseUrl ? { baseUrl } : {}),
+    requestTimeoutMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_BINANCE_REQUEST_TIMEOUT_MS"), {
+      defaultValue: 10_000,
+      min: 100,
+      max: 60_000,
+      name: "RFQ_BINANCE_REQUEST_TIMEOUT_MS",
+    }),
+    maxAgeMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS"), {
+      defaultValue: 300_000,
+      min: 10_000,
+      max: 3_600_000,
+      name: "RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS",
+    }),
+  }, parseHedgeRoutesJson(serializedRoutes), fetchFn);
 }
 
 export function buildMarketReadinessConfig(

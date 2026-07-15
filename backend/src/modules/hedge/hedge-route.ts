@@ -61,6 +61,10 @@ export class HedgeRouteTable {
     return route ? { ...route } : undefined;
   }
 
+  list(): HedgeRoute[] {
+    return [...this.routes.values()].map((route) => ({ ...route }));
+  }
+
   validateTokenRegistry(registry: TokenRegistry): void {
     if (typeof registry !== "object" || registry === null || Array.isArray(registry) ||
         typeof registry.getToken !== "function") {

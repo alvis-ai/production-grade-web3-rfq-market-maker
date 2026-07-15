@@ -69,6 +69,7 @@
 - [x] Deep reorgs and unknown signed quotes fail closed without skipping economic evidence.
 - [x] Inventory updates are replayable.
 - [x] Hedge actions are linked to settlement events.
+- [x] API and Hedge Worker fail closed when live CEX symbol assets, status, step size, price tick or notional filters diverge from reviewed routes.
 - [x] ClickHouse analytics do not become operational source of truth.
 - [x] Transactional outbox events commit with operational state and preserve 78-digit amounts as strings.
 - [x] Kafka offsets commit only after ClickHouse insertion and duplicate event ids remain query-idempotent.

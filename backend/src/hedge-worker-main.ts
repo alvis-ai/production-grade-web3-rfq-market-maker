@@ -4,6 +4,10 @@ import Fastify from "fastify";
 import { assertDatabaseUrlForEnvironment } from "./db/config.js";
 import { checkPoolHealth, endPool, getPool } from "./db/pool.js";
 import { BinanceSpotAdapter, type BinanceSpotAdapterConfig } from "./modules/hedge/binance-spot.adapter.js";
+import {
+  BinanceSymbolRulesService,
+  type BinanceSymbolRulesConfig,
+} from "./modules/hedge/binance-symbol-rules.js";
 import { HedgeFeeWorker, HedgeFeeWorkerMetrics } from "./modules/hedge/hedge-fee-worker.js";
 import { HedgeWorker, HedgeWorkerMetrics, type HedgeWorkerConfig } from "./modules/hedge/hedge-worker.js";
 import { parseHedgeRoutesJson, type HedgeRouteTable } from "./modules/hedge/hedge-route.js";
@@ -17,6 +21,7 @@ export interface HedgeWorkerRuntimeConfig {
   worker: HedgeWorkerConfig;
   routes: HedgeRouteTable;
   binance: BinanceSpotAdapterConfig;
+  symbolRules: BinanceSymbolRulesConfig;
   listenHost: string;
   listenPort: number;
   shutdownTimeoutMs: number;
@@ -37,6 +42,13 @@ export function readHedgeWorkerRuntimeConfig(
   const baseUrl = readOptional(env, "RFQ_BINANCE_BASE_URL");
   const leaseMs = readInteger(env, "RFQ_HEDGE_LEASE_MS", 45_000, 1_000, 300_000);
   const requestTimeoutMs = readInteger(env, "RFQ_BINANCE_REQUEST_TIMEOUT_MS", 10_000, 100, 60_000);
+  const symbolRulesMaxAgeMs = readInteger(
+    env,
+    "RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS",
+    300_000,
+    10_000,
+    3_600_000,
+  );
   if (leaseMs <= requestTimeoutMs * 4 + 1_000) {
     throw new Error("RFQ_HEDGE_LEASE_MS must exceed four RFQ_BINANCE_REQUEST_TIMEOUT_MS windows plus 1000ms");
   }
@@ -56,6 +68,11 @@ export function readHedgeWorkerRuntimeConfig(
       recvWindowMs: readInteger(env, "RFQ_BINANCE_RECV_WINDOW_MS", 5_000, 1, 5_000),
       requestTimeoutMs,
     },
+    symbolRules: {
+      ...(baseUrl ? { baseUrl } : {}),
+      requestTimeoutMs,
+      maxAgeMs: symbolRulesMaxAgeMs,
+    },
     listenHost: readListenHost(env),
     listenPort: readInteger(env, "RFQ_HEDGE_WORKER_PORT", 3001, 1, 65_535),
     shutdownTimeoutMs: readShutdownTimeoutMs(env),
@@ -65,15 +82,26 @@ export function readHedgeWorkerRuntimeConfig(
 export async function startHedgeWorker(): Promise<void> {
   const config = readHedgeWorkerRuntimeConfig();
   const logger = createStructuredLogger("hedge-worker");
+  const metrics = new HedgeWorkerMetrics();
+  const feeMetrics = new HedgeFeeWorkerMetrics();
+  const symbolRules = new BinanceSymbolRulesService(config.symbolRules, config.routes);
+  const checkSymbolRules = async () => {
+    try {
+      await symbolRules.checkHealth();
+      metrics.recordSymbolRulesHealth(true);
+    } catch (error) {
+      metrics.recordSymbolRulesHealth(false);
+      throw error;
+    }
+  };
+  await checkSymbolRules();
   const pool = getPool(undefined, logger);
   await checkPoolHealth(pool);
   const store = new PostgresHedgeJobStore(pool);
   const feeStore = new PostgresHedgeFeeStore(pool);
   await store.checkHealth();
   await feeStore.checkHealth();
-  const adapter = new BinanceSpotAdapter(config.binance);
-  const metrics = new HedgeWorkerMetrics();
-  const feeMetrics = new HedgeFeeWorkerMetrics();
+  const adapter = new BinanceSpotAdapter(config.binance, symbolRules);
   const adapters = new Map<"binance", BinanceSpotAdapter>([["binance", adapter]]);
   const worker = new HedgeWorker(
     store,
@@ -97,6 +125,7 @@ export async function startHedgeWorker(): Promise<void> {
     try {
       await store.checkHealth();
       await feeStore.checkHealth();
+      await checkSymbolRules();
       return { status: "ok" };
     } catch {
       return reply.code(503).send({ status: "degraded" });

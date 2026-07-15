@@ -65,6 +65,9 @@ const composeExpected = {
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
   RFQ_HEDGE_ROUTES_JSON: hedgeRoutesJson,
+  RFQ_BINANCE_BASE_URL: "${RFQ_BINANCE_BASE_URL:-https://testnet.binance.vision}",
+  RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000",
+  RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS: "300000",
   RFQ_SIGNER_MODE: "local",
   RFQ_SIGNER_PRIVATE_KEY: localExpected.RFQ_SIGNER_PRIVATE_KEY,
   RFQ_SETTLEMENT_ADDRESS: localExpected.RFQ_SETTLEMENT_ADDRESS,
@@ -95,6 +98,9 @@ const productionExpected = {
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
   RFQ_HEDGE_ROUTES_JSON: hedgeRoutesJson,
+  RFQ_BINANCE_BASE_URL: "https://api.binance.com",
+  RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000",
+  RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS: "300000",
 };
 
 const envExample = parseDotEnv(envExampleSource);
@@ -192,8 +198,10 @@ assert.ok(
 assert.ok(
   backendSource.includes("RFQ_HEDGE_ROUTES_JSON is required when RFQ_CEX_PAIRS contains hedge sources") &&
     backendSource.includes("assertCexHedgeSourcesRoutable") &&
-    backendSource.includes("does not match its configured hedge route"),
-  "API startup must bind executable CEX sources to the shared hedge route table",
+    backendSource.includes("does not match its configured hedge route") &&
+    backendSource.includes('name: "RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS"') &&
+    backendSource.includes("buildRuntimeBinanceSymbolRulesHealth"),
+  "API startup and readiness must bind executable CEX sources to shared routes and live venue rules",
 );
 assert.ok(
   envExampleSource.includes("RFQ_API_KEY_CONFIG_JSON") &&
@@ -216,6 +224,8 @@ assert.ok(
     hedgeWorkerSource.includes('readCredential(env, "RFQ_BINANCE_API_SECRET")') &&
     hedgeWorkerSource.includes("placeholder must be replaced") &&
     hedgeWorkerSource.includes("must exceed four RFQ_BINANCE_REQUEST_TIMEOUT_MS windows") &&
+    hedgeWorkerSource.includes('"RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS"') &&
+    hedgeWorkerSource.includes("new BinanceSymbolRulesService") &&
     hedgeWorkerSource.includes('readInteger(env, "RFQ_HEDGE_MAX_ORDER_AGE_MS", 30_000, 1_000, 3_600_000)'),
   "hedge worker must require durable queue, shared token metadata, isolated venue credentials, and a safe lease window",
 );
@@ -224,7 +234,8 @@ assert.ok(
   k8sConfigSource.includes("RFQ_HEDGE_ROUTES_JSON:") &&
     k8sConfigSource.includes('RFQ_HEDGE_LEASE_MS: "45000"') &&
     k8sConfigSource.includes('RFQ_HEDGE_MAX_ORDER_AGE_MS: "30000"') &&
-    k8sConfigSource.includes('RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000"'),
+    k8sConfigSource.includes('RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000"') &&
+    k8sConfigSource.includes('RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS: "300000"'),
   "Kubernetes config must define non-secret hedge worker routing and timing controls",
 );
 assert.ok(

@@ -245,6 +245,11 @@
           "expr": "sum by (status) (rate(rfq_hedge_worker_order_cancellations_total[5m]))",
           "legendFormat": "cancel {{status}}/s",
           "refId": "I"
+        },
+        {
+          "expr": "max(rfq_hedge_worker_symbol_rules_valid)",
+          "legendFormat": "venue symbol rules valid",
+          "refId": "J"
         }
       ]
     },

@@ -5,6 +5,7 @@ import {
   BinanceSpotAdapter,
   CexVenueError,
 } from "../dist/modules/hedge/binance-spot.adapter.js";
+import { BinanceSymbolRulesError } from "../dist/modules/hedge/binance-symbol-rules.js";
 
 const config = {
   apiKey: "test-api-key",
@@ -14,6 +15,7 @@ const config = {
   requestTimeoutMs: 1000,
 };
 const clientOrderId = "rfq_11111111111111111111111111111111";
+const allowingRules = { async validateLimitOrder() {} };
 
 test("BinanceSpotAdapter signs query-first bounded limit order execution", async () => {
   const calls = [];
@@ -30,7 +32,7 @@ test("BinanceSpotAdapter signs query-first bounded limit order execution", async
       cummulativeQuoteQty: "3125.50000000",
     });
   };
-  const adapter = new BinanceSpotAdapter(config, fetchFn, () => 1_700_000_000_000);
+  const adapter = new BinanceSpotAdapter(config, allowingRules, fetchFn, () => 1_700_000_000_000);
 
   assert.equal(await adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId }), undefined);
   const result = await adapter.submitLimitOrder({
@@ -70,7 +72,7 @@ test("BinanceSpotAdapter classifies pending, terminal, retryable, and permanent 
     executedQty: "0.5",
     cummulativeQuoteQty: "1250.25",
   });
-  const adapter = new BinanceSpotAdapter(config, async () => response, () => 1_700_000_000_000);
+  const adapter = new BinanceSpotAdapter(config, allowingRules, async () => response, () => 1_700_000_000_000);
   assert.equal((await adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId })).state, "pending");
 
   response = jsonResponse({
@@ -112,7 +114,7 @@ test("BinanceSpotAdapter classifies pending, terminal, retryable, and permanent 
 
 test("BinanceSpotAdapter signs cancellation and preserves cumulative execution evidence", async () => {
   const calls = [];
-  const adapter = new BinanceSpotAdapter(config, async (input, init) => {
+  const adapter = new BinanceSpotAdapter(config, allowingRules, async (input, init) => {
     const url = new URL(input);
     calls.push({ url, init });
     return jsonResponse({
@@ -140,6 +142,7 @@ test("BinanceSpotAdapter signs cancellation and preserves cumulative execution e
 
   const raced = new BinanceSpotAdapter(
     config,
+    allowingRules,
     async () => jsonResponse({ code: -2011, msg: "Unknown order sent." }, 400),
   );
   await assert.rejects(
@@ -149,13 +152,13 @@ test("BinanceSpotAdapter signs cancellation and preserves cumulative execution e
 });
 
 test("BinanceSpotAdapter treats transport ambiguity and malformed venue data safely", async () => {
-  const networkFailure = new BinanceSpotAdapter(config, async () => { throw new Error("timeout"); });
+  const networkFailure = new BinanceSpotAdapter(config, allowingRules, async () => { throw new Error("timeout"); });
   await assert.rejects(
     networkFailure.queryOrder({ symbol: "ETHUSDT", clientOrderId }),
     (error) => error instanceof CexVenueError && error.retryable && error.errorCode === "BINANCE_REQUEST_FAILED",
   );
 
-  const malformed = new BinanceSpotAdapter(config, async () => jsonResponse({
+  const malformed = new BinanceSpotAdapter(config, allowingRules, async () => jsonResponse({
     symbol: "BTCUSDT",
     orderId: 100234,
     clientOrderId,
@@ -168,7 +171,7 @@ test("BinanceSpotAdapter treats transport ambiguity and malformed venue data saf
     /BINANCE_RESPONSE_INVALID/,
   );
 
-  const missingQuoteEvidence = new BinanceSpotAdapter(config, async () => jsonResponse({
+  const missingQuoteEvidence = new BinanceSpotAdapter(config, allowingRules, async () => jsonResponse({
     symbol: "ETHUSDT",
     orderId: 100234,
     clientOrderId,
@@ -201,7 +204,7 @@ test("BinanceSpotAdapter resynchronizes clock once and retries timestamp-rejecte
       cummulativeQuoteQty: "3125",
     });
   };
-  const adapter = new BinanceSpotAdapter(config, fetchFn, () => localTime);
+  const adapter = new BinanceSpotAdapter(config, allowingRules, fetchFn, () => localTime);
 
   assert.equal((await adapter.submitLimitOrder({
     symbol: "ETHUSDT",
@@ -247,7 +250,7 @@ test("BinanceSpotAdapter single-flights concurrent clock synchronization and fai
     if (signedCalls <= 2) return jsonResponse({ code: -1021, msg: "Invalid timestamp." }, 400);
     return jsonResponse({ code: -2013, msg: "Order does not exist." }, 400);
   };
-  const adapter = new BinanceSpotAdapter(config, fetchFn, () => localTime);
+  const adapter = new BinanceSpotAdapter(config, allowingRules, fetchFn, () => localTime);
   const first = adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId });
   const second = adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId });
   await new Promise((resolve) => setImmediate(resolve));
@@ -256,7 +259,7 @@ test("BinanceSpotAdapter single-flights concurrent clock synchronization and fai
   assert.deepEqual(await Promise.all([first, second]), [undefined, undefined]);
   assert.equal(signedCalls, 4);
 
-  const malformed = new BinanceSpotAdapter(config, async (input) => {
+  const malformed = new BinanceSpotAdapter(config, allowingRules, async (input) => {
     return new URL(input).pathname === "/api/v3/time"
       ? jsonResponse({ serverTime: "not-a-number" })
       : jsonResponse({ code: -1021, msg: "Invalid timestamp." }, 400);
@@ -267,7 +270,7 @@ test("BinanceSpotAdapter single-flights concurrent clock synchronization and fai
       error.errorCode === "BINANCE_TIME_SYNC_FAILED",
   );
 
-  const excessiveOffset = new BinanceSpotAdapter(config, async (input) => {
+  const excessiveOffset = new BinanceSpotAdapter(config, allowingRules, async (input) => {
     return new URL(input).pathname === "/api/v3/time"
       ? jsonResponse({ serverTime: localTime + 86_400_001 })
       : jsonResponse({ code: -1021, msg: "Invalid timestamp." }, 400);
@@ -282,7 +285,7 @@ test("BinanceSpotAdapter single-flights concurrent clock synchronization and fai
 test("BinanceSpotAdapter rejects unsafe credentials, URLs, and order inputs", async () => {
   assert.throws(() => new BinanceSpotAdapter({ ...config, apiSecret: "bad secret" }), /apiSecret/);
   assert.throws(() => new BinanceSpotAdapter({ ...config, baseUrl: "http://api.binance.com" }), /HTTPS origin/);
-  const adapter = new BinanceSpotAdapter(config, async () => jsonResponse({}));
+  const adapter = new BinanceSpotAdapter(config, allowingRules, async () => jsonResponse({}));
   await assert.rejects(
     adapter.submitLimitOrder({ symbol: "ETHUSDT", side: "buy", quantity: "01", price: "2525", clientOrderId }),
     /quantity/,
@@ -293,6 +296,25 @@ test("BinanceSpotAdapter rejects unsafe credentials, URLs, and order inputs", as
   );
 });
 
+test("BinanceSpotAdapter validates live symbol filters before signing a new order", async () => {
+  let venueCalls = 0;
+  const adapter = new BinanceSpotAdapter(config, {
+    async validateLimitOrder() {
+      throw new BinanceSymbolRulesError("HEDGE_ORDER_BELOW_MIN_NOTIONAL", false);
+    },
+  }, async () => {
+    venueCalls += 1;
+    return jsonResponse({});
+  });
+
+  await assert.rejects(
+    adapter.validateLimitOrder({ symbol: "ETHUSDT", quantity: "0.001", price: "2500" }),
+    (error) => error instanceof CexVenueError && !error.retryable &&
+      error.errorCode === "HEDGE_ORDER_BELOW_MIN_NOTIONAL",
+  );
+  assert.equal(venueCalls, 0);
+});
+
 test("BinanceSpotAdapter retrieves and validates paginated account trade fees", async () => {
   const calls = [];
   const firstPage = Array.from({ length: 1000 }, (_, index) => trade(index + 1));
@@ -301,7 +323,7 @@ test("BinanceSpotAdapter retrieves and validates paginated account trade fees", 
     calls.push({ url, init });
     return jsonResponse(url.searchParams.has("fromId") ? [trade(1001)] : firstPage);
   };
-  const adapter = new BinanceSpotAdapter(config, fetchFn, () => 1_700_000_000_000);
+  const adapter = new BinanceSpotAdapter(config, allowingRules, fetchFn, () => 1_700_000_000_000);
 
   const fills = await adapter.queryOrderTrades({ symbol: "ETHUSDT", venueOrderId: "100234" });
 
@@ -333,7 +355,7 @@ test("BinanceSpotAdapter rejects unsafe numeric identifiers and malformed trade 
     executedQty: "1",
     cummulativeQuoteQty: "2500",
   });
-  const adapter = new BinanceSpotAdapter(config, async () => response, () => 1_700_000_000_000);
+  const adapter = new BinanceSpotAdapter(config, allowingRules, async () => response, () => 1_700_000_000_000);
   await assert.rejects(adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId }), /BINANCE_RESPONSE_INVALID/);
 
   response = jsonResponse([{ ...trade(1), commission: "-1" }]);

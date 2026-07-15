@@ -25,12 +25,16 @@ sequenceDiagram
     Hedge->>Queue: claim due row with SKIP LOCKED
     Hedge->>Routing: resolve chain/token route and quantity step
     Routing-->>Hedge: venue, symbol, deterministic client id
+    Hedge->>Venue: fetch/cache unsigned exchangeInfo filters
+    Venue-->>Hedge: status, assets, price/lot/notional rules
+    Hedge->>Hedge: validate route and order with exact decimals
     Hedge->>Queue: persist route and client id under lease
     Hedge->>Venue: query order by client id
     alt Existing order
       Venue-->>Hedge: pending, filled, or failed
     else Order absent
-      Hedge->>Venue: submit signed market order
+      Hedge->>Queue: authorize one external submission
+      Hedge->>Venue: submit signed LIMIT GTC order
       Venue-->>Hedge: pending, filled, or failed
     end
     Hedge->>Queue: persist orderId and cumulative base/quote

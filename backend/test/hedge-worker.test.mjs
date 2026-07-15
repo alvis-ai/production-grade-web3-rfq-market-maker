@@ -143,6 +143,30 @@ test("HedgeWorker submits only after not-found and reschedules pending orders", 
   assert.equal(store.calls.recordExecutionProgress[0][5], "1250.25");
 });
 
+test("HedgeWorker validates venue rules before persisting or authorizing a submission", async () => {
+  const store = fakeStore(job);
+  let venueCalls = 0;
+  const adapter = {
+    async validateLimitOrder(input) {
+      assert.deepEqual(input, { symbol: "ETHUSDT", quantity: "1.25", price: "2525" });
+      throw new CexVenueError("BINANCE_SYMBOL_RULES_UNAVAILABLE", true);
+    },
+    async queryOrder() { venueCalls += 1; },
+    async submitLimitOrder() { venueCalls += 1; },
+  };
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
+
+  assert.deepEqual(await worker.runOnce(), {
+    status: "retry_scheduled",
+    hedgeOrderId: job.hedgeOrderId,
+    errorCode: "BINANCE_SYMBOL_RULES_UNAVAILABLE",
+  });
+  assert.equal(venueCalls, 0);
+  assert.equal(store.calls.prepareRoute.length, 0);
+  assert.equal(store.calls.authorizeSubmission.length, 0);
+  assert.equal(store.calls.completeFailed.length, 0);
+});
+
 test("HedgeWorker never marks ambiguous venue failures terminal", async () => {
   const adapter = {
     async queryOrder() { throw new CexVenueError("BINANCE_REQUEST_FAILED", true); },
@@ -328,7 +352,13 @@ test("HedgeWorker never abandons a submission-attempted job on local route failu
   const store = fakeStore({ ...job, chainId: 2, submissionAttempted: true });
   const worker = new HedgeWorker(store, routes, new Map([[
     "binance",
-    { async queryOrder() {}, async submitLimitOrder() {}, async cancelOrder() {} },
+    {
+      async queryOrder() {},
+      async queryOrderTrades() { return []; },
+      async validateLimitOrder() {},
+      async submitLimitOrder() {},
+      async cancelOrder() {},
+    },
   ]]), config, silentLogger);
 
   assert.deepEqual(await worker.runOnce(), {
@@ -415,12 +445,14 @@ test("HedgeWorkerMetrics exposes bounded outcome labels", () => {
   metrics.recordIterationError();
   metrics.recordCancelAttempt();
   metrics.recordCancelConfirmation();
+  metrics.recordSymbolRulesHealth(true);
   const output = metrics.renderPrometheus();
   assert.match(output, /rfq_hedge_worker_jobs_total\{status="filled"\} 1/);
   assert.match(output, /rfq_hedge_worker_jobs_total\{status="retry_scheduled"\} 1/);
   assert.match(output, /rfq_hedge_worker_iteration_errors_total 1/);
   assert.match(output, /rfq_hedge_worker_order_cancellations_total\{status="attempted"\} 1/);
   assert.match(output, /rfq_hedge_worker_order_cancellations_total\{status="confirmed"\} 1/);
+  assert.match(output, /rfq_hedge_worker_symbol_rules_valid 1/);
 });
 
 function fakeStore(claimedJob) {
@@ -452,6 +484,8 @@ function fakeStore(claimedJob) {
 function executionAdapters(adapter) {
   return new Map([["binance", {
     async cancelOrder() { throw new Error("unexpected cancel"); },
+    async queryOrderTrades() { return []; },
+    async validateLimitOrder() {},
     ...adapter,
   }]]);
 }

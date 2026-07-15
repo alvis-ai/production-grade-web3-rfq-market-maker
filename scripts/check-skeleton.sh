@@ -30,11 +30,13 @@ test -s scripts/lib/read-backend-gateway-source.mjs
 test -s backend/src/hedge-worker-main.ts
 test -s backend/src/db/migrations/003-hedge-worker-queue.sql
 test -s backend/src/modules/hedge/binance-spot.adapter.ts
+test -s backend/src/modules/hedge/binance-symbol-rules.ts
 test -s backend/src/modules/hedge/hedge-intent-planner.ts
 test -s backend/src/modules/hedge/hedge-route.ts
 test -s backend/src/modules/hedge/hedge-worker.ts
 test -s backend/src/modules/hedge/postgres-hedge-job.store.ts
 test -s backend/test/binance-spot-adapter.test.mjs
+test -s backend/test/binance-symbol-rules.test.mjs
 test -s backend/test/hedge-intent-planner.test.mjs
 test -s backend/test/database-migrate.test.mjs
 test -s backend/test/hedge-route.test.mjs
@@ -123,6 +125,7 @@ grep -q 'hedge-net-pnl-integration-check: backend-build' Makefile
 grep -q 'scripts/hedge-net-pnl-integration-check.mjs' Makefile
 grep -q 'FOR UPDATE SKIP LOCKED' backend/src/modules/hedge/postgres-hedge-job.store.ts
 grep -q 'adapter.queryOrder' backend/src/modules/hedge/hedge-worker.ts
+grep -q 'adapter.validateLimitOrder' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'adapter.submitLimitOrder' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'adapter.cancelOrder' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'createHmac("sha256"' backend/src/modules/hedge/binance-spot.adapter.ts
@@ -131,6 +134,7 @@ grep -q 'newClientOrderId' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q '/api/v3/time' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'hasVenueErrorCode(response, -1021)' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'rfq_hedge_worker_jobs_total' backend/src/modules/hedge/hedge-worker.ts
+grep -q 'rfq_hedge_worker_symbol_rules_valid' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'rfq_hedge_fee_pending' backend/src/modules/hedge/hedge-fee-worker.ts
 grep -q 'rfq_hedge_fee_oldest_due_age_seconds' backend/src/modules/hedge/hedge-fee-worker.ts
 test -s backend/test/api-error.test.mjs

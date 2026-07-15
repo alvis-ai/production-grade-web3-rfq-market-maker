@@ -53,6 +53,7 @@ import {
 } from "./gateway-runtime.js";
 import {
   buildDefaultRiskEngine,
+  buildRuntimeBinanceSymbolRulesHealth,
   buildMarketReadinessConfig,
   readDynamicToxicFlowRiskConfig,
   readTokenRegistry,
@@ -131,6 +132,8 @@ export function buildServer(options: BuildServerOptions = {}) {
   );
   const pricingEngine = pricingRuntime.engine;
   const runtimeTokenRegistry = options.tokenRegistry ?? pricingRuntime.tokenRegistry ?? readTokenRegistry();
+  const hedgeRouteRulesHealth = options.hedgeRouteRulesHealth ??
+    buildRuntimeBinanceSymbolRulesHealth(cexPairs);
   const defaultRiskEngine = options.riskEngine === undefined
     ? buildDefaultRiskEngine(runtimeTokenRegistry, managedRiskPairs)
     : undefined;
@@ -235,6 +238,7 @@ export function buildServer(options: BuildServerOptions = {}) {
 
   const readinessService = new ReadinessService({
     hedgeService,
+    ...(hedgeRouteRulesHealth ? { hedgeRouteRulesHealth } : {}),
     inventoryService,
     marketDataService,
     marketSnapshotStore,

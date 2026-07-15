@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   assertCexHedgeSourcesRoutable,
   assertProductionMarketDataPolicy,
+  buildRuntimeBinanceSymbolRulesHealth,
   readDefaultMarketDataRuntime,
 } from "../dist/runtime/market-runtime.js";
 import { ConfiguredTokenRegistry } from "../dist/modules/pricing/token-registry.js";
@@ -157,6 +158,61 @@ test("CEX hedge sources must match the worker route table exactly", () => {
     [{ ...source, exchange: "coinbase", symbol: "ETH-USD", role: "reference" }],
     {},
   ));
+});
+
+test("API runtime builds fail-closed Binance route-rule health only for hedge sources", async () => {
+  const source = {
+    chainId: 1,
+    tokenIn,
+    tokenOut,
+    exchange: "binance",
+    symbol: "ETHUSDC",
+    role: "hedge",
+  };
+  const route = {
+    chainId: 1,
+    token: tokenIn,
+    venue: "binance",
+    symbol: "ETHUSDC",
+    baseAsset: "ETH",
+    quoteAsset: "USDC",
+    quoteToken: tokenOut,
+    tokenDecimals: 18,
+    quoteTokenDecimals: 6,
+    stepSizeRaw: "100000000000000",
+    priceTick: "0.01",
+    maxSlippageBps: 100,
+  };
+  let calls = 0;
+  const health = buildRuntimeBinanceSymbolRulesHealth([source], {
+    RFQ_HEDGE_ROUTES_JSON: JSON.stringify({ routes: [route] }),
+    RFQ_BINANCE_BASE_URL: "https://testnet.binance.vision",
+    RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS: "10000",
+  }, async () => {
+    calls += 1;
+    return new Response(JSON.stringify({ symbols: [{
+      symbol: "ETHUSDC",
+      status: "TRADING",
+      baseAsset: "ETH",
+      quoteAsset: "USDC",
+      isSpotTradingAllowed: true,
+      orderTypes: ["LIMIT"],
+      filters: [
+        { filterType: "PRICE_FILTER", minPrice: "0.01", maxPrice: "100000", tickSize: "0.01" },
+        { filterType: "LOT_SIZE", minQty: "0.0001", maxQty: "100", stepSize: "0.0001" },
+      ],
+    }] }), { status: 200 });
+  });
+  await health.checkHealth();
+  assert.equal(calls, 1);
+  assert.equal(buildRuntimeBinanceSymbolRulesHealth([{ ...source, role: "reference" }], {}), undefined);
+  assert.throws(
+    () => buildRuntimeBinanceSymbolRulesHealth([source], {
+      RFQ_HEDGE_ROUTES_JSON: JSON.stringify({ routes: [route] }),
+      RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS: "9999",
+    }),
+    /RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS/,
+  );
 });
 
 function restoreEnv(name, value) {

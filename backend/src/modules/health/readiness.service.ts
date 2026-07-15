@@ -7,6 +7,7 @@ import type { MarketSnapshotStore } from "../market-data/market-snapshot.reposit
 import type { MarketSnapshot, QuoteRequest, SignedQuote } from "../../shared/types/rfq.js";
 import type { SignerService } from "../signer/signer.service.js";
 import type { HedgeIntentService } from "../hedge/hedge.service.js";
+import type { BinanceSymbolRulesHealth } from "../hedge/binance-symbol-rules.js";
 import type { IInventoryService } from "../inventory/inventory.service.js";
 import type { MetricsService } from "../metrics/metrics.service.js";
 import type { PnlStore } from "../pnl/pnl.service.js";
@@ -68,6 +69,7 @@ export interface ReadinessServiceDeps {
   rateLimiter: Pick<RateLimiter, "checkHealth">;
   inventoryService: IInventoryService;
   hedgeService: HedgeIntentService;
+  hedgeRouteRulesHealth?: BinanceSymbolRulesHealth;
   settlementEventService: SettlementEventStore;
   pnlService: PnlStore;
   metricsService: MetricsService;
@@ -233,6 +235,9 @@ export class ReadinessService {
     const rateLimitStoreStatus = await this.checkDependency(this.deps.rateLimiter);
     const inventoryStatus = await this.checkDependency(this.deps.inventoryService);
     const hedgeStatus = await this.checkDependency(this.deps.hedgeService);
+    const hedgeRouteRulesStatus = this.deps.hedgeRouteRulesHealth
+      ? await this.checkDependency(this.deps.hedgeRouteRulesHealth)
+      : "ok";
     const settlementEventStoreStatus = await this.checkDependency(this.deps.settlementEventService);
     const pnlStatus = await this.checkDependency(this.deps.pnlService);
     const metricsStatus = await this.checkDependency(this.deps.metricsService);
@@ -249,7 +254,9 @@ export class ReadinessService {
       riskDecisionStore: riskDecisionStoreStatus,
       rateLimitStore: rateLimitStoreStatus,
       inventory: inventoryStatus,
-      execution: hedgeStatus === "ok" && submitReservationStatus === "ok" ? "ok" : "degraded",
+      execution: hedgeStatus === "ok" && hedgeRouteRulesStatus === "ok" && submitReservationStatus === "ok"
+        ? "ok"
+        : "degraded",
       settlementEventStore: settlementEventStoreStatus,
       pnl: pnlStatus,
       metrics: metricsStatus,
@@ -417,6 +424,12 @@ function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
   ) {
     throw new Error("Readiness service deps.treasuryLiquidityProvider must be an own field when provided");
   }
+  if (
+    "hedgeRouteRulesHealth" in deps &&
+    !Object.prototype.hasOwnProperty.call(deps, "hedgeRouteRulesHealth")
+  ) {
+    throw new Error("Readiness service deps.hedgeRouteRulesHealth must be an own field when provided");
+  }
   assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
   assertDependencyMethod(deps.routingEngine, "routingEngine", "selectRoute");
   assertDependencyMethod(deps.pricingEngine, "pricingEngine", "price");
@@ -440,6 +453,9 @@ function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
   assertDependencyMethod(deps.rateLimiter, "rateLimiter", "checkHealth");
   assertDependencyMethod(deps.inventoryService, "inventoryService", "checkHealth");
   assertDependencyMethod(deps.hedgeService, "hedgeService", "checkHealth");
+  if (deps.hedgeRouteRulesHealth !== undefined) {
+    assertDependencyMethod(deps.hedgeRouteRulesHealth, "hedgeRouteRulesHealth", "checkHealth");
+  }
   assertDependencyMethod(deps.settlementEventService, "settlementEventService", "checkHealth");
   assertDependencyMethod(deps.pnlService, "pnlService", "checkHealth");
   assertDependencyMethod(deps.metricsService, "metricsService", "checkHealth");

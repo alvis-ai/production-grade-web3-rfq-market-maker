@@ -77,7 +77,9 @@ export class HedgeWorker {
       const targetAmount = quantizeHedgeAmount(job.amount, route);
       const quantity = formatHedgeQuantity(job.amount, route);
       const limitPrice = calculateHedgeLimitPrice(job.side, job.amount, job.referenceAmount, route);
+      const adapter = this.adapters.get(route.venue)!;
       if (!job.submissionAttempted) {
+        await adapter.validateLimitOrder({ symbol: route.symbol, quantity, price: limitPrice });
         await this.store.prepareRoute(job.hedgeOrderId, this.config.workerId, {
           venue: route.venue,
           symbol: route.symbol,
@@ -97,7 +99,6 @@ export class HedgeWorker {
           maxOrderAgeMs: this.config.maxOrderAgeMs,
         });
       }
-      const adapter = this.adapters.get(route.venue)!;
       const existing = await adapter.queryOrder({ symbol: route.symbol, clientOrderId });
       let order: CexOrderResult;
       if (existing) {
@@ -251,6 +252,7 @@ export class HedgeWorkerMetrics implements HedgeWorkerObserver {
   private iterationErrors = 0;
   private cancelAttempts = 0;
   private cancelConfirmations = 0;
+  private symbolRulesValid = 0;
   private lastProcessedAtSeconds = 0;
 
   recordResult(result: HedgeWorkerResult): void {
@@ -271,6 +273,10 @@ export class HedgeWorkerMetrics implements HedgeWorkerObserver {
     this.cancelConfirmations += 1;
   }
 
+  recordSymbolRulesHealth(valid: boolean): void {
+    this.symbolRulesValid = valid ? 1 : 0;
+  }
+
   renderPrometheus(): string {
     return [
       "# HELP rfq_hedge_worker_jobs_total Hedge jobs processed by terminal or retry outcome.",
@@ -285,6 +291,9 @@ export class HedgeWorkerMetrics implements HedgeWorkerObserver {
       "# TYPE rfq_hedge_worker_order_cancellations_total counter",
       `rfq_hedge_worker_order_cancellations_total{status="attempted"} ${this.cancelAttempts}`,
       `rfq_hedge_worker_order_cancellations_total{status="confirmed"} ${this.cancelConfirmations}`,
+      "# HELP rfq_hedge_worker_symbol_rules_valid Whether cached Binance symbol rules match every configured hedge route.",
+      "# TYPE rfq_hedge_worker_symbol_rules_valid gauge",
+      `rfq_hedge_worker_symbol_rules_valid ${this.symbolRulesValid}`,
       "# HELP rfq_hedge_worker_last_processed_timestamp_seconds Unix timestamp of the latest non-idle hedge result.",
       "# TYPE rfq_hedge_worker_last_processed_timestamp_seconds gauge",
       `rfq_hedge_worker_last_processed_timestamp_seconds ${this.lastProcessedAtSeconds}`,
@@ -405,7 +414,8 @@ function assertAdapters(adapters: ReadonlyMap<"binance", CexExecutionAdapter>): 
   }
   for (const [venue, adapter] of adapters) {
     if (venue !== "binance" || typeof adapter !== "object" || adapter === null ||
-        typeof adapter.queryOrder !== "function" || typeof adapter.submitLimitOrder !== "function" ||
+        typeof adapter.queryOrder !== "function" || typeof adapter.queryOrderTrades !== "function" ||
+        typeof adapter.validateLimitOrder !== "function" || typeof adapter.submitLimitOrder !== "function" ||
         typeof adapter.cancelOrder !== "function") {
       throw new Error("Hedge worker adapter entry is invalid");
     }

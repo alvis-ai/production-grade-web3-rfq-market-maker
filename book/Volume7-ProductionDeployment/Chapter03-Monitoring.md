@@ -137,6 +137,7 @@ Key metrics include:
 - `rfq_hedge_worker_jobs_total`
 - `rfq_hedge_worker_iteration_errors_total`
 - `rfq_hedge_worker_order_cancellations_total`
+- `rfq_hedge_worker_symbol_rules_valid`
 - `rfq_hedge_worker_last_processed_timestamp_seconds`
 - `rfq_hedge_fee_reconciliations_total`
 - `rfq_hedge_fee_iteration_errors_total`
@@ -196,7 +197,7 @@ Kubernetes control-plane observability comes from kube-state-metrics rather than
 - Signer throughput alerting should compare quote demand with `sign` operations; safe quote flow must never bypass the signer.
 - Market-data cache alerting should compare `rfq_market_data_cache_hits_total` and `rfq_market_data_cache_misses_total` before increasing quote limits; a cold cache points to disabled prefetch, stale CEX order book streams or unsupported pair configuration.
 - CEX order-book alerting uses fixed source/pair states, latest-cycle maximum event age, latest-cycle deviation rejections and connector error rates. A synchronized socket alone is not healthy: `ready` requires a valid two-sided book whose exchange event timestamp is within `RFQ_CEX_MAX_SOURCE_AGE_MS`; blocked pairs must remain on the lower-priority provider or fail closed until quorum and deviation checks recover.
-- Hedge worker alerting correlates newly created intents with terminal/retry outcomes and last processed time. Repeated retries or iteration errors require checking PostgreSQL leases and querying Binance by persisted client order id before any manual action.
+- Hedge worker alerting correlates newly created intents with terminal/retry outcomes, live symbol-rule validity and last processed time. `rfq_hedge_worker_symbol_rules_valid=0` means the worker cannot prove that route assets, quantity step and price tick still match Binance `exchangeInfo`; API and worker readiness must stay degraded until reviewed configuration and live filters agree. Repeated retries or iteration errors require checking PostgreSQL leases and querying Binance by persisted client order id before any manual action.
 - Hedge fee alerting correlates the exact-fill reconciliation outcome with pending depth, oldest due age and last progress. Account-history lag reduces accounting freshness but must not trigger replacement orders; a persistent base/quote mismatch requires preserving the fill evidence and reconciling it against the venue account export.
 - Rate-limit alerting should inspect `endpoint` first, then separate abuse, broken client retries and real demand before changing global limits.
 - Settlement throughput alerting should compare accepted submits with new settlement events to distinguish true settlement stalls from duplicate replay traffic.
