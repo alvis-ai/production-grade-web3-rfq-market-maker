@@ -94,10 +94,15 @@ assert.ok(
 );
 for (const [label, source] of [["Kubernetes ConfigMap", k8sSource], ["Helm values", helmSource]]) {
   assert.ok(
-    source.includes(":binance:ETHUSDT") && source.includes(":coinbase:ETH-USD"),
-    `${label} must configure two independent production CEX sources`,
+    source.includes(":binance:ETHUSDT:hedge") && source.includes(":coinbase:ETH-USD:reference"),
+    `${label} must distinguish the executable hedge source from independent reference evidence`,
   );
 }
+assert.ok(
+  mainSource.includes("chainId:baseToken:usdQuoteToken:exchange:symbol:role") &&
+    mainSource.includes("hedge role requires the supported binance execution venue"),
+  "CEX runtime must validate explicit hedge/reference roles against the supported execution venue",
+);
 assert.ok(
   cachedMarketDataSource.includes("requiredPrimaryCacheKeys.has(key)") &&
     cachedMarketDataSource.includes("Required live CEX order book is unavailable"),
@@ -108,6 +113,11 @@ assert.ok(monitorSource.includes("cexDeviationBps"), "CEX monitor must enforce c
 assert.ok(monitorSource.includes("connector.restart()"), "stale or invalid CEX sources must actively resynchronize");
 assert.ok(monitorSource.includes("Math.min(...sources.map(({ observedAtMs })"), "aggregate observedAt must use source event time");
 assert.ok(monitorSource.includes("lastPublishedFingerprint"), "unchanged CEX events must not refresh snapshots");
+assert.ok(
+  monitorSource.includes('accepted.some(({ role }) => role === "hedge")') &&
+    monitorSource.includes('.filter(({ role }) => role === "hedge")'),
+  "reference sources must validate price without contributing unroutable liquidity",
+);
 assert.ok(decimalSource.includes("10n ** BigInt(cexDecimalScaleDigits)"), "CEX decimal math must use fixed-point BigInt");
 assert.ok(orderBookSource.includes("normalizeLevels") && orderBookSource.includes("parseCexDecimal"), "order-book messages must validate atomically with fixed decimals");
 assert.ok(
@@ -165,6 +175,12 @@ assert.ok(testSource.includes('asks: [["101", "1000"]]'), "tests must prove ask 
 assert.ok(testSource.includes("marketSpreadBps"), "tests must cover executable market spread attribution");
 assert.ok(testSource.includes("inverseFallback"), "tests must cover inverse ask-side snapshot publication");
 assert.ok(
+  testSource.includes('assert.equal(snapshot.liquidityUsd, "99")') &&
+    testSource.includes('assert.equal(inverseSnapshot.liquidityUsd, "100")') &&
+    testSource.includes("at least one hedge source"),
+  "tests must prove reference depth cannot inflate either RFQ direction",
+);
+assert.ok(
   testSource.includes("RFQ API prices the inverse USD-to-base direction from executable asks"),
   "tests must cover inverse CEX pricing through the signed quote API",
 );
@@ -185,6 +201,12 @@ assert.ok(
   marketDataChapter.includes("WebSocket handshake") && marketDataChapter.includes("10 秒"),
   "market-data chapter must document the bounded CEX connection lifecycle",
 );
+assert.ok(
+  marketDataChapter.includes("`hedge` 或 `reference`") &&
+    marketDataChapter.includes("reference quorum") &&
+    readmeSource.includes("reference-only surviving quorum invalidates both directional cache entries"),
+  "market-data docs must bind executable liquidity to deployed hedge venues",
+);
 assert.ok(readmeSource.includes("make cex-orderbook-integration-check"), "README must document the live CEX check");
 assert.ok(
   readmeSource.includes("WebSocket handshakes have a ten-second deadline"),
@@ -203,4 +225,4 @@ assert.ok(
   "live CEX check must validate both directional depth surfaces",
 );
 
-console.log(`CEX order-book consistency check passed (${tuningNames.length} runtime controls)`);
+console.log(`CEX order-book consistency check passed (${tuningNames.length + 1} runtime controls)`);

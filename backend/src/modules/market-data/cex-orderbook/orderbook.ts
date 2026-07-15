@@ -49,6 +49,8 @@ export interface OrderBookPairConfig {
   exchange: "binance" | "coinbase";
   /** Exchange-native symbol, e.g. BTCUSDT or BTC-USD. */
   symbol: string;
+  /** Hedge sources contribute executable depth; reference sources only validate price. */
+  role: "hedge" | "reference";
 }
 
 // ─── OrderBook ─────────────────────────────────────────────────────

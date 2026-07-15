@@ -59,6 +59,7 @@ test("non-local static market data requires a configured mandatory live CEX book
     tokenOut,
     exchange: "binance",
     symbol: "ETHUSDT",
+    role: "hedge",
   };
   const production = { NODE_ENV: "production" };
 

@@ -3615,6 +3615,7 @@ grep -q 'runbook FQDN egress procedure must include' scripts/check-security-docs
 grep -Fq -- '- [x] EIP-712 domain includes name, version, chainId and verifyingContract.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] `submitQuote` rejects expired quotes.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Risk Engine runs before Signer Service.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] CEX reference sources validate price without inflating executable liquidity; every published pair retains an accepted Binance hedge source.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Indexer handles chain reorgs.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Inventory updates are replayable.' docs/security/audit-checklist.md

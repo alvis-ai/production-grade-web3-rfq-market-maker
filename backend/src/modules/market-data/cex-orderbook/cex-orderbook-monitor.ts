@@ -89,6 +89,7 @@ interface SourceMetrics {
   liquidityUsd: string;
   observedAtMs: number;
   source: OrderBookPairConfig["exchange"];
+  role: OrderBookPairConfig["role"];
 }
 
 type SourceState = "ready" | "stale" | "unavailable";
@@ -195,6 +196,11 @@ export class CEXOrderBookMonitor {
         blockedPairs += 1;
         continue;
       }
+      if (!accepted.some(({ role }) => role === "hedge")) {
+        this.invalidatePair(cacheKey);
+        blockedPairs += 1;
+        continue;
+      }
 
       usablePairs += 1;
       const fingerprint = sourceFingerprint(accepted);
@@ -291,6 +297,7 @@ export class CEXOrderBookMonitor {
         liquidityUsd,
         observedAtMs: source.observedAtMs,
         source: pair.exchange,
+        role: pair.role,
       });
     }
     return sources;
@@ -303,7 +310,9 @@ export class CEXOrderBookMonitor {
   ): MarketSnapshot {
     const midPriceValue = medianCexDecimal(sources.map(({ midPriceValue }) => midPriceValue));
     const midPrice = formatCexDecimal(midPriceValue);
-    const liquidity = sources.reduce((total, source) => total + BigInt(source.liquidityUsd), 0n);
+    const liquidity = sources
+      .filter(({ role }) => role === "hedge")
+      .reduce((total, source) => total + BigInt(source.liquidityUsd), 0n);
     const observedAtMs = Math.min(...sources.map(({ observedAtMs }) => observedAtMs));
     this.recordPrice(cacheKey, Number(midPrice));
     this.snapshotSequence += 1;
@@ -414,7 +423,7 @@ function assertConfig(config: CexOrderBookConfig): void {
   const seenSources = new Set<string>();
   for (const pair of config.pairs) {
     if (!isRecord(pair)) throw new Error("CEX pair must be an object");
-    assertExactFields(pair, ["chainId", "tokenIn", "tokenOut", "exchange", "symbol"], "CEX pair");
+    assertExactFields(pair, ["chainId", "tokenIn", "tokenOut", "exchange", "symbol", "role"], "CEX pair");
     if (!Number.isSafeInteger(pair.chainId) || pair.chainId <= 0) throw new Error("CEX pair chainId must be a positive safe integer");
     if (!/^0x[0-9a-fA-F]{40}$/.test(pair.tokenIn) || !/^0x[0-9a-fA-F]{40}$/.test(pair.tokenOut)) {
       throw new Error("CEX pair tokens must be 20-byte hex addresses");
@@ -422,6 +431,12 @@ function assertConfig(config: CexOrderBookConfig): void {
     if (pair.tokenIn.toLowerCase() === pair.tokenOut.toLowerCase()) throw new Error("CEX pair tokens must be distinct");
     if (pair.exchange !== "binance" && pair.exchange !== "coinbase") throw new Error("CEX pair exchange must be binance or coinbase");
     if (!/^[A-Za-z0-9._-]{3,32}$/.test(pair.symbol)) throw new Error("CEX pair symbol must contain 3-32 exchange symbol characters");
+    if (pair.role !== "hedge" && pair.role !== "reference") {
+      throw new Error("CEX pair role must be hedge or reference");
+    }
+    if (pair.role === "hedge" && pair.exchange !== "binance") {
+      throw new Error("CEX hedge source exchange must be binance while hedge execution is Binance-only");
+    }
     const sourceKey = `${pairKey(pair.chainId, pair.tokenIn, pair.tokenOut)}:${connectorKey(pair.exchange, pair.symbol)}`;
     if (seenSources.has(sourceKey)) throw new Error("CEX order book pairs must not contain duplicate sources");
     seenSources.add(sourceKey);
@@ -430,6 +445,9 @@ function assertConfig(config: CexOrderBookConfig): void {
   for (const pairs of groupPairs(config.pairs).values()) {
     if (pairs.length < config.minSources) {
       throw new Error("CEX order book each pair must configure at least minSources distinct sources");
+    }
+    if (!pairs.some(({ role }) => role === "hedge")) {
+      throw new Error("CEX order book each pair must configure at least one hedge source");
     }
   }
 

@@ -70,8 +70,8 @@ test("CEXOrderBookMonitor publishes only changed fresh source events", () => {
   };
   const monitor = new CEXOrderBookMonitor(cache, {
     pairs: [
-      { chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT" },
-      { chainId: 1, tokenIn, tokenOut, exchange: "coinbase", symbol: "ETH-USDT" },
+      { chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT", role: "hedge" },
+      { chainId: 1, tokenIn, tokenOut, exchange: "coinbase", symbol: "ETH-USDT", role: "reference" },
     ],
     depthRangeBps: 50,
     flushIntervalMs: 60_000,
@@ -93,13 +93,13 @@ test("CEXOrderBookMonitor publishes only changed fresh source events", () => {
     const snapshot = cache.get(pairKey(1, tokenIn, tokenOut));
     const inverseSnapshot = cache.get(pairKey(1, tokenOut, tokenIn));
     assert.equal(snapshot.midPrice, "102");
-    assert.equal(snapshot.liquidityUsd, "306");
+    assert.equal(snapshot.liquidityUsd, "99");
     assert.equal(snapshot.marketSpreadBps, 221);
     assert.equal(snapshot.volatilityBps, 10);
     assert.equal(snapshot.observedAt, new Date(now - 100).toISOString());
     assert.equal(getMarketDataSnapshotSource(snapshot), "cex:binance+coinbase");
     assert.match(snapshot.snapshotId, /_cex$/);
-    assert.equal(inverseSnapshot.liquidityUsd, "308");
+    assert.equal(inverseSnapshot.liquidityUsd, "100");
     assert.equal(getMarketDataSnapshotSource(inverseSnapshot), "cex:binance+coinbase");
     assert.match(inverseSnapshot.snapshotId, /_cex$/);
 
@@ -121,6 +121,14 @@ test("CEXOrderBookMonitor publishes only changed fresh source events", () => {
     assert.equal(observer.cycles.at(-1).readySources, 1);
     assert.equal(observer.cycles.at(-1).unavailableSources, 1);
     assert.equal(observer.cycles.at(-1).usablePairs, 2);
+
+    connectors.get("binance:ETHUSDT").ready = false;
+    connectors.get("coinbase:ETH-USDT").ready = true;
+    connectors.get("coinbase:ETH-USDT").setSnapshot([["99.8", "10"]], [["100.2", "10"]], now + 30);
+    monitor.flushOnce(now + 30);
+    assert.equal(cache.get(pairKey(1, tokenIn, tokenOut)), undefined);
+    assert.equal(cache.get(pairKey(1, tokenOut, tokenIn)), undefined);
+    assert.equal(observer.cycles.at(-1).blockedPairs, 2);
   } finally {
     monitor.stop();
   }
@@ -137,7 +145,7 @@ test("CEXOrderBookMonitor logs connector failures without raw exception text", (
   let reportError;
   const monitor = new CEXOrderBookMonitor(
     new SharedPriceCache(),
-    { pairs: [{ chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT" }] },
+    { pairs: [{ chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT", role: "hedge" }] },
     observer,
     (exchange, symbol, onError) => {
       reportError = onError;
@@ -166,7 +174,7 @@ test("RFQ API prices the inverse USD-to-base direction from executable asks", as
   const cache = new SharedPriceCache(60_000);
   let connector;
   const monitor = new CEXOrderBookMonitor(cache, {
-    pairs: [{ chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT" }],
+    pairs: [{ chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT", role: "hedge" }],
     flushIntervalMs: 60_000,
     minSources: 1,
   }, new FakeObserver(), (exchange, symbol) => {
@@ -231,8 +239,8 @@ test("CEXOrderBookMonitor invalidates stale and cross-venue divergent books", ()
   };
   const monitor = new CEXOrderBookMonitor(cache, {
     pairs: [
-      { chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT" },
-      { chainId: 1, tokenIn, tokenOut, exchange: "coinbase", symbol: "ETH-USDT" },
+      { chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT", role: "hedge" },
+      { chainId: 1, tokenIn, tokenOut, exchange: "coinbase", symbol: "ETH-USDT", role: "reference" },
     ],
     maxSourceAgeMs: 2_000,
     minSources: 2,
@@ -270,7 +278,7 @@ test("CEXOrderBookMonitor invalidates stale and cross-venue divergent books", ()
 });
 
 test("CEXOrderBookMonitor rejects unsafe quorum and dependency configuration", () => {
-  const pair = { chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT" };
+  const pair = { chainId: 1, tokenIn, tokenOut, exchange: "binance", symbol: "ETHUSDT", role: "hedge" };
   assert.throws(
     () => new CEXOrderBookMonitor(new SharedPriceCache(), null),
     /config must be an object/,
@@ -292,6 +300,18 @@ test("CEXOrderBookMonitor rejects unsafe quorum and dependency configuration", (
   assert.throws(
     () => new CEXOrderBookMonitor(new SharedPriceCache(), { pairs: [pair], minSources: 2 }),
     /at least minSources/,
+  );
+  assert.throws(
+    () => new CEXOrderBookMonitor(new SharedPriceCache(), {
+      pairs: [{ ...pair, role: "reference" }],
+    }),
+    /at least one hedge source/,
+  );
+  assert.throws(
+    () => new CEXOrderBookMonitor(new SharedPriceCache(), {
+      pairs: [{ ...pair, exchange: "coinbase", symbol: "ETH-USD" }],
+    }),
+    /hedge source exchange must be binance/,
   );
   assert.throws(
     () => new CEXOrderBookMonitor(new SharedPriceCache(), { pairs: [pair], flushIntervalMs: 1 }),

@@ -293,9 +293,9 @@ export function readCexOrderBookPairs(): OrderBookPairConfig[] {
 
   return configured.split(",").map((pairStr) => {
     const parts = pairStr.trim().split(":");
-    if (parts.length !== 5) {
+    if (parts.length !== 6) {
       throw new Error(
-        `Invalid RFQ_CEX_PAIRS entry: ${pairStr}. Expected format: chainId:baseToken:usdQuoteToken:exchange:symbol`,
+        `Invalid RFQ_CEX_PAIRS entry: ${pairStr}. Expected format: chainId:baseToken:usdQuoteToken:exchange:symbol:role`,
       );
     }
     const chainId = readPairChainId(parts[0], "RFQ_CEX_PAIRS", pairStr);
@@ -310,6 +310,13 @@ export function readCexOrderBookPairs(): OrderBookPairConfig[] {
     if (!/^[A-Z0-9._-]{3,32}$/.test(symbol)) {
       throw new Error(`Invalid RFQ_CEX_PAIRS entry: ${pairStr}. symbol must be 3-32 exchange symbol characters`);
     }
+    const role = parts[5].trim().toLowerCase();
+    if (role !== "hedge" && role !== "reference") {
+      throw new Error(`Invalid RFQ_CEX_PAIRS entry: ${pairStr}. role must be hedge or reference`);
+    }
+    if (role === "hedge" && exchange !== "binance") {
+      throw new Error(`Invalid RFQ_CEX_PAIRS entry: ${pairStr}. hedge role requires the supported binance execution venue`);
+    }
 
     return {
       chainId,
@@ -317,6 +324,7 @@ export function readCexOrderBookPairs(): OrderBookPairConfig[] {
       tokenOut,
       exchange,
       symbol,
+      role,
     };
   });
 }

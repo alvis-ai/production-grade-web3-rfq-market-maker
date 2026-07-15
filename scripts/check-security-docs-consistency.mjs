@@ -60,6 +60,7 @@ const requiredTerms = {
     "Cross-chain replay",
     "Quote field tampering",
     "Stale market data",
+    "Unroutable aggregated CEX depth",
     "Risk bypass",
     "Mempool MEV",
     "Event duplication",
@@ -92,6 +93,7 @@ const requiredTerms = {
     "Trusted signer authorization is capped at five entries",
     "`/quote` validates address format and amount strings",
     "Risk Engine runs before Signer Service",
+    "CEX reference sources validate price without inflating executable liquidity",
     "Signer Service cannot be called directly from public API",
     "Rate limits protect public trading endpoints",
     "Production `/submit` uses a PostgreSQL quote-scoped lease",
@@ -150,6 +152,7 @@ assert.ok(checkedAuditItems >= 20, "audit checklist must mark implemented baseli
 
 const implementedAuditControls = [
   "Non-local static market data requires a non-empty mandatory live CEX source set and cannot sign from demonstration prices alone.",
+  "CEX reference sources validate price without inflating executable liquidity; every published pair retains an accepted Binance hedge source.",
   "EIP-712 domain includes name, version, chainId and verifyingContract.",
   "Quote struct fields match SDK and backend signer exactly.",
   "`submitQuote` rejects expired quotes.",

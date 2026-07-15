@@ -202,6 +202,8 @@ test("RFQ API rejects malformed RFQ_CEX_PAIRS before starting market data worker
       "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:ETHUSDT",
       "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:kraken:ETHUSD",
       "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:!!",
+      "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT:unknown",
+      "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:coinbase:ETH-USD:hedge",
     ]) {
       process.env.RFQ_CEX_PAIRS = pairs;
       assert.throws(() => buildServer({ logger: false }), /Invalid RFQ_CEX_PAIRS entry/);
@@ -216,7 +218,7 @@ test("RFQ API rejects unsafe CEX order book runtime bounds", () => {
   const originalAge = process.env.RFQ_CEX_MAX_SOURCE_AGE_MS;
   try {
     process.env.RFQ_CEX_PAIRS =
-      "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT";
+      "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT:hedge";
     for (const age of ["99", "1e3", "60001"]) {
       process.env.RFQ_CEX_MAX_SOURCE_AGE_MS = age;
       assert.throws(() => buildServer({ logger: false }), /RFQ_CEX_MAX_SOURCE_AGE_MS/);
@@ -241,7 +243,7 @@ test("production RFQ API requires two CEX sources per configured pair by default
     configureAwsSignerEnvironment();
     process.env.RFQ_ALLOW_SIMULATED_SETTLEMENT = "true";
     process.env.RFQ_CEX_PAIRS =
-      "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT";
+      "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT:hedge";
     delete process.env.RFQ_CEX_MIN_SOURCES;
 
     assert.throws(
@@ -308,6 +310,7 @@ test("CEX runtime requires a live order book by default outside local environmen
     tokenOut: "0x0000000000000000000000000000000000000003",
     exchange: "binance",
     symbol: "ETHUSDT",
+    role: "hedge",
   }];
   try {
     delete process.env.NODE_ENV;
@@ -344,6 +347,7 @@ test("CEX live-book policy protects both RFQ directions for each native market",
     tokenOut: "0x0000000000000000000000000000000000000003",
     exchange: "binance",
     symbol: "ETHUSDT",
+    role: "hedge",
   }];
   assert.deepEqual(buildRequiredCexCacheKeys(pairs, true), [
     "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003",
