@@ -33,6 +33,7 @@ pnpm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+.VSCodeCounter/
 
 # Local data
 tmp/
