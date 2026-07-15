@@ -72,6 +72,7 @@ on:
       - "scripts/binance-testnet-integration-check.mjs"
       - "scripts/binance-testnet-integration-check.test.mjs"
       - "scripts/fixtures/binance-testnet-live-api.mjs"
+      - "scripts/hedge-worker-e2e.mjs"
       - "scripts/chainlink-integration-check.mjs"
       - "scripts/chainlink-integration-check.test.mjs"
       - "scripts/check-metrics-consistency.mjs"

@@ -67,6 +67,9 @@ assertContains(workflows.backend, [
   "Verify PostgreSQL quote exposure concurrency",
   "RFQ_QUOTE_EXPOSURE_INTEGRATION_CONFIRM",
   "run: make db-migrate quote-exposure-integration-check",
+  "Verify production hedge execution end to end",
+  "RFQ_HEDGE_WORKER_E2E_CONFIRM",
+  "run: make hedge-worker-e2e",
   "submodules: recursive",
 ], ".github/workflows/backend-ci.yml");
 

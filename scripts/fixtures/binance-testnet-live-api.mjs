@@ -6,6 +6,7 @@ const apiSecret = "testnet-api-secret";
 const symbol = "BTCUSDT";
 const orderId = 123;
 const fixtureMode = process.env.RFQ_BINANCE_TESTNET_FIXTURE_MODE;
+const workerFilledMode = fixtureMode === "worker-filled";
 let clientOrderId;
 let orderState = "absent";
 
@@ -64,7 +65,9 @@ globalThis.fetch = async (input, init = {}) => {
       return jsonResponse(400, { code: -2013, msg: "Order does not exist." });
     }
     assert.equal(requestedId, clientOrderId);
-    return jsonResponse(200, orderResponse(orderState === "canceled" ? "CANCELED" : "NEW"));
+    return jsonResponse(200, orderResponse(
+      orderState === "canceled" ? "CANCELED" : orderState === "filled" ? "FILLED" : "NEW",
+    ));
   }
 
   if (url.pathname === "/api/v3/order" && method === "POST") {
@@ -75,14 +78,14 @@ globalThis.fetch = async (input, init = {}) => {
     assert.equal(url.searchParams.get("quantity"), "0.2");
     assert.equal(url.searchParams.get("price"), "90");
     clientOrderId = url.searchParams.get("newClientOrderId");
-    assert.match(clientOrderId, /^rfq_canary_[a-z0-9]+_[0-9a-f]{8}$/);
-    orderState = "pending";
+    assert.match(clientOrderId, workerFilledMode ? /^rfq_[0-9a-f]{32}$/ : /^rfq_canary_[a-z0-9]+_[0-9a-f]{8}$/);
+    orderState = workerFilledMode ? "filled" : "pending";
     if (fixtureMode === "submit-response-invalid") {
       const response = orderResponse("NEW");
       delete response.status;
       return jsonResponse(200, response);
     }
-    return jsonResponse(200, orderResponse("NEW"));
+    return jsonResponse(200, orderResponse(workerFilledMode ? "FILLED" : "NEW"));
   }
 
   if (url.pathname === "/api/v3/order" && method === "DELETE") {
@@ -93,10 +96,10 @@ globalThis.fetch = async (input, init = {}) => {
   }
 
   if (url.pathname === "/api/v3/myTrades" && method === "GET") {
-    assert.equal(orderState, "canceled");
+    assert.equal(orderState, workerFilledMode ? "filled" : "canceled");
     assert.equal(url.searchParams.get("orderId"), String(orderId));
     assert.equal(url.searchParams.get("limit"), "1000");
-    return jsonResponse(200, []);
+    return jsonResponse(200, workerFilledMode ? [tradeResponse()] : []);
   }
 
   throw new Error(`Unexpected Binance Testnet request ${method} ${url.pathname}`);
@@ -114,13 +117,30 @@ function assertSigned(url) {
 }
 
 function orderResponse(status) {
+  const filled = status === "FILLED";
   return {
     symbol,
     orderId,
     clientOrderId,
     status,
-    executedQty: "0.00000000",
-    cummulativeQuoteQty: "0.00000000",
+    executedQty: filled ? "0.20000000" : "0.00000000",
+    cummulativeQuoteQty: filled ? "18.00000000" : "0.00000000",
+  };
+}
+
+function tradeResponse() {
+  return {
+    symbol,
+    id: 456,
+    orderId,
+    price: "90.00000000",
+    qty: "0.20000000",
+    quoteQty: "18.00000000",
+    commission: "0.01800000",
+    commissionAsset: "USDT",
+    time: 1_700_000_000_000,
+    isBuyer: true,
+    isMaker: false,
   };
 }
 

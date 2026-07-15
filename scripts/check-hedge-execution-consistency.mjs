@@ -26,6 +26,8 @@ const paths = {
   testnetIntegration: "scripts/binance-testnet-integration-check.mjs",
   testnetIntegrationTest: "scripts/binance-testnet-integration-check.test.mjs",
   testnetFixture: "scripts/fixtures/binance-testnet-live-api.mjs",
+  hedgeWorkerE2e: "scripts/hedge-worker-e2e.mjs",
+  backendWorkflow: ".github/workflows/backend-ci.yml",
   makefile: "Makefile",
   packageJson: "package.json",
   verify: "scripts/verify.sh",
@@ -151,11 +153,27 @@ assert.match(source.testnetIntegrationTest, /rejects a marketable-risk price bef
 assert.match(source.testnetIntegrationTest, /accepted order returns an invalid response/);
 assert.match(source.testnetFixture, /createHmac\("sha256"/);
 assert.match(source.testnetFixture, /https:\/\/testnet\.binance\.vision/);
+assert.match(source.testnetFixture, /worker-filled/);
+assert.match(source.testnetFixture, /commissionAsset: "USDT"/);
+assert.match(source.hedgeWorkerE2e, /RFQ_HEDGE_WORKER_E2E_CONFIRM/);
+assert.match(source.hedgeWorkerE2e, /assertLoopbackDatabase/);
+assert.match(source.hedgeWorkerE2e, /new PostgresSettlementEventStore/);
+assert.match(source.hedgeWorkerE2e, /new PostTradeReconciliationWorker/);
+assert.match(source.hedgeWorkerE2e, /new HedgeWorker/);
+assert.match(source.hedgeWorkerE2e, /new HedgeFeeWorker/);
+assert.match(source.hedgeWorkerE2e, /new BinanceSpotAdapter/);
+assert.match(source.hedgeWorkerE2e, /hedge_net_pnl_quote_quantity/);
+assert.match(source.hedgeWorkerE2e, /await hedgeWorker\.runOnce\(\)/);
+assert.match(source.hedgeWorkerE2e, /await feeWorker\.runOnce\(\)/);
 assert.match(source.makefile, /binance-testnet-integration-check: backend-build/);
 assert.match(source.makefile, /binance-testnet-check: backend-build/);
+assert.match(source.makefile, /hedge-worker-e2e: backend-build/);
 assert.match(source.packageJson, /"binance:testnet:integration:check"/);
 assert.match(source.packageJson, /"binance:testnet:check"/);
+assert.match(source.packageJson, /"hedge:worker:e2e"/);
 assert.match(source.verify, /run_step make binance-testnet-check/);
+assert.match(source.backendWorkflow, /RFQ_HEDGE_WORKER_E2E_CONFIRM/);
+assert.match(source.backendWorkflow, /run: make hedge-worker-e2e/);
 
 assert.match(source.compose, /hedge-worker:[\s\S]*RFQ_TOKEN_REGISTRY_JSON:[\s\S]*RFQ_HEDGE_ROUTES_JSON:/);
 assert.match(source.compose, /hedge-worker:[\s\S]*RFQ_HEDGE_MAX_ORDER_AGE_MS:/);
@@ -208,6 +226,9 @@ for (const [name, needle] of [
   ["architectureReview", /Spot Testnet execution canary/],
   ["threatModel", /unexpected testnet canary fill/],
   ["auditChecklist", /Spot Testnet execution canary/],
+  ["readme", /make db-migrate hedge-worker-e2e/],
+  ["hedgeBook", /production reconciliation worker/],
+  ["auditChecklist", /signature-verifying Binance fill fixture/],
 ]) {
   assert.match(source[name], needle, `${paths[name]} must document hedge quantity integrity`);
 }

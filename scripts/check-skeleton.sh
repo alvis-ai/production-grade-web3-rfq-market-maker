@@ -104,6 +104,7 @@ test -s backend/test/signer-audit-store.test.mjs
 test -s backend/src/modules/hedge/hedge-net-pnl.ts
 test -s backend/test/hedge-net-pnl.test.mjs
 test -s scripts/hedge-net-pnl-integration-check.mjs
+test -s scripts/hedge-worker-e2e.mjs
 test -s backend/src/modules/pnl/quote-snapshot-valuation.provider.ts
 test -s backend/test/quote-snapshot-pnl-valuation.test.mjs
 test -s backend/test/postgres-market-snapshot-store.test.mjs
@@ -131,6 +132,8 @@ grep -q 'reconciliation-integration-check: backend-build' Makefile
 grep -q 'scripts/reconciliation-integration-check.mjs' Makefile
 grep -q 'hedge-net-pnl-integration-check: backend-build' Makefile
 grep -q 'scripts/hedge-net-pnl-integration-check.mjs' Makefile
+grep -q 'hedge-worker-e2e: backend-build' Makefile
+grep -q 'scripts/hedge-worker-e2e.mjs' Makefile
 grep -q 'FOR UPDATE SKIP LOCKED' backend/src/modules/hedge/postgres-hedge-job.store.ts
 grep -q 'adapter.queryOrder' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'adapter.validateLimitOrder' backend/src/modules/hedge/hedge-worker.ts
@@ -3828,6 +3831,7 @@ test -s scripts/check-hedge-execution-consistency.mjs
 test -s scripts/binance-testnet-integration-check.mjs
 test -s scripts/binance-testnet-integration-check.test.mjs
 test -s scripts/fixtures/binance-testnet-live-api.mjs
+test -s scripts/hedge-worker-e2e.mjs
 grep -q 'quantizeHedgeAmount' backend/src/modules/hedge/hedge-route.ts
 grep -q 'validateTokenRegistry' backend/src/modules/hedge/hedge-route.ts
 grep -q 'filledAmount !== targetAmount' backend/src/modules/hedge/hedge-worker.ts
@@ -3837,6 +3841,8 @@ grep -q 'make hedge-execution-check' .github/workflows/docs-ci.yml
 grep -q 'binance-testnet-integration-check: backend-build' Makefile
 grep -q 'binance-testnet-check: backend-build' Makefile
 grep -q 'binance:testnet:integration:check' package.json
+grep -q 'hedge:worker:e2e' package.json
+grep -q 'RFQ_HEDGE_WORKER_E2E_CONFIRM' .github/workflows/backend-ci.yml
 grep -q 'make binance-testnet-check' scripts/verify.sh
 grep -q 'https://testnet.binance.vision' scripts/binance-testnet-integration-check.mjs
 grep -q 'RFQ_BINANCE_TESTNET_INTEGRATION_CONFIRM' scripts/binance-testnet-integration-check.mjs

@@ -31,6 +31,7 @@
     "reconciliation:check": "make reconciliation-check",
     "reconciliation:integration:check": "make reconciliation-integration-check",
     "quote:exposure:integration:check": "make quote-exposure-integration-check",
+    "hedge:worker:e2e": "make hedge-worker-e2e",
     "analytics:integration:check": "make analytics-integration-check",
     "analytics:pipeline:check": "make analytics-pipeline-check",
     "analytics:e2e": "make analytics-e2e",

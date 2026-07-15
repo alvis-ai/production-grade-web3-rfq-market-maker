@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { endPool, getPool } from "../backend/dist/db/pool.js";
 import { PostgresHedgeService } from "../backend/dist/modules/hedge/postgres-hedge.service.js";
+import { DeltaNeutralHedgePlanner } from "../backend/dist/modules/hedge/hedge-intent-planner.js";
 import { PostgresInventoryService } from "../backend/dist/modules/inventory/postgres-inventory.service.js";
 import { PostgresMarketSnapshotStore } from "../backend/dist/modules/market-data/postgres-market-snapshot.repository.js";
 import { PostgresPnlStore } from "../backend/dist/modules/pnl/postgres-pnl.store.js";
@@ -23,6 +24,7 @@ const pool = getPool();
 const runId = randomBytes(8).toString("hex");
 const quoteId = `q_reconciliation_${runId}`;
 const snapshotId = `s_reconciliation_${runId}`;
+const principalId = `principal_reconciliation_${runId}`;
 const user = `0x${randomBytes(20).toString("hex")}`;
 const tokenIn = `0x${randomBytes(20).toString("hex")}`;
 const tokenOut = `0x${randomBytes(20).toString("hex")}`;
@@ -61,7 +63,7 @@ const reconciliation = new ReconciliationService({
   settlementEventService: settlementEvents,
   hedgeService,
   pnlService,
-});
+}, new DeltaNeutralHedgePlanner(tokenRegistry));
 const metrics = new PostTradeReconciliationMetrics();
 const worker = new PostTradeReconciliationWorker(jobStore, reconciliation, {
   workerId: `reconciliation_check_${runId}`,
@@ -84,15 +86,16 @@ try {
   );
   await pool.query(
     `INSERT INTO quotes (
-       id, chain_id, user_address, token_in, token_out, amount_in, slippage_bps,
+       id, principal_id, chain_id, user_address, token_in, token_out, amount_in, slippage_bps,
        amount_out, min_amount_out, nonce, deadline, snapshot_id, pricing_version,
        spread_bps, size_impact_bps, market_spread_bps, inventory_skew_bps, volatility_premium_bps,
        hedge_cost_bps, risk_policy_version,
        status, signature
-     ) VALUES ($1, 1, $2, $3, $4, $5, 50, $6, $7, $8, $9, $10,
-       'formula-v4', 20, 5, 10, 0, 5, 0, 'risk-v1', 'signed', $11)`,
+     ) VALUES ($1, $2, 1, $3, $4, $5, $6, 50, $7, $8, $9, $10, $11,
+       'formula-v4', 20, 5, 10, 0, 5, 0, 'risk-v1', 'signed', $12)`,
     [
       quoteId,
+      principalId,
       user,
       tokenIn,
       tokenOut,
