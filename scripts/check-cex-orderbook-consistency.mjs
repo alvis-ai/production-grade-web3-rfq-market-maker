@@ -180,6 +180,17 @@ assert.ok(
   "Coinbase official snapshots must omit time while update event clocks remain monotonic",
 );
 assert.ok(
+  coinbaseSource.includes('{ name: "heartbeat", product_ids: [this.productId] }') &&
+    coinbaseSource.includes("handleHeartbeat(msg)") &&
+    coinbaseSource.includes("lastHeartbeatSequence") &&
+    coinbaseSource.includes("lastHeartbeatTradeId") &&
+    coinbaseSource.includes("Coinbase heartbeat event time regressed") &&
+    coinbaseSource.includes("Coinbase heartbeat sequence regressed") &&
+    coinbaseSource.includes("Coinbase heartbeat trade id regressed") &&
+    integrationFixtureSource.includes('{ name: "heartbeat", product_ids: ["ETH-USD"] }'),
+  "Coinbase must use monotonic heartbeat evidence for quiet-book freshness",
+);
+assert.ok(
   binanceSource.includes('readBoundedJsonResponse(response, "Binance depth snapshot")') &&
     binanceSource.includes('parseBoundedJsonMessage(raw, "Binance WebSocket message")') &&
     coinbaseSource.includes('parseBoundedJsonMessage(raw, "Coinbase WebSocket message")'),
@@ -222,6 +233,8 @@ assert.ok(
 assert.ok(
   testSource.includes("reject oversized WebSocket messages before parsing") &&
     testSource.includes("fail closed when exchange event time regresses") &&
+    testSource.includes("uses heartbeat evidence to keep an unchanged snapshot fresh") &&
+    testSource.includes("rejects invalid or regressed heartbeat evidence") &&
     testSource.includes("resource limits and reconnect jitter are bounded") &&
     testSource.includes("MAX_CEX_SNAPSHOT_BYTES + 1"),
   "tests must cover CEX payload bounds, timestamp regression and reconnect jitter",
@@ -267,6 +280,8 @@ assert.ok(
     marketDataChapter.includes("2 MiB") &&
     marketDataChapter.includes("事件时间回退") &&
     marketDataChapter.includes("官方 snapshot") &&
+    marketDataChapter.includes("heartbeat") &&
+    readmeSource.includes("valid post-snapshot heartbeat") &&
     readmeSource.includes("Incoming CEX WebSocket text frames are capped at 1 MiB"),
   "market-data docs must document payload, event-time and reconnect safety boundaries",
 );

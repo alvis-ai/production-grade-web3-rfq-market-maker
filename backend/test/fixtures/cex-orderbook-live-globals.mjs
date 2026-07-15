@@ -21,7 +21,10 @@ globalThis.WebSocket = class FakeWebSocket {
     assert.equal(this.url, "wss://ws-feed.exchange.coinbase.com");
     assert.deepEqual(request, {
       type: "subscribe",
-      channels: [{ name: "level2", product_ids: ["ETH-USD"] }],
+      channels: [
+        { name: "level2", product_ids: ["ETH-USD"] },
+        { name: "heartbeat", product_ids: ["ETH-USD"] },
+      ],
     });
     queueMicrotask(() => {
       if (this.readyState !== FakeWebSocket.OPEN) return;

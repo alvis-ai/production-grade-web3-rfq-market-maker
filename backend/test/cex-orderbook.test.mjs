@@ -417,7 +417,10 @@ test("CoinbaseConnector accepts official snapshots without time and validates up
     socket.open();
     assert.deepEqual(JSON.parse(socket.sent[0]), {
       type: "subscribe",
-      channels: [{ name: "level2", product_ids: ["ETH-USD"] }],
+      channels: [
+        { name: "level2", product_ids: ["ETH-USD"] },
+        { name: "heartbeat", product_ids: ["ETH-USD"] },
+      ],
     });
     const snapshotReceivedAfterMs = Date.now();
     socket.message({
@@ -451,6 +454,90 @@ test("CoinbaseConnector accepts official snapshots without time and validates up
     assert.equal(errors.includes("Coinbase order book timestamp is invalid"), true);
   } finally {
     connector.stop();
+    globalThis.WebSocket = OriginalWebSocket;
+    FakeWebSocket.instances.length = 0;
+  }
+});
+
+test("CoinbaseConnector uses heartbeat evidence to keep an unchanged snapshot fresh", () => {
+  const OriginalWebSocket = globalThis.WebSocket;
+  const errors = [];
+  const snapshots = [];
+  globalThis.WebSocket = FakeWebSocket;
+  const connector = new CoinbaseConnector(
+    "ETH-USD",
+    (snapshot) => snapshots.push(snapshot),
+    (error) => errors.push(error.message),
+  );
+  const heartbeatAtMs = Date.now() + 1_000;
+
+  try {
+    connector.start();
+    const socket = FakeWebSocket.instances.at(-1);
+    socket.open();
+    socket.message(coinbaseHeartbeat(heartbeatAtMs - 1, 89, 19));
+    assert.equal(connector.isReady(), false);
+    assert.equal(connector.getLastUpdateAtMs(), undefined);
+
+    socket.message(coinbaseSnapshot());
+    assert.equal(connector.isReady(), true);
+    assert.equal(snapshots.length, 1);
+    socket.message(coinbaseHeartbeat(heartbeatAtMs, 90, 20));
+
+    assert.equal(connector.getLastUpdateAtMs(), heartbeatAtMs);
+    assert.equal(connector.getOrderBook().bids.get("99"), "2");
+    assert.equal(connector.getOrderBook().asks.get("101"), "2");
+    assert.equal(snapshots.length, 1);
+    assert.deepEqual(errors, []);
+  } finally {
+    connector.stop();
+    globalThis.WebSocket = OriginalWebSocket;
+    FakeWebSocket.instances.length = 0;
+  }
+});
+
+test("CoinbaseConnector rejects invalid or regressed heartbeat evidence", () => {
+  const OriginalWebSocket = globalThis.WebSocket;
+  globalThis.WebSocket = FakeWebSocket;
+  const heartbeatAtMs = Date.now() + 1_000;
+  const cases = [
+    {
+      message: coinbaseHeartbeat(heartbeatAtMs - 1, 91, 21),
+      expected: "Coinbase heartbeat event time regressed",
+    },
+    {
+      message: coinbaseHeartbeat(heartbeatAtMs + 1, 89, 21),
+      expected: "Coinbase heartbeat sequence regressed",
+    },
+    {
+      message: coinbaseHeartbeat(heartbeatAtMs + 1, 91, 19),
+      expected: "Coinbase heartbeat trade id regressed",
+    },
+    {
+      message: coinbaseHeartbeat(heartbeatAtMs + 1, -1, 21),
+      expected: "Coinbase heartbeat sequence fields are invalid",
+    },
+  ];
+
+  try {
+    for (const { message, expected } of cases) {
+      const errors = [];
+      const connector = new CoinbaseConnector("ETH-USD", undefined, (error) => errors.push(error.message));
+      connector.start();
+      const socket = FakeWebSocket.instances.at(-1);
+      socket.open();
+      socket.message(coinbaseSnapshot());
+      socket.message(coinbaseHeartbeat(heartbeatAtMs, 90, 20));
+      socket.message(message);
+
+      assert.equal(connector.isReady(), false);
+      assert.equal(connector.getOrderBook().bids.size, 0);
+      assert.equal(socket.readyState, FakeWebSocket.CLOSED);
+      assert.equal(errors.includes(expected), true);
+      connector.stop();
+      FakeWebSocket.instances.length = 0;
+    }
+  } finally {
     globalThis.WebSocket = OriginalWebSocket;
     FakeWebSocket.instances.length = 0;
   }
@@ -806,6 +893,16 @@ function coinbaseSnapshot() {
     product_id: "ETH-USD",
     bids: [["99", "2"]],
     asks: [["101", "2"]],
+  };
+}
+
+function coinbaseHeartbeat(timeMs, sequence, lastTradeId) {
+  return {
+    type: "heartbeat",
+    product_id: "ETH-USD",
+    time: new Date(timeMs).toISOString(),
+    sequence,
+    last_trade_id: lastTradeId,
   };
 }
 

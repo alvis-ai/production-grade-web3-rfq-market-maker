@@ -3589,6 +3589,10 @@ grep -q 'MAX_CEX_SNAPSHOT_BYTES = 2_097_152' backend/src/modules/market-data/cex
 grep -q 'event time regressed' backend/src/modules/market-data/cex-orderbook/binance-connector.ts
 grep -q 'event time regressed' backend/src/modules/market-data/cex-orderbook/coinbase-connector.ts
 grep -q 'handleSnapshot(msg, receivedAtMs)' backend/src/modules/market-data/cex-orderbook/coinbase-connector.ts
+grep -q 'handleHeartbeat(msg)' backend/src/modules/market-data/cex-orderbook/coinbase-connector.ts
+grep -q 'Coinbase heartbeat sequence regressed' backend/src/modules/market-data/cex-orderbook/coinbase-connector.ts
+grep -q 'uses heartbeat evidence to keep an unchanged snapshot fresh' backend/test/cex-orderbook.test.mjs
+grep -q 'rejects invalid or regressed heartbeat evidence' backend/test/cex-orderbook.test.mjs
 ! grep -q 'time:' backend/test/fixtures/cex-orderbook-live-globals.mjs
 grep -q 'cex-orderbook-integration-check: backend-build' Makefile
 grep -q 'cex-orderbook-check:' Makefile
