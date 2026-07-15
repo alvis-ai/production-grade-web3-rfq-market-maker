@@ -89,6 +89,12 @@ spec:
         - ports:
             - port: "443"
               protocol: TCP
+    - toFQDNs:
+        - matchName: postgres.example.com
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy

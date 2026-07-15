@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { LocalEIP712SignerService } from "../dist/modules/signer/signer.service.js";
 import { buildSignerServer } from "../dist/modules/signer/signer-server.js";
+import { InMemorySignerAuditStore } from "../dist/modules/signer/signer-audit.store.js";
 import { ConfiguredTokenRegistry } from "../dist/modules/pricing/token-registry.js";
 import { defaultTokenLimitRiskPolicy } from "../dist/modules/risk/token-limit-risk.engine.js";
 
@@ -11,7 +12,8 @@ const authToken = "s".repeat(43);
 const nowMs = 1_700_000_000_000;
 
 test("signer server authenticates and signs only an approved envelope", async () => {
-  const server = createServer();
+  const auditStore = new InMemorySignerAuditStore();
+  const server = createServer(undefined, auditStore);
   const response = await server.inject({
     method: "POST",
     url: "/internal/sign",
@@ -20,6 +22,10 @@ test("signer server authenticates and signs only an approved envelope", async ()
   });
   assert.equal(response.statusCode, 200);
   assert.match(response.json().signature, /^0x[0-9a-f]{130}$/i);
+  assert.equal(auditStore.snapshot().length, 1);
+  assert.equal(auditStore.snapshot()[0].outcome, "success");
+  assert.match(auditStore.snapshot()[0].quoteDigest, /^0x[0-9a-f]{64}$/i);
+  assert.match(auditStore.snapshot()[0].signatureHash, /^0x[0-9a-f]{64}$/i);
 
   const metrics = await server.inject({ method: "GET", url: "/metrics" });
   assert.match(metrics.body, /rfq_signer_service_requests_total\{outcome="success"\} 1/);
@@ -99,9 +105,32 @@ test("signer server enforces TTL, chain, token, and raw amount limits independen
 });
 
 test("signer server returns a closed unavailable response for signing failures", async () => {
+  const auditStore = new InMemorySignerAuditStore();
   const server = createServer({
     async signQuote() { throw new Error("sensitive KMS detail"); },
     async verifyQuoteSignature() { return false; },
+  }, auditStore);
+  const response = await server.inject({
+    method: "POST",
+    url: "/internal/sign",
+    headers: { authorization: `Bearer ${authToken}` },
+    payload: signInput(),
+  });
+  assert.equal(response.statusCode, 503);
+  assert.deepEqual(response.json(), { error: "signer_unavailable" });
+  assert.equal(auditStore.snapshot()[0].outcome, "signer_error");
+  assert.equal(Object.hasOwn(auditStore.snapshot()[0], "signatureHash"), false);
+  assert.doesNotMatch(response.body, /sensitive/);
+  const readiness = await server.inject({ method: "GET", url: "/ready" });
+  assert.equal(readiness.statusCode, 503);
+  assert.deepEqual(readiness.json(), { status: "degraded" });
+  await server.close();
+});
+
+test("signer server does not return a signature when durable audit fails", async () => {
+  const server = createServer(undefined, {
+    async append() { throw new Error("sensitive database detail"); },
+    async checkHealth() {},
   });
   const response = await server.inject({
     method: "POST",
@@ -111,20 +140,43 @@ test("signer server returns a closed unavailable response for signing failures",
   });
   assert.equal(response.statusCode, 503);
   assert.deepEqual(response.json(), { error: "signer_unavailable" });
-  assert.doesNotMatch(response.body, /sensitive/);
-  const readiness = await server.inject({ method: "GET", url: "/ready" });
-  assert.equal(readiness.statusCode, 503);
-  assert.deepEqual(readiness.json(), { status: "degraded" });
+  assert.doesNotMatch(response.body, /signature|database detail/);
+  const metrics = await server.inject({ method: "GET", url: "/metrics" });
+  assert.match(metrics.body, /rfq_signer_service_audit_errors_total 1/);
   await server.close();
 });
 
-function createServer(signerService = new LocalEIP712SignerService({ privateKey, settlementAddress })) {
+test("signer server readiness degrades when the audit store is unavailable", async () => {
+  let signerCalls = 0;
+  const local = new LocalEIP712SignerService({ privateKey, settlementAddress });
+  const server = createServer({
+    async signQuote(input) { signerCalls += 1; return local.signQuote(input); },
+    verifyQuoteSignature: (quote, signature) => local.verifyQuoteSignature(quote, signature),
+  }, {
+    async append() {},
+    async checkHealth() { throw new Error("audit unavailable"); },
+  });
+  const response = await server.inject({ method: "GET", url: "/ready" });
+  assert.equal(response.statusCode, 503);
+  assert.equal(signerCalls, 0);
+  const metrics = await server.inject({ method: "GET", url: "/metrics" });
+  assert.match(metrics.body, /rfq_signer_service_audit_errors_total 1/);
+  await server.close();
+});
+
+function createServer(
+  signerService = new LocalEIP712SignerService({ privateKey, settlementAddress }),
+  auditStore = new InMemorySignerAuditStore(),
+) {
   return buildSignerServer({
     signerService,
+    auditStore,
     tokenRegistry: new ConfiguredTokenRegistry(),
     riskPolicy: defaultTokenLimitRiskPolicy,
     config: {
       authToken,
+      settlementAddress,
+      trustedSignerAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
       maxQuoteTtlSeconds: 30,
       maxClockSkewSeconds: 5,
       bodyLimitBytes: 32768,

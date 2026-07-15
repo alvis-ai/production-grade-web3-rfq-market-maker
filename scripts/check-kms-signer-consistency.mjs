@@ -11,6 +11,8 @@ const paths = [
   "backend/src/modules/signer/signer-runtime.ts",
   "backend/src/modules/signer/remote-signer.service.ts",
   "backend/src/modules/signer/signer-server.ts",
+  "backend/src/modules/signer/signer-audit.store.ts",
+  "backend/src/db/migrations/027-signer-audit.sql",
   "backend/src/signer-main.ts",
   "backend/src/modules/settlement/settlement-verifier.service.ts",
   "backend/src/modules/signer/kms-signer.service.ts",
@@ -21,6 +23,7 @@ const paths = [
   "backend/test/signer-runtime.test.mjs",
   "backend/test/remote-signer.test.mjs",
   "backend/test/signer-server.test.mjs",
+  "backend/test/signer-audit-store.test.mjs",
   "backend/test/signer-process-runtime.test.mjs",
   "backend/test/settlement-verifier.test.mjs",
   "backend/test/settlement-verifier-policy-validation.test.mjs",
@@ -97,12 +100,29 @@ assertContains("backend/src/modules/signer/signer-server.ts", [
   "assertSigningEnvelope",
   "readinessCacheMs = 30_000",
   "rfq_signer_service_requests_total",
+  "rfq_signer_service_audit_errors_total",
+  "options.auditStore.append",
+  "keccak256(signature)",
+]);
+assertContains("backend/src/modules/signer/signer-audit.store.ts", [
+  "class PostgresSignerAuditStore",
+  "INSERT INTO signer_audit_events",
+  "SELECT to_regclass('public.signer_audit_events')",
+  "Signer audit success requires signatureHash",
+]);
+assertContains("backend/src/db/migrations/027-signer-audit.sql", [
+  "CREATE TABLE signer_audit_events",
+  "chk_signer_audit_signature_hash",
+  "idx_signer_audit_quote",
 ]);
 assertContains("backend/src/signer-main.ts", [
   "Signer process requires RFQ_SIGNER_MODE=local or aws-kms",
   "RFQ_SIGNER_TLS_CERT_PATH",
   "RFQ_SIGNER_TLS_KEY_PATH",
   "buildSignerServer",
+  "RFQ_SIGNER_AUDIT_BACKEND",
+  "RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "PostgresSignerAuditStore",
 ]);
 assertContains("backend/src/modules/settlement/settlement-verifier.service.ts", [
   "trustedSignerOverlapAddresses",
@@ -149,11 +169,22 @@ assertContains("backend/test/settlement-verifier-policy-validation.test.mjs", [
   "trusted signer addresses must not contain duplicates",
   "must contain at most 4 addresses",
 ]);
+assertContains("backend/test/signer-server.test.mjs", [
+  "does not return a signature when durable audit fails",
+  "readiness degrades when the audit store is unavailable",
+]);
+assertContains("backend/test/signer-audit-store.test.mjs", [
+  "privacy-expanding event envelopes",
+  "append-only table is absent",
+]);
 assertContains("docker-compose.yml", [
   "NODE_ENV: development",
   "RFQ_SIGNER_MODE: local",
   "RFQ_SIGNER_MODE: remote",
   "RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP",
+  'RFQ_SIGNER_PRIVATE_KEY: "0x',
+  'RFQ_TRUSTED_SIGNER_ADDRESS: "0x',
+  'RFQ_SETTLEMENT_ADDRESS: "0x',
 ]);
 assertContains("infra/k8s/configmap.yaml", [
   "RFQ_SIGNER_MODE: remote",
@@ -171,6 +202,8 @@ assertContains("infra/k8s/signer-secret.yaml", [
   "RFQ_SIGNER_SERVICE_TOKEN:",
   "tls.crt:",
   "tls.key:",
+  "RFQ_SIGNER_AUDIT_DATABASE_URL:",
+  "database-ca.crt:",
 ]);
 for (const path of [
   "infra/k8s/backend-secret.yaml",
@@ -189,6 +222,8 @@ assertContains("infra/k8s/signer-deployment.yaml", [
   "serviceAccountName: rfq-signer-kms",
   "RFQ_AWS_KMS_KEY_ID",
   "RFQ_SIGNER_TLS_CERT_PATH",
+  "RFQ_SIGNER_AUDIT_BACKEND",
+  "RFQ_SIGNER_AUDIT_DATABASE_URL",
 ]);
 assertContains("infra/k8s/signer-service-account.yaml", [
   "kind: ServiceAccount",
@@ -199,6 +234,7 @@ assertContains("infra/helm/rfq-market-maker/values.yaml", [
   "signerService:",
   "kmsKeyIdKey: RFQ_AWS_KMS_KEY_ID",
   "trustedSignerAddressKey: RFQ_TRUSTED_SIGNER_ADDRESS",
+  "auditDatabaseUrlKey: RFQ_SIGNER_AUDIT_DATABASE_URL",
   "trustedSignerOverlapAddresses:",
   "key: RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES",
 ]);
@@ -210,6 +246,7 @@ assertContains("infra/helm/rfq-market-maker/templates/signer-deployment.yaml", [
   "value: aws-kms",
   "key: {{ .Values.signerService.secret.kmsKeyIdKey }}",
   "RFQ_SIGNER_TLS_CERT_PATH",
+  "RFQ_SIGNER_AUDIT_DATABASE_URL",
 ]);
 assertContains("docs/adr/ADR-0005-Use-KMS-For-Production-Signing.md", [
   "## Status",

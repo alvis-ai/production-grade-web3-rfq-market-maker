@@ -734,6 +734,10 @@ assertContains(k8sSignerDeployment, [
   "RFQ_AWS_KMS_KEY_ID",
   "RFQ_SIGNER_TLS_CERT_PATH",
   "RFQ_SIGNER_TLS_KEY_PATH",
+  "RFQ_SIGNER_AUDIT_BACKEND",
+  "RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "RFQ_SIGNER_AUDIT_TIMEOUT_MS",
+  "signer-database-ca",
   "scheme: HTTPS",
   "path: /ready",
   "path: /health",
@@ -744,6 +748,8 @@ assertContains(k8sSignerSecret, [
   "RFQ_SIGNER_SERVICE_TOKEN:",
   "tls.crt:",
   "tls.key:",
+  "RFQ_SIGNER_AUDIT_DATABASE_URL:",
+  "database-ca.crt:",
 ], "infra/k8s/signer-secret.yaml");
 assertContains(k8sSignerService, [
   "kind: Service",
@@ -1017,7 +1023,7 @@ assertContains(k8sCiliumFqdnEgressPolicy, [
   "app.kubernetes.io/name: rfq-toxic-flow-analyzer",
 ], "infra/k8s/cilium-fqdn-egress-policy.yaml");
 for (const [hostname, port, count] of [
-  ["postgres.example.com", 5432, 6],
+  ["postgres.example.com", 5432, 7],
   ["redis.example.com", 6380, 1],
   ["kms.us-east-1.amazonaws.com", 443, 1],
   ["sts.us-east-1.amazonaws.com", 443, 1],
@@ -1088,6 +1094,8 @@ assertContains(helmValues, [
   "kmsKeyIdKey: RFQ_AWS_KMS_KEY_ID",
   "tlsCertKey: tls.crt",
   "tlsKeyKey: tls.key",
+  "auditDatabaseUrlKey: RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "databaseCaCertKey: database-ca.crt",
   "eks.amazonaws.com/role-arn: replace-with-kms-signing-role-arn",
   'eks.amazonaws.com/sts-regional-endpoints: "true"',
   "redisSecret:",
@@ -1404,6 +1412,10 @@ assertContains(helmSignerDeployment, [
   "key: {{ .Values.signerService.secret.authTokenKey }}",
   "RFQ_SIGNER_TLS_CERT_PATH",
   "RFQ_SIGNER_TLS_KEY_PATH",
+  "RFQ_SIGNER_AUDIT_BACKEND",
+  "RFQ_SIGNER_AUDIT_DATABASE_URL",
+  ".Values.signerService.auditTimeoutMs",
+  ".Values.signerService.secret.databaseCaCertKey",
   "scheme: HTTPS",
 ], "infra/helm/rfq-market-maker/templates/signer-deployment.yaml");
 assertContains(helmSignerService, [

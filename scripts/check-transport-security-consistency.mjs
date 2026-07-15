@@ -10,6 +10,8 @@ const databasePool = await read("backend/src/db/pool.ts");
 const redisRateLimiter = await read("backend/src/modules/rate-limit/redis-rate-limit.service.ts");
 const gatewayRuntime = await read("backend/src/runtime/gateway-runtime.ts");
 const analyticsRuntime = await read("backend/src/analytics-worker-main.ts");
+const signerRuntime = await read("backend/src/signer-main.ts");
+const signerRuntimeTests = await read("backend/test/signer-process-runtime.test.mjs");
 const workerSources = await Promise.all([
   "backend/src/hedge-worker-main.ts",
   "backend/src/analytics-worker-main.ts",
@@ -23,6 +25,9 @@ const apiRedisTests = await read("backend/test/api-redis-rate-limit.test.mjs");
 const apiExecutionEnvTests = await read("backend/test/api-execution-env.test.mjs");
 const analyticsTests = await read("backend/test/analytics-worker-runtime.test.mjs");
 const compose = await read("docker-compose.yml");
+const rawSignerDeployment = await read("infra/k8s/signer-deployment.yaml");
+const rawSignerSecret = await read("infra/k8s/signer-secret.yaml");
+const helmSignerDeployment = await read("infra/helm/rfq-market-maker/templates/signer-deployment.yaml");
 const rawDeployments = await Promise.all([
   "infra/k8s/backend-deployment.yaml",
   "infra/k8s/hedge-worker-deployment.yaml",
@@ -83,6 +88,16 @@ assertContains(analyticsRuntime, [
   "Analytics Kafka SASL credentials are required when NODE_ENV=${nodeEnv}",
   "RFQ_CLICKHOUSE_URL must use https:// when NODE_ENV=${nodeEnv}",
 ], "backend/src/analytics-worker-main.ts");
+assertContains(signerRuntime, [
+  'RFQ_SIGNER_AUDIT_BACKEND=memory is not allowed when NODE_ENV=',
+  'readDatabaseConfig({ NODE_ENV: nodeEnv, DATABASE_URL: auditDatabaseUrl })',
+  'RFQ_SIGNER_AUDIT_DATABASE_URL is required for the postgres signer audit backend',
+], "backend/src/signer-main.ts");
+assertContains(signerRuntimeTests, [
+  "dedicated production audit database",
+  "sslmode=verify-full",
+  "sslrootcert=",
+], "backend/test/signer-process-runtime.test.mjs");
 
 assertContains(redisRateLimiter, [
   "export interface RedisUrlPolicy",
@@ -146,6 +161,19 @@ for (const [path, source] of rawSecrets) {
 const rawBackendSecret = rawSecrets.find(([path]) => path.endsWith("backend-secret.yaml"))[1];
 assertContains(rawBackendSecret, ["RFQ_REDIS_URL: rediss://"], "infra/k8s/backend-secret.yaml");
 assert.ok(!rawBackendSecret.includes("RFQ_REDIS_URL: redis://"), "production Redis Secret must not use plaintext");
+assert.match(
+  rawSignerSecret,
+  /^\s+RFQ_SIGNER_AUDIT_DATABASE_URL: postgres:\/\/[^\n]*sslmode=verify-full[^\n]*sslrootcert=/m,
+  "signer audit Secret must require hostname-verified PostgreSQL TLS with an explicit CA",
+);
+assertContains(rawSignerDeployment, [
+  "RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "mountPath: /etc/rfq-signer-database-ca",
+], "infra/k8s/signer-deployment.yaml");
+assertContains(helmSignerDeployment, [
+  "RFQ_SIGNER_AUDIT_DATABASE_URL",
+  ".Values.signerService.secret.databaseCaCertKey",
+], "Helm signer deployment");
 
 for (const [path, source] of helmDeployments) {
   assertContains(source, [
@@ -173,7 +201,7 @@ for (const [label, source, terms] of [
   assertContains(source, terms, label);
 }
 
-console.log("Transport security consistency check passed for API, migration, and 5 workers");
+console.log("Transport security consistency check passed for API, signer, migration, and 5 workers");
 
 function assertContains(source, needles, label) {
   for (const needle of needles) {

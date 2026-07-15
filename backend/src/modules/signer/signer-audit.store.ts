@@ -1,0 +1,173 @@
+import type pg from "pg";
+
+export type SignerAuditOutcome = "success" | "signer_error";
+
+export interface SignerAuditEvent {
+  quoteId: string;
+  snapshotId: string;
+  quoteDigest: `0x${string}`;
+  signatureHash?: `0x${string}`;
+  signerAddress: `0x${string}`;
+  settlementAddress: `0x${string}`;
+  chainId: number;
+  deadline: number;
+  outcome: SignerAuditOutcome;
+  occurredAt: string;
+}
+
+export interface SignerAuditStore {
+  append(event: SignerAuditEvent): Promise<void>;
+  checkHealth(): Promise<void>;
+}
+
+const eventFields = [
+  "quoteId",
+  "snapshotId",
+  "quoteDigest",
+  "signatureHash",
+  "signerAddress",
+  "settlementAddress",
+  "chainId",
+  "deadline",
+  "outcome",
+  "occurredAt",
+] as const;
+const safeIdentifierPattern = /^[A-Za-z0-9_:-]{1,128}$/;
+const bytes32Pattern = /^0x[0-9a-fA-F]{64}$/;
+const addressPattern = /^0x[0-9a-fA-F]{40}$/;
+
+export class InMemorySignerAuditStore implements SignerAuditStore {
+  private readonly events: SignerAuditEvent[] = [];
+
+  async append(event: SignerAuditEvent): Promise<void> {
+    assertSignerAuditEvent(event);
+    this.events.push(cloneEvent(event));
+  }
+
+  async checkHealth(): Promise<void> {}
+
+  snapshot(): readonly SignerAuditEvent[] {
+    return this.events.map(cloneEvent);
+  }
+}
+
+export class PostgresSignerAuditStore implements SignerAuditStore {
+  constructor(
+    private readonly pool: pg.Pool,
+    private readonly queryTimeoutMs: number,
+  ) {
+    if (typeof pool !== "object" || pool === null || typeof pool.query !== "function") {
+      throw new Error("Postgres signer audit pool must expose query");
+    }
+    if (!Number.isSafeInteger(queryTimeoutMs) || queryTimeoutMs < 100 || queryTimeoutMs > 10_000) {
+      throw new Error("Postgres signer audit queryTimeoutMs must be between 100 and 10000");
+    }
+  }
+
+  async append(event: SignerAuditEvent): Promise<void> {
+    assertSignerAuditEvent(event);
+    const query: pg.QueryConfig & { query_timeout: number } = {
+      text: `INSERT INTO signer_audit_events (
+               quote_id, snapshot_id, quote_digest, signature_hash,
+               signer_address, settlement_address, chain_id, deadline,
+               outcome, occurred_at
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      values: [
+        event.quoteId,
+        event.snapshotId,
+        hexBytes(event.quoteDigest),
+        event.signatureHash ? hexBytes(event.signatureHash) : null,
+        event.signerAddress.toLowerCase(),
+        event.settlementAddress.toLowerCase(),
+        event.chainId,
+        event.deadline,
+        event.outcome,
+        event.occurredAt,
+      ],
+      query_timeout: this.queryTimeoutMs,
+    };
+    await this.pool.query(query);
+  }
+
+  async checkHealth(): Promise<void> {
+    const query: pg.QueryConfig & { query_timeout: number } = {
+      text: "SELECT to_regclass('public.signer_audit_events') AS table_name",
+      query_timeout: this.queryTimeoutMs,
+    };
+    const result = await this.pool.query<{ table_name: string | null }>(query);
+    if (result.rows[0]?.table_name !== "signer_audit_events") {
+      throw new Error("Signer audit table is unavailable");
+    }
+  }
+}
+
+export function assertSignerAuditEvent(value: unknown): asserts value is SignerAuditEvent {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("Signer audit event must be an object");
+  }
+  const event = value as Record<string, unknown>;
+  const allowed = new Set(eventFields);
+  if (Object.keys(event).some((field) => !allowed.has(field as typeof eventFields[number]))) {
+    throw new Error("Signer audit event fields are invalid");
+  }
+  for (const field of eventFields) {
+    if (field === "signatureHash") continue;
+    if (!Object.prototype.hasOwnProperty.call(event, field)) {
+      throw new Error(`Signer audit event.${field} must be an own field`);
+    }
+  }
+  assertSafeIdentifier(event.quoteId, "quoteId");
+  assertSafeIdentifier(event.snapshotId, "snapshotId");
+  assertBytes32(event.quoteDigest, "quoteDigest");
+  assertAddress(event.signerAddress, "signerAddress");
+  assertAddress(event.settlementAddress, "settlementAddress");
+  assertPositiveSafeInteger(event.chainId, "chainId");
+  assertPositiveSafeInteger(event.deadline, "deadline");
+  if (event.outcome !== "success" && event.outcome !== "signer_error") {
+    throw new Error("Signer audit event.outcome must be success or signer_error");
+  }
+  const hasSignatureHash = Object.prototype.hasOwnProperty.call(event, "signatureHash");
+  if (event.outcome === "success") {
+    if (!hasSignatureHash) throw new Error("Signer audit success requires signatureHash");
+    assertBytes32(event.signatureHash, "signatureHash");
+  } else if (hasSignatureHash) {
+    throw new Error("Signer audit signer_error must not include signatureHash");
+  }
+  if (typeof event.occurredAt !== "string" ||
+      Number.isNaN(Date.parse(event.occurredAt)) ||
+      new Date(event.occurredAt).toISOString() !== event.occurredAt) {
+    throw new Error("Signer audit event.occurredAt must be a canonical UTC timestamp");
+  }
+}
+
+function assertSafeIdentifier(value: unknown, field: string): void {
+  if (typeof value !== "string" || !safeIdentifierPattern.test(value)) {
+    throw new Error(`Signer audit event.${field} must be a safe identifier`);
+  }
+}
+
+function assertBytes32(value: unknown, field: string): asserts value is `0x${string}` {
+  if (typeof value !== "string" || !bytes32Pattern.test(value)) {
+    throw new Error(`Signer audit event.${field} must be a 32-byte hex string`);
+  }
+}
+
+function assertAddress(value: unknown, field: string): asserts value is `0x${string}` {
+  if (typeof value !== "string" || !addressPattern.test(value) || /^0x0{40}$/i.test(value)) {
+    throw new Error(`Signer audit event.${field} must be a non-zero address`);
+  }
+}
+
+function assertPositiveSafeInteger(value: unknown, field: string): void {
+  if (!Number.isSafeInteger(value) || (value as number) <= 0) {
+    throw new Error(`Signer audit event.${field} must be a positive safe integer`);
+  }
+}
+
+function hexBytes(value: `0x${string}`): Buffer {
+  return Buffer.from(value.slice(2), "hex");
+}
+
+function cloneEvent(event: SignerAuditEvent): SignerAuditEvent {
+  return { ...event };
+}

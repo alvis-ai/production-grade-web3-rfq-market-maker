@@ -123,6 +123,7 @@ Key metrics include:
 - `rfq_signer_latency_seconds`
 - `rfq_signer_service_requests_total`
 - `rfq_signer_service_last_success_timestamp_seconds`
+- `rfq_signer_service_audit_errors_total`
 - `rfq_market_data_cache_hits_total`
 - `rfq_market_data_cache_misses_total`
 - `rfq_cex_order_book_sources`

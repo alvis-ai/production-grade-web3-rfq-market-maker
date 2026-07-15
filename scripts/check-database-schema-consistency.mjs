@@ -106,6 +106,14 @@ const hedgeOrderExpiryMigrationSource = await readFile(
   "backend/src/db/migrations/026-hedge-order-expiry.sql",
   "utf8",
 );
+const signerAuditMigrationSource = await readFile(
+  "backend/src/db/migrations/027-signer-audit.sql",
+  "utf8",
+);
+const signerAuditStoreSource = await readFile(
+  "backend/src/modules/signer/signer-audit.store.ts",
+  "utf8",
+);
 const postgresQuoteIdempotencySource = await readFile(
   "backend/src/modules/quote/postgres-quote-idempotency.store.ts",
   "utf8",
@@ -1624,6 +1632,17 @@ assert.ok(
     hedgeWorkerSource.includes("adapter.cancelOrder") &&
     binanceAdapterSource.includes('signedRequest("DELETE", "/api/v3/order"'),
   "hedge expiry migration and worker must persist DB-time cancellation intent before venue cancellation",
+);
+assert.ok(
+  signerAuditMigrationSource.includes("CREATE TABLE signer_audit_events") &&
+    signerAuditMigrationSource.includes("chk_signer_audit_signature_hash") &&
+    signerAuditMigrationSource.includes("idx_signer_audit_quote") &&
+    signerAuditStoreSource.includes("INSERT INTO signer_audit_events") &&
+    signerAuditStoreSource.includes("SELECT to_regclass('public.signer_audit_events')") &&
+    schemaSource.includes("('027', 'signer-audit')") &&
+    erDiagramSource.includes("SIGNER_AUDIT_EVENTS") &&
+    erDiagramSource.includes("append-only evidence"),
+  "signer audit migration, store, and docs must preserve fail-closed append-only signing evidence",
 );
 assert.ok(
   postgresToxicFlowMarkoutSource.includes("async claimNext") &&

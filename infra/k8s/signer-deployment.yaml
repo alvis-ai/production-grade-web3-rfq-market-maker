@@ -75,6 +75,10 @@ spec:
               value: /etc/rfq-signer-tls/tls.crt
             - name: RFQ_SIGNER_TLS_KEY_PATH
               value: /etc/rfq-signer-tls/tls.key
+            - name: RFQ_SIGNER_AUDIT_BACKEND
+              value: postgres
+            - name: RFQ_SIGNER_AUDIT_TIMEOUT_MS
+              value: "2000"
             - name: RFQ_AWS_KMS_KEY_ID
               valueFrom:
                 secretKeyRef:
@@ -95,6 +99,11 @@ spec:
                 secretKeyRef:
                   name: rfq-signer-secrets
                   key: RFQ_SETTLEMENT_ADDRESS
+            - name: RFQ_SIGNER_AUDIT_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-signer-secrets
+                  key: RFQ_SIGNER_AUDIT_DATABASE_URL
           readinessProbe:
             httpGet:
               scheme: HTTPS
@@ -122,6 +131,9 @@ spec:
             - name: signer-tls
               mountPath: /etc/rfq-signer-tls
               readOnly: true
+            - name: signer-database-ca
+              mountPath: /etc/rfq-signer-database-ca
+              readOnly: true
       volumes:
         - name: tmp
           emptyDir:
@@ -134,3 +146,9 @@ spec:
                 path: tls.crt
               - key: tls.key
                 path: tls.key
+        - name: signer-database-ca
+          secret:
+            secretName: rfq-signer-secrets
+            items:
+              - key: database-ca.crt
+                path: ca.crt

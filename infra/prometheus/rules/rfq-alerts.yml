@@ -289,6 +289,15 @@ groups:
           summary: Isolated signer has no recent successful signature during quote traffic
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQSignerAuditUnavailable
+        expr: sum(increase(rfq_signer_service_audit_errors_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Isolated signer cannot persist or verify signing audit evidence
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQMarketDataCacheCold
         expr: increase(rfq_market_data_cache_misses_total[10m]) > 0 and increase(rfq_market_data_cache_hits_total[10m]) == 0
         for: 10m

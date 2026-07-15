@@ -114,6 +114,11 @@
           "expr": "time() - max(rfq_signer_service_last_success_timestamp_seconds)",
           "legendFormat": "service success age",
           "refId": "E"
+        },
+        {
+          "expr": "sum(rate(rfq_signer_service_audit_errors_total[5m]))",
+          "legendFormat": "audit errors",
+          "refId": "F"
         }
       ]
     },

@@ -32,6 +32,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "024", name: "hedge-net-pnl", applied_at: "2026-07-15T00:01:00.000Z" },
         { version: "025", name: "bounded-hedge-limit", applied_at: "2026-07-15T00:02:00.000Z" },
         { version: "026", name: "hedge-order-expiry", applied_at: "2026-07-15T00:03:00.000Z" },
+        { version: "027", name: "signer-audit", applied_at: "2026-07-15T00:04:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -841,6 +842,41 @@ test("database migration runner adds bounded hedge order expiry", async () => {
   assert.equal(client.queries.some(({ sql }) => sql.includes("idx_hedge_orders_cancel_requested")), true);
   assert.equal(client.queries.some(({ sql, params }) =>
     sql.includes("INSERT INTO _migrations") && params[0] === "026"), true);
+});
+
+test("database migration runner adds append-only signer audit evidence", async () => {
+  const appliedNames = [
+    "base-schema", "settlement-canonical", "hedge-worker-queue", "analytics-outbox",
+    "post-trade-reconciliation", "quote-snapshot-pnl", "settlement-indexer", "submit-reservations",
+    "risk-notional-reasons", "risk-market-regime-reasons", "open-quote-exposure", "pricing-attribution",
+    "market-spread-attribution", "hedge-execution-evidence", "hedge-fee-reconciliation",
+    "treasury-liquidity-reservations", "quote-principal-ownership", "quote-control", "pair-quote-control",
+    "toxic-flow-scores", "toxic-flow-markouts", "portfolio-var-reservations", "quote-idempotency",
+    "hedge-net-pnl", "bounded-hedge-limit", "hedge-order-expiry",
+  ];
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: appliedNames.map((name, index) => ({
+        version: String(index + 1).padStart(3, "0"),
+        name,
+        applied_at: "2026-07-15T00:00:00.000Z",
+      })) };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "027");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("CREATE TABLE signer_audit_events")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("chk_signer_audit_signature_hash")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("idx_signer_audit_quote")), true);
+  assert.equal(client.queries.some(({ sql, params }) =>
+    sql.includes("INSERT INTO _migrations") && params[0] === "027"), true);
 });
 
 function fakePool(handler) {

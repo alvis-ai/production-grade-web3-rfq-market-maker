@@ -93,6 +93,9 @@ test -s backend/src/db/migrations/006-quote-snapshot-pnl.sql
 test -s backend/src/db/migrations/024-hedge-net-pnl.sql
 test -s backend/src/db/migrations/025-bounded-hedge-limit.sql
 test -s backend/src/db/migrations/026-hedge-order-expiry.sql
+test -s backend/src/db/migrations/027-signer-audit.sql
+test -s backend/src/modules/signer/signer-audit.store.ts
+test -s backend/test/signer-audit-store.test.mjs
 test -s backend/src/modules/hedge/hedge-net-pnl.ts
 test -s backend/test/hedge-net-pnl.test.mjs
 test -s scripts/hedge-net-pnl-integration-check.mjs

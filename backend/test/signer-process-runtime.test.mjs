@@ -21,6 +21,7 @@ test("signer process runtime separates server credentials from local or KMS sign
   assert.equal(config.bodyLimitBytes, 32768);
   assert.equal(config.listenHost, "127.0.0.1");
   assert.equal(config.listenPort, 3006);
+  assert.deepEqual(config.audit, { backend: "memory" });
   assert.ok(config.tokenRegistry.getToken(1, defaultTokenRegistryConfig.tokens[0].tokenAddress));
 });
 
@@ -53,4 +54,39 @@ test("signer process runtime rejects remote mode and unsafe server controls", ()
     ...env,
     RFQ_SIGNER_TLS_CERT_PATH: "/etc/rfq-signer/tls.crt",
   }), /must be configured together/);
+  assert.throws(() => readSignerProcessConfig({
+    ...env,
+    NODE_ENV: "production",
+    RFQ_SIGNER_MODE: "aws-kms",
+    RFQ_SETTLEMENT_ADDRESS: "0x0000000000000000000000000000000000000004",
+    RFQ_TRUSTED_SIGNER_ADDRESS: "0x0000000000000000000000000000000000000005",
+    RFQ_AWS_KMS_KEY_ID: "alias/rfq-signer",
+    RFQ_AWS_KMS_REGION: "us-east-1",
+    RFQ_SIGNER_TLS_CERT_PATH: "/etc/rfq-signer/tls.crt",
+    RFQ_SIGNER_TLS_KEY_PATH: "/etc/rfq-signer/tls.key",
+    RFQ_SIGNER_AUDIT_BACKEND: "memory",
+  }), /AUDIT_BACKEND=memory is not allowed/);
+});
+
+test("signer process parses a dedicated production audit database without exposing its URL", () => {
+  const config = readSignerProcessConfig({
+    ...env,
+    NODE_ENV: "production",
+    RFQ_SIGNER_MODE: "aws-kms",
+    RFQ_SETTLEMENT_ADDRESS: "0x0000000000000000000000000000000000000004",
+    RFQ_TRUSTED_SIGNER_ADDRESS: "0x0000000000000000000000000000000000000005",
+    RFQ_AWS_KMS_KEY_ID: "alias/rfq-signer",
+    RFQ_AWS_KMS_REGION: "us-east-1",
+    RFQ_SIGNER_TLS_CERT_PATH: "/etc/rfq-signer/tls.crt",
+    RFQ_SIGNER_TLS_KEY_PATH: "/etc/rfq-signer/tls.key",
+    RFQ_SIGNER_AUDIT_BACKEND: "postgres",
+    RFQ_SIGNER_AUDIT_DATABASE_URL:
+      "postgres://rfq_signer_audit:secret@postgres.example.com:5432/rfq_market_maker?minPool=1&maxPool=3&sslmode=verify-full&sslrootcert=%2Fetc%2Frfq%2Fdatabase-ca%2Fca.crt",
+    RFQ_SIGNER_AUDIT_TIMEOUT_MS: "1500",
+  });
+  assert.equal(config.audit.backend, "postgres");
+  assert.equal(config.audit.database.user, "rfq_signer_audit");
+  assert.equal(config.audit.database.maxPoolSize, 3);
+  assert.equal(config.audit.queryTimeoutMs, 1500);
+  assert.equal("auditDatabaseUrl" in config, false);
 });

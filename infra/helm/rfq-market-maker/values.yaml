@@ -73,12 +73,15 @@ signerService:
     authTokenKey: RFQ_SIGNER_SERVICE_TOKEN
     trustedSignerAddressKey: RFQ_TRUSTED_SIGNER_ADDRESS
     settlementAddressKey: RFQ_SETTLEMENT_ADDRESS
+    auditDatabaseUrlKey: RFQ_SIGNER_AUDIT_DATABASE_URL
     tlsCertKey: tls.crt
     tlsKeyKey: tls.key
+    databaseCaCertKey: database-ca.crt
   awsRegion: us-east-1
   awsMaxAttempts: 3
   maxClockSkewSeconds: 5
   bodyLimitBytes: 32768
+  auditTimeoutMs: 2000
   resources:
     requests:
       cpu: 50m
@@ -173,6 +176,8 @@ networkPolicy:
       - hostname: replace-with-production-rpc.example.com
         port: 443
     signer:
+      - hostname: postgres.example.com
+        port: 5432
       - hostname: kms.us-east-1.amazonaws.com
         port: 443
       - hostname: sts.us-east-1.amazonaws.com

@@ -1,18 +1,23 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { ServerOptions as HttpsServerOptions } from "node:https";
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
+import { hashTypedData, keccak256 } from "viem";
 import type { TokenRegistry } from "../pricing/token-registry.js";
 import { requireTokenMetadata } from "../pricing/token-registry.js";
 import type { TokenLimitRiskPolicy, TokenRiskLimit } from "../risk/token-limit-risk.engine.js";
 import {
   assertSignQuoteInput,
   assertSignature,
+  buildQuoteTypedData,
   type SignQuoteInput,
   type SignerService,
 } from "./signer.service.js";
+import type { SignerAuditEvent, SignerAuditStore } from "./signer-audit.store.js";
 
 export interface SignerServerConfig {
   authToken: string;
+  settlementAddress: `0x${string}`;
+  trustedSignerAddress: `0x${string}`;
   maxQuoteTtlSeconds: number;
   maxClockSkewSeconds: number;
   bodyLimitBytes: number;
@@ -20,6 +25,7 @@ export interface SignerServerConfig {
 
 export interface SignerServerOptions {
   signerService: SignerService;
+  auditStore: SignerAuditStore;
   tokenRegistry: TokenRegistry;
   riskPolicy: TokenLimitRiskPolicy;
   config: SignerServerConfig;
@@ -38,10 +44,15 @@ export class SignerServerMetrics {
     ["error", 0],
   ]);
   private lastSuccessTimestampSeconds = 0;
+  private auditErrors = 0;
 
   record(outcome: SignerRequestOutcome, nowMs = Date.now()): void {
     this.requests.set(outcome, this.requests.get(outcome)! + 1);
     if (outcome === "success") this.lastSuccessTimestampSeconds = Math.floor(nowMs / 1_000);
+  }
+
+  recordAuditError(): void {
+    this.auditErrors += 1;
   }
 
   renderPrometheus(): string {
@@ -53,13 +64,23 @@ export class SignerServerMetrics {
       "# HELP rfq_signer_service_last_success_timestamp_seconds Unix timestamp of the latest successful signature.",
       "# TYPE rfq_signer_service_last_success_timestamp_seconds gauge",
       `rfq_signer_service_last_success_timestamp_seconds ${this.lastSuccessTimestampSeconds}`,
+      "# HELP rfq_signer_service_audit_errors_total Signer audit persistence and health-check failures.",
+      "# TYPE rfq_signer_service_audit_errors_total counter",
+      `rfq_signer_service_audit_errors_total ${this.auditErrors}`,
       "",
     ].join("\n");
   }
 }
 
 const authTokenPattern = /^[A-Za-z0-9._~-]{43,256}$/;
-const signerServerConfigFields = ["authToken", "maxQuoteTtlSeconds", "maxClockSkewSeconds", "bodyLimitBytes"];
+const signerServerConfigFields = [
+  "authToken",
+  "settlementAddress",
+  "trustedSignerAddress",
+  "maxQuoteTtlSeconds",
+  "maxClockSkewSeconds",
+  "bodyLimitBytes",
+];
 const readinessCacheMs = 30_000;
 
 export function buildSignerServer(options: SignerServerOptions): FastifyInstance {
@@ -88,7 +109,7 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
     try {
       const currentTimeMs = now();
       if (currentTimeMs >= readinessValidUntilMs) {
-        readinessCheck ??= verifyReadiness(options.signerService, readinessInput)
+        readinessCheck ??= verifyReadiness(options.signerService, options.auditStore, readinessInput, metrics)
           .then(() => { readinessValidUntilMs = now() + readinessCacheMs; })
           .finally(() => { readinessCheck = undefined; });
         await readinessCheck;
@@ -116,29 +137,105 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
       return reply.code(400).send({ error: "invalid_signing_request" });
     }
 
+    let quoteDigest: `0x${string}`;
     try {
-      const signature = await options.signerService.signQuote(input);
-      assertSignature(signature);
-      if (!await options.signerService.verifyQuoteSignature(input.quote, signature)) {
-        throw new Error("Signer returned an unverifiable signature");
-      }
-      metrics.record("success", now());
-      return { signature };
+      quoteDigest = hashTypedData(buildQuoteTypedData(input.quote, config.settlementAddress));
     } catch {
       metrics.record("error", now());
       return reply.code(503).send({ error: "signer_unavailable" });
     }
+    let signature: `0x${string}`;
+    try {
+      signature = await options.signerService.signQuote(input);
+      assertSignature(signature);
+      if (!await options.signerService.verifyQuoteSignature(input.quote, signature)) {
+        throw new Error("Signer returned an unverifiable signature");
+      }
+    } catch {
+      await appendAuditBestEffort(options.auditStore, buildAuditEvent(
+        input,
+        config,
+        quoteDigest,
+        "signer_error",
+        now(),
+      ), metrics);
+      metrics.record("error", now());
+      return reply.code(503).send({ error: "signer_unavailable" });
+    }
+
+    try {
+      await options.auditStore.append(buildAuditEvent(
+        input,
+        config,
+        quoteDigest,
+        "success",
+        now(),
+        keccak256(signature),
+      ));
+    } catch {
+      metrics.recordAuditError();
+      metrics.record("error", now());
+      return reply.code(503).send({ error: "signer_unavailable" });
+    }
+    metrics.record("success", now());
+    return { signature };
   });
 
   return server;
 }
 
-async function verifyReadiness(signerService: SignerService, readinessInput: () => SignQuoteInput): Promise<void> {
+async function verifyReadiness(
+  signerService: SignerService,
+  auditStore: SignerAuditStore,
+  readinessInput: () => SignQuoteInput,
+  metrics: SignerServerMetrics,
+): Promise<void> {
+  try {
+    await auditStore.checkHealth();
+  } catch (error) {
+    metrics.recordAuditError();
+    throw error;
+  }
   const input = readinessInput();
   const signature = await signerService.signQuote(input);
   assertSignature(signature);
   if (!await signerService.verifyQuoteSignature(input.quote, signature)) {
     throw new Error("Signer readiness signature is invalid");
+  }
+}
+
+function buildAuditEvent(
+  input: SignQuoteInput,
+  config: SignerServerConfig,
+  quoteDigest: `0x${string}`,
+  outcome: "success" | "signer_error",
+  nowMs: number,
+  signatureHash?: `0x${string}`,
+): SignerAuditEvent {
+  const event: SignerAuditEvent = {
+    quoteId: input.quoteId,
+    snapshotId: input.snapshotId,
+    quoteDigest,
+    signerAddress: config.trustedSignerAddress,
+    settlementAddress: config.settlementAddress,
+    chainId: input.quote.chainId,
+    deadline: input.quote.deadline,
+    outcome,
+    occurredAt: new Date(nowMs).toISOString(),
+  };
+  if (signatureHash !== undefined) event.signatureHash = signatureHash;
+  return event;
+}
+
+async function appendAuditBestEffort(
+  auditStore: SignerAuditStore,
+  event: SignerAuditEvent,
+  metrics: SignerServerMetrics,
+): Promise<void> {
+  try {
+    await auditStore.append(event);
+  } catch {
+    metrics.recordAuditError();
   }
 }
 
@@ -239,6 +336,10 @@ function assertOptions(options: SignerServerOptions): void {
       typeof options.signerService.verifyQuoteSignature !== "function") {
     throw new Error("Signer server signerService is invalid");
   }
+  if (typeof options.auditStore !== "object" || options.auditStore === null ||
+      typeof options.auditStore.append !== "function" || typeof options.auditStore.checkHealth !== "function") {
+    throw new Error("Signer server auditStore is invalid");
+  }
   if (typeof options.tokenRegistry !== "object" || options.tokenRegistry === null ||
       typeof options.tokenRegistry.getToken !== "function") {
     throw new Error("Signer server tokenRegistry is invalid");
@@ -262,9 +363,17 @@ function assertConfig(value: unknown): asserts value is SignerServerConfig {
   if (typeof config.authToken !== "string" || !authTokenPattern.test(config.authToken)) {
     throw new Error("Signer server authToken must be 43-256 URL-safe characters");
   }
+  assertAddress(config.settlementAddress, "settlementAddress");
+  assertAddress(config.trustedSignerAddress, "trustedSignerAddress");
   assertInteger(config.maxQuoteTtlSeconds, "maxQuoteTtlSeconds", 1, 3_600);
   assertInteger(config.maxClockSkewSeconds, "maxClockSkewSeconds", 0, 60);
   assertInteger(config.bodyLimitBytes, "bodyLimitBytes", 1_024, 1_048_576);
+}
+
+function assertAddress(value: unknown, field: string): void {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value) || /^0x0{40}$/i.test(value)) {
+    throw new Error(`Signer server ${field} must be a non-zero address`);
+  }
 }
 
 function assertInteger(value: unknown, field: string, min: number, max: number): void {

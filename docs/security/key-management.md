@@ -66,6 +66,18 @@ flowchart LR
 
 The runtime uses AWS KMS `MessageType=DIGEST` with `ECDSA_SHA_256`; the key spec must be `ECC_SECG_P256K1` and key usage must be `SIGN_VERIFY`. Never remove the old signer before the overlap rollouts and expiry buffers complete. Never leave an overlap address configured after its on-chain authorization has been retired.
 
+## Signing Audit Credential
+
+Signer 使用独立 PostgreSQL 登录，不得复用 API 的 `DATABASE_URL` 或 DDL migrator。迁移账号应用 migration `027-signer-audit.sql` 后，由数据库管理员授予最小权限：
+
+```sql
+GRANT USAGE ON SCHEMA public TO rfq_signer_audit;
+GRANT INSERT ON TABLE public.signer_audit_events TO rfq_signer_audit;
+GRANT USAGE ON SEQUENCE public.signer_audit_events_id_seq TO rfq_signer_audit;
+```
+
+不要授予 `UPDATE`、`DELETE`、业务表读取或 schema DDL 权限。`/ready` 通过 `to_regclass` 检查表是否存在，因此运行账号不需要 `SELECT` 审计表。`RFQ_SIGNER_AUDIT_DATABASE_URL` 必须使用独立 secret、`sslmode=verify-full`、受信 CA 和小连接池；Signer 的 Cilium egress 只放行配置的 PostgreSQL FQDN/5432。审计表只保存关联标识、EIP-712 digest、signature hash 和有界结果，不保存原始 signature、用户数量、token、bearer token、KMS 原始错误或数据库凭据。
+
 ## Incident Response
 
 If signer compromise is suspected:
