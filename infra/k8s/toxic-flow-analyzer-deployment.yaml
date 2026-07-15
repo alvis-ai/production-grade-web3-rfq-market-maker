@@ -15,11 +15,25 @@ spec:
       labels:
         app.kubernetes.io/name: rfq-toxic-flow-analyzer
     spec:
+      automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: database-migrate
           image: ghcr.io/example/rfq-backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           command: ["node", "backend/dist/db/migrate.js"]
           env:
             - name: NODE_ENV
@@ -32,10 +46,18 @@ spec:
                 secretKeyRef:
                   name: rfq-database-migration-secrets
                   key: DATABASE_URL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
       containers:
         - name: toxic-flow-analyzer
           image: ghcr.io/example/rfq-backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           command: ["node", "backend/dist/toxic-flow-analyzer-main.js"]
           ports:
             - name: http
@@ -64,3 +86,10 @@ spec:
             limits:
               cpu: 300m
               memory: 256Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi

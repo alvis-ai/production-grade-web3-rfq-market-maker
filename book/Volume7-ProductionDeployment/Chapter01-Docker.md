@@ -72,6 +72,8 @@ flowchart LR
 
 Docker Compose 同时提供依赖服务和应用服务。`backend` 使用 `infra/docker/backend.Dockerfile` 构建 TypeScript 服务并暴露 `3000`，`frontend` 使用 `infra/docker/frontend.Dockerfile` 构建 Vite 静态资源并通过 Nginx 暴露到宿主机 `5173`。开发者仍可选择本机运行 backend/frontend，但 compose 默认路径应能直接启动参考实现。
 
+两个运行时镜像都不依赖 root。Node 镜像在依赖安装和构建完成后切换到固定 `node` 用户；Nginx 使用固定 `nginx` 用户、将 pid 和临时文件限制在 `/tmp`，并监听非特权容器端口 `8080`。Compose 只把宿主机 `5173` 映射到该端口，因此浏览器入口保持不变，同时本地运行能够提前暴露生产只读文件系统和用户权限假设。
+
 ## Sequence Diagram
 
 ```mermaid
@@ -119,6 +121,7 @@ No public API changes. Compose exposes backend API on `localhost:3000`, frontend
 - Redis uses `redis-cli ping` and ClickHouse uses `clickhouse-client --query 'SELECT 1'` for local dependency health checks.
 - Prometheus and Grafana included from the first deployment docs stage.
 - Prometheus scrapes the compose `backend:3000` service directly.
+- Backend runtime uses the image `node` user; frontend runtime uses the `nginx` user and unprivileged port 8080. Neither application process requires root after image construction.
 - Compose forwards the bounded `RFQ_CEX_*` freshness, quorum, spread and deviation controls into the backend. The local container runs with `NODE_ENV=development` and defaults to one source; production manifests require two distinct sources per configured pair.
 - The credential-isolated `hedge-worker` service is behind the explicit `hedge` Compose profile. It exposes health/readiness/metrics on container port 3001, claims PostgreSQL jobs with leases, and should use Binance Spot Testnet credentials for local integration.
 - The `reconciliation-worker` service is behind the explicit `reconciliation` profile. It exposes health/readiness/metrics on port 3003, claims quote-scoped desired revisions with expiring leases, and repairs post-settlement quote, hedge, and PnL projections without signer, RPC, or venue credentials.
@@ -142,7 +145,7 @@ No public API changes. Compose exposes backend API on `localhost:3000`, frontend
 
 ## Security Considerations
 
-Never reuse local compose credentials in production. Do not expose local services to public networks.
+Never reuse local compose credentials in production. Do not expose local services to public networks. Application processes must use their fixed non-root image users; Nginx pid, client-body and proxy temporary paths are confined to `/tmp`. Production orchestration additionally makes the image filesystem read-only and mounts only bounded writable volumes.
 
 ## Performance Considerations
 

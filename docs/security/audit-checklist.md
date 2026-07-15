@@ -44,6 +44,8 @@
 - [x] All errors include traceId.
 - [x] API and worker logs are structured, level-controlled, trace-correlated where applicable, and redact credentials, signatures, private keys, cookies and request headers.
 - [x] API and worker pods have ingress-and-egress NetworkPolicies with explicit ingress-controller and monitoring namespace selectors plus workload-specific egress ports.
+- [x] API, migration and worker containers run as UID/GID 1000 with RuntimeDefault seccomp, no privilege escalation, no Linux capabilities, read-only root filesystems and bounded `/tmp` storage.
+- [x] Every workload disables the default Kubernetes API ServiceAccount token; the API uses only the separate audience-scoped IRSA projection for KMS signing.
 - [x] Non-local API, worker and migration processes require hostname-verified PostgreSQL TLS; Redis requires `rediss://`, while analytics requires Kafka TLS/SASL and ClickHouse HTTPS.
 - [x] Public API responses include no-store cache control and baseline browser security headers.
 - [x] Browser access is restricted by a CORS origin allowlist.

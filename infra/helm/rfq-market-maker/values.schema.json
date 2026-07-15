@@ -28,8 +28,96 @@
       }
     }
   },
-  "required": ["env", "image", "networkPolicy"],
+  "required": [
+    "env",
+    "image",
+    "networkPolicy",
+    "podSecurityContext",
+    "containerSecurityContext",
+    "tmpVolumeSizeLimit",
+    "serviceAccount"
+  ],
   "properties": {
+    "tmpVolumeSizeLimit": {
+      "const": "16Mi"
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "required": [
+        "runAsNonRoot",
+        "runAsUser",
+        "runAsGroup",
+        "fsGroup",
+        "fsGroupChangePolicy",
+        "seccompProfile"
+      ],
+      "properties": {
+        "runAsNonRoot": {
+          "const": true
+        },
+        "runAsUser": {
+          "const": 1000
+        },
+        "runAsGroup": {
+          "const": 1000
+        },
+        "fsGroup": {
+          "const": 1000
+        },
+        "fsGroupChangePolicy": {
+          "const": "OnRootMismatch"
+        },
+        "seccompProfile": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "const": "RuntimeDefault"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "containerSecurityContext": {
+      "type": "object",
+      "required": ["allowPrivilegeEscalation", "readOnlyRootFilesystem", "capabilities"],
+      "properties": {
+        "allowPrivilegeEscalation": {
+          "const": false
+        },
+        "readOnlyRootFilesystem": {
+          "const": true
+        },
+        "capabilities": {
+          "type": "object",
+          "required": ["drop"],
+          "properties": {
+            "drop": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "const": "ALL"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "serviceAccount": {
+      "type": "object",
+      "required": ["automountServiceAccountToken"],
+      "properties": {
+        "automountServiceAccountToken": {
+          "const": false
+        }
+      },
+      "additionalProperties": true
+    },
     "env": {
       "type": "object",
       "required": ["NODE_ENV"],

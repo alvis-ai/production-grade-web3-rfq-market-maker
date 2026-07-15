@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check api-auth-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check hedge-net-pnl-integration-check analytics-integration-check cex-orderbook-integration-check settlement-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check api-auth-check eip712-check contract-abi-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check hedge-net-pnl-integration-check analytics-integration-check cex-orderbook-integration-check settlement-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -15,6 +15,7 @@ help:
 	@echo "  runbook-check  Verify alert rules have actionable runbook coverage"
 	@echo "  grafana-check  Verify Grafana dashboards cover backend metrics"
 	@echo "  deployment-check  Verify Kubernetes and Helm deployment manifests"
+	@echo "  container-runtime-check  Build and probe restricted application images"
 	@echo "  ci-check  Verify GitHub Actions workflow coverage"
 	@echo "  tree        Print the first three levels of repository files"
 	@echo "  workspace-check  Verify expected workspace manifests exist"
@@ -97,6 +98,11 @@ grafana-check:
 
 deployment-check:
 	@node scripts/check-deployment-manifests-consistency.mjs
+
+container-runtime-check:
+	@docker build --file infra/docker/backend.Dockerfile --tag rfq-backend-rootless:check .
+	@docker build --file infra/docker/frontend.Dockerfile --tag rfq-frontend-rootless:check .
+	@BACKEND_IMAGE_REF=rfq-backend-rootless:check FRONTEND_IMAGE_REF=rfq-frontend-rootless:check sh scripts/container-runtime-check.sh
 
 ci-check:
 	@node scripts/check-ci-workflows-consistency.mjs

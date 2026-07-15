@@ -120,7 +120,7 @@ stateDiagram-v2
 
 ## Data Model
 
-发布产物包括 backend/frontend OCI image、BuildKit SBOM、SLSA provenance、Cosign digest signature、版本化 Helm chart 和 `release-manifest.json`。Manifest 固定源 commit、两个镜像仓库与 digest、已发布 tags，以及 chart OCI 地址和版本。tag 便于发现，digest 才是部署身份。
+发布产物包括 backend/frontend OCI image、BuildKit SBOM、SLSA provenance、Cosign digest signature、版本化 Helm chart 和 `release-manifest.json`。两个镜像推送后、签名前，release job 按 digest 拉取镜像，并在非 root、只读根文件系统、受限 `/tmp`、能力清零与 `no-new-privileges` 条件下启动真实进程，探测 backend health 和 frontend SPA fallback。只有运行时门禁通过的 digest 才会签名。Manifest 固定源 commit、两个镜像仓库与 digest、已发布 tags，以及 chart OCI 地址和版本。tag 便于发现，digest 才是部署身份。
 
 ## API Design
 
@@ -171,7 +171,7 @@ Use path filters and caching to reduce CI time. Security gates still run on crit
 
 ## Testing Strategy
 
-本地 `make ci-check` 验证 workflow trigger、最小权限、完整 SHA pin、submodule checkout、Contract CI 的 Anvil settlement E2E、SBOM/provenance、digest signing、Helm package 和 release manifest。`make verify` 在本机同时存在 Foundry 与 Anvil 时执行同一真实结算门禁；release verifier 和 Contract CI 始终安装这些工具。`make deployment-check` 验证原始清单不存在 `:latest`，并验证每个 Helm Deployment 的 init container 与 runtime container 共用 digest-aware image helper。发布流程仍需在受控 tag 上做一次真实 GHCR canary，随后在 staging 校验 Cosign identity、Helm `--atomic` rollback 和 smoke test。
+本地 `make ci-check` 验证 workflow trigger、最小权限、完整 SHA pin、submodule checkout、Contract CI 的 Anvil settlement E2E、SBOM/provenance、受限容器运行时门禁、digest signing、Helm package 和 release manifest。`make container-runtime-check` 本地构建并在最终用户身份与文件系统限制下探测两个镜像。`make verify` 在本机同时存在 Foundry 与 Anvil 时执行同一真实结算门禁；release verifier 和 Contract CI 始终安装这些工具。`make deployment-check` 验证原始清单不存在 `:latest`，并验证每个 Helm Deployment 的 init container 与 runtime container 共用 digest-aware image helper。发布流程仍需在受控 tag 上做一次真实 GHCR canary，随后在 staging 校验 Cosign identity、Helm `--atomic` rollback 和 smoke test。
 
 ## Interview Notes
 

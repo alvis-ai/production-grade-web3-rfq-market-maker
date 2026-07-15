@@ -101,7 +101,7 @@ stateDiagram-v2
 
 ## Data Model
 
-Kubernetes config includes Deployment, Service, ConfigMap, Secret, ServiceAccount, NetworkPolicy, HorizontalPodAutoscaler and PodDisruptionBudget.
+Kubernetes production design includes Deployment, Service, ConfigMap, Secret, ServiceAccount and NetworkPolicy. HorizontalPodAutoscaler and PodDisruptionBudget remain explicit follow-up resources rather than being implied by the current reference manifests.
 
 The current runnable backend manifests use:
 
@@ -109,6 +109,7 @@ The current runnable backend manifests use:
 - `rfq-backend-config` ConfigMap for non-secret runtime settings such as `HOST=0.0.0.0`, `PORT=3000` and `NODE_ENV=production`.
 - `rfq-backend-secrets` Secret for `DATABASE_URL`、`RFQ_AWS_KMS_KEY_ID`、`RFQ_TRUSTED_SIGNER_ADDRESS`、`RFQ_SETTLEMENT_ADDRESS`、`RFQ_REDIS_URL` and `RFQ_API_KEY_CONFIG_JSON`. During a bounded signer rotation only, it may also contain `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES`; the Helm reference remains disabled by default and must be removed after old-key retirement. The Secret must not contain `RFQ_SIGNER_PRIVATE_KEY` or plaintext institutional API secrets; the API-key JSON contains SHA-256 digests only.
 - Backend pods run as `rfq-backend-kms`. On EKS its ServiceAccount annotation binds an IAM role with `kms:Sign` only on the configured asymmetric `ECC_SECG_P256K1` key; other platforms must provide an equivalent workload identity. Static AWS access keys are not mounted.
+- All six workloads run with UID/GID 1000, `runAsNonRoot=true`, `RuntimeDefault` seccomp and a read-only root filesystem. Migration and runtime containers disable privilege escalation and drop every Linux capability; their only writable filesystem is a bounded 16Mi `/tmp` `emptyDir`. Every workload sets `automountServiceAccountToken=false` because it does not call the Kubernetes API. EKS injects a separate audience-scoped IRSA token into the API Pod through its dedicated annotated ServiceAccount for KMS access.
 - `rfq-hedge-worker-secrets` is a separate Secret containing only the worker database URL and Binance API key/secret. API pods do not mount venue credentials; worker pods do not mount signer or Redis credentials.
 - `rfq-analytics-worker-secrets` contains the least-privilege outbox database URL, Kafka SASL credentials and ClickHouse credentials. API and hedge pods do not mount these values; analytics pods do not mount signer, Redis or Binance credentials.
 - The hedge worker Deployment may run multiple replicas because due rows are claimed with `FOR UPDATE SKIP LOCKED`, expiring leases, and lease-owner CAS terminal updates. Its `/ready` probes PostgreSQL while `/health` only checks process liveness; the Service exposes `/metrics` for Prometheus.
@@ -165,7 +166,7 @@ Ingress exposes the trading and status routes through scoped API-key authenticat
 
 ## Security Considerations
 
-Use least privilege service accounts. Avoid mounting broad secrets into API pods. Use network policy to restrict Signer access.
+Use least privilege service accounts. Avoid mounting broad secrets into API pods. Use network policy to restrict Signer access. Raw manifests and Helm schema fix non-root identity, seccomp, capability drop, no privilege escalation and read-only root filesystems. Do not disable the read-only root to accommodate an unknown write path; identify the path and mount a separately bounded volume. No workload receives the default Kubernetes API token. The API's audience-scoped IRSA projection is limited to KMS access, and any new worker cloud identity requires a separate review.
 
 ## Performance Considerations
 

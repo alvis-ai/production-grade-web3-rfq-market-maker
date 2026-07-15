@@ -15,11 +15,25 @@ spec:
       labels:
         app.kubernetes.io/name: rfq-settlement-indexer
     spec:
+      automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: database-migrate
           image: ghcr.io/example/rfq-backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           command: ["node", "backend/dist/db/migrate.js"]
           env:
             - name: NODE_ENV
@@ -32,10 +46,18 @@ spec:
                 secretKeyRef:
                   name: rfq-database-migration-secrets
                   key: DATABASE_URL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
       containers:
         - name: settlement-indexer
           image: ghcr.io/example/rfq-backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           command: ["node", "backend/dist/settlement-indexer-main.js"]
           ports:
             - name: http
@@ -68,3 +90,10 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi

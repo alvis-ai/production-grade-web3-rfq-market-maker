@@ -16,11 +16,25 @@ spec:
         app.kubernetes.io/name: rfq-backend
     spec:
       serviceAccountName: rfq-backend-kms
+      automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: database-migrate
           image: ghcr.io/example/rfq-backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           command: ["node", "backend/dist/db/migrate.js"]
           env:
             - name: NODE_ENV
@@ -33,10 +47,18 @@ spec:
                 secretKeyRef:
                   name: rfq-database-migration-secrets
                   key: DATABASE_URL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
       containers:
         - name: backend
           image: ghcr.io/example/rfq-backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - name: http
               containerPort: 3000
@@ -68,3 +90,10 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi

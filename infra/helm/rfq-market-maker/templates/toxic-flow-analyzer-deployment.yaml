@@ -18,11 +18,16 @@ spec:
         {{- include "rfq-market-maker.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: toxic-flow-analyzer
     spec:
+      automountServiceAccountToken: false
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
         - name: database-migrate
           image: {{ include "rfq-market-maker.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           command: ["node", "backend/dist/db/migrate.js"]
           env:
             - name: NODE_ENV
@@ -32,10 +37,15 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.migrationSecret.name }}
                   key: {{ .Values.migrationSecret.urlKey }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
       containers:
         - name: toxic-flow-analyzer
           image: {{ include "rfq-market-maker.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           command: ["node", "backend/dist/toxic-flow-analyzer-main.js"]
           ports:
             - name: http
@@ -64,4 +74,11 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.toxicFlowAnalyzer.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ .Values.tmpVolumeSizeLimit | quote }}
 {{- end }}

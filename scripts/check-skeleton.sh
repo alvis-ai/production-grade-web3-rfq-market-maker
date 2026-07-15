@@ -630,9 +630,12 @@ grep -q -- '--frozen-lockfile' infra/docker/backend.Dockerfile
 grep -q -- '--no-optional' infra/docker/backend.Dockerfile
 grep -q 'HEALTHCHECK' infra/docker/backend.Dockerfile
 grep -q 'http://127.0.0.1:3000/health' infra/docker/backend.Dockerfile
+grep -q '^USER node$' infra/docker/backend.Dockerfile
 grep -q 'FROM nginx:1.27-alpine AS runtime' infra/docker/frontend.Dockerfile
 grep -q 'COPY package.json pnpm-lock.yaml pnpm-workspace.yaml' infra/docker/frontend.Dockerfile
 grep -q -- '--frozen-lockfile' infra/docker/frontend.Dockerfile
+grep -q 'apk add --no-cache python3 make g++' infra/docker/frontend.Dockerfile
+grep -q 'ENV npm_config_nodedir=/usr/local' infra/docker/frontend.Dockerfile
 grep -q 'VITE_RFQ_API_BASE_URL' infra/docker/frontend.Dockerfile
 grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS' infra/docker/frontend.Dockerfile
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID' infra/docker/frontend.Dockerfile
@@ -640,7 +643,13 @@ grep -q 'COPY sdk/src sdk/src' infra/docker/frontend.Dockerfile
 grep -q '@rfq-market-maker/frontend\.\.\.' infra/docker/frontend.Dockerfile
 grep -q 'pnpm --filter @rfq-market-maker/frontend build' infra/docker/frontend.Dockerfile
 grep -q 'HEALTHCHECK' infra/docker/frontend.Dockerfile
-grep -q 'http://127.0.0.1/' infra/docker/frontend.Dockerfile
+grep -q 'http://127.0.0.1:8080/' infra/docker/frontend.Dockerfile
+grep -q '^USER nginx$' infra/docker/frontend.Dockerfile
+test -s infra/docker/nginx.conf
+test -s scripts/container-runtime-check.sh
+grep -q 'pid /tmp/nginx.pid' infra/docker/nginx.conf
+grep -q 'listen 8080' infra/docker/nginx.conf
+grep -q 'container-runtime-check' Makefile
 grep -q 'backend:' docker-compose.yml
 grep -q 'frontend:' docker-compose.yml
 grep -q 'postgres:' docker-compose.yml

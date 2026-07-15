@@ -3,6 +3,10 @@
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 
+const backendDockerfile = await readFile("infra/docker/backend.Dockerfile", "utf8");
+const frontendDockerfile = await readFile("infra/docker/frontend.Dockerfile", "utf8");
+const frontendNginxConfig = await readFile("infra/docker/nginx.conf", "utf8");
+const dockerCompose = await readFile("docker-compose.yml", "utf8");
 const k8sDeployment = await readFile("infra/k8s/backend-deployment.yaml", "utf8");
 const k8sService = await readFile("infra/k8s/backend-service.yaml", "utf8");
 const k8sConfig = await readFile("infra/k8s/configmap.yaml", "utf8");
@@ -119,6 +123,32 @@ const expectedRuntime = {
   memoryLimit: "512Mi",
 };
 
+assertContains(backendDockerfile, [
+  "FROM node:22-alpine AS runtime",
+  "EXPOSE 3000 3001 3002 3003 3004 3005",
+  "USER node",
+  'CMD ["node", "backend/dist/main.js"]',
+], "infra/docker/backend.Dockerfile");
+assertContains(frontendDockerfile, [
+  "FROM nginx:1.27-alpine AS runtime",
+  "COPY infra/docker/nginx.conf /etc/nginx/nginx.conf",
+  "apk add --no-cache python3 make g++",
+  "ENV npm_config_nodedir=/usr/local",
+  "--mount=type=cache,id=rfq-frontend-pnpm",
+  "EXPOSE 8080",
+  "http://127.0.0.1:8080/",
+  "USER nginx",
+], "infra/docker/frontend.Dockerfile");
+assertContains(frontendNginxConfig, [
+  "pid /tmp/nginx.pid;",
+  "client_body_temp_path /tmp/client_temp;",
+  "proxy_temp_path /tmp/proxy_temp;",
+  "listen 8080;",
+  "try_files $uri $uri/ /index.html;",
+], "infra/docker/nginx.conf");
+assert.ok(dockerCompose.includes('- "5173:8080"'), "frontend compose port must target rootless Nginx 8080");
+assert.ok(!dockerCompose.includes('- "5173:80"'), "frontend compose must not target privileged port 80");
+
 for (const [label, source] of [
   ["backend", k8sDeployment],
   ["hedge worker", k8sHedgeDeployment],
@@ -130,6 +160,51 @@ for (const [label, source] of [
   assert.ok(!source.includes(":latest"), `${label} manifest must not use a mutable latest tag`);
   const digestImages = source.match(/image:\s+\S+@sha256:[0-9a-f]{64}/g) ?? [];
   assert.equal(digestImages.length, 2, `${label} manifest must pin both containers by valid digest`);
+  assertContains(source, [
+    "runAsNonRoot: true",
+    "runAsUser: 1000",
+    "runAsGroup: 1000",
+    "fsGroup: 1000",
+    "fsGroupChangePolicy: OnRootMismatch",
+    "type: RuntimeDefault",
+    "sizeLimit: 16Mi",
+  ], `${label} raw Deployment pod security`);
+  assert.equal(
+    countOccurrences(source, "allowPrivilegeEscalation: false"),
+    2,
+    `${label} raw Deployment must disable privilege escalation for init and runtime containers`,
+  );
+  assert.equal(
+    countOccurrences(source, "readOnlyRootFilesystem: true"),
+    2,
+    `${label} raw Deployment must make init and runtime root filesystems read-only`,
+  );
+  assert.equal(
+    countOccurrences(source, 'drop: ["ALL"]'),
+    2,
+    `${label} raw Deployment must drop every Linux capability`,
+  );
+  assert.equal(
+    countOccurrences(source, "mountPath: /tmp"),
+    2,
+    `${label} raw Deployment must expose only bounded temporary storage to both containers`,
+  );
+}
+assert.ok(
+  k8sDeployment.includes("automountServiceAccountToken: false"),
+  "backend must not receive the default Kubernetes API token",
+);
+for (const [label, source] of [
+  ["hedge worker", k8sHedgeDeployment],
+  ["analytics worker", k8sAnalyticsDeployment],
+  ["reconciliation worker", k8sReconciliationDeployment],
+  ["settlement indexer", k8sIndexerDeployment],
+  ["toxic-flow analyzer", k8sToxicFlowAnalyzerDeployment],
+]) {
+  assert.ok(
+    source.includes("automountServiceAccountToken: false"),
+    `${label} must not receive a Kubernetes ServiceAccount token`,
+  );
 }
 
 for (const [label, source] of [
@@ -158,6 +233,38 @@ for (const [label, source] of [
   const imageReferences = source.match(/include "rfq-market-maker\.image" \. \| quote/g) ?? [];
   assert.equal(imageReferences.length, 2, `${label} Helm template must reuse one digest-aware image reference`);
   assert.ok(!source.includes(".Values.image.tag"), `${label} Helm template must not assemble mutable tags directly`);
+  assertContains(source, [
+    "toYaml .Values.podSecurityContext",
+    "toYaml .Values.containerSecurityContext",
+    "mountPath: /tmp",
+    ".Values.tmpVolumeSizeLimit",
+  ], `${label} Helm workload security`);
+  assert.equal(
+    countOccurrences(source, "toYaml .Values.containerSecurityContext"),
+    2,
+    `${label} Helm template must harden init and runtime containers`,
+  );
+  assert.equal(
+    countOccurrences(source, "mountPath: /tmp"),
+    2,
+    `${label} Helm template must mount bounded temporary storage for both containers`,
+  );
+}
+assert.ok(
+  helmDeployment.includes("automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}"),
+  "Helm API Deployment must explicitly control Kubernetes API token automount",
+);
+for (const [label, source] of [
+  ["hedge worker", helmHedgeDeployment],
+  ["analytics worker", helmAnalyticsDeployment],
+  ["reconciliation worker", helmReconciliationDeployment],
+  ["settlement indexer", helmIndexerDeployment],
+  ["toxic-flow analyzer", helmToxicFlowAnalyzerDeployment],
+]) {
+  assert.ok(
+    source.includes("automountServiceAccountToken: false"),
+    `Helm ${label} must not receive a Kubernetes ServiceAccount token`,
+  );
 }
 
 assertContains(k8sDeployment, [
@@ -535,6 +642,16 @@ assertContains(helmValues, [
   `replicaCount: ${expectedRuntime.replicas}`,
   `terminationGracePeriodSeconds: ${expectedRuntime.terminationGracePeriodSeconds}`,
   `preStopSleepSeconds: ${expectedRuntime.preStopSleepSeconds}`,
+  "tmpVolumeSizeLimit: 16Mi",
+  "runAsNonRoot: true",
+  "runAsUser: 1000",
+  "runAsGroup: 1000",
+  "fsGroup: 1000",
+  "fsGroupChangePolicy: OnRootMismatch",
+  "type: RuntimeDefault",
+  "allowPrivilegeEscalation: false",
+  "readOnlyRootFilesystem: true",
+  "automountServiceAccountToken: false",
   "repository: ghcr.io/example/rfq-backend",
   "type: ClusterIP",
   'port: 3000',
@@ -628,6 +745,42 @@ assert.equal(
   "Helm values schema must reject the mutable latest tag",
 );
 assert.ok(helmValuesSchema.required.includes("env"), "Helm values schema must require env");
+for (const requiredSecurityField of [
+  "podSecurityContext",
+  "containerSecurityContext",
+  "tmpVolumeSizeLimit",
+  "serviceAccount",
+]) {
+  assert.ok(
+    helmValuesSchema.required.includes(requiredSecurityField),
+    `Helm values schema must require ${requiredSecurityField}`,
+  );
+}
+assert.equal(helmValuesSchema.properties.tmpVolumeSizeLimit.const, "16Mi");
+assert.equal(helmValuesSchema.properties.podSecurityContext.properties.runAsNonRoot.const, true);
+assert.equal(helmValuesSchema.properties.podSecurityContext.properties.runAsUser.const, 1000);
+assert.equal(helmValuesSchema.properties.podSecurityContext.properties.runAsGroup.const, 1000);
+assert.equal(helmValuesSchema.properties.podSecurityContext.properties.fsGroup.const, 1000);
+assert.equal(
+  helmValuesSchema.properties.podSecurityContext.properties.seccompProfile.properties.type.const,
+  "RuntimeDefault",
+);
+assert.equal(
+  helmValuesSchema.properties.containerSecurityContext.properties.allowPrivilegeEscalation.const,
+  false,
+);
+assert.equal(
+  helmValuesSchema.properties.containerSecurityContext.properties.readOnlyRootFilesystem.const,
+  true,
+);
+assert.equal(
+  helmValuesSchema.properties.containerSecurityContext.properties.capabilities.properties.drop.items.const,
+  "ALL",
+);
+assert.equal(
+  helmValuesSchema.properties.serviceAccount.properties.automountServiceAccountToken.const,
+  false,
+);
 assert.equal(
   helmValuesSchema.properties.env.properties.NODE_ENV.const,
   "production",
@@ -992,6 +1145,10 @@ assertContains(kubernetesChapter, [
   "`networkPolicy.fqdnEgress`",
   "`egress: []`",
   "Binance REST 443 and WebSocket 9443",
+  "`runAsNonRoot=true`",
+  "`RuntimeDefault` seccomp",
+  "bounded 16Mi `/tmp`",
+  "`automountServiceAccountToken=false`",
 ], "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md");
 
 console.log("Deployment manifests consistency check passed");

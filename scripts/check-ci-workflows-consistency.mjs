@@ -246,6 +246,10 @@ assertContains(workflows.release, [
   "push: true",
   "sbom: true",
   "provenance: mode=max",
+  "Verify restricted container runtimes",
+  'docker pull "${BACKEND_IMAGE_REF}"',
+  'docker pull "${FRONTEND_IMAGE_REF}"',
+  "sh scripts/container-runtime-check.sh",
   'cosign sign --yes "${BACKEND_IMAGE}@${DIGEST}"',
   'cosign sign --yes "${FRONTEND_IMAGE}@${DIGEST}"',
   "helm lint infra/helm/rfq-market-maker",
@@ -256,6 +260,11 @@ assertContains(workflows.release, [
   "release-manifest.json",
   "if-no-files-found: error",
 ], ".github/workflows/release.yml");
+assert.ok(
+  workflows.release.indexOf("Verify restricted container runtimes")
+    < workflows.release.indexOf("Sign backend image digest"),
+  "release workflow must verify both restricted image runtimes before signing either digest",
+);
 assert.ok(
   !workflows.release.includes("pull_request:"),
   "release workflow must never expose publishing credentials to pull requests",
