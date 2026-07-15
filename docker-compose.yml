@@ -180,7 +180,7 @@ services:
       RFQ_ANALYTICS_RETRY_DELAY_MS: 1000
       RFQ_CLICKHOUSE_URL: http://clickhouse:8123
       RFQ_CLICKHOUSE_USERNAME: default
-      RFQ_CLICKHOUSE_PASSWORD: ""
+      RFQ_CLICKHOUSE_PASSWORD: ${RFQ_CLICKHOUSE_PASSWORD:-rfq-clickhouse-dev}
       RFQ_CLICKHOUSE_DATABASE: default
       RFQ_CLICKHOUSE_ANALYTICS_TABLE: rfq_analytics_events
     healthcheck:
@@ -328,7 +328,7 @@ services:
       - "6379:6379"
 
   redpanda:
-    image: redpandadata/redpanda:latest
+    image: redpandadata/redpanda:v26.1.12
     command:
       - redpanda
       - start
@@ -350,7 +350,7 @@ services:
 
   redpanda-topic-init:
     profiles: ["analytics"]
-    image: redpandadata/redpanda:latest
+    image: redpandadata/redpanda:v26.1.12
     depends_on:
       redpanda:
         condition: service_healthy
@@ -358,7 +358,12 @@ services:
     restart: "no"
 
   clickhouse:
-    image: clickhouse/clickhouse-server:24
+    image: clickhouse/clickhouse-server:26.3.17.4
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ${RFQ_CLICKHOUSE_PASSWORD:-rfq-clickhouse-dev}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
       interval: 10s

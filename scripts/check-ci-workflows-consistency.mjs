@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 
 const workflows = {
+  analytics: await readFile(".github/workflows/analytics-ci.yml", "utf8"),
   backend: await readFile(".github/workflows/backend-ci.yml", "utf8"),
   docs: await readFile(".github/workflows/docs-ci.yml", "utf8"),
   contract: await readFile(".github/workflows/contract-ci.yml", "utf8"),
@@ -13,6 +14,7 @@ const workflows = {
 const dependabot = await readFile(".github/dependabot.yml", "utf8");
 
 for (const [filename, source] of Object.entries({
+  "analytics-ci.yml": workflows.analytics,
   "backend-ci.yml": workflows.backend,
   "docs-ci.yml": workflows.docs,
   "contract-ci.yml": workflows.contract,
@@ -67,6 +69,29 @@ assertContains(workflows.backend, [
   "run: make db-migrate quote-exposure-integration-check",
   "submodules: recursive",
 ], ".github/workflows/backend-ci.yml");
+
+assertContains(workflows.analytics, [
+  "name: Analytics CI",
+  '- "backend/src/analytics-worker-main.ts"',
+  '- "backend/src/modules/analytics/**"',
+  '- "backend/src/db/**"',
+  '- "scripts/analytics-integration-check.mjs"',
+  '- "scripts/analytics-e2e.sh"',
+  '- "scripts/check-analytics-integration-consistency.mjs"',
+  '- "docker-compose.yml"',
+  '- ".github/workflows/analytics-ci.yml"',
+  "submodules: recursive",
+  "pnpm install --frozen-lockfile",
+  "docker compose up -d --wait postgres redpanda clickhouse",
+  "docker compose --profile analytics run --rm redpanda-topic-init",
+  "RFQ_ANALYTICS_KAFKA_BROKERS: 127.0.0.1:19092",
+  'RFQ_ANALYTICS_INTEGRATION_CONFIRM: "yes"',
+  "RFQ_CLICKHOUSE_PASSWORD: rfq-clickhouse-dev",
+  "run: make db-migrate analytics-e2e",
+  "if: failure()",
+  "if: always()",
+  "docker compose --profile analytics down --volumes",
+], ".github/workflows/analytics-ci.yml");
 
 assertContains(workflows.docs, [
   'name: Docs CI',
@@ -127,6 +152,7 @@ assertContains(workflows.docs, [
   '- "scripts/lib/**"',
   '- "scripts/check-api-route-consistency.mjs"',
   '- "scripts/check-api-schema-consistency.mjs"',
+  '- "scripts/check-analytics-integration-consistency.mjs"',
   '- "scripts/check-ci-workflows-consistency.mjs"',
   '- "scripts/check-config-consistency.mjs"',
   '- "scripts/check-database-schema-consistency.mjs"',
@@ -158,8 +184,11 @@ assertContains(workflows.docs, [
   '- "scripts/settlement-e2e.mjs"',
   '- "scripts/settlement-indexer-e2e.mjs"',
   '- "scripts/settlement-e2e.sh"',
+  '- "scripts/analytics-integration-check.mjs"',
+  '- "scripts/analytics-e2e.sh"',
   '- "contracts/script/LocalE2EToken.s.sol"',
   '- ".github/workflows/release.yml"',
+  '- ".github/workflows/analytics-ci.yml"',
   '- ".github/workflows/frontend-e2e.yml"',
   '- ".github/dependabot.yml"',
   '- "backend/package.json"',
@@ -167,6 +196,7 @@ assertContains(workflows.docs, [
   "run: make skeleton-check",
   "run: make examples-check",
   "run: make config-check",
+  "run: make analytics-pipeline-check",
   "run: make hedge-execution-check",
   "run: make kms-signer-check",
   "run: make settlement-indexer-check",

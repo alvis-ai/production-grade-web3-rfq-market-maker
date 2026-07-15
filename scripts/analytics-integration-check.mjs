@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { readdir } from "node:fs/promises";
 import { endPool, getPool } from "../backend/dist/db/pool.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -9,10 +10,19 @@ if (!clickhouseUrl) throw new Error("RFQ_CLICKHOUSE_URL is required");
 if (process.env.RFQ_ANALYTICS_INTEGRATION_CONFIRM !== "yes") {
   throw new Error("RFQ_ANALYTICS_INTEGRATION_CONFIRM=yes is required because this check writes synthetic trade data");
 }
+assertIntegrationTargets(databaseUrl, clickhouseUrl);
 const clickhouseDatabase = process.env.RFQ_CLICKHOUSE_DATABASE ?? "default";
 const clickhouseTable = process.env.RFQ_CLICKHOUSE_ANALYTICS_TABLE ?? "rfq_analytics_events";
+const clickhouseUsername = process.env.RFQ_CLICKHOUSE_USERNAME ?? "default";
+const clickhousePassword = process.env.RFQ_CLICKHOUSE_PASSWORD ?? "";
 for (const [name, value] of [["RFQ_CLICKHOUSE_DATABASE", clickhouseDatabase], ["RFQ_CLICKHOUSE_ANALYTICS_TABLE", clickhouseTable]]) {
   if (!/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(value)) throw new Error(`${name} is invalid`);
+}
+for (const [name, value] of [["RFQ_CLICKHOUSE_USERNAME", clickhouseUsername], ["RFQ_CLICKHOUSE_PASSWORD", clickhousePassword]]) {
+  if (typeof value !== "string" || value.length > 512 || /[\r\n\0]/.test(value) ||
+      (name === "RFQ_CLICKHOUSE_USERNAME" && value.length === 0)) {
+    throw new Error(`${name} is invalid`);
+  }
 }
 
 const pool = getPool();
@@ -30,6 +40,7 @@ const tokenIn = `0x${randomBytes(20).toString("hex")}`;
 const tokenOut = `0x${randomBytes(20).toString("hex")}`;
 const txHash = `0x${randomBytes(32).toString("hex")}`;
 const quoteHash = `0x${randomBytes(32).toString("hex")}`;
+const principalId = `analytics_integration_${runId}`;
 const signature = `0x${"11".repeat(64)}1b`;
 const modelDescription = "Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution";
 const expectedTypes = [
@@ -51,6 +62,7 @@ const fixtureAggregateIds = [
 ];
 let fixturesCommitted = false;
 let eventIds = [];
+let clickhouseCleanupNeeded = false;
 
 try {
   await client.query("BEGIN");
@@ -64,15 +76,15 @@ try {
   );
   await client.query(
     `INSERT INTO quotes (
-       id, chain_id, user_address, token_in, token_out, amount_in, slippage_bps,
+       id, principal_id, chain_id, user_address, token_in, token_out, amount_in, slippage_bps,
        amount_out, min_amount_out, nonce, deadline, snapshot_id, pricing_version,
        spread_bps, size_impact_bps, market_spread_bps, inventory_skew_bps, volatility_premium_bps,
        hedge_cost_bps, risk_policy_version,
        status, signature
-     ) VALUES ($1, 1, $2, $3, $4, 1000000000000000000, 50,
-       990000000000000000, 980000000000000000, 1, 4102444800, $5,
-       'formula-v4', 20, 5, 10, 0, 5, 0, 'risk-v1', 'signed', $6)`,
-    [quoteId, user, tokenIn, tokenOut, snapshotId, signature],
+     ) VALUES ($1, $2, 1, $3, $4, $5, 1000000000000000000, 50,
+       990000000000000000, 980000000000000000, 1, 4102444800, $6,
+       'formula-v4', 20, 5, 10, 0, 5, 0, 'risk-v1', 'signed', $7)`,
+    [quoteId, principalId, user, tokenIn, tokenOut, snapshotId, signature],
   );
   await client.query(
     `INSERT INTO risk_decisions (id, quote_id, decision, policy_version)
@@ -82,9 +94,9 @@ try {
   await client.query(
     `INSERT INTO settlement_events (
        id, quote_id, chain_id, tx_hash, quote_hash, log_index, block_number,
-       user_address, token_in, token_out, amount_in, amount_out, nonce
+       user_address, token_in, token_out, amount_in, amount_out, nonce, settled_at
      ) VALUES ($1, $2, 1, $3, $4, 0, 100, $5, $6, $7,
-       1000000000000000000, 990000000000000000, 1)`,
+       1000000000000000000, 990000000000000000, 1, now())`,
     [settlementEventId, quoteId, txHash, quoteHash, user, tokenIn, tokenOut],
   );
   await client.query(
@@ -116,6 +128,18 @@ try {
   await client.query("COMMIT");
   fixturesCommitted = true;
 
+  const emitted = await pool.query(
+    `SELECT id::text, event_type, published_at
+     FROM analytics_outbox
+     WHERE aggregate_id = ANY($1::text[])
+     ORDER BY id`,
+    [fixtureAggregateIds],
+  );
+  assert.equal(emitted.rows.length, 7, "operational transaction must atomically emit all seven analytics events");
+  assert.deepEqual(emitted.rows.map((row) => row.event_type).sort(), expectedTypes);
+  eventIds = emitted.rows.map((row) => `ao_${row.id}`);
+  clickhouseCleanupNeeded = true;
+
   const outbox = await waitFor(async () => {
     const result = await pool.query(
       `SELECT id::text, event_type, published_at
@@ -129,7 +153,6 @@ try {
       : undefined;
   }, 30_000, "analytics outbox publication");
   assert.deepEqual(outbox.map((row) => row.event_type).sort(), expectedTypes);
-  eventIds = outbox.map((row) => `ao_${row.id}`);
   const eventIdFilter = sqlStringList(eventIds);
 
   const projection = await waitFor(async () => {
@@ -158,9 +181,15 @@ try {
   assert.equal(JSON.parse(snapshotProjection.data[0].payload).marketSpreadBps, 10);
 
   const migrations = await pool.query("SELECT version FROM _migrations ORDER BY version");
+  const migrationFiles = (await readdir(new URL("../backend/dist/db/migrations/", import.meta.url)))
+    .filter((name) => /^[0-9]{3}-[a-z0-9-]+\.sql$/.test(name))
+    .sort();
+  const expectedMigrationVersions = migrationFiles.map((name) => name.slice(0, 3));
+  assert.equal(new Set(expectedMigrationVersions).size, expectedMigrationVersions.length);
+  assert.ok(expectedMigrationVersions.length > 0, "compiled migration directory must not be empty");
   assert.deepEqual(
     migrations.rows.map((row) => row.version),
-    ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016", "017"],
+    expectedMigrationVersions,
   );
 
   await cleanupOperationalFixtures();
@@ -168,6 +197,7 @@ try {
   await clickhouseCommand(
     `ALTER TABLE ${clickhouseTable} DELETE WHERE event_id IN (${eventIdFilter}) SETTINGS mutations_sync = 1`,
   );
+  clickhouseCleanupNeeded = false;
 
   process.stdout.write(`${JSON.stringify({
     status: "ok",
@@ -193,6 +223,16 @@ try {
       process.stderr.write(`Analytics integration fixture cleanup failed: ${String(cleanupError)}\n`);
     }
   }
+  if (clickhouseCleanupNeeded && eventIds.length > 0) {
+    try {
+      await clickhouseCommand(
+        `ALTER TABLE ${clickhouseTable} DELETE WHERE event_id IN (${sqlStringList(eventIds)}) SETTINGS mutations_sync = 1`,
+      );
+      clickhouseCleanupNeeded = false;
+    } catch (cleanupError) {
+      process.stderr.write(`Analytics ClickHouse fixture cleanup failed: ${String(cleanupError)}\n`);
+    }
+  }
   throw error;
 } finally {
   client.release();
@@ -214,7 +254,10 @@ async function clickhouseRequest(query, expectsJson) {
   if (expectsJson) endpoint.searchParams.set("default_format", "JSON");
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: { "content-type": "text/plain" },
+    headers: {
+      authorization: `Basic ${Buffer.from(`${clickhouseUsername}:${clickhousePassword}`, "utf8").toString("base64")}`,
+      "content-type": "text/plain",
+    },
     body: query,
   });
   if (!response.ok) throw new Error(`ClickHouse query failed with HTTP ${response.status}: ${await response.text()}`);
@@ -263,4 +306,21 @@ async function waitFor(probe, timeoutMs, label) {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(`Timed out waiting for ${label}${lastError ? `: ${String(lastError)}` : ""}`);
+}
+
+function assertIntegrationTargets(postgresUrl, analyticsUrl) {
+  const remoteAllowed = process.env.RFQ_ANALYTICS_INTEGRATION_ALLOW_REMOTE === "yes";
+  for (const [name, value] of [["DATABASE_URL", postgresUrl], ["RFQ_CLICKHOUSE_URL", analyticsUrl]]) {
+    let parsed;
+    try {
+      parsed = new URL(value);
+    } catch {
+      throw new Error(`${name} must be a valid URL`);
+    }
+    const loopback = parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost" ||
+      parsed.hostname === "::1" || parsed.hostname === "[::1]";
+    if (!loopback && !remoteAllowed) {
+      throw new Error(`${name} must use loopback unless RFQ_ANALYTICS_INTEGRATION_ALLOW_REMOTE=yes`);
+    }
+  }
 }

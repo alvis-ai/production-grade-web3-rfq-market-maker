@@ -61,6 +61,7 @@ on:
       - "scripts/lib/**"
       - "scripts/check-api-route-consistency.mjs"
       - "scripts/check-api-schema-consistency.mjs"
+      - "scripts/check-analytics-integration-consistency.mjs"
       - "scripts/check-ci-workflows-consistency.mjs"
       - "scripts/check-config-consistency.mjs"
       - "scripts/check-database-schema-consistency.mjs"
@@ -91,6 +92,8 @@ on:
       - "scripts/settlement-e2e.mjs"
       - "scripts/settlement-indexer-e2e.mjs"
       - "scripts/settlement-e2e.sh"
+      - "scripts/analytics-integration-check.mjs"
+      - "scripts/analytics-e2e.sh"
       - "scripts/check-skeleton.sh"
       - "contracts/script/LocalE2EToken.s.sol"
       - "infra/prometheus/**"
@@ -106,6 +109,7 @@ on:
       - "infra/helm/**"
       - ".github/workflows/docs-ci.yml"
       - ".github/workflows/backend-ci.yml"
+      - ".github/workflows/analytics-ci.yml"
       - ".github/workflows/contract-ci.yml"
       - ".github/workflows/frontend-e2e.yml"
       - ".github/workflows/release.yml"
@@ -135,6 +139,8 @@ jobs:
         run: make examples-check
       - name: Check runtime configuration consistency
         run: make config-check
+      - name: Check analytics integration consistency
+        run: make analytics-pipeline-check
       - name: Check hedge execution integrity
         run: make hedge-execution-check
       - name: Check production KMS signer consistency

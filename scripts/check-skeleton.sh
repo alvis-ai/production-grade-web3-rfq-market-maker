@@ -13,6 +13,7 @@ test -s .env.example
 test -s benchmark/quote-benchmark.mjs
 test -s benchmark/submit-benchmark.mjs
 test -s .github/workflows/backend-ci.yml
+test -s .github/workflows/analytics-ci.yml
 test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
@@ -2929,6 +2930,7 @@ grep -Fq '"docker-compose.yml"' .github/workflows/backend-ci.yml
 grep -Fq '".env.example"' .github/workflows/backend-ci.yml
 grep -Fq '"README.md"' .github/workflows/backend-ci.yml
 grep -q '      - master' .github/workflows/backend-ci.yml
+grep -q '      - master' .github/workflows/analytics-ci.yml
 grep -q '      - master' .github/workflows/docs-ci.yml
 grep -q '      - master' .github/workflows/contract-ci.yml
 grep -Eq 'actions/setup-node@[0-9a-f]{40} # v6\.' .github/workflows/docs-ci.yml
@@ -2949,6 +2951,7 @@ grep -q 'release-manifest.json' .github/workflows/release.yml
 grep -q 'make api-error-check' .github/workflows/docs-ci.yml
 grep -q 'make examples-check' .github/workflows/docs-ci.yml
 grep -q 'make config-check' .github/workflows/docs-ci.yml
+grep -q 'make analytics-pipeline-check' .github/workflows/docs-ci.yml
 grep -q 'make rate-limit-check' .github/workflows/docs-ci.yml
 grep -q 'make api-schema-check' .github/workflows/docs-ci.yml
 grep -q 'make api-route-check' .github/workflows/docs-ci.yml

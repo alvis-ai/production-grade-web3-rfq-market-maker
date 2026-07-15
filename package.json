@@ -32,6 +32,8 @@
     "reconciliation:integration:check": "make reconciliation-integration-check",
     "quote:exposure:integration:check": "make quote-exposure-integration-check",
     "analytics:integration:check": "make analytics-integration-check",
+    "analytics:pipeline:check": "make analytics-pipeline-check",
+    "analytics:e2e": "make analytics-e2e",
     "cex:orderbook:integration:check": "make cex-orderbook-integration-check",
     "chainlink:integration:check": "make chainlink-integration-check",
     "chainlink:canary:check": "make chainlink-canary-check",

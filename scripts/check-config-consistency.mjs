@@ -299,7 +299,9 @@ assert.ok(
   composeSource.includes("internal://redpanda:9092") &&
     composeSource.includes("external://localhost:19092") &&
     composeSource.includes("redpanda-topic-init:") &&
-    composeSource.includes('RFQ_ANALYTICS_KAFKA_BROKERS: redpanda:9092'),
+    composeSource.includes('RFQ_ANALYTICS_KAFKA_BROKERS: redpanda:9092') &&
+    composeSource.includes('CLICKHOUSE_PASSWORD: ${RFQ_CLICKHOUSE_PASSWORD:-rfq-clickhouse-dev}') &&
+    composeSource.includes('RFQ_CLICKHOUSE_PASSWORD: ${RFQ_CLICKHOUSE_PASSWORD:-rfq-clickhouse-dev}'),
   "Compose must expose distinct Redpanda listeners and initialize the analytics topic",
 );
 assert.ok(
