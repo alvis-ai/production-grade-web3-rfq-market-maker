@@ -23,6 +23,12 @@ const paths = {
   feeWorkerTest: "backend/test/hedge-fee-worker.test.mjs",
   feeStoreTest: "backend/test/postgres-hedge-fee-store.test.mjs",
   runtimeTest: "backend/test/hedge-worker-runtime.test.mjs",
+  testnetIntegration: "scripts/binance-testnet-integration-check.mjs",
+  testnetIntegrationTest: "scripts/binance-testnet-integration-check.test.mjs",
+  testnetFixture: "scripts/fixtures/binance-testnet-live-api.mjs",
+  makefile: "Makefile",
+  packageJson: "package.json",
+  verify: "scripts/verify.sh",
   marketRuntime: "backend/src/runtime/market-runtime.ts",
   readiness: "backend/src/modules/health/readiness.service.ts",
   metricsBook: "book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md",
@@ -37,6 +43,9 @@ const paths = {
   hedgeBook: "book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md",
   kubernetesBook: "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md",
   runbook: "book/Volume7-ProductionDeployment/Chapter05-Runbook.md",
+  architectureReview: "book/Volume1-SystemArchitecture/Chapter09-Architecture-Review.md",
+  threatModel: "docs/security/threat-model.md",
+  auditChecklist: "docs/security/audit-checklist.md",
 };
 
 const entries = await Promise.all(
@@ -124,6 +133,30 @@ assert.match(source.symbolRulesTest, /refreshes its bounded cache/);
 assert.match(source.symbolRulesTest, /enforces LOT_SIZE, PRICE_FILTER and NOTIONAL exactly/);
 assert.match(source.workerTest, /validates venue rules before persisting or authorizing a submission/);
 
+assert.match(source.testnetIntegration, /const testnetBaseUrl = "https:\/\/testnet\.binance\.vision"/);
+assert.match(source.testnetIntegration, /RFQ_BINANCE_TESTNET_INTEGRATION_CONFIRM/);
+assert.doesNotMatch(source.testnetIntegration, /api\.binance\.com|RFQ_BINANCE_TESTNET_BASE_URL/);
+assert.match(source.testnetIntegration, /assertNonMarketablePrice/);
+assert.match(source.testnetIntegration, /adapter\.validateLimitOrder/);
+assert.match(source.testnetIntegration, /adapter\.queryOrder[\s\S]*undefined/);
+assert.match(source.testnetIntegration, /adapter\.submitLimitOrder/);
+assert.match(source.testnetIntegration, /adapter\.cancelOrder/);
+assert.match(source.testnetIntegration, /queryOrderTrades/);
+assert.match(source.testnetIntegration, /AggregateError/);
+assert.match(source.testnetIntegration, /orderMayExist = true/);
+assert.match(source.testnetIntegration, /const observed = await adapter\.queryOrder/);
+assert.match(source.testnetIntegration, /cleanup cancellation/);
+assert.match(source.testnetIntegrationTest, /places, queries, cancels, and proves zero fills/);
+assert.match(source.testnetIntegrationTest, /rejects a marketable-risk price before signing an order/);
+assert.match(source.testnetIntegrationTest, /accepted order returns an invalid response/);
+assert.match(source.testnetFixture, /createHmac\("sha256"/);
+assert.match(source.testnetFixture, /https:\/\/testnet\.binance\.vision/);
+assert.match(source.makefile, /binance-testnet-integration-check: backend-build/);
+assert.match(source.makefile, /binance-testnet-check: backend-build/);
+assert.match(source.packageJson, /"binance:testnet:integration:check"/);
+assert.match(source.packageJson, /"binance:testnet:check"/);
+assert.match(source.verify, /run_step make binance-testnet-check/);
+
 assert.match(source.compose, /hedge-worker:[\s\S]*RFQ_TOKEN_REGISTRY_JSON:[\s\S]*RFQ_HEDGE_ROUTES_JSON:/);
 assert.match(source.compose, /hedge-worker:[\s\S]*RFQ_HEDGE_MAX_ORDER_AGE_MS:/);
 assert.match(source.compose, /backend:[\s\S]*RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS:/);
@@ -169,6 +202,12 @@ for (const [name, needle] of [
   ["metricsBook", /rfq_hedge_worker_symbol_rules_valid/],
   ["monitoringBook", /rfq_hedge_worker_symbol_rules_valid/],
   ["alerts", /RFQHedgeSymbolRulesInvalid/],
+  ["readme", /make binance-testnet-integration-check/],
+  ["hedgeBook", /make binance-testnet-integration-check/],
+  ["runbook", /make binance-testnet-integration-check/],
+  ["architectureReview", /Spot Testnet execution canary/],
+  ["threatModel", /unexpected testnet canary fill/],
+  ["auditChecklist", /Spot Testnet execution canary/],
 ]) {
   assert.match(source[name], needle, `${paths[name]} must document hedge quantity integrity`);
 }

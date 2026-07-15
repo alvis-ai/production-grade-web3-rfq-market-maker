@@ -24,6 +24,7 @@ run_step make compose-check
 run_step make cex-orderbook-check
 run_step make hedge-planning-check
 run_step make hedge-execution-check
+run_step make binance-testnet-check
 run_step make price-normalization-check
 run_step make risk-policy-check
 run_step make pnl-valuation-check

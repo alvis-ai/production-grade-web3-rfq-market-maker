@@ -138,7 +138,7 @@ OpenAPI 已定义 `/quote`、`/submit`、`/quote/:id`、`/settlements/:id`、`/h
 
 ## Testing Strategy
 
-现有测试矩阵覆盖 EIP-712/ABI 跨层一致性、Risk-before-Signing、幂等 settlement/indexer/reconciliation、API schema 与错误契约、前端组件路径，以及真实 Chromium 中的 quote-to-settlement 生命周期。仓库提供目标链部署完整性 canary 和双 CEX source quorum canary，但生产上线仍必须从目标网络执行这些外部依赖验收；确定性 fixture 与本地 E2E 不构成目标链、真实链重组或交易所成交证据。
+现有测试矩阵覆盖 EIP-712/ABI 跨层一致性、Risk-before-Signing、幂等 settlement/indexer/reconciliation、API schema 与错误契约、前端组件路径，以及真实 Chromium 中的 quote-to-settlement 生命周期。仓库提供目标链部署完整性 canary、双 CEX source quorum canary 和 Binance Spot Testnet execution canary，但生产上线仍必须从目标网络执行这些外部依赖验收；确定性 fixture 与本地 E2E 不构成目标链、真实链重组或生产交易所成交证据。
 
 ## Interview Notes
 

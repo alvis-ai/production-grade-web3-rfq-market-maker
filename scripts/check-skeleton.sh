@@ -3746,12 +3746,24 @@ grep -q 'settlementIndexer:' infra/helm/rfq-market-maker/values.yaml
 grep -q 'make settlement-indexer-check' .github/workflows/docs-ci.yml
 
 test -s scripts/check-hedge-execution-consistency.mjs
+test -s scripts/binance-testnet-integration-check.mjs
+test -s scripts/binance-testnet-integration-check.test.mjs
+test -s scripts/fixtures/binance-testnet-live-api.mjs
 grep -q 'quantizeHedgeAmount' backend/src/modules/hedge/hedge-route.ts
 grep -q 'validateTokenRegistry' backend/src/modules/hedge/hedge-route.ts
 grep -q 'filledAmount !== targetAmount' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'HedgeWorker requires FILLED cumulative quantity to equal the quantized target' backend/test/hedge-worker.test.mjs
 grep -q 'HedgeWorker permits only sub-step dust between intent and a complete venue fill' backend/test/hedge-worker.test.mjs
 grep -q 'make hedge-execution-check' .github/workflows/docs-ci.yml
+grep -q 'binance-testnet-integration-check: backend-build' Makefile
+grep -q 'binance-testnet-check: backend-build' Makefile
+grep -q 'binance:testnet:integration:check' package.json
+grep -q 'make binance-testnet-check' scripts/verify.sh
+grep -q 'https://testnet.binance.vision' scripts/binance-testnet-integration-check.mjs
+grep -q 'RFQ_BINANCE_TESTNET_INTEGRATION_CONFIRM' scripts/binance-testnet-integration-check.mjs
+grep -q 'assertCanceledZeroFill(canceled, clientOrderId, "cleanup cancellation")' scripts/binance-testnet-integration-check.mjs
+! grep -q 'api.binance.com' scripts/binance-testnet-integration-check.mjs
+! grep -q 'RFQ_BINANCE_TESTNET_BASE_URL' scripts/binance-testnet-integration-check.mjs
 
 test -s backend/src/db/migrations/018-quote-control.sql
 test -s backend/src/db/migrations/019-pair-quote-control.sql
