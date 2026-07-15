@@ -1,5 +1,6 @@
 import type { SignedQuote } from "../../shared/types/rfq.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
+import { assertRpcChainId } from "../../shared/validation/rpc.js";
 import type { QuoteRecord, QuoteRepository } from "../quote/quote.repository.js";
 import {
   hashSettlementQuote,
@@ -93,6 +94,7 @@ export class SettlementIndexerWorker {
       const cloned = { ...chainConfig };
       const reader = readerFactory(cloned);
       assertMethods(reader, "reader", [
+        "getChainId",
         "getBlockNumber",
         "getBlockHash",
         "getBlockTimestamp",
@@ -105,6 +107,7 @@ export class SettlementIndexerWorker {
   async checkDependencies(): Promise<void> {
     await this.store.checkHealth();
     for (const runtime of this.chains.values()) {
+      await assertReaderChainId(runtime.reader, runtime.config.chainId);
       const head = await runtime.reader.getBlockNumber();
       assertBlockNumber(head, "head block number");
       this.lastSuccessfulPollMs.set(runtime.config.chainId, Date.now());
@@ -153,6 +156,7 @@ export class SettlementIndexerWorker {
     const runtime = this.chains.get(chainId);
     if (!runtime) throw new Error(`Settlement indexer chain ${chainId} is not configured`);
     const { config, reader } = runtime;
+    await assertReaderChainId(reader, chainId);
     const cursor = await this.store.claimCursor({
       chainId,
       settlementAddress: config.settlementAddress,
@@ -483,6 +487,14 @@ function eventRefKey(value: {
 class SettlementIndexerError extends Error {
   constructor(readonly code: SettlementIndexerErrorCode) {
     super(code);
+  }
+}
+
+async function assertReaderChainId(reader: SettlementChainReader, expectedChainId: number): Promise<void> {
+  try {
+    assertRpcChainId(await reader.getChainId(), expectedChainId, "Settlement indexer RPC");
+  } catch {
+    throw new SettlementIndexerError("RPC_OR_STORE_UNAVAILABLE");
   }
 }
 

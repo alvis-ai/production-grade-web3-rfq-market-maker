@@ -113,7 +113,7 @@ test("non-local RFQ API requires API key auth configuration or an injected authe
     configureAwsSignerEnvironment();
     process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify({ chains: [{
       chainId: 1,
-      rpcUrl: "http://127.0.0.1:8545",
+      rpcUrl: "https://rpc.example.com/v1/key",
       settlementAddress: testSettlementAddress,
       confirmations: 2,
       receiptTimeoutMs: 120_000,

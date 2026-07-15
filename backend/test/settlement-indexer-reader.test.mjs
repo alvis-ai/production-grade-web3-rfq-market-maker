@@ -24,7 +24,7 @@ test("settlement indexer config rejects missing, unknown, duplicate, and unsafe 
   );
   assert.throws(
     () => parseSettlementIndexerConfig(JSON.stringify({ chains: [{ ...chainConfig(), rpcUrl: "https://user:secret@rpc.example" }] })),
-    /absolute HTTP\(S\) URL/,
+    /without credentials/,
   );
   assert.throws(
     () => parseSettlementIndexerConfig(JSON.stringify({ chains: [{ ...chainConfig(), settlementAddress: zeroAddress() }] })),
@@ -33,6 +33,26 @@ test("settlement indexer config rejects missing, unknown, duplicate, and unsafe 
   assert.throws(
     () => parseSettlementIndexerConfig(JSON.stringify({ chains: [{ ...chainConfig(), reorgLookbackBlocks: 4 }] })),
     /cover at least one maxBlockRange/,
+  );
+  assert.throws(
+    () => parseSettlementIndexerConfig(
+      JSON.stringify({ chains: [{ ...chainConfig(), rpcUrl: "http://rpc.example/project-token" }] }),
+      { requireTls: true },
+    ),
+    /must use a bounded HTTPS URL/,
+  );
+  assert.throws(
+    () => parseSettlementIndexerConfig(
+      JSON.stringify({ chains: [{ ...chainConfig(), rpcUrl: "https://*.example/#token" }] }),
+      { requireTls: true },
+    ),
+    /wildcard hosts, or fragments/,
+  );
+  assert.equal(
+    parseSettlementIndexerConfig(JSON.stringify({
+      chains: [{ ...chainConfig(), rpcUrl: "http://host.docker.internal:8545" }],
+    })).chains[0].rpcUrl,
+    "http://host.docker.internal:8545",
   );
 });
 

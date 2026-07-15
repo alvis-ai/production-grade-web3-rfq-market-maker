@@ -34,15 +34,15 @@ test("RFQ API validates simulated and receipt-confirmed execution configuration"
     process.env.NODE_ENV = "production";
     configureAwsSignerEnvironment();
     delete process.env.RFQ_ALLOW_SIMULATED_SETTLEMENT;
-    process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig(settlementAddress));
     process.env.RFQ_REDIS_URL = "rediss://redis.example.com:6380/0";
-    const server = buildServer({
-      apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
-      logger: false,
-      databasePool: fakeDatabasePool(),
-      marketDataService: testMarketDataService(),
-      signerService: localTestSignerService(),
-    });
+    process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig(
+      settlementAddress,
+      "http://rpc.example.com/v1/key",
+    ));
+    assert.throws(() => buildServer(runtimeServerOptions()), /must use a bounded HTTPS URL/);
+
+    process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify(receiptConfig(settlementAddress));
+    const server = buildServer(runtimeServerOptions());
     await server.ready();
     await server.close();
   } finally {
@@ -50,11 +50,11 @@ test("RFQ API validates simulated and receipt-confirmed execution configuration"
   }
 });
 
-function receiptConfig(address) {
+function receiptConfig(address, rpcUrl = "https://rpc.example.com/v1/key") {
   return {
     chains: [{
       chainId: 1,
-      rpcUrl: "http://127.0.0.1:8545",
+      rpcUrl,
       settlementAddress: address,
       confirmations: 2,
       receiptTimeoutMs: 120_000,
@@ -78,6 +78,16 @@ function fakeDatabasePool() {
 
 function testMarketDataService() {
   return { async getSnapshot() { throw new Error("unused market data"); } };
+}
+
+function runtimeServerOptions() {
+  return {
+    apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
+    logger: false,
+    databasePool: fakeDatabasePool(),
+    marketDataService: testMarketDataService(),
+    signerService: localTestSignerService(),
+  };
 }
 
 function saveEnv(names) {

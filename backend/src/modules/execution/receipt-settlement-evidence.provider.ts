@@ -1,6 +1,7 @@
 import { createPublicClient, decodeEventLog, decodeFunctionData, defineChain, http, parseAbiItem } from "viem";
 import { APIError } from "../../shared/errors/api-error.js";
 import type { Address, SubmitQuoteRequest } from "../../shared/types/rfq.js";
+import { assertRpcChainId, assertRpcUrl, type RpcUrlPolicy } from "../../shared/validation/rpc.js";
 import { validateSubmitQuoteRequest } from "../../shared/validation/submit-request.js";
 import { hashSettlementQuote } from "../settlement/settlement-event.service.js";
 import {
@@ -23,6 +24,7 @@ export interface ReceiptExecutionConfig {
 }
 
 export interface ReceiptReader {
+  getChainId(): Promise<unknown>;
   waitForTransactionReceipt(input: {
     hash: `0x${string}`;
     confirmations: number;
@@ -49,10 +51,13 @@ export class ReceiptSettlementEvidenceProvider implements SettlementEvidenceProv
 
   constructor(config: ReceiptExecutionConfig, readerFactory: ReceiptReaderFactory = createReceiptReader) {
     assertReceiptExecutionConfig(config);
+    if (typeof readerFactory !== "function") throw new Error("Receipt reader factory must be a function");
     for (const chain of config.chains) {
       const cloned = { ...chain };
+      const reader = readerFactory(cloned);
+      assertReceiptReader(reader);
       this.chains.set(chain.chainId, cloned);
-      this.readers.set(chain.chainId, readerFactory(cloned));
+      this.readers.set(chain.chainId, reader);
     }
   }
 
@@ -71,6 +76,7 @@ export class ReceiptSettlementEvidenceProvider implements SettlementEvidenceProv
     let rawTransaction: unknown;
     let rawBlock: unknown;
     try {
+      assertRpcChainId(await reader.getChainId(), chain.chainId, "Receipt RPC");
       rawReceipt = await reader.waitForTransactionReceipt({
         hash: validatedRequest.txHash,
         confirmations: chain.confirmations,
@@ -146,7 +152,10 @@ export class RuntimeSettlementEvidenceProvider implements SettlementEvidenceProv
   }
 }
 
-export function parseReceiptExecutionConfig(serialized: string | undefined): ReceiptExecutionConfig {
+export function parseReceiptExecutionConfig(
+  serialized: string | undefined,
+  rpcPolicy: RpcUrlPolicy = { requireTls: false },
+): ReceiptExecutionConfig {
   if (serialized === undefined || serialized.trim().length === 0) return { chains: [] };
   let parsed: unknown;
   try {
@@ -154,11 +163,14 @@ export function parseReceiptExecutionConfig(serialized: string | undefined): Rec
   } catch {
     throw new Error("RFQ_RECEIPT_CONFIG_JSON must contain valid JSON");
   }
-  assertReceiptExecutionConfig(parsed);
+  assertReceiptExecutionConfig(parsed, rpcPolicy);
   return { chains: parsed.chains.map((chain) => ({ ...chain })) };
 }
 
-export function assertReceiptExecutionConfig(value: unknown): asserts value is ReceiptExecutionConfig {
+export function assertReceiptExecutionConfig(
+  value: unknown,
+  rpcPolicy: RpcUrlPolicy = { requireTls: false },
+): asserts value is ReceiptExecutionConfig {
   assertRecord(value, "Receipt execution config");
   assertExactFields(value, configFields, "Receipt execution config");
   if (!Array.isArray(value.chains)) throw new Error("Receipt execution config.chains must be an array");
@@ -167,7 +179,7 @@ export function assertReceiptExecutionConfig(value: unknown): asserts value is R
     assertRecord(chain, "Receipt chain config");
     assertExactFields(chain, chainFields, "Receipt chain config");
     assertInteger(chain.chainId, 1, Number.MAX_SAFE_INTEGER, "Receipt chain config.chainId");
-    assertRpcUrl(chain.rpcUrl);
+    assertRpcUrl(chain.rpcUrl, "Receipt chain config.rpcUrl", rpcPolicy);
     assertAddress(chain.settlementAddress, "Receipt chain config.settlementAddress");
     assertInteger(chain.confirmations, 1, 100, "Receipt chain config.confirmations");
     assertInteger(chain.receiptTimeoutMs, 1_000, 600_000, "Receipt chain config.receiptTimeoutMs");
@@ -209,6 +221,7 @@ function createReceiptReader(config: ReceiptChainConfig): ReceiptReader {
   });
   const client = createPublicClient({ chain, transport: http(config.rpcUrl) });
   return {
+    getChainId: () => client.getChainId(),
     waitForTransactionReceipt: ({ hash, confirmations, timeoutMs }) => client.waitForTransactionReceipt({
       hash,
       confirmations,
@@ -390,13 +403,10 @@ function assertInteger(value: unknown, min: number, max: number, label: string):
   }
 }
 
-function assertRpcUrl(value: unknown): void {
-  if (typeof value !== "string" || value.length > 2_048 || value.trim() !== value) throw new Error("Receipt chain config.rpcUrl must be a bounded absolute HTTP(S) URL");
-  try {
-    const parsed = new URL(value);
-    if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || !parsed.hostname || parsed.username || parsed.password) throw new Error();
-  } catch {
-    throw new Error("Receipt chain config.rpcUrl must be a bounded absolute HTTP(S) URL");
+function assertReceiptReader(value: unknown): asserts value is ReceiptReader {
+  assertRecord(value, "Receipt reader");
+  for (const method of ["getChainId", "waitForTransactionReceipt", "getTransaction", "getBlock"] as const) {
+    if (typeof value[method] !== "function") throw new Error(`Receipt reader.${method} must be a function`);
   }
 }
 

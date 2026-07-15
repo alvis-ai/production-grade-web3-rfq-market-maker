@@ -102,7 +102,7 @@ function receiptConfig() {
   return {
     chains: [{
       chainId: 1,
-      rpcUrl: "http://127.0.0.1:8545",
+      rpcUrl: "https://rpc.example.com/v1/key",
       settlementAddress,
       confirmations: 2,
       receiptTimeoutMs: 120_000,

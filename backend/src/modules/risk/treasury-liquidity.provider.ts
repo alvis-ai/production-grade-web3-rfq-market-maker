@@ -1,5 +1,6 @@
 import { createPublicClient, defineChain, http } from "viem";
 import type { Address } from "../../shared/types/rfq.js";
+import { assertRpcChainId } from "../../shared/validation/rpc.js";
 import {
   assertReceiptExecutionConfig,
   type ReceiptChainConfig,
@@ -26,6 +27,7 @@ export interface TreasuryLiquidityProvider {
 }
 
 export interface TreasuryLiquidityReader {
+  getChainId(): Promise<unknown>;
   getBlockNumber(): Promise<unknown>;
   readTreasury(input: { settlementAddress: Address; blockNumber: bigint }): Promise<unknown>;
   readTokenBalance(input: { token: Address; owner: Address; blockNumber: bigint }): Promise<unknown>;
@@ -53,6 +55,7 @@ const erc20BalanceAbi = [{
 export class OnchainTreasuryLiquidityProvider implements TreasuryLiquidityProvider {
   private readonly chains = new Map<number, ReceiptChainConfig>();
   private readonly readers = new Map<number, TreasuryLiquidityReader>();
+  private readonly chainChecks = new Map<number, Promise<void>>();
 
   constructor(
     config: ReceiptExecutionConfig,
@@ -74,6 +77,7 @@ export class OnchainTreasuryLiquidityProvider implements TreasuryLiquidityProvid
   async checkHealth(): Promise<void> {
     await Promise.all(Array.from(this.chains.values(), async (chain) => {
       const reader = this.readers.get(chain.chainId)!;
+      await this.assertChainIdentity(chain, reader);
       const blockNumber = parseBlockNumber(await reader.getBlockNumber());
       parseAddress(await reader.readTreasury({
         settlementAddress: chain.settlementAddress,
@@ -90,6 +94,7 @@ export class OnchainTreasuryLiquidityProvider implements TreasuryLiquidityProvid
       throw new Error("Treasury liquidity is not configured for the requested chain");
     }
 
+    await this.assertChainIdentity(chain, reader);
     const blockNumber = parseBlockNumber(await reader.getBlockNumber());
     const treasuryAddress = parseAddress(await reader.readTreasury({
       settlementAddress: chain.settlementAddress,
@@ -110,6 +115,21 @@ export class OnchainTreasuryLiquidityProvider implements TreasuryLiquidityProvid
       blockNumber,
     };
   }
+
+  private async assertChainIdentity(
+    chain: ReceiptChainConfig,
+    reader: TreasuryLiquidityReader,
+  ): Promise<void> {
+    let check = this.chainChecks.get(chain.chainId);
+    if (!check) {
+      check = reader.getChainId().then((actual) => {
+        assertRpcChainId(actual, chain.chainId, "Treasury liquidity RPC");
+      });
+      this.chainChecks.set(chain.chainId, check);
+      void check.catch(() => this.chainChecks.delete(chain.chainId));
+    }
+    await check;
+  }
 }
 
 function createTreasuryLiquidityReader(config: ReceiptChainConfig): TreasuryLiquidityReader {
@@ -124,6 +144,7 @@ function createTreasuryLiquidityReader(config: ReceiptChainConfig): TreasuryLiqu
     transport: http(config.rpcUrl, { timeout: Math.min(config.receiptTimeoutMs, 30_000) }),
   });
   return {
+    getChainId: () => client.getChainId(),
     getBlockNumber: () => client.getBlockNumber(),
     readTreasury: ({ settlementAddress, blockNumber }) => client.readContract({
       address: settlementAddress,
@@ -156,7 +177,7 @@ function assertRequest(value: unknown): asserts value is TreasuryLiquidityReques
 
 function assertReader(value: unknown): asserts value is TreasuryLiquidityReader {
   assertRecord(value, "Treasury liquidity reader");
-  for (const method of ["getBlockNumber", "readTreasury", "readTokenBalance"] as const) {
+  for (const method of ["getChainId", "getBlockNumber", "readTreasury", "readTokenBalance"] as const) {
     if (typeof value[method] !== "function") {
       throw new Error(`Treasury liquidity reader.${method} must be a function`);
     }

@@ -42,15 +42,24 @@ test("settlement indexer runtime reads only own fields and rejects unsafe config
     NODE_ENV: "production",
     DATABASE_URL: "postgres://indexer:secret@db.example.com/rfq?sslmode=verify-full",
   }));
+  assert.throws(() => readSettlementIndexerRuntimeConfig({
+    ...baseEnv("http://rpc.example/project-token"),
+    NODE_ENV: "production",
+    DATABASE_URL: "postgres://indexer:secret@db.example.com/rfq?sslmode=verify-full",
+  }), /must use a bounded HTTPS URL/);
+  assert.doesNotThrow(() => readSettlementIndexerRuntimeConfig({
+    ...baseEnv("http://host.docker.internal:8545"),
+    NODE_ENV: "development",
+  }));
 });
 
-function baseEnv() {
+function baseEnv(rpcUrl = "https://rpc.example/project-token") {
   return {
     DATABASE_URL: "postgres://rfq:secret@database:5432/rfq",
     RFQ_SETTLEMENT_INDEXER_WORKER_ID: "indexer_runtime_1",
     RFQ_SETTLEMENT_INDEXER_CONFIG_JSON: JSON.stringify({ chains: [{
       chainId: 1,
-      rpcUrl: "https://rpc.example/project-token",
+      rpcUrl,
       settlementAddress: "0x0000000000000000000000000000000000000004",
       startBlock: 20_000_000,
       confirmations: 12,

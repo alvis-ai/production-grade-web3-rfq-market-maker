@@ -68,6 +68,7 @@ test("ReceiptSettlementEvidenceProvider rejects untrusted or conflicting chain e
 
 test("ReceiptSettlementEvidenceProvider maps RPC failures to settlement unavailable", async () => {
   const provider = new ReceiptSettlementEvidenceProvider(validConfig(), () => ({
+    async getChainId() { return 1; },
     async waitForTransactionReceipt() { throw new Error("rpc offline"); },
     async getTransaction() { throw new Error("not reached"); },
     async getBlock() { throw new Error("not reached"); },
@@ -77,6 +78,22 @@ test("ReceiptSettlementEvidenceProvider maps RPC failures to settlement unavaila
     provider.resolve(request),
     (error) => error.code === "SETTLEMENT_UNAVAILABLE" && error.statusCode === 503,
   );
+});
+
+test("ReceiptSettlementEvidenceProvider rejects a wrong RPC chain before reading settlement evidence", async () => {
+  let receiptReads = 0;
+  const provider = new ReceiptSettlementEvidenceProvider(validConfig(), () => ({
+    async getChainId() { return 2; },
+    async waitForTransactionReceipt() { receiptReads += 1; },
+    async getTransaction() { throw new Error("not reached"); },
+    async getBlock() { throw new Error("not reached"); },
+  }));
+
+  await assert.rejects(
+    provider.resolve(request),
+    (error) => error.code === "SETTLEMENT_UNAVAILABLE" && error.statusCode === 503,
+  );
+  assert.equal(receiptReads, 0);
 });
 
 test("ReceiptSettlementEvidenceProvider rejects mismatched or invalid settlement blocks", async () => {
@@ -122,7 +139,31 @@ test("receipt execution config rejects malformed, duplicate, or unsafe chains", 
   );
   assert.throws(
     () => parseReceiptExecutionConfig(JSON.stringify({ chains: [{ ...validConfig().chains[0], rpcUrl: "https://user:secret@rpc.example.com" }] })),
-    /absolute HTTP/,
+    /without credentials/,
+  );
+  assert.throws(
+    () => parseReceiptExecutionConfig(
+      JSON.stringify({ chains: [{ ...validConfig().chains[0], rpcUrl: "http://rpc.example.com/v1/key" }] }),
+      { requireTls: true },
+    ),
+    /must use a bounded HTTPS URL/,
+  );
+  assert.throws(
+    () => parseReceiptExecutionConfig(
+      JSON.stringify({ chains: [{ ...validConfig().chains[0], rpcUrl: "https://*.example.com/#secret" }] }),
+      { requireTls: true },
+    ),
+    /wildcard hosts, or fragments/,
+  );
+  assert.throws(
+    () => parseReceiptExecutionConfig(JSON.stringify(validConfig()), Object.create({ requireTls: true })),
+    /only an own boolean requireTls field/,
+  );
+  assert.equal(
+    parseReceiptExecutionConfig(JSON.stringify({
+      chains: [{ ...validConfig().chains[0], rpcUrl: "http://host.docker.internal:8545" }],
+    })).chains[0].rpcUrl,
+    "http://host.docker.internal:8545",
   );
 });
 
@@ -218,6 +259,10 @@ class FakeReceiptReader {
     this.receipt = receipt;
     this.transaction = transaction;
     this.block = block;
+  }
+
+  async getChainId() {
+    return 1;
   }
 
   async waitForTransactionReceipt(input) {

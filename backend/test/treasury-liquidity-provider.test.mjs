@@ -9,6 +9,10 @@ const token = "0x0000000000000000000000000000000000000006";
 test("OnchainTreasuryLiquidityProvider reads treasury and token balance at one block", async () => {
   const calls = [];
   const provider = new OnchainTreasuryLiquidityProvider(config(), () => ({
+    async getChainId() {
+      calls.push(["chain"]);
+      return 1;
+    },
     async getBlockNumber() {
       calls.push(["block"]);
       return 1234n;
@@ -32,6 +36,7 @@ test("OnchainTreasuryLiquidityProvider reads treasury and token balance at one b
     blockNumber: 1234n,
   });
   assert.deepEqual(calls, [
+    ["chain"],
     ["block"],
     ["treasury", { settlementAddress, blockNumber: 1234n }],
     ["balance", { token, owner: treasuryAddress, blockNumber: 1234n }],
@@ -40,6 +45,7 @@ test("OnchainTreasuryLiquidityProvider reads treasury and token balance at one b
 
 test("OnchainTreasuryLiquidityProvider fails closed on missing chains and malformed RPC values", async () => {
   const validReader = {
+    async getChainId() { return 1; },
     async getBlockNumber() { return 1n; },
     async readTreasury() { return treasuryAddress; },
     async readTokenBalance() { return 1n; },
@@ -61,6 +67,7 @@ test("OnchainTreasuryLiquidityProvider fails closed on missing chains and malfor
 test("OnchainTreasuryLiquidityProvider health probes every configured settlement", async () => {
   let treasuryReads = 0;
   const provider = new OnchainTreasuryLiquidityProvider(config(), () => ({
+    async getChainId() { return 1; },
     async getBlockNumber() { return 55n; },
     async readTreasury() {
       treasuryReads += 1;
@@ -70,6 +77,32 @@ test("OnchainTreasuryLiquidityProvider health probes every configured settlement
   }));
   await provider.checkHealth();
   assert.equal(treasuryReads, 1);
+});
+
+test("OnchainTreasuryLiquidityProvider rejects a wrong chain before balance reads and retries failed checks", async () => {
+  let chainReads = 0;
+  let blockReads = 0;
+  const reader = {
+    async getChainId() {
+      chainReads += 1;
+      if (chainReads === 1) throw new Error("temporary RPC failure");
+      return chainReads === 2 ? 2 : 1;
+    },
+    async getBlockNumber() { blockReads += 1; return 1n; },
+    async readTreasury() { return treasuryAddress; },
+    async readTokenBalance() { return 1n; },
+  };
+  const provider = new OnchainTreasuryLiquidityProvider(config(), () => reader);
+
+  await assert.rejects(provider.getLiquidity({ chainId: 1, token }), /temporary RPC failure/);
+  await assert.rejects(provider.getLiquidity({ chainId: 1, token }), /chain ID does not match/);
+  assert.equal(blockReads, 0);
+
+  assert.equal((await provider.getLiquidity({ chainId: 1, token })).availableBalance, "1");
+  assert.equal(chainReads, 3);
+  assert.equal(blockReads, 1);
+  await provider.getLiquidity({ chainId: 1, token });
+  assert.equal(chainReads, 3, "a successful chain identity check is cached for the quote hot path");
 });
 
 function config() {

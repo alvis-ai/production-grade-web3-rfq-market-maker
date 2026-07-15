@@ -52,6 +52,7 @@
 - [x] The opt-in target API quote canary uses HTTPS and a least-privilege key, gates on readiness, proves exact idempotency replay and persisted signed status, independently recovers the trusted signer, and never submits or emits the raw signature or API failure details.
 - [x] Quote idempotency conflicts, active ownership, and storage outages fail closed without issuing another nonce or signature.
 - [x] Submit reservation acquisition failures fail closed and active contention is rejected before settlement verification.
+- [x] Non-local receipt RPCs require HTTPS, and receipt plus Treasury readers verify the active chain ID before consuming transaction, contract, or balance evidence.
 - [x] All errors include traceId.
 - [x] API and worker logs are structured, level-controlled, trace-correlated where applicable, and redact credentials, signatures, private keys, cookies and request headers.
 - [x] API and worker pods have ingress-and-egress NetworkPolicies with explicit ingress-controller and monitoring namespace selectors plus workload-specific egress ports.
@@ -71,6 +72,7 @@
 - [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.
 - [x] Indexer handles chain reorgs.
 - [x] Independent confirmed-log indexing recovers settlements when the wallet callback is lost.
+- [x] Non-local indexer RPCs require HTTPS; startup and every poll verify the active chain ID before reading chain state or claiming a cursor.
 - [x] Indexer cursor advance is lease/revision/next-block guarded and occurs only after event application.
 - [x] Deep reorgs and unknown signed quotes fail closed without skipping economic evidence.
 - [x] Inventory updates are replayable.

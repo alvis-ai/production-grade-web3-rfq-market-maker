@@ -17,6 +17,7 @@ import {
 import { PostgresQuoteRepository } from "./modules/quote/postgres-quote.repository.js";
 import { PostgresSettlementEventStore } from "./modules/settlement/postgres-settlement-event.store.js";
 import { installBoundedShutdown, readShutdownTimeoutMs, type BoundedShutdownController } from "./runtime/process-shutdown.js";
+import { requiresExplicitRuntimeConfig } from "./runtime/environment.js";
 import { createStructuredLogger, logProcessFailure } from "./shared/logger/structured-logger.js";
 
 export interface SettlementIndexerRuntimeConfig {
@@ -33,7 +34,10 @@ export function readSettlementIndexerRuntimeConfig(
   const nodeEnv = readOptional(env, "NODE_ENV");
   const databaseUrl = readRequired(env, "DATABASE_URL");
   assertDatabaseUrlForEnvironment(databaseUrl, nodeEnv);
-  const indexer = parseSettlementIndexerConfig(readRequired(env, "RFQ_SETTLEMENT_INDEXER_CONFIG_JSON"));
+  const indexer = parseSettlementIndexerConfig(
+    readRequired(env, "RFQ_SETTLEMENT_INDEXER_CONFIG_JSON"),
+    { requireTls: requiresExplicitRuntimeConfig(nodeEnv) },
+  );
   const worker = {
     workerId: readOptional(env, "RFQ_SETTLEMENT_INDEXER_WORKER_ID") ?? defaultWorkerId(),
     leaseMs: readInteger(env, "RFQ_SETTLEMENT_INDEXER_LEASE_MS", 30_000, 1_000, 300_000),

@@ -721,6 +721,12 @@ test -s infra/helm/rfq-market-maker/values.schema.json
 test -s infra/helm/rfq-market-maker/templates/network-policy.yaml
 test -s infra/helm/rfq-market-maker/templates/cilium-fqdn-egress-policy.yaml
 test -s scripts/check-transport-security-consistency.mjs
+test -s backend/src/shared/validation/rpc.ts
+test -s backend/src/modules/execution/receipt-settlement-evidence.provider.ts
+grep -q 'assertRpcChainId(await reader.getChainId(), chain.chainId, "Receipt RPC")' backend/src/modules/execution/receipt-settlement-evidence.provider.ts
+grep -q 'private readonly chainChecks' backend/src/modules/risk/treasury-liquidity.provider.ts
+grep -q 'await assertReaderChainId(reader, chainId)' backend/src/modules/indexer/settlement-indexer.worker.ts
+grep -q '{ requireTls: requiresExplicitRuntimeConfig(nodeEnv) }' backend/src/settlement-indexer-main.ts
 test -s scripts/smoke-api.sh
 
 grep -q 'server.post("/quote"' $gateway_sources

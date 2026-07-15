@@ -5,6 +5,7 @@ import {
   parseAbiItem,
 } from "viem";
 import type { Address } from "../../shared/types/rfq.js";
+import { assertRpcUrl, type RpcUrlPolicy } from "../../shared/validation/rpc.js";
 
 export interface SettlementIndexerChainConfig {
   chainId: number;
@@ -36,6 +37,7 @@ export interface IndexedQuoteSettledLog {
 }
 
 export interface SettlementChainReader {
+  getChainId(): Promise<unknown>;
   getBlockNumber(): Promise<number>;
   getBlockHash(blockNumber: number): Promise<`0x${string}`>;
   getBlockTimestamp(blockNumber: number): Promise<string>;
@@ -61,7 +63,10 @@ const quoteSettledEvent = parseAbiItem(
   "event QuoteSettled(bytes32 indexed quoteHash, address indexed user, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint256 nonce)",
 );
 
-export function parseSettlementIndexerConfig(serialized: string | undefined): SettlementIndexerConfig {
+export function parseSettlementIndexerConfig(
+  serialized: string | undefined,
+  rpcPolicy: RpcUrlPolicy = { requireTls: false },
+): SettlementIndexerConfig {
   if (serialized === undefined || serialized.trim().length === 0) {
     throw new Error("RFQ_SETTLEMENT_INDEXER_CONFIG_JSON is required");
   }
@@ -71,11 +76,14 @@ export function parseSettlementIndexerConfig(serialized: string | undefined): Se
   } catch {
     throw new Error("RFQ_SETTLEMENT_INDEXER_CONFIG_JSON must contain valid JSON");
   }
-  assertSettlementIndexerConfig(parsed);
+  assertSettlementIndexerConfig(parsed, rpcPolicy);
   return { chains: parsed.chains.map((chain) => ({ ...chain })) };
 }
 
-export function assertSettlementIndexerConfig(value: unknown): asserts value is SettlementIndexerConfig {
+export function assertSettlementIndexerConfig(
+  value: unknown,
+  rpcPolicy: RpcUrlPolicy = { requireTls: false },
+): asserts value is SettlementIndexerConfig {
   assertRecord(value, "Settlement indexer config");
   assertExactFields(value, configFields, "Settlement indexer config");
   if (!Array.isArray(value.chains) || value.chains.length === 0 || value.chains.length > 32) {
@@ -86,7 +94,7 @@ export function assertSettlementIndexerConfig(value: unknown): asserts value is 
     assertRecord(chain, "Settlement indexer chain config");
     assertExactFields(chain, chainFields, "Settlement indexer chain config");
     assertSafeInteger(chain.chainId, 1, Number.MAX_SAFE_INTEGER, "chainId");
-    assertRpcUrl(chain.rpcUrl);
+    assertRpcUrl(chain.rpcUrl, "Settlement indexer chain config.rpcUrl", rpcPolicy);
     assertAddress(chain.settlementAddress, "settlementAddress");
     if (/^0x0{40}$/i.test(chain.settlementAddress)) {
       throw new Error("Settlement indexer chain config.settlementAddress must not be zero");
@@ -124,6 +132,7 @@ export function createSettlementChainReader(
   });
 
   return {
+    getChainId: () => client.getChainId(),
     async getBlockNumber() {
       return bigintToSafeInteger(await client.getBlockNumber(), "head block number");
     },
@@ -229,20 +238,6 @@ function normalizeHash(value: unknown, label: string): `0x${string}` {
 function assertAddress(value: unknown, field: string): asserts value is Address {
   if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
     throw new Error(`Settlement indexer chain config.${field} must be a 20-byte hex address`);
-  }
-}
-
-function assertRpcUrl(value: unknown): void {
-  if (typeof value !== "string" || value.length === 0 || value.length > 2_048 || value.trim() !== value) {
-    throw new Error("Settlement indexer chain config.rpcUrl must be a bounded absolute HTTP(S) URL");
-  }
-  try {
-    const parsed = new URL(value);
-    if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || !parsed.hostname || parsed.username || parsed.password) {
-      throw new Error();
-    }
-  } catch {
-    throw new Error("Settlement indexer chain config.rpcUrl must be a bounded absolute HTTP(S) URL");
   }
 }
 

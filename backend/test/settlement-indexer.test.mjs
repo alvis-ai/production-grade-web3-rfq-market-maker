@@ -154,6 +154,18 @@ test("settlement indexer run loop records bounded errors and readiness freshness
   assert.equal(fixture.logger.entries[0].input.rpcUrl, undefined);
 });
 
+test("settlement indexer rejects a wrong RPC chain before claiming a cursor", async () => {
+  const fixture = createFixture();
+  fixture.reader.chainId = 2;
+
+  await assert.rejects(
+    fixture.worker.runChainOnce(1),
+    (error) => error.code === "RPC_OR_STORE_UNAVAILABLE",
+  );
+  assert.equal(fixture.store.claimCalls, 0);
+  assert.equal(fixture.reader.logRequests.length, 0);
+});
+
 function createFixture(options = {}) {
   const startBlock = options.startBlock ?? 100;
   const nextBlock = options.nextBlock ?? startBlock;
@@ -213,9 +225,10 @@ class FakeStore {
     };
     this.checkpoints = [];
     this.eventRefs = [];
+    this.claimCalls = 0;
   }
   async checkHealth() {}
-  async claimCursor() { return { ...this.cursor }; }
+  async claimCursor() { this.claimCalls += 1; return { ...this.cursor }; }
   async advanceCursor(input) {
     assert.equal(this.cursor.nextBlock, input.expectedNextBlock);
     this.checkpoints.unshift({ ...input.checkpoint });
@@ -243,12 +256,14 @@ class FakeStore {
 
 class FakeReader {
   constructor() {
+    this.chainId = 1;
     this.head = 110;
     this.logs = [];
     this.logRequests = [];
     this.blockHashes = new Map(Array.from({ length: 1_100 }, (_, block) => [block, hash(block)]));
     this.blockTimestamps = new Map();
   }
+  async getChainId() { return this.chainId; }
   async getBlockNumber() { return this.head; }
   async getBlockHash(blockNumber) { return this.blockHashes.get(blockNumber) ?? hash(blockNumber); }
   async getBlockTimestamp(blockNumber) {

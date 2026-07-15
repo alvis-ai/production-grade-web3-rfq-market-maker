@@ -9,6 +9,12 @@ const databaseConfig = await read("backend/src/db/config.ts");
 const databasePool = await read("backend/src/db/pool.ts");
 const redisRateLimiter = await read("backend/src/modules/rate-limit/redis-rate-limit.service.ts");
 const gatewayRuntime = await read("backend/src/runtime/gateway-runtime.ts");
+const rpcValidation = await read("backend/src/shared/validation/rpc.ts");
+const receiptProvider = await read("backend/src/modules/execution/receipt-settlement-evidence.provider.ts");
+const treasuryProvider = await read("backend/src/modules/risk/treasury-liquidity.provider.ts");
+const settlementIndexerReader = await read("backend/src/modules/indexer/settlement-indexer.reader.ts");
+const settlementIndexerWorker = await read("backend/src/modules/indexer/settlement-indexer.worker.ts");
+const settlementIndexerRuntime = await read("backend/src/settlement-indexer-main.ts");
 const chainlinkConfig = await read("backend/src/modules/market-data/chainlink-config.ts");
 const analyticsRuntime = await read("backend/src/analytics-worker-main.ts");
 const signerRuntime = await read("backend/src/signer-main.ts");
@@ -24,6 +30,11 @@ const databaseTests = await read("backend/test/database-config.test.mjs");
 const redisTests = await read("backend/test/redis-rate-limit.test.mjs");
 const apiRedisTests = await read("backend/test/api-redis-rate-limit.test.mjs");
 const apiExecutionEnvTests = await read("backend/test/api-execution-env.test.mjs");
+const receiptTests = await read("backend/test/receipt-settlement-evidence.test.mjs");
+const treasuryTests = await read("backend/test/treasury-liquidity-provider.test.mjs");
+const settlementIndexerReaderTests = await read("backend/test/settlement-indexer-reader.test.mjs");
+const settlementIndexerRuntimeTests = await read("backend/test/settlement-indexer-runtime.test.mjs");
+const settlementIndexerTests = await read("backend/test/settlement-indexer.test.mjs");
 const analyticsTests = await read("backend/test/analytics-worker-runtime.test.mjs");
 const chainlinkTests = await read("backend/test/chainlink-market-data.test.mjs");
 const compose = await read("docker-compose.yml");
@@ -117,6 +128,46 @@ assertContains(chainlinkConfig, [
   'parsed.hostname.includes("*")',
   "bounded HTTPS URL or loopback HTTP URL",
 ], "backend/src/modules/market-data/chainlink-config.ts");
+assertContains(rpcValidation, [
+  "export interface RpcUrlPolicy",
+  'parsed.protocol === "https:"',
+  'parsed.hostname.includes("*")',
+  "parsed.hash",
+  'Object.hasOwn(value, "requireTls")',
+  "export function assertRpcChainId",
+  "chain ID does not match configured chain",
+], "backend/src/shared/validation/rpc.ts");
+assert.equal(
+  countOccurrences(gatewayRuntime, "{ requireTls: requiresExplicitRuntimeConfig(nodeEnv) }"),
+  2,
+  "API receipt and Treasury configuration must both apply the non-local RPC TLS policy",
+);
+assertContains(receiptProvider, [
+  'assertRpcChainId(await reader.getChainId(), chain.chainId, "Receipt RPC")',
+  "getChainId: () => client.getChainId()",
+], "receipt settlement evidence provider");
+assertContains(treasuryProvider, [
+  "private readonly chainChecks",
+  "await this.assertChainIdentity(chain, reader)",
+  "void check.catch(() => this.chainChecks.delete(chain.chainId))",
+  "getChainId: () => client.getChainId()",
+], "Treasury liquidity provider");
+assertContains(settlementIndexerReader, [
+  "rpcPolicy: RpcUrlPolicy",
+  "getChainId: () => client.getChainId()",
+], "settlement indexer reader");
+assertContains(settlementIndexerRuntime, [
+  "{ requireTls: requiresExplicitRuntimeConfig(nodeEnv) }",
+], "settlement indexer runtime");
+assertContains(settlementIndexerWorker, [
+  "await assertReaderChainId(reader, chainId)",
+  'throw new SettlementIndexerError("RPC_OR_STORE_UNAVAILABLE")',
+], "settlement indexer worker");
+assert.ok(
+  settlementIndexerWorker.indexOf("await assertReaderChainId(reader, chainId)") <
+    settlementIndexerWorker.indexOf("const cursor = await this.store.claimCursor"),
+  "settlement indexer must verify the active chain before claiming a cursor",
+);
 
 assertContains(databaseTests, [
   "preserves verified TLS",
@@ -133,7 +184,30 @@ assertContains(apiRedisTests, [
 assertContains(apiExecutionEnvTests, [
   'process.env.NODE_ENV = "production"',
   'RFQ_REDIS_URL = "rediss://redis.example.com:6380/0"',
+  '"http://rpc.example.com/v1/key"',
+  "/must use a bounded HTTPS URL/",
 ], "backend/test/api-execution-env.test.mjs");
+assertContains(receiptTests, [
+  "rejects a wrong RPC chain before reading settlement evidence",
+  "http://host.docker.internal:8545",
+  "{ requireTls: true }",
+], "receipt settlement evidence tests");
+assertContains(treasuryTests, [
+  "rejects a wrong chain before balance reads and retries failed checks",
+  "a successful chain identity check is cached for the quote hot path",
+], "Treasury liquidity tests");
+assertContains(settlementIndexerReaderTests, [
+  "http://host.docker.internal:8545",
+  "{ requireTls: true }",
+], "settlement indexer reader tests");
+assertContains(settlementIndexerRuntimeTests, [
+  'baseEnv("http://rpc.example/project-token")',
+  'NODE_ENV: "development"',
+], "settlement indexer runtime tests");
+assertContains(settlementIndexerTests, [
+  "rejects a wrong RPC chain before claiming a cursor",
+  "assert.equal(fixture.store.claimCalls, 0)",
+], "settlement indexer worker tests");
 assertContains(analyticsTests, [
   "requires authenticated TLS dependencies in production",
   "KAFKA_SSL must be true",
@@ -154,6 +228,7 @@ assertContains(compose, [
   "RFQ_REDIS_URL: redis://redis:6379/0",
   "RFQ_ANALYTICS_KAFKA_SSL: \"false\"",
   "RFQ_CLICKHOUSE_URL: http://clickhouse:8123",
+  '"rpcUrl":"http://host.docker.internal:8545"',
 ], "docker-compose.yml");
 
 for (const [path, source] of rawDeployments) {
@@ -204,16 +279,16 @@ assert.equal(
 );
 
 for (const [label, source, terms] of [
-  ["README.md", readme, ["sslmode=verify-full", "`rediss://`", "plaintext dependency transport"]],
-  ["Kubernetes chapter", kubernetesChapter, ["Kafka TLS plus SASL", "ClickHouse", "sslrootcert"]],
+  ["README.md", readme, ["sslmode=verify-full", "`rediss://`", "plaintext dependency transport", "Non-local indexer RPC URLs must use HTTPS"]],
+  ["Kubernetes chapter", kubernetesChapter, ["Kafka TLS plus SASL", "ClickHouse", "sslrootcert", "startup and every poll verify `eth_chainId`"]],
   ["API Gateway chapter", gatewayChapter, ["`rediss://`", "`sslmode=verify-full`"]],
-  ["threat model", threatModel, ["Plaintext or downgrade-prone dependency transport", "Kafka TLS plus SASL"]],
-  ["audit checklist", auditChecklist, ["hostname-verified PostgreSQL TLS", "ClickHouse HTTPS"]],
+  ["threat model", threatModel, ["Plaintext or downgrade-prone dependency transport", "Kafka TLS plus SASL", "Wrong-chain or plaintext settlement RPC"]],
+  ["audit checklist", auditChecklist, ["hostname-verified PostgreSQL TLS", "ClickHouse HTTPS", "active chain ID before consuming transaction"]],
 ]) {
   assertContains(source, terms, label);
 }
 
-console.log("Transport security consistency check passed for API, signer, Chainlink, migration, and 5 workers");
+console.log("Transport security consistency check passed for API, signer, Chainlink, settlement RPCs, migration, and 5 workers");
 
 function assertContains(source, needles, label) {
   for (const needle of needles) {

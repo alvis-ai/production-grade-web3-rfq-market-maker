@@ -302,7 +302,10 @@ export function buildRuntimeSettlementEvidenceProvider(
     !requiresExplicitRuntimeConfig(nodeEnv),
     "RFQ_ALLOW_SIMULATED_SETTLEMENT",
   );
-  const config = parseReceiptExecutionConfig(readOwnEnvValue(env, "RFQ_RECEIPT_CONFIG_JSON"));
+  const config = parseReceiptExecutionConfig(
+    readOwnEnvValue(env, "RFQ_RECEIPT_CONFIG_JSON"),
+    { requireTls: requiresExplicitRuntimeConfig(nodeEnv) },
+  );
   if (!allowSimulatedSettlement && config.chains.length === 0) {
     throw new Error("RFQ_RECEIPT_CONFIG_JSON must configure at least one chain when simulated settlement is disabled");
   }
@@ -315,8 +318,11 @@ export function buildRuntimeSettlementEvidenceProvider(
 }
 
 export function buildRuntimeTreasuryLiquidityProvider(): TreasuryLiquidityProvider | undefined {
+  const env = runtimeEnvironment();
+  const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
   const config = parseReceiptExecutionConfig(
-    readOwnEnvValue(runtimeEnvironment(), "RFQ_RECEIPT_CONFIG_JSON"),
+    readOwnEnvValue(env, "RFQ_RECEIPT_CONFIG_JSON"),
+    { requireTls: requiresExplicitRuntimeConfig(nodeEnv) },
   );
   return config.chains.length === 0 ? undefined : new OnchainTreasuryLiquidityProvider(config);
 }
