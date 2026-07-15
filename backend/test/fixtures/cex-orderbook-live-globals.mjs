@@ -46,14 +46,11 @@ globalThis.WebSocket = class FakeWebSocket {
 
 globalThis.fetch = async (input) => {
   assert.match(String(input), /^https:\/\/api\.binance\.com\/api\/v3\/depth\?symbol=ETHUSDT&limit=1000$/);
-  return {
-    ok: true,
-    async json() {
-      return {
-        lastUpdateId: 100,
-        bids: [["1999", "20"], ["1990", "5"]],
-        asks: [["2001", "21"], ["2010", "6"]],
-      };
-    },
-  };
+  return new Response(JSON.stringify({
+    lastUpdateId: 100,
+    bids: [["1999", "20"], ["1990", "5"]],
+    asks: [["2001", "21"], ["2010", "6"]],
+  }), {
+    headers: { "content-type": "application/json" },
+  });
 };

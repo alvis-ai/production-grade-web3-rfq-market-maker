@@ -10,6 +10,7 @@ const [
   monitorSource,
   decimalSource,
   orderBookSource,
+  connectorSafetySource,
   binanceSource,
   coinbaseSource,
   metricsSource,
@@ -35,6 +36,7 @@ const [
   "backend/src/modules/market-data/cex-orderbook/cex-orderbook-monitor.ts",
   "backend/src/modules/market-data/cex-orderbook/decimal.ts",
   "backend/src/modules/market-data/cex-orderbook/orderbook.ts",
+  "backend/src/modules/market-data/cex-orderbook/connector-safety.ts",
   "backend/src/modules/market-data/cex-orderbook/binance-connector.ts",
   "backend/src/modules/market-data/cex-orderbook/coinbase-connector.ts",
   "backend/src/modules/metrics/metrics.service.ts",
@@ -131,6 +133,20 @@ assert.ok(
 assert.ok(decimalSource.includes("10n ** BigInt(cexDecimalScaleDigits)"), "CEX decimal math must use fixed-point BigInt");
 assert.ok(orderBookSource.includes("normalizeLevels") && orderBookSource.includes("parseCexDecimal"), "order-book messages must validate atomically with fixed decimals");
 assert.ok(
+  connectorSafetySource.includes("MAX_CEX_WS_MESSAGE_BYTES = 1_048_576") &&
+    connectorSafetySource.includes("MAX_CEX_SNAPSHOT_BYTES = 2_097_152") &&
+    connectorSafetySource.includes("response.body.getReader()") &&
+    connectorSafetySource.includes("new TextEncoder().encode(raw).byteLength"),
+  "CEX connector payloads must be byte-bounded before JSON decoding",
+);
+assert.ok(
+  connectorSafetySource.includes("exponentialReconnectDelayMs") &&
+    connectorSafetySource.includes("0.5 + randomValue") &&
+    binanceSource.includes("exponentialReconnectDelayMs(") &&
+    coinbaseSource.includes("exponentialReconnectDelayMs("),
+  "CEX connectors must use capped exponential reconnect jitter",
+);
+assert.ok(
   orderBookSource.includes("computeBidDepth") &&
     orderBookSource.includes("computeAskDepth") &&
     monitorSource.includes("source.metrics.askLiquidityUsd"),
@@ -152,6 +168,17 @@ assert.ok(
 assert.ok(binanceSource.includes("E: number") && binanceSource.includes("s: string"), "Binance updates must validate event time and symbol");
 assert.ok(binanceSource.includes("bridgesUpdateId"), "Binance updates must enforce update-id continuity");
 assert.ok(coinbaseSource.includes("time: string") && coinbaseSource.includes("parseCoinbaseTimestamp"), "Coinbase updates must preserve exchange event time");
+assert.ok(
+  binanceSource.includes('readBoundedJsonResponse(response, "Binance depth snapshot")') &&
+    binanceSource.includes('parseBoundedJsonMessage(raw, "Binance WebSocket message")') &&
+    coinbaseSource.includes('parseBoundedJsonMessage(raw, "Coinbase WebSocket message")'),
+  "CEX connectors must apply shared payload limits to every external order-book payload",
+);
+assert.ok(
+  binanceSource.includes("Binance depth update event time regressed") &&
+    coinbaseSource.includes("Coinbase order book event time regressed"),
+  "CEX connectors must fail closed on event-time regression",
+);
 for (const [exchange, source] of [["Binance", binanceSource], ["Coinbase", coinbaseSource]]) {
   assert.ok(
     source.includes("CONNECTION_TIMEOUT_MS = 10_000") &&
@@ -180,6 +207,13 @@ assert.ok(
     testSource.includes("CEX connectors close errored sockets before backoff") &&
     testSource.includes("CoinbaseConnector reconnects when subscription send fails"),
   "tests must cover bounded CEX connection establishment and explicit socket errors",
+);
+assert.ok(
+  testSource.includes("reject oversized WebSocket messages before parsing") &&
+    testSource.includes("fail closed when exchange event time regresses") &&
+    testSource.includes("resource limits and reconnect jitter are bounded") &&
+    testSource.includes("MAX_CEX_SNAPSHOT_BYTES + 1"),
+  "tests must cover CEX payload bounds, timestamp regression and reconnect jitter",
 );
 assert.ok(testSource.includes('asks: [["101", "1000"]]'), "tests must prove ask quantity cannot inflate executable liquidity");
 assert.ok(testSource.includes("marketSpreadBps"), "tests must cover executable market spread attribution");
@@ -216,6 +250,13 @@ assert.ok(marketDataChapter.includes("docs.cdp.coinbase.com"), "market-data chap
 assert.ok(
   marketDataChapter.includes("WebSocket handshake") && marketDataChapter.includes("10 秒"),
   "market-data chapter must document the bounded CEX connection lifecycle",
+);
+assert.ok(
+  marketDataChapter.includes("1 MiB") &&
+    marketDataChapter.includes("2 MiB") &&
+    marketDataChapter.includes("事件时间回退") &&
+    readmeSource.includes("Incoming CEX WebSocket text frames are capped at 1 MiB"),
+  "market-data docs must document payload, event-time and reconnect safety boundaries",
 );
 assert.ok(
   marketDataChapter.includes("`hedge` 或 `reference`") &&

@@ -5,6 +5,13 @@ import { CachedMarketDataService } from "../dist/modules/market-data/cached-mark
 import { CEXOrderBookMonitor } from "../dist/modules/market-data/cex-orderbook/cex-orderbook-monitor.js";
 import { BinanceConnector } from "../dist/modules/market-data/cex-orderbook/binance-connector.js";
 import { CoinbaseConnector } from "../dist/modules/market-data/cex-orderbook/coinbase-connector.js";
+import {
+  exponentialReconnectDelayMs,
+  MAX_CEX_SNAPSHOT_BYTES,
+  MAX_CEX_WS_MESSAGE_BYTES,
+  parseBoundedJsonMessage,
+  readBoundedJsonResponse,
+} from "../dist/modules/market-data/cex-orderbook/connector-safety.js";
 import { OrderBook } from "../dist/modules/market-data/cex-orderbook/orderbook.js";
 import { getMarketDataSnapshotSource } from "../dist/modules/market-data/market-data.service.js";
 import { SharedPriceCache, pairKey } from "../dist/modules/market-data/price-cache.js";
@@ -449,6 +456,108 @@ test("CoinbaseConnector validates snapshots, event time, and level updates", () 
   }
 });
 
+test("CEX connectors reject oversized WebSocket messages before parsing", () => {
+  const OriginalWebSocket = globalThis.WebSocket;
+  const errors = [];
+  globalThis.WebSocket = FakeWebSocket;
+  const binance = new BinanceConnector("ETHUSDT", undefined, (error) => errors.push(error.message));
+  const coinbase = new CoinbaseConnector("ETH-USD", undefined, (error) => errors.push(error.message));
+
+  try {
+    binance.start();
+    const binanceSocket = FakeWebSocket.instances.at(-1);
+    coinbase.start();
+    const coinbaseSocket = FakeWebSocket.instances.at(-1);
+
+    const oversizedMessage = "x".repeat(MAX_CEX_WS_MESSAGE_BYTES + 1);
+    binanceSocket.rawMessage(oversizedMessage);
+    coinbaseSocket.rawMessage(oversizedMessage);
+
+    assert.equal(binanceSocket.readyState, FakeWebSocket.CLOSED);
+    assert.equal(coinbaseSocket.readyState, FakeWebSocket.CLOSED);
+    assert.equal(errors.includes(`Binance WebSocket message exceeds ${MAX_CEX_WS_MESSAGE_BYTES} bytes`), true);
+    assert.equal(errors.includes(`Coinbase WebSocket message exceeds ${MAX_CEX_WS_MESSAGE_BYTES} bytes`), true);
+  } finally {
+    binance.stop();
+    coinbase.stop();
+    globalThis.WebSocket = OriginalWebSocket;
+    FakeWebSocket.instances.length = 0;
+  }
+});
+
+test("CEX connectors fail closed when exchange event time regresses", async () => {
+  const OriginalWebSocket = globalThis.WebSocket;
+  const originalFetch = globalThis.fetch;
+  const errors = [];
+  const eventTime = Date.now();
+  globalThis.WebSocket = FakeWebSocket;
+  globalThis.fetch = async () => jsonResponse({
+    lastUpdateId: 100,
+    bids: [["99", "1"]],
+    asks: [["101", "1"]],
+  });
+  const binance = new BinanceConnector("ETHUSDT", undefined, (error) => errors.push(error.message));
+  const coinbase = new CoinbaseConnector("ETH-USD", undefined, (error) => errors.push(error.message));
+
+  try {
+    binance.start();
+    const binanceSocket = FakeWebSocket.instances.at(-1);
+    binanceSocket.open();
+    await settle();
+    binanceSocket.message(depthUpdate(101, 101, [["100", "2"]], [], eventTime));
+    binanceSocket.message(depthUpdate(102, 102, [["100", "3"]], [], eventTime - 1));
+
+    coinbase.start();
+    const coinbaseSocket = FakeWebSocket.instances.at(-1);
+    coinbaseSocket.open();
+    coinbaseSocket.message(coinbaseSnapshot("2026-07-11T01:02:03.223Z"));
+    coinbaseSocket.message({
+      type: "l2update",
+      product_id: "ETH-USD",
+      time: "2026-07-11T01:02:03.123Z",
+      changes: [["buy", "99", "3"]],
+    });
+
+    assert.equal(binance.isReady(), false);
+    assert.equal(coinbase.isReady(), false);
+    assert.equal(binance.getOrderBook().bids.size, 0);
+    assert.equal(coinbase.getOrderBook().bids.size, 0);
+    assert.equal(errors.includes("Binance depth update event time regressed"), true);
+    assert.equal(errors.includes("Coinbase order book event time regressed"), true);
+  } finally {
+    binance.stop();
+    coinbase.stop();
+    globalThis.WebSocket = OriginalWebSocket;
+    globalThis.fetch = originalFetch;
+    FakeWebSocket.instances.length = 0;
+  }
+});
+
+test("CEX connector resource limits and reconnect jitter are bounded", async () => {
+  const oversizedResponse = new Response("x".repeat(MAX_CEX_SNAPSHOT_BYTES + 1), {
+    headers: { "content-length": String(MAX_CEX_SNAPSHOT_BYTES + 1) },
+  });
+  await assert.rejects(
+    () => readBoundedJsonResponse(oversizedResponse, "Binance depth snapshot"),
+    new RegExp(`Binance depth snapshot exceeds ${MAX_CEX_SNAPSHOT_BYTES} bytes`),
+  );
+  const chunkedOversizedResponse = new Response("x".repeat(MAX_CEX_SNAPSHOT_BYTES + 1));
+  await assert.rejects(
+    () => readBoundedJsonResponse(chunkedOversizedResponse, "Binance depth snapshot"),
+    new RegExp(`Binance depth snapshot exceeds ${MAX_CEX_SNAPSHOT_BYTES} bytes`),
+  );
+  const multibyteJson = `"${String.fromCodePoint(0xe9)}"`;
+  assert.throws(
+    () => parseBoundedJsonMessage(multibyteJson, "CEX message", 3),
+    /CEX message exceeds 3 bytes/,
+  );
+
+  assert.equal(exponentialReconnectDelayMs(0, 1_000, 30_000, 0), 500);
+  assert.equal(exponentialReconnectDelayMs(0, 1_000, 30_000, 0.999_999), 1_500);
+  assert.equal(exponentialReconnectDelayMs(20, 1_000, 30_000, 0), 15_000);
+  assert.equal(exponentialReconnectDelayMs(20, 1_000, 30_000, 0.999_999), 30_000);
+});
+
 test("CoinbaseConnector reconnects when the initial snapshot times out", (context) => {
   context.mock.timers.enable({ apis: ["setTimeout"] });
   const OriginalWebSocket = globalThis.WebSocket;
@@ -466,7 +575,7 @@ test("CoinbaseConnector reconnects when the initial snapshot times out", (contex
     assert.equal(expiredSocket.readyState, FakeWebSocket.CLOSED);
     assert.equal(errors.includes("Coinbase initial order book snapshot timed out"), true);
 
-    context.mock.timers.tick(1_000);
+    context.mock.timers.tick(1_500);
     const replacementSocket = FakeWebSocket.instances.at(-1);
     assert.notEqual(replacementSocket, expiredSocket);
     replacementSocket.open();
@@ -510,7 +619,7 @@ test("CEX connectors reconnect when WebSocket handshakes stall", (context) => {
     assert.equal(binanceErrors.includes("Binance WebSocket connection timed out"), true);
     assert.equal(coinbaseErrors.includes("Coinbase WebSocket connection timed out"), true);
 
-    context.mock.timers.tick(1_000);
+    context.mock.timers.tick(1_500);
     assert.notEqual(FakeWebSocket.instances.at(-2), stalledBinanceSocket);
     assert.notEqual(FakeWebSocket.instances.at(-1), stalledCoinbaseSocket);
   } finally {
@@ -542,7 +651,7 @@ test("CEX connectors close errored sockets before backoff", (context) => {
     assert.equal(errors.includes("Binance WebSocket error"), true);
     assert.equal(errors.includes("Coinbase WebSocket error"), true);
 
-    context.mock.timers.tick(1_000);
+    context.mock.timers.tick(1_500);
     assert.notEqual(FakeWebSocket.instances.at(-2), failedBinanceSocket);
     assert.notEqual(FakeWebSocket.instances.at(-1), failedCoinbaseSocket);
   } finally {
@@ -569,7 +678,7 @@ test("CoinbaseConnector reconnects when subscription send fails", (context) => {
     assert.equal(failedSocket.readyState, FakeWebSocket.CLOSED);
     assert.deepEqual(errors, ["subscription write failed"]);
 
-    context.mock.timers.tick(1_000);
+    context.mock.timers.tick(1_500);
     assert.notEqual(FakeWebSocket.instances.at(-1), failedSocket);
   } finally {
     connector.stop();
@@ -665,6 +774,10 @@ class FakeWebSocket {
     this.onmessage?.({ data: JSON.stringify(payload) });
   }
 
+  rawMessage(payload) {
+    this.onmessage?.({ data: payload });
+  }
+
   error() {
     this.onerror?.();
   }
@@ -691,7 +804,9 @@ function coinbaseSnapshot(time) {
 }
 
 function jsonResponse(payload) {
-  return { ok: true, json: async () => payload };
+  return new Response(JSON.stringify(payload), {
+    headers: { "content-type": "application/json" },
+  });
 }
 
 function deferred() {

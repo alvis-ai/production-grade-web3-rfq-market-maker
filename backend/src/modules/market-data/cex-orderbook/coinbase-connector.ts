@@ -1,4 +1,5 @@
 import { OrderBook, type OrderBookSnapshot, type PriceLevel } from "./orderbook.js";
+import { exponentialReconnectDelayMs, parseBoundedJsonMessage } from "./connector-safety.js";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -201,6 +202,10 @@ export class CoinbaseConnector {
 
   private handleUpdate(msg: CoinbaseL2UpdateMessage): void {
     if (!this.snapshotReceived) return;
+    const observedAtMs = parseCoinbaseTimestamp(msg.time);
+    if (this.lastUpdateAtMs !== undefined && observedAtMs < this.lastUpdateAtMs) {
+      throw new Error("Coinbase order book event time regressed");
+    }
 
     const bidChanges: PriceLevel[] = [];
     const askChanges: PriceLevel[] = [];
@@ -212,7 +217,7 @@ export class CoinbaseConnector {
     }
 
     this.book.applyDelta({ bids: bidChanges, asks: askChanges });
-    this.lastUpdateAtMs = parseCoinbaseTimestamp(msg.time);
+    this.lastUpdateAtMs = observedAtMs;
     this.flushOrderBook();
   }
 
@@ -229,8 +234,9 @@ export class CoinbaseConnector {
     this.book.clear();
     if (this.reconnectTimer) return;
 
-    const delay = Math.min(
-      INITIAL_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempt),
+    const delay = exponentialReconnectDelayMs(
+      this.reconnectAttempt,
+      INITIAL_RECONNECT_DELAY_MS,
       MAX_RECONNECT_DELAY_MS,
     );
     this.reconnectAttempt += 1;
@@ -301,7 +307,7 @@ function levelToPriceLevel(level: [string, string]): PriceLevel {
 }
 
 function parseCoinbaseMessage(raw: unknown, productId: string): CoinbaseMessage | undefined {
-  const value = JSON.parse(String(raw)) as unknown;
+  const value = parseBoundedJsonMessage(raw, "Coinbase WebSocket message");
   if (!isRecord(value) || typeof value.type !== "string") {
     throw new Error("Coinbase message must be an object with a type");
   }

@@ -1,4 +1,9 @@
 import { OrderBook, type OrderBookSnapshot, type PriceLevel } from "./orderbook.js";
+import {
+  exponentialReconnectDelayMs,
+  parseBoundedJsonMessage,
+  readBoundedJsonResponse,
+} from "./connector-safety.js";
 
 interface BinanceDepthSnapshot {
   lastUpdateId: number;
@@ -40,6 +45,7 @@ export class BinanceConnector {
   private synchronized = false;
   private snapshotGeneration = 0;
   private lastUpdateAtMs: number | undefined;
+  private lastStreamEventAtMs: number | undefined;
 
   constructor(
     symbol: string,
@@ -177,7 +183,9 @@ export class BinanceConnector {
         { signal: controller.signal },
       );
       if (!response.ok) throw new Error(`Binance REST ${response.status}`);
-      const snapshot = parseDepthSnapshot(await response.json());
+      const snapshot = parseDepthSnapshot(
+        await readBoundedJsonResponse(response, "Binance depth snapshot"),
+      );
       if (this.stopped || generation !== this.snapshotGeneration || !this.ws) return;
 
       this.book.applySnapshot({
@@ -218,11 +226,15 @@ export class BinanceConnector {
   }
 
   private applyUpdate(update: BinanceDepthUpdate): void {
+    if (this.lastStreamEventAtMs !== undefined && update.E < this.lastStreamEventAtMs) {
+      throw new Error("Binance depth update event time regressed");
+    }
     this.book.applyDelta({
       bids: update.b.map(toPriceLevel),
       asks: update.a.map(toPriceLevel),
     });
     this.lastUpdateId = update.u;
+    this.lastStreamEventAtMs = update.E;
     this.lastUpdateAtMs = update.E;
   }
 
@@ -245,7 +257,11 @@ export class BinanceConnector {
 
   private scheduleReconnect(): void {
     if (this.stopped || this.reconnectTimer) return;
-    const delay = Math.min(INITIAL_RECONNECT_DELAY_MS * 2 ** this.reconnectAttempt, MAX_RECONNECT_DELAY_MS);
+    const delay = exponentialReconnectDelayMs(
+      this.reconnectAttempt,
+      INITIAL_RECONNECT_DELAY_MS,
+      MAX_RECONNECT_DELAY_MS,
+    );
     this.reconnectAttempt += 1;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
@@ -275,6 +291,7 @@ export class BinanceConnector {
     this.synchronized = false;
     this.lastUpdateId = 0;
     this.lastUpdateAtMs = undefined;
+    this.lastStreamEventAtMs = undefined;
     this.pendingUpdates = [];
     this.book.clear();
   }
@@ -296,7 +313,7 @@ function parseDepthSnapshot(value: unknown): BinanceDepthSnapshot {
 }
 
 function parseDepthUpdate(raw: unknown): BinanceDepthUpdate {
-  const value = JSON.parse(String(raw)) as unknown;
+  const value = parseBoundedJsonMessage(raw, "Binance WebSocket message");
   if (!isRecord(value) || value.e !== "depthUpdate" ||
       !Number.isSafeInteger(value.E) || Number(value.E) <= 0 ||
       typeof value.s !== "string" || !/^[A-Z0-9._-]{3,32}$/.test(value.s) ||

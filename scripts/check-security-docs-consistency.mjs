@@ -61,6 +61,7 @@ const requiredTerms = {
     "Quote field tampering",
     "Stale market data",
     "Unroutable aggregated CEX depth",
+    "Oversized or regressed CEX market data",
     "Risk bypass",
     "Mempool MEV",
     "Event duplication",
@@ -94,6 +95,7 @@ const requiredTerms = {
     "`/quote` validates address format and amount strings",
     "Risk Engine runs before Signer Service",
     "CEX reference sources validate price without inflating executable liquidity",
+    "CEX connectors bound WebSocket and REST payload bytes before JSON decoding",
     "Signer Service cannot be called directly from public API",
     "Rate limits protect public trading endpoints",
     "Production `/submit` uses a PostgreSQL quote-scoped lease",
@@ -153,6 +155,7 @@ assert.ok(checkedAuditItems >= 20, "audit checklist must mark implemented baseli
 const implementedAuditControls = [
   "Non-local static market data requires a non-empty mandatory live CEX source set and cannot sign from demonstration prices alone.",
   "CEX reference sources validate price without inflating executable liquidity; every published pair retains an accepted Binance hedge source bound to the API and worker shared route table.",
+  "CEX connectors bound WebSocket and REST payload bytes before JSON decoding, reject binary frames and event-time regression, clear invalid books, and reconnect with capped equal jitter.",
   "EIP-712 domain includes name, version, chainId and verifyingContract.",
   "Quote struct fields match SDK and backend signer exactly.",
   "`submitQuote` rejects expired quotes.",

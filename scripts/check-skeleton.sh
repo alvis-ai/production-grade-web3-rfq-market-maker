@@ -3581,6 +3581,11 @@ grep -q 'reconciliation:check' package.json
 test -s scripts/cex-orderbook-integration-check.mjs
 test -s backend/test/cex-orderbook-integration-script.test.mjs
 test -s backend/test/fixtures/cex-orderbook-live-globals.mjs
+test -s backend/src/modules/market-data/cex-orderbook/connector-safety.ts
+grep -q 'MAX_CEX_WS_MESSAGE_BYTES = 1_048_576' backend/src/modules/market-data/cex-orderbook/connector-safety.ts
+grep -q 'MAX_CEX_SNAPSHOT_BYTES = 2_097_152' backend/src/modules/market-data/cex-orderbook/connector-safety.ts
+grep -q 'event time regressed' backend/src/modules/market-data/cex-orderbook/binance-connector.ts
+grep -q 'event time regressed' backend/src/modules/market-data/cex-orderbook/coinbase-connector.ts
 grep -q 'cex-orderbook-integration-check: backend-build' Makefile
 grep -q 'cex-orderbook-check:' Makefile
 grep -q 'run_step make cex-orderbook-check' scripts/verify.sh
@@ -3685,6 +3690,7 @@ grep -Fq -- '- [x] EIP-712 domain includes name, version, chainId and verifyingC
 grep -Fq -- '- [x] `submitQuote` rejects expired quotes.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Risk Engine runs before Signer Service.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] CEX reference sources validate price without inflating executable liquidity; every published pair retains an accepted Binance hedge source bound to the API and worker shared route table.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] CEX connectors bound WebSocket and REST payload bytes before JSON decoding, reject binary frames and event-time regression, clear invalid books, and reconnect with capped equal jitter.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Indexer handles chain reorgs.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Inventory updates are replayable.' docs/security/audit-checklist.md
