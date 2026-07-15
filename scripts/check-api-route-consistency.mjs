@@ -3,9 +3,10 @@
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
+import { readSdkClientSource } from "./lib/read-sdk-client-source.mjs";
 
 const backendSource = await readBackendGatewaySource();
-const sdkClientSource = await readFile("sdk/src/client.ts", "utf8");
+const sdkClientSource = await readSdkClientSource();
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const smokeSource = await readFile("scripts/smoke-api.mjs", "utf8");
 

@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
+import { readSdkClientSource } from "./lib/read-sdk-client-source.mjs";
 
 const paths = [
   "backend/src/shared/types/rfq.ts",
@@ -26,6 +27,7 @@ const files = Object.fromEntries(await Promise.all(
   paths.map(async (path) => [path, await readFile(path, "utf8")]),
 ));
 files["backend/src/main.ts"] = await readBackendGatewaySource();
+files["sdk/src/client.ts"] = await readSdkClientSource();
 
 assertContains("backend/src/shared/types/rfq.ts", [
   "quote_snapshot_edge_v1",

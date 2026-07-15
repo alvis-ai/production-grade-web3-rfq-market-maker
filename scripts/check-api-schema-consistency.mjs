@@ -2,10 +2,11 @@
 
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
+import { readSdkClientSource } from "./lib/read-sdk-client-source.mjs";
 
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");
 const backendReadinessSource = await readFile("backend/src/modules/health/readiness.service.ts", "utf8");
-const sdkClientSource = await readFile("sdk/src/client.ts", "utf8");
+const sdkClientSource = await readSdkClientSource();
 const sdkTypesSource = await readFile("sdk/src/types.ts", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 

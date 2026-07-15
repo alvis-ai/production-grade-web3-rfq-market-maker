@@ -3,6 +3,7 @@ set -eu
 
 gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
 quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts"
+sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts"
 
 test -s package.json
 test -s pnpm-workspace.yaml
@@ -574,6 +575,11 @@ test -s frontend/test/integer-input.test.mjs
 test -s frontend/test/quote-request.test.mjs
 test -s frontend/test/rfq.test.mjs
 test -s sdk/src/abi.ts
+test -s sdk/src/client-error.ts
+test -s sdk/src/client-request.ts
+test -s sdk/src/client-response-validation.ts
+test -s sdk/src/client-trading-responses.ts
+test -s sdk/src/client-accounting-responses.ts
 test -s sdk/src/eip712.ts
 test -s sdk/src/index.ts
 test -s sdk/src/quote-hash.ts
@@ -587,6 +593,7 @@ test -s sdk/test/sdk-client-status-responses.test.mjs
 test -s sdk/test/sdk-settlement.test.mjs
 test -s sdk/test/sdk-settlement-validation.test.mjs
 test -s sdk/test/sdk.test.mjs
+test -s scripts/check-sdk-composition-consistency.mjs
 test -s contracts/src/RFQSettlement.sol
 test -s contracts/test/RFQSettlement.t.sol
 test -s contracts/test/Deploy.t.sol
@@ -778,7 +785,8 @@ grep -q 'PositiveUIntString must reject zero, negative values, and leading zeros
 grep -q 'SignedQuote", "nonce"' scripts/check-api-schema-consistency.mjs
 grep -q 'must reject unknown fields' scripts/check-api-schema-consistency.mjs
 grep -q 'backend/src/modules/health/readiness.service.ts' scripts/check-api-schema-consistency.mjs
-grep -q 'sdk/src/client.ts' scripts/check-api-schema-consistency.mjs
+grep -q 'readSdkClientSource' scripts/check-api-schema-consistency.mjs
+grep -q 'sdk/src/client.ts' scripts/lib/read-sdk-client-source.mjs
 grep -q 'SDK ReadinessComponentName must match backend readiness components' scripts/check-api-schema-consistency.mjs
 grep -q 'SDK client readiness runtime components must match backend readiness components' scripts/check-api-schema-consistency.mjs
 grep -q 'ReadinessResponse.components OpenAPI properties must match backend readiness components' scripts/check-api-schema-consistency.mjs
@@ -2047,8 +2055,8 @@ grep -q 'minAmountOut' docs/api/openapi.yaml
 grep -q 'PnlTradeRecord", "minAmountOut"' scripts/check-api-schema-consistency.mjs
 grep -q 'PnlTradeRecord", "deadline"' scripts/check-api-schema-consistency.mjs
 grep -q 'PnlTradeRecord.grossPnlBps must document the JavaScript safe integer minimum' scripts/check-api-schema-consistency.mjs
-grep -q 'payload.user' sdk/src/client.ts
-grep -q 'payload.minAmountOut' sdk/src/client.ts
+grep -q 'payload.user' $sdk_client_sources
+grep -q 'payload.minAmountOut' $sdk_client_sources
 grep -q 'malformed nonce' sdk/test/sdk-client-responses.test.mjs
 grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/metrics.service.ts
 grep -q 'rfq_quote_latency_seconds' backend/src/modules/metrics/metrics.service.ts
@@ -2429,28 +2437,28 @@ grep -q 'setTokenWhitelist' sdk/src/abi.ts
 grep -q 'grantRole' sdk/src/abi.ts
 grep -q 'RoleGranted' sdk/src/abi.ts
 grep -q 'RFQSettlement ABI exposes role-based admin controls' sdk/test/sdk-settlement.test.mjs
-grep -q 'async submit' sdk/src/client.ts
-grep -q 'assertQuoteRequest(request)' sdk/src/client.ts
-grep -q 'quoteRequestFields' sdk/src/client.ts
-grep -q 'submitRequestFields' sdk/src/client.ts
-grep -q 'submitRequestOptionalFields = \["txHash"\]' sdk/src/client.ts
-grep -q 'assertSubmitQuoteRequest(request)' sdk/src/client.ts
-grep -q 'assertExactFields(request, submitRequestFields, "RFQ submit request", submitRequestOptionalFields)' sdk/src/client.ts
-grep -q 'hasOwnProperty.call(payload, field)' sdk/src/client.ts
-grep -q 'buildSubmitQuoteArgs(request.quote, request.signature)' sdk/src/client.ts
-grep -q 'async getQuote' sdk/src/client.ts
-grep -q 'async getSettlement' sdk/src/client.ts
-grep -q 'async getHedge' sdk/src/client.ts
-grep -q 'async pnl' sdk/src/client.ts
-grep -q 'async health' sdk/src/client.ts
-grep -q 'async ready' sdk/src/client.ts
-grep -q 'assertNonEmptyIdentifier' sdk/src/client.ts
-grep -Fq 'function assertNonEmptyIdentifier(value: unknown' sdk/src/client.ts
-grep -q 'must be a primitive string' sdk/src/client.ts
-grep -q 'maxStatusIdentifierLength' sdk/src/client.ts
-grep -q 'statusIdentifierPattern' sdk/src/client.ts
-grep -q 'function isSafeIdentifier' sdk/src/client.ts
-grep -q 'statusIdentifierPattern.test(value)' sdk/src/client.ts
+grep -q 'async submit' $sdk_client_sources
+grep -q 'assertQuoteRequest(request)' $sdk_client_sources
+grep -q 'quoteRequestFields' $sdk_client_sources
+grep -q 'submitRequestFields' $sdk_client_sources
+grep -q 'submitRequestOptionalFields = \["txHash"\]' $sdk_client_sources
+grep -q 'assertSubmitQuoteRequest(request)' $sdk_client_sources
+grep -q 'assertExactFields(request, submitRequestFields, "RFQ submit request", submitRequestOptionalFields)' $sdk_client_sources
+grep -q 'hasOwnProperty.call(payload, field)' $sdk_client_sources
+grep -q 'buildSubmitQuoteArgs(request.quote, request.signature)' $sdk_client_sources
+grep -q 'async getQuote' $sdk_client_sources
+grep -q 'async getSettlement' $sdk_client_sources
+grep -q 'async getHedge' $sdk_client_sources
+grep -q 'async pnl' $sdk_client_sources
+grep -q 'async health' $sdk_client_sources
+grep -q 'async ready' $sdk_client_sources
+grep -q 'assertNonEmptyIdentifier' $sdk_client_sources
+grep -Fq 'function assertNonEmptyIdentifier(value: unknown' $sdk_client_sources
+grep -q 'must be a primitive string' $sdk_client_sources
+grep -q 'maxStatusIdentifierLength' $sdk_client_sources
+grep -q 'statusIdentifierPattern' $sdk_client_sources
+grep -q 'function isSafeIdentifier' $sdk_client_sources
+grep -q 'statusIdentifierPattern.test(value)' $sdk_client_sources
 grep -q 'RFQ quote response returned malformed quoteId' sdk/test/sdk-client-responses.test.mjs
 grep -q 'RFQ submit response returned malformed pnlId' sdk/test/sdk-client-responses.test.mjs
 grep -q 'RFQ PnL summary response trade returned malformed quoteId' sdk/test/sdk-client-accounting-responses.test.mjs
@@ -2464,13 +2472,13 @@ grep -q 'new String("h_test")' sdk/test/sdk-client-requests.test.mjs
 grep -q 'new String("se_test")' sdk/test/sdk-client-requests.test.mjs
 grep -q 'identifiers must be non-empty, 128 characters or fewer' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'boxed `String` identifiers fail before `encodeURIComponent()` or fetch' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'export interface RFQClientOptions' sdk/src/client.ts
-grep -q 'clientOptionFields = \["fetch", "traceId", "apiKey"\]' sdk/src/client.ts
-grep -Fq 'assertClientOptions(options)' sdk/src/client.ts
-grep -Fq 'RFQClient options.${field} must be an own field when provided' sdk/src/client.ts
-grep -q 'RFQClient options must not include unknown field' sdk/src/client.ts
-grep -q 'private readonly fetchImpl' sdk/src/client.ts
-grep -Fq 'resolveFetch(clientOptions)' sdk/src/client.ts
+grep -q 'export interface RFQClientOptions' $sdk_client_sources
+grep -q 'clientOptionFields = \["fetch", "traceId", "apiKey"\]' $sdk_client_sources
+grep -Fq 'assertClientOptions(options)' $sdk_client_sources
+grep -Fq 'RFQClient options.${field} must be an own field when provided' $sdk_client_sources
+grep -q 'RFQClient options must not include unknown field' $sdk_client_sources
+grep -q 'private readonly fetchImpl' $sdk_client_sources
+grep -Fq 'resolveFetch(clientOptions)' $sdk_client_sources
 grep -q 'RFQClient rejects unsafe fetch dependencies at construction' sdk/test/sdk-client-config.test.mjs
 grep -q 'RFQClient options.fetch must be an own field when provided' sdk/test/sdk-client-config.test.mjs
 grep -q 'RFQClient options.traceId must be an own field when provided' sdk/test/sdk-client-config.test.mjs
@@ -2480,62 +2488,62 @@ grep -q 'can receive an injected `fetch` implementation' book/Volume6-Frontend-A
 grep -q 'Client options are closed to own optional `fetch` / `traceId` / `apiKey` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'Inherited `traceId` options' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'new RFQClient("http://localhost:3000", { fetch: customFetch })' README.md
-grep -q 'errorResponseFields = \["code", "message", "traceId"\]' sdk/src/client.ts
-grep -Fq 'hasExactOwnFields(value, errorResponseFields)' sdk/src/client.ts
+grep -q 'errorResponseFields = \["code", "message", "traceId"\]' $sdk_client_sources
+grep -Fq 'hasExactOwnFields(value, errorResponseFields)' $sdk_client_sources
 grep -q 'RFQClient ignores non-closed API error bodies' sdk/test/sdk-client-errors.test.mjs
 grep -q 'reasonCode: "TOXIC_FLOW_SCORE"' sdk/test/sdk-client-errors.test.mjs
 grep -q 'structured RFQ errors must be closed own-field `ErrorResponse` objects' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'ErrorResponse` 是闭合 schema' docs/api/errors.md
 grep -q 'additionalProperties: false' docs/api/openapi.yaml
-grep -q 'assertQuoteStatus' sdk/src/client.ts
-grep -q 'assertQuoteStatusPayloadConsistency' sdk/src/client.ts
-grep -q 'assertHedgeIntentStatus' sdk/src/client.ts
-grep -q 'assertSettlementEventStatus' sdk/src/client.ts
-grep -q '"nonce"' sdk/src/client.ts
+grep -q 'assertQuoteStatus' $sdk_client_sources
+grep -q 'assertQuoteStatusPayloadConsistency' $sdk_client_sources
+grep -q 'assertHedgeIntentStatus' $sdk_client_sources
+grep -q 'assertSettlementEventStatus' $sdk_client_sources
+grep -q '"nonce"' $sdk_client_sources
 grep -q 'RFQ settlement event status response returned malformed nonce' sdk/test/sdk-client-accounting-responses.test.mjs
-grep -q 'assertPnlSummary' sdk/src/client.ts
-grep -q 'assertPnlTradeRecord' sdk/src/client.ts
-grep -q 'modelDescription' sdk/src/client.ts
-grep -q 'function isPositiveSafeInteger' sdk/src/client.ts
-grep -q 'function isNonNegativeSafeInteger' sdk/src/client.ts
-grep -q 'function isSafeInteger' sdk/src/client.ts
-grep -q 'isoUtcTimestampPattern' sdk/src/client.ts
-grep -q 'function isIsoUtcTimestampString' sdk/src/client.ts
-grep -q 'new Date(parsed).toISOString() === value' sdk/src/client.ts
-grep -q 'isHealthResponse' sdk/src/client.ts
-grep -q 'isReadinessResponse' sdk/src/client.ts
-grep -q 'healthResponseFields = \["status"\]' sdk/src/client.ts
-grep -q 'readinessResponseFields = \["status", "components"\]' sdk/src/client.ts
-grep -q 'hasExactOwnFields(value, healthResponseFields)' sdk/src/client.ts
-grep -q 'hasExactOwnFields(value, readinessResponseFields)' sdk/src/client.ts
-grep -q 'isReadinessComponents' sdk/src/client.ts
-grep -q 'const readinessDependencyComponents' sdk/src/client.ts
-grep -q 'expectedComponents.has(key)' sdk/src/client.ts
-grep -q 'async metrics' sdk/src/client.ts
-grep -q 'normalizeBaseUrl' sdk/src/client.ts
+grep -q 'assertPnlSummary' $sdk_client_sources
+grep -q 'assertPnlTradeRecord' $sdk_client_sources
+grep -q 'modelDescription' $sdk_client_sources
+grep -q 'function isPositiveSafeInteger' $sdk_client_sources
+grep -q 'function isNonNegativeSafeInteger' $sdk_client_sources
+grep -q 'function isSafeInteger' $sdk_client_sources
+grep -q 'isoUtcTimestampPattern' $sdk_client_sources
+grep -q 'function isIsoUtcTimestampString' $sdk_client_sources
+grep -q 'new Date(parsed).toISOString() === value' $sdk_client_sources
+grep -q 'isHealthResponse' $sdk_client_sources
+grep -q 'isReadinessResponse' $sdk_client_sources
+grep -q 'healthResponseFields = \["status"\]' $sdk_client_sources
+grep -q 'readinessResponseFields = \["status", "components"\]' $sdk_client_sources
+grep -q 'hasExactOwnFields(value, healthResponseFields)' $sdk_client_sources
+grep -q 'hasExactOwnFields(value, readinessResponseFields)' $sdk_client_sources
+grep -q 'isReadinessComponents' $sdk_client_sources
+grep -q 'const readinessDependencyComponents' $sdk_client_sources
+grep -q 'expectedComponents.has(key)' $sdk_client_sources
+grep -q 'async metrics' $sdk_client_sources
+grep -q 'normalizeBaseUrl' $sdk_client_sources
 grep -q 'traceId: string' sdk/src/types.ts
 grep -q 'export type ReadinessComponentName' sdk/src/types.ts
 grep -q 'components: ReadinessComponents' sdk/src/types.ts
 grep -q 'export const rfqErrorCodes' sdk/src/types.ts
 grep -q 'export type RFQErrorCode' sdk/src/types.ts
 grep -q 'code: RFQErrorCode' sdk/src/types.ts
-grep -q 'rfqErrorCodeSet.has' sdk/src/client.ts
-grep -q 'RFQClientErrorCode' sdk/src/client.ts
-grep -q 'RFQClientTraceIdProvider' sdk/src/client.ts
-grep -q 'resolveTraceIdProvider' sdk/src/client.ts
-grep -q 'requestHeaders' sdk/src/client.ts
-grep -q 'retryAfterSeconds' sdk/src/client.ts
-grep -Fq 'retryAfterSecondsPattern = /^[1-9][0-9]*$/' sdk/src/client.ts
-grep -q 'response.headers.get("retry-after")' sdk/src/client.ts
-grep -q 'Number.isSafeInteger(seconds)' sdk/src/client.ts
-grep -q 'traceIdFromResponse' sdk/src/client.ts
-grep -q 'normalizeTraceId' sdk/src/client.ts
-grep -q 'function hasExactOwnFields' sdk/src/client.ts
-grep -q 'keys.length !== expectedFields.length' sdk/src/client.ts
-grep -q 'expectedFields.every((field) => hasOwnField(value, field))' sdk/src/client.ts
-grep -q 'assertResponsePayload' sdk/src/client.ts
-grep -q 'withResponseTrace' sdk/src/client.ts
-grep -q 'response.headers.get("x-trace-id")' sdk/src/client.ts
+grep -q 'rfqErrorCodeSet.has' $sdk_client_sources
+grep -q 'RFQClientErrorCode' $sdk_client_sources
+grep -q 'RFQClientTraceIdProvider' $sdk_client_sources
+grep -q 'resolveTraceIdProvider' $sdk_client_sources
+grep -q 'requestHeaders' $sdk_client_sources
+grep -q 'retryAfterSeconds' $sdk_client_sources
+grep -Fq 'retryAfterSecondsPattern = /^[1-9][0-9]*$/' $sdk_client_sources
+grep -q 'response.headers.get("retry-after")' $sdk_client_sources
+grep -q 'Number.isSafeInteger(seconds)' $sdk_client_sources
+grep -q 'traceIdFromResponse' $sdk_client_sources
+grep -q 'normalizeTraceId' $sdk_client_sources
+grep -q 'function hasExactOwnFields' $sdk_client_sources
+grep -q 'keys.length !== expectedFields.length' $sdk_client_sources
+grep -q 'expectedFields.every((field) => hasOwnField(value, field))' $sdk_client_sources
+grep -q 'assertResponsePayload' $sdk_client_sources
+grep -q 'withResponseTrace' $sdk_client_sources
+grep -q 'response.headers.get("x-trace-id")' $sdk_client_sources
 grep -q 'ignores prototype-backed API error bodies' sdk/test/sdk-client-errors.test.mjs
 grep -q 'tr_error_header' sdk/test/sdk-client-errors.test.mjs
 grep -q 'tr_header_unknown' sdk/test/sdk-client-errors.test.mjs
@@ -2549,11 +2557,11 @@ grep -q 'prototype-backed error body' README.md
 grep -q 'prototype-backed error bodies' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'unsafe body or header values are ignored' README.md
 grep -q 'Unsafe response trace ids' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'RFQClient baseUrl must be a string' sdk/src/client.ts
-grep -q 'RFQClient baseUrl must be an absolute http(s) URL' sdk/src/client.ts
-grep -q 'RFQClient baseUrl must not include credentials' sdk/src/client.ts
-grep -q 'RFQClient baseUrl host must not contain wildcards' sdk/src/client.ts
-grep -q 'RFQClient baseUrl must not include query strings or fragments' sdk/src/client.ts
+grep -q 'RFQClient baseUrl must be a string' $sdk_client_sources
+grep -q 'RFQClient baseUrl must be an absolute http(s) URL' $sdk_client_sources
+grep -q 'RFQClient baseUrl must not include credentials' $sdk_client_sources
+grep -q 'RFQClient baseUrl host must not contain wildcards' $sdk_client_sources
+grep -q 'RFQClient baseUrl must not include query strings or fragments' $sdk_client_sources
 grep -q 'RFQClient rejects unsafe base URLs at construction' sdk/test/sdk-client-config.test.mjs
 grep -q 'RFQClient baseUrl must be a string' sdk/test/sdk-client-config.test.mjs
 grep -q 'RFQClient normalizes safe base URL origins and path prefixes' sdk/test/sdk-client-config.test.mjs
@@ -2564,7 +2572,7 @@ grep -q 'RFQClient traceId provider result must be a primitive string' sdk/test/
 grep -q 'new String("tr_sdk_wrapper")' sdk/test/sdk-client-config.test.mjs
 grep -q 'tr_sdk_' sdk/test/sdk.test.mjs
 grep -q 'RFQClient rejects unsafe quote requests before sending HTTP' sdk/test/sdk-client-requests.test.mjs
-grep -Fq '^[1-9][0-9]*$' sdk/src/client.ts
+grep -Fq '^[1-9][0-9]*$' $sdk_client_sources
 grep -q 'toSettlementQuote(quote)' sdk/src/eip712.ts
 grep -Fq '^[1-9][0-9]*$' sdk/src/settlement.ts
 grep -q '01000000000' sdk/test/sdk-client-requests.test.mjs
@@ -2582,11 +2590,11 @@ grep -q 'RFQClient rejects unsafe submit requests before sending HTTP' sdk/test/
 grep -q 'RFQClient.submit()` validates outgoing submit payloads locally with closed top-level own `quote` / `signature` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'reject non-string address, signature and uint-like values' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID` 由 RainbowKit 使用' book/Volume6-Frontend-And-SDK/Chapter01-Frontend-Architecture.md
-grep -q 'assertRequiredEnumField' sdk/src/client.ts
-grep -q 'assertRequiredNonNegativeIntegerField' sdk/src/client.ts
-grep -q 'assertQuoteResponse' sdk/src/client.ts
-grep -q 'assertSubmitQuoteResponse' sdk/src/client.ts
-grep -q 'readJsonResponse' sdk/src/client.ts
+grep -q 'assertRequiredEnumField' $sdk_client_sources
+grep -q 'assertRequiredNonNegativeIntegerField' $sdk_client_sources
+grep -q 'assertQuoteResponse' $sdk_client_sources
+grep -q 'assertSubmitQuoteResponse' $sdk_client_sources
+grep -q 'readJsonResponse' $sdk_client_sources
 grep -q 'malformed successful JSON responses' sdk/test/sdk-client-responses.test.mjs
 grep -q 'malformed health and readiness status responses' sdk/test/sdk-client-status-responses.test.mjs
 grep -q 'externalUrl: "ok"' sdk/test/sdk-client-status-responses.test.mjs
@@ -2602,17 +2610,17 @@ grep -q 'observedAt: "June 27, 2026"' sdk/test/sdk-client-accounting-responses.t
 grep -q 'malformed PnL summary responses' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'totalTrades: "1"' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'realizedAt: "2026-02-31T00:00:00.000Z"' sdk/test/sdk-client-accounting-responses.test.mjs
-grep -q 'isBytes32Hex' sdk/src/client.ts
-grep -q 'isSignatureHex' sdk/src/client.ts
-grep -q 'SECP256K1N_HALF' sdk/src/client.ts
+grep -q 'isBytes32Hex' $sdk_client_sources
+grep -q 'isSignatureHex' $sdk_client_sources
+grep -q 'SECP256K1N_HALF' $sdk_client_sources
 grep -q 'malleateSignature(await validTypedDataSignature())' sdk/test/sdk-client-responses.test.mjs
 grep -q 'canonical low-s EIP-712 signature' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'malformed successful response fields' sdk/test/sdk-client-responses.test.mjs
-grep -q 'assertOwnResponseFields' sdk/src/client.ts
-grep -q 'assertNoUnknownResponseFields' sdk/src/client.ts
-grep -q 'allowed.has(key)' sdk/src/client.ts
-grep -q 'assertOptionalOwnResponseField' sdk/src/client.ts
-grep -q 'quoteResponseFields = \["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"\]' sdk/src/client.ts
+grep -q 'assertOwnResponseFields' $sdk_client_sources
+grep -q 'assertNoUnknownResponseFields' $sdk_client_sources
+grep -q 'allowed.has(key)' $sdk_client_sources
+grep -q 'assertOptionalOwnResponseField' $sdk_client_sources
+grep -q 'quoteResponseFields = \["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"\]' $sdk_client_sources
 grep -Fq 'Object.create({ status: "ok" })' sdk/test/sdk-client-status-responses.test.mjs
 grep -q 'Object.create({' sdk/test/sdk-client-status-responses.test.mjs
 grep -q 'payload: Object.create(quoteResponse)' sdk/test/sdk-client-responses.test.mjs
@@ -2625,7 +2633,7 @@ grep -q 'chainName: "mainnet"' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'reconciliationId: "recon_1"' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'routeId: "route_1"' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'Stringified numbers and wrapper objects are rejected instead of being coerced with `Number(...)`' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -Fq 'return typeof value === "string" && /^(0|-?[1-9][0-9]*)$/.test(value)' sdk/src/client.ts
+grep -Fq 'return typeof value === "string" && /^(0|-?[1-9][0-9]*)$/.test(value)' $sdk_client_sources
 grep -q 'grossPnlTokenOut: "01600000"' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'grossPnlTokenOut: "-0"' sdk/test/sdk-client-accounting-responses.test.mjs
 grep -q 'malformed modelDescription' sdk/test/sdk-client-accounting-responses.test.mjs
@@ -2896,6 +2904,7 @@ grep -q 'make runbook-check' .github/workflows/docs-ci.yml
 grep -q 'make grafana-check' .github/workflows/docs-ci.yml
 grep -q 'make deployment-check' .github/workflows/docs-ci.yml
 grep -q 'make ci-check' .github/workflows/docs-ci.yml
+grep -q 'make sdk-composition-check' .github/workflows/docs-ci.yml
 grep -Fq '"examples/**"' .github/workflows/docs-ci.yml
 grep -Fq '"benchmark/**"' .github/workflows/docs-ci.yml
 grep -Fq '"benchmark/**"' .github/workflows/backend-ci.yml
@@ -2921,7 +2930,7 @@ grep -Fq '"infra/k8s/**"' .github/workflows/docs-ci.yml
 grep -Fq '"infra/helm/**"' .github/workflows/docs-ci.yml
 grep -Fq '"backend/src/modules/rate-limit/rate-limit.service.ts"' .github/workflows/docs-ci.yml
 grep -Fq '"backend/src/main.ts"' .github/workflows/docs-ci.yml
-grep -Fq '"sdk/src/client.ts"' .github/workflows/docs-ci.yml
+grep -Fq '"sdk/src/client*.ts"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-config.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-errors.test.mjs"' .github/workflows/docs-ci.yml
 grep -Fq '"sdk/test/sdk-client-requests.test.mjs"' .github/workflows/docs-ci.yml
@@ -2972,7 +2981,7 @@ grep -q 'sdk/test/sdk-client-errors.test.mjs' scripts/check-rate-limit-consisten
 grep -q 'frontend/src/lib/errors.ts' scripts/check-rate-limit-consistency.mjs
 grep -q 'frontend/src/components/QuoteStatusPanel.tsx' scripts/check-rate-limit-consistency.mjs
 grep -q 'retryAfterSeconds' scripts/check-rate-limit-consistency.mjs
-grep -q 'sdk/src/client.ts' scripts/check-ci-workflows-consistency.mjs
+grep -Fq 'sdk/src/client*.ts' scripts/check-ci-workflows-consistency.mjs
 grep -q 'make rate-limit-check' scripts/check-ci-workflows-consistency.mjs
 grep -q 'Prometheus alert rules must cover backend metric' scripts/check-metrics-consistency.mjs
 grep -q 'backend/src/modules/rate-limit/rate-limit.service.ts' scripts/check-metrics-consistency.mjs

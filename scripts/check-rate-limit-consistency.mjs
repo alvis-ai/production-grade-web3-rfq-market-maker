@@ -3,6 +3,7 @@
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
+import { readSdkClientSource } from "./lib/read-sdk-client-source.mjs";
 
 const rateLimiterSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const redisRateLimiterSource = await readFile("backend/src/modules/rate-limit/redis-rate-limit.service.ts", "utf8");
@@ -14,7 +15,7 @@ const apiQuoteControlTestSource = await readFile("backend/test/api-quote-control
 const apiRedisRateLimitTestSource = await readFile("backend/test/api-redis-rate-limit.test.mjs", "utf8");
 const rateLimitTestSource = await readFile("backend/test/rate-limit.test.mjs", "utf8");
 const redisRateLimitTestSource = await readFile("backend/test/redis-rate-limit.test.mjs", "utf8");
-const sdkClientSource = await readFile("sdk/src/client.ts", "utf8");
+const sdkClientSource = await readSdkClientSource();
 const sdkClientErrorsTestSource = await readFile("sdk/test/sdk-client-errors.test.mjs", "utf8");
 const frontendErrorSource = await readFile("frontend/src/lib/errors.ts", "utf8");
 const frontendStatusPanelSource = await readFile("frontend/src/components/QuoteStatusPanel.tsx", "utf8");

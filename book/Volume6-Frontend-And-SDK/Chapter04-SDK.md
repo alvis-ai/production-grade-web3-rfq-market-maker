@@ -122,6 +122,8 @@ const treasuryArgs = buildTreasuryTransferArgs({ token, to, amount });
 
 ## Engineering Decisions
 
+- `client.ts` remains the HTTP orchestration boundary: it owns endpoint selection, headers and transport sequencing, while delegating protocol validation. `client-request.ts` owns construction, credentials, request envelopes and path identifiers; `client-trading-responses.ts` owns quote, submit, lifecycle, hedge and settlement payloads; `client-accounting-responses.ts` owns gross and hedge-net PnL consistency; `client-response-validation.ts` owns closed response fields, primitive guards, trace correlation, health/readiness and API errors. `client-error.ts` keeps the public error contract independent of those concerns.
+- `make sdk-composition-check` enforces bounded module sizes and verifies that response and request validators do not migrate back into the HTTP client. Public imports continue through `client.ts` and `index.ts`, so the refactor does not change consumer APIs.
 - SDK uses string amounts.
 - SDK owns EIP-712 helper.
 - SDK exports `erc20Abi`, `rfqSettlementAbi`, `treasuryAbi`, `buildErc20AllowanceReadRequest`, `buildErc20ApprovalWriteRequest`, `buildSubmitQuoteArgs`, `buildSubmitQuoteWriteRequest`, `hashSettlementQuote` and `buildTreasuryTransferArgs` so viem/wagmi consumers use the same allowance, approval, settlement tuple, quote-hash reconciliation, public state, role and custom-error surface as the repository tests.

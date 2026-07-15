@@ -44,7 +44,7 @@ on:
       - "backend/src/runtime/**"
       - "backend/src/modules/quote/quote.service.ts"
       - "backend/src/modules/quote/quote-service-*.ts"
-      - "sdk/src/client.ts"
+      - "sdk/src/client*.ts"
       - "sdk/src/types.ts"
       - "sdk/test/sdk-client-config.test.mjs"
       - "sdk/test/sdk-client-errors.test.mjs"
@@ -57,6 +57,7 @@ on:
       - "scripts/check-api-error-consistency.mjs"
       - "scripts/check-api-auth-consistency.mjs"
       - "scripts/check-api-composition-consistency.mjs"
+      - "scripts/check-sdk-composition-consistency.mjs"
       - "scripts/lib/**"
       - "scripts/check-api-route-consistency.mjs"
       - "scripts/check-api-schema-consistency.mjs"
@@ -131,6 +132,8 @@ jobs:
         run: make submit-reservation-check
       - name: Check API composition boundaries
         run: make api-composition-check
+      - name: Check SDK composition boundaries
+        run: make sdk-composition-check
       - name: Check scoped API authentication consistency
         run: make api-auth-check
       - name: Check API error code consistency

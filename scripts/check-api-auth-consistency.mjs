@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
+import { readSdkClientSource } from "./lib/read-sdk-client-source.mjs";
 
 const [
   authSource,
@@ -25,7 +26,7 @@ const [
   readBackendGatewaySource(),
   readFile("backend/src/modules/metrics/metrics.service.ts", "utf8"),
   readFile("backend/test/api-auth-runtime.test.mjs", "utf8"),
-  readFile("sdk/src/client.ts", "utf8"),
+  readSdkClientSource(),
   readFile("sdk/test/sdk-client-config.test.mjs", "utf8"),
   readFile("docs/api/openapi.yaml", "utf8"),
   readFile("docs/api/errors.md", "utf8"),
