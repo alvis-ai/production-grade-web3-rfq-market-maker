@@ -133,6 +133,8 @@ assertContains(workflows.docs, [
   '- "scripts/check-kms-signer-consistency.mjs"',
   '- "scripts/aws-kms-integration-check.mjs"',
   '- "scripts/aws-kms-integration-check.test.mjs"',
+  '- "scripts/target-api-quote-integration-check.mjs"',
+  '- "scripts/target-api-quote-integration-check.test.mjs"',
   '- "scripts/check-logging-consistency.mjs"',
   '- "scripts/check-settlement-indexer-consistency.mjs"',
   '- "scripts/check-submit-reservation-consistency.mjs"',

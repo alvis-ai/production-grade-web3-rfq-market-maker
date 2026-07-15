@@ -3858,6 +3858,19 @@ grep -q 'blockNumber: block.number' scripts/contract-deployment-integration-chec
 grep -q 'run: make contract-deployment-check' .github/workflows/contract-ci.yml
 grep -q 'run_step make contract-deployment-check' scripts/verify.sh
 
+test -s scripts/target-api-quote-integration-check.mjs
+test -s scripts/target-api-quote-integration-check.test.mjs
+grep -q 'target-api-quote-integration-check: sdk-build' Makefile
+grep -q 'target-api-quote-check: sdk-build' Makefile
+grep -q 'target:api:quote:integration:check' package.json
+grep -q 'run_step make target-api-quote-check' scripts/verify.sh
+grep -q 'RFQ_API_INTEGRATION_CONFIRM=request-and-replay-quote' README.md
+grep -q 'client.quote(quoteRequest, { idempotencyKey })' scripts/target-api-quote-integration-check.mjs
+grep -q 'recoverTypedDataAddress' scripts/target-api-quote-integration-check.mjs
+grep -q 'Target API quote integration check failed' scripts/target-api-quote-integration-check.mjs
+grep -q 'scripts/target-api-quote-integration-check.mjs' infra/docker/backend.Dockerfile
+grep -q 'make target-api-quote-check' scripts/verify.sh
+
 test -s frontend/playwright.config.ts
 test -s frontend/e2e/rfq-flow.spec.ts
 test -s .github/workflows/frontend-e2e.yml

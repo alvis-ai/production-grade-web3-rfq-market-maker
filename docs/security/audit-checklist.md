@@ -47,6 +47,7 @@
 - [x] Quote ownership is immutable and principal-scoped across quote status, submit, settlement, hedge, and PnL; mismatches use anti-enumeration 404 responses.
 - [x] Production `/submit` uses a PostgreSQL quote-scoped lease with server-time expiry and owner-token release across API replicas.
 - [x] Production `/quote` requires a principal-scoped idempotency key, fingerprints the payload, binds quote identity before persistence, and replays only the exact signed response.
+- [x] The opt-in target API quote canary uses HTTPS and a least-privilege key, gates on readiness, proves exact idempotency replay and persisted signed status, independently recovers the trusted signer, and never submits or emits the raw signature or API failure details.
 - [x] Quote idempotency conflicts, active ownership, and storage outages fail closed without issuing another nonce or signature.
 - [x] Submit reservation acquisition failures fail closed and active contention is rejected before settlement verification.
 - [x] All errors include traceId.

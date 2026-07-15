@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check binance-testnet-check aws-kms-canary-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check hedge-net-pnl-integration-check analytics-integration-check cex-orderbook-integration-check binance-testnet-integration-check aws-kms-integration-check contract-deployment-integration-check settlement-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check binance-testnet-check aws-kms-canary-check target-api-quote-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check hedge-net-pnl-integration-check analytics-integration-check cex-orderbook-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check contract-deployment-integration-check settlement-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -50,6 +50,8 @@ help:
 	@echo "  binance-testnet-check  Test the Binance Spot Testnet canary with protocol fixtures"
 	@echo "  aws-kms-integration-check  Sign and recover one synthetic quote with the target AWS KMS key"
 	@echo "  aws-kms-canary-check  Test the AWS KMS canary without contacting AWS"
+	@echo "  target-api-quote-integration-check  Request and verify one signed quote from the target API"
+	@echo "  target-api-quote-check  Test the target API quote canary without contacting a target API"
 	@echo "  contract-deployment-integration-check  Verify one live-chain RFQ contract deployment"
 	@echo "  contract-deployment-check  Test target-chain deployment verification with protocol fixtures"
 	@echo "  settlement-e2e  Verify quote-to-receipt settlement against a temporary Anvil chain"
@@ -220,6 +222,12 @@ aws-kms-integration-check: backend-build
 aws-kms-canary-check: backend-build
 	@node --test scripts/aws-kms-integration-check.test.mjs
 
+target-api-quote-integration-check: sdk-build
+	@node scripts/target-api-quote-integration-check.mjs
+
+target-api-quote-check: sdk-build
+	@node --test scripts/target-api-quote-integration-check.test.mjs
+
 contract-deployment-integration-check: backend-build contract-build
 	@node scripts/contract-deployment-integration-check.mjs
 
@@ -246,6 +254,9 @@ backend-typecheck:
 
 sdk-typecheck:
 	@CI=true pnpm --dir sdk typecheck
+
+sdk-build:
+	@CI=true pnpm --dir sdk build
 
 sdk-test:
 	@CI=true pnpm --dir sdk test

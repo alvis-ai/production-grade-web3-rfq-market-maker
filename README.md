@@ -359,6 +359,27 @@ The canary never broadcasts or returns the raw signature and sanitizes provider/
 
 The backend release image includes the canary at `scripts/aws-kms-integration-check.mjs` without embedding configuration. Inside a signer Pod, supply only the canary tuple and confirmation through the process environment and run `node scripts/aws-kms-integration-check.mjs`; the Pod already receives KMS region/key id, trusted signer and Settlement address from its reviewed deployment Secret/configuration.
 
+After the signer, gateway, market-data, pricing, risk and persistence rollout is ready, run the opt-in target API quote canary with a dedicated API key limited to `quote:write,status:read`. It requires HTTPS, checks `/ready`, requests one policy-valid minimum-size quote, repeats the exact request with the same principal-scoped idempotency key, requires field-for-field identical SDK-validated responses, reads the persisted `signed` status, bounds the returned TTL, and independently recovers `RFQ_TRUSTED_SIGNER_ADDRESS` against `RFQ_SETTLEMENT_ADDRESS`. Configure the target base URL, dedicated API key, chain, user, pair, amount and reviewed maximum TTL, acknowledge the durable quote side effects with `RFQ_API_INTEGRATION_CONFIRM=request-and-replay-quote`, then run:
+
+```sh
+RFQ_API_INTEGRATION_BASE_URL=https://rfq-api.example \
+RFQ_API_INTEGRATION_API_KEY="${RFQ_CANARY_API_KEY}" \
+RFQ_SETTLEMENT_ADDRESS=0x1111111111111111111111111111111111111111 \
+RFQ_TRUSTED_SIGNER_ADDRESS=0x2222222222222222222222222222222222222222 \
+RFQ_API_INTEGRATION_CHAIN_ID=1 \
+RFQ_API_INTEGRATION_USER=0x3333333333333333333333333333333333333333 \
+RFQ_API_INTEGRATION_TOKEN_IN=0x4444444444444444444444444444444444444444 \
+RFQ_API_INTEGRATION_TOKEN_OUT=0x5555555555555555555555555555555555555555 \
+RFQ_API_INTEGRATION_AMOUNT_IN=1000 \
+RFQ_API_INTEGRATION_SLIPPAGE_BPS=10 \
+RFQ_API_INTEGRATION_MAX_TTL_SECONDS=60 \
+RFQ_API_INTEGRATION_MAX_CLOCK_SKEW_SECONDS=5 \
+RFQ_API_INTEGRATION_CONFIRM=request-and-replay-quote \
+make target-api-quote-integration-check
+```
+
+This canary creates one short-lived quote, risk decision, signer audit record and temporary exposure reservation. It never calls `/submit` or broadcasts a transaction, emits only the quote/snapshot identifiers plus digest and signature hash, and replaces target transport or API failure details with a fixed error. The release image includes `scripts/target-api-quote-integration-check.mjs` and the compiled SDK; run it from a controlled operator workload that can reach the public API. `make target-api-quote-check` runs the deterministic HTTPS protocol fixture in CI without contacting a deployed environment.
+
 Leave `RFQ_TRUST_PROXY=false`; only enable it when a trusted reverse proxy or ingress strips untrusted `x-forwarded-for` headers and sets the canonical client address. When enabled, the rate limiter keys by the first `x-forwarded-for` entry after enforcing the 128 character limit and `[A-Za-z0-9_.:-]` character set; otherwise it uses the direct socket IP. Redis uses one atomic Lua operation for counter, TTL and limit decisions across replicas. Redis errors return `RATE_LIMIT_UNAVAILABLE`/503 and degrade `rateLimitStore` readiness; the gateway never silently fails open.
 
 Production Kubernetes requires Cilium DNS-aware policy enforcement. API-to-signer HTTPS is allowed only between exact pod selectors on TCP 3006. The API FQDN list excludes AWS; only the signer workload may reach regional AWS STS/KMS 443. Every other dependency remains an exact workload-owned FQDN and port, with no generic 443 or wildcard rule.
