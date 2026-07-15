@@ -180,7 +180,7 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
     const pnl = await injectJson(server, "GET", "/pnl");
     assert.equal(pnl.statusCode, 200);
     assertTraceHeader(pnl);
-    assertResponseFields(pnl.body, ["status", "totalTrades", "totals", "trades"]);
+    assertResponseFields(pnl.body, ["status", "totalTrades", "totals", "trades", "hedgeNet"]);
     assert.equal(pnl.body.status, "ok");
     assert.equal(pnl.body.totalTrades, 1);
     assert.deepEqual(pnl.body.totals, [{
@@ -190,6 +190,9 @@ test("RFQ API accepts quote, submit, status, and metrics flow", async () => {
       grossPnlTokenOut: "1600000",
     }]);
     assert.equal(pnl.body.trades.length, 1);
+    assert.equal(pnl.body.hedgeNet.totalTrades, 1);
+    assert.equal(pnl.body.hedgeNet.unavailableTrades, 1);
+    assert.equal(pnl.body.hedgeNet.records[0].reasonCode, "HEDGE_EVIDENCE_MISSING");
     assertResponseFields(pnl.body.trades[0], [
       "pnlId",
       "quoteId",

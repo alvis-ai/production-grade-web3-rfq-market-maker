@@ -556,6 +556,23 @@ CREATE TABLE hedge_orders (
   fee_lease_expires_at TIMESTAMPTZ,
   fee_last_error_code TEXT,
   fee_reconciled_at TIMESTAMPTZ,
+  route_accounting_version TEXT,
+  venue_base_asset TEXT,
+  venue_quote_asset TEXT,
+  venue_quote_token_address CHAR(42),
+  venue_base_decimals SMALLINT,
+  venue_quote_decimals SMALLINT,
+  hedge_net_pnl_model TEXT,
+  hedge_net_pnl_model_description TEXT,
+  hedge_net_pnl_status TEXT,
+  hedge_settlement_reference_quantity NUMERIC(96, 18),
+  hedge_residual_base_amount NUMERIC(78, 0),
+  hedge_residual_quote_quantity NUMERIC(96, 18),
+  hedge_commission_quote_quantity NUMERIC(96, 18),
+  hedge_net_pnl_quote_quantity NUMERIC(96, 18),
+  hedge_net_pnl_reason_code TEXT,
+  hedge_unvalued_commission_assets JSONB,
+  hedge_net_pnl_realized_at TIMESTAMPTZ,
   last_error_code TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -678,6 +695,82 @@ CREATE TABLE hedge_orders (
       AND fee_reconciled_at IS NOT NULL
     )
   ),
+  CONSTRAINT chk_hedge_orders_route_accounting CHECK (
+    (
+      route_accounting_version IS NULL
+      AND venue_base_asset IS NULL
+      AND venue_quote_asset IS NULL
+      AND venue_quote_token_address IS NULL
+      AND venue_base_decimals IS NULL
+      AND venue_quote_decimals IS NULL
+      AND hedge_net_pnl_model IS NULL
+      AND hedge_net_pnl_model_description IS NULL
+      AND hedge_net_pnl_status IS NULL
+      AND hedge_settlement_reference_quantity IS NULL
+      AND hedge_residual_base_amount IS NULL
+      AND hedge_residual_quote_quantity IS NULL
+      AND hedge_commission_quote_quantity IS NULL
+      AND hedge_net_pnl_quote_quantity IS NULL
+      AND hedge_net_pnl_reason_code IS NULL
+      AND hedge_unvalued_commission_assets IS NULL
+      AND hedge_net_pnl_realized_at IS NULL
+    )
+    OR (
+      route_accounting_version = 'venue-assets-v1'
+      AND venue_base_asset ~ '^[A-Z0-9._-]{1,32}$'
+      AND venue_quote_asset ~ '^[A-Z0-9._-]{1,32}$'
+      AND venue_base_asset <> venue_quote_asset
+      AND venue_quote_token_address ~ '^0x[0-9a-f]{40}$'
+      AND venue_base_decimals BETWEEN 0 AND 36
+      AND venue_quote_decimals BETWEEN 0 AND 18
+      AND hedge_net_pnl_model = 'hedge_fill_net_v1'
+      AND hedge_net_pnl_model_description =
+        'Net hedge execution PnL in the route quote asset using exact fills, quote/base commissions, and conservatively marked sub-step residual; third-asset commissions are unavailable'
+      AND (
+        (
+          hedge_net_pnl_status = 'pending'
+          AND hedge_settlement_reference_quantity IS NULL
+          AND hedge_residual_base_amount IS NULL
+          AND hedge_residual_quote_quantity IS NULL
+          AND hedge_commission_quote_quantity IS NULL
+          AND hedge_net_pnl_quote_quantity IS NULL
+          AND hedge_net_pnl_reason_code IS NULL
+          AND hedge_unvalued_commission_assets IS NULL
+          AND hedge_net_pnl_realized_at IS NULL
+        )
+        OR (
+          hedge_net_pnl_status = 'complete'
+          AND hedge_settlement_reference_quantity > 0
+          AND hedge_residual_base_amount >= 0
+          AND hedge_residual_quote_quantity >= 0
+          AND hedge_commission_quote_quantity >= 0
+          AND hedge_net_pnl_quote_quantity IS NOT NULL
+          AND hedge_net_pnl_reason_code IS NULL
+          AND hedge_unvalued_commission_assets IS NULL
+          AND hedge_net_pnl_realized_at IS NOT NULL
+        )
+        OR (
+          hedge_net_pnl_status = 'unavailable'
+          AND hedge_settlement_reference_quantity IS NULL
+          AND hedge_residual_base_amount IS NULL
+          AND hedge_residual_quote_quantity IS NULL
+          AND hedge_commission_quote_quantity IS NULL
+          AND hedge_net_pnl_quote_quantity IS NULL
+          AND hedge_net_pnl_reason_code IN (
+            'UNVALUED_COMMISSION_ASSET', 'HEDGE_NOT_EXECUTED', 'PARTIAL_HEDGE_UNCLOSED'
+          )
+          AND jsonb_typeof(hedge_unvalued_commission_assets) = 'array'
+          AND (
+            (hedge_net_pnl_reason_code = 'UNVALUED_COMMISSION_ASSET'
+              AND jsonb_array_length(hedge_unvalued_commission_assets) > 0)
+            OR (hedge_net_pnl_reason_code IN ('HEDGE_NOT_EXECUTED', 'PARTIAL_HEDGE_UNCLOSED')
+              AND jsonb_array_length(hedge_unvalued_commission_assets) = 0)
+          )
+          AND hedge_net_pnl_realized_at IS NOT NULL
+        )
+      )
+    )
+  ),
   CONSTRAINT chk_hedge_orders_terminal_state CHECK (
     status = 'queued'
     OR (
@@ -700,6 +793,9 @@ CREATE UNIQUE INDEX uq_hedge_orders_venue_client_order
 CREATE INDEX idx_hedge_orders_fee_reconciliation_claim
   ON hedge_orders (fee_next_attempt_at, created_at, id)
   WHERE fee_reconciliation_status = 'pending';
+CREATE INDEX idx_hedge_orders_net_pnl_status
+  ON hedge_orders (hedge_net_pnl_status, hedge_net_pnl_realized_at, id)
+  WHERE hedge_net_pnl_status IS NOT NULL;
 
 CREATE TABLE hedge_execution_fills (
   hedge_order_id TEXT NOT NULL REFERENCES hedge_orders(id) ON DELETE CASCADE,
@@ -1784,4 +1880,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('020', 'toxic-flow-scores'),
   ('021', 'toxic-flow-markouts'),
   ('022', 'portfolio-var-reservations'),
-  ('023', 'quote-idempotency');
+  ('023', 'quote-idempotency'),
+  ('024', 'hedge-net-pnl');

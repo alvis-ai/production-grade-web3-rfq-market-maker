@@ -8,11 +8,26 @@ export interface HedgeRoute {
   token: Address;
   venue: "binance";
   symbol: string;
+  baseAsset: string;
+  quoteAsset: string;
+  quoteToken: Address;
   tokenDecimals: number;
+  quoteTokenDecimals: number;
   stepSizeRaw: UIntString;
 }
 
-const routeFields = ["chainId", "token", "venue", "symbol", "tokenDecimals", "stepSizeRaw"] as const;
+const routeFields = [
+  "chainId",
+  "token",
+  "venue",
+  "symbol",
+  "baseAsset",
+  "quoteAsset",
+  "quoteToken",
+  "tokenDecimals",
+  "quoteTokenDecimals",
+  "stepSizeRaw",
+] as const;
 
 export class HedgeRouteTable {
   private readonly routes: Map<string, HedgeRoute>;
@@ -24,7 +39,11 @@ export class HedgeRouteTable {
     this.routes = new Map();
     for (const route of routes) {
       assertHedgeRoute(route);
-      const snapshot = { ...route, token: route.token.toLowerCase() as Address };
+      const snapshot = {
+        ...route,
+        token: route.token.toLowerCase() as Address,
+        quoteToken: route.quoteToken.toLowerCase() as Address,
+      };
       const key = routeKey(snapshot.chainId, snapshot.token);
       if (this.routes.has(key)) throw new Error(`Duplicate hedge route for ${key}`);
       this.routes.set(key, snapshot);
@@ -60,6 +79,29 @@ export class HedgeRouteTable {
         throw new Error(
           `Hedge route tokenDecimals ${route.tokenDecimals} does not match token registry decimals ${metadata.decimals} ` +
             `for ${route.chainId}:${route.token}`,
+        );
+      }
+      const quoteMetadata = registry.getToken(route.chainId, route.quoteToken);
+      if (quoteMetadata === undefined) {
+        throw new Error(`Hedge route quote token ${route.quoteToken} is not configured on chain ${route.chainId}`);
+      }
+      if (quoteMetadata.chainId !== route.chainId ||
+          typeof quoteMetadata.tokenAddress !== "string" ||
+          quoteMetadata.tokenAddress.toLowerCase() !== route.quoteToken.toLowerCase() ||
+          !Number.isSafeInteger(quoteMetadata.decimals) ||
+          quoteMetadata.decimals < 0 ||
+          quoteMetadata.decimals > 18 ||
+          typeof quoteMetadata.isWhitelisted !== "boolean" ||
+          typeof quoteMetadata.usdReference !== "boolean") {
+        throw new Error("Hedge route quote token registry metadata is invalid");
+      }
+      if (!quoteMetadata.isWhitelisted || !quoteMetadata.usdReference) {
+        throw new Error(`Hedge route quote token ${route.quoteToken} must be a whitelisted USD reference`);
+      }
+      if (quoteMetadata.decimals !== route.quoteTokenDecimals) {
+        throw new Error(
+          `Hedge route quoteTokenDecimals ${route.quoteTokenDecimals} does not match token registry decimals ` +
+            `${quoteMetadata.decimals} for ${route.chainId}:${route.quoteToken}`,
         );
       }
     }
@@ -128,6 +170,9 @@ export function parseHedgeExecutedQuantity(quantity: string, route: HedgeRoute):
 export function routeForJob(table: HedgeRouteTable, job: HedgeJob): HedgeRoute {
   const route = table.find(job.chainId, job.token);
   if (!route) throw new Error("HEDGE_ROUTE_NOT_CONFIGURED");
+  if (route.quoteToken.toLowerCase() !== job.referenceToken.toLowerCase()) {
+    throw new Error("HEDGE_ROUTE_REFERENCE_TOKEN_MISMATCH");
+  }
   return route;
 }
 
@@ -141,15 +186,32 @@ function assertHedgeRoute(route: HedgeRoute): void {
   }
   assertPositiveSafeInteger(route.chainId, "chainId");
   assertAddress(route.token, "token");
+  assertAddress(route.quoteToken, "quoteToken");
+  if (route.token.toLowerCase() === route.quoteToken.toLowerCase()) {
+    throw new Error("Hedge route token and quoteToken must be distinct");
+  }
   if (route.venue !== "binance") throw new Error("Hedge route venue must be binance");
   if (typeof route.symbol !== "string" || !/^[A-Z0-9._-]{3,32}$/.test(route.symbol)) {
     throw new Error("Hedge route symbol is invalid");
   }
+  assertVenueAsset(route.baseAsset, "baseAsset");
+  assertVenueAsset(route.quoteAsset, "quoteAsset");
+  if (route.baseAsset === route.quoteAsset) throw new Error("Hedge route venue assets must be distinct");
   if (!Number.isSafeInteger(route.tokenDecimals) || route.tokenDecimals < 0 || route.tokenDecimals > 36) {
     throw new Error("Hedge route tokenDecimals must be a safe integer between 0 and 36");
   }
+  if (!Number.isSafeInteger(route.quoteTokenDecimals) || route.quoteTokenDecimals < 0 ||
+      route.quoteTokenDecimals > 18) {
+    throw new Error("Hedge route quoteTokenDecimals must be a safe integer between 0 and 18");
+  }
   if (typeof route.stepSizeRaw !== "string" || !/^[1-9][0-9]*$/.test(route.stepSizeRaw)) {
     throw new Error("Hedge route stepSizeRaw must be a canonical positive uint string");
+  }
+}
+
+function assertVenueAsset(value: unknown, field: string): asserts value is string {
+  if (typeof value !== "string" || !/^[A-Z0-9._-]{1,32}$/.test(value)) {
+    throw new Error(`Hedge route ${field} is invalid`);
   }
 }
 

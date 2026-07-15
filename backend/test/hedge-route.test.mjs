@@ -11,12 +11,17 @@ import {
 import { ConfiguredTokenRegistry } from "../dist/modules/pricing/token-registry.js";
 
 const token = "0x0000000000000000000000000000000000000003";
+const quoteToken = "0x0000000000000000000000000000000000000002";
 const route = {
   chainId: 1,
   token,
   venue: "binance",
   symbol: "ETHUSDT",
+  baseAsset: "ETH",
+  quoteAsset: "USDT",
+  quoteToken,
   tokenDecimals: 18,
+  quoteTokenDecimals: 6,
   stepSizeRaw: "100000000000000",
 };
 
@@ -45,6 +50,14 @@ test("HedgeRouteTable binds route decimals to the shared token registry", () => 
       isWhitelisted: false,
       riskTier: "medium",
       usdReference: false,
+    }, {
+      chainId: 1,
+      tokenAddress: quoteToken,
+      symbol: "USDT",
+      decimals: 6,
+      isWhitelisted: true,
+      riskTier: "low",
+      usdReference: true,
     }],
   })));
   assert.throws(() => table.validateTokenRegistry(new ConfiguredTokenRegistry({
@@ -56,6 +69,14 @@ test("HedgeRouteTable binds route decimals to the shared token registry", () => 
       isWhitelisted: true,
       riskTier: "medium",
       usdReference: false,
+    }, {
+      chainId: 1,
+      tokenAddress: quoteToken,
+      symbol: "USDT",
+      decimals: 6,
+      isWhitelisted: true,
+      riskTier: "low",
+      usdReference: true,
     }],
   })), /does not match token registry decimals/);
   assert.throws(
@@ -68,9 +89,39 @@ test("HedgeRouteTable binds route decimals to the shared token registry", () => 
         isWhitelisted: true,
         riskTier: "low",
         usdReference: false,
+      }, {
+        chainId: 1,
+        tokenAddress: quoteToken,
+        symbol: "USDT",
+        decimals: 6,
+        isWhitelisted: true,
+        riskTier: "low",
+        usdReference: true,
       }],
     })),
     /is not configured/,
+  );
+  assert.throws(
+    () => table.validateTokenRegistry(new ConfiguredTokenRegistry({
+      tokens: [{
+        chainId: 1,
+        tokenAddress: token,
+        symbol: "WETH",
+        decimals: 18,
+        isWhitelisted: true,
+        riskTier: "medium",
+        usdReference: false,
+      }, {
+        chainId: 1,
+        tokenAddress: quoteToken,
+        symbol: "USDT",
+        decimals: 6,
+        isWhitelisted: true,
+        riskTier: "low",
+        usdReference: false,
+      }],
+    })),
+    /whitelisted USD reference/,
   );
 });
 

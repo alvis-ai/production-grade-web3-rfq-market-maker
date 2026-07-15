@@ -1,6 +1,6 @@
 export { erc20Abi, rfqSettlementAbi, treasuryAbi } from "./abi.js";
 export { RFQClient, RFQClientError } from "./client.js";
-export { quoteSnapshotPnlModelDescription, rfqErrorCodes } from "./types.js";
+export { hedgeFillNetPnlModelDescription, quoteSnapshotPnlModelDescription, rfqErrorCodes } from "./types.js";
 export {
   RFQ_EIP712_DOMAIN_NAME,
   RFQ_EIP712_DOMAIN_VERSION,
@@ -43,6 +43,10 @@ export type {
   HedgeExecutionEvidenceVersion,
   HedgeFeeReconciliationStatus,
   HedgeIntentStatus,
+  HedgeNetPnlRecord,
+  HedgeNetPnlSummary,
+  HedgeNetPnlTotal,
+  HedgeNetPnlUnavailableReason,
   HealthResponse,
   IntString,
   PnlSummary,

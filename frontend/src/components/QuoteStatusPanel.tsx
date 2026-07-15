@@ -52,6 +52,9 @@ export function QuoteStatusPanel({
   const hedgeOrderId = quoteStatus?.hedgeOrderId ?? submitResult?.hedgeOrderId;
   const pnlId = quoteStatus?.pnlId ?? submitResult?.pnlId;
   const pnlTrade = pnlSummary?.trades.find((trade) => trade.pnlId === pnlId);
+  const hedgeNetPnl = pnlTrade === undefined
+    ? undefined
+    : pnlSummary?.hedgeNet?.records.find((record) => record.quoteId === pnlTrade.quoteId);
 
   return (
     <aside className="panel">
@@ -152,6 +155,16 @@ export function QuoteStatusPanel({
         <div>
           <dt>Gross PnL (tokenOut)</dt>
           <dd>{pnlTrade?.grossPnlTokenOut ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Hedge Net PnL</dt>
+          <dd>{hedgeNetPnl?.status === "complete"
+            ? `${hedgeNetPnl.netPnlQuoteQuantity} ${hedgeNetPnl.valuationAsset}`
+            : hedgeNetPnl?.status ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Hedge Net PnL Reason</dt>
+          <dd>{hedgeNetPnl?.status === "unavailable" ? hedgeNetPnl.reasonCode : "-"}</dd>
         </div>
         <div>
           <dt>Wallet</dt>

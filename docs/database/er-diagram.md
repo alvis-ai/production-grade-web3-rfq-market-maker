@@ -176,6 +176,18 @@ erDiagram
     timestamptz fee_lease_expires_at
     text fee_last_error_code
     timestamptz fee_reconciled_at
+    text route_accounting_version
+    text venue_base_asset
+    text venue_quote_asset
+    text venue_quote_token_address
+    int venue_base_decimals
+    int venue_quote_decimals
+    text hedge_net_pnl_model
+    text hedge_net_pnl_status
+    numeric hedge_net_pnl_quote_quantity
+    text hedge_net_pnl_reason_code
+    jsonb hedge_unvalued_commission_assets
+    timestamptz hedge_net_pnl_realized_at
     text last_error_code
     timestamptz created_at
     timestamptz updated_at
@@ -411,6 +423,7 @@ erDiagram
 - `venue_order_id` 保存 Binance 原生安全整数订单号，和 deterministic `client_order_id` 分工：前者查询 `myTrades`，后者负责 query-before-submit 幂等。每次正数累计成交都会把独立 `fee_reconciliation_status` 置为 `pending`，但不会阻塞执行 lease 或库存事务。
 - `fee_attempt_count`、`fee_next_attempt_at`、`fee_lease_owner` 和 `fee_lease_expires_at` 构成独立费用队列。`complete` 状态要求原生订单号、`base-and-quote-v2`、计价成交额和 `fee_reconciled_at` 同时存在；`pending` 可以因 `myTrades` 的 Memory-to-Database 延迟安全重试。
 - `hedge_execution_fills` 以 `(hedge_order_id, venue_trade_id)` 为主键，另以 `(venue, venue_symbol, venue_trade_id)` 防止同一 venue fill 归到两个 hedge。冲突重放必须在 price、base/quote quantity、commission、asset、time 和 maker/buyer 字段上完全一致；完成费用对账前，表内 base/quote 汇总必须与订单累计证据完全相等。
+- `route_accounting_version='venue-assets-v1'` 在首次外部调用前冻结 CEX base/quote asset、链上计价 token 和两侧 decimals。`hedge_fill_net_v1` 只在 fee reconciliation 同一事务中使用精确 fills、quote/base commission 和保守 step dust mark 生成；第三资产 commission 保留为 `UNVALUED_COMMISSION_ASSET`，旧路由缺少元数据时 API 返回 `LEGACY_ROUTE_ACCOUNTING_UNAVAILABLE`，两者都不会被当成零损益。
 - `quotes.snapshot_id` 使用索引支持报价回放；nullable status pointers 使用 partial indexes，只索引非空的 `settlement_event_id`、`hedge_order_id` 和 `pnl_id`，支持审计 join 和 reconciliation 查询，同时避免大量未成交 quote 的空指针污染索引。
 - 所有带 `chain_id` 的操作表都使用 CHECK constraint 限制为 JavaScript safe integer range `1..9007199254740991`，与后端、SDK 和 OpenAPI 的 `chainId` 契约一致，避免数据库保存无法被运行时代码安全表示的链 ID。
 - `quotes.tx_hash` 是状态查询冗余字段，用于快速展示链上交易哈希；权威成交事件仍由 `settlement_events` 和 `quote_hash` 绑定。

@@ -4,6 +4,7 @@ import { HedgeFeeWorker, HedgeFeeWorkerMetrics } from "../dist/modules/hedge/hed
 import { HedgeRouteTable } from "../dist/modules/hedge/hedge-route.js";
 
 const token = "0x0000000000000000000000000000000000000003";
+const quoteToken = "0x0000000000000000000000000000000000000002";
 const job = {
   hedgeOrderId: "h_11111111111111111111111111111111",
   chainId: 1,
@@ -23,7 +24,11 @@ const routes = new HedgeRouteTable([{
   token,
   venue: "binance",
   symbol: "ETHUSDT",
+  baseAsset: "ETH",
+  quoteAsset: "USDT",
+  quoteToken,
   tokenDecimals: 18,
+  quoteTokenDecimals: 6,
   stepSizeRaw: "100000000000000",
 }]);
 const config = { workerId: "worker_1", leaseMs: 30000, pollIntervalMs: 10, retryDelayMs: 1000 };

@@ -11,6 +11,7 @@ export interface HedgeJob {
   hedgeOrderId: string;
   chainId: number;
   token: Address;
+  referenceToken: Address;
   side: "buy" | "sell";
   amount: UIntString;
   attemptCount: number;
@@ -22,6 +23,11 @@ export interface HedgeJobRoute {
   venue: "binance";
   symbol: string;
   clientOrderId: string;
+  baseAsset: string;
+  quoteAsset: string;
+  quoteToken: Address;
+  baseTokenDecimals: number;
+  quoteTokenDecimals: number;
 }
 
 export interface HedgeJobStore {
@@ -59,8 +65,9 @@ export interface HedgeJobStore {
 }
 
 const jobColumns = `
-  id, chain_id, token_address, side, amount, attempt_count,
-  submission_attempted_at IS NOT NULL AS submission_attempted, created_at
+  hedge.id, hedge.chain_id, hedge.token_address, hedge.side, hedge.amount, hedge.attempt_count,
+  hedge.submission_attempted_at IS NOT NULL AS submission_attempted, hedge.created_at,
+  candidate.reference_token
 `;
 const maxLeaseMs = 300_000;
 const maxRetryDelayMs = 604_800_000;
@@ -87,9 +94,11 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       await client.query("BEGIN");
       const result = await client.query(
         `WITH candidate AS (
-           SELECT id
+           SELECT hedge.id,
+                  CASE WHEN hedge.side = 'sell' THEN quote.token_out ELSE quote.token_in END AS reference_token
            FROM hedge_orders AS hedge
            INNER JOIN settlement_events AS settlement ON settlement.id = hedge.settlement_event_id
+           INNER JOIN quotes AS quote ON quote.id = hedge.quote_id
            WHERE hedge.status = 'queued'
              AND (settlement.canonical = TRUE OR hedge.submission_attempted_at IS NOT NULL)
              AND hedge.next_attempt_at <= now()
@@ -124,13 +133,38 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
     assertHedgeJobRoute(route);
     await this.updateLeasedJob(
       `UPDATE hedge_orders
-       SET venue = $3, venue_symbol = $4, client_order_id = $5, updated_at = now()
+       SET venue = $3, venue_symbol = $4, client_order_id = $5,
+           route_accounting_version = 'venue-assets-v1',
+           venue_base_asset = $6, venue_quote_asset = $7,
+           venue_quote_token_address = $8,
+           venue_base_decimals = $9, venue_quote_decimals = $10,
+           hedge_net_pnl_model = 'hedge_fill_net_v1',
+           hedge_net_pnl_model_description =
+             'Net hedge execution PnL in the route quote asset using exact fills, quote/base commissions, and conservatively marked sub-step residual; third-asset commissions are unavailable',
+           hedge_net_pnl_status = COALESCE(hedge_net_pnl_status, 'pending'),
+           updated_at = now()
        WHERE id = $1 AND status = 'queued' AND lease_owner = $2
          AND (
-           (venue = 'internal' AND venue_symbol IS NULL AND client_order_id IS NULL)
-           OR (venue = $3 AND venue_symbol = $4 AND client_order_id = $5)
+           (venue = 'internal' AND venue_symbol IS NULL AND client_order_id IS NULL
+             AND route_accounting_version IS NULL)
+           OR (venue = $3 AND venue_symbol = $4 AND client_order_id = $5
+             AND route_accounting_version = 'venue-assets-v1'
+             AND venue_base_asset = $6 AND venue_quote_asset = $7
+             AND venue_quote_token_address = $8
+             AND venue_base_decimals = $9 AND venue_quote_decimals = $10)
          )`,
-      [hedgeOrderId, workerId, route.venue, route.symbol, route.clientOrderId],
+      [
+        hedgeOrderId,
+        workerId,
+        route.venue,
+        route.symbol,
+        route.clientOrderId,
+        route.baseAsset,
+        route.quoteAsset,
+        route.quoteToken.toLowerCase(),
+        route.baseTokenDecimals,
+        route.quoteTokenDecimals,
+      ],
       hedgeOrderId,
     );
   }
@@ -402,6 +436,26 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
              fee_next_attempt_at = CASE WHEN $6 IS NOT NULL THEN now() ELSE fee_next_attempt_at END,
              fee_last_error_code = CASE WHEN $6 IS NOT NULL THEN NULL ELSE fee_last_error_code END,
              fee_reconciled_at = CASE WHEN $6 IS NOT NULL THEN NULL ELSE fee_reconciled_at END,
+             hedge_net_pnl_status = CASE
+               WHEN $3 = 'failed' AND $6 IS NULL AND route_accounting_version = 'venue-assets-v1'
+                 THEN 'unavailable'
+               ELSE hedge_net_pnl_status
+             END,
+             hedge_net_pnl_reason_code = CASE
+               WHEN $3 = 'failed' AND $6 IS NULL AND route_accounting_version = 'venue-assets-v1'
+                 THEN 'HEDGE_NOT_EXECUTED'
+               ELSE hedge_net_pnl_reason_code
+             END,
+             hedge_unvalued_commission_assets = CASE
+               WHEN $3 = 'failed' AND $6 IS NULL AND route_accounting_version = 'venue-assets-v1'
+                 THEN '[]'::jsonb
+               ELSE hedge_unvalued_commission_assets
+             END,
+             hedge_net_pnl_realized_at = CASE
+               WHEN $3 = 'failed' AND $6 IS NULL AND route_accounting_version = 'venue-assets-v1'
+                 THEN now()
+               ELSE hedge_net_pnl_realized_at
+             END,
              lease_owner = NULL, lease_expires_at = NULL, updated_at = now()
          WHERE id = $1 AND status = 'queued' AND lease_owner = $2
            AND ($3 <> 'filled' OR (venue <> 'internal' AND venue_symbol IS NOT NULL AND client_order_id IS NOT NULL))`,
@@ -473,6 +527,7 @@ function parseHedgeJob(row: unknown): HedgeJob {
     hedgeOrderId: parseIdentifier(value.id, "id"),
     chainId: parsePositiveSafeInteger(value.chain_id, "chain_id"),
     token: parseAddress(value.token_address),
+    referenceToken: parseAddress(value.reference_token),
     side,
     amount: parsePositiveUInt(value.amount),
     attemptCount: parseNonNegativeSafeInteger(value.attempt_count, "attempt_count"),
@@ -486,10 +541,12 @@ function assertHedgeJobRoute(route: HedgeJobRoute): void {
     throw new Error("Hedge job route must be an object");
   }
   const keys = Object.keys(route);
-  if (keys.length !== 3 || !Object.prototype.hasOwnProperty.call(route, "venue") ||
-      !Object.prototype.hasOwnProperty.call(route, "symbol") ||
-      !Object.prototype.hasOwnProperty.call(route, "clientOrderId")) {
-    throw new Error("Hedge job route must contain venue, symbol, and clientOrderId");
+  const fields = [
+    "venue", "symbol", "clientOrderId", "baseAsset", "quoteAsset", "quoteToken",
+    "baseTokenDecimals", "quoteTokenDecimals",
+  ];
+  if (keys.length !== fields.length || fields.some((field) => !Object.prototype.hasOwnProperty.call(route, field))) {
+    throw new Error("Hedge job route fields are invalid");
   }
   if (route.venue !== "binance") throw new Error("Hedge job route venue must be binance");
   if (typeof route.symbol !== "string" || !/^[A-Z0-9._-]{3,32}$/.test(route.symbol)) {
@@ -497,6 +554,16 @@ function assertHedgeJobRoute(route: HedgeJobRoute): void {
   }
   if (typeof route.clientOrderId !== "string" || !/^[A-Za-z0-9._-]{1,36}$/.test(route.clientOrderId)) {
     throw new Error("Hedge job route clientOrderId is invalid");
+  }
+  if (typeof route.baseAsset !== "string" || !/^[A-Z0-9._-]{1,32}$/.test(route.baseAsset) ||
+      typeof route.quoteAsset !== "string" || !/^[A-Z0-9._-]{1,32}$/.test(route.quoteAsset) ||
+      route.baseAsset === route.quoteAsset) {
+    throw new Error("Hedge job route venue assets are invalid");
+  }
+  parseAddress(route.quoteToken);
+  if (!Number.isSafeInteger(route.baseTokenDecimals) || route.baseTokenDecimals < 0 || route.baseTokenDecimals > 36 ||
+      !Number.isSafeInteger(route.quoteTokenDecimals) || route.quoteTokenDecimals < 0 || route.quoteTokenDecimals > 18) {
+    throw new Error("Hedge job route decimals are invalid");
   }
 }
 

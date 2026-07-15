@@ -147,6 +147,8 @@ Key metrics include:
 - `rfq_pnl_trades_total`
 - `rfq_pnl_record_errors_total`
 - `rfq_realized_pnl_token_out`
+
+`rfq_realized_pnl_token_out` remains the quote-snapshot gross edge gauge. Hedge net execution accounting is stateful and principal-scoped, so operators inspect `/pnl.hedgeNet` or query `hedge_orders.hedge_net_pnl_status` rather than exporting per-principal values as global Prometheus labels. Alert when pending rows outlive the fee reconciliation SLO, when `UNVALUED_COMMISSION_ASSET` grows unexpectedly, or when new rows appear without `route_accounting_version`; unavailable rows are never converted to zero for dashboards.
 - `rfq_analytics_outbox_published_total`
 - `rfq_analytics_outbox_retries_total`
 - `rfq_analytics_outbox_deleted_total`

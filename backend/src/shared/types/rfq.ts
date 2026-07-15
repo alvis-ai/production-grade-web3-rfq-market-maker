@@ -165,9 +165,77 @@ export interface PnlTokenTotal {
   grossPnlTokenOut: IntString;
 }
 
+export const hedgeFillNetPnlModelDescription =
+  "Net hedge execution PnL in the route quote asset using exact fills, quote/base commissions, and conservatively marked sub-step residual; third-asset commissions are unavailable" as const;
+
+export type HedgeNetPnlUnavailableReason =
+  | "HEDGE_EVIDENCE_MISSING"
+  | "LEGACY_ROUTE_ACCOUNTING_UNAVAILABLE"
+  | "HEDGE_NOT_EXECUTED"
+  | "PARTIAL_HEDGE_UNCLOSED"
+  | "UNVALUED_COMMISSION_ASSET";
+
+interface HedgeNetPnlRecordBase {
+  quoteId: string;
+  chainId: number;
+  model: "hedge_fill_net_v1";
+  modelDescription: typeof hedgeFillNetPnlModelDescription;
+}
+
+export interface PendingHedgeNetPnlRecord extends HedgeNetPnlRecordBase {
+  status: "pending";
+  hedgeOrderId: string;
+  valuationToken: Address;
+  valuationAsset: string;
+}
+
+export interface CompleteHedgeNetPnlRecord extends HedgeNetPnlRecordBase {
+  status: "complete";
+  hedgeOrderId: string;
+  valuationToken: Address;
+  valuationAsset: string;
+  netPnlQuoteQuantity: string;
+  realizedAt: string;
+}
+
+export interface UnavailableHedgeNetPnlRecord extends HedgeNetPnlRecordBase {
+  status: "unavailable";
+  reasonCode: HedgeNetPnlUnavailableReason;
+  hedgeOrderId?: string;
+  valuationToken?: Address;
+  valuationAsset?: string;
+  unvaluedCommissionAssets?: string[];
+  realizedAt?: string;
+}
+
+export type HedgeNetPnlRecord =
+  | PendingHedgeNetPnlRecord
+  | CompleteHedgeNetPnlRecord
+  | UnavailableHedgeNetPnlRecord;
+
+export interface HedgeNetPnlTotal {
+  chainId: number;
+  valuationToken: Address;
+  valuationAsset: string;
+  totalTrades: number;
+  netPnlQuoteQuantity: string;
+}
+
+export interface HedgeNetPnlSummary {
+  model: "hedge_fill_net_v1";
+  modelDescription: typeof hedgeFillNetPnlModelDescription;
+  totalTrades: number;
+  completeTrades: number;
+  pendingTrades: number;
+  unavailableTrades: number;
+  totals: HedgeNetPnlTotal[];
+  records: HedgeNetPnlRecord[];
+}
+
 export interface PnlSummaryResponse {
   status: "ok";
   totalTrades: number;
   totals: PnlTokenTotal[];
   trades: PnlTradeRecord[];
+  hedgeNet: HedgeNetPnlSummary;
 }

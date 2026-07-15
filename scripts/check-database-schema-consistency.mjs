@@ -94,6 +94,10 @@ const quoteIdempotencyMigrationSource = await readFile(
   "backend/src/db/migrations/023-quote-idempotency.sql",
   "utf8",
 );
+const hedgeNetPnlMigrationSource = await readFile(
+  "backend/src/db/migrations/024-hedge-net-pnl.sql",
+  "utf8",
+);
 const postgresQuoteIdempotencySource = await readFile(
   "backend/src/modules/quote/postgres-quote-idempotency.store.ts",
   "utf8",
@@ -237,6 +241,23 @@ const requiredTables = {
     "filled_amount",
     "execution_evidence_version",
     "executed_quote_quantity",
+    "route_accounting_version",
+    "venue_base_asset",
+    "venue_quote_asset",
+    "venue_quote_token_address",
+    "venue_base_decimals",
+    "venue_quote_decimals",
+    "hedge_net_pnl_model",
+    "hedge_net_pnl_model_description",
+    "hedge_net_pnl_status",
+    "hedge_settlement_reference_quantity",
+    "hedge_residual_base_amount",
+    "hedge_residual_quote_quantity",
+    "hedge_commission_quote_quantity",
+    "hedge_net_pnl_quote_quantity",
+    "hedge_net_pnl_reason_code",
+    "hedge_unvalued_commission_assets",
+    "hedge_net_pnl_realized_at",
     "last_error_code",
   ],
   pnl_records: [
@@ -1551,6 +1572,15 @@ assert.ok(
     postgresQuoteIdempotencySource.includes("recoverBoundQuote") &&
     postgresQuoteIdempotencySource.includes("owner_token = $4"),
   "quote idempotency migration, store, and docs must preserve principal-scoped ownership and crash recovery",
+);
+assert.ok(
+  hedgeNetPnlMigrationSource.includes("route_accounting_version") &&
+    hedgeNetPnlMigrationSource.includes("hedge_fill_net_v1") &&
+    hedgeNetPnlMigrationSource.includes("UNVALUED_COMMISSION_ASSET") &&
+    hedgeNetPnlMigrationSource.includes("idx_hedge_orders_net_pnl_status") &&
+    schemaSource.includes("('024', 'hedge-net-pnl')") &&
+    erDiagramSource.includes("text hedge_net_pnl_status"),
+  "hedge net PnL migration and docs must preserve route accounting and explicit valuation availability",
 );
 assert.ok(
   postgresToxicFlowMarkoutSource.includes("async claimNext") &&

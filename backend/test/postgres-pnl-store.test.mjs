@@ -102,6 +102,79 @@ test("PostgresPnlStore scopes summary rows by quote principal", async () => {
   assert.deepEqual(client.queries[0].params, ["institution_a"]);
 });
 
+test("PostgresPnlStore aggregates completed hedge-fill net PnL without treating unavailable rows as zero", async () => {
+  const complete = pnlRow({
+    hedge_order_id: "h_q_postgres_pnl",
+    hedge_status: "filled",
+    hedge_filled_amount: "1000",
+    hedge_fee_reconciliation_status: "complete",
+    hedge_route_accounting_version: "venue-assets-v1",
+    hedge_valuation_asset: "USDT",
+    hedge_valuation_token: quote.tokenOut,
+    hedge_net_model: "hedge_fill_net_v1",
+    hedge_net_model_description:
+      "Net hedge execution PnL in the route quote asset using exact fills, quote/base commissions, and conservatively marked sub-step residual; third-asset commissions are unavailable",
+    hedge_net_status: "complete",
+    hedge_net_quantity: "2.650000000000000000",
+    hedge_net_reason_code: null,
+    hedge_unvalued_commission_assets: null,
+    hedge_net_realized_at: new Date("2026-07-11T00:01:00.000Z"),
+  });
+  const unavailable = pnlRow({
+    id: "pnl_q_legacy",
+    quote_id: "q_legacy",
+    settlement_event_id: "se_q_legacy",
+    snapshot_id: "snapshot_q_legacy",
+    nonce: "2",
+    hedge_order_id: "h_q_legacy",
+    hedge_route_accounting_version: null,
+  });
+  const partial = pnlRow({
+    id: "pnl_q_partial",
+    quote_id: "q_partial",
+    settlement_event_id: "se_q_partial",
+    snapshot_id: "snapshot_q_partial",
+    nonce: "3",
+    hedge_order_id: "h_q_partial",
+    hedge_status: "failed",
+    hedge_filled_amount: "500",
+    hedge_fee_reconciliation_status: "complete",
+    hedge_route_accounting_version: "venue-assets-v1",
+    hedge_valuation_asset: "USDT",
+    hedge_valuation_token: quote.tokenOut,
+    hedge_net_model: "hedge_fill_net_v1",
+    hedge_net_model_description:
+      "Net hedge execution PnL in the route quote asset using exact fills, quote/base commissions, and conservatively marked sub-step residual; third-asset commissions are unavailable",
+    hedge_net_status: "unavailable",
+    hedge_net_quantity: null,
+    hedge_net_reason_code: "PARTIAL_HEDGE_UNCLOSED",
+    hedge_unvalued_commission_assets: [],
+    hedge_net_realized_at: new Date("2026-07-11T00:02:00.000Z"),
+  });
+  const { pool } = fakePool(async () => ({ rows: [complete, unavailable, partial], rowCount: 3 }));
+
+  const summary = await new PostgresPnlStore(pool, valuationProvider).summary();
+
+  assert.equal(summary.hedgeNet.completeTrades, 1);
+  assert.equal(summary.hedgeNet.unavailableTrades, 2);
+  assert.equal(summary.hedgeNet.pendingTrades, 0);
+  assert.deepEqual(summary.hedgeNet.totals, [{
+    chainId: 1,
+    valuationToken: quote.tokenOut,
+    valuationAsset: "USDT",
+    totalTrades: 1,
+    netPnlQuoteQuantity: "2.65",
+  }]);
+  assert.equal(
+    summary.hedgeNet.records.find(({ quoteId }) => quoteId === "q_legacy").reasonCode,
+    "LEGACY_ROUTE_ACCOUNTING_UNAVAILABLE",
+  );
+  assert.equal(
+    summary.hedgeNet.records.find(({ quoteId }) => quoteId === "q_partial").reasonCode,
+    "PARTIAL_HEDGE_UNCLOSED",
+  );
+});
+
 test("PostgresPnlStore rejects malformed dependencies and rows", async () => {
   assert.throws(() => new PostgresPnlStore(null, valuationProvider), /pool\.connect must be a function/);
   const { pool } = fakePool(async () => ({ rows: [pnlRow({ amount_in: "01000" })], rowCount: 1 }));

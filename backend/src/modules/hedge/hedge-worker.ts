@@ -76,6 +76,11 @@ export class HedgeWorker {
         venue: route.venue,
         symbol: route.symbol,
         clientOrderId,
+        baseAsset: route.baseAsset,
+        quoteAsset: route.quoteAsset,
+        quoteToken: route.quoteToken,
+        baseTokenDecimals: route.tokenDecimals,
+        quoteTokenDecimals: route.quoteTokenDecimals,
       });
       const adapter = this.adapters.get(route.venue)!;
       const existing = await adapter.queryOrder({ symbol: route.symbol, clientOrderId });
@@ -250,6 +255,7 @@ function normalizeJobError(error: unknown): { errorCode: string; retryable: bool
     };
   }
   if (error instanceof Error && (error.message === "HEDGE_ROUTE_NOT_CONFIGURED" ||
+      error.message === "HEDGE_ROUTE_REFERENCE_TOKEN_MISMATCH" ||
       error.message === "HEDGE_AMOUNT_BELOW_STEP_SIZE" || error.message === "HEDGE_SETTLEMENT_NON_CANONICAL")) {
     return { errorCode: error.message, retryable: false };
   }

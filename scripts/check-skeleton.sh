@@ -87,6 +87,10 @@ test -s backend/src/reconciliation-worker-main.ts
 test -s scripts/reconciliation-integration-check.mjs
 test -s backend/src/db/migrations/005-post-trade-reconciliation.sql
 test -s backend/src/db/migrations/006-quote-snapshot-pnl.sql
+test -s backend/src/db/migrations/024-hedge-net-pnl.sql
+test -s backend/src/modules/hedge/hedge-net-pnl.ts
+test -s backend/test/hedge-net-pnl.test.mjs
+test -s scripts/hedge-net-pnl-integration-check.mjs
 test -s backend/src/modules/pnl/quote-snapshot-valuation.provider.ts
 test -s backend/test/quote-snapshot-pnl-valuation.test.mjs
 test -s backend/test/postgres-market-snapshot-store.test.mjs
@@ -112,6 +116,8 @@ grep -q 'rfq_reconciliation_pending_jobs' backend/src/modules/reconciliation/pos
 grep -q 'rfq-reconciliation-worker' infra/prometheus/prometheus.yml
 grep -q 'reconciliation-integration-check: backend-build' Makefile
 grep -q 'scripts/reconciliation-integration-check.mjs' Makefile
+grep -q 'hedge-net-pnl-integration-check: backend-build' Makefile
+grep -q 'scripts/hedge-net-pnl-integration-check.mjs' Makefile
 grep -q 'FOR UPDATE SKIP LOCKED' backend/src/modules/hedge/postgres-hedge-job.store.ts
 grep -q 'adapter.queryOrder' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'adapter.submitMarketOrder' backend/src/modules/hedge/hedge-worker.ts
@@ -731,7 +737,7 @@ grep -Fq 'assertResponseFields(submit.body, ["status", "txHash", "settlementEven
 grep -q 'assertResponseFields(status.body' backend/test/api.test.mjs
 grep -q 'assertResponseFields(settlement.body' backend/test/api.test.mjs
 grep -q 'assertResponseFields(hedge.body' backend/test/api.test.mjs
-grep -Fq 'assertResponseFields(pnl.body, ["status", "totalTrades", "totals", "trades"])' backend/test/api.test.mjs
+grep -Fq 'assertResponseFields(pnl.body, ["status", "totalTrades", "totals", "trades", "hedgeNet"])' backend/test/api.test.mjs
 grep -q 'assertResponseFields(pnl.body.trades\[0\]' backend/test/api.test.mjs
 grep -q 'successful response bodies must be closed field sets matching OpenAPI' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'RFQ API returns closed structured error responses' backend/test/api-validation-gateway.test.mjs
@@ -2018,7 +2024,8 @@ grep -q 'rejects malformed root payloads, missing `quote` objects, and inherited
 grep -q '`quoteId`、`settlementEventId`、`snapshotId` and the derived `pnlId` as `SafeIdentifier`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q '`QuoteSnapshotPnlValuationProvider` loads the immutable persisted snapshot' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q '`fairAmountOut - amountOut` in tokenOut base units' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'Summary totals are grouped by `(chainId, tokenOut)`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'Gross totals group by `(chainId, tokenOut)`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q 'completed net totals group by `(chainId, valuationToken, valuationAsset)`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'minAmountOut' docs/api/openapi.yaml
 grep -q 'PnlTradeRecord", "minAmountOut"' scripts/check-api-schema-consistency.mjs
 grep -q 'PnlTradeRecord", "deadline"' scripts/check-api-schema-consistency.mjs

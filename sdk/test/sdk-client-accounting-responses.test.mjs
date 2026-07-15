@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { RFQClient, RFQClientError, quoteSnapshotPnlModelDescription } from "../dist/index.js";
+import {
+  RFQClient,
+  RFQClientError,
+  hedgeFillNetPnlModelDescription,
+  quoteSnapshotPnlModelDescription,
+} from "../dist/index.js";
 
 const quote = {
   user: "0x0000000000000000000000000000000000000001",
@@ -175,6 +180,23 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
         realizedAt: "2026-06-27T00:00:00.000Z",
       },
     ],
+    hedgeNet: {
+      model: "hedge_fill_net_v1",
+      modelDescription: hedgeFillNetPnlModelDescription,
+      totalTrades: 1,
+      completeTrades: 0,
+      pendingTrades: 0,
+      unavailableTrades: 1,
+      totals: [],
+      records: [{
+        quoteId: "q_test",
+        chainId: quote.chainId,
+        status: "unavailable",
+        model: "hedge_fill_net_v1",
+        modelDescription: hedgeFillNetPnlModelDescription,
+        reasonCode: "HEDGE_EVIDENCE_MISSING",
+      }],
+    },
   };
 
   const cases = [

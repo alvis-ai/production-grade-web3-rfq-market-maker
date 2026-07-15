@@ -1,7 +1,11 @@
 import { convertBaseUnitAmount, normalizeHumanPrice } from "../pricing/price-normalization.js";
 import {
   quoteSnapshotPnlModelDescription,
+  hedgeFillNetPnlModelDescription,
   type Address,
+  type HedgeNetPnlRecord,
+  type HedgeNetPnlSummary,
+  type HedgeNetPnlTotal,
   type IntString,
   type PnlSummaryResponse,
   type PnlTokenTotal,
@@ -235,7 +239,10 @@ export function buildPnlTradeRecord(input: RecordPnlInput, valuation: PnlValuati
   };
 }
 
-export function buildPnlSummary(records: readonly PnlTradeRecord[]): PnlSummaryResponse {
+export function buildPnlSummary(
+  records: readonly PnlTradeRecord[],
+  hedgeNetRecords?: readonly HedgeNetPnlRecord[],
+): PnlSummaryResponse {
   const trades = records
     .map(clonePnlTradeRecord)
     .sort((left, right) => left.realizedAt.localeCompare(right.realizedAt) || left.pnlId.localeCompare(right.pnlId));
@@ -272,7 +279,117 @@ export function buildPnlSummary(records: readonly PnlTradeRecord[]): PnlSummaryR
     totalTrades: trades.length,
     totals,
     trades,
+    hedgeNet: buildHedgeNetPnlSummary(trades, hedgeNetRecords),
   };
+}
+
+export function buildHedgeNetPnlSummary(
+  trades: readonly PnlTradeRecord[],
+  suppliedRecords?: readonly HedgeNetPnlRecord[],
+): HedgeNetPnlSummary {
+  const tradeByQuote = new Map(trades.map((trade) => [trade.quoteId, trade]));
+  const records = suppliedRecords === undefined
+    ? trades.map((trade): HedgeNetPnlRecord => unavailableHedgeRecord(trade, "HEDGE_EVIDENCE_MISSING"))
+    : suppliedRecords.map(cloneHedgeNetPnlRecord);
+  if (records.length !== trades.length) throw new Error("Hedge net PnL records must match PnL trades one-to-one");
+  const seen = new Set<string>();
+  for (const record of records) {
+    const trade = tradeByQuote.get(record.quoteId);
+    if (!trade || trade.chainId !== record.chainId || seen.has(record.quoteId)) {
+      throw new Error("Hedge net PnL record identity is inconsistent");
+    }
+    seen.add(record.quoteId);
+  }
+  records.sort((left, right) => {
+    const leftTrade = tradeByQuote.get(left.quoteId)!;
+    const rightTrade = tradeByQuote.get(right.quoteId)!;
+    return leftTrade.realizedAt.localeCompare(rightTrade.realizedAt) || left.quoteId.localeCompare(right.quoteId);
+  });
+
+  const totalsByAsset = new Map<string, {
+    chainId: number;
+    valuationToken: Address;
+    valuationAsset: string;
+    totalTrades: number;
+    netScaled: bigint;
+  }>();
+  for (const record of records) {
+    if (record.status !== "complete") continue;
+    const valuationToken = record.valuationToken.toLowerCase() as Address;
+    const key = `${record.chainId}:${valuationToken}:${record.valuationAsset}`;
+    const current = totalsByAsset.get(key) ?? {
+      chainId: record.chainId,
+      valuationToken,
+      valuationAsset: record.valuationAsset,
+      totalTrades: 0,
+      netScaled: 0n,
+    };
+    current.totalTrades += 1;
+    current.netScaled += parseSignedDecimalToScale18(record.netPnlQuoteQuantity);
+    totalsByAsset.set(key, current);
+  }
+  const totals: HedgeNetPnlTotal[] = [...totalsByAsset.values()]
+    .sort((left, right) => left.chainId - right.chainId ||
+      left.valuationToken.localeCompare(right.valuationToken) || left.valuationAsset.localeCompare(right.valuationAsset))
+    .map((total) => ({
+      chainId: total.chainId,
+      valuationToken: total.valuationToken,
+      valuationAsset: total.valuationAsset,
+      totalTrades: total.totalTrades,
+      netPnlQuoteQuantity: formatScale18(total.netScaled),
+    }));
+  return {
+    model: "hedge_fill_net_v1",
+    modelDescription: hedgeFillNetPnlModelDescription,
+    totalTrades: records.length,
+    completeTrades: records.filter((record) => record.status === "complete").length,
+    pendingTrades: records.filter((record) => record.status === "pending").length,
+    unavailableTrades: records.filter((record) => record.status === "unavailable").length,
+    totals,
+    records,
+  };
+}
+
+export function unavailableHedgeRecord(
+  trade: PnlTradeRecord,
+  reasonCode: "HEDGE_EVIDENCE_MISSING" | "LEGACY_ROUTE_ACCOUNTING_UNAVAILABLE",
+  hedgeOrderId?: string,
+): HedgeNetPnlRecord {
+  return {
+    quoteId: trade.quoteId,
+    chainId: trade.chainId,
+    status: "unavailable",
+    model: "hedge_fill_net_v1",
+    modelDescription: hedgeFillNetPnlModelDescription,
+    reasonCode,
+    ...(hedgeOrderId === undefined ? {} : { hedgeOrderId }),
+  };
+}
+
+function cloneHedgeNetPnlRecord(record: HedgeNetPnlRecord): HedgeNetPnlRecord {
+  return {
+    ...record,
+    ...(record.status === "unavailable" && record.unvaluedCommissionAssets !== undefined
+      ? { unvaluedCommissionAssets: [...record.unvaluedCommissionAssets] }
+      : {}),
+  };
+}
+
+function parseSignedDecimalToScale18(value: string): bigint {
+  if (value.length > 98) throw new Error("Hedge net PnL quantity must be a canonical signed decimal");
+  const match = value.match(/^(-?)(0|[1-9][0-9]*)(?:\.([0-9]{0,17}[1-9]))?$/);
+  if (!match || value === "-0") throw new Error("Hedge net PnL quantity must be a canonical signed decimal");
+  const fraction = match[3] ?? "";
+  const scaled = BigInt(match[2]) * 10n ** 18n + BigInt((fraction + "0".repeat(18)).slice(0, 18));
+  return match[1] === "-" ? -scaled : scaled;
+}
+
+function formatScale18(value: bigint): string {
+  const sign = value < 0n ? "-" : "";
+  const absolute = value < 0n ? -value : value;
+  const raw = absolute.toString().padStart(19, "0");
+  const fraction = raw.slice(-18).replace(/0+$/, "");
+  return `${sign}${raw.slice(0, -18)}${fraction.length === 0 ? "" : `.${fraction}`}`;
 }
 
 export function matchesPnlInput(record: PnlTradeRecord, input: RecordPnlInput): boolean {

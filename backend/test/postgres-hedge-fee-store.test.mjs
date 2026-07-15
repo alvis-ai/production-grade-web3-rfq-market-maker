@@ -58,14 +58,14 @@ test("PostgresHedgeFeeStore claims due fee work with an independent lease", asyn
 test("PostgresHedgeFeeStore idempotently persists fills and completes reconciliation atomically", async () => {
   const fills = tradeFills();
   const { pool, client } = fakePool(async (sql, params) => {
-    if (sql.includes("SELECT venue, venue_symbol")) {
-      return { rows: [{
+    if (sql.includes("SELECT hedge.venue")) {
+      return { rows: [accountingRow({
         venue: "binance",
         venue_symbol: "ETHUSDT",
         venue_order_id: "100234",
         filled_amount: "1250000000000000000",
         executed_quote_quantity: "3125.500000000000000000",
-      }], rowCount: 1 };
+      })], rowCount: 1 };
     }
     if (sql.includes("INSERT INTO hedge_execution_fills")) {
       return { rows: [{ venue_trade_id: "28457" }, { venue_trade_id: "28458" }], rowCount: params.length / 13 };
@@ -98,21 +98,70 @@ test("PostgresHedgeFeeStore idempotently persists fills and completes reconcilia
     "100234",
     "3125.5",
     "1250000000000000000",
+    "complete",
+    "3130",
+    "0",
+    "0",
+    "2.1255",
+    "2.3745",
+    null,
+    null,
+    "2026-07-14T00:00:02.000Z",
   ]);
   assert.equal(client.queries.at(-1).sql, "COMMIT");
+});
+
+test("PostgresHedgeFeeStore leaves failed partial hedges unavailable until exposure is closed", async () => {
+  const fills = tradeFills();
+  const { pool, client } = fakePool(async (sql, params) => {
+    if (sql.includes("SELECT hedge.venue")) {
+      return { rows: [accountingRow({
+        hedge_status: "failed",
+        amount: "1500000000000000000",
+        venue: "binance",
+        venue_symbol: "ETHUSDT",
+        venue_order_id: "100234",
+        filled_amount: "1250000000000000000",
+        executed_quote_quantity: "3125.500000000000000000",
+      })], rowCount: 1 };
+    }
+    if (sql.includes("INSERT INTO hedge_execution_fills")) {
+      return { rows: [{ venue_trade_id: "28457" }, { venue_trade_id: "28458" }], rowCount: params.length / 13 };
+    }
+    if (sql.includes("SUM(base_quantity)")) {
+      return { rows: [{ fill_count: "2", base_quantity: "1.250000000000000000", quote_quantity: "3125.500000000000000000" }], rowCount: 1 };
+    }
+    if (sql.includes("SET venue_order_id = $3")) return { rows: [], rowCount: 1 };
+    return { rows: [], rowCount: 0 };
+  });
+
+  await new PostgresHedgeFeeStore(pool).completeReconciliation(
+    hedgeOrderId,
+    "worker_1",
+    "1250000000000000000",
+    "100234",
+    "3125.5",
+    fills,
+  );
+
+  const completion = client.queries.find(({ sql }) => sql.includes("fee_reconciliation_status = 'complete'"));
+  assert.equal(completion.params[5], "unavailable");
+  assert.equal(completion.params[10], null);
+  assert.equal(completion.params[11], "PARTIAL_HEDGE_UNCLOSED");
+  assert.equal(completion.params[12], "[]");
 });
 
 test("PostgresHedgeFeeStore rejects incomplete or conflicting fill evidence", async () => {
   const fills = tradeFills();
   const { pool, client } = fakePool(async (sql, params) => {
-    if (sql.includes("SELECT venue, venue_symbol")) {
-      return { rows: [{
+    if (sql.includes("SELECT hedge.venue")) {
+      return { rows: [accountingRow({
         venue: "binance",
         venue_symbol: "ETHUSDT",
         venue_order_id: "100234",
         filled_amount: "1250000000000000000",
         executed_quote_quantity: "3125.5",
-      }], rowCount: 1 };
+      })], rowCount: 1 };
     }
     if (sql.includes("INSERT INTO hedge_execution_fills")) return { rows: [], rowCount: params.length / 13 - 1 };
     return { rows: [], rowCount: 0 };
@@ -143,7 +192,7 @@ test("PostgresHedgeFeeStore releases only the owned pending fee lease", async ()
   assert.deepEqual(client.queries[0].params, [hedgeOrderId, "worker_1", "HEDGE_TRADE_FILLS_INCOMPLETE", 7000]);
 });
 
-function tradeFills() {
+function tradeFills(firstCommissionAsset = "ETH") {
   return [{
     venueTradeId: "28457",
     venueOrderId: "100234",
@@ -151,7 +200,7 @@ function tradeFills() {
     quantity: "0.5",
     quoteQuantity: "1250",
     commissionQuantity: "0.0001",
-    commissionAsset: "BNB",
+    commissionAsset: firstCommissionAsset,
     executedAt: "2026-07-14T00:00:01.000Z",
     isBuyer: true,
     isMaker: false,
@@ -167,6 +216,25 @@ function tradeFills() {
     isBuyer: true,
     isMaker: false,
   }];
+}
+
+function accountingRow(overrides = {}) {
+  return {
+    hedge_status: "filled",
+    side: "buy",
+    amount: "1250000000000000000",
+    route_accounting_version: "venue-assets-v1",
+    venue_base_asset: "ETH",
+    venue_quote_asset: "USDT",
+    venue_quote_token_address: "0x0000000000000000000000000000000000000002",
+    venue_base_decimals: "18",
+    venue_quote_decimals: "6",
+    token_in: "0x0000000000000000000000000000000000000002",
+    token_out: "0x0000000000000000000000000000000000000003",
+    amount_in: "3130000000",
+    amount_out: "1250000000000000000",
+    ...overrides,
+  };
 }
 
 function fakePool(handler) {

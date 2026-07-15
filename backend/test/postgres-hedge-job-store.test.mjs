@@ -6,6 +6,7 @@ const row = {
   id: "h_11111111111111111111111111111111",
   chain_id: "1",
   token_address: "0x0000000000000000000000000000000000000003",
+  reference_token: "0x0000000000000000000000000000000000000002",
   side: "buy",
   amount: "990",
   attempt_count: 2,
@@ -63,7 +64,16 @@ test("PostgresHedgeJobStore persists route and lease-owned terminal or retry tra
     return { rows: [], rowCount: 1 };
   });
   const store = new PostgresHedgeJobStore(pool);
-  const route = { venue: "binance", symbol: "ETHUSDT", clientOrderId: "rfq_11111111111111111111111111111111" };
+  const route = {
+    venue: "binance",
+    symbol: "ETHUSDT",
+    clientOrderId: "rfq_11111111111111111111111111111111",
+    baseAsset: "ETH",
+    quoteAsset: "USDT",
+    quoteToken: row.reference_token,
+    baseTokenDecimals: 18,
+    quoteTokenDecimals: 6,
+  };
 
   await store.prepareRoute(row.id, "worker_1", route);
   await store.authorizeSubmission(row.id, "worker_1");
@@ -271,7 +281,16 @@ test("PostgresHedgeJobStore validates worker, route, delay, and database rows", 
   await assert.rejects(store.claimNext("worker_1", 999), /leaseMs/);
   await assert.rejects(store.claimNext("worker_1", 30000), /canonical positive uint/);
   await assert.rejects(
-    store.prepareRoute(row.id, "worker_1", { venue: "binance", symbol: "bad symbol", clientOrderId: "id" }),
+    store.prepareRoute(row.id, "worker_1", {
+      venue: "binance",
+      symbol: "bad symbol",
+      clientOrderId: "id",
+      baseAsset: "ETH",
+      quoteAsset: "USDT",
+      quoteToken: row.reference_token,
+      baseTokenDecimals: 18,
+      quoteTokenDecimals: 6,
+    }),
     /symbol/,
   );
 });

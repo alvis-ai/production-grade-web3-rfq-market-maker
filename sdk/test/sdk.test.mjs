@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   RFQClient,
+  hedgeFillNetPnlModelDescription,
   quoteSnapshotPnlModelDescription,
 } from "../dist/index.js";
 
@@ -127,6 +128,25 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
         realizedAt: "2026-06-27T00:00:00.000Z",
       },
     ],
+    hedgeNet: {
+      model: "hedge_fill_net_v1",
+      modelDescription: hedgeFillNetPnlModelDescription,
+      totalTrades: 1,
+      completeTrades: 0,
+      pendingTrades: 1,
+      unavailableTrades: 0,
+      totals: [],
+      records: [{
+        quoteId: "q_test",
+        chainId: quote.chainId,
+        status: "pending",
+        model: "hedge_fill_net_v1",
+        modelDescription: hedgeFillNetPnlModelDescription,
+        hedgeOrderId: submitResponse.hedgeOrderId,
+        valuationToken: quote.tokenIn,
+        valuationAsset: "USDT",
+      }],
+    },
   };
   const healthResponse = { status: "ok" };
   const readinessResponse = {

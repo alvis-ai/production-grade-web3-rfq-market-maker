@@ -3,6 +3,8 @@ export type UIntString = string;
 export type IntString = string;
 export const quoteSnapshotPnlModelDescription =
   "Gross settlement PnL in tokenOut base units versus the persisted quote-time mid price, excluding fees, gas, and hedge execution" as const;
+export const hedgeFillNetPnlModelDescription =
+  "Net hedge execution PnL in the route quote asset using exact fills, quote/base commissions, and conservatively marked sub-step residual; third-asset commissions are unavailable" as const;
 
 export interface QuoteRequest {
   chainId: number;
@@ -184,11 +186,53 @@ export interface PnlTokenTotal {
   grossPnlTokenOut: IntString;
 }
 
+export type HedgeNetPnlUnavailableReason =
+  | "HEDGE_EVIDENCE_MISSING"
+  | "LEGACY_ROUTE_ACCOUNTING_UNAVAILABLE"
+  | "HEDGE_NOT_EXECUTED"
+  | "PARTIAL_HEDGE_UNCLOSED"
+  | "UNVALUED_COMMISSION_ASSET";
+
+export interface HedgeNetPnlRecord {
+  quoteId: string;
+  chainId: number;
+  status: "pending" | "complete" | "unavailable";
+  model: "hedge_fill_net_v1";
+  modelDescription: typeof hedgeFillNetPnlModelDescription;
+  hedgeOrderId?: string;
+  valuationToken?: Address;
+  valuationAsset?: string;
+  netPnlQuoteQuantity?: string;
+  reasonCode?: HedgeNetPnlUnavailableReason;
+  unvaluedCommissionAssets?: string[];
+  realizedAt?: string;
+}
+
+export interface HedgeNetPnlTotal {
+  chainId: number;
+  valuationToken: Address;
+  valuationAsset: string;
+  totalTrades: number;
+  netPnlQuoteQuantity: string;
+}
+
+export interface HedgeNetPnlSummary {
+  model: "hedge_fill_net_v1";
+  modelDescription: typeof hedgeFillNetPnlModelDescription;
+  totalTrades: number;
+  completeTrades: number;
+  pendingTrades: number;
+  unavailableTrades: number;
+  totals: HedgeNetPnlTotal[];
+  records: HedgeNetPnlRecord[];
+}
+
 export interface PnlSummary {
   status: "ok";
   totalTrades: number;
   totals: PnlTokenTotal[];
   trades: PnlTradeRecord[];
+  hedgeNet: HedgeNetPnlSummary;
 }
 
 export const rfqErrorCodes = [

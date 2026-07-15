@@ -7,6 +7,11 @@ import {
   decimalQuantitiesEqual,
   sumCexTradeQuantity,
 } from "./hedge-fee-evidence.js";
+import {
+  calculateHedgeNetPnl,
+  hedgeFillNetPnlModelDescription,
+  type HedgeNetPnlCalculation,
+} from "./hedge-net-pnl.js";
 
 export interface HedgeFeeReconciliationJob {
   hedgeOrderId: string;
@@ -142,11 +147,19 @@ export class PostgresHedgeFeeStore implements HedgeFeeStore {
     try {
       await client.query("BEGIN");
       const selected = await client.query(
-        `SELECT venue, venue_symbol, venue_order_id, filled_amount::text AS filled_amount,
-                executed_quote_quantity::text AS executed_quote_quantity
-         FROM hedge_orders
-         WHERE id = $1 AND fee_reconciliation_status = 'pending' AND fee_lease_owner = $2
-         FOR UPDATE`,
+        `SELECT hedge.venue, hedge.venue_symbol, hedge.venue_order_id,
+                hedge.status AS hedge_status, hedge.side, hedge.amount::text AS amount,
+                hedge.filled_amount::text AS filled_amount,
+                hedge.executed_quote_quantity::text AS executed_quote_quantity,
+                hedge.route_accounting_version, hedge.venue_base_asset, hedge.venue_quote_asset,
+                hedge.venue_quote_token_address, hedge.venue_base_decimals, hedge.venue_quote_decimals,
+                quote.token_in, quote.token_out,
+                quote.amount_in::text AS amount_in, quote.amount_out::text AS amount_out
+         FROM hedge_orders AS hedge
+         INNER JOIN quotes AS quote ON quote.id = hedge.quote_id
+         WHERE hedge.id = $1 AND hedge.fee_reconciliation_status = 'pending'
+           AND hedge.fee_lease_owner = $2
+         FOR UPDATE OF hedge`,
         [hedgeOrderId, workerId],
       );
       if (selected.rows.length !== 1) throw new Error(`Postgres hedge fee lease conflict for ${hedgeOrderId}`);
@@ -158,6 +171,7 @@ export class PostgresHedgeFeeStore implements HedgeFeeStore {
             !decimalQuantitiesEqual(row.executed_quote_quantity, executedQuoteQuantity, 18))) {
         throw new Error(`Postgres hedge fee evidence conflict for ${hedgeOrderId}`);
       }
+      const netPnl = calculateNetPnl(row, fills);
 
       for (let offset = 0; offset < fills.length; offset += fillBatchSize) {
         const batch = fills.slice(offset, offset + fillBatchSize);
@@ -196,12 +210,36 @@ export class PostgresHedgeFeeStore implements HedgeFeeStore {
              fee_lease_expires_at = NULL,
              fee_last_error_code = NULL,
              fee_reconciled_at = now(),
+             hedge_net_pnl_status = COALESCE($6, hedge_net_pnl_status),
+             hedge_settlement_reference_quantity = $7,
+             hedge_residual_base_amount = $8,
+             hedge_residual_quote_quantity = $9,
+             hedge_commission_quote_quantity = $10,
+             hedge_net_pnl_quote_quantity = $11,
+             hedge_net_pnl_reason_code = $12,
+             hedge_unvalued_commission_assets = $13::jsonb,
+             hedge_net_pnl_realized_at = $14,
              updated_at = now()
          WHERE id = $1 AND fee_reconciliation_status = 'pending' AND fee_lease_owner = $2
            AND filled_amount = $5
            AND (venue_order_id IS NULL OR venue_order_id = $3)
            AND (executed_quote_quantity IS NULL OR executed_quote_quantity = $4)`,
-        [hedgeOrderId, workerId, venueOrderId, executedQuoteQuantity, expectedFilledAmount],
+        [
+          hedgeOrderId,
+          workerId,
+          venueOrderId,
+          executedQuoteQuantity,
+          expectedFilledAmount,
+          netPnl?.status ?? null,
+          netPnl?.status === "complete" ? netPnl.settlementReferenceQuantity : null,
+          netPnl?.status === "complete" ? netPnl.residualBaseAmount : null,
+          netPnl?.status === "complete" ? netPnl.residualQuoteQuantity : null,
+          netPnl?.status === "complete" ? netPnl.commissionQuoteQuantity : null,
+          netPnl?.status === "complete" ? netPnl.netPnlQuoteQuantity : null,
+          netPnl?.status === "unavailable" ? netPnl.reasonCode : null,
+          netPnl?.status === "unavailable" ? JSON.stringify(netPnl.unvaluedCommissionAssets ?? []) : null,
+          netPnl?.realizedAt ?? null,
+        ],
       );
       if (updated.rowCount !== 1) throw new Error(`Postgres hedge fee lease conflict for ${hedgeOrderId}`);
       await client.query("COMMIT");
@@ -239,6 +277,78 @@ export class PostgresHedgeFeeStore implements HedgeFeeStore {
       client.release();
     }
   }
+}
+
+function calculateNetPnl(
+  row: Record<string, unknown>,
+  fills: readonly CexTradeFill[],
+): HedgeNetPnlCalculation | undefined {
+  if (row.route_accounting_version === null || row.route_accounting_version === undefined) return undefined;
+  if (row.route_accounting_version !== "venue-assets-v1") {
+    throw new Error("Postgres hedge fee route accounting version is invalid");
+  }
+  const side = row.side;
+  if (side !== "buy" && side !== "sell") throw new Error("Postgres hedge fee side is invalid");
+  const referenceToken = parseAddress(side === "sell" ? row.token_out : row.token_in);
+  const routeQuoteToken = parseAddress(row.venue_quote_token_address);
+  if (referenceToken.toLowerCase() !== routeQuoteToken.toLowerCase()) {
+    throw new Error("Postgres hedge fee route reference token is inconsistent");
+  }
+  const baseAsset = parseVenueAsset(row.venue_base_asset, "venue_base_asset");
+  const quoteAsset = parseVenueAsset(row.venue_quote_asset, "venue_quote_asset");
+  const realizedAt = fills.reduce(
+    (latest, fill) => fill.executedAt.localeCompare(latest) > 0 ? fill.executedAt : latest,
+    fills[0]!.executedAt,
+  );
+  if (row.hedge_status === "failed") {
+    return {
+      status: "unavailable",
+      model: "hedge_fill_net_v1",
+      modelDescription: hedgeFillNetPnlModelDescription,
+      valuationToken: routeQuoteToken.toLowerCase() as Address,
+      valuationAsset: quoteAsset,
+      reasonCode: "PARTIAL_HEDGE_UNCLOSED",
+      realizedAt,
+    };
+  }
+  if (row.hedge_status !== "filled") {
+    throw new Error("Postgres hedge fee terminal status is invalid");
+  }
+  return calculateHedgeNetPnl({
+    side,
+    targetAmount: parsePositiveUInt(row.amount, "amount"),
+    filledAmount: parsePositiveUInt(row.filled_amount, "filled_amount"),
+    baseTokenDecimals: parseBoundedDecimals(row.venue_base_decimals, 36, "venue_base_decimals"),
+    settlementReferenceAmount: parsePositiveUInt(side === "sell" ? row.amount_out : row.amount_in, "reference_amount"),
+    quoteTokenDecimals: parseBoundedDecimals(row.venue_quote_decimals, 18, "venue_quote_decimals"),
+    executedQuoteQuantity: parsePositiveDecimalValue(row.executed_quote_quantity, "executed_quote_quantity"),
+    baseAsset,
+    quoteAsset,
+    quoteToken: routeQuoteToken,
+    fills,
+    realizedAt,
+  });
+}
+
+function parseVenueAsset(value: unknown, field: string): string {
+  if (typeof value !== "string" || !/^[A-Z0-9._-]{1,32}$/.test(value)) {
+    throw new Error(`Postgres hedge fee ${field} is invalid`);
+  }
+  return value;
+}
+
+function parseBoundedDecimals(value: unknown, maximum: number, field: string): number {
+  const parsed = typeof value === "number" ? value :
+    typeof value === "string" && /^(0|[1-9][0-9]*)$/.test(value) ? Number(value) : Number.NaN;
+  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > maximum) {
+    throw new Error(`Postgres hedge fee ${field} is invalid`);
+  }
+  return parsed;
+}
+
+function parsePositiveDecimalValue(value: unknown, field: string): string {
+  assertPositiveDecimal(value, 18, field);
+  return value;
 }
 
 function buildFillUpsert(

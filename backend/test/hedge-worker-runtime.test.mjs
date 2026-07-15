@@ -3,6 +3,7 @@ import test from "node:test";
 import { readHedgeWorkerRuntimeConfig } from "../dist/hedge-worker-main.js";
 
 const token = "0x0000000000000000000000000000000000000003";
+const quoteToken = "0x0000000000000000000000000000000000000002";
 const tokenRegistry = {
   tokens: [{
     chainId: 1,
@@ -12,6 +13,14 @@ const tokenRegistry = {
     isWhitelisted: true,
     riskTier: "medium",
     usdReference: false,
+  }, {
+    chainId: 1,
+    tokenAddress: quoteToken,
+    symbol: "USDT",
+    decimals: 6,
+    isWhitelisted: true,
+    riskTier: "low",
+    usdReference: true,
   }],
 };
 const env = {
@@ -22,7 +31,11 @@ const env = {
     token,
     venue: "binance",
     symbol: "ETHUSDT",
+    baseAsset: "ETH",
+    quoteAsset: "USDT",
+    quoteToken,
     tokenDecimals: 18,
+    quoteTokenDecimals: 6,
     stepSizeRaw: "100000000000000",
   }] }),
   RFQ_BINANCE_API_KEY: "api-key",
@@ -48,7 +61,7 @@ test("hedge worker runtime config requires durable storage, routes, and isolated
     () => readHedgeWorkerRuntimeConfig({
       ...env,
       RFQ_TOKEN_REGISTRY_JSON: JSON.stringify({
-        tokens: [{ ...tokenRegistry.tokens[0], decimals: 6 }],
+        tokens: [{ ...tokenRegistry.tokens[0], decimals: 6 }, tokenRegistry.tokens[1]],
       }),
     }),
     /does not match token registry decimals/,

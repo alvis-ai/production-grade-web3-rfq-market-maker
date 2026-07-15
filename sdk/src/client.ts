@@ -2,6 +2,9 @@ import { rfqErrorCodes } from "./types.js";
 import { buildSubmitQuoteArgs } from "./settlement.js";
 import type {
   HedgeIntentStatus,
+  HedgeNetPnlRecord,
+  HedgeNetPnlSummary,
+  HedgeNetPnlTotal,
   HealthResponse,
   PnlSummary,
   PnlTokenTotal,
@@ -105,8 +108,15 @@ const settlementEventStatusFields = [
   "nonce",
   "observedAt",
 ] as const;
-const pnlSummaryFields = ["status", "totalTrades", "totals", "trades"] as const;
+const pnlSummaryFields = ["status", "totalTrades", "totals", "trades", "hedgeNet"] as const;
 const pnlTokenTotalFields = ["chainId", "tokenOut", "totalTrades", "grossPnlTokenOut"] as const;
+const hedgeNetSummaryFields = [
+  "model", "modelDescription", "totalTrades", "completeTrades", "pendingTrades", "unavailableTrades", "totals", "records",
+] as const;
+const hedgeNetTotalFields = [
+  "chainId", "valuationToken", "valuationAsset", "totalTrades", "netPnlQuoteQuantity",
+] as const;
+const hedgeNetRecordCommonFields = ["quoteId", "chainId", "status", "model", "modelDescription"] as const;
 const pnlTradeRecordFields = [
   "pnlId",
   "quoteId",
@@ -936,6 +946,155 @@ function assertPnlSummary(payload: unknown, status: number): asserts payload is 
       throw malformedFieldError(status, label, "totals");
     }
   }
+  assertHedgeNetPnlSummary(payload.hedgeNet, payload.trades, status);
+}
+
+function assertHedgeNetPnlSummary(
+  payload: unknown,
+  trades: PnlTradeRecord[],
+  status: number,
+): asserts payload is HedgeNetPnlSummary {
+  const label = "RFQ hedge net PnL summary response";
+  if (!isRecord(payload)) throw malformedFieldError(status, label, "model");
+  assertOwnResponseFields(payload, hedgeNetSummaryFields, [], status, label);
+  assertHedgeNetModel(payload, status, label);
+  for (const field of ["totalTrades", "completeTrades", "pendingTrades", "unavailableTrades"] as const) {
+    if (!isNonNegativeSafeInteger(payload[field])) throw malformedFieldError(status, label, field);
+  }
+  if (!Array.isArray(payload.records) || !Array.isArray(payload.totals) || payload.totalTrades !== trades.length ||
+      payload.records.length !== trades.length) throw malformedFieldError(status, label, "totalTrades");
+  const tradeByQuote = new Map(trades.map((trade) => [trade.quoteId, trade]));
+  const seen = new Set<string>();
+  const counts = { complete: 0, pending: 0, unavailable: 0 };
+  const expectedTotals = new Map<string, { totalTrades: number; netScaled: bigint }>();
+  for (const record of payload.records) {
+    assertHedgeNetPnlRecord(record, status);
+    const trade = tradeByQuote.get(record.quoteId);
+    if (!trade || trade.chainId !== record.chainId || seen.has(record.quoteId)) {
+      throw malformedFieldError(status, label, "records");
+    }
+    seen.add(record.quoteId);
+    counts[record.status] += 1;
+    if (record.status === "complete") {
+      const key = hedgeNetKey(record.chainId, record.valuationToken!, record.valuationAsset!);
+      const current = expectedTotals.get(key) ?? { totalTrades: 0, netScaled: 0n };
+      current.totalTrades += 1;
+      current.netScaled += signedDecimalToScale18(record.netPnlQuoteQuantity!);
+      expectedTotals.set(key, current);
+    }
+  }
+  if (payload.completeTrades !== counts.complete || payload.pendingTrades !== counts.pending ||
+      payload.unavailableTrades !== counts.unavailable ||
+      counts.complete + counts.pending + counts.unavailable !== payload.totalTrades) {
+    throw malformedFieldError(status, label, "completeTrades");
+  }
+  if (payload.totals.length !== expectedTotals.size) throw malformedFieldError(status, label, "totals");
+  const seenTotals = new Set<string>();
+  for (const total of payload.totals) {
+    assertHedgeNetPnlTotal(total, status);
+    const key = hedgeNetKey(total.chainId, total.valuationToken, total.valuationAsset);
+    const expected = expectedTotals.get(key);
+    if (!expected || seenTotals.has(key) || expected.totalTrades !== total.totalTrades ||
+        expected.netScaled !== signedDecimalToScale18(total.netPnlQuoteQuantity)) {
+      throw malformedFieldError(status, label, "totals");
+    }
+    seenTotals.add(key);
+  }
+}
+
+function assertHedgeNetPnlRecord(payload: unknown, status: number): asserts payload is HedgeNetPnlRecord {
+  const label = "RFQ hedge net PnL record";
+  if (!isRecord(payload)) throw malformedFieldError(status, label, "quoteId");
+  const required = payload.status === "pending"
+    ? [...hedgeNetRecordCommonFields, "hedgeOrderId", "valuationToken", "valuationAsset"]
+    : payload.status === "complete"
+      ? [...hedgeNetRecordCommonFields, "hedgeOrderId", "valuationToken", "valuationAsset", "netPnlQuoteQuantity", "realizedAt"]
+      : [...hedgeNetRecordCommonFields, "reasonCode"];
+  const optional = payload.status === "unavailable"
+    ? ["hedgeOrderId", "valuationToken", "valuationAsset", "unvaluedCommissionAssets", "realizedAt"]
+    : [];
+  assertOwnResponseFields(payload, required, optional, status, label);
+  if (!isSafeIdentifier(payload.quoteId) || !isPositiveSafeInteger(payload.chainId)) {
+    throw malformedFieldError(status, label, "quoteId");
+  }
+  assertHedgeNetModel(payload, status, label);
+  if (payload.status !== "pending" && payload.status !== "complete" && payload.status !== "unavailable") {
+    throw malformedFieldError(status, label, "status");
+  }
+  if (payload.hedgeOrderId !== undefined && !isSafeIdentifier(payload.hedgeOrderId)) {
+    throw malformedFieldError(status, label, "hedgeOrderId");
+  }
+  if (payload.valuationToken !== undefined && !isAddressHex(payload.valuationToken)) {
+    throw malformedFieldError(status, label, "valuationToken");
+  }
+  if (payload.valuationAsset !== undefined && !isVenueAsset(payload.valuationAsset)) {
+    throw malformedFieldError(status, label, "valuationAsset");
+  }
+  if (payload.status === "pending" || payload.status === "complete") {
+    if (!isSafeIdentifier(payload.hedgeOrderId) || !isAddressHex(payload.valuationToken) ||
+        !isVenueAsset(payload.valuationAsset)) throw malformedFieldError(status, label, "hedgeOrderId");
+  }
+  if (payload.status === "complete") {
+    if (!isCanonicalSignedDecimal(payload.netPnlQuoteQuantity) || !isIsoUtcTimestampString(payload.realizedAt)) {
+      throw malformedFieldError(status, label, "netPnlQuoteQuantity");
+    }
+  }
+  if (payload.status === "unavailable") {
+    const reasons = new Set([
+      "HEDGE_EVIDENCE_MISSING", "LEGACY_ROUTE_ACCOUNTING_UNAVAILABLE", "HEDGE_NOT_EXECUTED",
+      "PARTIAL_HEDGE_UNCLOSED", "UNVALUED_COMMISSION_ASSET",
+    ]);
+    if (!reasons.has(String(payload.reasonCode))) throw malformedFieldError(status, label, "reasonCode");
+    const assets = payload.unvaluedCommissionAssets;
+    if (assets !== undefined && (!Array.isArray(assets) || assets.length === 0 || assets.length > 32 ||
+        assets.some((asset) => !isVenueAsset(asset)) || new Set(assets).size !== assets.length ||
+        assets.some((asset, index) => index > 0 && assets[index - 1]! > asset))) {
+      throw malformedFieldError(status, label, "unvaluedCommissionAssets");
+    }
+    if ((payload.reasonCode === "UNVALUED_COMMISSION_ASSET") !== (assets !== undefined)) {
+      throw malformedFieldError(status, label, "reasonCode");
+    }
+    if (payload.realizedAt !== undefined && !isIsoUtcTimestampString(payload.realizedAt)) {
+      throw malformedFieldError(status, label, "realizedAt");
+    }
+  }
+}
+
+function assertHedgeNetPnlTotal(payload: unknown, status: number): asserts payload is HedgeNetPnlTotal {
+  const label = "RFQ hedge net PnL total";
+  if (!isRecord(payload)) throw malformedFieldError(status, label, "chainId");
+  assertOwnResponseFields(payload, hedgeNetTotalFields, [], status, label);
+  if (!isPositiveSafeInteger(payload.chainId) || !isAddressHex(payload.valuationToken) ||
+      !isVenueAsset(payload.valuationAsset) || !isPositiveSafeInteger(payload.totalTrades) ||
+      !isCanonicalSignedDecimal(payload.netPnlQuoteQuantity)) {
+    throw malformedFieldError(status, label, "netPnlQuoteQuantity");
+  }
+}
+
+function assertHedgeNetModel(payload: Record<string, unknown>, status: number, label: string): void {
+  if (payload.model !== "hedge_fill_net_v1" || payload.modelDescription !==
+      "Net hedge execution PnL in the route quote asset using exact fills, quote/base commissions, and conservatively marked sub-step residual; third-asset commissions are unavailable") {
+    throw malformedFieldError(status, label, "model");
+  }
+}
+
+function hedgeNetKey(chainId: number, token: string, asset: string): string {
+  return `${chainId}:${token.toLowerCase()}:${asset}`;
+}
+
+function isVenueAsset(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Z0-9._-]{1,32}$/.test(value);
+}
+
+function isCanonicalSignedDecimal(value: unknown): value is string {
+  return typeof value === "string" && value.length <= 98 &&
+    /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]{0,17}[1-9])?$/.test(value) && value !== "-0";
+}
+
+function signedDecimalToScale18(value: string): bigint {
+  const [integer, fraction = ""] = value.replace("-", "").split(".");
+  const scaled = BigInt(integer) * 10n ** 18n + BigInt((fraction + "0".repeat(18)).slice(0, 18));
+  return value.startsWith("-") ? -scaled : scaled;
 }
 
 function assertPnlTokenTotal(payload: unknown, status: number): asserts payload is PnlTokenTotal {
