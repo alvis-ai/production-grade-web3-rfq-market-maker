@@ -571,6 +571,7 @@ CREATE TABLE hedge_orders (
   execution_policy_version TEXT,
   execution_max_order_age_ms BIGINT,
   cancel_requested_at TIMESTAMPTZ,
+  risk_failure_at TIMESTAMPTZ,
   hedge_net_pnl_model TEXT,
   hedge_net_pnl_model_description TEXT,
   hedge_net_pnl_status TEXT,
@@ -825,6 +826,10 @@ CREATE TABLE hedge_orders (
       AND (status <> 'filled' OR (external_order_id IS NOT NULL AND filled_amount IS NOT NULL))
     )
   ),
+  CONSTRAINT chk_hedge_orders_risk_failure_time CHECK (
+    (status = 'failed' AND risk_failure_at IS NOT NULL)
+    OR (status <> 'failed' AND risk_failure_at IS NULL)
+  ),
   CONSTRAINT chk_hedge_orders_token_hex CHECK (token_address ~ '^0x[0-9a-fA-F]{40}$'),
   CONSTRAINT chk_hedge_orders_amount_positive CHECK (amount > 0)
 );
@@ -848,6 +853,9 @@ CREATE INDEX idx_hedge_orders_execution_policy
 CREATE INDEX idx_hedge_orders_cancel_requested
   ON hedge_orders (cancel_requested_at, next_attempt_at, id)
   WHERE status = 'queued' AND cancel_requested_at IS NOT NULL;
+CREATE INDEX idx_hedge_orders_recent_failed_risk
+  ON hedge_orders (chain_id, lower(token_address), risk_failure_at DESC)
+  WHERE status = 'failed';
 
 CREATE TABLE hedge_execution_fills (
   hedge_order_id TEXT NOT NULL REFERENCES hedge_orders(id) ON DELETE CASCADE,
@@ -1011,6 +1019,32 @@ CREATE TRIGGER trg_hedge_orders_set_updated_at
 BEFORE UPDATE ON hedge_orders
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE FUNCTION set_hedge_risk_failure_at()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW.status <> 'failed' THEN
+    NEW.risk_failure_at = NULL;
+  ELSE
+    IF TG_OP = 'UPDATE' THEN
+      IF OLD.status = 'failed' THEN
+        NEW.risk_failure_at = OLD.risk_failure_at;
+      ELSE
+        NEW.risk_failure_at = now();
+      END IF;
+    ELSE
+      NEW.risk_failure_at = now();
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql
+SET search_path = pg_catalog, public;
+
+CREATE TRIGGER trg_hedge_orders_set_risk_failure_at
+BEFORE INSERT OR UPDATE OF status, risk_failure_at ON hedge_orders
+FOR EACH ROW
+EXECUTE FUNCTION set_hedge_risk_failure_at();
 
 CREATE TRIGGER trg_quote_idempotency_requests_set_updated_at
 BEFORE UPDATE ON quote_idempotency_requests
@@ -2000,4 +2034,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('025', 'bounded-hedge-limit'),
   ('026', 'hedge-order-expiry'),
   ('027', 'signer-audit'),
-  ('028', 'signer-risk-context');
+  ('028', 'signer-risk-context'),
+  ('029', 'bounded-hedge-failure-risk');

@@ -4,7 +4,7 @@ export type HedgeFailureReasonCode = "HEDGE_INTENT_FAILED";
 
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
-const hedgeServiceConfigFields = ["failurePenaltyBps", "maxFailurePenaltyBps"] as const;
+const hedgeServiceConfigFields = ["failurePenaltyBps", "maxFailurePenaltyBps", "failureLookbackMs"] as const;
 const hedgeIntentFields = ["settlementEventId", "quoteId", "chainId", "token", "side", "amount", "reason"] as const;
 const hedgeRiskInputFields = ["chainId", "token"] as const;
 const markHedgeIntentFilledFields = ["hedgeOrderId", "externalOrderId"] as const;
@@ -60,24 +60,36 @@ export interface HedgeIntentService {
 export interface HedgeServiceConfig {
   failurePenaltyBps: number;
   maxFailurePenaltyBps: number;
+  failureLookbackMs: number;
+}
+
+export interface HedgeServiceDependencies {
+  now?: () => number;
 }
 
 export const defaultHedgeServiceConfig: HedgeServiceConfig = {
   failurePenaltyBps: 25,
   maxFailurePenaltyBps: 150,
+  failureLookbackMs: 300_000,
 };
 
 export class HedgeService implements HedgeIntentService {
   private readonly config: HedgeServiceConfig;
+  private readonly now: () => number;
   private readonly intents = new Map<string, HedgeIntentStatusResponse>();
   private readonly hedgeOrderIdsBySettlementEvent = new Map<string, string>();
-  private readonly failurePressure = new Map<string, number>();
+  private readonly failureEvents = new Map<string, Map<string, number>>();
   private sequence = 0;
 
-  constructor(config: HedgeServiceConfig = defaultHedgeServiceConfig) {
+  constructor(
+    config: HedgeServiceConfig = defaultHedgeServiceConfig,
+    dependencies: HedgeServiceDependencies = {},
+  ) {
     assertHedgeServiceConfig(config);
+    assertHedgeServiceDependencies(dependencies);
 
     this.config = cloneHedgeServiceConfig(config);
+    this.now = dependencies.now ?? Date.now;
   }
 
   checkHealth(): void {
@@ -147,6 +159,7 @@ export class HedgeService implements HedgeIntentService {
 
   removeHedgeIntentBySettlementEvent(settlementEventId: string): RemoveHedgeIntentResult {
     assertSafeIdentifier(settlementEventId, "settlementEventId");
+    this.clearFailureEvent(settlementEventId);
     const hedgeOrderId = this.hedgeOrderIdsBySettlementEvent.get(settlementEventId);
     if (!hedgeOrderId) {
       return {
@@ -227,6 +240,7 @@ export class HedgeService implements HedgeIntentService {
     intent.status = "failed";
     delete intent.externalOrderId;
     intent.updatedAt = new Date().toISOString();
+    this.recordFailureEvent(intent);
 
     return {
       record: cloneHedgeIntentStatus(intent),
@@ -234,20 +248,54 @@ export class HedgeService implements HedgeIntentService {
     };
   }
 
-  recordHedgeFailure(intent: HedgeIntent, _reasonCode: HedgeFailureReasonCode): void {
+  recordHedgeFailure(intent: HedgeIntent, reasonCode: HedgeFailureReasonCode): void {
     assertHedgeIntent(intent);
-    const key = this.key(intent.chainId, intent.token);
-    const current = this.failurePressure.get(key) ?? 0;
-    this.failurePressure.set(key, Math.min(current + this.config.failurePenaltyBps, this.config.maxFailurePenaltyBps));
+    assertHedgeFailureReasonCode(reasonCode);
+    this.recordFailureEvent(intent);
   }
 
   quoteRiskPenaltyBps(input: HedgeRiskInput): number {
     assertHedgeRiskInput(input);
-    return this.failurePressure.get(this.key(input.chainId, input.token)) ?? 0;
+    const failures = this.recentFailureEvents(this.key(input.chainId, input.token)).size;
+    return Math.min(failures * this.config.failurePenaltyBps, this.config.maxFailurePenaltyBps);
   }
 
   private key(chainId: number, token: Address): string {
     return `${chainId}:${token.toLowerCase()}`;
+  }
+
+  private recordFailureEvent(intent: HedgeIntent): void {
+    const key = this.key(intent.chainId, intent.token);
+    const failures = this.recentFailureEvents(key);
+    if (!failures.has(intent.settlementEventId)) {
+      failures.set(intent.settlementEventId, this.readNowMs());
+    }
+    this.failureEvents.set(key, failures);
+  }
+
+  private recentFailureEvents(key: string): Map<string, number> {
+    const failures = this.failureEvents.get(key) ?? new Map<string, number>();
+    const cutoffMs = this.readNowMs() - this.config.failureLookbackMs;
+    for (const [settlementEventId, failedAtMs] of failures) {
+      if (failedAtMs < cutoffMs) failures.delete(settlementEventId);
+    }
+    if (failures.size === 0) this.failureEvents.delete(key);
+    return failures;
+  }
+
+  private readNowMs(): number {
+    const nowMs = this.now();
+    if (!Number.isSafeInteger(nowMs) || nowMs < 0) {
+      throw new Error("Hedge clock must return a non-negative safe integer timestamp");
+    }
+    return nowMs;
+  }
+
+  private clearFailureEvent(settlementEventId: string): void {
+    for (const [key, failures] of this.failureEvents) {
+      failures.delete(settlementEventId);
+      if (failures.size === 0) this.failureEvents.delete(key);
+    }
   }
 }
 
@@ -269,8 +317,25 @@ export function assertHedgeServiceConfig(config: HedgeServiceConfig): void {
   assertOwnFields(config, hedgeServiceConfigFields, "config");
   assertPositiveBps(config.failurePenaltyBps, "failurePenaltyBps");
   assertPositiveBps(config.maxFailurePenaltyBps, "maxFailurePenaltyBps");
+  assertPositiveSafeInteger(config.failureLookbackMs, "failureLookbackMs", 86_400_000);
   if (config.failurePenaltyBps > config.maxFailurePenaltyBps) {
     throw new Error("Hedge failurePenaltyBps must be less than or equal to maxFailurePenaltyBps");
+  }
+}
+
+function assertHedgeServiceDependencies(dependencies: HedgeServiceDependencies): void {
+  assertObject(dependencies, "dependencies");
+  if ("now" in dependencies && !Object.prototype.hasOwnProperty.call(dependencies, "now")) {
+    throw new Error("Hedge dependencies.now must be an own field when provided");
+  }
+  if (dependencies.now !== undefined && typeof dependencies.now !== "function") {
+    throw new Error("Hedge dependencies.now must be a function when provided");
+  }
+}
+
+function assertHedgeFailureReasonCode(reasonCode: unknown): asserts reasonCode is HedgeFailureReasonCode {
+  if (reasonCode !== "HEDGE_INTENT_FAILED") {
+    throw new Error("Hedge failure reason must be HEDGE_INTENT_FAILED");
   }
 }
 
@@ -286,13 +351,19 @@ export function matchesHedgeIntent(record: HedgeIntentStatusResponse, intent: He
   );
 }
 
-function assertPositiveBps(value: number, field: keyof HedgeServiceConfig): void {
+function assertPositiveBps(value: number, field: "failurePenaltyBps" | "maxFailurePenaltyBps"): void {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`Hedge ${field} must be a positive safe integer`);
   }
 
   if (value > 10_000) {
     throw new Error(`Hedge ${field} must be less than or equal to 10000 bps`);
+  }
+}
+
+function assertPositiveSafeInteger(value: number, field: "failureLookbackMs", max: number): void {
+  if (!Number.isSafeInteger(value) || value <= 0 || value > max) {
+    throw new Error(`Hedge ${field} must be a positive safe integer no greater than ${max}`);
   }
 }
 
@@ -338,7 +409,10 @@ function assertExternalOrderId(value: unknown): void {
   }
 }
 
-function assertObject(value: unknown, field: "config" | "intent" | "risk input" | "filled input"): void {
+function assertObject(
+  value: unknown,
+  field: "config" | "dependencies" | "intent" | "risk input" | "filled input",
+): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Hedge ${field} must be an object`);
   }

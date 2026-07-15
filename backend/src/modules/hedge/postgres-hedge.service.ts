@@ -215,9 +215,14 @@ export class PostgresHedgeService implements HedgeIntentService {
     try {
       const result = await client.query(
         `SELECT COUNT(*)::text AS failures
-         FROM hedge_orders
-         WHERE chain_id = $1 AND token_address = $2 AND status = 'failed'`,
-        [input.chainId, input.token.toLowerCase()],
+         FROM hedge_orders AS hedge
+         INNER JOIN settlement_events AS settlement ON settlement.id = hedge.settlement_event_id
+         WHERE hedge.chain_id = $1
+           AND lower(hedge.token_address) = $2
+           AND hedge.status = 'failed'
+           AND hedge.risk_failure_at >= now() - ($3::bigint * interval '1 millisecond')
+           AND settlement.canonical = TRUE`,
+        [input.chainId, input.token.toLowerCase(), this.config.failureLookbackMs],
       );
       const failures = parseNonNegativeSafeInteger(result.rows[0]?.failures, "failures");
       return Math.min(failures * this.config.failurePenaltyBps, this.config.maxFailurePenaltyBps);

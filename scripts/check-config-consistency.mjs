@@ -35,6 +35,9 @@ const localExpected = {
   RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS: "86400000",
   RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS: "60000",
   RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE: "5",
+  RFQ_HEDGE_FAILURE_PENALTY_BPS: "25",
+  RFQ_HEDGE_MAX_FAILURE_PENALTY_BPS: "150",
+  RFQ_HEDGE_FAILURE_LOOKBACK_MS: "300000",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
   VITE_RFQ_API_BASE_URL: "http://localhost:3000",
@@ -62,6 +65,9 @@ const composeExpected = {
   RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS: "86400000",
   RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS: "60000",
   RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE: "5",
+  RFQ_HEDGE_FAILURE_PENALTY_BPS: "${RFQ_HEDGE_FAILURE_PENALTY_BPS:-25}",
+  RFQ_HEDGE_MAX_FAILURE_PENALTY_BPS: "${RFQ_HEDGE_MAX_FAILURE_PENALTY_BPS:-150}",
+  RFQ_HEDGE_FAILURE_LOOKBACK_MS: "${RFQ_HEDGE_FAILURE_LOOKBACK_MS:-300000}",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
   RFQ_HEDGE_ROUTES_JSON: hedgeRoutesJson,
@@ -97,6 +103,9 @@ const productionExpected = {
   RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS: "86400000",
   RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS: "60000",
   RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE: "5",
+  RFQ_HEDGE_FAILURE_PENALTY_BPS: "25",
+  RFQ_HEDGE_MAX_FAILURE_PENALTY_BPS: "150",
+  RFQ_HEDGE_FAILURE_LOOKBACK_MS: "300000",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
   RFQ_HEDGE_ROUTES_JSON: hedgeRoutesJson,
@@ -178,6 +187,13 @@ assert.ok(
     backendSource.includes('name: "RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE"') &&
     backendSource.includes("readDynamicToxicFlowRiskConfig"),
   "backend must validate dynamic toxic-flow freshness and sample configuration",
+);
+assert.ok(
+  backendSource.includes('name: "RFQ_HEDGE_FAILURE_PENALTY_BPS"') &&
+    backendSource.includes('name: "RFQ_HEDGE_MAX_FAILURE_PENALTY_BPS"') &&
+    backendSource.includes('name: "RFQ_HEDGE_FAILURE_LOOKBACK_MS"') &&
+    backendSource.includes("readGatewayHedgeServiceConfig"),
+  "backend must validate bounded hedge failure feedback configuration",
 );
 assert.ok(
   backendSource.includes('assertIntegerOption(options.bodyLimitBytes, "bodyLimitBytes", 1024, 1_048_576)') &&

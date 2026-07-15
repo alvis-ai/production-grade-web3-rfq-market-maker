@@ -34,6 +34,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "026", name: "hedge-order-expiry", applied_at: "2026-07-15T00:03:00.000Z" },
         { version: "027", name: "signer-audit", applied_at: "2026-07-15T00:04:00.000Z" },
         { version: "028", name: "signer-risk-context", applied_at: "2026-07-15T00:05:00.000Z" },
+        { version: "029", name: "bounded-hedge-failure-risk", applied_at: "2026-07-15T00:06:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -914,6 +915,43 @@ test("database migration runner binds signer audit to risk authorization context
   assert.equal(client.queries.some(({ sql }) => sql.includes("idx_signer_audit_risk_decision")), true);
   assert.equal(client.queries.some(({ sql, params }) =>
     sql.includes("INSERT INTO _migrations") && params[0] === "028"), true);
+});
+
+test("database migration runner adds bounded hedge failure risk evidence", async () => {
+  const appliedNames = [
+    "base-schema", "settlement-canonical", "hedge-worker-queue", "analytics-outbox",
+    "post-trade-reconciliation", "quote-snapshot-pnl", "settlement-indexer", "submit-reservations",
+    "risk-notional-reasons", "risk-market-regime-reasons", "open-quote-exposure", "pricing-attribution",
+    "market-spread-attribution", "hedge-execution-evidence", "hedge-fee-reconciliation",
+    "treasury-liquidity-reservations", "quote-principal-ownership", "quote-control", "pair-quote-control",
+    "toxic-flow-scores", "toxic-flow-markouts", "portfolio-var-reservations", "quote-idempotency",
+    "hedge-net-pnl", "bounded-hedge-limit", "hedge-order-expiry", "signer-audit", "signer-risk-context",
+  ];
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: appliedNames.map((name, index) => ({
+        version: String(index + 1).padStart(3, "0"),
+        name,
+        applied_at: "2026-07-15T00:00:00.000Z",
+      })) };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "029");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("ADD COLUMN risk_failure_at")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("set_hedge_risk_failure_at")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("trg_hedge_orders_set_risk_failure_at")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("chk_hedge_orders_risk_failure_time")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("idx_hedge_orders_recent_failed_risk")), true);
+  assert.equal(client.queries.some(({ sql, params }) =>
+    sql.includes("INSERT INTO _migrations") && params[0] === "029"), true);
 });
 
 function fakePool(handler) {

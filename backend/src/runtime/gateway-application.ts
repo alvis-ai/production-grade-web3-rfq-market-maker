@@ -61,6 +61,7 @@ import {
   resolvePricingRuntime,
 } from "./market-runtime.js";
 import { buildGatewayMarketDataRuntime } from "./gateway-market-data.js";
+import { readGatewayHedgeServiceConfig } from "./gateway-hedge-risk.js";
 import { DynamicToxicFlowRiskEngine } from "../modules/risk/dynamic-toxic-flow-risk.engine.js";
 import { structuredLoggerConfig } from "../shared/logger/structured-logger.js";
 
@@ -106,8 +107,13 @@ export function buildServer(options: BuildServerOptions = {}) {
   const ownsPostgresPool = postgresPool !== undefined && options.databasePool === undefined;
   const quoteControlStore = resolveQuoteControlStore(options.quoteControlStore, postgresPool);
   const toxicFlowScoreStore = resolveToxicFlowScoreStore(options.toxicFlowScoreStore, postgresPool);
+  const hedgeServiceConfig = options.hedgeService === undefined
+    ? readGatewayHedgeServiceConfig()
+    : undefined;
   const hedgeService = options.hedgeService ?? (
-    postgresPool ? new PostgresHedgeService(postgresPool) : new HedgeService()
+    postgresPool
+      ? new PostgresHedgeService(postgresPool, hedgeServiceConfig!)
+      : new HedgeService(hedgeServiceConfig!)
   );
   const marketSnapshotStore = options.marketSnapshotStore ?? (
     postgresPool ? new PostgresMarketSnapshotStore(postgresPool) : new InMemoryMarketSnapshotRepository()

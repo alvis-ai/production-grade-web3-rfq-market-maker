@@ -8,6 +8,7 @@ export const backendGatewaySourcePaths = [
   "backend/src/api/toxic-flow-score-routes.ts",
   "backend/src/runtime/environment.ts",
   "backend/src/runtime/gateway-application.ts",
+  "backend/src/runtime/gateway-hedge-risk.ts",
   "backend/src/runtime/gateway-market-data.ts",
   "backend/src/runtime/gateway-runtime.ts",
   "backend/src/runtime/market-runtime.ts",

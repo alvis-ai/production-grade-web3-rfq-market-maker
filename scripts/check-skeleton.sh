@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
+gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-hedge-risk.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
 quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts"
 sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts"
 
@@ -21,6 +21,7 @@ test -s backend/src/api/trading-routes.ts
 test -s backend/src/api/quote-control-routes.ts
 test -s backend/src/runtime/environment.ts
 test -s backend/src/runtime/gateway-application.ts
+test -s backend/src/runtime/gateway-hedge-risk.ts
 test -s backend/src/runtime/gateway-market-data.ts
 test -s backend/src/runtime/gateway-runtime.ts
 test -s backend/src/runtime/market-runtime.ts
@@ -95,6 +96,7 @@ test -s backend/src/db/migrations/025-bounded-hedge-limit.sql
 test -s backend/src/db/migrations/026-hedge-order-expiry.sql
 test -s backend/src/db/migrations/027-signer-audit.sql
 test -s backend/src/db/migrations/028-signer-risk-context.sql
+test -s backend/src/db/migrations/029-bounded-hedge-failure-risk.sql
 test -s backend/src/modules/signer/signer-audit.store.ts
 test -s backend/test/signer-audit-store.test.mjs
 test -s backend/src/modules/hedge/hedge-net-pnl.ts
@@ -170,6 +172,7 @@ test -s backend/test/hedge.test.mjs
 test -s backend/test/hedge-config-validation.test.mjs
 test -s backend/test/hedge-input-shape-validation.test.mjs
 test -s backend/test/hedge-validation.test.mjs
+test -s backend/test/gateway-hedge-risk.test.mjs
 test -s backend/test/inventory.test.mjs
 test -s backend/test/inventory-config-validation.test.mjs
 test -s backend/test/inventory-replay-validation.test.mjs
@@ -1983,7 +1986,7 @@ grep -q 'hedge settlement event id' scripts/smoke-api.mjs
 grep -q 'quoteRiskPenaltyBps' backend/src/modules/hedge/hedge.service.ts
 grep -q 'failurePenaltyBps' backend/src/modules/hedge/hedge.service.ts
 grep -q 'assertObject(config, "config")' backend/src/modules/hedge/hedge.service.ts
-grep -q 'hedgeServiceConfigFields = \["failurePenaltyBps", "maxFailurePenaltyBps"\]' backend/src/modules/hedge/hedge.service.ts
+grep -q 'hedgeServiceConfigFields = \["failurePenaltyBps", "maxFailurePenaltyBps", "failureLookbackMs"\]' backend/src/modules/hedge/hedge.service.ts
 grep -q 'hedgeIntentFields = \["settlementEventId", "quoteId", "chainId", "token", "side", "amount", "reason"\]' backend/src/modules/hedge/hedge.service.ts
 grep -q 'hedgeRiskInputFields = \["chainId", "token"\]' backend/src/modules/hedge/hedge.service.ts
 grep -q 'assertOwnFields(config, hedgeServiceConfigFields, "config")' backend/src/modules/hedge/hedge.service.ts
@@ -1991,6 +1994,7 @@ grep -q 'assertOwnFields(intent, hedgeIntentFields, "intent")' backend/src/modul
 grep -q 'assertOwnFields(input, hedgeRiskInputFields, "risk input")' backend/src/modules/hedge/hedge.service.ts
 grep -q 'Hedge ${path}.${field} must be an own field' backend/src/modules/hedge/hedge.service.ts
 grep -q 'assertPositiveBps(config.failurePenaltyBps, "failurePenaltyBps")' backend/src/modules/hedge/hedge.service.ts
+grep -q 'assertPositiveSafeInteger(config.failureLookbackMs, "failureLookbackMs", 86_400_000)' backend/src/modules/hedge/hedge.service.ts
 grep -q 'assertHedgeIntent(intent)' backend/src/modules/hedge/hedge.service.ts
 grep -q 'assertHedgeRiskInput(input)' backend/src/modules/hedge/hedge.service.ts
 grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/hedge/hedge.service.ts
@@ -2007,6 +2011,13 @@ grep -Fq '!/^[1-9][0-9]*$/.test(value)' backend/src/modules/hedge/hedge.service.
 grep -q 'failurePenaltyBps must be less than or equal to maxFailurePenaltyBps' backend/src/modules/hedge/hedge.service.ts
 grep -q 'HedgeService rejects unsafe failure penalty configuration at construction' backend/test/hedge-config-validation.test.mjs
 grep -q 'HedgeService snapshots failure penalty configuration at construction' backend/test/hedge.test.mjs
+grep -q 'HedgeService deduplicates failures and expires rolling pressure' backend/test/hedge.test.mjs
+grep -q 'gateway hedge risk config uses bounded defaults and explicit overrides' backend/test/gateway-hedge-risk.test.mjs
+grep -q 'settlement.canonical = TRUE' backend/src/modules/hedge/postgres-hedge.service.ts
+grep -q 'hedge.risk_failure_at >= now()' backend/src/modules/hedge/postgres-hedge.service.ts
+grep -q 'idx_hedge_orders_recent_failed_risk' backend/src/db/migrations/029-bounded-hedge-failure-risk.sql
+grep -q 'trg_hedge_orders_set_risk_failure_at' backend/src/db/migrations/029-bounded-hedge-failure-risk.sql
+grep -q "('029', 'bounded-hedge-failure-risk')" docs/database/schema.sql
 grep -q 'HedgeService rejects malformed intent and risk payload envelopes before state writes' backend/test/hedge-input-shape-validation.test.mjs
 grep -q 'HedgeService rejects inherited intent and risk fields before state writes' backend/test/hedge-input-shape-validation.test.mjs
 grep -q 'Hedge config.failurePenaltyBps must be an own field' backend/test/hedge-config-validation.test.mjs
@@ -2032,7 +2043,7 @@ grep -q '`token` must be an own runtime string and a 20-byte address' book/Volum
 grep -q 'canonical positive uint string without leading zeros' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'inherited object properties' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'Hedge status lookups validate `hedgeOrderId` and `settlementEventId` as primitive-string `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
-grep -q 'Malformed hedge config, intent and risk feedback root payloads are rejected before field access or state mutation' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
+grep -q 'Malformed hedge config, clock dependency, intent and risk feedback root payloads are rejected before field access or state mutation' book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md
 grep -q 'hedgeRiskPenaltyResult' $quote_service_sources
 grep -q 'interface PnlStore' backend/src/modules/pnl/pnl.service.ts
 grep -q 'class PnlService' backend/src/modules/pnl/pnl.service.ts

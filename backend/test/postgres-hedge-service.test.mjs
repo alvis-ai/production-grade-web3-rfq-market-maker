@@ -78,7 +78,11 @@ test("PostgresHedgeService persists terminal state and durable failure pressure"
     if (sql.includes("COUNT(*)")) return { rows: [{ failures: "3" }], rowCount: 1 };
     return { rows: [], rowCount: 1 };
   });
-  const service = new PostgresHedgeService(pool, { failurePenaltyBps: 25, maxFailurePenaltyBps: 60 });
+  const service = new PostgresHedgeService(pool, {
+    failurePenaltyBps: 25,
+    maxFailurePenaltyBps: 60,
+    failureLookbackMs: 300_000,
+  });
 
   const filled = await service.markHedgeIntentFilled({ hedgeOrderId: hedgeRow().id, externalOrderId: "cex-1" });
   assert.equal(filled.updated, true);
@@ -89,6 +93,9 @@ test("PostgresHedgeService persists terminal state and durable failure pressure"
   await service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
   assert.equal(await service.quoteRiskPenaltyBps({ chainId: 1, token: intent.token }), 60);
   assert.equal(client.queries.some(({ sql }) => sql.includes("ON CONFLICT (settlement_event_id)")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("settlement.canonical = TRUE")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("hedge.risk_failure_at >= now()")), true);
+  assert.equal(client.queries.some(({ params }) => params[2] === 300_000), true);
   assert.equal(client.queries.some(({ sql }) => sql.includes("INSERT INTO inventory_positions")), true);
 });
 

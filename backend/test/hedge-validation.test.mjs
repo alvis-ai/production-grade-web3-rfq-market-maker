@@ -155,6 +155,7 @@ test("HedgeService rejects unsafe risk feedback inputs before recording pressure
   const service = new HedgeService({
     failurePenaltyBps: 40,
     maxFailurePenaltyBps: 100,
+    failureLookbackMs: 300_000,
   });
 
   assert.throws(
@@ -164,6 +165,10 @@ test("HedgeService rejects unsafe risk feedback inputs before recording pressure
   assert.throws(
     () => service.recordHedgeFailure({ ...intent, amount: "0100" }, "HEDGE_INTENT_FAILED"),
     /Hedge amount must be a positive uint string/,
+  );
+  assert.throws(
+    () => service.recordHedgeFailure(intent, "UNKNOWN_FAILURE"),
+    /Hedge failure reason must be HEDGE_INTENT_FAILED/,
   );
   assert.throws(
     () => service.quoteRiskPenaltyBps({ chainId: 1, token: "0x1234" }),

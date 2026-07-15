@@ -16,13 +16,14 @@ test("HedgeService accumulates bounded quote risk penalty after hedge failures",
   const service = new HedgeService({
     failurePenaltyBps: 40,
     maxFailurePenaltyBps: 100,
+    failureLookbackMs: 300_000,
   });
 
   assert.equal(service.quoteRiskPenaltyBps({ chainId: intent.chainId, token: intent.token }), 0);
 
   service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
-  service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
-  service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
+  service.recordHedgeFailure({ ...intent, settlementEventId: "se_1_33333333_0" }, "HEDGE_INTENT_FAILED");
+  service.recordHedgeFailure({ ...intent, settlementEventId: "se_1_44444444_0" }, "HEDGE_INTENT_FAILED");
 
   assert.equal(service.quoteRiskPenaltyBps({ chainId: intent.chainId, token: intent.token }), 100);
   assert.equal(
@@ -38,17 +39,40 @@ test("HedgeService snapshots failure penalty configuration at construction", () 
   const mutableConfig = {
     failurePenaltyBps: 40,
     maxFailurePenaltyBps: 100,
+    failureLookbackMs: 300_000,
   };
   const service = new HedgeService(mutableConfig);
 
   mutableConfig.failurePenaltyBps = 1;
   mutableConfig.maxFailurePenaltyBps = 1;
+  mutableConfig.failureLookbackMs = 1;
 
   service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
-  service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
-  service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
+  service.recordHedgeFailure({ ...intent, settlementEventId: "se_1_33333333_0" }, "HEDGE_INTENT_FAILED");
+  service.recordHedgeFailure({ ...intent, settlementEventId: "se_1_44444444_0" }, "HEDGE_INTENT_FAILED");
 
   assert.equal(service.quoteRiskPenaltyBps({ chainId: intent.chainId, token: intent.token }), 100);
+});
+
+test("HedgeService deduplicates failures and expires rolling pressure", () => {
+  let nowMs = 1_000_000;
+  const service = new HedgeService({
+    failurePenaltyBps: 40,
+    maxFailurePenaltyBps: 100,
+    failureLookbackMs: 5_000,
+  }, { now: () => nowMs });
+
+  service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
+  service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
+  assert.equal(service.quoteRiskPenaltyBps({ chainId: intent.chainId, token: intent.token }), 40);
+
+  const created = service.createHedgeIntent({ ...intent, settlementEventId: "se_1_55555555_0" });
+  service.markHedgeIntentFailed(created.hedgeOrderId);
+  service.markHedgeIntentFailed(created.hedgeOrderId);
+  assert.equal(service.quoteRiskPenaltyBps({ chainId: intent.chainId, token: intent.token }), 80);
+
+  nowMs += 5_001;
+  assert.equal(service.quoteRiskPenaltyBps({ chainId: intent.chainId, token: intent.token }), 0);
 });
 
 test("HedgeService returns the existing hedge intent for settlement retries", () => {
@@ -182,6 +206,8 @@ test("HedgeService records filled and failed hedge outcomes as terminal status",
 test("HedgeService removes hedge intents by settlement event after reorgs", () => {
   const service = new HedgeService();
   const created = service.createHedgeIntent(intent);
+  service.recordHedgeFailure(intent, "HEDGE_INTENT_FAILED");
+  assert.equal(service.quoteRiskPenaltyBps({ chainId: intent.chainId, token: intent.token }), 25);
 
   const removed = service.removeHedgeIntentBySettlementEvent(intent.settlementEventId);
   assert.equal(removed.removed, true);
@@ -194,6 +220,7 @@ test("HedgeService removes hedge intents by settlement event after reorgs", () =
   assert.deepEqual(retry, { removed: false });
   assert.equal(service.getHedgeIntent(created.hedgeOrderId), undefined);
   assert.equal(service.getHedgeIntentBySettlementEvent(intent.settlementEventId), undefined);
+  assert.equal(service.quoteRiskPenaltyBps({ chainId: intent.chainId, token: intent.token }), 0);
 
   const recreated = service.createHedgeIntent(intent);
   assert.notEqual(recreated.hedgeOrderId, created.hedgeOrderId);

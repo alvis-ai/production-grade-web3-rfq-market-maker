@@ -114,6 +114,10 @@ const signerRiskContextMigrationSource = await readFile(
   "backend/src/db/migrations/028-signer-risk-context.sql",
   "utf8",
 );
+const boundedHedgeFailureRiskMigrationSource = await readFile(
+  "backend/src/db/migrations/029-bounded-hedge-failure-risk.sql",
+  "utf8",
+);
 const signerAuditStoreSource = await readFile(
   "backend/src/modules/signer/signer-audit.store.ts",
   "utf8",
@@ -276,6 +280,7 @@ const requiredTables = {
     "execution_policy_version",
     "execution_max_order_age_ms",
     "cancel_requested_at",
+    "risk_failure_at",
     "hedge_net_pnl_model",
     "hedge_net_pnl_model_description",
     "hedge_net_pnl_status",
@@ -545,6 +550,7 @@ const requiredCheckConstraints = {
     ["chk_hedge_orders_filled_amount", "hedge_orders must constrain terminal filled amounts"],
     ["chk_hedge_orders_execution_evidence", "hedge_orders must constrain versioned execution evidence"],
     ["chk_hedge_orders_terminal_state", "hedge_orders must clear terminal leases and require fill evidence"],
+    ["chk_hedge_orders_risk_failure_time", "hedge_orders must bind failed status to a stable failure time"],
   ],
   pnl_records: [
     ["chk_pnl_records_id_safe", "pnl_records must constrain primary ids to safe identifiers"],
@@ -1008,6 +1014,7 @@ for (const indexName of [
   "uq_hedge_orders_settlement_event",
   "idx_hedge_orders_queued_claim",
   "uq_hedge_orders_venue_client_order",
+  "idx_hedge_orders_recent_failed_risk",
   "idx_pnl_records_realized_at",
   "idx_pnl_records_chain_pair_realized_at",
   "uq_pnl_records_settlement_model",
@@ -1651,6 +1658,19 @@ assert.ok(
     erDiagramSource.includes("SIGNER_AUDIT_EVENTS") &&
     erDiagramSource.includes("append-only evidence"),
   "signer audit migration, store, and docs must preserve fail-closed append-only signing evidence",
+);
+assert.ok(
+  boundedHedgeFailureRiskMigrationSource.includes("ADD COLUMN risk_failure_at TIMESTAMPTZ") &&
+    boundedHedgeFailureRiskMigrationSource.includes("CREATE OR REPLACE FUNCTION set_hedge_risk_failure_at()") &&
+    boundedHedgeFailureRiskMigrationSource.includes("trg_hedge_orders_set_risk_failure_at") &&
+    boundedHedgeFailureRiskMigrationSource.includes("chk_hedge_orders_risk_failure_time") &&
+    boundedHedgeFailureRiskMigrationSource.includes("idx_hedge_orders_recent_failed_risk") &&
+    schemaSource.includes("('029', 'bounded-hedge-failure-risk')") &&
+    postgresHedgeSource.includes("settlement.canonical = TRUE") &&
+    postgresHedgeSource.includes("hedge.risk_failure_at >= now()") &&
+    schemaSource.includes("CREATE OR REPLACE FUNCTION set_hedge_risk_failure_at()") &&
+    erDiagramSource.includes("`risk_failure_at` 由数据库 trigger 只在首次进入 `failed` 时写入"),
+  "bounded hedge failure risk must use stable, recent, canonical failure evidence",
 );
 assert.ok(
   postgresToxicFlowMarkoutSource.includes("async claimNext") &&
