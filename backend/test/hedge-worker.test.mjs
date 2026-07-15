@@ -16,6 +16,7 @@ const job = {
   referenceAmount: "3125000000",
   attemptCount: 1,
   submissionAttempted: false,
+  cancelRequested: false,
   createdAt: "2026-07-11T00:00:00.000Z",
 };
 const routes = new HedgeRouteTable([{
@@ -32,7 +33,13 @@ const routes = new HedgeRouteTable([{
   priceTick: "0.01",
   maxSlippageBps: 100,
 }]);
-const config = { workerId: "worker_1", leaseMs: 30000, pollIntervalMs: 10, retryDelayMs: 1000 };
+const config = {
+  workerId: "worker_1",
+  leaseMs: 30000,
+  pollIntervalMs: 10,
+  retryDelayMs: 1000,
+  maxOrderAgeMs: 30000,
+};
 
 test("HedgeWorker queries deterministic client id before submitting and completes an existing fill", async () => {
   const store = fakeStore(job);
@@ -50,7 +57,7 @@ test("HedgeWorker queries deterministic client id before submitting and complete
     },
     async submitLimitOrder() { submissions += 1; throw new Error("must not submit"); },
   };
-  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
 
   assert.deepEqual(await worker.runOnce(), { status: "filled", hedgeOrderId: job.hedgeOrderId });
   assert.equal(submissions, 0);
@@ -75,7 +82,7 @@ test("HedgeWorker requires FILLED cumulative quantity to equal the quantized tar
     },
     async submitLimitOrder() { throw new Error("must not submit"); },
   };
-  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
 
   assert.deepEqual(await worker.runOnce(), {
     status: "retry_scheduled",
@@ -100,7 +107,7 @@ test("HedgeWorker permits only sub-step dust between intent and a complete venue
     },
     async submitLimitOrder() { throw new Error("must not submit"); },
   };
-  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
 
   assert.equal((await worker.runOnce()).status, "filled");
   assert.equal(store.calls.completeFilled[0][4], "1250000000000000000");
@@ -122,7 +129,7 @@ test("HedgeWorker submits only after not-found and reschedules pending orders", 
       };
     },
   };
-  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
 
   assert.deepEqual(await worker.runOnce(), {
     status: "retry_scheduled",
@@ -142,7 +149,7 @@ test("HedgeWorker never marks ambiguous venue failures terminal", async () => {
     async submitLimitOrder() { throw new Error("unreachable"); },
   };
   const store = fakeStore({ ...job, attemptCount: 100 });
-  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
   assert.deepEqual(await worker.runOnce(), {
     status: "retry_scheduled",
     hedgeOrderId: job.hedgeOrderId,
@@ -159,7 +166,7 @@ test("HedgeWorker never resubmits an attempted order that is temporarily not fou
     async queryOrder() { return undefined; },
     async submitLimitOrder() { submissions += 1; throw new Error("must not resubmit"); },
   };
-  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
 
   assert.deepEqual(await worker.runOnce(), {
     status: "retry_scheduled",
@@ -171,13 +178,123 @@ test("HedgeWorker never resubmits an attempted order that is temporarily not fou
   assert.equal(store.calls.prepareRoute.length, 0);
 });
 
+test("HedgeWorker cancels an aged GTC order and persists terminal partial execution", async () => {
+  const store = fakeStore({ ...job, submissionAttempted: true });
+  store.authorizeCancelIfDue = async (...args) => {
+    store.calls.authorizeCancelIfDue.push(args);
+    return true;
+  };
+  const adapter = {
+    async queryOrder(input) {
+      return {
+        state: "pending",
+        externalOrderId: input.clientOrderId,
+        venueOrderId: "100234",
+        executedQuantity: "0.5",
+        executedQuoteQuantity: "1250.25",
+      };
+    },
+    async submitLimitOrder() { throw new Error("must not submit"); },
+    async cancelOrder(input) {
+      return {
+        state: "failed",
+        externalOrderId: input.clientOrderId,
+        venueOrderId: "100234",
+        executedQuantity: "0.5",
+        executedQuoteQuantity: "1250.25",
+        failureCode: "BINANCE_ORDER_CANCELED",
+      };
+    },
+  };
+  const metrics = new HedgeWorkerMetrics();
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger, metrics);
+
+  assert.deepEqual(await worker.runOnce(), {
+    status: "failed",
+    hedgeOrderId: job.hedgeOrderId,
+    errorCode: "BINANCE_ORDER_CANCELED",
+  });
+  assert.equal(store.calls.authorizeCancelIfDue.length, 1);
+  assert.equal(store.calls.completeFailed[0][5], "500000000000000000");
+  assert.equal(store.calls.completeFailed[0][6], "1250.25");
+  assert.match(metrics.renderPrometheus(), /status="attempted"\} 1/);
+  assert.match(metrics.renderPrometheus(), /status="confirmed"\} 1/);
+});
+
+test("HedgeWorker retries an ambiguous cancel and distinguishes missing canceled orders", async () => {
+  const cancelingStore = fakeStore({ ...job, submissionAttempted: true });
+  cancelingStore.authorizeCancelIfDue = async (...args) => {
+    cancelingStore.calls.authorizeCancelIfDue.push(args);
+    return true;
+  };
+  const ambiguous = {
+    async queryOrder(input) {
+      return {
+        state: "pending",
+        externalOrderId: input.clientOrderId,
+        venueOrderId: "100234",
+        executedQuantity: "0",
+        executedQuoteQuantity: "0",
+      };
+    },
+    async submitLimitOrder() { throw new Error("must not submit"); },
+    async cancelOrder() { throw new CexVenueError("BINANCE_REQUEST_FAILED", true); },
+  };
+  const cancelingWorker = new HedgeWorker(
+    cancelingStore,
+    routes,
+    executionAdapters(ambiguous),
+    config,
+    silentLogger,
+  );
+  assert.equal((await cancelingWorker.runOnce()).errorCode, "BINANCE_REQUEST_FAILED");
+  assert.equal(cancelingStore.calls.completeFailed.length, 0);
+
+  const missingStore = fakeStore({ ...job, submissionAttempted: true, cancelRequested: true });
+  const missing = {
+    async queryOrder() { return undefined; },
+    async submitLimitOrder() { throw new Error("must not submit"); },
+  };
+  const missingWorker = new HedgeWorker(
+    missingStore,
+    routes,
+    executionAdapters(missing),
+    config,
+    silentLogger,
+  );
+  assert.equal((await missingWorker.runOnce()).errorCode, "HEDGE_CANCEL_UNCONFIRMED");
+});
+
+test("HedgeWorker records cancellation confirmed by query after an ambiguous response", async () => {
+  const store = fakeStore({ ...job, submissionAttempted: true, cancelRequested: true });
+  const adapter = {
+    async queryOrder(input) {
+      return {
+        state: "failed",
+        externalOrderId: input.clientOrderId,
+        venueOrderId: "100234",
+        executedQuantity: "0",
+        executedQuoteQuantity: "0",
+        failureCode: "BINANCE_ORDER_CANCELED",
+      };
+    },
+    async submitLimitOrder() { throw new Error("must not submit"); },
+  };
+  const metrics = new HedgeWorkerMetrics();
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger, metrics);
+
+  assert.equal((await worker.runOnce()).errorCode, "BINANCE_ORDER_CANCELED");
+  assert.match(metrics.renderPrometheus(), /status="attempted"\} 0/);
+  assert.match(metrics.renderPrometheus(), /status="confirmed"\} 1/);
+});
+
 test("HedgeWorker honors venue Retry-After without changing terminal state", async () => {
   const store = fakeStore(job);
   const adapter = {
     async queryOrder() { throw new CexVenueError("BINANCE_CODE_1003", true, undefined, 7000); },
     async submitLimitOrder() { throw new Error("unreachable"); },
   };
-  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
   assert.equal((await worker.runOnce()).status, "retry_scheduled");
   assert.equal(store.calls.releaseForRetry[0][3], 7000);
 });
@@ -188,7 +305,7 @@ test("HedgeWorker exponentially backs off repeated venue failures", async () => 
     async queryOrder() { throw new CexVenueError("BINANCE_HTTP_503", true); },
     async submitLimitOrder() { throw new Error("unreachable"); },
   };
-  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
 
   assert.equal((await worker.runOnce()).status, "retry_scheduled");
   assert.equal(store.calls.releaseForRetry[0][3], 60000);
@@ -201,7 +318,7 @@ test("HedgeWorker permanently fails unconfigured routes without venue calls", as
     async queryOrder() { venueCalls += 1; },
     async submitLimitOrder() { venueCalls += 1; },
   };
-  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
   assert.equal((await worker.runOnce()).errorCode, "HEDGE_ROUTE_NOT_CONFIGURED");
   assert.equal(venueCalls, 0);
   assert.equal(store.calls.completeFailed.length, 1);
@@ -211,7 +328,7 @@ test("HedgeWorker never abandons a submission-attempted job on local route failu
   const store = fakeStore({ ...job, chainId: 2, submissionAttempted: true });
   const worker = new HedgeWorker(store, routes, new Map([[
     "binance",
-    { async queryOrder() {}, async submitLimitOrder() {} },
+    { async queryOrder() {}, async submitLimitOrder() {}, async cancelOrder() {} },
   ]]), config, silentLogger);
 
   assert.deepEqual(await worker.runOnce(), {
@@ -234,7 +351,7 @@ test("HedgeWorker blocks a new POST when submission authorization observes a reo
     async queryOrder() { return undefined; },
     async submitLimitOrder() { submissions += 1; },
   };
-  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
   assert.deepEqual(await worker.runOnce(), {
     status: "failed",
     hedgeOrderId: job.hedgeOrderId,
@@ -259,7 +376,7 @@ test("HedgeWorker persists terminal partial execution before marking venue failu
     },
     async submitLimitOrder() { throw new Error("must not submit"); },
   };
-  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
   assert.equal((await worker.runOnce()).status, "failed");
   assert.deepEqual(store.calls.completeFailed[0].slice(0, 3), [
     job.hedgeOrderId,
@@ -285,7 +402,7 @@ test("HedgeWorker rejects unpaired base and quote execution evidence", async () 
     },
     async submitLimitOrder() { throw new Error("must not submit"); },
   };
-  const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
+  const worker = new HedgeWorker(store, routes, executionAdapters(adapter), config, silentLogger);
   assert.equal((await worker.runOnce()).errorCode, "HEDGE_VENUE_RESPONSE_INVALID");
   assert.equal(store.calls.recordExecutionProgress.length, 0);
 });
@@ -296,16 +413,21 @@ test("HedgeWorkerMetrics exposes bounded outcome labels", () => {
   metrics.recordResult({ status: "filled", hedgeOrderId: job.hedgeOrderId });
   metrics.recordResult({ status: "retry_scheduled", hedgeOrderId: job.hedgeOrderId, errorCode: "TEST" });
   metrics.recordIterationError();
+  metrics.recordCancelAttempt();
+  metrics.recordCancelConfirmation();
   const output = metrics.renderPrometheus();
   assert.match(output, /rfq_hedge_worker_jobs_total\{status="filled"\} 1/);
   assert.match(output, /rfq_hedge_worker_jobs_total\{status="retry_scheduled"\} 1/);
   assert.match(output, /rfq_hedge_worker_iteration_errors_total 1/);
+  assert.match(output, /rfq_hedge_worker_order_cancellations_total\{status="attempted"\} 1/);
+  assert.match(output, /rfq_hedge_worker_order_cancellations_total\{status="confirmed"\} 1/);
 });
 
 function fakeStore(claimedJob) {
   const calls = {
     prepareRoute: [],
     authorizeSubmission: [],
+    authorizeCancelIfDue: [],
     recordExternalOrderObserved: [],
     recordExecutionProgress: [],
     completeFilled: [],
@@ -318,12 +440,20 @@ function fakeStore(claimedJob) {
     async claimNext() { return claimedJob; },
     async prepareRoute(...args) { calls.prepareRoute.push(args); },
     async authorizeSubmission(...args) { calls.authorizeSubmission.push(args); },
+    async authorizeCancelIfDue(...args) { calls.authorizeCancelIfDue.push(args); return false; },
     async recordExternalOrderObserved(...args) { calls.recordExternalOrderObserved.push(args); },
     async recordExecutionProgress(...args) { calls.recordExecutionProgress.push(args); },
     async completeFilled(...args) { calls.completeFilled.push(args); },
     async completeFailed(...args) { calls.completeFailed.push(args); },
     async releaseForRetry(...args) { calls.releaseForRetry.push(args); },
   };
+}
+
+function executionAdapters(adapter) {
+  return new Map([["binance", {
+    async cancelOrder() { throw new Error("unexpected cancel"); },
+    ...adapter,
+  }]]);
 }
 
 const silentLogger = { info() {}, error() {} };

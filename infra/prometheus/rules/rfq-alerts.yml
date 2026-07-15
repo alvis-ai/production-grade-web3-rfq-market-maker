@@ -379,6 +379,15 @@ groups:
           summary: RFQ hedge worker is repeatedly rescheduling CEX execution
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQHedgeOrderCancellations
+        expr: sum(increase(rfq_hedge_worker_order_cancellations_total{status="attempted"}[10m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ hedge orders are reaching their bounded GTC lifetime
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQHedgeWorkerProcessingStalled
         expr: increase(rfq_hedge_intents_total[10m]) > 0 and (time() - max(rfq_hedge_worker_last_processed_timestamp_seconds)) > 300
         for: 5m

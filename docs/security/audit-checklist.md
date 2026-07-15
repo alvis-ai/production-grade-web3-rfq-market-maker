@@ -28,6 +28,7 @@
 - [x] Non-local static market data requires a non-empty mandatory live CEX source set and cannot sign from demonstration prices alone.
 - [x] CEX reference sources validate price without inflating executable liquidity; every published pair retains an accepted Binance hedge source bound to the API and worker shared route table.
 - [x] CEX hedge submissions use a persisted tick-aligned `LIMIT GTC` boundary derived from immutable quote economics and reviewed route slippage; the adapter contains no unbounded `MARKET` submit path.
+- [x] New CEX hedge orders persist a bounded maximum lifetime; PostgreSQL authorizes and records cancellation before the external call, and ambiguous cancel results remain query-first under the original client id.
 - [x] Default token authorization and raw-unit limits are keyed by both chainId and token address.
 - [x] Startup cross-checks risk-policy tokens against the trusted token registry and active market pairs.
 - [x] Signer Service cannot be called directly from public API.

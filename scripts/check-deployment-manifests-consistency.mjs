@@ -1051,6 +1051,7 @@ assertContains(helmValues, [
   "hedgeWorker:",
   "RFQ_HEDGE_ROUTES_JSON:",
   "RFQ_BINANCE_REQUEST_TIMEOUT_MS:",
+  "RFQ_HEDGE_MAX_ORDER_AGE_MS:",
   "apiKeyKey: RFQ_BINANCE_API_KEY",
   "apiSecretKey: RFQ_BINANCE_API_SECRET",
   "networkPolicy:",

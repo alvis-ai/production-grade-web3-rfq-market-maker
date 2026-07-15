@@ -42,6 +42,7 @@ data:
   RFQ_HEDGE_LEASE_MS: "45000"
   RFQ_HEDGE_POLL_INTERVAL_MS: "250"
   RFQ_HEDGE_RETRY_DELAY_MS: "1000"
+  RFQ_HEDGE_MAX_ORDER_AGE_MS: "30000"
   RFQ_HEDGE_ROUTES_JSON: '{"routes":[{"chainId":1,"token":"0x0000000000000000000000000000000000000002","venue":"binance","symbol":"ETHUSDT","baseAsset":"ETH","quoteAsset":"USDT","quoteToken":"0x0000000000000000000000000000000000000003","tokenDecimals":18,"quoteTokenDecimals":18,"stepSizeRaw":"100000000000000","priceTick":"0.01","maxSlippageBps":100}]}'
   RFQ_BINANCE_BASE_URL: "https://api.binance.com"
   RFQ_BINANCE_RECV_WINDOW_MS: "5000"

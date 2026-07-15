@@ -17,6 +17,7 @@ export interface HedgeJob {
   amount: UIntString;
   attemptCount: number;
   submissionAttempted: boolean;
+  cancelRequested: boolean;
   createdAt: string;
 }
 
@@ -36,6 +37,7 @@ export interface HedgeJobRoute {
   priceTick: string;
   maxSlippageBps: number;
   executionPolicyVersion: "bounded-limit-v1";
+  maxOrderAgeMs: number;
 }
 
 export interface HedgeJobStore {
@@ -43,6 +45,7 @@ export interface HedgeJobStore {
   claimNext(workerId: string, leaseMs: number): Promise<HedgeJob | undefined>;
   prepareRoute(hedgeOrderId: string, workerId: string, route: HedgeJobRoute): Promise<void>;
   authorizeSubmission(hedgeOrderId: string, workerId: string): Promise<void>;
+  authorizeCancelIfDue(hedgeOrderId: string, workerId: string): Promise<boolean>;
   recordExternalOrderObserved(hedgeOrderId: string, workerId: string): Promise<void>;
   recordExecutionProgress(
     hedgeOrderId: string,
@@ -74,7 +77,8 @@ export interface HedgeJobStore {
 
 const jobColumns = `
   hedge.id, hedge.chain_id, hedge.token_address, hedge.side, hedge.amount, hedge.attempt_count,
-  hedge.submission_attempted_at IS NOT NULL AS submission_attempted, hedge.created_at,
+  hedge.submission_attempted_at IS NOT NULL AS submission_attempted,
+  hedge.cancel_requested_at IS NOT NULL AS cancel_requested, hedge.created_at,
   candidate.reference_token, candidate.reference_amount::text AS reference_amount
 `;
 const maxLeaseMs = 300_000;
@@ -151,6 +155,7 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
            execution_order_type = $12, execution_time_in_force = $13,
            execution_limit_price = $14, execution_price_tick = $15,
            execution_max_slippage_bps = $16, execution_policy_version = $17,
+           execution_max_order_age_ms = $18,
            hedge_net_pnl_model = 'hedge_fill_net_v1',
            hedge_net_pnl_model_description =
              'Net hedge execution PnL in the route quote asset using exact fills, quote/base commissions, and conservatively marked sub-step residual; third-asset commissions are unavailable',
@@ -159,7 +164,8 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
        WHERE id = $1 AND status = 'queued' AND lease_owner = $2
          AND (
            (venue = 'internal' AND venue_symbol IS NULL AND client_order_id IS NULL
-             AND route_accounting_version IS NULL AND execution_policy_version IS NULL)
+             AND route_accounting_version IS NULL AND execution_policy_version IS NULL
+             AND execution_max_order_age_ms IS NULL AND cancel_requested_at IS NULL)
            OR (venue = $3 AND venue_symbol = $4 AND client_order_id = $5
              AND route_accounting_version = 'venue-assets-v1'
              AND venue_base_asset = $6 AND venue_quote_asset = $7
@@ -168,7 +174,10 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
              AND venue_step_size_raw = $11
              AND execution_order_type = $12 AND execution_time_in_force = $13
              AND execution_limit_price = $14 AND execution_price_tick = $15
-             AND execution_max_slippage_bps = $16 AND execution_policy_version = $17)
+             AND execution_max_slippage_bps = $16 AND execution_policy_version = $17
+             AND cancel_requested_at IS NULL
+             AND (execution_max_order_age_ms = $18
+               OR (execution_max_order_age_ms IS NULL AND submission_attempted_at IS NULL)))
          )`,
       [
         hedgeOrderId,
@@ -188,6 +197,7 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
         route.priceTick,
         route.maxSlippageBps,
         route.executionPolicyVersion,
+        route.maxOrderAgeMs,
       ],
       hedgeOrderId,
     );
@@ -215,7 +225,8 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
          WHERE id = $1 AND status = 'queued' AND lease_owner = $2
            AND venue <> 'internal' AND venue_symbol IS NOT NULL AND client_order_id IS NOT NULL
            AND execution_order_type = 'LIMIT' AND execution_time_in_force = 'GTC'
-           AND execution_limit_price IS NOT NULL AND execution_policy_version = 'bounded-limit-v1'`,
+           AND execution_limit_price IS NOT NULL AND execution_policy_version = 'bounded-limit-v1'
+           AND execution_max_order_age_ms IS NOT NULL AND cancel_requested_at IS NULL`,
         [hedgeOrderId, workerId],
       );
       if (updated.rowCount !== 1) throw new Error(`Postgres hedge lease conflict for ${hedgeOrderId}`);
@@ -223,6 +234,34 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
     } catch (error) {
       await rollbackBestEffort(client);
       throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async authorizeCancelIfDue(hedgeOrderId: string, workerId: string): Promise<boolean> {
+    assertLeaseMutation(hedgeOrderId, workerId);
+    const client = await this.pool.connect();
+    try {
+      const updated = await client.query(
+        `UPDATE hedge_orders
+         SET cancel_requested_at = COALESCE(cancel_requested_at, now()), updated_at = now()
+         WHERE id = $1 AND status = 'queued' AND lease_owner = $2
+           AND submission_attempted_at IS NOT NULL
+           AND execution_policy_version = 'bounded-limit-v1'
+           AND execution_order_type = 'LIMIT' AND execution_time_in_force = 'GTC'
+           AND execution_max_order_age_ms IS NOT NULL
+           AND (
+             cancel_requested_at IS NOT NULL
+             OR submission_attempted_at + execution_max_order_age_ms * interval '1 millisecond' <= now()
+           )
+         RETURNING id`,
+        [hedgeOrderId, workerId],
+      );
+      if (updated.rows.length > 1 || (updated.rowCount ?? 0) > 1) {
+        throw new Error(`Postgres hedge cancel authorization returned multiple rows for ${hedgeOrderId}`);
+      }
+      return updated.rows.length === 1;
     } finally {
       client.release();
     }
@@ -559,6 +598,7 @@ function parseHedgeJob(row: unknown): HedgeJob {
     amount: parsePositiveUInt(value.amount),
     attemptCount: parseNonNegativeSafeInteger(value.attempt_count, "attempt_count"),
     submissionAttempted: parseBoolean(value.submission_attempted, "submission_attempted"),
+    cancelRequested: parseBoolean(value.cancel_requested, "cancel_requested"),
     createdAt: parseTimestamp(value.created_at),
   };
 }
@@ -571,7 +611,7 @@ function assertHedgeJobRoute(route: HedgeJobRoute): void {
   const fields = [
     "venue", "symbol", "clientOrderId", "baseAsset", "quoteAsset", "quoteToken",
     "baseTokenDecimals", "quoteTokenDecimals", "stepSizeRaw", "orderType", "timeInForce",
-    "limitPrice", "priceTick", "maxSlippageBps", "executionPolicyVersion",
+    "limitPrice", "priceTick", "maxSlippageBps", "executionPolicyVersion", "maxOrderAgeMs",
   ];
   if (keys.length !== fields.length || fields.some((field) => !Object.prototype.hasOwnProperty.call(route, field))) {
     throw new Error("Hedge job route fields are invalid");
@@ -601,6 +641,7 @@ function assertHedgeJobRoute(route: HedgeJobRoute): void {
   assertPositiveVenueDecimal(route.limitPrice, "limitPrice");
   assertPositiveVenueDecimal(route.priceTick, "priceTick");
   assertBoundedInteger(route.maxSlippageBps, "maxSlippageBps", 0, 1_000);
+  assertBoundedInteger(route.maxOrderAgeMs, "maxOrderAgeMs", 1_000, 3_600_000);
 }
 
 function assertPositiveVenueDecimal(value: unknown, field: string): void {

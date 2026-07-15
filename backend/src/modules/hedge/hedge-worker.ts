@@ -22,6 +22,7 @@ export interface HedgeWorkerConfig {
   leaseMs: number;
   pollIntervalMs: number;
   retryDelayMs: number;
+  maxOrderAgeMs: number;
 }
 
 export interface HedgeWorkerLogger {
@@ -38,6 +39,8 @@ export interface HedgeWorkerResult {
 export interface HedgeWorkerObserver {
   recordResult(result: HedgeWorkerResult): void;
   recordIterationError(): void;
+  recordCancelAttempt(): void;
+  recordCancelConfirmation(): void;
 }
 
 const workerIdPattern = /^[A-Za-z0-9_:-]+$/;
@@ -91,6 +94,7 @@ export class HedgeWorker {
           priceTick: route.priceTick,
           maxSlippageBps: route.maxSlippageBps,
           executionPolicyVersion: "bounded-limit-v1",
+          maxOrderAgeMs: this.config.maxOrderAgeMs,
         });
       }
       const adapter = this.adapters.get(route.venue)!;
@@ -99,9 +103,25 @@ export class HedgeWorker {
       if (existing) {
         await this.store.recordExternalOrderObserved(job.hedgeOrderId, this.config.workerId);
         order = existing;
+        if (job.cancelRequested && order.state === "failed" &&
+            order.failureCode === "BINANCE_ORDER_CANCELED") {
+          this.observer.recordCancelConfirmation();
+        }
+        if (order.state === "pending" &&
+            await this.store.authorizeCancelIfDue(job.hedgeOrderId, this.config.workerId)) {
+          this.observer.recordCancelAttempt();
+          order = await adapter.cancelOrder({ symbol: route.symbol, clientOrderId });
+          if (order.state === "failed" && order.failureCode === "BINANCE_ORDER_CANCELED") {
+            this.observer.recordCancelConfirmation();
+          }
+          return await this.applyOrderResult(job, route, targetAmount, order, "HEDGE_CANCEL_PENDING");
+        }
       } else {
         if (job.submissionAttempted) {
-          return this.scheduleRetry(job, "HEDGE_SUBMISSION_UNCONFIRMED");
+          return this.scheduleRetry(
+            job,
+            job.cancelRequested ? "HEDGE_CANCEL_UNCONFIRMED" : "HEDGE_SUBMISSION_UNCONFIRMED",
+          );
         }
         await this.store.authorizeSubmission(job.hedgeOrderId, this.config.workerId);
         order = await adapter.submitLimitOrder({
@@ -147,6 +167,7 @@ export class HedgeWorker {
     route: HedgeRoute,
     targetAmount: UIntString,
     order: CexOrderResult,
+    pendingErrorCode = "HEDGE_ORDER_PENDING",
   ): Promise<HedgeWorkerResult> {
     assertOrderResult(order);
     const filledAmount = parseHedgeExecutedQuantity(order.executedQuantity, route);
@@ -194,7 +215,7 @@ export class HedgeWorker {
         executedQuoteQuantity!,
       );
     }
-    return this.scheduleRetry(job, "HEDGE_ORDER_PENDING");
+    return this.scheduleRetry(job, pendingErrorCode);
   }
 
   private async handleJobError(job: HedgeJob, error: unknown): Promise<HedgeWorkerResult> {
@@ -228,6 +249,8 @@ function retryBackoffMs(baseDelayMs: number, attemptCount: number): number {
 export class HedgeWorkerMetrics implements HedgeWorkerObserver {
   private readonly jobs = { filled: 0, failed: 0, retry_scheduled: 0 };
   private iterationErrors = 0;
+  private cancelAttempts = 0;
+  private cancelConfirmations = 0;
   private lastProcessedAtSeconds = 0;
 
   recordResult(result: HedgeWorkerResult): void {
@@ -240,6 +263,14 @@ export class HedgeWorkerMetrics implements HedgeWorkerObserver {
     this.iterationErrors += 1;
   }
 
+  recordCancelAttempt(): void {
+    this.cancelAttempts += 1;
+  }
+
+  recordCancelConfirmation(): void {
+    this.cancelConfirmations += 1;
+  }
+
   renderPrometheus(): string {
     return [
       "# HELP rfq_hedge_worker_jobs_total Hedge jobs processed by terminal or retry outcome.",
@@ -250,6 +281,10 @@ export class HedgeWorkerMetrics implements HedgeWorkerObserver {
       "# HELP rfq_hedge_worker_iteration_errors_total Hedge worker iterations that failed outside a claimed job outcome.",
       "# TYPE rfq_hedge_worker_iteration_errors_total counter",
       `rfq_hedge_worker_iteration_errors_total ${this.iterationErrors}`,
+      "# HELP rfq_hedge_worker_order_cancellations_total Bounded-age hedge cancellation actions.",
+      "# TYPE rfq_hedge_worker_order_cancellations_total counter",
+      `rfq_hedge_worker_order_cancellations_total{status="attempted"} ${this.cancelAttempts}`,
+      `rfq_hedge_worker_order_cancellations_total{status="confirmed"} ${this.cancelConfirmations}`,
       "# HELP rfq_hedge_worker_last_processed_timestamp_seconds Unix timestamp of the latest non-idle hedge result.",
       "# TYPE rfq_hedge_worker_last_processed_timestamp_seconds gauge",
       `rfq_hedge_worker_last_processed_timestamp_seconds ${this.lastProcessedAtSeconds}`,
@@ -322,7 +357,7 @@ function assertWorkerConfig(config: HedgeWorkerConfig): void {
   if (typeof config !== "object" || config === null || Array.isArray(config)) {
     throw new Error("Hedge worker config must be an object");
   }
-  const fields = ["workerId", "leaseMs", "pollIntervalMs", "retryDelayMs"];
+  const fields = ["workerId", "leaseMs", "pollIntervalMs", "retryDelayMs", "maxOrderAgeMs"];
   if (Object.keys(config).length !== fields.length ||
       fields.some((field) => !Object.prototype.hasOwnProperty.call(config, field))) {
     throw new Error("Hedge worker config fields are invalid");
@@ -334,6 +369,7 @@ function assertWorkerConfig(config: HedgeWorkerConfig): void {
   assertInteger(config.leaseMs, "leaseMs", 1_000, 300_000);
   assertInteger(config.pollIntervalMs, "pollIntervalMs", 10, 60_000);
   assertInteger(config.retryDelayMs, "retryDelayMs", 1, 3_600_000);
+  assertInteger(config.maxOrderAgeMs, "maxOrderAgeMs", 1_000, 3_600_000);
 }
 
 function assertStore(store: HedgeJobStore): void {
@@ -344,6 +380,7 @@ function assertStore(store: HedgeJobStore): void {
     "claimNext",
     "prepareRoute",
     "authorizeSubmission",
+    "authorizeCancelIfDue",
     "recordExternalOrderObserved",
     "recordExecutionProgress",
     "completeFilled",
@@ -368,7 +405,8 @@ function assertAdapters(adapters: ReadonlyMap<"binance", CexExecutionAdapter>): 
   }
   for (const [venue, adapter] of adapters) {
     if (venue !== "binance" || typeof adapter !== "object" || adapter === null ||
-        typeof adapter.queryOrder !== "function" || typeof adapter.submitLimitOrder !== "function") {
+        typeof adapter.queryOrder !== "function" || typeof adapter.submitLimitOrder !== "function" ||
+        typeof adapter.cancelOrder !== "function") {
       throw new Error("Hedge worker adapter entry is invalid");
     }
   }
@@ -383,8 +421,9 @@ function assertLogger(logger: HedgeWorkerLogger): void {
 
 function assertObserver(observer: HedgeWorkerObserver): void {
   if (typeof observer !== "object" || observer === null || typeof observer.recordResult !== "function" ||
-      typeof observer.recordIterationError !== "function") {
-    throw new Error("Hedge worker observer must expose recordResult and recordIterationError functions");
+      typeof observer.recordIterationError !== "function" || typeof observer.recordCancelAttempt !== "function" ||
+      typeof observer.recordCancelConfirmation !== "function") {
+    throw new Error("Hedge worker observer must expose result, iteration, and cancellation methods");
   }
 }
 
@@ -410,4 +449,6 @@ const consoleLogger: HedgeWorkerLogger = {
 const noOpObserver: HedgeWorkerObserver = {
   recordResult() {},
   recordIterationError() {},
+  recordCancelAttempt() {},
+  recordCancelConfirmation() {},
 };

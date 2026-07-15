@@ -12,6 +12,7 @@ const row = {
   amount: "990",
   attempt_count: 2,
   submission_attempted: false,
+  cancel_requested: false,
   created_at: "2026-07-11T00:00:00.000Z",
 };
 
@@ -28,6 +29,7 @@ test("PostgresHedgeJobStore claims one due job with transaction and SKIP LOCKED"
   const job = await store.claimNext("worker_1", 30000);
   assert.equal(job.attemptCount, 2);
   assert.equal(job.submissionAttempted, false);
+  assert.equal(job.cancelRequested, false);
   assert.equal(job.referenceAmount, "2500000");
   assert.equal(client.queries[0].sql, "BEGIN");
   assert.match(client.queries[1].sql, /FOR UPDATE SKIP LOCKED/);
@@ -82,6 +84,7 @@ test("PostgresHedgeJobStore persists route and lease-owned terminal or retry tra
     priceTick: "0.01",
     maxSlippageBps: 100,
     executionPolicyVersion: "bounded-limit-v1",
+    maxOrderAgeMs: 30000,
   };
 
   await store.prepareRoute(row.id, "worker_1", route);
@@ -95,6 +98,7 @@ test("PostgresHedgeJobStore persists route and lease-owned terminal or retry tra
   assert.match(client.queries[0].sql, /venue = 'internal'/);
   assert.match(client.queries[0].sql, /venue = \$3 AND venue_symbol = \$4 AND client_order_id = \$5/);
   assert.match(client.queries[0].sql, /execution_policy_version = \$17/);
+  assert.match(client.queries[0].sql, /execution_max_order_age_ms = \$18/);
   assert.match(
     client.queries.find(({ sql }) => sql.includes("submission_attempted_at = COALESCE") &&
       sql.includes("execution_order_type")).sql,
@@ -286,6 +290,26 @@ test("PostgresHedgeJobStore blocks new submission authorization after settlement
   assert.equal(client.queries.at(-1).sql, "ROLLBACK");
 });
 
+test("PostgresHedgeJobStore authorizes cancellation only from persisted database age", async () => {
+  let due = true;
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("cancel_requested_at = COALESCE")) {
+      return due ? { rows: [{ id: row.id }], rowCount: 1 } : { rows: [], rowCount: 0 };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  const store = new PostgresHedgeJobStore(pool);
+
+  assert.equal(await store.authorizeCancelIfDue(row.id, "worker_1"), true);
+  const authorization = client.queries[0].sql;
+  assert.match(authorization, /submission_attempted_at \+ execution_max_order_age_ms \* interval '1 millisecond' <= now\(\)/);
+  assert.match(authorization, /cancel_requested_at IS NOT NULL/);
+  assert.match(authorization, /execution_policy_version = 'bounded-limit-v1'/);
+
+  due = false;
+  assert.equal(await store.authorizeCancelIfDue(row.id, "worker_1"), false);
+});
+
 test("PostgresHedgeJobStore validates worker, route, delay, and database rows", async () => {
   const { pool } = fakePool(async (sql) => {
     if (sql.includes("UPDATE hedge_orders AS hedge")) return { rows: [{ ...row, amount: "0990" }], rowCount: 1 };
@@ -312,6 +336,7 @@ test("PostgresHedgeJobStore validates worker, route, delay, and database rows", 
       priceTick: "0.01",
       maxSlippageBps: 100,
       executionPolicyVersion: "bounded-limit-v1",
+      maxOrderAgeMs: 30000,
     }),
     /symbol/,
   );

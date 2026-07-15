@@ -110,6 +110,44 @@ test("BinanceSpotAdapter classifies pending, terminal, retryable, and permanent 
   );
 });
 
+test("BinanceSpotAdapter signs cancellation and preserves cumulative execution evidence", async () => {
+  const calls = [];
+  const adapter = new BinanceSpotAdapter(config, async (input, init) => {
+    const url = new URL(input);
+    calls.push({ url, init });
+    return jsonResponse({
+      symbol: "ETHUSDT",
+      orderId: 100234,
+      origClientOrderId: clientOrderId,
+      clientOrderId: "cancel_11111111111111111111111111111",
+      status: "CANCELED",
+      executedQty: "0.5",
+      cummulativeQuoteQty: "1250.25",
+    });
+  }, () => 1_700_000_000_000);
+
+  assert.deepEqual(await adapter.cancelOrder({ symbol: "ETHUSDT", clientOrderId }), {
+    state: "failed",
+    externalOrderId: clientOrderId,
+    venueOrderId: "100234",
+    executedQuantity: "0.5",
+    executedQuoteQuantity: "1250.25",
+    failureCode: "BINANCE_ORDER_CANCELED",
+  });
+  assert.equal(calls[0].init.method, "DELETE");
+  assert.equal(calls[0].url.pathname, "/api/v3/order");
+  assert.equal(calls[0].url.searchParams.get("origClientOrderId"), clientOrderId);
+
+  const raced = new BinanceSpotAdapter(
+    config,
+    async () => jsonResponse({ code: -2011, msg: "Unknown order sent." }, 400),
+  );
+  await assert.rejects(
+    raced.cancelOrder({ symbol: "ETHUSDT", clientOrderId }),
+    (error) => error instanceof CexVenueError && error.retryable && error.errorCode === "BINANCE_CODE_2011",
+  );
+});
+
 test("BinanceSpotAdapter treats transport ambiguity and malformed venue data safely", async () => {
   const networkFailure = new BinanceSpotAdapter(config, async () => { throw new Error("timeout"); });
   await assert.rejects(

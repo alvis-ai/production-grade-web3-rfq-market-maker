@@ -46,6 +46,7 @@ export function readHedgeWorkerRuntimeConfig(
       leaseMs,
       pollIntervalMs: readInteger(env, "RFQ_HEDGE_POLL_INTERVAL_MS", 250, 10, 60_000),
       retryDelayMs: readInteger(env, "RFQ_HEDGE_RETRY_DELAY_MS", 1_000, 1, 3_600_000),
+      maxOrderAgeMs: readInteger(env, "RFQ_HEDGE_MAX_ORDER_AGE_MS", 30_000, 1_000, 3_600_000),
     },
     routes,
     binance: {

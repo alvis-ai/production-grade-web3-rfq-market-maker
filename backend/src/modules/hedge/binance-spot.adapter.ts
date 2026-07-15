@@ -13,6 +13,8 @@ export interface QueryOrderInput {
   clientOrderId: string;
 }
 
+export type CancelOrderInput = QueryOrderInput;
+
 export interface QueryOrderTradesInput {
   symbol: string;
   venueOrderId: string;
@@ -44,6 +46,7 @@ export interface CexExecutionAdapter {
   queryOrder(input: QueryOrderInput): Promise<CexOrderResult | undefined>;
   queryOrderTrades(input: QueryOrderTradesInput): Promise<CexTradeFill[]>;
   submitLimitOrder(input: SubmitLimitOrderInput): Promise<CexOrderResult>;
+  cancelOrder(input: CancelOrderInput): Promise<CexOrderResult>;
 }
 
 export interface BinanceSpotAdapterConfig {
@@ -135,6 +138,19 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
     return parseOrderResponse(await parseJson(response), input.symbol, input.clientOrderId);
   }
 
+  async cancelOrder(input: CancelOrderInput): Promise<CexOrderResult> {
+    assertQueryInput(input);
+    const response = await this.signedRequest("DELETE", "/api/v3/order", {
+      symbol: input.symbol,
+      origClientOrderId: input.clientOrderId,
+    });
+    if (!response.ok) {
+      const error = await parseErrorResponse(response);
+      throw venueErrorForResponse(response.status, error.code, error.message, parseRetryAfterMs(response));
+    }
+    return parseOrderResponse(await parseJson(response), input.symbol, input.clientOrderId);
+  }
+
   async queryOrderTrades(input: QueryOrderTradesInput): Promise<CexTradeFill[]> {
     assertQueryOrderTradesInput(input);
     const fills: CexTradeFill[] = [];
@@ -164,7 +180,7 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
   }
 
   private async signedRequest(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "DELETE",
     path: string,
     requestParams: Record<string, string>,
   ): Promise<Response> {
@@ -175,7 +191,7 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
   }
 
   private async sendSignedRequest(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "DELETE",
     path: string,
     requestParams: Record<string, string>,
   ): Promise<Response> {
@@ -284,7 +300,8 @@ function parseOrderResponse(value: unknown, expectedSymbol: string, expectedClie
     throw new CexVenueError("BINANCE_RESPONSE_INVALID", true);
   }
   const record = value as Record<string, unknown>;
-  if (record.symbol !== expectedSymbol || record.clientOrderId !== expectedClientOrderId ||
+  if (record.symbol !== expectedSymbol ||
+      (record.clientOrderId !== expectedClientOrderId && record.origClientOrderId !== expectedClientOrderId) ||
       !isPositiveSafeVenueId(record.orderId) ||
       typeof record.status !== "string" || typeof record.executedQty !== "string" ||
       !isVenueDecimal(record.executedQty, 36) ||
@@ -400,6 +417,7 @@ function venueErrorForResponse(
 ): CexVenueError {
   const retryable = httpStatus === 403 || httpStatus === 418 || httpStatus === 429 || httpStatus >= 500 ||
     (venueCode !== undefined && retryableVenueCodes.has(venueCode)) ||
+    venueCode === -2011 ||
     (venueCode === -2010 && venueMessage === "Duplicate order sent.");
   const suffix = venueCode === undefined ? `HTTP_${httpStatus}` : `CODE_${Math.abs(venueCode)}`;
   return new CexVenueError(`BINANCE_${suffix}`, retryable, undefined, retryable ? retryAfterMs : undefined);

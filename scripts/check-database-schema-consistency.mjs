@@ -102,6 +102,10 @@ const boundedHedgeLimitMigrationSource = await readFile(
   "backend/src/db/migrations/025-bounded-hedge-limit.sql",
   "utf8",
 );
+const hedgeOrderExpiryMigrationSource = await readFile(
+  "backend/src/db/migrations/026-hedge-order-expiry.sql",
+  "utf8",
+);
 const postgresQuoteIdempotencySource = await readFile(
   "backend/src/modules/quote/postgres-quote-idempotency.store.ts",
   "utf8",
@@ -258,6 +262,8 @@ const requiredTables = {
     "execution_price_tick",
     "execution_max_slippage_bps",
     "execution_policy_version",
+    "execution_max_order_age_ms",
+    "cancel_requested_at",
     "hedge_net_pnl_model",
     "hedge_net_pnl_model_description",
     "hedge_net_pnl_status",
@@ -1605,6 +1611,19 @@ assert.ok(
     binanceAdapterSource.includes('type: "LIMIT"') &&
     binanceAdapterSource.includes('timeInForce: "GTC"'),
   "bounded hedge migration and worker must persist and submit an immutable tick-aligned LIMIT GTC policy",
+);
+assert.ok(
+  hedgeOrderExpiryMigrationSource.includes("execution_max_order_age_ms") &&
+    hedgeOrderExpiryMigrationSource.includes("cancel_requested_at") &&
+    hedgeOrderExpiryMigrationSource.includes("chk_hedge_orders_execution_expiry") &&
+    hedgeOrderExpiryMigrationSource.includes("idx_hedge_orders_cancel_requested") &&
+    schemaSource.includes("('026', 'hedge-order-expiry')") &&
+    erDiagramSource.includes("cancel_requested_at") &&
+    postgresHedgeJobSource.includes("authorizeCancelIfDue") &&
+    postgresHedgeJobSource.includes("execution_max_order_age_ms * interval '1 millisecond' <= now()") &&
+    hedgeWorkerSource.includes("adapter.cancelOrder") &&
+    binanceAdapterSource.includes('signedRequest("DELETE", "/api/v3/order"'),
+  "hedge expiry migration and worker must persist DB-time cancellation intent before venue cancellation",
 );
 assert.ok(
   postgresToxicFlowMarkoutSource.includes("async claimNext") &&

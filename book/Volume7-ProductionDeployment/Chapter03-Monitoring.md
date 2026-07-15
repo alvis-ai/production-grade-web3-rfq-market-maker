@@ -136,6 +136,7 @@ Key metrics include:
 - `rfq_hedge_lag_seconds`
 - `rfq_hedge_worker_jobs_total`
 - `rfq_hedge_worker_iteration_errors_total`
+- `rfq_hedge_worker_order_cancellations_total`
 - `rfq_hedge_worker_last_processed_timestamp_seconds`
 - `rfq_hedge_fee_reconciliations_total`
 - `rfq_hedge_fee_iteration_errors_total`

@@ -33,7 +33,13 @@ const routes = new HedgeRouteTable([{
   priceTick: "0.01",
   maxSlippageBps: 100,
 }]);
-const config = { workerId: "worker_1", leaseMs: 30000, pollIntervalMs: 10, retryDelayMs: 1000 };
+const config = {
+  workerId: "worker_1",
+  leaseMs: 30000,
+  pollIntervalMs: 10,
+  retryDelayMs: 1000,
+  maxOrderAgeMs: 30000,
+};
 
 test("HedgeFeeWorker reconciles exact account fills without delaying inventory execution", async () => {
   const store = fakeStore(job);

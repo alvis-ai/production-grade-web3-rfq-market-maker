@@ -152,6 +152,7 @@ Prometheus metrics:
 - `rfq_hedge_lag_seconds`
 - `rfq_hedge_worker_jobs_total`
 - `rfq_hedge_worker_iteration_errors_total`
+- `rfq_hedge_worker_order_cancellations_total`
 - `rfq_hedge_worker_last_processed_timestamp_seconds`
 - `rfq_hedge_fee_reconciliations_total`
 - `rfq_hedge_fee_iteration_errors_total`
@@ -207,7 +208,7 @@ The settlement indexer exports durable cursor, safe-head, lag, range, event, bou
 - Histogram observations must be finite numbers before mutation; finite negative latency values are clamped to zero, but `NaN` and `Infinity` are rejected so Prometheus output cannot contain non-numeric samples.
 - `rfq_quote_rejections_total` 只使用稳定内部 `reasonCode` 作为 label，不暴露阈值、金额、地址或 quoteId。
 - `rfq_hedge_lag_seconds` 使用无高基数 label 的 histogram，记录 settlement accepted 到 hedge intent queued 的耗时；生产版可复用同一指标记录异步 hedge queue 和 venue submit lag。
-- Hedge worker 只使用 `filled|failed|retry_scheduled` 三个固定 outcome label；`rfq_hedge_worker_iteration_errors_total` 记录 DB/poll loop 故障，`rfq_hedge_worker_last_processed_timestamp_seconds` 用于识别有新 intent 但 worker 无进展的停滞。不得把 symbol、order id 或 venue message 放入 label。
+- Hedge worker 只使用 `filled|failed|retry_scheduled` 三个固定 outcome label；`rfq_hedge_worker_order_cancellations_total` 只使用 `attempted|confirmed`，用来区分已持久化的超时撤单请求和 Binance 明确返回的撤单终态。`rfq_hedge_worker_iteration_errors_total` 记录 DB/poll loop 故障，`rfq_hedge_worker_last_processed_timestamp_seconds` 用于识别有新 intent 但 worker 无进展的停滞。不得把 symbol、order id 或 venue message 放入 label。
 - Fee worker 只使用 `reconciled|retry_scheduled` 固定 status；`rfq_hedge_fee_pending` 和 `rfq_hedge_fee_oldest_due_age_seconds` 来自 PostgreSQL 的只读 scrape-time 聚合。统计查询失败时保留进程 counter，但不输出伪造的零 backlog；symbol、order id、trade id、commission asset 和 venue message 都不得成为 label。
 - `rfq_quote_status_update_errors_total` 使用低基数 `target_status` label，记录 settlement 已接受后 quote 状态落库失败，或 settlement rejection 后 failed 状态落库失败的次数；该指标用于触发 reconciliation，而不是让已应用 settlement 回滚或掩盖原始拒绝原因。
 - `rfq_market_data_cache_hits_total` 和 `rfq_market_data_cache_misses_total` 记录 `/quote` 行情读取是否命中后台预热缓存。它们不带 pair、token 或 exchange label，避免把交易对、地址或 CEX symbol 写入高基数 Prometheus 维度；具体 pair 级诊断应通过日志、trace 或 ClickHouse 事件完成。

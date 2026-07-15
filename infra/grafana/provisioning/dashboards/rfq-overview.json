@@ -240,6 +240,11 @@
           "expr": "max(rfq_hedge_fee_oldest_due_age_seconds)",
           "legendFormat": "oldest fee due age",
           "refId": "H"
+        },
+        {
+          "expr": "sum by (status) (rate(rfq_hedge_worker_order_cancellations_total[5m]))",
+          "legendFormat": "cancel {{status}}/s",
+          "refId": "I"
         }
       ]
     },

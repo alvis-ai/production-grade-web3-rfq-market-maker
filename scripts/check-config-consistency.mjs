@@ -215,13 +215,15 @@ assert.ok(
     hedgeWorkerSource.includes('readCredential(env, "RFQ_BINANCE_API_KEY")') &&
     hedgeWorkerSource.includes('readCredential(env, "RFQ_BINANCE_API_SECRET")') &&
     hedgeWorkerSource.includes("placeholder must be replaced") &&
-    hedgeWorkerSource.includes("must exceed four RFQ_BINANCE_REQUEST_TIMEOUT_MS windows"),
+    hedgeWorkerSource.includes("must exceed four RFQ_BINANCE_REQUEST_TIMEOUT_MS windows") &&
+    hedgeWorkerSource.includes('readInteger(env, "RFQ_HEDGE_MAX_ORDER_AGE_MS", 30_000, 1_000, 3_600_000)'),
   "hedge worker must require durable queue, shared token metadata, isolated venue credentials, and a safe lease window",
 );
 assert.ok(
   k8sConfigSource.includes("RFQ_TOKEN_REGISTRY_JSON:") &&
   k8sConfigSource.includes("RFQ_HEDGE_ROUTES_JSON:") &&
     k8sConfigSource.includes('RFQ_HEDGE_LEASE_MS: "45000"') &&
+    k8sConfigSource.includes('RFQ_HEDGE_MAX_ORDER_AGE_MS: "30000"') &&
     k8sConfigSource.includes('RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000"'),
   "Kubernetes config must define non-secret hedge worker routing and timing controls",
 );

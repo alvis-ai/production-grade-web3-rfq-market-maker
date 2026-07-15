@@ -49,6 +49,7 @@ test("hedge worker runtime config requires durable storage, routes, and isolated
   const config = readHedgeWorkerRuntimeConfig(env);
   assert.equal(config.worker.workerId, "worker_1");
   assert.equal(config.worker.leaseMs, 45000);
+  assert.equal(config.worker.maxOrderAgeMs, 30000);
   assert.equal(config.routes.find(1, token).symbol, "ETHUSDT");
   assert.equal(config.binance.apiKey, "api-key");
   assert.equal(config.listenPort, 3001);
@@ -86,6 +87,10 @@ test("hedge worker runtime config requires durable storage, routes, and isolated
     RFQ_HEDGE_LEASE_MS: "41001",
     RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000",
   }).worker.leaseMs, 41001);
+  assert.throws(
+    () => readHedgeWorkerRuntimeConfig({ ...env, RFQ_HEDGE_MAX_ORDER_AGE_MS: "999" }),
+    /RFQ_HEDGE_MAX_ORDER_AGE_MS must be a base-10 integer between 1000 and 3600000/,
+  );
 });
 
 test("hedge worker runtime config reads only own environment fields", () => {

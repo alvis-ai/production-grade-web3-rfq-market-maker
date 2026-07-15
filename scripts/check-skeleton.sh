@@ -90,6 +90,7 @@ test -s backend/src/db/migrations/005-post-trade-reconciliation.sql
 test -s backend/src/db/migrations/006-quote-snapshot-pnl.sql
 test -s backend/src/db/migrations/024-hedge-net-pnl.sql
 test -s backend/src/db/migrations/025-bounded-hedge-limit.sql
+test -s backend/src/db/migrations/026-hedge-order-expiry.sql
 test -s backend/src/modules/hedge/hedge-net-pnl.ts
 test -s backend/test/hedge-net-pnl.test.mjs
 test -s scripts/hedge-net-pnl-integration-check.mjs
@@ -123,6 +124,7 @@ grep -q 'scripts/hedge-net-pnl-integration-check.mjs' Makefile
 grep -q 'FOR UPDATE SKIP LOCKED' backend/src/modules/hedge/postgres-hedge-job.store.ts
 grep -q 'adapter.queryOrder' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'adapter.submitLimitOrder' backend/src/modules/hedge/hedge-worker.ts
+grep -q 'adapter.cancelOrder' backend/src/modules/hedge/hedge-worker.ts
 grep -q 'createHmac("sha256"' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'origClientOrderId' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'newClientOrderId' backend/src/modules/hedge/binance-spot.adapter.ts
