@@ -1718,6 +1718,8 @@ assert.ok(
 );
 assert.ok(
   postTradeStoreSource.includes("FOR UPDATE SKIP LOCKED") &&
+    postTradeStoreSource.includes("settlement.settled_at") &&
+    postTradeStoreSource.includes("observedAt: parseTimestamp(value.settled_at)") &&
     postTradeStoreSource.includes("processed_revision = CASE") &&
     postTradeStoreSource.includes("desired_revision = $3") &&
     postTradeStoreSource.includes("lease_owner = $2") &&

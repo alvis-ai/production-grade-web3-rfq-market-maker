@@ -6,14 +6,21 @@ on:
       - "contracts/**"
       - "backend/src/modules/signer/signer.service.ts"
       - "backend/src/modules/settlement/settlement-verifier.service.ts"
+      - "backend/src/modules/settlement/postgres-settlement-event.store.ts"
+      - "backend/src/modules/indexer/**"
+      - "backend/src/modules/inventory/**"
+      - "backend/src/modules/reconciliation/**"
       - "backend/src/runtime/gateway-application.ts"
       - "backend/src/runtime/gateway-runtime.ts"
       - "backend/src/runtime/market-runtime.ts"
       - "backend/test/gateway-settlement-policy.test.mjs"
       - "backend/test/market-runtime.test.mjs"
+      - "backend/test/*settlement-indexer*"
+      - "backend/test/*reconciliation*"
       - "sdk/src/abi.ts"
       - "sdk/src/eip712.ts"
       - "scripts/settlement-e2e.mjs"
+      - "scripts/settlement-indexer-e2e.mjs"
       - "scripts/settlement-e2e.sh"
       - "scripts/contract-deployment-integration-check.mjs"
       - "scripts/contract-deployment-integration-check.test.mjs"
@@ -36,6 +43,20 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: rfq_market_maker
+          POSTGRES_USER: rfq
+          POSTGRES_PASSWORD: rfq
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rfq -d rfq_market_maker"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
     steps:
@@ -71,3 +92,9 @@ jobs:
         run: make contract-deployment-check
       - name: Test receipt-confirmed settlement end to end
         run: make settlement-e2e
+      - name: Test wallet-only settlement and reorg recovery
+        env:
+          NODE_ENV: test
+          DATABASE_URL: "postgres://rfq:rfq@127.0.0.1:5432/rfq_market_maker?minPool=2&maxPool=10"
+          RFQ_SETTLEMENT_INDEXER_E2E_CONFIRM: "yes"
+        run: make db-migrate settlement-indexer-e2e

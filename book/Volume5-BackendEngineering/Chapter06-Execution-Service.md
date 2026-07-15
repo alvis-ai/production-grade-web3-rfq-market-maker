@@ -235,6 +235,8 @@ Execution path can be asynchronous. RPC latency should not block quote generatio
 
 `make settlement-e2e` 补足 mock receipt 无法证明的跨层边界：测试会启动临时 Anvil，部署 ERC-20 与真实 `RFQDeploymentFactory`，由 factory 原子创建并交接 Treasury/RFQSettlement，随后先运行部署完整性 canary。它使用运行时配置的 pair 获取真实 EIP-712 signed quote，由 quote user 广播 `submitQuote`，再让 `ReceiptSettlementEvidenceProvider` 只凭 `txHash` 独立读取并验证 transaction、calldata、receipt 和唯一 `QuoteSettled` event。测试最后同时断言链上余额与 nonce、链下 inventory、hedge、PnL 和 metrics；Contract CI 与具备 Foundry/Anvil 的 `make verify` 都执行该门禁。
 
+`make settlement-indexer-e2e` 进一步使用真实 Anvil、PostgreSQL store、`SettlementIndexerWorker` 和 `PostTradeReconciliationWorker` 验证恢复语义。第一笔成交同时经过 `/submit` 与 indexer，后者必须返回 duplicate；第二笔只由钱包广播，indexer 必须独立发现并把 quote、inventory、hedge 与 PnL 收敛到 settled。测试随后通过 `evm_snapshot`/`evm_revert` 制造替代链，要求孤儿事件转为 non-canonical、quote 恢复 `signed`、链派生 hedge/PnL 清除、inventory 重建且 cursor 沿替代链继续推进。该门禁必须显式确认并只能连接 disposable loopback database，Contract CI 在迁移后强制执行。
+
 ## Interview Notes
 
 后端 submit 成功不是成交成功。链上事件才是 settlement source of truth。

@@ -43,7 +43,7 @@ const settlementColumns = `
   settlement.quote_hash, settlement.log_index, settlement.block_number,
   settlement.user_address, settlement.token_in, settlement.token_out,
   settlement.amount_in, settlement.amount_out, settlement.nonce,
-  settlement.created_at, settlement.canonical
+  settlement.settled_at, settlement.canonical
 `;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const errorCodePattern = /^[A-Z0-9_:-]+$/;
@@ -246,7 +246,7 @@ function parseSettlementEvent(row: unknown): ReconciliationSettlementEvent {
     amountIn: parsePositiveUInt(value.amount_in, "amount_in"),
     amountOut: parsePositiveUInt(value.amount_out, "amount_out"),
     nonce: parsePositiveUInt(value.nonce, "nonce"),
-    observedAt: parseTimestamp(value.created_at),
+    observedAt: parseTimestamp(value.settled_at),
   };
   if (event.tokenIn.toLowerCase() === event.tokenOut.toLowerCase()) {
     throw new Error("Post-trade reconciliation settlement tokens must be distinct");

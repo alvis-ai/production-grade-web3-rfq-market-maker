@@ -51,6 +51,7 @@ test("PostgresPostTradeReconciliationStore returns canonical and historical sett
   assert.equal(events[1].canonical, true);
   assert.equal(events[1].event.blockNumber, 101);
   assert.equal(events[1].event.txHash, `0x${"22".repeat(32)}`);
+  assert.equal(events[1].event.observedAt, "2026-07-10T23:59:00.000Z");
 });
 
 test("PostgresPostTradeReconciliationStore completes only the claimed desired revision", async () => {
@@ -133,6 +134,7 @@ function settlementRow(overrides = {}) {
     amount_in: "1000",
     amount_out: "990",
     nonce: "1",
+    settled_at: "2026-07-10T23:59:00.000Z",
     created_at: "2026-07-11T00:00:00.000Z",
     canonical: true,
     ...overrides,

@@ -11,6 +11,7 @@ const paths = [
   "backend/src/modules/indexer/postgres-settlement-indexer.store.ts",
   "backend/src/modules/indexer/settlement-indexer.worker.ts",
   "backend/src/modules/indexer/settlement-indexer.metrics.ts",
+  "backend/src/modules/reconciliation/postgres-post-trade-reconciliation.store.ts",
   "backend/test/settlement-indexer.test.mjs",
   "backend/test/postgres-settlement-indexer-store.test.mjs",
   "docs/adr/ADR-0006-Use-Independent-Settlement-Indexer.md",
@@ -25,6 +26,11 @@ const paths = [
   "infra/helm/rfq-market-maker/values.yaml",
   "infra/helm/rfq-market-maker/templates/settlement-indexer-deployment.yaml",
   "infra/helm/rfq-market-maker/templates/cilium-fqdn-egress-policy.yaml",
+  "scripts/settlement-indexer-e2e.mjs",
+  "scripts/settlement-e2e.sh",
+  ".github/workflows/contract-ci.yml",
+  "Makefile",
+  "package.json",
   "README.md",
 ];
 const files = Object.fromEntries(await Promise.all(
@@ -40,6 +46,7 @@ assertContains("backend/src/db/migrations/007-settlement-indexer.sql", [
 assertContains("backend/src/modules/indexer/settlement-indexer.reader.ts", [
   "getQuoteSettledLogs",
   "strict: true",
+  "cacheTime: 0",
   "reorgLookbackBlocks",
   "requestTimeoutMs",
 ]);
@@ -61,6 +68,10 @@ assertContains("backend/src/modules/indexer/settlement-indexer.metrics.ts", [
   "rfq_settlement_indexer_lag_blocks",
   "rfq_settlement_indexer_errors_total",
   "DEEP_REORG",
+]);
+assertContains("backend/src/modules/reconciliation/postgres-post-trade-reconciliation.store.ts", [
+  "settlement.settled_at",
+  "observedAt: parseTimestamp(value.settled_at)",
 ]);
 assertContains("backend/test/settlement-indexer.test.mjs", [
   "ingests confirmed matching logs",
@@ -129,6 +140,30 @@ assertContains("infra/helm/rfq-market-maker/templates/cilium-fqdn-egress-policy.
 assertContains("README.md", [
   "does not depend on the browser successfully calling `/submit`",
   "An unknown quote or a reorg deeper than `reorgLookbackBlocks` stops that chain",
+  "make settlement-indexer-e2e",
+]);
+assertContains("scripts/settlement-indexer-e2e.mjs", [
+  "RFQ_SETTLEMENT_INDEXER_E2E_CONFIRM",
+  "assertFixtureIsolation",
+  "use a disposable database",
+  "SettlementIndexerWorker",
+  "PostTradeReconciliationWorker",
+  "evm_snapshot",
+  "evm_revert",
+  'indexerOutcome: "duplicate"',
+  'indexerOutcome: "applied"',
+  'restoredQuoteStatus: "signed"',
+]);
+assertContains("scripts/settlement-e2e.sh", [
+  "RFQ_ANVIL_CHAIN_ID",
+  "RFQ_SETTLEMENT_E2E_SCRIPT",
+]);
+assertContains("Makefile", ["settlement-indexer-e2e:", "RFQ_ANVIL_CHAIN_ID=31338"]);
+assertContains("package.json", ['"settlement:indexer:e2e": "make settlement-indexer-e2e"']);
+assertContains(".github/workflows/contract-ci.yml", [
+  "Test wallet-only settlement and reorg recovery",
+  "RFQ_SETTLEMENT_INDEXER_E2E_CONFIRM",
+  "make db-migrate settlement-indexer-e2e",
 ]);
 
 console.log("Settlement indexer consistency check passed: durable callback recovery and reorg rollback");

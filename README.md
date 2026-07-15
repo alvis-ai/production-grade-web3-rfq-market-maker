@@ -246,6 +246,8 @@ The reconciliation worker (`pnpm --dir backend start:reconciliation-worker`) con
 
 The settlement indexer (`pnpm --dir backend start:settlement-indexer`) independently discovers confirmed `QuoteSettled` logs, so post-trade state does not depend on the browser successfully calling `/submit` after wallet broadcast. `RFQ_SETTLEMENT_INDEXER_CONFIG_JSON` fixes each chain RPC, settlement address, deployment start block, confirmation depth, scan range, reorg window, and request timeout. Non-local indexer RPC URLs must use HTTPS. Startup and every chain poll verify `eth_chainId` before reading the head or claiming a PostgreSQL cursor; a mismatch reports `RPC_OR_STORE_UNAVAILABLE`, leaves the cursor unchanged, and keeps readiness unavailable. For every log it resolves the complete signed quote by `(chainId, user, nonce)`, verifies the on-chain `quoteHash` and all emitted fields, and only then applies the existing idempotent settlement path. PostgreSQL leases and revision/next-block CAS support multiple replicas. Range-end block-hash checkpoints detect reorgs; orphan events are marked non-canonical before the cursor rolls back, causing inventory rebuild and durable quote/hedge/PnL reconciliation. An unknown quote or a reorg deeper than `reorgLookbackBlocks` stops that chain and alerts instead of silently skipping economic state.
 
+`make settlement-indexer-e2e` is the destructive local proof for this recovery path and therefore requires `RFQ_SETTLEMENT_INDEXER_E2E_CONFIRM=yes` plus a disposable loopback PostgreSQL database. It deploys the real contracts to an isolated Anvil chain, proves that a `/submit` callback and the indexer converge as a duplicate, proves that a wallet-only broadcast is discovered and reconciled to settled inventory/hedge/PnL state, then reverts the chain snapshot and mines a replacement branch. The final assertions require the orphan event to become non-canonical, the quote to return to `signed`, chain-derived hedge/PnL state to disappear, inventory to rebuild, and the cursor to continue on the replacement chain. Its uniquely named rows are removed even after failure.
+
 Receipt-confirmed API runtimes also treat that cursor as pre-sign risk evidence. After reading Treasury liquidity at one RPC head, Quote Service subtracts the configured receipt confirmations, compares the resulting safe head with `settlement_indexer_cursors.next_block`, and rejects signing as `RISK_ENGINE_UNAVAILABLE` when the cursor row is missing, belongs to another Settlement contract, is older than `RFQ_SETTLEMENT_INDEXER_MAX_CURSOR_AGE_MS`, or exceeds `RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG`. Confirmation depth is therefore not mistaken for indexer lag, while initial backfills and stalled workers cannot leave the API quoting against an unboundedly stale inventory projection. The same all-chain check is folded into readiness's fixed `risk` component; local synthetic-settlement mode has no receipt chains and leaves the guard disabled. Prometheus exposes the latest configured-chain guard state plus one of seven bounded failure reasons, while client responses retain the generic risk-unavailable contract. Unsupported request chain IDs fail closed without becoming metric labels.
 
 The destructive integration check requires an explicit acknowledgement and a disposable PostgreSQL database. It verifies initial convergence, reorg cleanup, and a replacement canonical transaction for the same quote, then removes its uniquely named fixtures:
@@ -552,6 +554,16 @@ make settlement-e2e
 ```
 
 This starts an isolated Anvil chain, deploys two ERC-20 fixtures, then uses the real `RFQDeploymentFactory` to atomically create, wire and hand off `Treasury` plus `RFQSettlement`. It runs the same deployment canary against that real RPC before obtaining a backend-signed quote, broadcasting `submitQuote` from the quote user, and submitting only its `txHash` to the backend. The gate independently validates runtime artifacts, administration, transaction calldata, receipt and `QuoteSettled`, then checks on-chain balances, nonce consumption, inventory, hedge, PnL and metrics. It is distinct from synthetic API smoke coverage and does not require a persistent local chain.
+
+Settlement indexer callback-loss and reorg E2E (disposable PostgreSQL only):
+
+```sh
+DATABASE_URL=postgres://rfq:rfq@127.0.0.1:5432/rfq_market_maker \
+RFQ_SETTLEMENT_INDEXER_E2E_CONFIRM=yes \
+make db-migrate settlement-indexer-e2e
+```
+
+This second gate exercises the production PostgreSQL stores and workers against a real Anvil event stream. Contract CI runs it after migrations and requires callback deduplication, wallet-only recovery, reconciliation convergence, and full rollback on a replaced chain branch.
 
 Browser end-to-end gate (install Chromium once with `pnpm --dir frontend e2e:install`):
 

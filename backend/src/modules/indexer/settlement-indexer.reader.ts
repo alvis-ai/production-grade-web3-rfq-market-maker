@@ -125,6 +125,7 @@ export function createSettlementChainReader(
   });
   const client = createPublicClient({
     chain,
+    cacheTime: 0,
     transport: http(config.rpcUrl, {
       retryCount: 0,
       timeout: config.requestTimeoutMs,

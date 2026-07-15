@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check chainlink-canary-check binance-testnet-check aws-kms-canary-check target-api-quote-check target-settlement-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check quote-exposure-integration-check hedge-net-pnl-integration-check analytics-integration-check cex-orderbook-integration-check chainlink-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check target-settlement-integration-check contract-deployment-integration-check settlement-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check chainlink-canary-check binance-testnet-check aws-kms-canary-check target-api-quote-check target-settlement-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check quote-exposure-integration-check hedge-net-pnl-integration-check analytics-integration-check cex-orderbook-integration-check chainlink-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check target-settlement-integration-check contract-deployment-integration-check settlement-e2e settlement-indexer-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -60,6 +60,7 @@ help:
 	@echo "  contract-deployment-integration-check  Verify one live-chain RFQ contract deployment"
 	@echo "  contract-deployment-check  Test target-chain deployment verification with protocol fixtures"
 	@echo "  settlement-e2e  Verify quote-to-receipt settlement against a temporary Anvil chain"
+	@echo "  settlement-indexer-e2e  Verify wallet-only settlement and reorg recovery against Anvil and PostgreSQL"
 	@echo "  benchmark-quote  Run a local POST /quote latency benchmark"
 	@echo "  benchmark-submit Run a local POST /submit latency benchmark"
 	@echo "  backend-build  Build backend package"
@@ -256,6 +257,12 @@ contract-deployment-check: backend-build contract-build
 
 settlement-e2e: backend-build contract-build
 	@sh scripts/settlement-e2e.sh
+
+settlement-indexer-e2e: backend-build contract-build
+	@RFQ_ANVIL_CHAIN_ID=31338 \
+		RFQ_ANVIL_LOG_FILE=tmp/settlement-indexer-e2e-anvil.log \
+		RFQ_SETTLEMENT_E2E_SCRIPT=scripts/settlement-indexer-e2e.mjs \
+		sh scripts/settlement-e2e.sh
 
 benchmark-quote: backend-build
 	@node benchmark/quote-benchmark.mjs

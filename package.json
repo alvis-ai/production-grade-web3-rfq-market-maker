@@ -46,6 +46,7 @@
     "contract:deployment:integration:check": "make contract-deployment-integration-check",
     "contract:deployment:check": "make contract-deployment-check",
     "settlement:e2e": "make settlement-e2e",
+    "settlement:indexer:e2e": "make settlement-indexer-e2e",
     "benchmark:quote": "make benchmark-quote",
     "benchmark:submit": "make benchmark-submit",
     "backend:build": "make backend-build",

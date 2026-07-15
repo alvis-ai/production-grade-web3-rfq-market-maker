@@ -89,6 +89,7 @@ on:
       - "scripts/check-security-docs-consistency.mjs"
       - "scripts/check-transport-security-consistency.mjs"
       - "scripts/settlement-e2e.mjs"
+      - "scripts/settlement-indexer-e2e.mjs"
       - "scripts/settlement-e2e.sh"
       - "scripts/check-skeleton.sh"
       - "contracts/script/LocalE2EToken.s.sol"
