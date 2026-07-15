@@ -64,6 +64,10 @@ import {
 } from "./market-runtime.js";
 import { buildGatewayMarketDataRuntime } from "./gateway-market-data.js";
 import { readGatewayHedgeServiceConfig } from "./gateway-hedge-risk.js";
+import {
+  assertProductionDailyLossRiskPolicy,
+  buildDailyLossRiskEngine,
+} from "./gateway-daily-loss-risk.js";
 import { buildRuntimeSettlementIndexerRiskGuard } from "./gateway-settlement-indexer-risk.js";
 import { DynamicToxicFlowRiskEngine } from "../modules/risk/dynamic-toxic-flow-risk.engine.js";
 import { structuredLoggerConfig } from "../shared/logger/structured-logger.js";
@@ -147,14 +151,21 @@ export function buildServer(options: BuildServerOptions = {}) {
   const defaultRiskEngine = options.riskEngine === undefined
     ? buildDefaultRiskEngine(runtimeTokenRegistry, managedRiskPairs)
     : undefined;
-  const riskEngine = options.riskEngine ?? buildUsdReferenceRiskEngine(
-    new DynamicToxicFlowRiskEngine(
-      defaultRiskEngine!,
-      toxicFlowScoreStore,
-      readDynamicToxicFlowRiskConfig(defaultRiskEngine!.getMaxToxicScoreBps()),
+  const riskEngine = options.riskEngine ?? buildDailyLossRiskEngine(
+    buildUsdReferenceRiskEngine(
+      new DynamicToxicFlowRiskEngine(
+        defaultRiskEngine!,
+        toxicFlowScoreStore,
+        readDynamicToxicFlowRiskConfig(defaultRiskEngine!.getMaxToxicScoreBps()),
+      ),
+      runtimeTokenRegistry,
+      managedRiskPairs,
+      undefined,
+      metricsService,
     ),
     runtimeTokenRegistry,
     managedRiskPairs,
+    postgresPool,
     undefined,
     metricsService,
   );
@@ -225,6 +236,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
   marketRuntime.assertProductionPolicy();
   assertProductionUsdReferenceRiskPolicy(options.riskEngine === undefined);
+  assertProductionDailyLossRiskPolicy(options.riskEngine === undefined, postgresPool);
   const stopMarketBackgroundTasks = marketRuntime.startBackgroundTasks(
     marketSnapshotStore,
     postgresPool !== undefined,

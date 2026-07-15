@@ -10,6 +10,7 @@ import {
 } from "./helpers/signer-runtime-fixtures.mjs";
 import {
   configureUsdReferenceEnvironment,
+  dailyLossRuntimeEnvName,
   usdReferenceRuntimeEnvName,
 } from "./helpers/usd-reference-runtime-fixtures.mjs";
 
@@ -152,6 +153,7 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
     "RFQ_RECEIPT_CONFIG_JSON",
     "RFQ_RATE_LIMIT_BACKEND",
     "RFQ_REDIS_URL",
+    dailyLossRuntimeEnvName,
     usdReferenceRuntimeEnvName,
   ];
   const original = saveEnv(names);

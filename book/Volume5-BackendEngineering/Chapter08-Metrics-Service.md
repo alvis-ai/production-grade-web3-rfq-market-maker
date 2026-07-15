@@ -195,6 +195,10 @@ Prometheus metrics:
 - `rfq_settlement_indexer_risk_guard_failures_total`
 - `rfq_usd_reference_health_safe`
 - `rfq_usd_reference_health_failures_total`
+- `rfq_daily_realized_pnl_usd`
+- `rfq_daily_loss_limit_remaining_usd`
+- `rfq_daily_loss_risk_safe`
+- `rfq_daily_loss_risk_failures_total`
 
 ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, status and timestamps.
 
@@ -211,6 +215,8 @@ The standalone toxic-flow analyzer exports `rfq_toxic_flow_markouts_total`, `rfq
 The settlement indexer exports durable cursor, safe-head, lag, range, event, bounded error, reorg, removed-event, last-poll, and cursor-age metrics. Labels are limited to configured `chain_id`, `outcome=applied|duplicate`, and the closed error-code enum; transaction hash, quote hash, user and RPC URL remain absent.
 
 The API-side pre-sign guard separately exports `rfq_settlement_indexer_risk_guard_safe{chain_id}` and `rfq_settlement_indexer_risk_guard_failures_total{chain_id,reason}`. `reason` is closed to `RPC_UNAVAILABLE|CURSOR_STORE_UNAVAILABLE|CURSOR_MISSING|CURSOR_INVALID|CONTRACT_MISMATCH|CURSOR_STALE|BLOCK_LAG`, and `chain_id` is limited to configured receipt chains. Unsupported request chains fail closed without being observed, so callers cannot create metric series. Observer failures are swallowed after the economic decision, so metrics cannot turn an allowed quote into a rejection or hide an unsafe cursor; RPC URLs, thresholds, addresses and database errors never enter labels.
+
+The daily loss guard exports exact PostgreSQL-backed UTC-day hedge-net PnL as `rfq_daily_realized_pnl_usd{chain_id,token}`, remaining budget as `rfq_daily_loss_limit_remaining_usd{chain_id,token}`, the latest decision as `rfq_daily_loss_risk_safe{chain_id,token}`, and evidence failures as `rfq_daily_loss_risk_failures_total{chain_id,token,reason}`. Token labels are bounded to at most 100 startup-configured USD-reference limits, and reason is closed to `STORE_UNAVAILABLE|EVIDENCE_INVALID`. Quote ids, database errors and policy thresholds never become labels; observer errors cannot change the risk decision.
 
 API market-data background tasks export `rfq_market_data_refreshes_total{outcome}` with `success|failure` and `rfq_market_snapshot_samples_total{outcome}` with `saved|unchanged|unavailable|failed`. Refresh counts represent configured base-provider pair attempts; sample counts represent per-pair cycle results. These fixed labels expose provider and persistence failures before quote traffic encounters a cold cache without leaking token pairs, RPC endpoints, snapshot ids or storage errors. Observer exceptions are swallowed so telemetry cannot alter cache writes, retries or graceful drain.
 

@@ -15,10 +15,14 @@ const files = Object.fromEntries(await Promise.all([
   "backend/src/modules/risk/postgres-portfolio-var.ts",
   "backend/src/modules/risk/treasury-liquidity.provider.ts",
   "backend/src/modules/risk/usd-reference-risk.engine.ts",
+  "backend/src/modules/risk/daily-loss-risk.engine.ts",
+  "backend/src/modules/risk/postgres-daily-loss-evidence.provider.ts",
   "backend/src/modules/market-data/chainlink-usd-reference-config.ts",
   "backend/src/modules/market-data/chainlink-usd-reference.provider.ts",
   "backend/src/runtime/market-runtime.ts",
+  "backend/src/runtime/gateway-daily-loss-risk.ts",
   "backend/src/modules/quote/quote.service.ts",
+  "backend/src/modules/quote/quote-service-result-validation.ts",
   "backend/src/modules/health/readiness.service.ts",
   "backend/test/token-limit-risk.test.mjs",
   "backend/test/api-risk-policy-runtime.test.mjs",
@@ -28,6 +32,8 @@ const files = Object.fromEntries(await Promise.all([
   "backend/test/postgres-quote-exposure-store.test.mjs",
   "backend/test/portfolio-var.test.mjs",
   "backend/test/usd-reference-risk.test.mjs",
+  "backend/test/daily-loss-risk.test.mjs",
+  "backend/test/daily-loss-runtime.test.mjs",
   "scripts/quote-exposure-integration-check.mjs",
   "Makefile",
   "package.json",
@@ -66,6 +72,9 @@ for (const path of [
     "valuationPairs",
     "minLiquidityUsd",
     "maxVolatilityBps",
+    "RFQ_DAILY_LOSS_CONFIG_JSON",
+    "daily-loss-v1",
+    "maxLossUsdE18",
   ]);
 }
 
@@ -278,7 +287,46 @@ assertContains("backend/test/usd-reference-risk.test.mjs", [
   "production runtime requires complete USD-reference feed coverage",
 ]);
 
-console.log("Risk policy consistency check passed: market-regime, atomic exposure, treasury, portfolio VaR, and USD-reference depeg controls");
+assertContains("backend/src/modules/risk/daily-loss-risk.engine.ts", [
+  "class DailyLossRiskEngine",
+  "DAILY_LOSS_LIMIT_EXCEEDED",
+  "BigInt(evidence.netPnlUsdE18) <= -BigInt(limit.maxLossUsdE18)",
+  "windowStartedAt",
+  "checkHealth",
+  "STORE_UNAVAILABLE",
+  "EVIDENCE_INVALID",
+]);
+assertContains("backend/src/modules/quote/quote-service-result-validation.ts", [
+  "DAILY_LOSS_LIMIT_EXCEEDED",
+  "USD_REFERENCE_DEPEG",
+  "RISK_ENGINE_UNAVAILABLE",
+]);
+assertContains("backend/src/modules/risk/postgres-daily-loss-evidence.provider.ts", [
+  "FILTER (WHERE hedge_net_pnl_status = 'complete')",
+  "hedge_net_pnl_status IN ('complete', 'unavailable')",
+  "unavailable_count",
+  "hedge_net_pnl_realized_at",
+  "date_trunc('day'",
+  "hedge_net_pnl_quote_quantity",
+]);
+assertContains("backend/src/runtime/gateway-daily-loss-risk.ts", [
+  "RFQ_DAILY_LOSS_CONFIG_JSON is required outside local environments",
+  "assertDailyLossLimitCoverage",
+  "buildDailyLossRiskEngine",
+  "PostgresDailyLossEvidenceProvider",
+]);
+assertContains("backend/test/daily-loss-risk.test.mjs", [
+  "rejects the exact loss boundary",
+  "fails closed on malformed evidence",
+  "reads one UTC window with exact decimal scaling",
+]);
+assertContains("backend/test/daily-loss-runtime.test.mjs", [
+  "mandatory with PostgreSQL in production",
+  "validates complete managed USD-reference coverage",
+  "wraps approved risk with PostgreSQL evidence",
+]);
+
+console.log("Risk policy consistency check passed: market-regime, atomic exposure, treasury, portfolio VaR, USD-reference depeg, and UTC daily loss controls");
 
 function assertContains(path, needles) {
   for (const needle of needles) {

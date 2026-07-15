@@ -72,6 +72,7 @@
 - [x] Frontend Ingress requires TLS and a non-public source-CIDR allowlist; frontend/API NetworkPolicies permit only ingress-to-frontend and frontend-to-API traffic.
 - [x] Sensitive thresholds are not exposed to users.
 - [x] Every production `usdReference` token has a dedicated reviewed token/USD feed; missing, stale, malformed or depegged evidence blocks signing and degrades risk readiness.
+- [x] Every managed USD-reference token has a reviewed UTC-day realized-loss budget; completed hedge-net evidence is aggregated exactly from PostgreSQL, and exhausted, unavailable or malformed evidence blocks signing and degrades risk readiness.
 - [x] Receipt-confirmed E2E broadcasts `submitQuote` on Anvil and verifies calldata, receipt, event, balances, nonce, inventory, hedge and PnL.
 
 ## Data and Events

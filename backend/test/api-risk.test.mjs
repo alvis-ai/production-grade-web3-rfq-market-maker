@@ -88,6 +88,42 @@ test("RFQ API blocks signing when dedicated USD-reference evidence confirms a de
   }
 });
 
+test("RFQ API blocks signing when the UTC daily loss budget is exhausted", async () => {
+  const server = buildServer({
+    logger: false,
+    riskEngine: {
+      async evaluate() {
+        return {
+          status: "rejected",
+          reasonCode: "DAILY_LOSS_LIMIT_EXCEEDED",
+          policyVersion: "daily-loss-v1:test-boundary",
+        };
+      },
+      async checkHealth() {
+        throw new Error("daily loss budget exhausted");
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const readiness = await server.inject({ method: "GET", url: "/ready" });
+    assert.equal(readiness.statusCode, 503);
+    assert.equal(readiness.json().components.risk, "degraded");
+    const response = await injectJson(server, "POST", "/quote", baseQuoteRequest);
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "RISK_REJECTED");
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.match(
+      metrics.payload,
+      /rfq_quote_rejections_total\{reason="DAILY_LOSS_LIMIT_EXCEEDED"\} 1/,
+    );
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+  } finally {
+    await server.close();
+  }
+});
+
 test("RFQ API rejects quotes that exceed observed treasury tokenOut liquidity before signing", async () => {
   const server = buildServer({
     logger: false,

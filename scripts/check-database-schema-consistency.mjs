@@ -10,6 +10,14 @@ const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");
 const quoteRepositorySource = await readFile("backend/src/modules/quote/quote.repository.ts", "utf8");
 const riskEngineSource = await readFile("backend/src/modules/risk/risk.engine.ts", "utf8");
+const riskDecisionRepositorySource = await readFile(
+  "backend/src/modules/risk/risk-decision.repository.ts",
+  "utf8",
+);
+const quoteServiceResultValidationSource = await readFile(
+  "backend/src/modules/quote/quote-service-result-validation.ts",
+  "utf8",
+);
 const baseSchemaMigrationSource = await readFile("backend/src/db/migrations/001-base-schema.sql", "utf8");
 const settlementEventServiceSource = await readFile(
   "backend/src/modules/settlement/settlement-event.service.ts",
@@ -120,6 +128,10 @@ const boundedHedgeFailureRiskMigrationSource = await readFile(
 );
 const usdReferenceDepegRiskMigrationSource = await readFile(
   "backend/src/db/migrations/030-usd-reference-depeg-risk.sql",
+  "utf8",
+);
+const dailyLossRiskMigrationSource = await readFile(
+  "backend/src/db/migrations/031-daily-loss-risk.sql",
   "utf8",
 );
 const signerAuditStoreSource = await readFile(
@@ -906,6 +918,16 @@ assert.deepEqual(
   extractStringUnionValues(riskEngineSource, "RiskRejectReasonCode"),
   "risk_decisions.reason_code constraint must match backend RiskRejectReasonCode values",
 );
+assert.deepEqual(
+  extractConstStringSetValues(riskDecisionRepositorySource, "riskRejectReasonCodes"),
+  extractStringUnionValues(riskEngineSource, "RiskRejectReasonCode"),
+  "risk decision repository reason validation must match RiskRejectReasonCode values",
+);
+assert.deepEqual(
+  extractConstStringSetValues(quoteServiceResultValidationSource, "riskRejectReasonCodes"),
+  extractStringUnionValues(riskEngineSource, "RiskRejectReasonCode"),
+  "quote service result reason validation must match RiskRejectReasonCode values",
+);
 assert.ok(
   /\blog_index\s+BIGINT\s+NOT\s+NULL/i.test(tables.get("settlement_events").body),
   "settlement_events.log_index must be stored as a JavaScript safe-integer sized ordinal",
@@ -1685,6 +1707,14 @@ assert.ok(
   "USD-reference depeg migration must extend the durable risk rejection contract",
 );
 assert.ok(
+  dailyLossRiskMigrationSource.includes(
+    "DROP CONSTRAINT IF EXISTS chk_risk_decisions_reason_code_consistency",
+  ) &&
+    dailyLossRiskMigrationSource.includes("DAILY_LOSS_LIMIT_EXCEEDED") &&
+    schemaSource.includes("('031', 'daily-loss-risk')"),
+  "daily loss migration must extend the durable risk rejection contract",
+);
+assert.ok(
   postgresToxicFlowMarkoutSource.includes("async claimNext") &&
     postgresToxicFlowMarkoutSource.includes("FOR UPDATE SKIP LOCKED") &&
     postgresToxicFlowMarkoutSource.includes("async findPostTradeSnapshot") &&
@@ -1808,6 +1838,12 @@ function extractStringUnionValues(source, typeName) {
   const match = source.match(new RegExp(`export\\s+type\\s+${typeName}\\s*=([\\s\\S]*?);`));
   assert.ok(match, `Unable to find TypeScript string union ${typeName}`);
 
+  return [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+}
+
+function extractConstStringSetValues(source, constName) {
+  const match = source.match(new RegExp(`const\\s+${constName}\\s*=\\s*new Set<string>\\(\\[([\\s\\S]*?)\\]\\);`));
+  assert.ok(match, `Unable to find TypeScript string set ${constName}`);
   return [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
 }
 

@@ -95,6 +95,19 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   metrics.recordUsdReferenceHealthSuccess(1, token);
   metrics.recordUsdReferenceHealthFailure(1, token, "ROUND_STALE");
   metrics.recordUsdReferenceHealthSuccess(42161, "0x0000000000000000000000000000000000000004");
+  metrics.recordDailyLossRiskObservation(
+    1,
+    token,
+    "-1250000000000000000",
+    "100000000000000000000",
+  );
+  metrics.recordDailyLossRiskFailure(1, token, "STORE_UNAVAILABLE");
+  metrics.recordDailyLossRiskObservation(
+    42161,
+    "0x0000000000000000000000000000000000000004",
+    "500000000000000000",
+    "2000000000000000000",
+  );
   metrics.recordMarketDataRefresh("success");
   metrics.recordMarketDataRefresh("failure");
   metrics.recordMarketSnapshotSampleCycle({ saved: 2, unchanged: 3, unavailable: 4, failed: 5 });
@@ -135,6 +148,34 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
     output,
     /rfq_usd_reference_health_failures_total\{chain_id="1",token="0x0000000000000000000000000000000000000003",reason="ROUND_STALE"\} 1/,
   );
+  assert.match(
+    output,
+    /rfq_daily_realized_pnl_usd\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} -1\.25/,
+  );
+  assert.match(
+    output,
+    /rfq_daily_loss_limit_remaining_usd\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} 98\.75/,
+  );
+  assert.match(
+    output,
+    /rfq_daily_loss_risk_safe\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} 0/,
+  );
+  assert.match(
+    output,
+    /rfq_daily_loss_risk_failures_total\{chain_id="1",token="0x0000000000000000000000000000000000000003",reason="STORE_UNAVAILABLE"\} 1/,
+  );
+  assert.match(
+    output,
+    /rfq_daily_realized_pnl_usd\{chain_id="42161",token="0x0000000000000000000000000000000000000004"\} 0\.5/,
+  );
+  assert.match(
+    output,
+    /rfq_daily_loss_limit_remaining_usd\{chain_id="42161",token="0x0000000000000000000000000000000000000004"\} 2\.5/,
+  );
+  assert.match(
+    output,
+    /rfq_daily_loss_risk_safe\{chain_id="42161",token="0x0000000000000000000000000000000000000004"\} 1/,
+  );
   assert.match(output, /rfq_market_data_refreshes_total\{outcome="success"\} 1/);
   assert.match(output, /rfq_market_data_refreshes_total\{outcome="failure"\} 1/);
   assert.match(output, /rfq_market_snapshot_samples_total\{outcome="saved"\} 2/);
@@ -158,6 +199,26 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   assert.throws(
     () => metrics.recordUsdReferenceHealthSuccess(1, "not-an-address"),
     /tokenAddress must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () => metrics.recordDailyLossRiskFailure(1, token, "UNKNOWN"),
+    /reason is invalid/,
+  );
+  assert.throws(
+    () => metrics.recordDailyLossRiskObservation(0, token, "0", "1"),
+    /chainId must be a positive safe integer/,
+  );
+  assert.throws(
+    () => metrics.recordDailyLossRiskObservation(1, "not-an-address", "0", "1"),
+    /tokenAddress must be a 20-byte hex address/,
+  );
+  assert.throws(
+    () => metrics.recordDailyLossRiskObservation(1, token, "1.5", "1"),
+    /netPnlUsdE18 must be a bounded canonical integer/,
+  );
+  assert.throws(
+    () => metrics.recordDailyLossRiskObservation(1, token, "0", "0"),
+    /maxLossUsdE18 must be a bounded canonical positive integer/,
   );
   assert.throws(() => metrics.recordMarketDataRefresh("unknown"), /outcome must be success or failure/);
   assert.throws(

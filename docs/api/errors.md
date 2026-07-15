@@ -61,6 +61,7 @@
 - Treasury 余额不足使用内部 `TREASURY_LIQUIDITY_INSUFFICIENT`；RPC/合约读取异常使用 `RISK_ENGINE_UNAVAILABLE`。两者对外仍保持闭合的 `RISK_REJECTED`，不得暴露资金阈值或 custody 地址细节。
 - Portfolio VaR 超限使用内部 `PORTFOLIO_VAR_LIMIT_EXCEEDED`；估值 snapshot、inventory 或 reservation 状态不可用则使用 `RISK_ENGINE_UNAVAILABLE`。公共响应不得暴露 VaR budget、position、volatility 或 snapshot 细节。
 - USD-reference token 的专用 token/USD feed 超过脱锚阈值时使用内部 `USD_REFERENCE_DEPEG`；feed 缺失、陈旧、超前、元数据不匹配、sequencer 异常或 RPC 不可用时使用 `RISK_ENGINE_UNAVAILABLE`。两者对外仍为 `RISK_REJECTED`，不得返回 oracle 地址、answer 或阈值。
+- UTC 日内、按 chain/USD-reference token 隔离的已实现 hedge-net PnL 达到审核限额时使用内部 `DAILY_LOSS_LIMIT_EXCEEDED`；PostgreSQL 证据不可读或格式异常时使用 `RISK_ENGINE_UNAVAILABLE`。公共响应不得暴露当前亏损或限额数值。
 - `RATE_LIMITED` 响应必须返回 HTTP 429，并带 `Retry-After` header。
 - 依赖不可用使用 503，业务状态冲突使用 409。
 - 框架级解析错误也必须映射为结构化 `ErrorResponse`，包括 malformed JSON、body too large 和 unsupported content type。

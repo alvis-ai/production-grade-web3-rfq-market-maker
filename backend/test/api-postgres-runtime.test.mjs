@@ -9,6 +9,7 @@ import {
 } from "./helpers/signer-runtime-fixtures.mjs";
 import {
   configureUsdReferenceEnvironment,
+  dailyLossRuntimeEnvName,
   usdReferenceRuntimeEnvName,
 } from "./helpers/usd-reference-runtime-fixtures.mjs";
 
@@ -18,6 +19,7 @@ test("non-local RFQ API startup requires durable PostgreSQL persistence", async 
     "DATABASE_URL",
     ...signerRuntimeEnvNames,
     "RFQ_RECEIPT_CONFIG_JSON",
+    dailyLossRuntimeEnvName,
     usdReferenceRuntimeEnvName,
   ]);
   try {

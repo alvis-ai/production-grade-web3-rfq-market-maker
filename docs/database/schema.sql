@@ -430,6 +430,7 @@ CREATE TABLE risk_decisions (
         'PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED',
         'TREASURY_LIQUIDITY_INSUFFICIENT',
         'PORTFOLIO_VAR_LIMIT_EXCEEDED',
+        'DAILY_LOSS_LIMIT_EXCEEDED',
         'USD_REFERENCE_REQUIRED',
         'USD_REFERENCE_DEPEG',
         'SLIPPAGE_TOO_WIDE',
@@ -2037,4 +2038,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('027', 'signer-audit'),
   ('028', 'signer-risk-context'),
   ('029', 'bounded-hedge-failure-risk'),
-  ('030', 'usd-reference-depeg-risk');
+  ('030', 'usd-reference-depeg-risk'),
+  ('031', 'daily-loss-risk');

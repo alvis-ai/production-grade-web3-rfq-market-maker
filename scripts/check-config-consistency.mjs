@@ -17,6 +17,7 @@ const frontendConfigSource = await readFile("frontend/src/lib/config.ts", "utf8"
 const readmeSource = await readFile("README.md", "utf8");
 const tokenRegistryJson = '{"tokens":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","symbol":"TOKEN2","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":false},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","symbol":"TOKEN3","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true}]}';
 const riskPolicyJson = '{"policyVersion":"token-limit-risk-v1","enabledChainIds":[1],"tokenLimits":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","maxAmountIn":"1000000000000000000000","minAmountOut":"1","maxNotionalUsd":"1000000","maxAbsoluteInventory":"10000000000000000000000"},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","maxAmountIn":"1000000000000000000000","minAmountOut":"1","maxNotionalUsd":"1000000","maxAbsoluteInventory":"10000000000000000000000"}],"restrictedUsers":[],"toxicFlowScores":[],"maxToxicScoreBps":8000,"maxUserOpenNotionalUsd":"2000000","maxPairOpenNotionalUsd":"5000000","portfolioVar":{"modelVersion":"component-sum-v1","maxPortfolioVarUsd":"500000","confidenceMultiplierBps":23300,"horizonSeconds":86400,"maxSnapshotAgeMs":5000,"maxFutureSkewMs":5000,"valuationPairs":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","usdReferenceTokenAddress":"0x0000000000000000000000000000000000000003"}]},"minLiquidityUsd":"1000000","maxVolatilityBps":500,"maxSlippageBps":500,"maxQuotedSpreadBps":1000}';
+const dailyLossConfigJson = '{"policyVersion":"daily-loss-v1","limits":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","maxLossUsdE18":"100000000000000000000"}]}';
 const productionCexPairs = "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT:hedge,1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:coinbase:ETH-USD:reference";
 const hedgeRoutesJson = '{"routes":[{"chainId":1,"token":"0x0000000000000000000000000000000000000002","venue":"binance","symbol":"ETHUSDT","baseAsset":"ETH","quoteAsset":"USDT","quoteToken":"0x0000000000000000000000000000000000000003","tokenDecimals":18,"quoteTokenDecimals":18,"stepSizeRaw":"100000000000000","priceTick":"0.01","maxSlippageBps":100}]}';
 
@@ -42,6 +43,7 @@ const localExpected = {
   RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG: "2",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
+  RFQ_DAILY_LOSS_CONFIG_JSON: dailyLossConfigJson,
   VITE_RFQ_API_BASE_URL: "http://localhost:3000",
   VITE_RFQ_SETTLEMENT_ADDRESS: "0x0000000000000000000000000000000000000004",
   VITE_WALLETCONNECT_PROJECT_ID: "00000000000000000000000000000000",
@@ -74,6 +76,7 @@ const composeExpected = {
   RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG: "${RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG:-2}",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
+  RFQ_DAILY_LOSS_CONFIG_JSON: dailyLossConfigJson,
   RFQ_HEDGE_ROUTES_JSON: hedgeRoutesJson,
   RFQ_BINANCE_BASE_URL: "${RFQ_BINANCE_BASE_URL:-https://testnet.binance.vision}",
   RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000",
@@ -114,6 +117,7 @@ const productionExpected = {
   RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG: "2",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
+  RFQ_DAILY_LOSS_CONFIG_JSON: dailyLossConfigJson,
   RFQ_HEDGE_ROUTES_JSON: hedgeRoutesJson,
   RFQ_BINANCE_BASE_URL: "https://api.binance.com",
   RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000",

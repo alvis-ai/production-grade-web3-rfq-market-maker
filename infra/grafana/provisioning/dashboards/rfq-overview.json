@@ -394,6 +394,18 @@
         { "expr": "min by (chain_id, token) (rfq_usd_reference_health_safe)", "legendFormat": "{{chain_id}} {{token}} safe", "refId": "A" },
         { "expr": "sum by (chain_id, token, reason) (rate(rfq_usd_reference_health_failures_total[5m]))", "legendFormat": "{{chain_id}} {{token}} {{reason}}/s", "refId": "B" }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "UTC Daily Loss Guard",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 80, "w": 24, "h": 7 },
+      "targets": [
+        { "expr": "max by (chain_id, token) (rfq_daily_realized_pnl_usd)", "legendFormat": "{{chain_id}} {{token}} realized USD", "refId": "A" },
+        { "expr": "max by (chain_id, token) (rfq_daily_loss_limit_remaining_usd)", "legendFormat": "{{chain_id}} {{token}} remaining USD", "refId": "B" },
+        { "expr": "min by (chain_id, token) (rfq_daily_loss_risk_safe)", "legendFormat": "{{chain_id}} {{token}} safe", "refId": "C" },
+        { "expr": "sum by (chain_id, token, reason) (rate(rfq_daily_loss_risk_failures_total[5m]))", "legendFormat": "{{chain_id}} {{token}} {{reason}}/s", "refId": "D" }
+      ]
     }
   ]
 }

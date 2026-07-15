@@ -9,6 +9,7 @@ import {
 } from "./helpers/signer-runtime-fixtures.mjs";
 import {
   configureUsdReferenceEnvironment,
+  dailyLossRuntimeEnvName,
   usdReferenceRuntimeEnvName,
 } from "./helpers/usd-reference-runtime-fixtures.mjs";
 
@@ -19,6 +20,7 @@ test("RFQ API validates simulated and receipt-confirmed execution configuration"
     "RFQ_ALLOW_SIMULATED_SETTLEMENT",
     "RFQ_RECEIPT_CONFIG_JSON",
     "RFQ_REDIS_URL",
+    dailyLossRuntimeEnvName,
     usdReferenceRuntimeEnvName,
   ]);
 

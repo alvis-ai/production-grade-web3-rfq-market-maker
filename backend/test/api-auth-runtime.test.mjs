@@ -11,6 +11,7 @@ import {
 } from "./helpers/signer-runtime-fixtures.mjs";
 import {
   configureUsdReferenceEnvironment,
+  dailyLossRuntimeEnvName,
   usdReferenceRuntimeEnvName,
 } from "./helpers/usd-reference-runtime-fixtures.mjs";
 
@@ -108,6 +109,7 @@ test("non-local RFQ API requires API key auth configuration or an injected authe
     "DATABASE_URL",
     "RFQ_API_KEY_CONFIG_JSON",
     "RFQ_RECEIPT_CONFIG_JSON",
+    dailyLossRuntimeEnvName,
     usdReferenceRuntimeEnvName,
     ...signerRuntimeEnvNames,
   ];

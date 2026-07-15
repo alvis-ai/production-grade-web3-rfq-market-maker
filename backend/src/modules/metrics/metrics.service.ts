@@ -1,6 +1,6 @@
 import type { ReadinessComponentName, ReadinessResponse } from "../health/readiness.service.js";
 import { quoteSnapshotPnlModelDescription } from "../../shared/types/rfq.js";
-import type { Address, PnlTradeRecord } from "../../shared/types/rfq.js";
+import type { Address, IntString, PnlTradeRecord, UIntString } from "../../shared/types/rfq.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 import { normalizeHumanPrice } from "../pricing/price-normalization.js";
 import type { RateLimitedEndpoint } from "../rate-limit/rate-limit.service.js";
@@ -13,6 +13,7 @@ import type { MarketSnapshotSampleResult } from "../market-data/market-snapshot-
 import type { MarketDataRefreshOutcome } from "../market-data/price-updater.js";
 import type { SettlementIndexerRiskFailureCode } from "../risk/settlement-indexer-risk.guard.js";
 import type { UsdReferenceHealthFailureCode } from "../market-data/chainlink-usd-reference.provider.js";
+import type { DailyLossRiskFailureCode } from "../risk/daily-loss-risk.engine.js";
 
 export interface InventoryMetricPosition {
   chainId: number;
@@ -65,6 +66,11 @@ interface HistogramState {
   sum: number;
   count: number;
   buckets: number[];
+}
+
+interface DailyLossMetricObservation {
+  netPnlUsdE18: bigint;
+  maxLossUsdE18: bigint;
 }
 
 export class MetricsService {
@@ -120,6 +126,9 @@ export class MetricsService {
   private readonly settlementIndexerRiskGuardFailures = new Map<string, number>();
   private readonly usdReferenceHealthSafe = new Map<string, boolean>();
   private readonly usdReferenceHealthFailures = new Map<string, number>();
+  private readonly dailyLossRiskObservations = new Map<string, DailyLossMetricObservation>();
+  private readonly dailyLossRiskSafe = new Map<string, boolean>();
+  private readonly dailyLossRiskFailures = new Map<string, number>();
 
   recordMarketDataCacheHit(): void {
     this.priceCacheHits += 1;
@@ -199,6 +208,37 @@ export class MetricsService {
       failureKey,
       (this.usdReferenceHealthFailures.get(failureKey) ?? 0) + 1,
     );
+  }
+
+  recordDailyLossRiskObservation(
+    chainId: number,
+    tokenAddress: Address,
+    netPnlUsdE18: IntString,
+    maxLossUsdE18: UIntString,
+  ): void {
+    assertPositiveSafeInteger(chainId, "daily loss risk chainId");
+    assertAddress(tokenAddress, "daily loss risk tokenAddress");
+    const netPnl = parseBoundedSignedInteger(netPnlUsdE18, "daily loss risk netPnlUsdE18");
+    const maxLoss = parseBoundedPositiveInteger(maxLossUsdE18, "daily loss risk maxLossUsdE18");
+    const key = usdReferenceMetricKey(chainId, tokenAddress);
+    this.dailyLossRiskObservations.set(key, { netPnlUsdE18: netPnl, maxLossUsdE18: maxLoss });
+    this.dailyLossRiskSafe.set(key, netPnl > -maxLoss);
+  }
+
+  recordDailyLossRiskFailure(
+    chainId: number,
+    tokenAddress: Address,
+    reason: DailyLossRiskFailureCode,
+  ): void {
+    assertPositiveSafeInteger(chainId, "daily loss risk chainId");
+    assertAddress(tokenAddress, "daily loss risk tokenAddress");
+    if (!dailyLossRiskFailureCodes.includes(reason)) {
+      throw new Error("Metrics daily loss risk reason is invalid");
+    }
+    const key = usdReferenceMetricKey(chainId, tokenAddress);
+    this.dailyLossRiskSafe.set(key, false);
+    const failureKey = `${key}:${reason}`;
+    this.dailyLossRiskFailures.set(failureKey, (this.dailyLossRiskFailures.get(failureKey) ?? 0) + 1);
   }
 
   checkHealth(): void {
@@ -508,6 +548,18 @@ export class MetricsService {
       "# HELP rfq_usd_reference_health_failures_total Dedicated token/USD oracle failures by configured token and bounded reason.",
       "# TYPE rfq_usd_reference_health_failures_total counter",
       ...this.renderUsdReferenceHealthFailures(),
+      "# HELP rfq_daily_realized_pnl_usd Current UTC-day realized hedge-net PnL in USD-reference units by configured token.",
+      "# TYPE rfq_daily_realized_pnl_usd gauge",
+      ...this.renderDailyLossObservation("netPnlUsdE18"),
+      "# HELP rfq_daily_loss_limit_remaining_usd Current UTC-day realized-loss budget remaining by configured token.",
+      "# TYPE rfq_daily_loss_limit_remaining_usd gauge",
+      ...this.renderDailyLossRemaining(),
+      "# HELP rfq_daily_loss_risk_safe Whether the latest pre-sign UTC-day realized-loss check passed by configured token.",
+      "# TYPE rfq_daily_loss_risk_safe gauge",
+      ...this.renderDailyLossRiskSafe(),
+      "# HELP rfq_daily_loss_risk_failures_total Daily realized-loss evidence failures by configured token and bounded reason.",
+      "# TYPE rfq_daily_loss_risk_failures_total counter",
+      ...this.renderDailyLossRiskFailures(),
       "",
     ];
 
@@ -645,6 +697,43 @@ export class MetricsService {
       });
   }
 
+  private renderDailyLossObservation(field: keyof DailyLossMetricObservation): string[] {
+    return [...this.dailyLossRiskObservations.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, observation]) => {
+        const [chainId, token] = key.split(":");
+        return `rfq_daily_realized_pnl_usd{chain_id="${chainId}",token="${token}"} ${formatE18(observation[field])}`;
+      });
+  }
+
+  private renderDailyLossRemaining(): string[] {
+    return [...this.dailyLossRiskObservations.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, observation]) => {
+        const [chainId, token] = key.split(":");
+        const remaining = observation.maxLossUsdE18 + observation.netPnlUsdE18;
+        return `rfq_daily_loss_limit_remaining_usd{chain_id="${chainId}",token="${token}"} ${formatE18(remaining)}`;
+      });
+  }
+
+  private renderDailyLossRiskSafe(): string[] {
+    return [...this.dailyLossRiskSafe.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, safe]) => {
+        const [chainId, token] = key.split(":");
+        return `rfq_daily_loss_risk_safe{chain_id="${chainId}",token="${token}"} ${safe ? 1 : 0}`;
+      });
+  }
+
+  private renderDailyLossRiskFailures(): string[] {
+    return [...this.dailyLossRiskFailures.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, count]) => {
+        const [chainId, token, reason] = key.split(":");
+        return `rfq_daily_loss_risk_failures_total{chain_id="${chainId}",token="${token}",reason="${reason}"} ${count}`;
+      });
+  }
+
   private renderSignerCounter(name: string, counter: ReadonlyMap<SignerMetricOperation, number>): string[] {
     return signerMetricOperations.map((operation) => {
       return `${name}{operation="${operation}"} ${counter.get(operation) ?? 0}`;
@@ -733,6 +822,7 @@ const usdReferenceHealthFailureCodes: readonly UsdReferenceHealthFailureCode[] =
   "ANSWER_OUT_OF_BOUNDS",
   "DEPEG",
 ];
+const dailyLossRiskFailureCodes: readonly DailyLossRiskFailureCode[] = ["STORE_UNAVAILABLE", "EVIDENCE_INVALID"];
 const readinessDependencyComponents: readonly ReadinessComponentName[] = [
   "marketData",
   "marketSnapshotStore",
@@ -935,6 +1025,32 @@ function assertAddress(value: unknown, field: string): void {
 
 function usdReferenceMetricKey(chainId: number, tokenAddress: Address): string {
   return `${chainId}:${tokenAddress.toLowerCase()}`;
+}
+
+function parseBoundedSignedInteger(value: unknown, field: string): bigint {
+  if (typeof value !== "string" || !/^(0|-?[1-9][0-9]{0,77})$/.test(value)) {
+    throw new Error(`Metrics ${field} must be a bounded canonical integer`);
+  }
+  return BigInt(value);
+}
+
+function parseBoundedPositiveInteger(value: unknown, field: string): bigint {
+  if (typeof value !== "string" || !/^[1-9][0-9]{0,77}$/.test(value)) {
+    throw new Error(`Metrics ${field} must be a bounded canonical positive integer`);
+  }
+  return BigInt(value);
+}
+
+function formatE18(value: bigint): string {
+  const negative = value < 0n;
+  const absolute = negative ? -value : value;
+  const whole = absolute / 1_000_000_000_000_000_000n;
+  const fraction = (absolute % 1_000_000_000_000_000_000n)
+    .toString()
+    .padStart(18, "0")
+    .replace(/0+$/, "");
+  const formatted = `${whole}${fraction.length === 0 ? "" : `.${fraction}`}`;
+  return negative && absolute !== 0n ? `-${formatted}` : formatted;
 }
 
 function assertBigInt(value: bigint, field: string): void {
