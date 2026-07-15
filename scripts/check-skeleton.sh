@@ -3552,6 +3552,8 @@ grep -q 'scripts/reconciliation-check.mjs' Makefile
 grep -q 'run_step make reconciliation-check' scripts/verify.sh
 grep -q 'reconciliation:check' package.json
 test -s scripts/cex-orderbook-integration-check.mjs
+test -s backend/test/cex-orderbook-integration-script.test.mjs
+test -s backend/test/fixtures/cex-orderbook-live-globals.mjs
 grep -q 'cex-orderbook-integration-check: backend-build' Makefile
 grep -q 'cex-orderbook-check:' Makefile
 grep -q 'run_step make cex-orderbook-check' scripts/verify.sh
@@ -3559,6 +3561,11 @@ grep -q 'scripts/check-cex-orderbook-consistency.mjs' Makefile
 grep -q 'cex:orderbook:integration:check' package.json
 grep -q 'RFQ_CEX_INTEGRATION_CONFIRM=yes' scripts/cex-orderbook-integration-check.mjs
 grep -q 'getLastUpdateAtMs' scripts/cex-orderbook-integration-check.mjs
+grep -q 'CEXOrderBookMonitor' scripts/cex-orderbook-integration-check.mjs
+grep -q 'RFQ_CEX_INTEGRATION_BINANCE_SYMBOL' scripts/cex-orderbook-integration-check.mjs
+grep -q 'RFQ_CEX_INTEGRATION_COINBASE_SYMBOL' scripts/cex-orderbook-integration-check.mjs
+grep -q 'minSources: 2' scripts/cex-orderbook-integration-check.mjs
+grep -q 'cex:binance+coinbase' scripts/cex-orderbook-integration-check.mjs
 grep -q 'reconcileSettlementToQuote' scripts/reconciliation-check.mjs
 grep -q 'reconcileSettlementToHedge' scripts/reconciliation-check.mjs
 grep -q 'reconcileSettlementToPnl' scripts/reconciliation-check.mjs

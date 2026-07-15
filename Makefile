@@ -45,7 +45,7 @@ help:
 	@echo "  reconciliation-check  Verify settlement-to-quote and settlement-to-PnL repair flows"
 	@echo "  reconciliation-integration-check  Verify durable repair and reorg replacement against PostgreSQL"
 	@echo "  analytics-integration-check  Verify PostgreSQL -> Redpanda -> ClickHouse against running dependencies"
-	@echo "  cex-orderbook-integration-check  Verify one live Binance or Coinbase Level-2 stream"
+	@echo "  cex-orderbook-integration-check  Verify the live Binance + Coinbase Level-2 quorum"
 	@echo "  settlement-e2e  Verify quote-to-receipt settlement against a temporary Anvil chain"
 	@echo "  benchmark-quote  Run a local POST /quote latency benchmark"
 	@echo "  benchmark-submit Run a local POST /submit latency benchmark"

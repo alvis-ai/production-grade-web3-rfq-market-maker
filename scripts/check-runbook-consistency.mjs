@@ -47,7 +47,17 @@ function extractAlertNames(source) {
 }
 
 function extractRunbookAlertTable(source) {
-  const rows = [...source.matchAll(/^\| `([A-Za-z0-9_]+)` \|/gm)].map((match) => match[1]).sort();
+  const lines = source.split("\n");
+  const headerIndex = lines.findIndex((line) => line === "| Alert | Primary Triage | Immediate Mitigation | Verification |");
+  assert.ok(headerIndex >= 0, "Runbook alert routing table header not found");
+  const tableLines = [];
+  for (let index = headerIndex + 2; index < lines.length && lines[index].startsWith("|"); index += 1) {
+    tableLines.push(lines[index]);
+  }
+  const rows = tableLines
+    .map((line) => /^\| `([A-Za-z0-9_]+)` \|/.exec(line)?.[1])
+    .filter((name) => name !== undefined)
+    .sort();
   assert.ok(rows.length > 0, "Runbook alert routing table not found");
   return rows;
 }

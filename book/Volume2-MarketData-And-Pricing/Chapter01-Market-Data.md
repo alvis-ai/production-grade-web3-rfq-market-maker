@@ -140,7 +140,7 @@ PostgreSQL schema 为 `market_snapshots` 提供 `(chain_id, token_in, token_out,
 
 ## Testing Strategy
 
-测试 unconfigured pair、unique snapshot id、snapshot store idempotency/conflict/defensive copy、stale snapshot、source divergence、missing depth、negative spread、timestamp drift 和 fallback 逻辑。
+测试 unconfigured pair、unique snapshot id、snapshot store idempotency/conflict/defensive copy、stale snapshot、source divergence、missing depth、negative spread、timestamp drift 和 fallback 逻辑。上线前还必须在目标出网环境执行 `RFQ_CEX_INTEGRATION_CONFIRM=yes make cex-orderbook-integration-check`：该验收直接驱动生产 `CEXOrderBookMonitor`，要求 Binance hedge 与 Coinbase reference 两个 Level-2 source 同时同步且新鲜、两方向均形成 `cex:binance+coinbase` snapshot、跨源偏差与 spread 在门限内，并核对最终 `liquidityUsd` 只来自 Binance bid/ask 可执行深度。单一 connector 连通不构成生产行情验收通过。
 
 ## Interview Notes
 

@@ -28,6 +28,7 @@ const [
   makefileSource,
   packageSource,
   integrationSource,
+  integrationTestSource,
 ] = await Promise.all([
   "backend/src/main.ts",
   "backend/src/modules/market-data/cached-market-data.service.ts",
@@ -52,6 +53,7 @@ const [
   "Makefile",
   "package.json",
   "scripts/cex-orderbook-integration-check.mjs",
+  "backend/test/cex-orderbook-integration-script.test.mjs",
 ].map((path) => readFile(path, "utf8")));
 const mainSource = `${mainEntrySource}\n${await readBackendGatewaySource()}`;
 
@@ -237,8 +239,35 @@ assert.ok(makefileSource.includes("cex-orderbook-integration-check: backend-buil
 assert.ok(packageSource.includes("cex:orderbook:integration:check"), "package scripts must expose the live CEX check");
 assert.ok(integrationSource.includes("RFQ_CEX_INTEGRATION_CONFIRM=yes"), "live CEX check must require explicit opt-in");
 assert.ok(
-  integrationSource.includes("executable bid liquidity") && integrationSource.includes("executable ask liquidity"),
-  "live CEX check must validate both directional depth surfaces",
+  integrationSource.includes("CEXOrderBookMonitor") &&
+    integrationSource.includes("RFQ_CEX_INTEGRATION_BINANCE_SYMBOL") &&
+    integrationSource.includes("RFQ_CEX_INTEGRATION_COINBASE_SYMBOL") &&
+    integrationSource.includes("minSources: 2"),
+  "live CEX check must drive the production monitor with Binance and Coinbase quorum",
+);
+assert.ok(
+  integrationSource.includes('"cex:binance+coinbase"') &&
+    integrationSource.includes("observation.readySources !== 2") &&
+    integrationSource.includes("observation.usablePairs !== 2") &&
+    integrationSource.includes("observation.deviationRejectedSources !== 0"),
+  "live CEX check must require healthy dual-source directional aggregation",
+);
+assert.ok(
+  integrationSource.includes("CEX aggregate must expose executable bid liquidity") &&
+    integrationSource.includes("CEX aggregate must expose executable ask liquidity") &&
+    integrationSource.includes("forwardSnapshot.liquidityUsd") &&
+    integrationSource.includes("binance.bidLiquidityUsd") &&
+    integrationSource.includes("reverseSnapshot.liquidityUsd") &&
+    integrationSource.includes("binance.askLiquidityUsd"),
+  "live CEX check must validate both directional hedge-only depth surfaces",
+);
+assert.ok(
+  integrationTestSource.includes("cex-orderbook-live-globals.mjs") &&
+    integrationTestSource.includes("result.quorum.readySources, 2") &&
+    integrationTestSource.includes('result.aggregate.source, "cex:binance+coinbase"') &&
+    integrationTestSource.includes("result.aggregate.forward.liquidityUsd, result.sources.binance.bidLiquidityUsd") &&
+    integrationTestSource.includes("result.aggregate.reverse.liquidityUsd, result.sources.binance.askLiquidityUsd"),
+  "tests must execute the integration script through synchronized dual-source protocol fixtures",
 );
 
 console.log(`CEX order-book consistency check passed (${tuningNames.length + 1} runtime controls)`);

@@ -162,7 +162,7 @@ RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS=86400000
 RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS=60000
 RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE=5
 # RFQ_MARKET_PAIRS=1:0xTokenIn:0xTokenOut
-# RFQ_CEX_PAIRS=1:0xBaseToken:0xUsdQuoteToken:binance:ETHUSDT:hedge,1:0xBaseToken:0xUsdQuoteToken:coinbase:ETH-USDT:reference
+# RFQ_CEX_PAIRS=1:0xBaseToken:0xUsdQuoteToken:binance:ETHUSDT:hedge,1:0xBaseToken:0xUsdQuoteToken:coinbase:ETH-USD:reference
 RFQ_CEX_REQUIRE_LIVE_BOOK=false
 RFQ_CEX_MAX_SOURCE_AGE_MS=2000
 RFQ_CEX_MIN_SOURCES=1
@@ -244,12 +244,12 @@ Binance and Coinbase WebSocket handshakes have a ten-second deadline. A socket t
 
 The base provider defaults to `static`. Set `RFQ_MARKET_DATA_PROVIDER=chainlink` with `RFQ_CHAINLINK_CONFIG_JSON` to read configured AggregatorV3 feeds. Every network declares `networkType` as `l1` or `l2`; L2 configurations must provide both a Sequencer Uptime Feed and recovery grace period, while L1 configurations reject sequencer fields. The backend rejects non-positive, future-dated, stale, malformed, or decimals-mismatched rounds and uses the oracle `updatedAt` as the snapshot observation time. CEX snapshots live in a separate higher-priority cache, so the fallback provider cannot overwrite a synchronized order book merely because its updater ran later.
 
-The opt-in live check opens a public market-data stream without credentials and verifies full-book synchronization, event freshness, a non-crossed spread and positive near-mid executable bid and ask depth:
+The opt-in live check opens the public Binance and Coinbase market-data streams without credentials and drives the production `CEXOrderBookMonitor` with a two-source quorum. It requires both full books to be synchronized and fresh, verifies cross-source deviation and spread bounds, requires `cex:binance+coinbase` snapshots in both RFQ directions, and proves that only Binance hedge depth contributes executable liquidity. The symbols default to the matching `ETHUSDT` and `ETH-USD` markets and can be overridden together for another shared base asset:
 
 ```sh
 RFQ_CEX_INTEGRATION_CONFIRM=yes \
-RFQ_CEX_INTEGRATION_EXCHANGE=coinbase \
-RFQ_CEX_INTEGRATION_SYMBOL=ETH-USD \
+RFQ_CEX_INTEGRATION_BINANCE_SYMBOL=ETHUSDT \
+RFQ_CEX_INTEGRATION_COINBASE_SYMBOL=ETH-USD \
 make cex-orderbook-integration-check
 ```
 
