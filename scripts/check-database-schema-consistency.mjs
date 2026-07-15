@@ -134,6 +134,10 @@ const dailyLossRiskMigrationSource = await readFile(
   "backend/src/db/migrations/031-daily-loss-risk.sql",
   "utf8",
 );
+const portfolioDeltaRiskMigrationSource = await readFile(
+  "backend/src/db/migrations/032-portfolio-delta-risk.sql",
+  "utf8",
+);
 const signerAuditStoreSource = await readFile(
   "backend/src/modules/signer/signer-audit.store.ts",
   "utf8",
@@ -1715,6 +1719,13 @@ assert.ok(
   "daily loss migration must extend the durable risk rejection contract",
 );
 assert.ok(
+  portfolioDeltaRiskMigrationSource.includes("ADD COLUMN IF NOT EXISTS delta_evaluation JSONB") &&
+    portfolioDeltaRiskMigrationSource.includes("chk_quote_exposure_delta_evaluation") &&
+    portfolioDeltaRiskMigrationSource.includes("PORTFOLIO_DELTA_LIMIT_EXCEEDED") &&
+    schemaSource.includes("('032', 'portfolio-delta-risk')"),
+  "portfolio delta migration must persist replayable evidence and extend the durable rejection contract",
+);
+assert.ok(
   postgresToxicFlowMarkoutSource.includes("async claimNext") &&
     postgresToxicFlowMarkoutSource.includes("FOR UPDATE SKIP LOCKED") &&
     postgresToxicFlowMarkoutSource.includes("async findPostTradeSnapshot") &&
@@ -1732,13 +1743,14 @@ assert.ok(
     postgresQuoteExposureSource.includes("for (const scope of scopes)") &&
     postgresQuoteExposureSource.includes("expires_at > now()") &&
     postgresQuoteExposureSource.includes("quote.status IN ('requested', 'signed', 'failed')") &&
-    postgresQuoteExposureSource.includes("WHERE to_timestamp($16) > now()") &&
+    postgresQuoteExposureSource.includes("WHERE to_timestamp($17) > now()") &&
     postgresQuoteExposureSource.includes("FOR UPDATE SKIP LOCKED") &&
     postgresQuoteExposureSource.includes("SUM(exposure.notional_usd_e18)") &&
     postgresQuoteExposureSource.includes("SUM(amount_out)") &&
     postgresQuoteExposureSource.includes("quote-liquidity:") &&
     postgresQuoteExposureSource.includes("quote-exposure:portfolio:") &&
     postgresQuoteExposureSource.includes("var_evaluation") &&
+    postgresQuoteExposureSource.includes("delta_evaluation") &&
     backendMainSource.includes("resolveQuoteExposureStore") &&
     backendMainSource.includes("quoteExposureStore") &&
     backendMainSource.includes("buildRuntimeTreasuryLiquidityProvider") &&

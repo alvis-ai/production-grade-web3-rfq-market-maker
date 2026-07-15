@@ -235,6 +235,24 @@ groups:
           summary: RFQ portfolio VaR budget is exhausted
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQPortfolioDeltaSoftLimitBreached
+        expr: sum(increase(rfq_portfolio_delta_soft_breaches_total[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ portfolio delta exceeded a reviewed soft limit
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQPortfolioDeltaHardLimitExceeded
+        expr: sum(increase(rfq_quote_rejections_total{reason="PORTFOLIO_DELTA_LIMIT_EXCEEDED"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ portfolio delta hard limit is rejecting quotes
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQUsdReferenceDepeg
         expr: sum by (chain_id, token) (increase(rfq_usd_reference_health_failures_total{reason="DEPEG"}[5m])) > 0
         for: 1m

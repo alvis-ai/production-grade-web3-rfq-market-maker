@@ -141,6 +141,48 @@ test("InMemoryQuoteExposureStore serializes concurrent portfolio VaR reservation
   assert.equal(reserved.portfolioVar.postTradeVarUsdE18, "20200000000000000000");
 });
 
+test("InMemoryQuoteExposureStore enforces hard delta and replays soft-breach evidence", async () => {
+  const now = 1_700_000_000;
+  const tokenRegistry = registry([token(tokenA, 6, false), token(tokenB, 18, true)]);
+  const marketSnapshotStore = new InMemoryMarketSnapshotRepository();
+  await marketSnapshotStore.saveSnapshot({
+    request: request(userA, tokenA, tokenB, "100000000"),
+    snapshot: {
+      snapshotId: "portfolio_delta_snapshot",
+      midPrice: "1.01",
+      liquidityUsd: "1000000",
+      marketSpreadBps: 10,
+      volatilityBps: 1_000,
+      observedAt: new Date(now * 1_000).toISOString(),
+    },
+  });
+  let softBreaches = 0;
+  const store = new InMemoryQuoteExposureStore(
+    {
+      ...policy("1000", "1000"),
+      portfolioVar: portfolioVarPolicy("100"),
+      portfolioDelta: portfolioDeltaPolicy("50", "150"),
+    },
+    tokenRegistry,
+    () => now,
+    { inventoryService: new InventoryService(), marketSnapshotStore },
+    { recordPortfolioDeltaSoftBreach: () => { softBreaches += 1; } },
+  );
+
+  const firstInput = input("q_delta_first", userA, now + 30);
+  const first = await store.reserve(firstInput);
+  assert.equal(first.status, "reserved");
+  assert.equal(first.portfolioDelta.postTradeGrossDeltaUsdE18, "101000000000000000000");
+  assert.equal(first.portfolioDelta.softLimitBreached, true);
+  assert.deepEqual(await store.reserve(firstInput), first);
+  assert.equal(softBreaches, 1);
+  assert.deepEqual(await store.reserve(input("q_delta_second", userB, now + 30)), {
+    status: "rejected",
+    reasonCode: "PORTFOLIO_DELTA_LIMIT_EXCEEDED",
+  });
+  assert.equal(softBreaches, 1);
+});
+
 test("quote exposure policy validates independent user and pair limits", () => {
   assert.deepEqual(
     normalizeQuoteExposurePolicy({ maxUserOpenNotionalUsd: "200", maxPairOpenNotionalUsd: "100" }),
@@ -234,6 +276,16 @@ function portfolioVarPolicy(maxPortfolioVarUsd) {
       tokenAddress: tokenA,
       usdReferenceTokenAddress: tokenB,
     }],
+  };
+}
+
+function portfolioDeltaPolicy(softLimitUsd, hardLimitUsd) {
+  return {
+    modelVersion: "gross-net-delta-v1",
+    softGrossLimitUsd: softLimitUsd,
+    hardGrossLimitUsd: hardLimitUsd,
+    softNetLimitUsd: softLimitUsd,
+    hardNetLimitUsd: hardLimitUsd,
   };
 }
 

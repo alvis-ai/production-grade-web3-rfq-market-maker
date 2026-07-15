@@ -903,6 +903,13 @@ function configureBackendRuntime({ tokenIn: inputToken, tokenOut: outputToken, s
         usdReferenceTokenAddress: outputToken,
       }],
     },
+    portfolioDelta: {
+      modelVersion: "gross-net-delta-v1",
+      softGrossLimitUsd: "500000",
+      hardGrossLimitUsd: "1000000",
+      softNetLimitUsd: "250000",
+      hardNetLimitUsd: "500000",
+    },
     minLiquidityUsd: "1000000",
     maxVolatilityBps: 500,
     maxSlippageBps: 500,

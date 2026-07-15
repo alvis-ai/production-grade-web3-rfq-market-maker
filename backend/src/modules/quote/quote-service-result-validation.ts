@@ -2,6 +2,7 @@ import type { Address, QuoteRequest, SignedQuote, UIntString } from "../../share
 import type { InventoryProjection } from "../inventory/inventory.service.js";
 import type { PricingResult } from "../pricing/pricing.engine.js";
 import type { QuoteExposureReservationResult } from "../risk/quote-exposure.store.js";
+import { assertPortfolioDeltaEvaluation } from "../risk/portfolio-delta.js";
 import type { RiskDecision, RiskRejectReasonCode } from "../risk/risk.engine.js";
 import type { RoutePlan } from "../routing/routing.engine.js";
 
@@ -34,6 +35,7 @@ const riskRejectReasonCodes = new Set<string>([
   "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED",
   "TREASURY_LIQUIDITY_INSUFFICIENT",
   "PORTFOLIO_VAR_LIMIT_EXCEEDED",
+  "PORTFOLIO_DELTA_LIMIT_EXCEEDED",
   "DAILY_LOSS_LIMIT_EXCEEDED",
   "USD_REFERENCE_REQUIRED",
   "USD_REFERENCE_DEPEG",
@@ -137,11 +139,17 @@ export function assertQuoteExposureReservationResult(
   if (value.status === "reserved") {
     assertOwnFields(value, ["status", "notionalUsdE18"], "exposure reservation result");
     assertOptionalOwnField(value, "portfolioVar", "exposure reservation result");
-    assertNoUnknownFields(value, ["status", "notionalUsdE18", "portfolioVar"], "exposure reservation result");
+    assertOptionalOwnField(value, "portfolioDelta", "exposure reservation result");
+    assertNoUnknownFields(
+      value,
+      ["status", "notionalUsdE18", "portfolioVar", "portfolioDelta"],
+      "exposure reservation result",
+    );
     if (typeof value.notionalUsdE18 !== "string" || !positiveUIntStringPattern.test(value.notionalUsdE18)) {
       throw new Error("Quote service exposure reservation notionalUsdE18 must be a positive uint string");
     }
     if (value.portfolioVar !== undefined) assertPortfolioVarEvaluation(value.portfolioVar);
+    if (value.portfolioDelta !== undefined) assertPortfolioDeltaEvaluation(value.portfolioDelta);
     return;
   }
   if (value.status === "rejected") {
@@ -151,7 +159,8 @@ export function assertQuoteExposureReservationResult(
       value.reasonCode !== "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED" &&
       value.reasonCode !== "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED" &&
       value.reasonCode !== "TREASURY_LIQUIDITY_INSUFFICIENT" &&
-      value.reasonCode !== "PORTFOLIO_VAR_LIMIT_EXCEEDED"
+      value.reasonCode !== "PORTFOLIO_VAR_LIMIT_EXCEEDED" &&
+      value.reasonCode !== "PORTFOLIO_DELTA_LIMIT_EXCEEDED"
     ) {
       throw new Error("Quote service exposure reservation reasonCode is invalid");
     }

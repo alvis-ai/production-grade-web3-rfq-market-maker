@@ -11,6 +11,7 @@ const files = Object.fromEntries(await Promise.all([
   "backend/src/modules/risk/quote-exposure.store.ts",
   "backend/src/modules/risk/postgres-quote-exposure.store.ts",
   "backend/src/modules/risk/portfolio-var.ts",
+  "backend/src/modules/risk/portfolio-delta.ts",
   "backend/src/modules/risk/in-memory-portfolio-var.ts",
   "backend/src/modules/risk/postgres-portfolio-var.ts",
   "backend/src/modules/risk/treasury-liquidity.provider.ts",
@@ -70,6 +71,11 @@ for (const path of [
     "maxPortfolioVarUsd",
     "confidenceMultiplierBps",
     "valuationPairs",
+    "portfolioDelta",
+    "softGrossLimitUsd",
+    "hardGrossLimitUsd",
+    "softNetLimitUsd",
+    "hardNetLimitUsd",
     "minLiquidityUsd",
     "maxVolatilityBps",
     "RFQ_DAILY_LOSS_CONFIG_JSON",
@@ -114,6 +120,7 @@ assertContains("backend/src/modules/risk/quote-exposure.store.ts", [
   "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED",
   "TREASURY_LIQUIDITY_INSUFFICIENT",
   "PORTFOLIO_VAR_LIMIT_EXCEEDED",
+  "PORTFOLIO_DELTA_LIMIT_EXCEEDED",
   "InMemoryPortfolioVarEvaluator",
   "reservedOutputAmount",
   "treasuryLiquidity.availableBalance",
@@ -127,13 +134,22 @@ assertContains("backend/src/modules/risk/postgres-quote-exposure.store.ts", [
   "for (const scope of scopes)",
   "expires_at > now()",
   "quote.status IN ('requested', 'signed', 'failed')",
-  "WHERE to_timestamp($16) > now()",
+  "WHERE to_timestamp($17) > now()",
   "FOR UPDATE SKIP LOCKED",
   "SUM(exposure.notional_usd_e18)",
   "SUM(amount_out)",
   "quote-liquidity:",
   "quote-exposure:portfolio:",
   "var_evaluation",
+  "delta_evaluation",
+]);
+assertContains("backend/src/modules/risk/portfolio-delta.ts", [
+  "preTradeGrossDeltaUsdE18",
+  "postTradeGrossDeltaUsdE18",
+  "preTradeNetDeltaUsdE18",
+  "postTradeNetDeltaUsdE18",
+  "softLimitBreached",
+  "exceedsPortfolioDeltaHardLimit",
 ]);
 assertContains("backend/src/modules/risk/portfolio-var.ts", [
   "componentVarUsdE18",
@@ -256,6 +272,7 @@ assertContains("book/Volume5-BackendEngineering/Chapter04-Risk-Service.md", [
 assertContains("book/Volume3-RiskEngine/Chapter04-VaR.md", [
   "component-sum-v1",
   "PORTFOLIO_VAR_LIMIT_EXCEEDED",
+  "PORTFOLIO_DELTA_LIMIT_EXCEEDED",
   "var_evaluation",
   "inventory_positions",
 ]);
@@ -326,7 +343,7 @@ assertContains("backend/test/daily-loss-runtime.test.mjs", [
   "wraps approved risk with PostgreSQL evidence",
 ]);
 
-console.log("Risk policy consistency check passed: market-regime, atomic exposure, treasury, portfolio VaR, USD-reference depeg, and UTC daily loss controls");
+console.log("Risk policy consistency check passed: market-regime, atomic exposure, treasury, portfolio VaR/delta, USD-reference depeg, and UTC daily loss controls");
 
 function assertContains(path, needles) {
   for (const needle of needles) {

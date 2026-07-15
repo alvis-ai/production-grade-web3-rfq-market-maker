@@ -2,7 +2,7 @@
   "title": "RFQ Market Maker Overview",
   "uid": "rfq-market-maker-overview",
   "schemaVersion": 39,
-  "version": 8,
+  "version": 9,
   "refresh": "15s",
   "panels": [
     {
@@ -20,7 +20,8 @@
         { "expr": "sum by (operation) (rfq_quote_control_errors_total)", "legendFormat": "control {{operation}} errors", "refId": "G" },
         { "expr": "max(rfq_quote_pairs_paused)", "legendFormat": "paused pairs", "refId": "H" },
         { "expr": "sum(rfq_toxic_flow_score_updates_total)", "legendFormat": "toxic score updates", "refId": "I" },
-        { "expr": "sum by (operation) (rfq_toxic_flow_score_errors_total)", "legendFormat": "toxic score {{operation}} errors", "refId": "J" }
+        { "expr": "sum by (operation) (rfq_toxic_flow_score_errors_total)", "legendFormat": "toxic score {{operation}} errors", "refId": "J" },
+        { "expr": "sum(rfq_portfolio_delta_soft_breaches_total)", "legendFormat": "delta soft breaches", "refId": "K" }
       ]
     },
     {

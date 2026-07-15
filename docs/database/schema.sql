@@ -219,6 +219,7 @@ CREATE TABLE quote_exposure_reservations (
   treasury_available_balance NUMERIC(78, 0),
   treasury_block_number NUMERIC(78, 0),
   var_evaluation JSONB,
+  delta_evaluation JSONB,
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_quote_exposure_chain_id CHECK (chain_id BETWEEN 1 AND 9007199254740991),
@@ -259,6 +260,43 @@ CREATE TABLE quote_exposure_reservations (
       ]) = '{}'::jsonb
       AND jsonb_typeof(var_evaluation->'preTradeComponents') = 'array'
       AND jsonb_typeof(var_evaluation->'postTradeComponents') = 'array'
+    )
+  ),
+  CONSTRAINT chk_quote_exposure_delta_evaluation CHECK (
+    delta_evaluation IS NULL
+    OR (
+      jsonb_typeof(delta_evaluation) = 'object'
+      AND delta_evaluation ?& ARRAY[
+        'modelVersion',
+        'preTradeGrossDeltaUsdE18',
+        'postTradeGrossDeltaUsdE18',
+        'preTradeNetDeltaUsdE18',
+        'postTradeNetDeltaUsdE18',
+        'softGrossLimitUsdE18',
+        'hardGrossLimitUsdE18',
+        'softNetLimitUsdE18',
+        'hardNetLimitUsdE18',
+        'softLimitBreached',
+        'preTradeComponents',
+        'postTradeComponents'
+      ]
+      AND (delta_evaluation - ARRAY[
+        'modelVersion',
+        'preTradeGrossDeltaUsdE18',
+        'postTradeGrossDeltaUsdE18',
+        'preTradeNetDeltaUsdE18',
+        'postTradeNetDeltaUsdE18',
+        'softGrossLimitUsdE18',
+        'hardGrossLimitUsdE18',
+        'softNetLimitUsdE18',
+        'hardNetLimitUsdE18',
+        'softLimitBreached',
+        'preTradeComponents',
+        'postTradeComponents'
+      ]) = '{}'::jsonb
+      AND jsonb_typeof(delta_evaluation->'softLimitBreached') = 'boolean'
+      AND jsonb_typeof(delta_evaluation->'preTradeComponents') = 'array'
+      AND jsonb_typeof(delta_evaluation->'postTradeComponents') = 'array'
     )
   ),
   CONSTRAINT chk_quote_exposure_treasury_evidence CHECK (
@@ -430,6 +468,7 @@ CREATE TABLE risk_decisions (
         'PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED',
         'TREASURY_LIQUIDITY_INSUFFICIENT',
         'PORTFOLIO_VAR_LIMIT_EXCEEDED',
+        'PORTFOLIO_DELTA_LIMIT_EXCEEDED',
         'DAILY_LOSS_LIMIT_EXCEEDED',
         'USD_REFERENCE_REQUIRED',
         'USD_REFERENCE_DEPEG',
@@ -2039,4 +2078,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('028', 'signer-risk-context'),
   ('029', 'bounded-hedge-failure-risk'),
   ('030', 'usd-reference-depeg-risk'),
-  ('031', 'daily-loss-risk');
+  ('031', 'daily-loss-risk'),
+  ('032', 'portfolio-delta-risk');

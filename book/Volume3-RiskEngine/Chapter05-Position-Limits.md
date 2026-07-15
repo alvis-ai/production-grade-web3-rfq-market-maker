@@ -107,6 +107,8 @@ stateDiagram-v2
 
 名义限额之外，生产 runtime 使用 `RFQ_RECEIPT_CONFIG_JSON` 的链 RPC 在同一 block 读取 `RFQSettlement.treasury()` 与 `tokenOut.balanceOf(treasury)`。reservation 额外持久化方向性的 `tokenOut/amountOut` 和链上观察证据，并为 `(chainId, tokenOut)` 获取 advisory lock。所有未过期 quote 的输出数量都参与流动性 SUM，包括已经 submitted/settled 的 quote；后者保留到 TTL 是有意的保守策略，用于覆盖 RPC 读取、链上余额下降和数据库状态切换无法组成原子事务的窗口。若 `reserved + candidate > observedBalance`，记录 `TREASURY_LIQUIDITY_INSUFFICIENT` 并在 Signer 前拒绝。RPC 不可用、treasury 地址畸形或 balance 非 uint256 都按 risk unavailable fail closed。
 
+组合 position limit 由 `portfolioDelta` 表达。Risk Engine 在 portfolio advisory lock 内复用 VaR valuation components，计算 pre/post gross USD delta 与 signed net USD delta。soft gross/net limit 被严格超过时 reservation 仍可接受，但持久化 `softLimitBreached` 并触发告警；hard gross/net limit 被严格超过时返回 `PORTFOLIO_DELTA_LIMIT_EXCEEDED`，事务回滚且 Signer 不可见该 quote。精确等于阈值不算越界。USD-reference token 作为现金腿不进入 delta component，仍由 open notional 与 Treasury liquidity 两层约束保护。
+
 ## API Design
 
 内部管理 API 后续可支持限额更新，但必须鉴权。公开 quote API 只返回风险拒绝。
@@ -120,6 +122,7 @@ stateDiagram-v2
 - `RFQ_RISK_POLICY_JSON` 和 `RFQ_TOKEN_REGISTRY_JSON` 必须在启动时双向覆盖 active pair；raw-unit 限额不得跨 decimals token 复用。
 - `maxUserOpenNotionalUsd` 与 `maxPairOpenNotionalUsd` 是独立正整数阈值；累计 user/pair 门禁必须在签名前完成原子预留。
 - `portfolioVar` 对所有非 USD 风险 token 要求显式 valuation pair。组合状态是 `inventory_positions + active quote reservations + candidate`；PostgreSQL 以 chain advisory lock 和 inventory `SHARE` lock 防止并发穿透，超限稳定返回 `PORTFOLIO_VAR_LIMIT_EXCEEDED`。
+- `portfolioDelta` 必须与 `portfolioVar` 同时配置，复用其 valuation pair 和一致性窗口；hard breach 返回 `PORTFOLIO_DELTA_LIMIT_EXCEEDED`，soft breach 只记录证据与指标。
 
 ## Failure Scenarios
 

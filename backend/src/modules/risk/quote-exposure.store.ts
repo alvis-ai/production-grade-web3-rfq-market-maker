@@ -6,6 +6,14 @@ import {
 } from "../pricing/token-registry.js";
 import type { TreasuryLiquiditySnapshot } from "./treasury-liquidity.provider.js";
 import {
+  evaluatePortfolioDelta,
+  exceedsPortfolioDeltaHardLimit,
+  normalizePortfolioDeltaPolicy,
+  type NormalizedPortfolioDeltaPolicy,
+  type PortfolioDeltaEvaluation,
+  type PortfolioDeltaPolicy,
+} from "./portfolio-delta.js";
+import {
   InMemoryPortfolioVarEvaluator,
   type InMemoryPortfolioVarDependencies,
 } from "./in-memory-portfolio-var.js";
@@ -19,12 +27,14 @@ export type QuoteExposureRejectReason =
   | "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED"
   | "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED"
   | "TREASURY_LIQUIDITY_INSUFFICIENT"
-  | "PORTFOLIO_VAR_LIMIT_EXCEEDED";
+  | "PORTFOLIO_VAR_LIMIT_EXCEEDED"
+  | "PORTFOLIO_DELTA_LIMIT_EXCEEDED";
 
 export interface QuoteExposurePolicy {
   maxUserOpenNotionalUsd: string;
   maxPairOpenNotionalUsd: string;
   portfolioVar?: PortfolioVarPolicy;
+  portfolioDelta?: PortfolioDeltaPolicy;
 }
 
 export interface ReserveQuoteExposureInput {
@@ -36,13 +46,22 @@ export interface ReserveQuoteExposureInput {
 }
 
 export type QuoteExposureReservationResult =
-  | { status: "reserved"; notionalUsdE18: string; portfolioVar?: PortfolioVarEvaluation }
+  | {
+      status: "reserved";
+      notionalUsdE18: string;
+      portfolioVar?: PortfolioVarEvaluation;
+      portfolioDelta?: PortfolioDeltaEvaluation;
+    }
   | { status: "rejected"; reasonCode: QuoteExposureRejectReason };
 
 export interface QuoteExposureStore {
   checkHealth?(): Promise<void>;
   reserve(input: ReserveQuoteExposureInput): Promise<QuoteExposureReservationResult>;
   release(quoteId: string): Promise<void>;
+}
+
+export interface QuoteExposureObserver {
+  recordPortfolioDeltaSoftBreach(): void;
 }
 
 export interface NormalizedQuoteExposureReservation {
@@ -65,7 +84,10 @@ export interface NormalizedQuoteExposureReservation {
   };
 }
 
-type ActiveQuoteExposure = NormalizedQuoteExposureReservation;
+type ActiveQuoteExposure = NormalizedQuoteExposureReservation & {
+  portfolioVar?: PortfolioVarEvaluation;
+  portfolioDelta?: PortfolioDeltaEvaluation;
+};
 
 const usdScale = 10n ** 18n;
 const maxUint256 = (1n << 256n) - 1n;
@@ -77,6 +99,7 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
   private readonly maxUserOpenNotionalUsdE18: bigint;
   private readonly maxPairOpenNotionalUsdE18: bigint;
   private readonly portfolioVarEvaluator?: InMemoryPortfolioVarEvaluator;
+  private readonly portfolioDeltaPolicy?: NormalizedPortfolioDeltaPolicy;
   private readonly chainLocks = new Map<number, Promise<void>>();
 
   constructor(
@@ -84,6 +107,7 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
     private readonly tokenRegistry: TokenRegistry,
     private readonly nowSeconds: () => number = () => Math.floor(Date.now() / 1_000),
     portfolioVarDependencies?: InMemoryPortfolioVarDependencies,
+    private readonly observer?: QuoteExposureObserver,
   ) {
     const limits = normalizeQuoteExposurePolicy(policy);
     assertNowSecondsProvider(nowSeconds);
@@ -99,6 +123,12 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
         portfolioVarDependencies,
         () => readNowSeconds(this.nowSeconds) * 1_000,
       );
+    }
+    if (policy.portfolioDelta) {
+      if (!policy.portfolioVar) {
+        throw new Error("Quote exposure portfolio delta requires portfolio VaR");
+      }
+      this.portfolioDeltaPolicy = normalizePortfolioDeltaPolicy(policy.portfolioDelta);
     }
   }
 
@@ -119,7 +149,12 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
     const existing = this.reservations.get(reservation.quoteId);
     if (existing) {
       assertSameReservation(existing, reservation);
-      return { status: "reserved", notionalUsdE18: existing.notionalUsdE18.toString() };
+      return {
+        status: "reserved",
+        notionalUsdE18: existing.notionalUsdE18.toString(),
+        ...(existing.portfolioVar ? { portfolioVar: existing.portfolioVar } : {}),
+        ...(existing.portfolioDelta ? { portfolioDelta: existing.portfolioDelta } : {}),
+      };
     }
 
     let userOpenNotionalUsdE18 = 0n;
@@ -148,6 +183,7 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
     }
 
     let portfolioVar: PortfolioVarEvaluation | undefined;
+    let portfolioDelta: PortfolioDeltaEvaluation | undefined;
     if (this.portfolioVarEvaluator) {
       portfolioVar = await this.portfolioVarEvaluator.evaluate(
         reservation.chainId,
@@ -157,13 +193,25 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
       if (this.portfolioVarEvaluator.exceedsLimit(portfolioVar)) {
         return { status: "rejected", reasonCode: "PORTFOLIO_VAR_LIMIT_EXCEEDED" };
       }
+      if (this.portfolioDeltaPolicy) {
+        portfolioDelta = evaluatePortfolioDelta(portfolioVar, this.portfolioDeltaPolicy);
+        if (exceedsPortfolioDeltaHardLimit(portfolioDelta)) {
+          return { status: "rejected", reasonCode: "PORTFOLIO_DELTA_LIMIT_EXCEEDED" };
+        }
+      }
     }
 
-    this.reservations.set(reservation.quoteId, reservation);
+    this.reservations.set(reservation.quoteId, {
+      ...reservation,
+      ...(portfolioVar ? { portfolioVar } : {}),
+      ...(portfolioDelta ? { portfolioDelta } : {}),
+    });
+    if (portfolioDelta?.softLimitBreached) notifyPortfolioDeltaSoftBreach(this.observer);
     return {
       status: "reserved",
       notionalUsdE18: reservation.notionalUsdE18.toString(),
       ...(portfolioVar ? { portfolioVar } : {}),
+      ...(portfolioDelta ? { portfolioDelta } : {}),
     };
   }
 
@@ -198,6 +246,15 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
   }
 }
 
+export function notifyPortfolioDeltaSoftBreach(observer: QuoteExposureObserver | undefined): void {
+  if (!observer) return;
+  try {
+    observer.recordPortfolioDeltaSoftBreach();
+  } catch {
+    // Observability must not invalidate an already accepted reservation.
+  }
+}
+
 export function normalizeQuoteExposurePolicy(policy: QuoteExposurePolicy): {
   maxUserOpenNotionalUsdE18: bigint;
   maxPairOpenNotionalUsdE18: bigint;
@@ -207,9 +264,15 @@ export function normalizeQuoteExposurePolicy(policy: QuoteExposurePolicy): {
     policy,
     ["maxUserOpenNotionalUsd", "maxPairOpenNotionalUsd"],
     "Quote exposure policy",
-    ["portfolioVar"],
+    ["portfolioVar", "portfolioDelta"],
   );
   if (policy.portfolioVar !== undefined) assertPortfolioVarPolicy(policy.portfolioVar);
+  if (policy.portfolioDelta !== undefined) {
+    if (policy.portfolioVar === undefined) {
+      throw new Error("Quote exposure policy.portfolioDelta requires portfolioVar");
+    }
+    normalizePortfolioDeltaPolicy(policy.portfolioDelta);
+  }
   const maxUserOpenNotionalUsd = parsePositiveUint256(
     policy.maxUserOpenNotionalUsd,
     "Quote exposure policy.maxUserOpenNotionalUsd",

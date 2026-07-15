@@ -177,6 +177,7 @@ test("TokenLimitRiskEngine snapshots policy and returns defensive token limits",
     maxUserOpenNotionalUsd: "2000000",
     maxPairOpenNotionalUsd: "5000000",
     portfolioVar: portfolioVarPolicy(),
+    portfolioDelta: portfolioDeltaPolicy(),
   });
   assert.deepEqual(await engine.evaluate(riskInput()), {
     status: "approved",
@@ -269,6 +270,7 @@ function policy(overrides = {}) {
     maxUserOpenNotionalUsd: "2000000",
     maxPairOpenNotionalUsd: "5000000",
     portfolioVar: portfolioVarPolicy(),
+    portfolioDelta: portfolioDeltaPolicy(),
     minLiquidityUsd: "1000000",
     maxVolatilityBps: 500,
     maxSlippageBps: 500,
@@ -290,6 +292,16 @@ function portfolioVarPolicy(valuationPairs = [{
     maxSnapshotAgeMs: 5_000,
     maxFutureSkewMs: 5_000,
     valuationPairs,
+  };
+}
+
+function portfolioDeltaPolicy() {
+  return {
+    modelVersion: "gross-net-delta-v1",
+    softGrossLimitUsd: "500000",
+    hardGrossLimitUsd: "1000000",
+    softNetLimitUsd: "250000",
+    hardNetLimitUsd: "500000",
   };
 }
 

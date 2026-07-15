@@ -105,6 +105,7 @@ export class MetricsService {
   private readinessStatus?: ReadinessMetricStatus;
   private readonly dependencyStatuses = new Map<string, DependencyMetricStatus>();
   private readonly quoteRejections = new Map<string, number>();
+  private portfolioDeltaSoftBreaches = 0;
   private readonly inventoryBalances = new Map<string, InventoryMetricPosition>();
   private readonly realizedPnl = new Map<string, bigint>();
   private priceCacheHits = 0;
@@ -266,6 +267,10 @@ export class MetricsService {
     this.quoteRejections.set(reason, (this.quoteRejections.get(reason) ?? 0) + 1);
   }
 
+  recordPortfolioDeltaSoftBreach(): void {
+    this.portfolioDeltaSoftBreaches += 1;
+  }
+
   recordQuoteControlState(paused: boolean): void {
     if (typeof paused !== "boolean") throw new Error("Metrics quote control paused state must be a boolean");
     this.quotePaused = paused ? 1 : 0;
@@ -421,6 +426,9 @@ export class MetricsService {
       "# HELP rfq_quote_rejections_total Total risk-rejected quote requests by stable internal reason.",
       "# TYPE rfq_quote_rejections_total counter",
       ...this.renderQuoteRejections(),
+      "# HELP rfq_portfolio_delta_soft_breaches_total Total accepted reservations above a portfolio delta soft limit.",
+      "# TYPE rfq_portfolio_delta_soft_breaches_total counter",
+      `rfq_portfolio_delta_soft_breaches_total ${this.portfolioDeltaSoftBreaches}`,
       "# HELP rfq_quote_paused Whether quote creation is administratively paused (1) or enabled (0).",
       "# TYPE rfq_quote_paused gauge",
       `rfq_quote_paused ${this.quotePaused}`,

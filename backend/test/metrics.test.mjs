@@ -71,6 +71,7 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   const metrics = new MetricsService();
 
   metrics.recordQuoteRejection("toxic flow/user");
+  metrics.recordPortfolioDeltaSoftBreach();
   metrics.recordHedgeIntentError("venue offline\nretry");
   metrics.recordPnlRecordError("");
   metrics.recordQuoteStatusUpdateError("settled");
@@ -115,6 +116,7 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   const output = metrics.renderPrometheus();
 
   assert.match(output, /rfq_quote_rejections_total\{reason="TOXIC_FLOW_USER"\} 1/);
+  assert.match(output, /rfq_portfolio_delta_soft_breaches_total 1/);
   assert.match(output, /rfq_hedge_intent_errors_total\{reason="VENUE_OFFLINE_RETRY"\} 1/);
   assert.match(output, /rfq_pnl_record_errors_total\{reason="UNKNOWN"\} 1/);
   assert.match(output, /rfq_quote_status_update_errors_total\{target_status="SETTLED"\} 1/);

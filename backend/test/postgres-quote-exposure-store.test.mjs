@@ -55,6 +55,7 @@ test("PostgresQuoteExposureStore locks both scopes before atomically inserting",
     null,
     null,
     null,
+    null,
     now + 30,
   ]);
   assert.equal(queries.at(-1).sql, "COMMIT");
@@ -202,6 +203,51 @@ test("PostgresQuoteExposureStore persists replayable portfolio VaR evidence", as
   assert.equal(clients[0].queries.at(-1).sql, "COMMIT");
 });
 
+test("PostgresQuoteExposureStore rejects hard delta and persists accepted soft-breach evidence", async () => {
+  const rejectedPool = portfolioPool();
+  const rejectingStore = new PostgresQuoteExposureStore(
+    rejectedPool.pool,
+    {
+      ...policy(),
+      portfolioVar: portfolioVarPolicy("50"),
+      portfolioDelta: portfolioDeltaPolicy("100", "150"),
+    },
+    registry(false),
+    () => now,
+  );
+  assert.deepEqual(await rejectingStore.reserve(input("q_pg_delta_rejected")), {
+    status: "rejected",
+    reasonCode: "PORTFOLIO_DELTA_LIMIT_EXCEEDED",
+  });
+  assert.equal(
+    rejectedPool.clients[0].queries.some(({ sql }) => sql.startsWith("INSERT INTO quote_exposure_reservations")),
+    false,
+  );
+
+  const acceptedPool = portfolioPool();
+  let softBreaches = 0;
+  const acceptingStore = new PostgresQuoteExposureStore(
+    acceptedPool.pool,
+    {
+      ...policy(),
+      portfolioVar: portfolioVarPolicy("50"),
+      portfolioDelta: portfolioDeltaPolicy("150", "300"),
+    },
+    registry(false),
+    () => now,
+    { recordPortfolioDeltaSoftBreach: () => { softBreaches += 1; } },
+  );
+  const result = await acceptingStore.reserve(input("q_pg_delta_reserved"));
+  assert.equal(result.status, "reserved");
+  assert.equal(result.portfolioDelta.softLimitBreached, true);
+  assert.equal(result.portfolioDelta.preTradeGrossDeltaUsdE18, "101000000000000000000");
+  assert.equal(result.portfolioDelta.postTradeGrossDeltaUsdE18, "202000000000000000000");
+  const insert = acceptedPool.clients[0].queries.find(({ sql }) =>
+    sql.startsWith("INSERT INTO quote_exposure_reservations"));
+  assert.deepEqual(JSON.parse(insert.params[15]), result.portfolioDelta);
+  assert.equal(softBreaches, 1);
+});
+
 test("PostgresQuoteExposureStore serializes portfolio reservation release on the same chain lock", async () => {
   const { pool, clients } = fakePool(async (sql) => {
     if (sql.startsWith("SELECT chain_id FROM quote_exposure_reservations")) {
@@ -309,6 +355,16 @@ function portfolioVarPolicy(maxPortfolioVarUsd) {
       tokenAddress: tokenA,
       usdReferenceTokenAddress: tokenB,
     }],
+  };
+}
+
+function portfolioDeltaPolicy(softLimitUsd, hardLimitUsd) {
+  return {
+    modelVersion: "gross-net-delta-v1",
+    softGrossLimitUsd: softLimitUsd,
+    hardGrossLimitUsd: hardLimitUsd,
+    softNetLimitUsd: softLimitUsd,
+    hardNetLimitUsd: hardLimitUsd,
   };
 }
 

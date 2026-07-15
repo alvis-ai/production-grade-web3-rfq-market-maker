@@ -15,6 +15,10 @@ import {
 } from "./risk.engine.js";
 import type { QuoteExposurePolicy } from "./quote-exposure.store.js";
 import {
+  assertPortfolioDeltaPolicy,
+  type PortfolioDeltaPolicy,
+} from "./portfolio-delta.js";
+import {
   assertPortfolioVarPolicy,
   normalizePortfolioVarPolicy,
   type PortfolioVarPolicy,
@@ -39,6 +43,7 @@ export interface TokenLimitRiskPolicy {
   maxUserOpenNotionalUsd: string;
   maxPairOpenNotionalUsd: string;
   portfolioVar: PortfolioVarPolicy;
+  portfolioDelta: PortfolioDeltaPolicy;
   minLiquidityUsd: string;
   maxVolatilityBps: number;
   maxSlippageBps: number;
@@ -93,6 +98,13 @@ export const defaultTokenLimitRiskPolicy: TokenLimitRiskPolicy = {
       usdReferenceTokenAddress: "0x0000000000000000000000000000000000000003",
     }],
   },
+  portfolioDelta: {
+    modelVersion: "gross-net-delta-v1",
+    softGrossLimitUsd: "500000",
+    hardGrossLimitUsd: "1000000",
+    softNetLimitUsd: "250000",
+    hardNetLimitUsd: "500000",
+  },
   minLiquidityUsd: "1000000",
   maxVolatilityBps: 500,
   maxSlippageBps: 500,
@@ -109,6 +121,7 @@ const policyFields = [
   "maxUserOpenNotionalUsd",
   "maxPairOpenNotionalUsd",
   "portfolioVar",
+  "portfolioDelta",
   "minLiquidityUsd",
   "maxVolatilityBps",
   "maxSlippageBps",
@@ -189,6 +202,7 @@ export class TokenLimitRiskEngine implements RiskEngine {
       maxUserOpenNotionalUsd: this.policy.maxUserOpenNotionalUsd,
       maxPairOpenNotionalUsd: this.policy.maxPairOpenNotionalUsd,
       portfolioVar: clonePortfolioVarPolicy(this.policy.portfolioVar),
+      portfolioDelta: { ...this.policy.portfolioDelta },
     };
   }
 
@@ -299,6 +313,7 @@ export function assertTokenLimitRiskPolicy(value: unknown): asserts value is Tok
     "Token limit risk policy.maxPairOpenNotionalUsd",
   );
   assertPortfolioVarPolicy(value.portfolioVar);
+  assertPortfolioDeltaPolicy(value.portfolioDelta);
   assertPositiveUint256String(value.minLiquidityUsd, "Token limit risk policy.minLiquidityUsd");
   assertBps(value.maxVolatilityBps, "Token limit risk policy.maxVolatilityBps");
   assertBps(value.maxSlippageBps, "Token limit risk policy.maxSlippageBps");
@@ -393,6 +408,7 @@ function cloneTokenLimitRiskPolicy(policy: TokenLimitRiskPolicy): TokenLimitRisk
       user: score.user.toLowerCase() as Address,
     })),
     portfolioVar: clonePortfolioVarPolicy(policy.portfolioVar),
+    portfolioDelta: { ...policy.portfolioDelta },
   };
 }
 

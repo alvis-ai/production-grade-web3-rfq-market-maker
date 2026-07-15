@@ -2,15 +2,25 @@ import type pg from "pg";
 import type { TokenRegistry } from "../pricing/token-registry.js";
 import {
   assertSameReservation,
+  notifyPortfolioDeltaSoftBreach,
   normalizeQuoteExposurePolicy,
   normalizeQuoteExposureReservation,
   type NormalizedQuoteExposureReservation,
   type QuoteExposurePolicy,
+  type QuoteExposureObserver,
   type QuoteExposureReservationResult,
   type QuoteExposureStore,
   type ReserveQuoteExposureInput,
 } from "./quote-exposure.store.js";
 import { PostgresPortfolioVarEvaluator } from "./postgres-portfolio-var.js";
+import {
+  assertPortfolioDeltaEvaluation,
+  evaluatePortfolioDelta,
+  exceedsPortfolioDeltaHardLimit,
+  normalizePortfolioDeltaPolicy,
+  type NormalizedPortfolioDeltaPolicy,
+  type PortfolioDeltaEvaluation,
+} from "./portfolio-delta.js";
 import type { PortfolioVarEvaluation } from "./portfolio-var.js";
 
 interface ExposureTotalsRow {
@@ -26,12 +36,14 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
   private readonly maxUserOpenNotionalUsdE18: bigint;
   private readonly maxPairOpenNotionalUsdE18: bigint;
   private readonly portfolioVarEvaluator?: PostgresPortfolioVarEvaluator;
+  private readonly portfolioDeltaPolicy?: NormalizedPortfolioDeltaPolicy;
 
   constructor(
     private readonly pool: pg.Pool,
     policy: QuoteExposurePolicy,
     private readonly tokenRegistry: TokenRegistry,
     private readonly nowSeconds: () => number = () => Math.floor(Date.now() / 1_000),
+    private readonly observer?: QuoteExposureObserver,
   ) {
     if (!pool || typeof pool.connect !== "function") {
       throw new Error("Postgres quote exposure pool.connect must be a function");
@@ -48,6 +60,12 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
         tokenRegistry,
         () => this.nowSeconds() * 1_000,
       );
+    }
+    if (policy.portfolioDelta) {
+      if (!policy.portfolioVar) {
+        throw new Error("Postgres quote exposure portfolio delta requires portfolio VaR");
+      }
+      this.portfolioDeltaPolicy = normalizePortfolioDeltaPolicy(policy.portfolioDelta);
     }
   }
 
@@ -92,6 +110,7 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
           exposure.treasury_available_balance::text,
           exposure.treasury_block_number::text,
           exposure.var_evaluation,
+          exposure.delta_evaluation,
           extract(epoch FROM exposure.expires_at)::bigint::text AS deadline,
           exposure.expires_at > now() AND quote.status IN ('requested', 'signed', 'failed') AS active
          FROM quote_exposure_reservations exposure
@@ -108,10 +127,15 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
         await client.query("COMMIT");
         transactionOpen = false;
         const portfolioVar = normalizeOptionalPortfolioVar(existingResult.rows[0].var_evaluation);
+        const portfolioDelta = normalizeOptionalPortfolioDelta(existingResult.rows[0].delta_evaluation);
+        if (this.portfolioDeltaPolicy && !portfolioDelta) {
+          throw new Error("Postgres quote exposure delta_evaluation is required by active policy");
+        }
         return {
           status: "reserved",
           notionalUsdE18: reservation.notionalUsdE18.toString(),
           ...(portfolioVar ? { portfolioVar } : {}),
+          ...(portfolioDelta ? { portfolioDelta } : {}),
         };
       }
 
@@ -164,12 +188,21 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
       }
 
       let portfolioVar: PortfolioVarEvaluation | undefined;
+      let portfolioDelta: PortfolioDeltaEvaluation | undefined;
       if (this.portfolioVarEvaluator) {
         portfolioVar = await this.portfolioVarEvaluator.evaluate(client, reservation);
         if (this.portfolioVarEvaluator.exceedsLimit(portfolioVar)) {
           await client.query("ROLLBACK");
           transactionOpen = false;
           return { status: "rejected", reasonCode: "PORTFOLIO_VAR_LIMIT_EXCEEDED" };
+        }
+        if (this.portfolioDeltaPolicy) {
+          portfolioDelta = evaluatePortfolioDelta(portfolioVar, this.portfolioDeltaPolicy);
+          if (exceedsPortfolioDeltaHardLimit(portfolioDelta)) {
+            await client.query("ROLLBACK");
+            transactionOpen = false;
+            return { status: "rejected", reasonCode: "PORTFOLIO_DELTA_LIMIT_EXCEEDED" };
+          }
         }
       }
 
@@ -178,11 +211,11 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
           quote_id, chain_id, user_address, token_low, token_high, token_in, amount_in,
           token_out, amount_out,
           notional_usd_e18, settlement_address, treasury_address,
-          treasury_available_balance, treasury_block_number, var_evaluation, expires_at
+          treasury_available_balance, treasury_block_number, var_evaluation, delta_evaluation, expires_at
         )
         SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-          $15::jsonb, to_timestamp($16)
-        WHERE to_timestamp($16) > now()
+          $15::jsonb, $16::jsonb, to_timestamp($17)
+        WHERE to_timestamp($17) > now()
           AND EXISTS (SELECT 1 FROM quotes WHERE id = $1 AND status = 'requested')
         RETURNING quote_id`,
         [
@@ -201,6 +234,7 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
           reservation.treasuryLiquidity?.availableBalance.toString() ?? null,
           reservation.treasuryLiquidity?.blockNumber.toString() ?? null,
           portfolioVar ? JSON.stringify(portfolioVar) : null,
+          portfolioDelta ? JSON.stringify(portfolioDelta) : null,
           reservation.deadline,
         ],
       );
@@ -209,10 +243,12 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
       }
       await client.query("COMMIT");
       transactionOpen = false;
+      if (portfolioDelta?.softLimitBreached) notifyPortfolioDeltaSoftBreach(this.observer);
       return {
         status: "reserved",
         notionalUsdE18: reservation.notionalUsdE18.toString(),
         ...(portfolioVar ? { portfolioVar } : {}),
+        ...(portfolioDelta ? { portfolioDelta } : {}),
       };
     } catch (error) {
       if (transactionOpen) {
@@ -323,7 +359,7 @@ function normalizeReservationRow(row: Record<string, unknown>): NormalizedQuoteE
 
 function normalizeOptionalPortfolioVar(value: unknown): PortfolioVarEvaluation | undefined {
   if (value === null || value === undefined) return undefined;
-  const parsed = typeof value === "string" ? parseJson(value) : value;
+  const parsed = typeof value === "string" ? parseJson(value, "var_evaluation") : value;
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error("Postgres quote exposure var_evaluation must be an object");
   }
@@ -356,11 +392,24 @@ function normalizeOptionalPortfolioVar(value: unknown): PortfolioVarEvaluation |
   return evaluation as unknown as PortfolioVarEvaluation;
 }
 
-function parseJson(value: string): unknown {
+function normalizeOptionalPortfolioDelta(value: unknown): PortfolioDeltaEvaluation | undefined {
+  if (value === null || value === undefined) return undefined;
+  const parsed = typeof value === "string" ? parseJson(value, "delta_evaluation") : value;
+  try {
+    assertPortfolioDeltaEvaluation(parsed);
+  } catch (error) {
+    throw new Error(
+      `Postgres quote exposure delta_evaluation is invalid: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  return parsed;
+}
+
+function parseJson(value: string, label: string): unknown {
   try {
     return JSON.parse(value);
   } catch {
-    throw new Error("Postgres quote exposure var_evaluation must contain valid JSON");
+    throw new Error(`Postgres quote exposure ${label} must contain valid JSON`);
   }
 }
 

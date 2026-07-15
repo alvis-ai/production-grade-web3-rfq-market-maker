@@ -178,6 +178,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     defaultRiskEngine,
     runtimeTokenRegistry,
     { inventoryService, marketSnapshotStore },
+    metricsService,
   );
   const treasuryLiquidityProvider = options.treasuryLiquidityProvider ??
     buildRuntimeTreasuryLiquidityProvider();
