@@ -131,7 +131,7 @@ function submitQuote(
 - 用户在调用 `submitQuote` 前必须授权 RFQSettlement 拉取 `tokenIn.amountIn`。参考前端读取 allowance 并只授权本次 quote 的精确数量；合约不依赖无限授权，allowance 不足时 `safeTransferFrom` 原子回滚。
 - `SIGNER_ADMIN_ROLE` 独立保护 `setTrustedSigner` 与 `setTrustedSignerAuthorization`。`setTrustedSigner` 先授权并切换 primary，但保留旧 signer 直到显式撤销，使未过期 quote 可跨 KMS rolling rotation 继续结算。授权集合最多 5 个地址，不能撤销当前 primary 或最后一个 signer；真实集合变化发出 `TrustedSignerAuthorizationUpdated`。
 - `TOKEN_ADMIN_ROLE` 独立保护 `setTokenWhitelist`，默认管理员只能通过 `grantRole` 和 `revokeRole` 委托或收回这些权限。
-- `DEFAULT_ADMIN_ROLE` 使用成员计数防止最后一个默认管理员被撤销；`transferOwnership` 先授予新 owner 全量管理角色，再撤销旧 owner 角色，避免 role administration 被永久锁死。
+- `DEFAULT_ADMIN_ROLE` 使用成员计数防止最后一个默认管理员被撤销；`transferOwnership` 同时要求调用者是当前 owner 和有效默认管理员，再先授予新 owner 全量管理角色、撤销旧 owner 角色。应急撤销 owner 的默认管理员角色后，该地址不能借 ownership 转移重新引入管理权限；授权管理员复核后可重新授予角色以恢复正常轮换。
 
 ## Failure Scenarios
 

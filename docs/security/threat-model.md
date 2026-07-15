@@ -43,6 +43,7 @@ flowchart LR
 | Quote field tampering | User changes amount or token | EIP-712 typed data verification |
 | Non-standard ERC20 settlement drift | Fee-on-transfer, sender-fee or rebasing behavior makes recorded amounts differ from actual debits and credits | Exact pre/post user and Treasury balance-delta checks on both token legs; any mismatch atomically reverts the nonce and transfers |
 | Partial or orphaned contract deployment | Multi-transaction deployment is interrupted after creation, Treasury wiring, whitelist setup, or only one ownership transfer | A dedicated deployment factory performs creation, wiring, whitelist setup, invariant checks, and final admin handoff in one transaction; factory retains no admin role |
+| Owner and role authority divergence | A Settlement owner whose default admin role was revoked uses ownership transfer to grant a fresh address every administrative role | `transferOwnership` requires both current owner identity and `DEFAULT_ADMIN_ROLE`; role revocation therefore remains an effective emergency containment boundary |
 | Stale market data or demonstration prices | Mispriced production quote | snapshot TTL, market data health check, non-local static-provider startup requires a non-empty mandatory live CEX source set, conservative Chainlink fallback only |
 | Risk bypass | Unsafe quote gets signed | signer only accepts approved risk decision |
 | Mempool MEV | User or hedge transaction exploited | short TTL, minAmountOut, private submission where possible |
@@ -68,6 +69,7 @@ flowchart LR
 - Signer Service must not expose arbitrary signing.
 - Signer rotation must establish old/new verification overlap before changing the signing key, then retire the old signer after the last old quote and settlement-observation buffers expire.
 - Contract must reject untrusted signer, used nonce, expired quote, unsupported token and wrong chain.
+- Settlement ownership transfer must require the current owner to retain `DEFAULT_ADMIN_ROLE`; revoking that role must prevent ownership from being used to restore administrative authority.
 - Non-local API replicas must acquire the shared submit reservation before settlement verification; they must not fall back to process-local state or bypass it during a database incident.
 - Non-local quote requests must claim a shared principal-scoped idempotency record before nonce generation; key reuse with a different payload, active ownership, or unavailable storage must fail closed.
 - API must validate all addresses and integer strings.

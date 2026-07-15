@@ -209,7 +209,7 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
         return super.paused();
     }
 
-    function transferOwnership(address newOwner) external onlyOwner {
+    function transferOwnership(address newOwner) external onlyOwner onlyRole(DEFAULT_ADMIN_ROLE) {
         if (newOwner == address(0)) revert InvalidAddress();
         address oldOwner = owner;
         emit OwnerUpdated(owner, newOwner);

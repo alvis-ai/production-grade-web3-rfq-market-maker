@@ -515,6 +515,35 @@ contract RFQSettlementTest {
         require(settlement.hasRole(TOKEN_ADMIN_ROLE, tokenAdmin), "new admin could not grant role");
     }
 
+    function testRevokedOwnerCannotTransferOwnershipToRestoreAdminRoles() public {
+        address replacementAdmin = address(0xA11CE06);
+        address proposedOwner = address(0xA11CE07);
+
+        settlement.grantRole(DEFAULT_ADMIN_ROLE, replacementAdmin);
+        settlement.revokeRole(DEFAULT_ADMIN_ROLE, address(this));
+
+        _expectMissingRole(DEFAULT_ADMIN_ROLE, address(this));
+        settlement.transferOwnership(proposedOwner);
+
+        require(settlement.owner() == address(this), "revoked owner changed ownership");
+        require(
+            !settlement.hasRole(DEFAULT_ADMIN_ROLE, proposedOwner),
+            "revoked owner restored admin authority"
+        );
+
+        vm.prank(replacementAdmin);
+        settlement.grantRole(DEFAULT_ADMIN_ROLE, address(this));
+        settlement.transferOwnership(proposedOwner);
+
+        require(settlement.owner() == proposedOwner, "authorized ownership transfer failed");
+        require(
+            settlement.hasRole(DEFAULT_ADMIN_ROLE, proposedOwner), "new owner missing admin role"
+        );
+        require(
+            !settlement.hasRole(DEFAULT_ADMIN_ROLE, address(this)), "old owner retained admin role"
+        );
+    }
+
     function testOwnerCanRotateTrustedSigner() public {
         address newSigner = vm.addr(NEW_SIGNER_KEY);
 
