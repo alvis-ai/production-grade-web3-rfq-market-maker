@@ -11,6 +11,7 @@ export const backendGatewaySourcePaths = [
   "backend/src/runtime/gateway-market-data.ts",
   "backend/src/runtime/gateway-runtime.ts",
   "backend/src/runtime/market-runtime.ts",
+  "backend/src/runtime/process-shutdown.ts",
   "backend/src/runtime/server-process.ts",
 ];
 

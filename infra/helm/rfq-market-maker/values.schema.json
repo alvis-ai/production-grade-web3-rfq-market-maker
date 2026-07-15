@@ -112,6 +112,8 @@
     "autoscaling",
     "disruptionBudget",
     "topologySpread",
+    "terminationGracePeriodSeconds",
+    "preStopSleepSeconds",
     "replicaCount",
     "hedgeWorker",
     "analyticsWorker",
@@ -121,6 +123,16 @@
     "frontend"
   ],
   "properties": {
+    "terminationGracePeriodSeconds": {
+      "type": "integer",
+      "minimum": 10,
+      "maximum": 600
+    },
+    "preStopSleepSeconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 300
+    },
     "replicaCount": {
       "type": "integer",
       "minimum": 2,
@@ -493,10 +505,14 @@
     },
     "env": {
       "type": "object",
-      "required": ["NODE_ENV"],
+      "required": ["NODE_ENV", "RFQ_SHUTDOWN_TIMEOUT_MS"],
       "properties": {
         "NODE_ENV": {
           "const": "production"
+        },
+        "RFQ_SHUTDOWN_TIMEOUT_MS": {
+          "type": "string",
+          "pattern": "^(?:[1-9][0-9]{3,4}|1[01][0-9]{4}|120000)$"
         }
       },
       "additionalProperties": true

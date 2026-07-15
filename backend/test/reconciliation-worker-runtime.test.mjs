@@ -15,6 +15,7 @@ test("reconciliation worker runtime parses durable defaults", () => {
   assert.equal(config.worker.pollIntervalMs, 250);
   assert.equal(config.worker.retryDelayMs, 1_000);
   assert.equal(config.listenPort, 3003);
+  assert.equal(config.shutdownTimeoutMs, 20_000);
   assert.match(config.worker.workerId, /^reconciliation_worker_[a-f0-9]{16}$/);
 });
 

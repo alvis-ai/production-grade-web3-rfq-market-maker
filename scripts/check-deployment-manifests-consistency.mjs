@@ -145,11 +145,18 @@ const expectedRuntime = {
   port: "3000",
   terminationGracePeriodSeconds: "30",
   preStopSleepSeconds: "5",
+  shutdownTimeoutMs: "20000",
   cpuRequest: "100m",
   memoryRequest: "128Mi",
   cpuLimit: "500m",
   memoryLimit: "512Mi",
 };
+
+assert.equal(
+  countOccurrences(dockerCompose, `RFQ_SHUTDOWN_TIMEOUT_MS: ${expectedRuntime.shutdownTimeoutMs}`),
+  6,
+  "Compose must apply the reviewed shutdown deadline to the API and every worker",
+);
 
 assertContains(backendDockerfile, [
   "FROM node:22-alpine AS runtime",
@@ -312,6 +319,26 @@ for (const [label, source] of [
   );
 }
 
+for (const [label, source] of [
+  ["backend", k8sDeployment],
+  ["hedge worker", k8sHedgeDeployment],
+  ["analytics worker", k8sAnalyticsDeployment],
+  ["reconciliation worker", k8sReconciliationDeployment],
+  ["settlement indexer", k8sIndexerDeployment],
+  ["toxic-flow analyzer", k8sToxicFlowAnalyzerDeployment],
+]) {
+  assert.equal(
+    countOccurrences(source, `terminationGracePeriodSeconds: ${expectedRuntime.terminationGracePeriodSeconds}`),
+    1,
+    `${label} raw Deployment must use the reviewed termination window`,
+  );
+  assert.equal(
+    countOccurrences(source, 'command: ["sh", "-c", "sleep 5"]'),
+    1,
+    `${label} raw Deployment must wait for endpoint removal before receiving SIGTERM`,
+  );
+}
+
 for (const [label, workloadName, source] of [
   ["backend", "rfq-backend", k8sDeployment],
   ["hedge worker", "rfq-hedge-worker", k8sHedgeDeployment],
@@ -393,6 +420,49 @@ assertContains(helmHelpers, [
   'include "rfq-market-maker.selectorLabels"',
   "app.kubernetes.io/component:",
 ], "Helm topology-spread helper");
+
+assertContains(helmHelpers, [
+  'define "rfq-market-maker.validateShutdownBudget"',
+  "env.RFQ_SHUTDOWN_TIMEOUT_MS is required",
+  "shutdown timeout plus preStop and 5s safety margin must fit terminationGracePeriodSeconds",
+], "Helm shutdown-budget helper");
+assert.equal(
+  countOccurrences(helmDeployment, 'include "rfq-market-maker.validateShutdownBudget" .'),
+  1,
+  "Helm API Deployment must reject an invalid process shutdown budget",
+);
+for (const [label, source] of [
+  ["API", helmDeployment],
+  ["hedge worker", helmHedgeDeployment],
+  ["analytics worker", helmAnalyticsDeployment],
+  ["reconciliation worker", helmReconciliationDeployment],
+  ["settlement indexer", helmIndexerDeployment],
+  ["toxic-flow analyzer", helmToxicFlowAnalyzerDeployment],
+]) {
+  assert.equal(
+    countOccurrences(source, "terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}"),
+    1,
+    `Helm ${label} Deployment must use the shared termination window`,
+  );
+  assert.equal(
+    countOccurrences(source, 'command: ["sh", "-c", "sleep {{ .Values.preStopSleepSeconds }}"]'),
+    1,
+    `Helm ${label} Deployment must use the shared preStop delay`,
+  );
+}
+for (const [label, source] of [
+  ["hedge worker", helmHedgeDeployment],
+  ["analytics worker", helmAnalyticsDeployment],
+  ["reconciliation worker", helmReconciliationDeployment],
+  ["settlement indexer", helmIndexerDeployment],
+  ["toxic-flow analyzer", helmToxicFlowAnalyzerDeployment],
+]) {
+  assert.equal(
+    countOccurrences(source, "name: RFQ_SHUTDOWN_TIMEOUT_MS"),
+    1,
+    `Helm ${label} must receive the reviewed application shutdown deadline`,
+  );
+}
 
 assertContains(k8sFrontendDeployment, [
   "name: rfq-frontend",
@@ -595,6 +665,7 @@ assertContains(k8sConfig, [
   "RFQ_SIGNER_MODE: aws-kms",
   "RFQ_AWS_KMS_REGION: us-east-1",
   'RFQ_AWS_KMS_MAX_ATTEMPTS: "3"',
+  `RFQ_SHUTDOWN_TIMEOUT_MS: "${expectedRuntime.shutdownTimeoutMs}"`,
   'RFQ_SUBMIT_RESERVATION_LEASE_MS: "900000"',
   "RFQ_TOKEN_REGISTRY_JSON:",
   "RFQ_RISK_POLICY_JSON:",
@@ -941,6 +1012,7 @@ assertContains(helmValues, [
   "RFQ_AWS_KMS_REGION: us-east-1",
   'RFQ_AWS_KMS_MAX_ATTEMPTS: "3"',
   'RFQ_SUBMIT_RESERVATION_LEASE_MS: "900000"',
+  `RFQ_SHUTDOWN_TIMEOUT_MS: "${expectedRuntime.shutdownTimeoutMs}"`,
   "RFQ_TOKEN_REGISTRY_JSON:",
   "RFQ_RISK_POLICY_JSON:",
   "name: rfq-backend-secrets",
@@ -1030,6 +1102,8 @@ for (const requiredSecurityField of [
   "autoscaling",
   "disruptionBudget",
   "topologySpread",
+  "terminationGracePeriodSeconds",
+  "preStopSleepSeconds",
   "replicaCount",
   "hedgeWorker",
   "analyticsWorker",
@@ -1044,6 +1118,10 @@ for (const requiredSecurityField of [
   );
 }
 assert.equal(helmValuesSchema.properties.tmpVolumeSizeLimit.const, "16Mi");
+assert.equal(helmValuesSchema.properties.terminationGracePeriodSeconds.minimum, 10);
+assert.equal(helmValuesSchema.properties.terminationGracePeriodSeconds.maximum, 600);
+assert.equal(helmValuesSchema.properties.preStopSleepSeconds.minimum, 0);
+assert.equal(helmValuesSchema.properties.preStopSleepSeconds.maximum, 300);
 assert.equal(helmValuesSchema.properties.podSecurityContext.properties.runAsNonRoot.const, true);
 assert.equal(helmValuesSchema.properties.podSecurityContext.properties.runAsUser.const, 1000);
 assert.equal(helmValuesSchema.properties.podSecurityContext.properties.runAsGroup.const, 1000);
@@ -1138,6 +1216,14 @@ assert.equal(
   helmValuesSchema.properties.env.properties.NODE_ENV.const,
   "production",
   "Helm values schema must keep deployment transport policy in production mode",
+);
+assert.ok(
+  helmValuesSchema.properties.env.required.includes("RFQ_SHUTDOWN_TIMEOUT_MS"),
+  "Helm values schema must require the application shutdown deadline",
+);
+assert.equal(
+  helmValuesSchema.properties.env.properties.RFQ_SHUTDOWN_TIMEOUT_MS.pattern,
+  "^(?:[1-9][0-9]{3,4}|1[01][0-9]{4}|120000)$",
 );
 assert.ok(
   helmValuesSchema.required.includes("networkPolicy"),
@@ -1459,7 +1545,8 @@ assert.equal(
 
 assertContains(kubernetesChapter, [
   "`terminationGracePeriodSeconds=30`",
-  "preStop` sleep of 5 seconds",
+  "`preStop` sleep 5 秒",
+  "`RFQ_SHUTDOWN_TIMEOUT_MS=20000`",
   "Readiness 使用 `/ready`",
   "liveness 使用 `/health`",
   "`RFQ_SIGNER_MODE=aws-kms`",

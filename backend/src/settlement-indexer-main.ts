@@ -16,6 +16,7 @@ import {
 } from "./modules/indexer/settlement-indexer.worker.js";
 import { PostgresQuoteRepository } from "./modules/quote/postgres-quote.repository.js";
 import { PostgresSettlementEventStore } from "./modules/settlement/postgres-settlement-event.store.js";
+import { installBoundedShutdown, readShutdownTimeoutMs, type BoundedShutdownController } from "./runtime/process-shutdown.js";
 import { createStructuredLogger, logProcessFailure } from "./shared/logger/structured-logger.js";
 
 export interface SettlementIndexerRuntimeConfig {
@@ -23,6 +24,7 @@ export interface SettlementIndexerRuntimeConfig {
   worker: SettlementIndexerWorkerConfig;
   listenHost: string;
   listenPort: number;
+  shutdownTimeoutMs: number;
 }
 
 export function readSettlementIndexerRuntimeConfig(
@@ -48,6 +50,7 @@ export function readSettlementIndexerRuntimeConfig(
     worker,
     listenHost: readHost(env),
     listenPort: readInteger(env, "RFQ_SETTLEMENT_INDEXER_PORT", 3004, 1, 65_535),
+    shutdownTimeoutMs: readShutdownTimeoutMs(env),
   };
 }
 
@@ -92,25 +95,26 @@ export async function startSettlementIndexer(): Promise<void> {
     return reply.type("text/plain").send(metrics.renderPrometheus(stats));
   });
 
-  let signalHandlersRegistered = false;
+  let shutdownController: BoundedShutdownController | undefined;
   const stop = () => worker.stop();
   try {
     await checkPoolHealth(pool);
     await settlementEvents.initialize();
     await worker.checkDependencies();
     await server.listen({ host: config.listenHost, port: config.listenPort });
-    process.once("SIGINT", stop);
-    process.once("SIGTERM", stop);
-    signalHandlersRegistered = true;
+    shutdownController = installBoundedShutdown({
+      component: "settlement-indexer",
+      logger,
+      onShutdown: stop,
+      processLike: process,
+      timeoutMs: config.shutdownTimeoutMs,
+    });
     await worker.run();
   } finally {
     worker.stop();
-    if (signalHandlersRegistered) {
-      process.off("SIGINT", stop);
-      process.off("SIGTERM", stop);
-    }
     await server.close();
     await endPool();
+    shutdownController?.complete();
   }
 }
 

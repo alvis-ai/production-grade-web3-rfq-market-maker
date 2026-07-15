@@ -10,6 +10,7 @@ import { parseHedgeRoutesJson, type HedgeRouteTable } from "./modules/hedge/hedg
 import { PostgresHedgeFeeStore } from "./modules/hedge/postgres-hedge-fee.store.js";
 import { PostgresHedgeJobStore } from "./modules/hedge/postgres-hedge-job.store.js";
 import { ConfiguredTokenRegistry, parseTokenRegistryConfig } from "./modules/pricing/token-registry.js";
+import { installBoundedShutdown, readShutdownTimeoutMs } from "./runtime/process-shutdown.js";
 import { createStructuredLogger, logProcessFailure } from "./shared/logger/structured-logger.js";
 
 export interface HedgeWorkerRuntimeConfig {
@@ -18,6 +19,7 @@ export interface HedgeWorkerRuntimeConfig {
   binance: BinanceSpotAdapterConfig;
   listenHost: string;
   listenPort: number;
+  shutdownTimeoutMs: number;
 }
 
 export function readHedgeWorkerRuntimeConfig(
@@ -55,6 +57,7 @@ export function readHedgeWorkerRuntimeConfig(
     },
     listenHost: readListenHost(env),
     listenPort: readInteger(env, "RFQ_HEDGE_WORKER_PORT", 3001, 1, 65_535),
+    shutdownTimeoutMs: readShutdownTimeoutMs(env),
   };
 }
 
@@ -112,15 +115,20 @@ export async function startHedgeWorker(): Promise<void> {
     worker.stop();
     feeWorker.stop();
   };
-  process.once("SIGINT", stop);
-  process.once("SIGTERM", stop);
+  const shutdownController = installBoundedShutdown({
+    component: "hedge-worker",
+    logger,
+    onShutdown: stop,
+    processLike: process,
+    timeoutMs: config.shutdownTimeoutMs,
+  });
   try {
     await Promise.all([worker.run(), feeWorker.run()]);
   } finally {
-    process.off("SIGINT", stop);
-    process.off("SIGTERM", stop);
+    stop();
     await server.close();
     await endPool();
+    shutdownController.complete();
   }
 }
 

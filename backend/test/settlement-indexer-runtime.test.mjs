@@ -10,6 +10,7 @@ test("settlement indexer runtime parses durable worker and chain settings", () =
   assert.equal(config.worker.readinessStaleMs, 60_000);
   assert.equal(config.listenHost, "0.0.0.0");
   assert.equal(config.listenPort, 3004);
+  assert.equal(config.shutdownTimeoutMs, 20_000);
   assert.equal(config.indexer.chains[0].reorgLookbackBlocks, 1_000);
 });
 

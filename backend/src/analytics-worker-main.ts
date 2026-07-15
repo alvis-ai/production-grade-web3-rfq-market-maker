@@ -27,6 +27,7 @@ import {
 } from "./modules/analytics/kafka-analytics.producer.js";
 import { PostgresAnalyticsOutboxStore } from "./modules/analytics/postgres-analytics-outbox.store.js";
 import { requiresExplicitRuntimeConfig } from "./runtime/environment.js";
+import { installBoundedShutdown, readShutdownTimeoutMs, type BoundedShutdownController } from "./runtime/process-shutdown.js";
 import { createStructuredLogger, logProcessFailure } from "./shared/logger/structured-logger.js";
 
 export interface AnalyticsWorkerRuntimeConfig {
@@ -36,6 +37,7 @@ export interface AnalyticsWorkerRuntimeConfig {
   clickhouse: ClickHouseAnalyticsConfig;
   listenHost: string;
   listenPort: number;
+  shutdownTimeoutMs: number;
 }
 
 const analyticsTopic = "rfq.analytics.v1";
@@ -97,6 +99,7 @@ export function readAnalyticsWorkerRuntimeConfig(
     },
     listenHost: readHost(env),
     listenPort: readInteger(env, "RFQ_ANALYTICS_WORKER_PORT", 3002, 1, 65_535),
+    shutdownTimeoutMs: readShutdownTimeoutMs(env),
   };
   assertAnalyticsOutboxPublisherConfig(config.publisher);
   assertAnalyticsKafkaConfig(config.kafka);
@@ -153,7 +156,7 @@ export async function startAnalyticsWorker(): Promise<void> {
   });
 
   let stopping = false;
-  let signalHandlersRegistered = false;
+  let shutdownController: BoundedShutdownController | undefined;
   const stop = () => {
     if (stopping) return;
     stopping = true;
@@ -167,21 +170,30 @@ export async function startAnalyticsWorker(): Promise<void> {
     await sink.checkHealth();
     await producer.connect();
     await consumer.connect();
-    process.once("SIGINT", stop);
-    process.once("SIGTERM", stop);
-    signalHandlersRegistered = true;
+    shutdownController = installBoundedShutdown({
+      component: "analytics-worker",
+      logger,
+      onShutdown: stop,
+      processLike: process,
+      timeoutMs: config.shutdownTimeoutMs,
+    });
     await consumer.run();
     const fatalConsumerTask = consumer.waitForFatal();
     await server.listen({ host: config.listenHost, port: config.listenPort });
     await Promise.race([publisher.run(), fatalConsumerTask]);
   } finally {
     stop();
-    if (signalHandlersRegistered) {
-      process.off("SIGINT", stop);
-      process.off("SIGTERM", stop);
-    }
-    await Promise.allSettled([server.close(), consumer.disconnect(), producer.disconnect(), sink.close()]);
+    const cleanupResults = await Promise.allSettled([
+      server.close(),
+      consumer.disconnect(),
+      producer.disconnect(),
+      sink.close(),
+    ]);
     await endPool();
+    if (cleanupResults.some((result) => result.status === "rejected")) {
+      throw new Error("Analytics worker cleanup failed");
+    }
+    shutdownController?.complete();
   }
 }
 

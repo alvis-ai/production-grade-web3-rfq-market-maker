@@ -20,6 +20,7 @@ test("toxic-flow analyzer runtime reads bounded production configuration", () =>
   assert.equal(config.worker.scoreScale, 200);
   assert.equal(config.worker.policyVersion, "markout-v2");
   assert.equal(config.listenPort, 3005);
+  assert.equal(config.shutdownTimeoutMs, 20_000);
 });
 
 test("toxic-flow analyzer runtime rejects missing or inconsistent policy", () => {

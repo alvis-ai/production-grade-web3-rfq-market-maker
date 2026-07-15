@@ -2,6 +2,19 @@
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{- define "rfq-market-maker.validateShutdownBudget" -}}
+{{- $configured := required "env.RFQ_SHUTDOWN_TIMEOUT_MS is required" (index .Values.env "RFQ_SHUTDOWN_TIMEOUT_MS") -}}
+{{- if not (regexMatch "^(?:[1-9][0-9]{3,4}|1[01][0-9]{4}|120000)$" $configured) -}}
+{{- fail "env.RFQ_SHUTDOWN_TIMEOUT_MS must be an integer between 1000 and 120000" -}}
+{{- end -}}
+{{- $shutdownMs := int $configured -}}
+{{- $requiredMs := add $shutdownMs (mul (add (int .Values.preStopSleepSeconds) 5) 1000) -}}
+{{- $graceMs := mul (int .Values.terminationGracePeriodSeconds) 1000 -}}
+{{- if gt $requiredMs $graceMs -}}
+{{- fail "shutdown timeout plus preStop and 5s safety margin must fit terminationGracePeriodSeconds" -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "rfq-market-maker.frontendImage" -}}
 {{- if .Values.frontend.image.digest -}}
 {{- printf "%s@%s" .Values.frontend.image.repository .Values.frontend.image.digest -}}

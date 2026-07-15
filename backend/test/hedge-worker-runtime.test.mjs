@@ -50,6 +50,7 @@ test("hedge worker runtime config requires durable storage, routes, and isolated
   assert.equal(config.routes.find(1, token).symbol, "ETHUSDT");
   assert.equal(config.binance.apiKey, "api-key");
   assert.equal(config.listenPort, 3001);
+  assert.equal(config.shutdownTimeoutMs, 20_000);
 
   assert.throws(() => readHedgeWorkerRuntimeConfig({ ...env, DATABASE_URL: undefined }), /DATABASE_URL is required/);
   assert.throws(

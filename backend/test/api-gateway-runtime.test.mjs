@@ -51,7 +51,6 @@ test("RFQ API registers graceful shutdown handlers for termination signals", asy
   assert.equal(typeof listeners.get("SIGINT"), "function");
 
   listeners.get("SIGTERM")();
-  listeners.get("SIGINT")();
   await flushMicrotasks();
 
   assert.equal(closeCount, 1);
@@ -60,8 +59,12 @@ test("RFQ API registers graceful shutdown handlers for termination signals", asy
 
 test("RFQ API marks graceful shutdown failures as process failures", async () => {
   const listeners = new Map();
+  const exits = [];
   const fakeProcess = {
     exitCode: undefined,
+    exit(code) {
+      exits.push(code);
+    },
     on(signal, listener) {
       listeners.set(signal, listener);
     },
@@ -83,6 +86,7 @@ test("RFQ API marks graceful shutdown failures as process failures", async () =>
   await flushMicrotasks();
 
   assert.equal(fakeProcess.exitCode, 1);
+  assert.deepEqual(exits, [1]);
   assert.deepEqual(logged, [[
     { errorCode: "SERVER_SHUTDOWN_FAILED" },
     "Server shutdown failed",

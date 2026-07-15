@@ -55,6 +55,8 @@ spec:
           env:
             - name: NODE_ENV
               value: {{ required "env.NODE_ENV is required for worker transport policy" .Values.env.NODE_ENV | quote }}
+            - name: RFQ_SHUTDOWN_TIMEOUT_MS
+              value: {{ required "env.RFQ_SHUTDOWN_TIMEOUT_MS is required" (index .Values.env "RFQ_SHUTDOWN_TIMEOUT_MS") | quote }}
             {{- range $key, $value := .Values.reconciliationWorker.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
@@ -66,6 +68,10 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.reconciliationWorker.secret.name }}
                   key: {{ .Values.reconciliationWorker.secret.databaseUrlKey }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep {{ .Values.preStopSleepSeconds }}"]
           readinessProbe:
             httpGet:
               path: /ready

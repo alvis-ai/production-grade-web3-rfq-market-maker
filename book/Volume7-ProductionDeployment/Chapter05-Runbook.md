@@ -309,13 +309,14 @@ When a workload loses readiness after a dependency hostname、region or port cha
 
 ### Pod Termination Or Rollout Drain
 
-Alerts: Kubernetes rollout timeout, elevated 5xx during deployment, pods killed before graceful shutdown.
+Alerts: Kubernetes rollout timeout, elevated 5xx during deployment, non-zero container termination, `PROCESS_SHUTDOWN_TIMEOUT`, `PROCESS_SHUTDOWN_FORCED`, or pods killed before graceful shutdown.
 
-1. Confirm the Deployment has `preStop` sleep and `terminationGracePeriodSeconds` configured.
-2. Verify old pods receive SIGTERM and log Fastify close without duplicate shutdown attempts.
-3. Check `/ready` endpoints are removed from service endpoints before pods exit.
-4. Watch `rfq_quote_errors_total`, `rfq_submit_errors_total` and HTTP 5xx dashboards during rollout.
-5. If forced kills occur before the grace period, pause rollout, increase drain time, and inspect slow in-flight submit or settlement dependencies.
+1. Confirm every backend Deployment renders `preStop` sleep 5 seconds, `RFQ_SHUTDOWN_TIMEOUT_MS=20000`, and `terminationGracePeriodSeconds=30`. Reject a release where `preStop + shutdown + 5s safety margin` exceeds the grace period.
+2. Verify old pods leave Service/EndpointSlice routing during preStop, then receive one SIGTERM. API pods should begin Fastify close; workers should stop new polling or claims and finish only their active bounded operation.
+3. Track Pod termination reason and structured logs. `PROCESS_SHUTDOWN_TIMEOUT` means cleanup exceeded 20 seconds; `PROCESS_SHUTDOWN_FORCED` means a second signal was delivered. Neither is a successful drain even when the replacement Pod becomes ready.
+4. For API timeout, inspect in-flight HTTP, PostgreSQL pool, Redis limiter and KMS close paths. For workers, inspect the active PostgreSQL lease plus the exact RPC, Binance, Kafka or ClickHouse operation; preserve persisted client ids, offsets and reconciliation evidence before retry.
+5. Watch `rfq_quote_errors_total`, `rfq_submit_errors_total`, worker backlog/lease metrics and HTTP 5xx dashboards until old Pods exit and replacements are ready. Confirm no external action was duplicated by querying durable and venue/on-chain evidence.
+6. Reproduce the blocked cleanup in staging and correct the dependency timeout or cancellation path. Change `RFQ_SHUTDOWN_TIMEOUT_MS` only together with `preStopSleepSeconds` and `terminationGracePeriodSeconds`; Helm must retain at least five seconds of kubelet margin.
 
 ### Frontend BFF Authentication Failure
 

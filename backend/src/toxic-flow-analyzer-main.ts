@@ -15,6 +15,7 @@ import {
   ToxicFlowAnalyzerWorker,
   type ToxicFlowAnalyzerConfig,
 } from "./modules/risk/toxic-flow-analyzer.worker.js";
+import { installBoundedShutdown, readShutdownTimeoutMs, type BoundedShutdownController } from "./runtime/process-shutdown.js";
 import { createStructuredLogger, logProcessFailure } from "./shared/logger/structured-logger.js";
 
 export interface ToxicFlowAnalyzerRuntimeConfig {
@@ -22,6 +23,7 @@ export interface ToxicFlowAnalyzerRuntimeConfig {
   tokenRegistry: TokenRegistry;
   listenHost: string;
   listenPort: number;
+  shutdownTimeoutMs: number;
 }
 
 export function readToxicFlowAnalyzerRuntimeConfig(
@@ -85,6 +87,7 @@ export function readToxicFlowAnalyzerRuntimeConfig(
     tokenRegistry,
     listenHost: readHost(env),
     listenPort: readInteger(env, "RFQ_TOXIC_FLOW_ANALYZER_PORT", 3_005, 1, 65_535),
+    shutdownTimeoutMs: readShutdownTimeoutMs(env),
   };
 }
 
@@ -121,25 +124,26 @@ export async function startToxicFlowAnalyzer(): Promise<void> {
     return reply.type("text/plain").send(metrics.renderPrometheus(stats));
   });
 
-  let signalHandlersRegistered = false;
+  let shutdownController: BoundedShutdownController | undefined;
   const stop = () => worker.stop();
   try {
     await checkPoolHealth(pool);
     await markouts.checkHealth();
     await scores.checkHealth();
     await server.listen({ host: config.listenHost, port: config.listenPort });
-    process.once("SIGINT", stop);
-    process.once("SIGTERM", stop);
-    signalHandlersRegistered = true;
+    shutdownController = installBoundedShutdown({
+      component: "toxic-flow-analyzer",
+      logger,
+      onShutdown: stop,
+      processLike: process,
+      timeoutMs: config.shutdownTimeoutMs,
+    });
     await worker.run();
   } finally {
     worker.stop();
-    if (signalHandlersRegistered) {
-      process.off("SIGINT", stop);
-      process.off("SIGTERM", stop);
-    }
     await server.close();
     await endPool();
+    shutdownController?.complete();
   }
 }
 

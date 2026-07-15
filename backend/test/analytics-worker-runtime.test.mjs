@@ -15,6 +15,7 @@ test("analytics worker runtime parses durable local defaults", () => {
   assert.equal(config.publisher.leaseMs, 120000);
   assert.equal(config.publisher.retentionMs, 604800000);
   assert.equal(config.clickhouse.table, "rfq_analytics_events");
+  assert.equal(config.shutdownTimeoutMs, 20_000);
   assert.match(config.publisher.workerId, /^analytics_worker_[a-f0-9]{16}$/);
 });
 

@@ -1,18 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import { readDecimalIntegerConfig, readOwnEnvValue } from "./environment.js";
+import {
+  installBoundedShutdown,
+  readShutdownTimeoutMs,
+  type ShutdownLogger,
+  type ShutdownProcess,
+} from "./process-shutdown.js";
 
 const defaultListenHost = "127.0.0.1";
 const defaultListenPort = 3000;
 
-export interface RuntimeProcess {
+export interface RuntimeProcess extends ShutdownProcess {
   argv?: string[];
-  env?: Record<string, string | undefined>;
-  exitCode?: number;
-  on?: (signal: "SIGTERM" | "SIGINT", listener: () => void) => unknown;
-}
-
-interface ShutdownLogger {
-  error(fields: Readonly<Record<string, unknown>>, message: string): void;
 }
 
 const consoleShutdownLogger: ShutdownLogger = {
@@ -25,30 +24,30 @@ export function installGracefulShutdown(
   server: Pick<FastifyInstance, "close">,
   processLike: RuntimeProcess | undefined = runtimeProcess(),
   logger: ShutdownLogger = consoleShutdownLogger,
+  timeoutMs = readShutdownTimeoutMs(processLike?.env),
 ): void {
-  if (!processLike?.on) {
-    return;
-  }
-
-  let closing = false;
-  const shutdown = () => {
-    if (closing) {
-      return;
-    }
-    closing = true;
-
-    server.close()
+  let controller: ReturnType<typeof installBoundedShutdown>;
+  controller = installBoundedShutdown({
+    component: "rfq-api",
+    logger,
+    processLike,
+    timeoutMs,
+    onShutdown: () => {
+      server.close()
       .then(() => {
-        processLike.exitCode = 0;
+        controller.complete();
+        if (processLike) processLike.exitCode = 0;
       })
       .catch(() => {
+        controller.complete();
         logger.error({ errorCode: "SERVER_SHUTDOWN_FAILED" }, "Server shutdown failed");
-        processLike.exitCode = 1;
+        if (processLike) {
+          processLike.exitCode = 1;
+          processLike.exit?.(1);
+        }
       });
-  };
-
-  processLike.on("SIGTERM", shutdown);
-  processLike.on("SIGINT", shutdown);
+    },
+  });
 }
 
 export function readServerListenConfig(processLike: RuntimeProcess | undefined = runtimeProcess()) {

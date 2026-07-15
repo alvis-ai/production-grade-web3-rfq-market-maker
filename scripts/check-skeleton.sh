@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/server-process.ts"
+gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
 quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts"
 
 test -s package.json
@@ -3653,6 +3653,11 @@ grep -q 'Pod Termination Or Rollout Drain' book/Volume7-ProductionDeployment/Cha
 grep -q 'Fastify close' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 grep -q 'terminationGracePeriodSeconds=30' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'preStop' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
+grep -q 'RFQ_SHUTDOWN_TIMEOUT_MS=20000' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
+grep -q 'PROCESS_SHUTDOWN_TIMEOUT' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+test -s docs/adr/ADR-0014-Use-Bounded-Graceful-Shutdown.md
+grep -q 'installBoundedShutdown' backend/src/runtime/process-shutdown.ts
+grep -q 'RFQ_SHUTDOWN_TIMEOUT_MS' backend/test/process-shutdown.test.mjs
 grep -q 'service.annotations' infra/helm/rfq-market-maker/templates/service.yaml
 grep -q 'prometheus.io/scrape' infra/helm/rfq-market-maker/values.yaml
 grep -q 'prometheus.io/path' infra/helm/rfq-market-maker/values.yaml

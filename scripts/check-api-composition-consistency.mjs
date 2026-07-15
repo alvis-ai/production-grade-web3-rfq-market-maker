@@ -17,6 +17,7 @@ const gatewayApplication = sources["backend/src/runtime/gateway-application.ts"]
 const gatewayMarketData = sources["backend/src/runtime/gateway-market-data.ts"];
 const gatewayRuntime = sources["backend/src/runtime/gateway-runtime.ts"];
 const marketRuntime = sources["backend/src/runtime/market-runtime.ts"];
+const processShutdown = sources["backend/src/runtime/process-shutdown.ts"];
 const serverProcess = sources["backend/src/runtime/server-process.ts"];
 const chapter = await readFile("book/Volume5-BackendEngineering/Chapter01-API-Gateway.md", "utf8");
 const quoteService = await readFile("backend/src/modules/quote/quote.service.ts", "utf8");
@@ -152,10 +153,17 @@ assertContains(marketRuntime, [
 ], "market runtime");
 assertContains(serverProcess, [
   "installGracefulShutdown",
+  "installBoundedShutdown",
   "readServerListenConfig",
+], "server process runtime");
+assertContains(processShutdown, [
+  "installBoundedShutdown",
+  "readShutdownTimeoutMs",
   'processLike.on("SIGTERM"',
   'processLike.on("SIGINT"',
-], "server process runtime");
+  "PROCESS_SHUTDOWN_TIMEOUT",
+  "PROCESS_SHUTDOWN_FORCED",
+], "bounded process shutdown runtime");
 assertContains(quoteService, [
   'from "./quote-service-contract.js"',
   'from "./quote-service-errors.js"',
@@ -203,6 +211,7 @@ assertContains(chapter, [
   "`backend/src/runtime/gateway-market-data.ts`",
   "`backend/src/runtime/gateway-runtime.ts`",
   "`backend/src/runtime/market-runtime.ts`",
+  "`backend/src/runtime/process-shutdown.ts`",
   "`make api-composition-check`",
 ], "API Gateway chapter");
 assertContains(quoteServiceChapter, [
