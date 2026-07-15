@@ -236,12 +236,21 @@ groups:
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
       - alert: RFQUsdReferenceDepeg
-        expr: sum(increase(rfq_quote_rejections_total{reason="USD_REFERENCE_DEPEG"}[5m])) > 0
+        expr: sum by (chain_id, token) (increase(rfq_usd_reference_health_failures_total{reason="DEPEG"}[5m])) > 0
         for: 1m
         labels:
           severity: critical
         annotations:
           summary: A managed USD-reference token exceeded its reviewed peg-deviation limit
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQUsdReferenceHealthUnsafe
+        expr: min by (chain_id, token) (rfq_usd_reference_health_safe) < 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: A configured USD-reference oracle cannot prove a safe current peg
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
       - alert: RFQRiskDependencyUnavailable

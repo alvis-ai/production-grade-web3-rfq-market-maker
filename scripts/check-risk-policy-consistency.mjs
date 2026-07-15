@@ -261,15 +261,20 @@ assertContains("backend/src/modules/market-data/chainlink-usd-reference.provider
   "maxPriceAgeMs",
   "maxDeviationBps",
   "sequencer grace period",
+  "UsdReferenceHealthFailureCode",
+  "recordUsdReferenceHealthFailure",
 ]);
 assertContains("backend/src/runtime/market-runtime.ts", [
   "RFQ_USD_REFERENCE_CONFIG_JSON is required outside local environments",
   "assertUsdReferenceFeedCoverage",
   "buildUsdReferenceRiskEngine",
+  "UsdReferenceHealthObserver",
 ]);
 assertContains("backend/test/usd-reference-risk.test.mjs", [
   "detects depeg",
   "fails closed on stale or mismatched evidence",
+  "isolates observer failures from oracle decisions",
+  "more than 1000 feeds across all networks",
   "production runtime requires complete USD-reference feed coverage",
 ]);
 

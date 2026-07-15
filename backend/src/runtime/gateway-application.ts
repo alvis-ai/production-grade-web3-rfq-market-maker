@@ -155,6 +155,8 @@ export function buildServer(options: BuildServerOptions = {}) {
     ),
     runtimeTokenRegistry,
     managedRiskPairs,
+    undefined,
+    metricsService,
   );
   const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
   const inMemoryInventoryService = postgresPool ? undefined : new InventoryService();

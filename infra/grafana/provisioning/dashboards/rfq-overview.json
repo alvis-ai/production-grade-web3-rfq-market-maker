@@ -384,6 +384,16 @@
         { "expr": "min by (poddisruptionbudget) (kube_poddisruptionbudget_status_pod_disruptions_allowed{namespace=\"rfq-market-maker\"})", "legendFormat": "{{poddisruptionbudget}} allowed disruptions", "refId": "D" },
         { "expr": "sum(kube_pod_status_unschedulable{namespace=\"rfq-market-maker\"})", "legendFormat": "unschedulable Pods", "refId": "E" }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "USD Reference Oracle Health",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 73, "w": 24, "h": 7 },
+      "targets": [
+        { "expr": "min by (chain_id, token) (rfq_usd_reference_health_safe)", "legendFormat": "{{chain_id}} {{token}} safe", "refId": "A" },
+        { "expr": "sum by (chain_id, token, reason) (rate(rfq_usd_reference_health_failures_total[5m]))", "legendFormat": "{{chain_id}} {{token}} {{reason}}/s", "refId": "B" }
+      ]
     }
   ]
 }

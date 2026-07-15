@@ -193,6 +193,8 @@ Prometheus metrics:
 - `rfq_settlement_indexer_cursor_update_age_seconds`
 - `rfq_settlement_indexer_risk_guard_safe`
 - `rfq_settlement_indexer_risk_guard_failures_total`
+- `rfq_usd_reference_health_safe`
+- `rfq_usd_reference_health_failures_total`
 
 ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, status and timestamps.
 

@@ -27,6 +27,27 @@ export interface UsdReferenceHealthProvider {
   checkHealth(): Promise<void>;
 }
 
+export type UsdReferenceHealthFailureCode =
+  | "RPC_UNAVAILABLE"
+  | "RPC_CHAIN_MISMATCH"
+  | "SEQUENCER_UNAVAILABLE"
+  | "METADATA_MISMATCH"
+  | "FEED_UNAVAILABLE"
+  | "ROUND_INVALID"
+  | "ROUND_STALE"
+  | "ROUND_FUTURE"
+  | "ANSWER_OUT_OF_BOUNDS"
+  | "DEPEG";
+
+export interface UsdReferenceHealthObserver {
+  recordUsdReferenceHealthSuccess(chainId: number, tokenAddress: Address): void;
+  recordUsdReferenceHealthFailure(
+    chainId: number,
+    tokenAddress: Address,
+    reason: UsdReferenceHealthFailureCode,
+  ): void;
+}
+
 type RoundData = readonly [bigint, bigint, bigint, bigint, bigint];
 
 export interface UsdReferenceChainlinkReader {
@@ -63,10 +84,12 @@ export class ChainlinkUsdReferenceHealthProvider implements UsdReferenceHealthPr
     config: ChainlinkUsdReferenceConfig,
     readerFactory: UsdReferenceChainlinkReaderFactory = createReader,
     private readonly now: () => number = Date.now,
+    private readonly observer: UsdReferenceHealthObserver = noOpObserver,
   ) {
     assertChainlinkUsdReferenceConfig(config);
     if (typeof readerFactory !== "function") throw new Error("USD-reference readerFactory must be a function");
     if (typeof now !== "function") throw new Error("USD-reference clock must be a function");
+    assertObserver(observer);
     currentTime(now);
     this.config = cloneChainlinkUsdReferenceConfig(config);
     for (const network of this.config.networks) {
@@ -98,7 +121,18 @@ export class ChainlinkUsdReferenceHealthProvider implements UsdReferenceHealthPr
     try {
       const evidence = await request;
       this.cache.set(key, { evidence, fetchedAtMs: nowMs });
+      if (evidence.status === "depegged") {
+        this.recordFailure(runtime, "DEPEG");
+      } else {
+        this.recordSuccess(runtime);
+      }
       return { ...evidence };
+    } catch (error) {
+      const failure = error instanceof UsdReferenceHealthFailure
+        ? error
+        : healthFailure("FEED_UNAVAILABLE", "USD-reference feed is unavailable");
+      this.recordFailure(runtime, failure.code);
+      throw failure;
     } finally {
       if (this.inFlight.get(key) === request) this.inFlight.delete(key);
     }
@@ -116,7 +150,7 @@ export class ChainlinkUsdReferenceHealthProvider implements UsdReferenceHealthPr
     await this.assertNetwork(runtime.network, runtime.reader);
     await this.assertSequencer(runtime.network, runtime.reader, nowMs);
     const [roundData] = await Promise.all([
-      runtime.reader.readLatestRoundData(runtime.feed.aggregator).then(parseRoundData),
+      this.readPriceRound(runtime.feed, runtime.reader),
       this.assertMetadata(runtime.network.chainId, runtime.feed, runtime.reader),
     ]);
     const [roundId, answer, startedAt, updatedAt, answeredInRound] = roundData;
@@ -137,17 +171,43 @@ export class ChainlinkUsdReferenceHealthProvider implements UsdReferenceHealthPr
     };
   }
 
+  private async readPriceRound(
+    feed: ChainlinkUsdReferenceFeedConfig,
+    reader: UsdReferenceChainlinkReader,
+  ): Promise<RoundData> {
+    let value: unknown;
+    try {
+      value = await reader.readLatestRoundData(feed.aggregator);
+    } catch {
+      throw healthFailure("FEED_UNAVAILABLE", "USD-reference feed is unavailable");
+    }
+    try {
+      return parseRoundData(value);
+    } catch {
+      throw healthFailure("ROUND_INVALID", "USD-reference feed returned malformed round data");
+    }
+  }
+
   private async assertNetwork(
     network: ChainlinkUsdReferenceNetworkConfig,
     reader: UsdReferenceChainlinkReader,
   ): Promise<void> {
     let check = this.chainChecks.get(network.chainId);
     if (!check) {
-      check = reader.readChainId().then((actual) => {
-        if (typeof actual !== "number" || !Number.isSafeInteger(actual) || actual !== network.chainId) {
-          throw new Error(`USD-reference RPC chain ID does not match configured chain ${network.chainId}`);
+      check = (async () => {
+        let actual: unknown;
+        try {
+          actual = await reader.readChainId();
+        } catch {
+          throw healthFailure("RPC_UNAVAILABLE", `USD-reference RPC is unavailable on chain ${network.chainId}`);
         }
-      });
+        if (typeof actual !== "number" || !Number.isSafeInteger(actual) || actual !== network.chainId) {
+          throw healthFailure(
+            "RPC_CHAIN_MISMATCH",
+            `USD-reference RPC chain ID does not match configured chain ${network.chainId}`,
+          );
+        }
+      })();
       this.chainChecks.set(network.chainId, check);
       void check.catch(() => this.chainChecks.delete(network.chainId));
     }
@@ -162,11 +222,24 @@ export class ChainlinkUsdReferenceHealthProvider implements UsdReferenceHealthPr
     const key = `${chainId}:${feed.aggregator.toLowerCase()}`;
     let check = this.metadataChecks.get(key);
     if (!check) {
-      check = Promise.all([reader.readDecimals(feed.aggregator), reader.readDescription(feed.aggregator)])
-        .then(([decimals, description]) => {
-          if (decimals !== feed.decimals) throw new Error("USD-reference feed decimals do not match configuration");
-          if (description !== feed.description) throw new Error("USD-reference feed description does not match configuration");
-        });
+      check = (async () => {
+        let metadata: [unknown, unknown];
+        try {
+          metadata = await Promise.all([
+            reader.readDecimals(feed.aggregator),
+            reader.readDescription(feed.aggregator),
+          ]);
+        } catch {
+          throw healthFailure("METADATA_MISMATCH", "USD-reference feed metadata is unavailable");
+        }
+        const [decimals, description] = metadata;
+        if (decimals !== feed.decimals) {
+          throw healthFailure("METADATA_MISMATCH", "USD-reference feed decimals do not match configuration");
+        }
+        if (description !== feed.description) {
+          throw healthFailure("METADATA_MISMATCH", "USD-reference feed description does not match configuration");
+        }
+      })();
       this.metadataChecks.set(key, check);
       void check.catch(() => this.metadataChecks.delete(key));
     }
@@ -179,16 +252,51 @@ export class ChainlinkUsdReferenceHealthProvider implements UsdReferenceHealthPr
     nowMs: number,
   ): Promise<void> {
     if (!network.sequencerUptimeFeed || network.sequencerGracePeriodSeconds === undefined) return;
-    const [, answer, startedAt] = parseRoundData(await reader.readLatestRoundData(network.sequencerUptimeFeed));
-    if (answer !== 0n) throw new Error(`USD-reference sequencer is down on chain ${network.chainId}`);
-    if (startedAt <= 0n) throw new Error(`USD-reference sequencer status is not initialized on chain ${network.chainId}`);
+    let round: RoundData;
+    try {
+      round = parseRoundData(await reader.readLatestRoundData(network.sequencerUptimeFeed));
+    } catch {
+      throw healthFailure("SEQUENCER_UNAVAILABLE", `USD-reference sequencer is unavailable on chain ${network.chainId}`);
+    }
+    const [, answer, startedAt] = round;
+    if (answer !== 0n) {
+      throw healthFailure("SEQUENCER_UNAVAILABLE", `USD-reference sequencer is down on chain ${network.chainId}`);
+    }
+    if (startedAt <= 0n) {
+      throw healthFailure(
+        "SEQUENCER_UNAVAILABLE",
+        `USD-reference sequencer status is not initialized on chain ${network.chainId}`,
+      );
+    }
     const nowSeconds = BigInt(Math.floor(nowMs / 1_000));
     if (startedAt > nowSeconds + BigInt(Math.ceil(this.config.maxFutureSkewMs / 1_000))) {
-      throw new Error(`USD-reference sequencer status is from the future on chain ${network.chainId}`);
+      throw healthFailure(
+        "SEQUENCER_UNAVAILABLE",
+        `USD-reference sequencer status is from the future on chain ${network.chainId}`,
+      );
     }
     if (nowSeconds - startedAt <= BigInt(network.sequencerGracePeriodSeconds)) {
-      throw new Error(`USD-reference sequencer grace period is active on chain ${network.chainId}`);
+      throw healthFailure(
+        "SEQUENCER_UNAVAILABLE",
+        `USD-reference sequencer grace period is active on chain ${network.chainId}`,
+      );
     }
+  }
+
+  private recordSuccess(runtime: FeedRuntime): void {
+    try {
+      this.observer.recordUsdReferenceHealthSuccess(runtime.network.chainId, runtime.feed.tokenAddress);
+    } catch {}
+  }
+
+  private recordFailure(runtime: FeedRuntime, reason: UsdReferenceHealthFailureCode): void {
+    try {
+      this.observer.recordUsdReferenceHealthFailure(
+        runtime.network.chainId,
+        runtime.feed.tokenAddress,
+        reason,
+      );
+    } catch {}
   }
 }
 
@@ -226,23 +334,36 @@ function assertRound(
   config: ChainlinkUsdReferenceConfig,
   nowMs: number,
 ): void {
-  if (roundId <= 0n || answeredInRound < roundId) throw new Error("USD-reference feed returned an incomplete round");
+  if (roundId <= 0n || answeredInRound < roundId) {
+    throw healthFailure("ROUND_INVALID", "USD-reference feed returned an incomplete round");
+  }
   if (answer <= 0n || answer < BigInt(feed.minAnswer) || answer > BigInt(feed.maxAnswer)) {
-    throw new Error("USD-reference feed answer is outside configured circuit-breaker bounds");
+    throw healthFailure(
+      "ANSWER_OUT_OF_BOUNDS",
+      "USD-reference feed answer is outside configured circuit-breaker bounds",
+    );
   }
   if (startedAt <= 0n || startedAt > updatedAt || updatedAt <= 0n ||
       updatedAt > BigInt(Math.floor(Number.MAX_SAFE_INTEGER / 1_000))) {
-    throw new Error("USD-reference feed returned invalid timestamps");
+    throw healthFailure("ROUND_INVALID", "USD-reference feed returned invalid timestamps");
   }
   const ageMs = nowMs - Number(updatedAt) * 1_000;
-  if (ageMs < -config.maxFutureSkewMs) throw new Error("USD-reference feed update is from the future");
-  if (ageMs > config.maxPriceAgeMs) throw new Error("USD-reference feed update is stale");
+  if (ageMs < -config.maxFutureSkewMs) {
+    throw healthFailure("ROUND_FUTURE", "USD-reference feed update is from the future");
+  }
+  if (ageMs > config.maxPriceAgeMs) {
+    throw healthFailure("ROUND_STALE", "USD-reference feed update is stale");
+  }
 }
 
 function calculateDeviationBps(answer: bigint, decimals: number): number {
   const peg = 10n ** BigInt(decimals);
   const difference = answer >= peg ? answer - peg : peg - answer;
-  return Number((difference * 10_000n + peg - 1n) / peg);
+  const deviationBps = (difference * 10_000n + peg - 1n) / peg;
+  if (deviationBps > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw healthFailure("ANSWER_OUT_OF_BOUNDS", "USD-reference deviation exceeds supported precision");
+  }
+  return Number(deviationBps);
 }
 
 function deviationExceedsLimit(answer: bigint, decimals: number, maxDeviationBps: number): boolean {
@@ -265,6 +386,36 @@ function assertReader(value: unknown): asserts value is UsdReferenceChainlinkRea
     if (typeof reader[method] !== "function") throw new Error(`USD-reference reader.${method} must be a function`);
   }
 }
+
+function assertObserver(value: unknown): asserts value is UsdReferenceHealthObserver {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("USD-reference observer must be an object");
+  }
+  const observer = value as Record<string, unknown>;
+  if (typeof observer.recordUsdReferenceHealthSuccess !== "function" ||
+      typeof observer.recordUsdReferenceHealthFailure !== "function") {
+    throw new Error("USD-reference observer methods must be functions");
+  }
+}
+
+class UsdReferenceHealthFailure extends Error {
+  constructor(
+    readonly code: UsdReferenceHealthFailureCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "UsdReferenceHealthFailure";
+  }
+}
+
+function healthFailure(code: UsdReferenceHealthFailureCode, message: string): UsdReferenceHealthFailure {
+  return new UsdReferenceHealthFailure(code, message);
+}
+
+const noOpObserver: UsdReferenceHealthObserver = {
+  recordUsdReferenceHealthSuccess() {},
+  recordUsdReferenceHealthFailure() {},
+};
 
 function assertChainToken(chainId: number, tokenAddress: Address): void {
   if (!Number.isSafeInteger(chainId) || chainId <= 0) throw new Error("USD-reference chainId must be positive");

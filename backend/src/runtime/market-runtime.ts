@@ -18,6 +18,7 @@ import type { OrderBookPairConfig } from "../modules/market-data/cex-orderbook/o
 import { pairKey } from "../modules/market-data/price-cache.js";
 import {
   ChainlinkUsdReferenceHealthProvider,
+  type UsdReferenceHealthObserver,
 } from "../modules/market-data/chainlink-usd-reference.provider.js";
 import {
   parseChainlinkUsdReferenceConfig,
@@ -324,6 +325,7 @@ export function buildUsdReferenceRiskEngine(
   tokenRegistry: TokenRegistry,
   managedPairs: readonly { chainId: number; tokenIn: `0x${string}`; tokenOut: `0x${string}` }[],
   env: Record<string, string | undefined> | undefined = runtimeEnvironment(),
+  observer?: UsdReferenceHealthObserver,
 ): RiskEngine {
   const serializedConfig = readOwnEnvValue(env, "RFQ_USD_REFERENCE_CONFIG_JSON");
   if (!serializedConfig) return baseEngine;
@@ -332,7 +334,7 @@ export function buildUsdReferenceRiskEngine(
   return new UsdReferenceRiskEngine(
     baseEngine,
     tokenRegistry,
-    new ChainlinkUsdReferenceHealthProvider(config),
+    new ChainlinkUsdReferenceHealthProvider(config, undefined, undefined, observer),
     config.policyVersion,
   );
 }

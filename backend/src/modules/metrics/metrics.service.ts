@@ -12,6 +12,7 @@ import type { OrderBookPairConfig } from "../market-data/cex-orderbook/orderbook
 import type { MarketSnapshotSampleResult } from "../market-data/market-snapshot-sampler.js";
 import type { MarketDataRefreshOutcome } from "../market-data/price-updater.js";
 import type { SettlementIndexerRiskFailureCode } from "../risk/settlement-indexer-risk.guard.js";
+import type { UsdReferenceHealthFailureCode } from "../market-data/chainlink-usd-reference.provider.js";
 
 export interface InventoryMetricPosition {
   chainId: number;
@@ -117,6 +118,8 @@ export class MetricsService {
   private readonly cexOrderBookConnectorErrors = new Map<OrderBookPairConfig["exchange"], number>();
   private readonly settlementIndexerRiskGuardSafe = new Map<number, boolean>();
   private readonly settlementIndexerRiskGuardFailures = new Map<string, number>();
+  private readonly usdReferenceHealthSafe = new Map<string, boolean>();
+  private readonly usdReferenceHealthFailures = new Map<string, number>();
 
   recordMarketDataCacheHit(): void {
     this.priceCacheHits += 1;
@@ -170,6 +173,31 @@ export class MetricsService {
     this.settlementIndexerRiskGuardFailures.set(
       key,
       (this.settlementIndexerRiskGuardFailures.get(key) ?? 0) + 1,
+    );
+  }
+
+  recordUsdReferenceHealthSuccess(chainId: number, tokenAddress: Address): void {
+    assertPositiveSafeInteger(chainId, "USD-reference health chainId");
+    assertAddress(tokenAddress, "USD-reference health tokenAddress");
+    this.usdReferenceHealthSafe.set(usdReferenceMetricKey(chainId, tokenAddress), true);
+  }
+
+  recordUsdReferenceHealthFailure(
+    chainId: number,
+    tokenAddress: Address,
+    reason: UsdReferenceHealthFailureCode,
+  ): void {
+    assertPositiveSafeInteger(chainId, "USD-reference health chainId");
+    assertAddress(tokenAddress, "USD-reference health tokenAddress");
+    if (!usdReferenceHealthFailureCodes.includes(reason)) {
+      throw new Error("Metrics USD-reference health reason is invalid");
+    }
+    const feedKey = usdReferenceMetricKey(chainId, tokenAddress);
+    this.usdReferenceHealthSafe.set(feedKey, false);
+    const failureKey = `${feedKey}:${reason}`;
+    this.usdReferenceHealthFailures.set(
+      failureKey,
+      (this.usdReferenceHealthFailures.get(failureKey) ?? 0) + 1,
     );
   }
 
@@ -474,6 +502,12 @@ export class MetricsService {
       "# HELP rfq_settlement_indexer_risk_guard_failures_total API pre-sign indexer guard failures by chain and bounded reason.",
       "# TYPE rfq_settlement_indexer_risk_guard_failures_total counter",
       ...this.renderSettlementIndexerRiskGuardFailures(),
+      "# HELP rfq_usd_reference_health_safe Whether the latest dedicated token/USD oracle check passed by configured token.",
+      "# TYPE rfq_usd_reference_health_safe gauge",
+      ...this.renderUsdReferenceHealthSafe(),
+      "# HELP rfq_usd_reference_health_failures_total Dedicated token/USD oracle failures by configured token and bounded reason.",
+      "# TYPE rfq_usd_reference_health_failures_total counter",
+      ...this.renderUsdReferenceHealthFailures(),
       "",
     ];
 
@@ -593,6 +627,24 @@ export class MetricsService {
       });
   }
 
+  private renderUsdReferenceHealthSafe(): string[] {
+    return [...this.usdReferenceHealthSafe.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, safe]) => {
+        const [chainId, token] = key.split(":");
+        return `rfq_usd_reference_health_safe{chain_id="${chainId}",token="${token}"} ${safe ? 1 : 0}`;
+      });
+  }
+
+  private renderUsdReferenceHealthFailures(): string[] {
+    return [...this.usdReferenceHealthFailures.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, count]) => {
+        const [chainId, token, reason] = key.split(":");
+        return `rfq_usd_reference_health_failures_total{chain_id="${chainId}",token="${token}",reason="${reason}"} ${count}`;
+      });
+  }
+
   private renderSignerCounter(name: string, counter: ReadonlyMap<SignerMetricOperation, number>): string[] {
     return signerMetricOperations.map((operation) => {
       return `${name}{operation="${operation}"} ${counter.get(operation) ?? 0}`;
@@ -668,6 +720,18 @@ const settlementIndexerRiskFailureCodes: readonly SettlementIndexerRiskFailureCo
   "CONTRACT_MISMATCH",
   "CURSOR_STALE",
   "BLOCK_LAG",
+];
+const usdReferenceHealthFailureCodes: readonly UsdReferenceHealthFailureCode[] = [
+  "RPC_UNAVAILABLE",
+  "RPC_CHAIN_MISMATCH",
+  "SEQUENCER_UNAVAILABLE",
+  "METADATA_MISMATCH",
+  "FEED_UNAVAILABLE",
+  "ROUND_INVALID",
+  "ROUND_STALE",
+  "ROUND_FUTURE",
+  "ANSWER_OUT_OF_BOUNDS",
+  "DEPEG",
 ];
 const readinessDependencyComponents: readonly ReadinessComponentName[] = [
   "marketData",
@@ -867,6 +931,10 @@ function assertAddress(value: unknown, field: string): void {
   if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
     throw new Error(`Metrics ${field} must be a 20-byte hex address`);
   }
+}
+
+function usdReferenceMetricKey(chainId: number, tokenAddress: Address): string {
+  return `${chainId}:${tokenAddress.toLowerCase()}`;
 }
 
 function assertBigInt(value: bigint, field: string): void {

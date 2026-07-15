@@ -92,6 +92,9 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   metrics.recordSettlementIndexerRiskGuardSuccess(1);
   metrics.recordSettlementIndexerRiskGuardFailure(1, "CURSOR_STALE");
   metrics.recordSettlementIndexerRiskGuardSuccess(2);
+  metrics.recordUsdReferenceHealthSuccess(1, token);
+  metrics.recordUsdReferenceHealthFailure(1, token, "ROUND_STALE");
+  metrics.recordUsdReferenceHealthSuccess(42161, "0x0000000000000000000000000000000000000004");
   metrics.recordMarketDataRefresh("success");
   metrics.recordMarketDataRefresh("failure");
   metrics.recordMarketSnapshotSampleCycle({ saved: 2, unchanged: 3, unavailable: 4, failed: 5 });
@@ -120,6 +123,18 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
     output,
     /rfq_settlement_indexer_risk_guard_failures_total\{chain_id="1",reason="CURSOR_STALE"\} 1/,
   );
+  assert.match(
+    output,
+    /rfq_usd_reference_health_safe\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} 0/,
+  );
+  assert.match(
+    output,
+    /rfq_usd_reference_health_safe\{chain_id="42161",token="0x0000000000000000000000000000000000000004"\} 1/,
+  );
+  assert.match(
+    output,
+    /rfq_usd_reference_health_failures_total\{chain_id="1",token="0x0000000000000000000000000000000000000003",reason="ROUND_STALE"\} 1/,
+  );
   assert.match(output, /rfq_market_data_refreshes_total\{outcome="success"\} 1/);
   assert.match(output, /rfq_market_data_refreshes_total\{outcome="failure"\} 1/);
   assert.match(output, /rfq_market_snapshot_samples_total\{outcome="saved"\} 2/);
@@ -131,6 +146,18 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   assert.throws(
     () => metrics.recordSettlementIndexerRiskGuardSuccess(0),
     /chainId must be a positive safe integer/,
+  );
+  assert.throws(
+    () => metrics.recordUsdReferenceHealthFailure(1, token, "UNKNOWN"),
+    /reason is invalid/,
+  );
+  assert.throws(
+    () => metrics.recordUsdReferenceHealthSuccess(0, token),
+    /chainId must be a positive safe integer/,
+  );
+  assert.throws(
+    () => metrics.recordUsdReferenceHealthSuccess(1, "not-an-address"),
+    /tokenAddress must be a 20-byte hex address/,
   );
   assert.throws(() => metrics.recordMarketDataRefresh("unknown"), /outcome must be success or failure/);
   assert.throws(

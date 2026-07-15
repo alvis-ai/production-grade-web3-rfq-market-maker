@@ -74,6 +74,7 @@ export function assertChainlinkUsdReferenceConfig(
   const chainIds = new Set<number>();
   const tokenKeys = new Set<string>();
   const aggregatorKeys = new Set<string>();
+  let configuredFeedCount = 0;
   for (const network of value.networks) {
     assertNetwork(network);
     if (chainIds.has(network.chainId)) {
@@ -81,6 +82,10 @@ export function assertChainlinkUsdReferenceConfig(
     }
     chainIds.add(network.chainId);
     for (const feed of network.feeds) {
+      configuredFeedCount += 1;
+      if (configuredFeedCount > 1_000) {
+        throw new Error("USD-reference config must not contain more than 1000 feeds across all networks");
+      }
       const key = usdReferenceFeedKey(network.chainId, feed.tokenAddress);
       if (tokenKeys.has(key)) {
         throw new Error("USD-reference config must not contain duplicate chain/token feeds");
