@@ -18,6 +18,7 @@ const readmeSource = await readFile("README.md", "utf8");
 const tokenRegistryJson = '{"tokens":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","symbol":"TOKEN2","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":false},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","symbol":"TOKEN3","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true}]}';
 const riskPolicyJson = '{"policyVersion":"token-limit-risk-v1","enabledChainIds":[1],"tokenLimits":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","maxAmountIn":"1000000000000000000000","minAmountOut":"1","maxNotionalUsd":"1000000","maxAbsoluteInventory":"10000000000000000000000"},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","maxAmountIn":"1000000000000000000000","minAmountOut":"1","maxNotionalUsd":"1000000","maxAbsoluteInventory":"10000000000000000000000"}],"restrictedUsers":[],"toxicFlowScores":[],"maxToxicScoreBps":8000,"maxUserOpenNotionalUsd":"2000000","maxPairOpenNotionalUsd":"5000000","portfolioVar":{"modelVersion":"component-sum-v1","maxPortfolioVarUsd":"500000","confidenceMultiplierBps":23300,"horizonSeconds":86400,"maxSnapshotAgeMs":5000,"maxFutureSkewMs":5000,"valuationPairs":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","usdReferenceTokenAddress":"0x0000000000000000000000000000000000000003"}]},"minLiquidityUsd":"1000000","maxVolatilityBps":500,"maxSlippageBps":500,"maxQuotedSpreadBps":1000}';
 const productionCexPairs = "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT:hedge,1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:coinbase:ETH-USD:reference";
+const hedgeRoutesJson = '{"routes":[{"chainId":1,"token":"0x0000000000000000000000000000000000000002","venue":"binance","symbol":"ETHUSDT","baseAsset":"ETH","quoteAsset":"USDT","quoteToken":"0x0000000000000000000000000000000000000003","tokenDecimals":18,"quoteTokenDecimals":18,"stepSizeRaw":"100000000000000"}]}';
 
 const localExpected = {
   HOST: "127.0.0.1",
@@ -63,6 +64,7 @@ const composeExpected = {
   RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE: "5",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
+  RFQ_HEDGE_ROUTES_JSON: hedgeRoutesJson,
   RFQ_SIGNER_MODE: "local",
   RFQ_SIGNER_PRIVATE_KEY: localExpected.RFQ_SIGNER_PRIVATE_KEY,
   RFQ_SETTLEMENT_ADDRESS: localExpected.RFQ_SETTLEMENT_ADDRESS,
@@ -92,6 +94,7 @@ const productionExpected = {
   RFQ_AWS_KMS_MAX_ATTEMPTS: "3",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
+  RFQ_HEDGE_ROUTES_JSON: hedgeRoutesJson,
 };
 
 const envExample = parseDotEnv(envExampleSource);
@@ -185,6 +188,12 @@ assert.ok(
   backendSource.includes("Non-local static market data requires non-empty RFQ_CEX_PAIRS") &&
     backendSource.includes("assertProductionMarketDataPolicy"),
   "non-local static market data must require a mandatory live CEX source set",
+);
+assert.ok(
+  backendSource.includes("RFQ_HEDGE_ROUTES_JSON is required when RFQ_CEX_PAIRS contains hedge sources") &&
+    backendSource.includes("assertCexHedgeSourcesRoutable") &&
+    backendSource.includes("does not match its configured hedge route"),
+  "API startup must bind executable CEX sources to the shared hedge route table",
 );
 assert.ok(
   envExampleSource.includes("RFQ_API_KEY_CONFIG_JSON") &&

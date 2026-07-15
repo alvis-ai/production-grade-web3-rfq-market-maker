@@ -16,6 +16,7 @@ const [
   testSource,
   cacheTestSource,
   runtimeTestSource,
+  routeBindingTestSource,
   envSource,
   composeSource,
   k8sSource,
@@ -39,6 +40,7 @@ const [
   "backend/test/cex-orderbook.test.mjs",
   "backend/test/chainlink-market-data.test.mjs",
   "backend/test/api-gateway-env.test.mjs",
+  "backend/test/market-runtime.test.mjs",
   ".env.example",
   "docker-compose.yml",
   "infra/k8s/configmap.yaml",
@@ -102,6 +104,12 @@ assert.ok(
   mainSource.includes("chainId:baseToken:usdQuoteToken:exchange:symbol:role") &&
     mainSource.includes("hedge role requires the supported binance execution venue"),
   "CEX runtime must validate explicit hedge/reference roles against the supported execution venue",
+);
+assert.ok(
+  mainSource.includes("assertCexHedgeSourcesRoutable") &&
+    mainSource.includes('readOwnEnvValue(env, "RFQ_HEDGE_ROUTES_JSON")') &&
+    mainSource.includes("route.quoteToken.toLowerCase() !== source.tokenOut.toLowerCase()"),
+  "CEX hedge sources must match the worker route table before executable depth is accepted",
 );
 assert.ok(
   cachedMarketDataSource.includes("requiredPrimaryCacheKeys.has(key)") &&
@@ -195,6 +203,12 @@ assert.ok(
     mainSource.includes("pair.tokenIn, pair.tokenOut"),
   "live-book policy must protect both RFQ directions",
 );
+assert.ok(
+  routeBindingTestSource.includes("CEX hedge sources must match the worker route table exactly") &&
+    routeBindingTestSource.includes("does not match its configured hedge route") &&
+    routeBindingTestSource.includes("has no configured hedge route"),
+  "tests must cover exact CEX source-to-hedge-route binding",
+);
 assert.ok(marketDataChapter.includes("developers.binance.com"), "market-data chapter must reference official Binance synchronization rules");
 assert.ok(marketDataChapter.includes("docs.cdp.coinbase.com"), "market-data chapter must reference official Coinbase Level-2 rules");
 assert.ok(
@@ -204,7 +218,9 @@ assert.ok(
 assert.ok(
   marketDataChapter.includes("`hedge` 或 `reference`") &&
     marketDataChapter.includes("reference quorum") &&
-    readmeSource.includes("reference-only surviving quorum invalidates both directional cache entries"),
+    readmeSource.includes("reference-only surviving quorum invalidates both directional cache entries") &&
+    marketDataChapter.includes("`RFQ_HEDGE_ROUTES_JSON`") &&
+    readmeSource.includes("API and Hedge Worker consume the same `RFQ_HEDGE_ROUTES_JSON`"),
   "market-data docs must bind executable liquidity to deployed hedge venues",
 );
 assert.ok(readmeSource.includes("make cex-orderbook-integration-check"), "README must document the live CEX check");

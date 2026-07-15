@@ -23,6 +23,7 @@ const paths = {
   k8sConfig: "infra/k8s/configmap.yaml",
   k8sDeployment: "infra/k8s/hedge-worker-deployment.yaml",
   helmDeployment: "infra/helm/rfq-market-maker/templates/hedge-worker-deployment.yaml",
+  helmValues: "infra/helm/rfq-market-maker/values.yaml",
   readme: "README.md",
   hedgeBook: "book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md",
   kubernetesBook: "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md",
@@ -82,6 +83,12 @@ assert.match(source.k8sConfig, /RFQ_HEDGE_ROUTES_JSON:/);
 assert.match(source.k8sDeployment, /configMapRef:[\s\S]*name: rfq-backend-config/);
 assert.match(source.helmDeployment, /name: RFQ_TOKEN_REGISTRY_JSON/);
 assert.match(source.helmDeployment, /env\.RFQ_TOKEN_REGISTRY_JSON is required for hedge route decimals/);
+assert.match(source.helmDeployment, /name: RFQ_HEDGE_ROUTES_JSON/);
+assert.match(source.helmDeployment, /index \.Values\.env "RFQ_HEDGE_ROUTES_JSON"/);
+const helmSharedEnv = source.helmValues.match(/^env:\n([\s\S]*?)^signerSecret:/m)?.[1] ?? "";
+const helmWorkerEnv = source.helmValues.match(/^hedgeWorker:\n[\s\S]*?^  env:\n([\s\S]*?)^  secret:/m)?.[1] ?? "";
+assert.match(helmSharedEnv, /RFQ_HEDGE_ROUTES_JSON:/);
+assert.doesNotMatch(helmWorkerEnv, /RFQ_HEDGE_ROUTES_JSON:/);
 
 for (const [name, needle] of [
   ["readme", /quantized target/],

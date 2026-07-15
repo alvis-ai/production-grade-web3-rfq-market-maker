@@ -152,7 +152,7 @@ assert.ok(checkedAuditItems >= 20, "audit checklist must mark implemented baseli
 
 const implementedAuditControls = [
   "Non-local static market data requires a non-empty mandatory live CEX source set and cannot sign from demonstration prices alone.",
-  "CEX reference sources validate price without inflating executable liquidity; every published pair retains an accepted Binance hedge source.",
+  "CEX reference sources validate price without inflating executable liquidity; every published pair retains an accepted Binance hedge source bound to the API and worker shared route table.",
   "EIP-712 domain includes name, version, chainId and verifyingContract.",
   "Quote struct fields match SDK and backend signer exactly.",
   "`submitQuote` rejects expired quotes.",

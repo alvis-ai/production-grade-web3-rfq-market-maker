@@ -63,6 +63,8 @@ spec:
             {{- end }}
             - name: RFQ_TOKEN_REGISTRY_JSON
               value: {{ required "env.RFQ_TOKEN_REGISTRY_JSON is required for hedge route decimals" (index .Values.env "RFQ_TOKEN_REGISTRY_JSON") | quote }}
+            - name: RFQ_HEDGE_ROUTES_JSON
+              value: {{ required "env.RFQ_HEDGE_ROUTES_JSON is required for shared API/worker route binding" (index .Values.env "RFQ_HEDGE_ROUTES_JSON") | quote }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

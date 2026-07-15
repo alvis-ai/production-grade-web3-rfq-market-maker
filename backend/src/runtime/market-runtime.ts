@@ -16,6 +16,7 @@ import {
 } from "../modules/market-data/market-data.service.js";
 import type { OrderBookPairConfig } from "../modules/market-data/cex-orderbook/orderbook.js";
 import { pairKey } from "../modules/market-data/price-cache.js";
+import { parseHedgeRoutesJson } from "../modules/hedge/hedge-route.js";
 import {
   defaultFormulaPricingConfig,
   FormulaPricingEngine,
@@ -138,6 +139,7 @@ export function resolvePricingRuntime(
   if (configuredPricingEngine !== undefined && cexPairs.length === 0) return { engine: configuredPricingEngine };
   const tokenRegistry = configuredTokenRegistry ?? readTokenRegistry();
   assertCexPairsSupported(tokenRegistry, cexPairs);
+  assertCexHedgeSourcesRoutable(tokenRegistry, cexPairs);
   if (configuredPricingEngine !== undefined) {
     return { engine: configuredPricingEngine, tokenRegistry };
   }
@@ -146,6 +148,33 @@ export function resolvePricingRuntime(
     engine: new FormulaPricingEngine(defaultFormulaPricingConfig, tokenRegistry),
     tokenRegistry,
   };
+}
+
+export function assertCexHedgeSourcesRoutable(
+  tokenRegistry: TokenRegistry,
+  cexPairs: readonly OrderBookPairConfig[],
+  env: Record<string, string | undefined> | undefined = runtimeEnvironment(),
+): void {
+  const hedgeSources = cexPairs.filter(({ role }) => role === "hedge");
+  if (hedgeSources.length === 0) return;
+
+  const serializedRoutes = readOwnEnvValue(env, "RFQ_HEDGE_ROUTES_JSON");
+  if (!serializedRoutes) {
+    throw new Error("RFQ_HEDGE_ROUTES_JSON is required when RFQ_CEX_PAIRS contains hedge sources");
+  }
+  const routes = parseHedgeRoutesJson(serializedRoutes);
+  routes.validateTokenRegistry(tokenRegistry);
+
+  for (const source of hedgeSources) {
+    const route = routes.find(source.chainId, source.tokenIn);
+    const sourceId = `${source.chainId}:${source.tokenIn.toLowerCase()}:${source.tokenOut.toLowerCase()}:` +
+      `${source.exchange}:${source.symbol.toUpperCase()}`;
+    if (!route) throw new Error(`CEX hedge source ${sourceId} has no configured hedge route`);
+    if (route.venue !== source.exchange || route.symbol.toUpperCase() !== source.symbol.toUpperCase() ||
+        route.quoteToken.toLowerCase() !== source.tokenOut.toLowerCase()) {
+      throw new Error(`CEX hedge source ${sourceId} does not match its configured hedge route`);
+    }
+  }
 }
 
 export function buildMarketReadinessConfig(

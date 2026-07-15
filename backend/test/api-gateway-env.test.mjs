@@ -236,6 +236,7 @@ test("production RFQ API requires two CEX sources per configured pair by default
     "RFQ_ALLOW_SIMULATED_SETTLEMENT",
     "RFQ_CEX_PAIRS",
     "RFQ_CEX_MIN_SOURCES",
+    "RFQ_HEDGE_ROUTES_JSON",
   ];
   const original = Object.fromEntries(names.map((name) => [name, process.env[name]]));
   try {
@@ -244,6 +245,18 @@ test("production RFQ API requires two CEX sources per configured pair by default
     process.env.RFQ_ALLOW_SIMULATED_SETTLEMENT = "true";
     process.env.RFQ_CEX_PAIRS =
       "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT:hedge";
+    process.env.RFQ_HEDGE_ROUTES_JSON = JSON.stringify({ routes: [{
+      chainId: 1,
+      token: "0x0000000000000000000000000000000000000002",
+      venue: "binance",
+      symbol: "ETHUSDT",
+      baseAsset: "ETH",
+      quoteAsset: "USDT",
+      quoteToken: "0x0000000000000000000000000000000000000003",
+      tokenDecimals: 18,
+      quoteTokenDecimals: 18,
+      stepSizeRaw: "100000000000000",
+    }] });
     delete process.env.RFQ_CEX_MIN_SOURCES;
 
     assert.throws(
