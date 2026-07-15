@@ -323,6 +323,8 @@ Production Kubernetes requires Cilium DNS-aware policy enforcement. The ordinary
 
 Application images and Kubernetes workloads run without root. The backend image uses UID/GID 1000, and rootless Nginx serves the frontend on container port 8080 while Compose preserves host port 5173. API and worker Pods use `RuntimeDefault` seccomp, drop all capabilities, disable privilege escalation, mount the image filesystem read-only, and expose only a bounded 16Mi `/tmp`. Every Pod disables the default Kubernetes API ServiceAccount token; EKS injects the API Pod's separate audience-scoped IRSA token through its dedicated annotated ServiceAccount for KMS signing.
 
+The Kubernetes API workload uses an `autoscaling/v2` HPA with a 2-to-10 replica range, a 70-percent CPU target, prompt scale-up and stabilized scale-down. Every API and worker Deployment has its own `policy/v1` PDB allowing at most one unavailable replica during eviction-aware maintenance. Workers remain at explicit replica counts because durable queue pressure and external capacity, not polling CPU, are the correct autoscaling inputs.
+
 Kubernetes deployments load these values from `rfq-backend-secrets`. Replace the placeholders in `infra/k8s/backend-secret.yaml` before applying manifests, or create the same Secret out of band:
 
 ```sh

@@ -13,6 +13,14 @@ const k8sConfig = await readFile("infra/k8s/configmap.yaml", "utf8");
 const k8sSecret = await readFile("infra/k8s/backend-secret.yaml", "utf8");
 const k8sServiceAccount = await readFile("infra/k8s/backend-service-account.yaml", "utf8");
 const k8sNetworkPolicy = await readFile("infra/k8s/network-policy.yaml", "utf8");
+const k8sHorizontalPodAutoscaler = await readFile(
+  "infra/k8s/backend-horizontal-pod-autoscaler.yaml",
+  "utf8",
+);
+const k8sPodDisruptionBudgets = await readFile(
+  "infra/k8s/pod-disruption-budgets.yaml",
+  "utf8",
+);
 const k8sCiliumFqdnEgressPolicy = await readFile(
   "infra/k8s/cilium-fqdn-egress-policy.yaml",
   "utf8",
@@ -66,6 +74,14 @@ const helmCiliumFqdnEgressPolicy = await readFile(
 );
 const helmServiceAccount = await readFile("infra/helm/rfq-market-maker/templates/service-account.yaml", "utf8");
 const helmService = await readFile("infra/helm/rfq-market-maker/templates/service.yaml", "utf8");
+const helmHorizontalPodAutoscaler = await readFile(
+  "infra/helm/rfq-market-maker/templates/horizontal-pod-autoscaler.yaml",
+  "utf8",
+);
+const helmPodDisruptionBudgets = await readFile(
+  "infra/helm/rfq-market-maker/templates/pod-disruption-budgets.yaml",
+  "utf8",
+);
 const helmHedgeDeployment = await readFile("infra/helm/rfq-market-maker/templates/hedge-worker-deployment.yaml", "utf8");
 const helmHedgeService = await readFile("infra/helm/rfq-market-maker/templates/hedge-worker-service.yaml", "utf8");
 const helmHedgeNetworkPolicy = await readFile("infra/helm/rfq-market-maker/templates/hedge-worker-network-policy.yaml", "utf8");
@@ -148,6 +164,93 @@ assertContains(frontendNginxConfig, [
 ], "infra/docker/nginx.conf");
 assert.ok(dockerCompose.includes('- "5173:8080"'), "frontend compose port must target rootless Nginx 8080");
 assert.ok(!dockerCompose.includes('- "5173:80"'), "frontend compose must not target privileged port 80");
+
+assertContains(k8sHorizontalPodAutoscaler, [
+  "apiVersion: autoscaling/v2",
+  "kind: HorizontalPodAutoscaler",
+  "name: rfq-backend",
+  "minReplicas: 2",
+  "maxReplicas: 10",
+  "stabilizationWindowSeconds: 300",
+  "value: 25",
+  "averageUtilization: 70",
+], "raw API HorizontalPodAutoscaler");
+assert.equal(
+  countOccurrences(k8sHorizontalPodAutoscaler, "scaleTargetRef:"),
+  1,
+  "raw manifests must autoscale only the API Deployment",
+);
+
+assert.equal(
+  countOccurrences(k8sPodDisruptionBudgets, "kind: PodDisruptionBudget"),
+  6,
+  "raw manifests must define one PodDisruptionBudget per workload",
+);
+assert.equal(
+  countOccurrences(k8sPodDisruptionBudgets, "maxUnavailable: 1"),
+  6,
+  "every raw PodDisruptionBudget must permit at most one unavailable replica",
+);
+assert.equal(
+  countOccurrences(k8sPodDisruptionBudgets, "unhealthyPodEvictionPolicy: AlwaysAllow"),
+  6,
+  "every raw PodDisruptionBudget must permit unhealthy Pod eviction",
+);
+for (const workloadName of [
+  "rfq-backend",
+  "rfq-hedge-worker",
+  "rfq-analytics-worker",
+  "rfq-reconciliation-worker",
+  "rfq-settlement-indexer",
+  "rfq-toxic-flow-analyzer",
+]) {
+  assert.ok(
+    countOccurrences(k8sPodDisruptionBudgets, `app.kubernetes.io/name: ${workloadName}`) === 1,
+    `raw PodDisruptionBudget must select exactly ${workloadName}`,
+  );
+}
+
+assertContains(helmHorizontalPodAutoscaler, [
+  "{{- if .Values.autoscaling.enabled }}",
+  "apiVersion: autoscaling/v2",
+  "kind: HorizontalPodAutoscaler",
+  "name: {{ include \"rfq-market-maker.fullname\" . }}",
+  "minReplicas: {{ .Values.autoscaling.minReplicas }}",
+  "maxReplicas: {{ .Values.autoscaling.maxReplicas }}",
+  "toYaml .Values.autoscaling.behavior",
+  "averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}",
+  "autoscaling.minReplicas must not exceed autoscaling.maxReplicas",
+  "replicaCount must be within the autoscaling minReplicas/maxReplicas range",
+], "Helm API HorizontalPodAutoscaler");
+assert.equal(
+  countOccurrences(helmPodDisruptionBudgets, "kind: PodDisruptionBudget"),
+  6,
+  "Helm must template one PodDisruptionBudget per workload",
+);
+assert.equal(
+  countOccurrences(helmPodDisruptionBudgets, ".Values.disruptionBudget.maxUnavailable"),
+  6,
+  "every Helm PodDisruptionBudget must use the reviewed unavailable bound",
+);
+assert.equal(
+  countOccurrences(helmPodDisruptionBudgets, ".Values.disruptionBudget.unhealthyPodEvictionPolicy"),
+  6,
+  "every Helm PodDisruptionBudget must use the reviewed unhealthy eviction policy",
+);
+for (const component of [
+  "api",
+  "hedge-worker",
+  "analytics-worker",
+  "reconciliation-worker",
+  "settlement-indexer",
+  "toxic-flow-analyzer",
+]) {
+  assert.equal(
+    countOccurrences(helmPodDisruptionBudgets, `app.kubernetes.io/component: ${component}`),
+    2,
+    `Helm PodDisruptionBudget must label and select only ${component}`,
+  );
+}
 
 for (const [label, source] of [
   ["backend", k8sDeployment],
@@ -750,6 +853,14 @@ for (const requiredSecurityField of [
   "containerSecurityContext",
   "tmpVolumeSizeLimit",
   "serviceAccount",
+  "autoscaling",
+  "disruptionBudget",
+  "replicaCount",
+  "hedgeWorker",
+  "analyticsWorker",
+  "reconciliationWorker",
+  "settlementIndexer",
+  "toxicFlowAnalyzer",
 ]) {
   assert.ok(
     helmValuesSchema.required.includes(requiredSecurityField),
@@ -780,6 +891,37 @@ assert.equal(
 assert.equal(
   helmValuesSchema.properties.serviceAccount.properties.automountServiceAccountToken.const,
   false,
+);
+assert.equal(helmValuesSchema.properties.autoscaling.properties.enabled.const, true);
+assert.equal(helmValuesSchema.properties.autoscaling.properties.minReplicas.minimum, 2);
+assert.equal(helmValuesSchema.properties.autoscaling.properties.maxReplicas.maximum, 100);
+assert.equal(
+  helmValuesSchema.properties.autoscaling.properties.targetCPUUtilizationPercentage.maximum,
+  100,
+);
+assert.equal(helmValuesSchema.properties.disruptionBudget.properties.enabled.const, true);
+assert.equal(helmValuesSchema.properties.disruptionBudget.properties.maxUnavailable.const, 1);
+assert.equal(
+  helmValuesSchema.properties.disruptionBudget.properties.unhealthyPodEvictionPolicy.const,
+  "AlwaysAllow",
+);
+assert.equal(helmValuesSchema.properties.replicaCount.minimum, 2);
+for (const workerName of [
+  "hedgeWorker",
+  "analyticsWorker",
+  "reconciliationWorker",
+  "settlementIndexer",
+  "toxicFlowAnalyzer",
+]) {
+  assert.equal(
+    helmValuesSchema.properties[workerName].$ref,
+    "#/definitions/replicatedWorker",
+    `Helm schema must enforce replicated availability for ${workerName}`,
+  );
+}
+assert.equal(
+  helmValuesSchema.definitions.replicatedWorker.allOf[0].then.properties.replicaCount.minimum,
+  2,
 );
 assert.equal(
   helmValuesSchema.properties.env.properties.NODE_ENV.const,
@@ -1149,6 +1291,9 @@ assertContains(kubernetesChapter, [
   "`RuntimeDefault` seccomp",
   "bounded 16Mi `/tmp`",
   "`automountServiceAccountToken=false`",
+  "`autoscaling/v2` HPA",
+  "`policy/v1` PDB",
+  "Workers intentionally do not use CPU HPAs",
 ], "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md");
 
 console.log("Deployment manifests consistency check passed");

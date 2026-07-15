@@ -31,6 +31,12 @@ const alertMetrics = extractAlertMetrics(alertRulesSource);
 const dashboard = JSON.parse(dashboardSource);
 const expressions = extractDashboardExpressions(dashboard);
 const dashboardMetrics = new Set(expressions.flatMap(extractMetricsFromExpression));
+const kubernetesAvailabilityMetrics = [
+  "kube_horizontalpodautoscaler_status_desired_replicas",
+  "kube_horizontalpodautoscaler_spec_max_replicas",
+  "kube_horizontalpodautoscaler_status_condition",
+  "kube_poddisruptionbudget_status_pod_disruptions_allowed",
+];
 
 assert.equal(dashboard.title, "RFQ Market Maker Overview", "Grafana dashboard title must stay stable");
 assert.equal(dashboard.uid, "rfq-market-maker-overview", "Grafana dashboard uid must stay stable");
@@ -45,6 +51,17 @@ for (const metric of emittedMetrics) {
 for (const metric of alertMetrics) {
   assert.ok(dashboardMetrics.has(metric), `Grafana overview dashboard must query alert metric ${metric}`);
 }
+
+for (const metric of kubernetesAvailabilityMetrics) {
+  assert.ok(
+    expressions.some((expression) => expression.includes(metric)),
+    `Grafana overview dashboard must query Kubernetes availability metric ${metric}`,
+  );
+}
+assert.ok(
+  dashboard.panels.some((panel) => panel.title === "Kubernetes Availability Controls"),
+  "Grafana overview dashboard must expose Kubernetes HPA and PDB state",
+);
 
 for (const panel of dashboard.panels) {
   assert.ok(panel.title, "Every Grafana panel must have a title");

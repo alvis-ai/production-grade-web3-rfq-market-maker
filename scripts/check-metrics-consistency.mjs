@@ -39,6 +39,12 @@ const rateLimitedEndpoints = extractStringUnionValues(rateLimitSource, "RateLimi
 const metricsRateLimitedEndpoints = extractConstStringArray(metricsSource, "rateLimitedEndpoints");
 const signerMetricOperations = extractStringUnionValues(metricsSource, "SignerMetricOperation");
 const metricsSignerOperations = extractConstStringArray(metricsSource, "signerMetricOperations");
+const kubernetesAvailabilityMetrics = [
+  "kube_horizontalpodautoscaler_status_desired_replicas",
+  "kube_horizontalpodautoscaler_spec_max_replicas",
+  "kube_horizontalpodautoscaler_status_condition",
+  "kube_poddisruptionbudget_status_pod_disruptions_allowed",
+];
 
 assert.ok(emittedMetrics.length >= 20, "MetricsService must expose a production-grade metric surface");
 assert.equal(new Set(emittedMetrics).size, emittedMetrics.length, "MetricsService metric HELP blocks must be unique");
@@ -97,6 +103,10 @@ assert.ok(
   prometheusConfigSource.includes("/etc/prometheus/rules/rfq-alerts.yml"),
   "Prometheus must load RFQ alert rules",
 );
+for (const metric of kubernetesAvailabilityMetrics) {
+  assert.ok(alertRulesSource.includes(metric), `Prometheus alerts must cover Kubernetes metric ${metric}`);
+  assert.ok(monitoringChapter.includes(`\`${metric}\``), `Chapter03 Monitoring must document ${metric}`);
+}
 
 console.log(
   `Metrics consistency check passed (${emittedMetrics.length} metrics, ${alertNames.length} alerts)`,

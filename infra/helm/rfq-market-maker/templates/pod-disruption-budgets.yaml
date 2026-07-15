@@ -1,0 +1,101 @@
+{{- if .Values.disruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  maxUnavailable: {{ .Values.disruptionBudget.maxUnavailable }}
+  unhealthyPodEvictionPolicy: {{ .Values.disruptionBudget.unhealthyPodEvictionPolicy }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+{{- if .Values.hedgeWorker.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-hedge-worker
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: hedge-worker
+spec:
+  maxUnavailable: {{ .Values.disruptionBudget.maxUnavailable }}
+  unhealthyPodEvictionPolicy: {{ .Values.disruptionBudget.unhealthyPodEvictionPolicy }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: hedge-worker
+{{- end }}
+{{- if .Values.analyticsWorker.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-analytics-worker
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analytics-worker
+spec:
+  maxUnavailable: {{ .Values.disruptionBudget.maxUnavailable }}
+  unhealthyPodEvictionPolicy: {{ .Values.disruptionBudget.unhealthyPodEvictionPolicy }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: analytics-worker
+{{- end }}
+{{- if .Values.reconciliationWorker.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-reconciliation-worker
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciliation-worker
+spec:
+  maxUnavailable: {{ .Values.disruptionBudget.maxUnavailable }}
+  unhealthyPodEvictionPolicy: {{ .Values.disruptionBudget.unhealthyPodEvictionPolicy }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: reconciliation-worker
+{{- end }}
+{{- if .Values.settlementIndexer.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-settlement-indexer
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: settlement-indexer
+spec:
+  maxUnavailable: {{ .Values.disruptionBudget.maxUnavailable }}
+  unhealthyPodEvictionPolicy: {{ .Values.disruptionBudget.unhealthyPodEvictionPolicy }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: settlement-indexer
+{{- end }}
+{{- if .Values.toxicFlowAnalyzer.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-toxic-flow-analyzer
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: toxic-flow-analyzer
+spec:
+  maxUnavailable: {{ .Values.disruptionBudget.maxUnavailable }}
+  unhealthyPodEvictionPolicy: {{ .Values.disruptionBudget.unhealthyPodEvictionPolicy }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: toxic-flow-analyzer
+{{- end }}
+{{- end }}

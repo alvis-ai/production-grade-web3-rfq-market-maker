@@ -171,6 +171,8 @@ Key metrics include:
 - `rfq_settlement_indexer_last_poll_timestamp_seconds`
 - `rfq_settlement_indexer_cursor_update_age_seconds`
 
+Kubernetes control-plane observability comes from kube-state-metrics rather than the application `/metrics` endpoint. Production Prometheus must ingest `kube_horizontalpodautoscaler_status_desired_replicas`, `kube_horizontalpodautoscaler_spec_max_replicas`, `kube_horizontalpodautoscaler_status_condition`, and `kube_poddisruptionbudget_status_pod_disruptions_allowed` for the dedicated `rfq-market-maker` namespace. The shipped rules alert when the API remains at its HPA ceiling, when resource metrics cannot drive scaling, or when a workload PDB has no eviction capacity. These labels contain bounded controller and namespace names, never quote or user identifiers.
+
 ## API Design
 
 `GET /metrics` exposes Prometheus text format. Grafana dashboards consume Prometheus and ClickHouse.
@@ -211,6 +213,7 @@ Key metrics include:
 - Settlement indexer metrics use only configured `chain_id` plus closed `outcome` (`applied`, `duplicate`) and `code` enums. Transaction hashes, quote hashes, users, RPC URLs and provider errors must never become labels or log fields.
 - Alert on indexer process availability, confirmed-block lag, any bounded ingestion error, and `DEEP_REORG` separately. `QUOTE_NOT_FOUND` or `EVENT_MISMATCH` is an economic consistency incident: do not skip the log to make lag green. Compare the configured RPC with an independent provider and restore quote evidence first.
 - Every critical alert links to runbook.
+- HPA and PDB alerts depend on kube-state-metrics plus a working Metrics Server. Missing controller series must be treated as monitoring configuration failure during production rollout, not as proof that autoscaling and disruption budgets are healthy.
 
 ## Failure Scenarios
 
@@ -237,6 +240,9 @@ Key metrics include:
 - Settlement indexer lag grows: stop increasing exposure on affected chains, verify `safe_head - next_block`, database lease ownership and RPC `eth_getLogs` health, then let the durable cursor catch up without manual jumps.
 - Settlement indexer deep reorg: page immediately, pause affected-chain quoting, compare block hashes across providers, and follow the audited cursor recovery procedure; never delete checkpoints just to clear the alert.
 - Hedge failure spike：widen spread and page operator.
+- HPA remains at maximum：verify API demand and every shared dependency before raising the cap; scaling stateless Pods cannot repair a saturated KMS, database, Redis or market-data source.
+- HPA metrics unavailable：restore Metrics Server and API CPU samples while holding a reviewed manual replica count.
+- PDB disruption allowance remains zero：stop node drain and restore healthy replicas before resuming eviction-aware maintenance.
 
 ## Security Considerations
 

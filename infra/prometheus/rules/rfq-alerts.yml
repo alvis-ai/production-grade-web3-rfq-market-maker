@@ -10,6 +10,33 @@ groups:
           summary: RFQ backend metrics endpoint is down
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQApiHpaAtMaximum
+        expr: max(kube_horizontalpodautoscaler_status_desired_replicas{namespace="rfq-market-maker"}) >= max(kube_horizontalpodautoscaler_spec_max_replicas{namespace="rfq-market-maker"})
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ API HPA has remained at its maximum replica count
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQApiHpaMetricsUnavailable
+        expr: max(kube_horizontalpodautoscaler_status_condition{namespace="rfq-market-maker",condition="ScalingActive",status="false"}) == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ API HPA cannot calculate replicas from resource metrics
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQWorkloadDisruptionBudgetBlocked
+        expr: min by (poddisruptionbudget) (kube_poddisruptionbudget_status_pod_disruptions_allowed{namespace="rfq-market-maker"}) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: An RFQ workload disruption budget has no eviction capacity
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQQuoteTrafficStopped
         expr: increase(rfq_quote_requests_total[10m]) == 0
         for: 10m

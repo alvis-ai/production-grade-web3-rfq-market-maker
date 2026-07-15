@@ -26,6 +26,79 @@
       "items": {
         "$ref": "#/definitions/fqdnEndpoint"
       }
+    },
+    "hpaScalingRules": {
+      "type": "object",
+      "required": ["stabilizationWindowSeconds", "selectPolicy", "policies"],
+      "properties": {
+        "stabilizationWindowSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600
+        },
+        "selectPolicy": {
+          "enum": ["Max", "Min"]
+        },
+        "policies": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["type", "value", "periodSeconds"],
+            "properties": {
+              "type": {
+                "enum": ["Pods", "Percent"]
+              },
+              "value": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "periodSeconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1800
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "replicatedWorker": {
+      "type": "object",
+      "required": ["enabled", "replicaCount"],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            },
+            "required": ["enabled"]
+          },
+          "then": {
+            "properties": {
+              "replicaCount": {
+                "minimum": 2
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": true
     }
   },
   "required": [
@@ -35,9 +108,22 @@
     "podSecurityContext",
     "containerSecurityContext",
     "tmpVolumeSizeLimit",
-    "serviceAccount"
+    "serviceAccount",
+    "autoscaling",
+    "disruptionBudget",
+    "replicaCount",
+    "hedgeWorker",
+    "analyticsWorker",
+    "reconciliationWorker",
+    "settlementIndexer",
+    "toxicFlowAnalyzer"
   ],
   "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 100
+    },
     "tmpVolumeSizeLimit": {
       "const": "16Mi"
     },
@@ -117,6 +203,81 @@
         }
       },
       "additionalProperties": true
+    },
+    "autoscaling": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "minReplicas",
+        "maxReplicas",
+        "targetCPUUtilizationPercentage",
+        "behavior"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "minReplicas": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 20
+        },
+        "maxReplicas": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 100
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "behavior": {
+          "type": "object",
+          "required": ["scaleUp", "scaleDown"],
+          "properties": {
+            "scaleUp": {
+              "$ref": "#/definitions/hpaScalingRules"
+            },
+            "scaleDown": {
+              "$ref": "#/definitions/hpaScalingRules"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "disruptionBudget": {
+      "type": "object",
+      "required": ["enabled", "maxUnavailable", "unhealthyPodEvictionPolicy"],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "maxUnavailable": {
+          "const": 1
+        },
+        "unhealthyPodEvictionPolicy": {
+          "const": "AlwaysAllow"
+        }
+      },
+      "additionalProperties": false
+    },
+    "hedgeWorker": {
+      "$ref": "#/definitions/replicatedWorker"
+    },
+    "analyticsWorker": {
+      "$ref": "#/definitions/replicatedWorker"
+    },
+    "reconciliationWorker": {
+      "$ref": "#/definitions/replicatedWorker"
+    },
+    "settlementIndexer": {
+      "$ref": "#/definitions/replicatedWorker"
+    },
+    "toxicFlowAnalyzer": {
+      "$ref": "#/definitions/replicatedWorker"
     },
     "env": {
       "type": "object",

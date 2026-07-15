@@ -647,9 +647,15 @@ grep -q 'http://127.0.0.1:8080/' infra/docker/frontend.Dockerfile
 grep -q '^USER nginx$' infra/docker/frontend.Dockerfile
 test -s infra/docker/nginx.conf
 test -s scripts/container-runtime-check.sh
+test -s infra/k8s/backend-horizontal-pod-autoscaler.yaml
+test -s infra/k8s/pod-disruption-budgets.yaml
+test -s infra/helm/rfq-market-maker/templates/horizontal-pod-autoscaler.yaml
+test -s infra/helm/rfq-market-maker/templates/pod-disruption-budgets.yaml
 grep -q 'pid /tmp/nginx.pid' infra/docker/nginx.conf
 grep -q 'listen 8080' infra/docker/nginx.conf
 grep -q 'container-runtime-check' Makefile
+grep -q 'kind: HorizontalPodAutoscaler' infra/k8s/backend-horizontal-pod-autoscaler.yaml
+test "$(grep -c 'kind: PodDisruptionBudget' infra/k8s/pod-disruption-budgets.yaml)" -eq 6
 grep -q 'backend:' docker-compose.yml
 grep -q 'frontend:' docker-compose.yml
 grep -q 'postgres:' docker-compose.yml

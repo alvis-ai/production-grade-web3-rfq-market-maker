@@ -101,7 +101,7 @@ stateDiagram-v2
 
 ## Data Model
 
-Kubernetes production design includes Deployment, Service, ConfigMap, Secret, ServiceAccount and NetworkPolicy. HorizontalPodAutoscaler and PodDisruptionBudget remain explicit follow-up resources rather than being implied by the current reference manifests.
+Kubernetes production design includes Deployment, Service, ConfigMap, Secret, ServiceAccount, NetworkPolicy, HorizontalPodAutoscaler and PodDisruptionBudget. The API HPA and six workload-specific disruption budgets are explicit resources in both raw manifests and Helm output.
 
 The current runnable backend manifests use:
 
@@ -110,6 +110,9 @@ The current runnable backend manifests use:
 - `rfq-backend-secrets` Secret for `DATABASE_URL`、`RFQ_AWS_KMS_KEY_ID`、`RFQ_TRUSTED_SIGNER_ADDRESS`、`RFQ_SETTLEMENT_ADDRESS`、`RFQ_REDIS_URL` and `RFQ_API_KEY_CONFIG_JSON`. During a bounded signer rotation only, it may also contain `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES`; the Helm reference remains disabled by default and must be removed after old-key retirement. The Secret must not contain `RFQ_SIGNER_PRIVATE_KEY` or plaintext institutional API secrets; the API-key JSON contains SHA-256 digests only.
 - Backend pods run as `rfq-backend-kms`. On EKS its ServiceAccount annotation binds an IAM role with `kms:Sign` only on the configured asymmetric `ECC_SECG_P256K1` key; other platforms must provide an equivalent workload identity. Static AWS access keys are not mounted.
 - All six workloads run with UID/GID 1000, `runAsNonRoot=true`, `RuntimeDefault` seccomp and a read-only root filesystem. Migration and runtime containers disable privilege escalation and drop every Linux capability; their only writable filesystem is a bounded 16Mi `/tmp` `emptyDir`. Every workload sets `automountServiceAccountToken=false` because it does not call the Kubernetes API. EKS injects a separate audience-scoped IRSA token into the API Pod through its dedicated annotated ServiceAccount for KMS access.
+- The API uses an `autoscaling/v2` HPA with 2 minimum replicas, 10 maximum replicas and a 70-percent CPU utilization target. Scale-up may double capacity or add four Pods per minute; scale-down waits through a 300-second stabilization window and removes at most 25 percent per minute. The cluster must provide `metrics.k8s.io`, and the API CPU request must remain realistic because utilization is calculated against that request.
+- API, hedge, analytics, reconciliation, settlement-indexer and toxic-flow Deployments each have an independent `policy/v1` PDB with `maxUnavailable=1` and `unhealthyPodEvictionPolicy=AlwaysAllow`. Exact component selectors prevent one workload's disruption from consuming another workload's budget. PDBs protect only eviction-aware voluntary disruption; they do not prevent direct deletion or involuntary node and zone failures.
+- Workers intentionally do not use CPU HPAs. Durable queue age/depth, dependency capacity and lease safety are their scaling signals; fixed replica counts remain explicit until reviewed custom metrics and per-worker scaling bounds exist.
 - `rfq-hedge-worker-secrets` is a separate Secret containing only the worker database URL and Binance API key/secret. API pods do not mount venue credentials; worker pods do not mount signer or Redis credentials.
 - `rfq-analytics-worker-secrets` contains the least-privilege outbox database URL, Kafka SASL credentials and ClickHouse credentials. API and hedge pods do not mount these values; analytics pods do not mount signer, Redis or Binance credentials.
 - The hedge worker Deployment may run multiple replicas because due rows are claimed with `FOR UPDATE SKIP LOCKED`, expiring leases, and lease-owner CAS terminal updates. Its `/ready` probes PostgreSQL while `/health` only checks process liveness; the Service exposes `/metrics` for Prometheus.
@@ -151,6 +154,7 @@ Ingress exposes the trading and status routes through scoped API-key authenticat
 - Backend pods use graceful shutdown on `SIGTERM`/`SIGINT`; Kubernetes keeps a termination grace period and preStop delay so rolling updates avoid abruptly cutting in-flight quote or submit requests.
 - `NODE_ENV=production` requires `RFQ_SIGNER_MODE=aws-kms`, region、KMS key id、trusted signer address and settlement address. Raw private key configuration is rejected. Placeholder Secret and ServiceAccount annotation values must be replaced before deploy; the first `/ready` probe proves a KMS signature recovers to the configured signer before traffic is admitted. Signer probe results are cached for 30 seconds and concurrent probes are coalesced, bounding KMS traffic without hiding failures beyond that interval.
 - Settlement indexer replicas coordinate through expiring PostgreSQL leases rather than Kubernetes leader election. `/ready` requires healthy cursor/quote/settlement stores and a recent successful chain iteration; `/health` remains process-only so an RPC incident removes stale workers from readiness without restart loops destroying diagnostic state.
+- API autoscaling is asymmetric: fast growth protects quote admission, while a five-minute downscale window avoids capacity flapping and repeated KMS/dependency warm-up. Worker autoscaling must not be added from CPU alone; use durable backlog metrics and preserve venue, RPC and lease limits.
 
 ## Failure Scenarios
 
@@ -163,6 +167,8 @@ Ingress exposes the trading and status routes through scoped API-key authenticat
 - Missing Kafka topic or invalid SASL/ClickHouse credentials：analytics readiness fails while API trading remains available; outbox backlog is retained in PostgreSQL and must be drained after the dependency is repaired.
 - Missing indexer Secret, zero settlement address, unsafe RPC URL, or lease shorter than twice the RPC timeout: indexer fails startup before serving readiness.
 - RPC outage or unknown on-chain quote: the affected cursor does not advance, indexer readiness becomes stale, and API quote/receipt paths remain isolated while operators repair evidence.
+- Missing Metrics Server or stale CPU samples: the API HPA reports metric errors and holds the current desired replica count; alert before traffic reaches fixed capacity.
+- Node drain with one unhealthy replica: `AlwaysAllow` permits removing the unhealthy Pod rather than deadlocking maintenance, while the Deployment creates a replacement and readiness gates availability.
 
 ## Security Considerations
 
@@ -170,11 +176,11 @@ Use least privilege service accounts. Avoid mounting broad secrets into API pods
 
 ## Performance Considerations
 
-Scale API and Quote services horizontally. Scale Signer carefully with key policy and KMS limits.
+Scale API and Quote services horizontally. The API HPA requires CPU requests and a healthy Metrics Server; alert when it reaches 10 replicas. Scale Signer carefully with key policy and KMS limits. Scale workers from queue-age or queue-depth custom metrics rather than polling CPU, and test venue/RPC rate limits before raising replica bounds.
 
 ## Testing Strategy
 
-Validate manifests with dry-run, run smoke tests after deploy, test rollback path.
+Validate manifests with dry-run, render the API HPA and all enabled PDBs, run smoke tests after deploy, test rollback, exercise a node drain, and load-test both scale-up and stabilized scale-down. Verify HPA metric availability before shifting production traffic.
 
 ## Interview Notes
 
@@ -191,3 +197,5 @@ Kubernetes 是生产部署层。RFQ 系统的部署设计必须特别保护 Sign
 - Helm
 - [Cilium DNS-based policies](https://docs.cilium.io/en/stable/security/dns/)
 - [Amazon EKS regional STS endpoints](https://docs.aws.amazon.com/eks/latest/userguide/configure-sts-endpoint.html)
+- [Horizontal Pod Autoscaling](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/)
+- [Pod disruptions](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/)
