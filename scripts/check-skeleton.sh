@@ -3586,6 +3586,8 @@ grep -q 'MAX_CEX_WS_MESSAGE_BYTES = 1_048_576' backend/src/modules/market-data/c
 grep -q 'MAX_CEX_SNAPSHOT_BYTES = 2_097_152' backend/src/modules/market-data/cex-orderbook/connector-safety.ts
 grep -q 'event time regressed' backend/src/modules/market-data/cex-orderbook/binance-connector.ts
 grep -q 'event time regressed' backend/src/modules/market-data/cex-orderbook/coinbase-connector.ts
+grep -q 'handleSnapshot(msg, receivedAtMs)' backend/src/modules/market-data/cex-orderbook/coinbase-connector.ts
+! grep -q 'time:' backend/test/fixtures/cex-orderbook-live-globals.mjs
 grep -q 'cex-orderbook-integration-check: backend-build' Makefile
 grep -q 'cex-orderbook-check:' Makefile
 grep -q 'run_step make cex-orderbook-check' scripts/verify.sh

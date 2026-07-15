@@ -30,6 +30,7 @@ const [
   packageSource,
   integrationSource,
   integrationTestSource,
+  integrationFixtureSource,
 ] = await Promise.all([
   "backend/src/main.ts",
   "backend/src/modules/market-data/cached-market-data.service.ts",
@@ -56,6 +57,7 @@ const [
   "package.json",
   "scripts/cex-orderbook-integration-check.mjs",
   "backend/test/cex-orderbook-integration-script.test.mjs",
+  "backend/test/fixtures/cex-orderbook-live-globals.mjs",
 ].map((path) => readFile(path, "utf8")));
 const mainSource = `${mainEntrySource}\n${await readBackendGatewaySource()}`;
 
@@ -169,6 +171,15 @@ assert.ok(binanceSource.includes("E: number") && binanceSource.includes("s: stri
 assert.ok(binanceSource.includes("bridgesUpdateId"), "Binance updates must enforce update-id continuity");
 assert.ok(coinbaseSource.includes("time: string") && coinbaseSource.includes("parseCoinbaseTimestamp"), "Coinbase updates must preserve exchange event time");
 assert.ok(
+  !/interface CoinbaseSnapshotMessage \{[^}]*time: string;[^}]*\}/.test(coinbaseSource) &&
+    coinbaseSource.includes("handleSnapshot(msg, receivedAtMs)") &&
+    coinbaseSource.includes("lastStreamEventAtMs") &&
+    testSource.includes("accepts official snapshots without time") &&
+    testSource.includes("snapshotReceivedAfterMs") &&
+    !integrationFixtureSource.includes("time:"),
+  "Coinbase official snapshots must omit time while update event clocks remain monotonic",
+);
+assert.ok(
   binanceSource.includes('readBoundedJsonResponse(response, "Binance depth snapshot")') &&
     binanceSource.includes('parseBoundedJsonMessage(raw, "Binance WebSocket message")') &&
     coinbaseSource.includes('parseBoundedJsonMessage(raw, "Coinbase WebSocket message")'),
@@ -255,6 +266,7 @@ assert.ok(
   marketDataChapter.includes("1 MiB") &&
     marketDataChapter.includes("2 MiB") &&
     marketDataChapter.includes("事件时间回退") &&
+    marketDataChapter.includes("官方 snapshot") &&
     readmeSource.includes("Incoming CEX WebSocket text frames are capped at 1 MiB"),
   "market-data docs must document payload, event-time and reconnect safety boundaries",
 );

@@ -11,7 +11,6 @@ interface CoinbaseSubscribeMessage {
 interface CoinbaseSnapshotMessage {
   type: "snapshot";
   product_id: string;
-  time: string;
   bids: [string, string][];
   asks: [string, string][];
 }
@@ -58,6 +57,7 @@ export class CoinbaseConnector {
   private snapshotReceived = false;
   private stopped = false;
   private lastUpdateAtMs: number | undefined;
+  private lastStreamEventAtMs: number | undefined;
 
   constructor(
     productId: string,
@@ -82,6 +82,7 @@ export class CoinbaseConnector {
     this.stopped = false;
     this.snapshotReceived = false;
     this.lastUpdateAtMs = undefined;
+    this.lastStreamEventAtMs = undefined;
     this.connect();
   }
 
@@ -89,6 +90,8 @@ export class CoinbaseConnector {
   stop(): void {
     this.stopped = true;
     this.snapshotReceived = false;
+    this.lastUpdateAtMs = undefined;
+    this.lastStreamEventAtMs = undefined;
     this.book.clear();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -125,6 +128,8 @@ export class CoinbaseConnector {
   private connect(): void {
     if (this.stopped || this.ws) return;
     this.snapshotReceived = false;
+    this.lastUpdateAtMs = undefined;
+    this.lastStreamEventAtMs = undefined;
     this.book.clear();
 
     try {
@@ -150,11 +155,12 @@ export class CoinbaseConnector {
       ws.onmessage = (event: MessageEvent) => {
         if (this.ws !== ws || this.stopped) return;
         try {
+          const receivedAtMs = Date.now();
           const msg = parseCoinbaseMessage(event.data, this.productId);
           if (!msg) return;
 
           if (msg.type === "snapshot") {
-            this.handleSnapshot(msg);
+            this.handleSnapshot(msg, receivedAtMs);
           } else {
             this.handleUpdate(msg);
           }
@@ -171,6 +177,7 @@ export class CoinbaseConnector {
         this.clearSnapshotTimer();
         this.snapshotReceived = false;
         this.lastUpdateAtMs = undefined;
+        this.lastStreamEventAtMs = undefined;
         this.book.clear();
         this.scheduleReconnect();
       };
@@ -188,12 +195,13 @@ export class CoinbaseConnector {
     }
   }
 
-  private handleSnapshot(msg: CoinbaseSnapshotMessage): void {
+  private handleSnapshot(msg: CoinbaseSnapshotMessage, receivedAtMs: number): void {
     this.book.applySnapshot({
       bids: msg.bids.map(levelToPriceLevel),
       asks: msg.asks.map(levelToPriceLevel),
     });
-    this.lastUpdateAtMs = parseCoinbaseTimestamp(msg.time);
+    this.lastUpdateAtMs = receivedAtMs;
+    this.lastStreamEventAtMs = undefined;
     this.snapshotReceived = true;
     this.clearSnapshotTimer();
     this.reconnectAttempt = 0;
@@ -203,7 +211,7 @@ export class CoinbaseConnector {
   private handleUpdate(msg: CoinbaseL2UpdateMessage): void {
     if (!this.snapshotReceived) return;
     const observedAtMs = parseCoinbaseTimestamp(msg.time);
-    if (this.lastUpdateAtMs !== undefined && observedAtMs < this.lastUpdateAtMs) {
+    if (this.lastStreamEventAtMs !== undefined && observedAtMs < this.lastStreamEventAtMs) {
       throw new Error("Coinbase order book event time regressed");
     }
 
@@ -217,6 +225,7 @@ export class CoinbaseConnector {
     }
 
     this.book.applyDelta({ bids: bidChanges, asks: askChanges });
+    this.lastStreamEventAtMs = observedAtMs;
     this.lastUpdateAtMs = observedAtMs;
     this.flushOrderBook();
   }
@@ -253,6 +262,7 @@ export class CoinbaseConnector {
     this.clearSnapshotTimer();
     this.snapshotReceived = false;
     this.lastUpdateAtMs = undefined;
+    this.lastStreamEventAtMs = undefined;
     this.book.clear();
     const ws = this.ws;
     this.ws = null;
@@ -319,18 +329,16 @@ function parseCoinbaseMessage(raw: unknown, productId: string): CoinbaseMessage 
   }
   if (value.type !== "snapshot" && value.type !== "l2update") return undefined;
   if (value.product_id !== productId) return undefined;
-  if (typeof value.time !== "string") throw new Error("Coinbase order book message time is invalid");
-  parseCoinbaseTimestamp(value.time);
-
   if (value.type === "snapshot") {
     return {
       type: "snapshot",
       product_id: productId,
-      time: value.time,
       bids: parseCoinbaseLevels(value.bids, "snapshot bids"),
       asks: parseCoinbaseLevels(value.asks, "snapshot asks"),
     };
   }
+  if (typeof value.time !== "string") throw new Error("Coinbase order book message time is invalid");
+  parseCoinbaseTimestamp(value.time);
   if (!Array.isArray(value.changes) || value.changes.length > 10_000) {
     throw new Error("Coinbase l2update changes must contain at most 10000 levels");
   }

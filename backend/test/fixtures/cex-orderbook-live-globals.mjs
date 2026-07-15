@@ -29,7 +29,6 @@ globalThis.WebSocket = class FakeWebSocket {
         data: JSON.stringify({
           type: "snapshot",
           product_id: "ETH-USD",
-          time: new Date().toISOString(),
           bids: [["1999", "100"], ["1990", "50"]],
           asks: [["2001", "120"], ["2010", "60"]],
         }),

@@ -404,12 +404,11 @@ test("BinanceConnector bridges buffered updates and resynchronizes sequence gaps
   }
 });
 
-test("CoinbaseConnector validates snapshots, event time, and level updates", () => {
+test("CoinbaseConnector accepts official snapshots without time and validates update event time", () => {
   const OriginalWebSocket = globalThis.WebSocket;
   const errors = [];
   globalThis.WebSocket = FakeWebSocket;
   const connector = new CoinbaseConnector("ETH-USD", undefined, (error) => errors.push(error.message));
-  const snapshotTime = "2026-07-11T01:02:03.123456Z";
   const updateTime = "2026-07-11T01:02:03.223456Z";
 
   try {
@@ -420,15 +419,16 @@ test("CoinbaseConnector validates snapshots, event time, and level updates", () 
       type: "subscribe",
       channels: [{ name: "level2", product_ids: ["ETH-USD"] }],
     });
+    const snapshotReceivedAfterMs = Date.now();
     socket.message({
       type: "snapshot",
       product_id: "ETH-USD",
-      time: snapshotTime,
       bids: [["99.00", "2"]],
       asks: [["101.00", "2"]],
     });
     assert.equal(connector.isReady(), true);
-    assert.equal(connector.getLastUpdateAtMs(), Date.parse(snapshotTime));
+    assert.equal(connector.getLastUpdateAtMs() >= snapshotReceivedAfterMs, true);
+    assert.equal(connector.getLastUpdateAtMs() <= Date.now(), true);
     assert.equal(connector.getOrderBook().bids.get("99"), "2");
 
     socket.message({
@@ -510,7 +510,14 @@ test("CEX connectors fail closed when exchange event time regresses", async () =
     coinbase.start();
     const coinbaseSocket = FakeWebSocket.instances.at(-1);
     coinbaseSocket.open();
-    coinbaseSocket.message(coinbaseSnapshot("2026-07-11T01:02:03.223Z"));
+    coinbaseSocket.message(coinbaseSnapshot());
+    coinbaseSocket.message({
+      type: "l2update",
+      product_id: "ETH-USD",
+      time: "2026-07-11T01:02:03.223Z",
+      changes: [["buy", "99", "4"]],
+    });
+    assert.equal(coinbase.isReady(), true);
     coinbaseSocket.message({
       type: "l2update",
       product_id: "ETH-USD",
@@ -580,11 +587,11 @@ test("CoinbaseConnector reconnects when the initial snapshot times out", (contex
     assert.notEqual(replacementSocket, expiredSocket);
     replacementSocket.open();
 
-    expiredSocket.message(coinbaseSnapshot("2026-07-11T01:02:03.123Z"));
+    expiredSocket.message(coinbaseSnapshot());
     assert.equal(connector.isReady(), false);
     assert.equal(connector.getOrderBook().bids.size, 0);
 
-    replacementSocket.message(coinbaseSnapshot("2026-07-11T01:02:04.123Z"));
+    replacementSocket.message(coinbaseSnapshot());
     assert.equal(connector.isReady(), true);
     assert.equal(connector.getOrderBook().bids.get("99"), "2");
 
@@ -793,11 +800,10 @@ function depthUpdate(first, last, bids, asks, eventTime, symbol = "ETHUSDT") {
   return { e: "depthUpdate", E: eventTime, s: symbol, U: first, u: last, b: bids, a: asks };
 }
 
-function coinbaseSnapshot(time) {
+function coinbaseSnapshot() {
   return {
     type: "snapshot",
     product_id: "ETH-USD",
-    time,
     bids: [["99", "2"]],
     asks: [["101", "2"]],
   };
