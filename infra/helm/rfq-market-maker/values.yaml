@@ -205,7 +205,7 @@ env:
   RFQ_CEX_MIN_SOURCES: "2"
   RFQ_CEX_MAX_SOURCE_DEVIATION_BPS: "100"
   RFQ_CEX_MAX_SPREAD_BPS: "100"
-  RFQ_HEDGE_ROUTES_JSON: '{"routes":[{"chainId":1,"token":"0x0000000000000000000000000000000000000002","venue":"binance","symbol":"ETHUSDT","baseAsset":"ETH","quoteAsset":"USDT","quoteToken":"0x0000000000000000000000000000000000000003","tokenDecimals":18,"quoteTokenDecimals":18,"stepSizeRaw":"100000000000000"}]}'
+  RFQ_HEDGE_ROUTES_JSON: '{"routes":[{"chainId":1,"token":"0x0000000000000000000000000000000000000002","venue":"binance","symbol":"ETHUSDT","baseAsset":"ETH","quoteAsset":"USDT","quoteToken":"0x0000000000000000000000000000000000000003","tokenDecimals":18,"quoteTokenDecimals":18,"stepSizeRaw":"100000000000000","priceTick":"0.01","maxSlippageBps":100}]}'
   RFQ_ALLOW_SIMULATED_SETTLEMENT: "false"
 
 signerSecret:

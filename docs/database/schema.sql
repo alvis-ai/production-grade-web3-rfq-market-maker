@@ -562,6 +562,13 @@ CREATE TABLE hedge_orders (
   venue_quote_token_address CHAR(42),
   venue_base_decimals SMALLINT,
   venue_quote_decimals SMALLINT,
+  venue_step_size_raw NUMERIC(78, 0),
+  execution_order_type TEXT,
+  execution_time_in_force TEXT,
+  execution_limit_price NUMERIC(78, 18),
+  execution_price_tick NUMERIC(78, 18),
+  execution_max_slippage_bps INTEGER,
+  execution_policy_version TEXT,
   hedge_net_pnl_model TEXT,
   hedge_net_pnl_model_description TEXT,
   hedge_net_pnl_status TEXT,
@@ -695,6 +702,30 @@ CREATE TABLE hedge_orders (
       AND fee_reconciled_at IS NOT NULL
     )
   ),
+  CONSTRAINT chk_hedge_orders_execution_policy CHECK (
+    (
+      venue_step_size_raw IS NULL
+      AND execution_order_type IS NULL
+      AND execution_time_in_force IS NULL
+      AND execution_limit_price IS NULL
+      AND execution_price_tick IS NULL
+      AND execution_max_slippage_bps IS NULL
+      AND execution_policy_version IS NULL
+    )
+    OR (
+      venue = 'binance'
+      AND venue_symbol IS NOT NULL
+      AND client_order_id IS NOT NULL
+      AND venue_step_size_raw > 0
+      AND execution_order_type = 'LIMIT'
+      AND execution_time_in_force = 'GTC'
+      AND execution_limit_price > 0
+      AND execution_price_tick > 0
+      AND mod(execution_limit_price, execution_price_tick) = 0
+      AND execution_max_slippage_bps BETWEEN 0 AND 1000
+      AND execution_policy_version = 'bounded-limit-v1'
+    )
+  ),
   CONSTRAINT chk_hedge_orders_route_accounting CHECK (
     (
       route_accounting_version IS NULL
@@ -796,6 +827,9 @@ CREATE INDEX idx_hedge_orders_fee_reconciliation_claim
 CREATE INDEX idx_hedge_orders_net_pnl_status
   ON hedge_orders (hedge_net_pnl_status, hedge_net_pnl_realized_at, id)
   WHERE hedge_net_pnl_status IS NOT NULL;
+CREATE INDEX idx_hedge_orders_execution_policy
+  ON hedge_orders (execution_policy_version, status, created_at, id)
+  WHERE execution_policy_version IS NOT NULL;
 
 CREATE TABLE hedge_execution_fills (
   hedge_order_id TEXT NOT NULL REFERENCES hedge_orders(id) ON DELETE CASCADE,
@@ -1881,4 +1915,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('021', 'toxic-flow-markouts'),
   ('022', 'portfolio-var-reservations'),
   ('023', 'quote-idempotency'),
-  ('024', 'hedge-net-pnl');
+  ('024', 'hedge-net-pnl'),
+  ('025', 'bounded-hedge-limit');

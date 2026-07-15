@@ -1,9 +1,10 @@
 import { createHmac } from "node:crypto";
 
-export interface SubmitMarketOrderInput {
+export interface SubmitLimitOrderInput {
   symbol: string;
   side: "buy" | "sell";
   quantity: string;
+  price: string;
   clientOrderId: string;
 }
 
@@ -42,7 +43,7 @@ export interface CexTradeFill {
 export interface CexExecutionAdapter {
   queryOrder(input: QueryOrderInput): Promise<CexOrderResult | undefined>;
   queryOrderTrades(input: QueryOrderTradesInput): Promise<CexTradeFill[]>;
-  submitMarketOrder(input: SubmitMarketOrderInput): Promise<CexOrderResult>;
+  submitLimitOrder(input: SubmitLimitOrderInput): Promise<CexOrderResult>;
 }
 
 export interface BinanceSpotAdapterConfig {
@@ -115,13 +116,15 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
     return parseOrderResponse(await parseJson(response), input.symbol, input.clientOrderId);
   }
 
-  async submitMarketOrder(input: SubmitMarketOrderInput): Promise<CexOrderResult> {
+  async submitLimitOrder(input: SubmitLimitOrderInput): Promise<CexOrderResult> {
     assertSubmitInput(input);
     const response = await this.signedRequest("POST", "/api/v3/order", {
       symbol: input.symbol,
       side: input.side.toUpperCase(),
-      type: "MARKET",
+      type: "LIMIT",
+      timeInForce: "GTC",
       quantity: input.quantity,
+      price: input.price,
       newClientOrderId: input.clientOrderId,
       newOrderRespType: "FULL",
     });
@@ -444,13 +447,17 @@ function assertQueryOrderTradesInput(input: QueryOrderTradesInput): void {
   }
 }
 
-function assertSubmitInput(input: SubmitMarketOrderInput): void {
-  assertClosedInput(input, ["symbol", "side", "quantity", "clientOrderId"], "submit input");
+function assertSubmitInput(input: SubmitLimitOrderInput): void {
+  assertClosedInput(input, ["symbol", "side", "quantity", "price", "clientOrderId"], "submit input");
   assertSymbol(input.symbol);
   if (input.side !== "buy" && input.side !== "sell") throw new Error("Binance order side must be buy or sell");
   if (typeof input.quantity !== "string" || !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(input.quantity) ||
       Number(input.quantity) <= 0) {
     throw new Error("Binance order quantity must be a positive canonical decimal string");
+  }
+  if (typeof input.price !== "string" || !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(input.price) ||
+      Number(input.price) <= 0) {
+    throw new Error("Binance order price must be a positive canonical decimal string");
   }
   assertClientOrderId(input.clientOrderId);
 }

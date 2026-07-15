@@ -7,6 +7,7 @@ const row = {
   chain_id: "1",
   token_address: "0x0000000000000000000000000000000000000003",
   reference_token: "0x0000000000000000000000000000000000000002",
+  reference_amount: "2500000",
   side: "buy",
   amount: "990",
   attempt_count: 2,
@@ -27,6 +28,7 @@ test("PostgresHedgeJobStore claims one due job with transaction and SKIP LOCKED"
   const job = await store.claimNext("worker_1", 30000);
   assert.equal(job.attemptCount, 2);
   assert.equal(job.submissionAttempted, false);
+  assert.equal(job.referenceAmount, "2500000");
   assert.equal(client.queries[0].sql, "BEGIN");
   assert.match(client.queries[1].sql, /FOR UPDATE SKIP LOCKED/);
   assert.match(client.queries[1].sql, /hedge\.lease_expires_at IS NULL OR hedge\.lease_expires_at <= now\(\)/);
@@ -73,6 +75,13 @@ test("PostgresHedgeJobStore persists route and lease-owned terminal or retry tra
     quoteToken: row.reference_token,
     baseTokenDecimals: 18,
     quoteTokenDecimals: 6,
+    stepSizeRaw: "100000000000000",
+    orderType: "LIMIT",
+    timeInForce: "GTC",
+    limitPrice: "2525",
+    priceTick: "0.01",
+    maxSlippageBps: 100,
+    executionPolicyVersion: "bounded-limit-v1",
   };
 
   await store.prepareRoute(row.id, "worker_1", route);
@@ -85,6 +94,12 @@ test("PostgresHedgeJobStore persists route and lease-owned terminal or retry tra
   assert.match(client.queries[0].sql, /client_order_id = \$5/);
   assert.match(client.queries[0].sql, /venue = 'internal'/);
   assert.match(client.queries[0].sql, /venue = \$3 AND venue_symbol = \$4 AND client_order_id = \$5/);
+  assert.match(client.queries[0].sql, /execution_policy_version = \$17/);
+  assert.match(
+    client.queries.find(({ sql }) => sql.includes("submission_attempted_at = COALESCE") &&
+      sql.includes("execution_order_type")).sql,
+    /execution_policy_version = 'bounded-limit-v1'/,
+  );
   assert.equal(client.queries.some(({ sql }) => sql.includes("submission_attempted_at = COALESCE")), true);
   assert.match(client.queries.find(({ sql }) => sql.includes("last_error_code = $3") &&
     sql.includes("next_attempt_at = now()")).sql, /lease_owner = NULL/);
@@ -290,6 +305,13 @@ test("PostgresHedgeJobStore validates worker, route, delay, and database rows", 
       quoteToken: row.reference_token,
       baseTokenDecimals: 18,
       quoteTokenDecimals: 6,
+      stepSizeRaw: "100000000000000",
+      orderType: "LIMIT",
+      timeInForce: "GTC",
+      limitPrice: "2525",
+      priceTick: "0.01",
+      maxSlippageBps: 100,
+      executionPolicyVersion: "bounded-limit-v1",
     }),
     /symbol/,
   );

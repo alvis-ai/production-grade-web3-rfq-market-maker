@@ -9,6 +9,7 @@ const paths = {
   adapter: "backend/src/modules/hedge/binance-spot.adapter.ts",
   store: "backend/src/modules/hedge/postgres-hedge-job.store.ts",
   migration: "backend/src/db/migrations/014-hedge-execution-evidence.sql",
+  boundedLimitMigration: "backend/src/db/migrations/025-bounded-hedge-limit.sql",
   feeWorker: "backend/src/modules/hedge/hedge-fee-worker.ts",
   feeStore: "backend/src/modules/hedge/postgres-hedge-fee.store.ts",
   feeMigration: "backend/src/db/migrations/015-hedge-fee-reconciliation.sql",
@@ -45,6 +46,15 @@ assert.match(source.worker, /completeFilled[\s\S]*filledAmount/);
 assert.match(source.adapter, /cummulativeQuoteQty/);
 assert.match(source.worker, /parseCexQuoteQuantity\(order\.executedQuoteQuantity\)/);
 assert.match(source.worker, /if \(job\.submissionAttempted\)[\s\S]*scheduleRetry/);
+assert.match(source.worker, /if \(!job\.submissionAttempted\) \{[\s\S]*prepareRoute/);
+assert.match(source.worker, /calculateHedgeLimitPrice\(job\.side, job\.amount, job\.referenceAmount, route\)/);
+assert.match(source.worker, /adapter\.submitLimitOrder/);
+assert.match(source.adapter, /type: "LIMIT"/);
+assert.match(source.adapter, /timeInForce: "GTC"/);
+assert.doesNotMatch(source.adapter, /type: "MARKET"/);
+assert.match(source.store, /execution_policy_version = 'bounded-limit-v1'/);
+assert.match(source.boundedLimitMigration, /chk_hedge_orders_execution_policy/);
+assert.match(source.boundedLimitMigration, /mod\(execution_limit_price, execution_price_tick\) = 0/);
 assert.match(source.store, /execution_evidence_version = 'base-and-quote-v2'/);
 assert.match(source.store, /assertCumulativeExecutionEvidence/);
 assert.match(source.migration, /execution_evidence_version/);
@@ -70,6 +80,7 @@ assert.match(source.runtime, /must exceed four RFQ_BINANCE_REQUEST_TIMEOUT_MS wi
 assert.match(source.adapterTest, /resynchronizes clock once and retries timestamp-rejected requests/);
 assert.match(source.adapterTest, /single-flights concurrent clock synchronization/);
 assert.match(source.routeTest, /binds route decimals to the shared token registry/);
+assert.match(source.routeTest, /applies slippage and tick rounding conservatively/);
 assert.match(source.workerTest, /requires FILLED cumulative quantity to equal the quantized target/);
 assert.match(source.workerTest, /permits only sub-step dust between intent and a complete venue fill/);
 assert.match(source.feeWorkerTest, /retries while myTrades lags cumulative order execution/);

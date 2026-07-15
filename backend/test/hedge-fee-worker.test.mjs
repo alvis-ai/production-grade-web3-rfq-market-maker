@@ -30,6 +30,8 @@ const routes = new HedgeRouteTable([{
   tokenDecimals: 18,
   quoteTokenDecimals: 6,
   stepSizeRaw: "100000000000000",
+  priceTick: "0.01",
+  maxSlippageBps: 100,
 }]);
 const config = { workerId: "worker_1", leaseMs: 30000, pollIntervalMs: 10, retryDelayMs: 1000 };
 
@@ -42,7 +44,7 @@ test("HedgeFeeWorker reconciles exact account fills without delaying inventory e
       assert.deepEqual(input, { symbol: "ETHUSDT", venueOrderId: "100234" });
       return fills;
     },
-    async submitMarketOrder() { throw new Error("unreachable"); },
+    async submitLimitOrder() { throw new Error("unreachable"); },
   };
   const worker = new HedgeFeeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
 
@@ -64,7 +66,7 @@ test("HedgeFeeWorker retries while myTrades lags cumulative order execution", as
   const adapter = {
     async queryOrder() { return orderResult(); },
     async queryOrderTrades() { return tradeFills().slice(0, 1); },
-    async submitMarketOrder() { throw new Error("unreachable"); },
+    async submitLimitOrder() { throw new Error("unreachable"); },
   };
   const worker = new HedgeFeeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
 
@@ -82,7 +84,7 @@ test("HedgeFeeWorker rejects a changed venue order identity and honors retry bac
   const adapter = {
     async queryOrder() { return { ...orderResult(), venueOrderId: "100235" }; },
     async queryOrderTrades() { throw new Error("unreachable"); },
-    async submitMarketOrder() { throw new Error("unreachable"); },
+    async submitLimitOrder() { throw new Error("unreachable"); },
   };
   const worker = new HedgeFeeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
 

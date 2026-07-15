@@ -182,6 +182,13 @@ erDiagram
     text venue_quote_token_address
     int venue_base_decimals
     int venue_quote_decimals
+    numeric venue_step_size_raw
+    text execution_order_type
+    text execution_time_in_force
+    numeric execution_limit_price
+    numeric execution_price_tick
+    int execution_max_slippage_bps
+    text execution_policy_version
     text hedge_net_pnl_model
     text hedge_net_pnl_status
     numeric hedge_net_pnl_quote_quantity
@@ -424,6 +431,7 @@ erDiagram
 - `fee_attempt_count`、`fee_next_attempt_at`、`fee_lease_owner` 和 `fee_lease_expires_at` 构成独立费用队列。`complete` 状态要求原生订单号、`base-and-quote-v2`、计价成交额和 `fee_reconciled_at` 同时存在；`pending` 可以因 `myTrades` 的 Memory-to-Database 延迟安全重试。
 - `hedge_execution_fills` 以 `(hedge_order_id, venue_trade_id)` 为主键，另以 `(venue, venue_symbol, venue_trade_id)` 防止同一 venue fill 归到两个 hedge。冲突重放必须在 price、base/quote quantity、commission、asset、time 和 maker/buyer 字段上完全一致；完成费用对账前，表内 base/quote 汇总必须与订单累计证据完全相等。
 - `route_accounting_version='venue-assets-v1'` 在首次外部调用前冻结 CEX base/quote asset、链上计价 token 和两侧 decimals。`hedge_fill_net_v1` 只在 fee reconciliation 同一事务中使用精确 fills、quote/base commission 和保守 step dust mark 生成；第三资产 commission 保留为 `UNVALUED_COMMISSION_ASSET`，旧路由缺少元数据时 API 返回 `LEGACY_ROUTE_ACCOUNTING_UNAVAILABLE`，两者都不会被当成零损益。
+- `execution_policy_version='bounded-limit-v1'` 在首次外部提交前冻结 raw step、`LIMIT GTC`、由 signed quote 经济性推导的买入上限或卖出下限、price tick 和最大滑点。数据库要求 limit price 正数且严格落在 tick 上；迁移前已经提交的订单保留 NULL 策略并只允许 query-first 对账，不能回填成并未实际采用的限价策略。
 - `quotes.snapshot_id` 使用索引支持报价回放；nullable status pointers 使用 partial indexes，只索引非空的 `settlement_event_id`、`hedge_order_id` 和 `pnl_id`，支持审计 join 和 reconciliation 查询，同时避免大量未成交 quote 的空指针污染索引。
 - 所有带 `chain_id` 的操作表都使用 CHECK constraint 限制为 JavaScript safe integer range `1..9007199254740991`，与后端、SDK 和 OpenAPI 的 `chainId` 契约一致，避免数据库保存无法被运行时代码安全表示的链 ID。
 - `quotes.tx_hash` 是状态查询冗余字段，用于快速展示链上交易哈希；权威成交事件仍由 `settlement_events` 和 `quote_hash` 绑定。

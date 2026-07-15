@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   HedgeRouteTable,
   buildHedgeClientOrderId,
+  calculateHedgeLimitPrice,
   formatHedgeQuantity,
   parseHedgeExecutedQuantity,
   parseHedgeRoutesJson,
@@ -23,6 +24,8 @@ const route = {
   tokenDecimals: 18,
   quoteTokenDecimals: 6,
   stepSizeRaw: "100000000000000",
+  priceTick: "0.01",
+  maxSlippageBps: 100,
 };
 
 test("HedgeRouteTable normalizes token lookup and isolates returned routes", () => {
@@ -37,6 +40,26 @@ test("formatHedgeQuantity quantizes raw token units down to venue step size", ()
   assert.equal(quantizeHedgeAmount("1234567890123456789", route), "1234500000000000000");
   assert.equal(formatHedgeQuantity("1234567890123456789", route), "1.2345");
   assert.throws(() => formatHedgeQuantity("99999999999999", route), /HEDGE_AMOUNT_BELOW_STEP_SIZE/);
+});
+
+test("calculateHedgeLimitPrice applies slippage and tick rounding conservatively", () => {
+  assert.equal(
+    calculateHedgeLimitPrice("buy", "1250000000000000000", "3125000000", route),
+    "2525",
+  );
+  assert.equal(
+    calculateHedgeLimitPrice("sell", "1250000000000000000", "3125000000", route),
+    "2475",
+  );
+  const coarseTick = { ...route, priceTick: "0.1", maxSlippageBps: 0 };
+  assert.equal(
+    calculateHedgeLimitPrice("buy", "3000000000000000000", "10000000000", coarseTick),
+    "3333.4",
+  );
+  assert.equal(
+    calculateHedgeLimitPrice("sell", "3000000000000000000", "10000000000", coarseTick),
+    "3333.3",
+  );
 });
 
 test("HedgeRouteTable binds route decimals to the shared token registry", () => {
@@ -149,4 +172,7 @@ test("parseHedgeRoutesJson rejects malformed and duplicate production routes", (
     () => new HedgeRouteTable([{ ...route, stepSizeRaw: "0" }]),
     /stepSizeRaw/,
   );
+  assert.throws(() => new HedgeRouteTable([{ ...route, priceTick: "0" }]), /priceTick/);
+  assert.throws(() => new HedgeRouteTable([{ ...route, priceTick: "0.0000000000000000001" }]), /priceTick/);
+  assert.throws(() => new HedgeRouteTable([{ ...route, maxSlippageBps: 1001 }]), /maxSlippageBps/);
 });

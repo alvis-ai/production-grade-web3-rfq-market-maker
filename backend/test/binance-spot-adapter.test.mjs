@@ -15,7 +15,7 @@ const config = {
 };
 const clientOrderId = "rfq_11111111111111111111111111111111";
 
-test("BinanceSpotAdapter signs query-first market order execution", async () => {
+test("BinanceSpotAdapter signs query-first bounded limit order execution", async () => {
   const calls = [];
   const fetchFn = async (input, init) => {
     const url = new URL(input);
@@ -33,10 +33,11 @@ test("BinanceSpotAdapter signs query-first market order execution", async () => 
   const adapter = new BinanceSpotAdapter(config, fetchFn, () => 1_700_000_000_000);
 
   assert.equal(await adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId }), undefined);
-  const result = await adapter.submitMarketOrder({
+  const result = await adapter.submitLimitOrder({
     symbol: "ETHUSDT",
     side: "buy",
     quantity: "1.25",
+    price: "2525.00",
     clientOrderId,
   });
 
@@ -50,7 +51,9 @@ test("BinanceSpotAdapter signs query-first market order execution", async () => 
   assert.equal(calls[1].init.method, "POST");
   assert.equal(calls[1].init.headers["X-MBX-APIKEY"], config.apiKey);
   assert.equal(calls[1].url.searchParams.get("side"), "BUY");
-  assert.equal(calls[1].url.searchParams.get("type"), "MARKET");
+  assert.equal(calls[1].url.searchParams.get("type"), "LIMIT");
+  assert.equal(calls[1].url.searchParams.get("timeInForce"), "GTC");
+  assert.equal(calls[1].url.searchParams.get("price"), "2525.00");
   assert.equal(calls[1].url.searchParams.get("newClientOrderId"), clientOrderId);
   const signed = new URLSearchParams(calls[1].url.searchParams);
   const signature = signed.get("signature");
@@ -96,13 +99,13 @@ test("BinanceSpotAdapter classifies pending, terminal, retryable, and permanent 
 
   response = jsonResponse({ code: -1013, msg: "Invalid quantity" }, 400);
   await assert.rejects(
-    adapter.submitMarketOrder({ symbol: "ETHUSDT", side: "sell", quantity: "1", clientOrderId }),
+    adapter.submitLimitOrder({ symbol: "ETHUSDT", side: "sell", quantity: "1", price: "2475", clientOrderId }),
     (error) => error instanceof CexVenueError && !error.retryable && error.errorCode === "BINANCE_CODE_1013",
   );
 
   response = jsonResponse({ code: -2010, msg: "Duplicate order sent." }, 400);
   await assert.rejects(
-    adapter.submitMarketOrder({ symbol: "ETHUSDT", side: "sell", quantity: "1", clientOrderId }),
+    adapter.submitLimitOrder({ symbol: "ETHUSDT", side: "sell", quantity: "1", price: "2475", clientOrderId }),
     (error) => error instanceof CexVenueError && error.retryable && error.errorCode === "BINANCE_CODE_2010",
   );
 });
@@ -162,10 +165,11 @@ test("BinanceSpotAdapter resynchronizes clock once and retries timestamp-rejecte
   };
   const adapter = new BinanceSpotAdapter(config, fetchFn, () => localTime);
 
-  assert.equal((await adapter.submitMarketOrder({
+  assert.equal((await adapter.submitLimitOrder({
     symbol: "ETHUSDT",
     side: "buy",
     quantity: "1.25",
+    price: "2525",
     clientOrderId,
   })).state, "filled");
   assert.deepEqual(calls.map(({ url }) => url.pathname), [
@@ -242,8 +246,12 @@ test("BinanceSpotAdapter rejects unsafe credentials, URLs, and order inputs", as
   assert.throws(() => new BinanceSpotAdapter({ ...config, baseUrl: "http://api.binance.com" }), /HTTPS origin/);
   const adapter = new BinanceSpotAdapter(config, async () => jsonResponse({}));
   await assert.rejects(
-    adapter.submitMarketOrder({ symbol: "ETHUSDT", side: "buy", quantity: "01", clientOrderId }),
+    adapter.submitLimitOrder({ symbol: "ETHUSDT", side: "buy", quantity: "01", price: "2525", clientOrderId }),
     /quantity/,
+  );
+  await assert.rejects(
+    adapter.submitLimitOrder({ symbol: "ETHUSDT", side: "buy", quantity: "1", price: "0", clientOrderId }),
+    /price/,
   );
 });
 

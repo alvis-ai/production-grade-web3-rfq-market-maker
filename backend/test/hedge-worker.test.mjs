@@ -13,6 +13,7 @@ const job = {
   referenceToken,
   side: "buy",
   amount: "1250000000000000000",
+  referenceAmount: "3125000000",
   attemptCount: 1,
   submissionAttempted: false,
   createdAt: "2026-07-11T00:00:00.000Z",
@@ -28,6 +29,8 @@ const routes = new HedgeRouteTable([{
   tokenDecimals: 18,
   quoteTokenDecimals: 6,
   stepSizeRaw: "100000000000000",
+  priceTick: "0.01",
+  maxSlippageBps: 100,
 }]);
 const config = { workerId: "worker_1", leaseMs: 30000, pollIntervalMs: 10, retryDelayMs: 1000 };
 
@@ -45,7 +48,7 @@ test("HedgeWorker queries deterministic client id before submitting and complete
         executedQuoteQuantity: "3125.5",
       };
     },
-    async submitMarketOrder() { submissions += 1; throw new Error("must not submit"); },
+    async submitLimitOrder() { submissions += 1; throw new Error("must not submit"); },
   };
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
 
@@ -70,7 +73,7 @@ test("HedgeWorker requires FILLED cumulative quantity to equal the quantized tar
         executedQuoteQuantity: "1250",
       };
     },
-    async submitMarketOrder() { throw new Error("must not submit"); },
+    async submitLimitOrder() { throw new Error("must not submit"); },
   };
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
 
@@ -95,7 +98,7 @@ test("HedgeWorker permits only sub-step dust between intent and a complete venue
         executedQuoteQuantity: "3125",
       };
     },
-    async submitMarketOrder() { throw new Error("must not submit"); },
+    async submitLimitOrder() { throw new Error("must not submit"); },
   };
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
 
@@ -107,8 +110,9 @@ test("HedgeWorker submits only after not-found and reschedules pending orders", 
   const store = fakeStore(job);
   const adapter = {
     async queryOrder() { return undefined; },
-    async submitMarketOrder(input) {
+    async submitLimitOrder(input) {
       assert.equal(input.quantity, "1.25");
+      assert.equal(input.price, "2525");
       return {
         state: "pending",
         externalOrderId: input.clientOrderId,
@@ -135,7 +139,7 @@ test("HedgeWorker submits only after not-found and reschedules pending orders", 
 test("HedgeWorker never marks ambiguous venue failures terminal", async () => {
   const adapter = {
     async queryOrder() { throw new CexVenueError("BINANCE_REQUEST_FAILED", true); },
-    async submitMarketOrder() { throw new Error("unreachable"); },
+    async submitLimitOrder() { throw new Error("unreachable"); },
   };
   const store = fakeStore({ ...job, attemptCount: 100 });
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
@@ -153,7 +157,7 @@ test("HedgeWorker never resubmits an attempted order that is temporarily not fou
   let submissions = 0;
   const adapter = {
     async queryOrder() { return undefined; },
-    async submitMarketOrder() { submissions += 1; throw new Error("must not resubmit"); },
+    async submitLimitOrder() { submissions += 1; throw new Error("must not resubmit"); },
   };
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
 
@@ -164,13 +168,14 @@ test("HedgeWorker never resubmits an attempted order that is temporarily not fou
   });
   assert.equal(submissions, 0);
   assert.equal(store.calls.authorizeSubmission.length, 0);
+  assert.equal(store.calls.prepareRoute.length, 0);
 });
 
 test("HedgeWorker honors venue Retry-After without changing terminal state", async () => {
   const store = fakeStore(job);
   const adapter = {
     async queryOrder() { throw new CexVenueError("BINANCE_CODE_1003", true, undefined, 7000); },
-    async submitMarketOrder() { throw new Error("unreachable"); },
+    async submitLimitOrder() { throw new Error("unreachable"); },
   };
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
   assert.equal((await worker.runOnce()).status, "retry_scheduled");
@@ -181,7 +186,7 @@ test("HedgeWorker exponentially backs off repeated venue failures", async () => 
   const store = fakeStore({ ...job, attemptCount: 20 });
   const adapter = {
     async queryOrder() { throw new CexVenueError("BINANCE_HTTP_503", true); },
-    async submitMarketOrder() { throw new Error("unreachable"); },
+    async submitLimitOrder() { throw new Error("unreachable"); },
   };
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
 
@@ -194,7 +199,7 @@ test("HedgeWorker permanently fails unconfigured routes without venue calls", as
   let venueCalls = 0;
   const adapter = {
     async queryOrder() { venueCalls += 1; },
-    async submitMarketOrder() { venueCalls += 1; },
+    async submitLimitOrder() { venueCalls += 1; },
   };
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
   assert.equal((await worker.runOnce()).errorCode, "HEDGE_ROUTE_NOT_CONFIGURED");
@@ -206,7 +211,7 @@ test("HedgeWorker never abandons a submission-attempted job on local route failu
   const store = fakeStore({ ...job, chainId: 2, submissionAttempted: true });
   const worker = new HedgeWorker(store, routes, new Map([[
     "binance",
-    { async queryOrder() {}, async submitMarketOrder() {} },
+    { async queryOrder() {}, async submitLimitOrder() {} },
   ]]), config, silentLogger);
 
   assert.deepEqual(await worker.runOnce(), {
@@ -227,7 +232,7 @@ test("HedgeWorker blocks a new POST when submission authorization observes a reo
   let submissions = 0;
   const adapter = {
     async queryOrder() { return undefined; },
-    async submitMarketOrder() { submissions += 1; },
+    async submitLimitOrder() { submissions += 1; },
   };
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
   assert.deepEqual(await worker.runOnce(), {
@@ -252,7 +257,7 @@ test("HedgeWorker persists terminal partial execution before marking venue failu
         failureCode: "BINANCE_ORDER_EXPIRED",
       };
     },
-    async submitMarketOrder() { throw new Error("must not submit"); },
+    async submitLimitOrder() { throw new Error("must not submit"); },
   };
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
   assert.equal((await worker.runOnce()).status, "failed");
@@ -278,7 +283,7 @@ test("HedgeWorker rejects unpaired base and quote execution evidence", async () 
         executedQuoteQuantity: "0",
       };
     },
-    async submitMarketOrder() { throw new Error("must not submit"); },
+    async submitLimitOrder() { throw new Error("must not submit"); },
   };
   const worker = new HedgeWorker(store, routes, new Map([["binance", adapter]]), config, silentLogger);
   assert.equal((await worker.runOnce()).errorCode, "HEDGE_VENUE_RESPONSE_INVALID");

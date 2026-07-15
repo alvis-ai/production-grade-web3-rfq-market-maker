@@ -12,6 +12,7 @@ export interface HedgeJob {
   chainId: number;
   token: Address;
   referenceToken: Address;
+  referenceAmount: UIntString;
   side: "buy" | "sell";
   amount: UIntString;
   attemptCount: number;
@@ -28,6 +29,13 @@ export interface HedgeJobRoute {
   quoteToken: Address;
   baseTokenDecimals: number;
   quoteTokenDecimals: number;
+  stepSizeRaw: UIntString;
+  orderType: "LIMIT";
+  timeInForce: "GTC";
+  limitPrice: string;
+  priceTick: string;
+  maxSlippageBps: number;
+  executionPolicyVersion: "bounded-limit-v1";
 }
 
 export interface HedgeJobStore {
@@ -67,7 +75,7 @@ export interface HedgeJobStore {
 const jobColumns = `
   hedge.id, hedge.chain_id, hedge.token_address, hedge.side, hedge.amount, hedge.attempt_count,
   hedge.submission_attempted_at IS NOT NULL AS submission_attempted, hedge.created_at,
-  candidate.reference_token
+  candidate.reference_token, candidate.reference_amount::text AS reference_amount
 `;
 const maxLeaseMs = 300_000;
 const maxRetryDelayMs = 604_800_000;
@@ -95,7 +103,8 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
       const result = await client.query(
         `WITH candidate AS (
            SELECT hedge.id,
-                  CASE WHEN hedge.side = 'sell' THEN quote.token_out ELSE quote.token_in END AS reference_token
+                  CASE WHEN hedge.side = 'sell' THEN quote.token_out ELSE quote.token_in END AS reference_token,
+                  CASE WHEN hedge.side = 'sell' THEN quote.amount_out ELSE quote.amount_in END AS reference_amount
            FROM hedge_orders AS hedge
            INNER JOIN settlement_events AS settlement ON settlement.id = hedge.settlement_event_id
            INNER JOIN quotes AS quote ON quote.id = hedge.quote_id
@@ -138,6 +147,10 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
            venue_base_asset = $6, venue_quote_asset = $7,
            venue_quote_token_address = $8,
            venue_base_decimals = $9, venue_quote_decimals = $10,
+           venue_step_size_raw = $11,
+           execution_order_type = $12, execution_time_in_force = $13,
+           execution_limit_price = $14, execution_price_tick = $15,
+           execution_max_slippage_bps = $16, execution_policy_version = $17,
            hedge_net_pnl_model = 'hedge_fill_net_v1',
            hedge_net_pnl_model_description =
              'Net hedge execution PnL in the route quote asset using exact fills, quote/base commissions, and conservatively marked sub-step residual; third-asset commissions are unavailable',
@@ -146,12 +159,16 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
        WHERE id = $1 AND status = 'queued' AND lease_owner = $2
          AND (
            (venue = 'internal' AND venue_symbol IS NULL AND client_order_id IS NULL
-             AND route_accounting_version IS NULL)
+             AND route_accounting_version IS NULL AND execution_policy_version IS NULL)
            OR (venue = $3 AND venue_symbol = $4 AND client_order_id = $5
              AND route_accounting_version = 'venue-assets-v1'
              AND venue_base_asset = $6 AND venue_quote_asset = $7
              AND venue_quote_token_address = $8
-             AND venue_base_decimals = $9 AND venue_quote_decimals = $10)
+             AND venue_base_decimals = $9 AND venue_quote_decimals = $10
+             AND venue_step_size_raw = $11
+             AND execution_order_type = $12 AND execution_time_in_force = $13
+             AND execution_limit_price = $14 AND execution_price_tick = $15
+             AND execution_max_slippage_bps = $16 AND execution_policy_version = $17)
          )`,
       [
         hedgeOrderId,
@@ -164,6 +181,13 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
         route.quoteToken.toLowerCase(),
         route.baseTokenDecimals,
         route.quoteTokenDecimals,
+        route.stepSizeRaw,
+        route.orderType,
+        route.timeInForce,
+        route.limitPrice,
+        route.priceTick,
+        route.maxSlippageBps,
+        route.executionPolicyVersion,
       ],
       hedgeOrderId,
     );
@@ -189,7 +213,9 @@ export class PostgresHedgeJobStore implements HedgeJobStore {
         `UPDATE hedge_orders
          SET submission_attempted_at = COALESCE(submission_attempted_at, now()), updated_at = now()
          WHERE id = $1 AND status = 'queued' AND lease_owner = $2
-           AND venue <> 'internal' AND venue_symbol IS NOT NULL AND client_order_id IS NOT NULL`,
+           AND venue <> 'internal' AND venue_symbol IS NOT NULL AND client_order_id IS NOT NULL
+           AND execution_order_type = 'LIMIT' AND execution_time_in_force = 'GTC'
+           AND execution_limit_price IS NOT NULL AND execution_policy_version = 'bounded-limit-v1'`,
         [hedgeOrderId, workerId],
       );
       if (updated.rowCount !== 1) throw new Error(`Postgres hedge lease conflict for ${hedgeOrderId}`);
@@ -528,6 +554,7 @@ function parseHedgeJob(row: unknown): HedgeJob {
     chainId: parsePositiveSafeInteger(value.chain_id, "chain_id"),
     token: parseAddress(value.token_address),
     referenceToken: parseAddress(value.reference_token),
+    referenceAmount: parsePositiveUInt(value.reference_amount),
     side,
     amount: parsePositiveUInt(value.amount),
     attemptCount: parseNonNegativeSafeInteger(value.attempt_count, "attempt_count"),
@@ -543,7 +570,8 @@ function assertHedgeJobRoute(route: HedgeJobRoute): void {
   const keys = Object.keys(route);
   const fields = [
     "venue", "symbol", "clientOrderId", "baseAsset", "quoteAsset", "quoteToken",
-    "baseTokenDecimals", "quoteTokenDecimals",
+    "baseTokenDecimals", "quoteTokenDecimals", "stepSizeRaw", "orderType", "timeInForce",
+    "limitPrice", "priceTick", "maxSlippageBps", "executionPolicyVersion",
   ];
   if (keys.length !== fields.length || fields.some((field) => !Object.prototype.hasOwnProperty.call(route, field))) {
     throw new Error("Hedge job route fields are invalid");
@@ -564,6 +592,21 @@ function assertHedgeJobRoute(route: HedgeJobRoute): void {
   if (!Number.isSafeInteger(route.baseTokenDecimals) || route.baseTokenDecimals < 0 || route.baseTokenDecimals > 36 ||
       !Number.isSafeInteger(route.quoteTokenDecimals) || route.quoteTokenDecimals < 0 || route.quoteTokenDecimals > 18) {
     throw new Error("Hedge job route decimals are invalid");
+  }
+  assertPositiveUInt(route.stepSizeRaw, "route.stepSizeRaw");
+  if (route.orderType !== "LIMIT" || route.timeInForce !== "GTC" ||
+      route.executionPolicyVersion !== "bounded-limit-v1") {
+    throw new Error("Hedge job execution policy is invalid");
+  }
+  assertPositiveVenueDecimal(route.limitPrice, "limitPrice");
+  assertPositiveVenueDecimal(route.priceTick, "priceTick");
+  assertBoundedInteger(route.maxSlippageBps, "maxSlippageBps", 0, 1_000);
+}
+
+function assertPositiveVenueDecimal(value: unknown, field: string): void {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)(?:\.[0-9]{1,18})?$/.test(value) ||
+      /^0(?:\.0+)?$/.test(value)) {
+    throw new Error(`Hedge job route ${field} must be a positive canonical decimal`);
   }
 }
 

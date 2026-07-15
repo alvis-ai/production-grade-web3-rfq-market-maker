@@ -98,6 +98,10 @@ const hedgeNetPnlMigrationSource = await readFile(
   "backend/src/db/migrations/024-hedge-net-pnl.sql",
   "utf8",
 );
+const boundedHedgeLimitMigrationSource = await readFile(
+  "backend/src/db/migrations/025-bounded-hedge-limit.sql",
+  "utf8",
+);
 const postgresQuoteIdempotencySource = await readFile(
   "backend/src/modules/quote/postgres-quote-idempotency.store.ts",
   "utf8",
@@ -247,6 +251,13 @@ const requiredTables = {
     "venue_quote_token_address",
     "venue_base_decimals",
     "venue_quote_decimals",
+    "venue_step_size_raw",
+    "execution_order_type",
+    "execution_time_in_force",
+    "execution_limit_price",
+    "execution_price_tick",
+    "execution_max_slippage_bps",
+    "execution_policy_version",
     "hedge_net_pnl_model",
     "hedge_net_pnl_model_description",
     "hedge_net_pnl_status",
@@ -1298,8 +1309,8 @@ assert.ok(
 );
 assert.ok(
   hedgeWorkerSource.includes("adapter.queryOrder") &&
-    hedgeWorkerSource.includes("adapter.submitMarketOrder") &&
-    hedgeWorkerSource.indexOf("adapter.queryOrder") < hedgeWorkerSource.indexOf("adapter.submitMarketOrder") &&
+    hedgeWorkerSource.includes("adapter.submitLimitOrder") &&
+    hedgeWorkerSource.indexOf("adapter.queryOrder") < hedgeWorkerSource.indexOf("adapter.submitLimitOrder") &&
     hedgeWorkerSource.includes("HEDGE_ORDER_PENDING") &&
     hedgeWorkerSource.includes("HEDGE_SUBMISSION_UNCONFIRMED") &&
     hedgeWorkerSource.includes("recordExecutionProgress") &&
@@ -1581,6 +1592,19 @@ assert.ok(
     schemaSource.includes("('024', 'hedge-net-pnl')") &&
     erDiagramSource.includes("text hedge_net_pnl_status"),
   "hedge net PnL migration and docs must preserve route accounting and explicit valuation availability",
+);
+assert.ok(
+  boundedHedgeLimitMigrationSource.includes("execution_order_type") &&
+    boundedHedgeLimitMigrationSource.includes("execution_limit_price") &&
+    boundedHedgeLimitMigrationSource.includes("execution_max_slippage_bps BETWEEN 0 AND 1000") &&
+    boundedHedgeLimitMigrationSource.includes("execution_policy_version = 'bounded-limit-v1'") &&
+    boundedHedgeLimitMigrationSource.includes("mod(execution_limit_price, execution_price_tick) = 0") &&
+    schemaSource.includes("('025', 'bounded-hedge-limit')") &&
+    postgresHedgeJobSource.includes("execution_policy_version = $17") &&
+    hedgeWorkerSource.includes('orderType: "LIMIT"') &&
+    binanceAdapterSource.includes('type: "LIMIT"') &&
+    binanceAdapterSource.includes('timeInForce: "GTC"'),
+  "bounded hedge migration and worker must persist and submit an immutable tick-aligned LIMIT GTC policy",
 );
 assert.ok(
   postgresToxicFlowMarkoutSource.includes("async claimNext") &&

@@ -37,6 +37,8 @@ const env = {
     tokenDecimals: 18,
     quoteTokenDecimals: 6,
     stepSizeRaw: "100000000000000",
+    priceTick: "0.01",
+    maxSlippageBps: 100,
   }] }),
   RFQ_BINANCE_API_KEY: "api-key",
   RFQ_BINANCE_API_SECRET: "api-secret",

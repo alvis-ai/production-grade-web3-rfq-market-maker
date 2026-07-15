@@ -256,6 +256,8 @@ test("production RFQ API requires two CEX sources per configured pair by default
       tokenDecimals: 18,
       quoteTokenDecimals: 18,
       stepSizeRaw: "100000000000000",
+      priceTick: "0.01",
+      maxSlippageBps: 100,
     }] });
     delete process.env.RFQ_CEX_MIN_SOURCES;
 

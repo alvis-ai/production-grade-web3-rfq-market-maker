@@ -123,6 +123,8 @@ test("CEX hedge sources must match the worker route table exactly", () => {
     tokenDecimals: 18,
     quoteTokenDecimals: 6,
     stepSizeRaw: "100000000000000",
+    priceTick: "0.01",
+    maxSlippageBps: 100,
   };
 
   assert.doesNotThrow(() => assertCexHedgeSourcesRoutable(

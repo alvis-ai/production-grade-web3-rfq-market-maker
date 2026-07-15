@@ -14,6 +14,8 @@ export interface HedgeRoute {
   tokenDecimals: number;
   quoteTokenDecimals: number;
   stepSizeRaw: UIntString;
+  priceTick: string;
+  maxSlippageBps: number;
 }
 
 const routeFields = [
@@ -27,6 +29,8 @@ const routeFields = [
   "tokenDecimals",
   "quoteTokenDecimals",
   "stepSizeRaw",
+  "priceTick",
+  "maxSlippageBps",
 ] as const;
 
 export class HedgeRouteTable {
@@ -153,6 +157,33 @@ export function quantizeHedgeAmount(amount: UIntString, route: HedgeRoute): UInt
   return quantized.toString() as UIntString;
 }
 
+export function calculateHedgeLimitPrice(
+  side: "buy" | "sell",
+  baseAmount: UIntString,
+  referenceAmount: UIntString,
+  route: HedgeRoute,
+): string {
+  if (side !== "buy" && side !== "sell") throw new Error("Hedge limit side must be buy or sell");
+  if (typeof baseAmount !== "string" || !/^[1-9][0-9]*$/.test(baseAmount) ||
+      typeof referenceAmount !== "string" || !/^[1-9][0-9]*$/.test(referenceAmount)) {
+    throw new Error("Hedge limit amounts must be canonical positive uint strings");
+  }
+  assertHedgeRoute(route);
+  const scale = 10n ** 18n;
+  const numerator = BigInt(referenceAmount) * 10n ** BigInt(route.tokenDecimals) * scale *
+    BigInt(side === "buy" ? 10_000 + route.maxSlippageBps : 10_000 - route.maxSlippageBps);
+  const denominator = BigInt(baseAmount) * 10n ** BigInt(route.quoteTokenDecimals) * 10_000n;
+  const unquantized = side === "buy"
+    ? divideCeil(numerator, denominator)
+    : numerator / denominator;
+  const tick = parsePriceTick(route.priceTick);
+  const quantized = side === "buy"
+    ? divideCeil(unquantized, tick) * tick
+    : unquantized / tick * tick;
+  if (quantized <= 0n) throw new Error("HEDGE_LIMIT_PRICE_BELOW_TICK");
+  return formatPrice(quantized);
+}
+
 export function parseHedgeExecutedQuantity(quantity: string, route: HedgeRoute): UIntString | undefined {
   if (typeof quantity !== "string" || !/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(quantity)) {
     throw new Error("HEDGE_EXECUTED_QUANTITY_INVALID");
@@ -207,6 +238,33 @@ function assertHedgeRoute(route: HedgeRoute): void {
   if (typeof route.stepSizeRaw !== "string" || !/^[1-9][0-9]*$/.test(route.stepSizeRaw)) {
     throw new Error("Hedge route stepSizeRaw must be a canonical positive uint string");
   }
+  parsePriceTick(route.priceTick);
+  if (!Number.isSafeInteger(route.maxSlippageBps) || route.maxSlippageBps < 0 || route.maxSlippageBps > 1_000) {
+    throw new Error("Hedge route maxSlippageBps must be a safe integer between 0 and 1000");
+  }
+}
+
+function parsePriceTick(value: unknown): bigint {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)(?:\.[0-9]{1,18})?$/.test(value)) {
+    throw new Error("Hedge route priceTick must be a canonical positive decimal with at most 18 fractional digits");
+  }
+  const [integer, fraction = ""] = value.split(".");
+  const parsed = BigInt(integer) * 10n ** 18n + BigInt((fraction + "0".repeat(18)).slice(0, 18));
+  if (parsed <= 0n) {
+    throw new Error("Hedge route priceTick must be a canonical positive decimal with at most 18 fractional digits");
+  }
+  return parsed;
+}
+
+function formatPrice(value: bigint): string {
+  const raw = value.toString().padStart(19, "0");
+  const integer = raw.slice(0, -18);
+  const fraction = raw.slice(-18).replace(/0+$/, "");
+  return fraction.length === 0 ? integer : `${integer}.${fraction}`;
+}
+
+function divideCeil(numerator: bigint, denominator: bigint): bigint {
+  return (numerator + denominator - 1n) / denominator;
 }
 
 function assertVenueAsset(value: unknown, field: string): asserts value is string {

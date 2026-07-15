@@ -5,6 +5,7 @@ import {
 } from "./binance-spot.adapter.js";
 import {
   buildHedgeClientOrderId,
+  calculateHedgeLimitPrice,
   formatHedgeQuantity,
   parseHedgeExecutedQuantity,
   quantizeHedgeAmount,
@@ -72,16 +73,26 @@ export class HedgeWorker {
       const clientOrderId = buildHedgeClientOrderId(job.hedgeOrderId);
       const targetAmount = quantizeHedgeAmount(job.amount, route);
       const quantity = formatHedgeQuantity(job.amount, route);
-      await this.store.prepareRoute(job.hedgeOrderId, this.config.workerId, {
-        venue: route.venue,
-        symbol: route.symbol,
-        clientOrderId,
-        baseAsset: route.baseAsset,
-        quoteAsset: route.quoteAsset,
-        quoteToken: route.quoteToken,
-        baseTokenDecimals: route.tokenDecimals,
-        quoteTokenDecimals: route.quoteTokenDecimals,
-      });
+      const limitPrice = calculateHedgeLimitPrice(job.side, job.amount, job.referenceAmount, route);
+      if (!job.submissionAttempted) {
+        await this.store.prepareRoute(job.hedgeOrderId, this.config.workerId, {
+          venue: route.venue,
+          symbol: route.symbol,
+          clientOrderId,
+          baseAsset: route.baseAsset,
+          quoteAsset: route.quoteAsset,
+          quoteToken: route.quoteToken,
+          baseTokenDecimals: route.tokenDecimals,
+          quoteTokenDecimals: route.quoteTokenDecimals,
+          stepSizeRaw: route.stepSizeRaw,
+          orderType: "LIMIT",
+          timeInForce: "GTC",
+          limitPrice,
+          priceTick: route.priceTick,
+          maxSlippageBps: route.maxSlippageBps,
+          executionPolicyVersion: "bounded-limit-v1",
+        });
+      }
       const adapter = this.adapters.get(route.venue)!;
       const existing = await adapter.queryOrder({ symbol: route.symbol, clientOrderId });
       let order: CexOrderResult;
@@ -93,10 +104,11 @@ export class HedgeWorker {
           return this.scheduleRetry(job, "HEDGE_SUBMISSION_UNCONFIRMED");
         }
         await this.store.authorizeSubmission(job.hedgeOrderId, this.config.workerId);
-        order = await adapter.submitMarketOrder({
+        order = await adapter.submitLimitOrder({
           symbol: route.symbol,
           side: job.side,
           quantity,
+          price: limitPrice,
           clientOrderId,
         });
       }
@@ -356,7 +368,7 @@ function assertAdapters(adapters: ReadonlyMap<"binance", CexExecutionAdapter>): 
   }
   for (const [venue, adapter] of adapters) {
     if (venue !== "binance" || typeof adapter !== "object" || adapter === null ||
-        typeof adapter.queryOrder !== "function" || typeof adapter.submitMarketOrder !== "function") {
+        typeof adapter.queryOrder !== "function" || typeof adapter.submitLimitOrder !== "function") {
       throw new Error("Hedge worker adapter entry is invalid");
     }
   }
