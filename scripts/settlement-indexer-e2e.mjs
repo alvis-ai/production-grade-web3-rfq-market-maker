@@ -5,8 +5,15 @@ import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { endPool, getPool } from "../backend/dist/db/pool.js";
+import { readHedgeWorkerRuntimeConfig } from "../backend/dist/hedge-worker-main.js";
+import { BinanceSpotAdapter } from "../backend/dist/modules/hedge/binance-spot.adapter.js";
+import { BinanceSymbolRulesService } from "../backend/dist/modules/hedge/binance-symbol-rules.js";
+import { HedgeFeeWorker } from "../backend/dist/modules/hedge/hedge-fee-worker.js";
 import { PostgresHedgeService } from "../backend/dist/modules/hedge/postgres-hedge.service.js";
 import { DeltaNeutralHedgePlanner } from "../backend/dist/modules/hedge/hedge-intent-planner.js";
+import { HedgeWorker } from "../backend/dist/modules/hedge/hedge-worker.js";
+import { PostgresHedgeFeeStore } from "../backend/dist/modules/hedge/postgres-hedge-fee.store.js";
+import { PostgresHedgeJobStore } from "../backend/dist/modules/hedge/postgres-hedge-job.store.js";
 import { PostgresInventoryService } from "../backend/dist/modules/inventory/postgres-inventory.service.js";
 import { PostgresSettlementIndexerStore } from "../backend/dist/modules/indexer/postgres-settlement-indexer.store.js";
 import { SettlementIndexerWorker } from "../backend/dist/modules/indexer/settlement-indexer.worker.js";
@@ -25,6 +32,9 @@ if (process.env.RFQ_SETTLEMENT_INDEXER_E2E_CONFIRM !== "yes") {
   throw new Error(
     "RFQ_SETTLEMENT_INDEXER_E2E_CONFIRM=yes is required because this check writes synthetic chain and database data",
   );
+}
+if (process.env.RFQ_BINANCE_TESTNET_FIXTURE_MODE !== "core-flow-filled") {
+  throw new Error("RFQ_BINANCE_TESTNET_FIXTURE_MODE=core-flow-filled is required");
 }
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
 assertLoopbackDatabase(process.env.DATABASE_URL);
@@ -197,6 +207,24 @@ const reconciliationWorker = new PostTradeReconciliationWorker(
   new PostTradeReconciliationMetrics(),
   { error() {} },
 );
+const hedgeRuntime = readHedgeWorkerRuntimeConfig();
+const symbolRules = new BinanceSymbolRulesService(hedgeRuntime.symbolRules, hedgeRuntime.routes);
+const binance = new BinanceSpotAdapter(hedgeRuntime.binance, symbolRules);
+const hedgeAdapters = new Map([["binance", binance]]);
+const hedgeWorker = new HedgeWorker(
+  new PostgresHedgeJobStore(pool),
+  hedgeRuntime.routes,
+  hedgeAdapters,
+  hedgeRuntime.worker,
+  { info() {}, error() {} },
+);
+const feeWorker = new HedgeFeeWorker(
+  new PostgresHedgeFeeStore(pool),
+  hedgeRuntime.routes,
+  hedgeAdapters,
+  hedgeRuntime.worker,
+  { info() {}, error() {} },
+);
 let server;
 let ownsIndexerCursor = false;
 
@@ -237,7 +265,99 @@ try {
     "indexer must converge with the event already applied through /submit",
   );
   await processReconciliationRevision(callbackQuote.quoteId);
-  assert.equal((await quoteRepository.findStatus(callbackQuote.quoteId))?.status, "settled");
+  const callbackStatus = await quoteRepository.findStatus(callbackQuote.quoteId);
+  assert.equal(callbackStatus?.status, "settled");
+  assert.ok(callbackStatus?.hedgeOrderId);
+  assert.equal((await inventory.getPosition(chainId, tokenIn)).balance, amountIn);
+  const queued = await pool.query(
+    `SELECT hedge.status, hedge.next_attempt_at <= now() AS due,
+            hedge.lease_owner IS NULL AS unleased, settlement.canonical,
+            hedge.submission_attempted_at IS NOT NULL AS submission_attempted
+     FROM hedge_orders AS hedge
+     INNER JOIN settlement_events AS settlement ON settlement.id = hedge.settlement_event_id
+     WHERE hedge.id = $1`,
+    [callbackStatus.hedgeOrderId],
+  );
+  assert.deepEqual(queued.rows, [{
+    status: "queued",
+    due: true,
+    unleased: true,
+    canonical: true,
+    submission_attempted: false,
+  }]);
+
+  await symbolRules.checkHealth();
+  assert.deepEqual(await hedgeWorker.runOnce(), {
+    status: "filled",
+    hedgeOrderId: callbackStatus.hedgeOrderId,
+  });
+  assert.equal(
+    (await inventory.getPosition(chainId, tokenIn)).balance,
+    0n,
+    "canonical settlement base exposure must be neutral after the Binance fill",
+  );
+  assert.deepEqual(await feeWorker.runOnce(), {
+    status: "reconciled",
+    hedgeOrderId: callbackStatus.hedgeOrderId,
+  });
+  assert.deepEqual(await hedgeWorker.runOnce(), { status: "idle" });
+  assert.deepEqual(await feeWorker.runOnce(), { status: "idle" });
+
+  const callbackHedge = await hedgeService.getHedgeIntent(callbackStatus.hedgeOrderId);
+  assert.equal(callbackHedge?.status, "filled");
+  assert.equal(callbackHedge?.venue, "binance");
+  assert.equal(callbackHedge?.venueSymbol, "BTCUSDT");
+  assert.equal(callbackHedge?.filledAmount, amountIn.toString());
+  assert.equal(callbackHedge?.executionEvidenceVersion, "base-and-quote-v2");
+  assert.equal(callbackHedge?.feeReconciliationStatus, "complete");
+  assert.equal(callbackHedge?.commissionTotals?.length, 1);
+  assert.equal(callbackHedge?.commissionTotals?.[0]?.asset, "USDT");
+
+  const callbackExecution = await pool.query(
+    `SELECT execution_order_type, execution_time_in_force, execution_limit_price::text,
+            execution_policy_version, executed_quote_quantity::text,
+            hedge_commission_quote_quantity::text, hedge_net_pnl_quote_quantity::text,
+            hedge_net_pnl_status, fee_reconciliation_status
+     FROM hedge_orders WHERE id = $1`,
+    [callbackStatus.hedgeOrderId],
+  );
+  assert.equal(callbackExecution.rows.length, 1);
+  const execution = callbackExecution.rows[0];
+  const executedQuoteScaled = decimalToScaled(execution.executed_quote_quantity, 18);
+  const commissionScaled = decimalToScaled(execution.hedge_commission_quote_quantity, 18);
+  const expectedCommissionScaled = executedQuoteScaled / 1_000n;
+  const expectedNetPnlScaled = executedQuoteScaled - BigInt(callbackQuote.quote.amountOut) - expectedCommissionScaled;
+  assert.deepEqual({
+    orderType: execution.execution_order_type,
+    timeInForce: execution.execution_time_in_force,
+    policy: execution.execution_policy_version,
+    feeStatus: execution.fee_reconciliation_status,
+    pnlStatus: execution.hedge_net_pnl_status,
+    commission: commissionScaled,
+    netPnl: decimalToScaled(execution.hedge_net_pnl_quote_quantity, 18, true),
+  }, {
+    orderType: "LIMIT",
+    timeInForce: "GTC",
+    policy: "bounded-limit-v1",
+    feeStatus: "complete",
+    pnlStatus: "complete",
+    commission: expectedCommissionScaled,
+    netPnl: expectedNetPnlScaled,
+  });
+  assert.equal(
+    executedQuoteScaled,
+    decimalToScaled(execution.execution_limit_price, 18) * 10n,
+    "fixture fill quote quantity must equal the submitted limit price times exact base quantity",
+  );
+
+  const callbackPnl = await injectJson(server, "GET", "/pnl");
+  assert.equal(callbackPnl.statusCode, 200);
+  assert.equal(callbackPnl.body.hedgeNet.completeTrades, 1);
+  assert.equal(callbackPnl.body.hedgeNet.totals.length, 1);
+  assert.equal(
+    decimalToScaled(callbackPnl.body.hedgeNet.totals[0].netPnlQuoteQuantity, 18, true),
+    expectedNetPnlScaled,
+  );
 
   const reorgSnapshotId = await rpc("evm_snapshot", []);
   assert.match(reorgSnapshotId, /^0x[0-9a-f]+$/i);
@@ -292,7 +412,7 @@ try {
 
   const callbackAmountOut = BigInt(callbackQuote.quote.amountOut);
   const walletOnlyAmountOut = BigInt(walletOnlyQuote.quote.amountOut);
-  assert.equal((await inventory.getPosition(chainId, tokenIn)).balance, amountIn * 2n);
+  assert.equal((await inventory.getPosition(chainId, tokenIn)).balance, amountIn);
   assert.equal(
     (await inventory.getPosition(chainId, tokenOut)).balance,
     -(callbackAmountOut + walletOnlyAmountOut),
@@ -317,7 +437,7 @@ try {
   assert.equal(rolledBackStatus?.settlementEventId, undefined);
   assert.equal(await hedgeService.getHedgeIntent(indexedHedgeId), undefined);
   assert.equal(await pnlService.getPnlRecordByQuoteId(walletOnlyQuote.quoteId), undefined);
-  assert.equal((await inventory.getPosition(chainId, tokenIn)).balance, amountIn);
+  assert.equal((await inventory.getPosition(chainId, tokenIn)).balance, 0n);
   assert.equal((await inventory.getPosition(chainId, tokenOut)).balance, -callbackAmountOut);
   assert.equal(await readBalance(tokenArtifact.abi, tokenIn, user.address), userTokenInBefore - amountIn);
   assert.equal(await readBalance(tokenArtifact.abi, tokenOut, user.address), userTokenOutBefore + callbackAmountOut);
@@ -336,6 +456,13 @@ try {
   );
   assert.equal(orphaned.rows.length, 1);
   assert.equal(orphaned.rows[0].canonical, false);
+  assert.equal((await hedgeService.getHedgeIntent(callbackStatus.hedgeOrderId))?.status, "filled");
+  const finalPnl = await injectJson(server, "GET", "/pnl");
+  assert.equal(finalPnl.body.hedgeNet.completeTrades, 1);
+  assert.equal(
+    decimalToScaled(finalPnl.body.hedgeNet.totals[0].netPnlQuoteQuantity, 18, true),
+    expectedNetPnlScaled,
+  );
   assert.equal(await indexerWorker.runChainOnce(chainId), true, "indexer must advance over the replacement range");
   const cursor = (await indexerStore.stats()).find((item) => item.chainId === chainId);
   assert.ok(cursor && cursor.nextBlock > Number(walletOnlyReceipt.blockNumber));
@@ -347,6 +474,10 @@ try {
       quoteId: callbackQuote.quoteId,
       txHash: callbackReceipt.transactionHash,
       indexerOutcome: "duplicate",
+      hedgeOrderId: callbackStatus.hedgeOrderId,
+      hedgeExecution: "filled",
+      feeReconciliation: "complete",
+      hedgeNetPnlQuoteQuantity: formatScaled(expectedNetPnlScaled, 18),
     },
     walletRecovery: {
       quoteId: walletOnlyQuote.quoteId,
@@ -490,6 +621,22 @@ async function assertFixtureIsolation() {
     0,
     `chain ${chainId} already has a settlement indexer cursor; use a disposable database`,
   );
+  const due = await pool.query(
+    `SELECT
+       (SELECT COUNT(*)::text FROM post_trade_reconciliation_jobs
+        WHERE processed_revision < desired_revision AND next_attempt_at <= now()) AS reconciliation_jobs,
+       (SELECT COUNT(*)::text FROM hedge_orders
+        WHERE status = 'queued' AND next_attempt_at <= now()
+          AND (lease_expires_at IS NULL OR lease_expires_at <= now())) AS hedge_jobs,
+       (SELECT COUNT(*)::text FROM hedge_orders
+        WHERE fee_reconciliation_status = 'pending' AND fee_next_attempt_at <= now()
+          AND (fee_lease_expires_at IS NULL OR fee_lease_expires_at <= now())) AS fee_jobs`,
+  );
+  assert.deepEqual(due.rows[0], {
+    reconciliation_jobs: "0",
+    hedge_jobs: "0",
+    fee_jobs: "0",
+  }, "settlement indexer E2E requires a database without unrelated due worker jobs");
 }
 
 async function cleanup() {
@@ -670,6 +817,32 @@ function configureBackendRuntime({ tokenIn: inputToken, tokenOut: outputToken, s
   process.env.RFQ_QUOTE_IDEMPOTENCY_LEASE_MS = "360000";
   process.env.RFQ_SETTLEMENT_INDEXER_MAX_CURSOR_AGE_MS = "600000";
   process.env.RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG = "0";
+  process.env.RFQ_HEDGE_ROUTES_JSON = JSON.stringify({
+    routes: [{
+      chainId,
+      token: inputToken,
+      venue: "binance",
+      symbol: "BTCUSDT",
+      baseAsset: "BTC",
+      quoteAsset: "USDT",
+      quoteToken: outputToken,
+      tokenDecimals: 18,
+      quoteTokenDecimals: 18,
+      stepSizeRaw: "1000000000000000",
+      priceTick: "0.01",
+      maxSlippageBps: 100,
+    }],
+  });
+  process.env.RFQ_BINANCE_API_KEY = "testnet-api-key";
+  process.env.RFQ_BINANCE_API_SECRET = "testnet-api-secret";
+  process.env.RFQ_BINANCE_BASE_URL = "https://testnet.binance.vision";
+  process.env.RFQ_BINANCE_REQUEST_TIMEOUT_MS = "1000";
+  process.env.RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS = "10000";
+  process.env.RFQ_HEDGE_WORKER_ID = `hedge_indexer_e2e_${process.pid}`;
+  process.env.RFQ_HEDGE_LEASE_MS = "6000";
+  process.env.RFQ_HEDGE_POLL_INTERVAL_MS = "10";
+  process.env.RFQ_HEDGE_RETRY_DELAY_MS = "10";
+  process.env.RFQ_HEDGE_MAX_ORDER_AGE_MS = "30000";
   process.env.RFQ_RECEIPT_CONFIG_JSON = JSON.stringify({
     chains: [{
       chainId,
@@ -735,6 +908,29 @@ function configureBackendRuntime({ tokenIn: inputToken, tokenOut: outputToken, s
     maxSlippageBps: 500,
     maxQuotedSpreadBps: 1_000,
   });
+}
+
+function decimalToScaled(value, scale, allowNegative = false) {
+  assert.equal(typeof value, "string", "decimal evidence must be a string");
+  assert.equal(Number.isSafeInteger(scale) && scale >= 0 && scale <= 36, true);
+  const pattern = allowNegative
+    ? /^(-?)(0|[1-9][0-9]*)(?:\.([0-9]+))?$/
+    : /^()(0|[1-9][0-9]*)(?:\.([0-9]+))?$/;
+  const match = value.match(pattern);
+  assert.ok(match && (match[3]?.length ?? 0) <= scale, `invalid decimal evidence ${value}`);
+  const fraction = match[3] ?? "";
+  const magnitude = BigInt(match[2]) * 10n ** BigInt(scale) +
+    BigInt(`${fraction}${"0".repeat(scale - fraction.length)}` || "0");
+  return match[1] === "-" ? -magnitude : magnitude;
+}
+
+function formatScaled(value, scale) {
+  const sign = value < 0n ? "-" : "";
+  const absolute = value < 0n ? -value : value;
+  if (scale === 0) return `${sign}${absolute}`;
+  const raw = absolute.toString().padStart(scale + 1, "0");
+  const fraction = raw.slice(-scale).replace(/0+$/, "");
+  return `${sign}${raw.slice(0, -scale)}${fraction ? `.${fraction}` : ""}`;
 }
 
 function assertLoopbackDatabase(value) {

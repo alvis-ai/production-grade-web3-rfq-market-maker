@@ -49,6 +49,10 @@ const executionServicePostTradeValidation = await readFile(
   "backend/src/modules/execution/execution-service-post-trade-validation.ts",
   "utf8",
 );
+const executionServiceHedgeResultValidation = await readFile(
+  "backend/src/modules/execution/execution-service-hedge-result-validation.ts",
+  "utf8",
+);
 const quoteServiceChapter = await readFile(
   "book/Volume5-BackendEngineering/Chapter02-Quote-Service.md",
   "utf8",
@@ -68,6 +72,7 @@ const executionServiceLines = executionService.split(/\r?\n/).length;
 const executionServiceContractLines = executionServiceContract.split(/\r?\n/).length;
 const executionServiceResultValidationLines = executionServiceResultValidation.split(/\r?\n/).length;
 const executionServicePostTradeValidationLines = executionServicePostTradeValidation.split(/\r?\n/).length;
+const executionServiceHedgeResultValidationLines = executionServiceHedgeResultValidation.split(/\r?\n/).length;
 assert.ok(mainLines <= 100, `backend/src/main.ts must remain a process entrypoint (got ${mainLines} lines)`);
 assert.ok(
   gatewayApplicationLines <= 350,
@@ -104,6 +109,10 @@ assert.ok(
 assert.ok(
   executionServicePostTradeValidationLines <= 250,
   `execution-service-post-trade-validation.ts must remain a bounded post-trade validation boundary (got ${executionServicePostTradeValidationLines} lines)`,
+);
+assert.ok(
+  executionServiceHedgeResultValidationLines <= 325,
+  `execution-service-hedge-result-validation.ts must remain a bounded hedge validation boundary (got ${executionServiceHedgeResultValidationLines} lines)`,
 );
 assertContains(main, [
   'export { buildServer } from "./runtime/gateway-application.js"',
@@ -280,10 +289,15 @@ assertContains(executionServiceResultValidation, [
   "assertSettlementEventStatusResponse",
 ], "execution settlement result validation boundary");
 assertContains(executionServicePostTradeValidation, [
-  "assertHedgeResult",
   "assertInventoryPositionResult",
-  "assertHedgeIntentStatusResponse",
+  'export { assertHedgeResult } from "./execution-service-hedge-result-validation.js"',
 ], "execution post-trade result validation boundary");
+assertContains(executionServiceHedgeResultValidation, [
+  "assertHedgeResult",
+  "assertHedgeIntentStatusResponse",
+  '"feeReconciliationStatus"',
+  '"commissionTotals"',
+], "execution hedge result validation boundary");
 assertContains(chapter, [
   "process-only entrypoint",
   "`backend/src/api/http-boundary.ts`",
@@ -307,6 +321,7 @@ assertContains(executionServiceChapter, [
   "`execution-service-contract.ts`",
   "`execution-service-result-validation.ts`",
   "`execution-service-post-trade-validation.ts`",
+  "`execution-service-hedge-result-validation.ts`",
   "`make api-composition-check`",
 ], "Execution Service chapter");
 

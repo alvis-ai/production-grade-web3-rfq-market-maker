@@ -28,6 +28,7 @@ const paths = [
   "infra/helm/rfq-market-maker/templates/cilium-fqdn-egress-policy.yaml",
   "scripts/settlement-indexer-e2e.mjs",
   "scripts/settlement-e2e.sh",
+  "scripts/fixtures/binance-testnet-live-api.mjs",
   ".github/workflows/contract-ci.yml",
   "Makefile",
   "package.json",
@@ -148,6 +149,9 @@ assertContains("scripts/settlement-indexer-e2e.mjs", [
   "use a disposable database",
   "SettlementIndexerWorker",
   "PostTradeReconciliationWorker",
+  "new HedgeWorker",
+  "new HedgeFeeWorker",
+  "hedge_net_pnl_quote_quantity",
   "evm_snapshot",
   "evm_revert",
   'indexerOutcome: "duplicate"',
@@ -157,16 +161,22 @@ assertContains("scripts/settlement-indexer-e2e.mjs", [
 assertContains("scripts/settlement-e2e.sh", [
   "RFQ_ANVIL_CHAIN_ID",
   "RFQ_SETTLEMENT_E2E_SCRIPT",
+  "RFQ_SETTLEMENT_E2E_NODE_IMPORT",
 ]);
-assertContains("Makefile", ["settlement-indexer-e2e:", "RFQ_ANVIL_CHAIN_ID=31338"]);
+assertContains("scripts/fixtures/binance-testnet-live-api.mjs", ["core-flow-filled", "originalFetch"]);
+assertContains("Makefile", [
+  "settlement-indexer-e2e:",
+  "RFQ_ANVIL_CHAIN_ID=31338",
+  "RFQ_BINANCE_TESTNET_FIXTURE_MODE=core-flow-filled",
+]);
 assertContains("package.json", ['"settlement:indexer:e2e": "make settlement-indexer-e2e"']);
 assertContains(".github/workflows/contract-ci.yml", [
-  "Test wallet-only settlement and reorg recovery",
+  "Test settlement, hedge execution, and reorg recovery",
   "RFQ_SETTLEMENT_INDEXER_E2E_CONFIRM",
   "make db-migrate settlement-indexer-e2e",
 ]);
 
-console.log("Settlement indexer consistency check passed: durable callback recovery and reorg rollback");
+console.log("Settlement indexer consistency check passed: callback, hedge execution, and reorg rollback");
 
 function assertContains(path, needles) {
   for (const needle of needles) {

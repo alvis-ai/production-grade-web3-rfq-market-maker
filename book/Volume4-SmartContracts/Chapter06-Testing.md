@@ -152,6 +152,8 @@ stateDiagram-v2
 
 单元和 fuzz tests 之外，`make settlement-e2e` 在临时 Anvil 上部署真实 token，再通过 `RFQDeploymentFactory` 原子创建、绑定和交接 Treasury/RFQSettlement。测试先对真实 RPC 执行同一部署 canary，再经过后端 `/quote` 生成 EIP-712 signature，由用户账户实际广播 `submitQuote`。后端必须从 RPC 独立验证 transaction calldata、成功 receipt 和唯一匹配事件，随后测试链上余额、used nonce 与链下 inventory/hedge/PnL。该跨层门禁能捕捉 factory、Solidity runtime、ABI、typed data、运行时 chain/token policy 和 receipt decoder 之间的组合漂移，Contract CI 必须执行。
 
+`make settlement-indexer-e2e` 在另一条隔离 Anvil 链和 disposable PostgreSQL 上继续跨越链下边界：真实 `/submit` 必须创建可 claim 的 queued hedge，独立 indexer 对同一 log 必须幂等，production `HedgeWorker`/`HedgeFeeWorker` 通过校验 HMAC 的 Binance fixture 写入精确成交额、手续费、库存与 net PnL。随后 wallet-only transaction 和 replacement-chain reorg 验证丢失 callback 的恢复以及 terminal CEX evidence 不被链回滚删除。Contract CI 用这一门禁捕捉 Solidity event、Execution Service response contract、PostgreSQL projection 和 worker lifecycle 的组合漂移。
+
 目标链部署还必须执行 `RFQ_CHAIN_INTEGRATION_CONFIRM=yes make contract-deployment-integration-check`。它在同一最新区块读取 chain state，要求区块时间新鲜；对 Settlement、Treasury、factory runtime code 与当前 release artifact 做 immutable-aware 字节级比较；核对双向 wiring、owner、五类 admin role 的唯一成员、完整 trusted-signer set、完整 token whitelist、pause 状态与本地重算的 EIP-712 domain separator。`make contract-deployment-check` 使用确定性 JSON-RPC fixture 覆盖成功、隐藏 signer 和 bytecode drift，并由 Contract CI 强制执行；fixture 通过不代替目标环境 canary。
 
 ## Interview Notes

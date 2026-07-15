@@ -77,6 +77,7 @@
 
 - [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.
 - [x] Indexer handles chain reorgs.
+- [x] Contract CI proves callback settlement, production hedge and fee workers, exact CEX execution evidence, net PnL, and replacement-chain reorg recovery in one E2E.
 - [x] Independent confirmed-log indexing recovers settlements when the wallet callback is lost.
 - [x] Non-local indexer RPCs require HTTPS; startup and every poll verify the active chain ID before reading chain state or claiming a cursor.
 - [x] Indexer cursor advance is lease/revision/next-block guarded and occurs only after event application.

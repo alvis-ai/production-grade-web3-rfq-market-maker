@@ -7,6 +7,7 @@ CHAIN_ID="${RFQ_ANVIL_CHAIN_ID:-31337}"
 RPC_URL="http://${HOST}:${PORT}"
 LOG_FILE="${RFQ_ANVIL_LOG_FILE:-tmp/settlement-e2e-anvil.log}"
 E2E_SCRIPT="${RFQ_SETTLEMENT_E2E_SCRIPT:-scripts/settlement-e2e.mjs}"
+NODE_IMPORT="${RFQ_SETTLEMENT_E2E_NODE_IMPORT:-}"
 
 case "$CHAIN_ID" in
   ''|*[!0-9]*|0)
@@ -16,6 +17,10 @@ case "$CHAIN_ID" in
 esac
 if [ ! -f "$E2E_SCRIPT" ]; then
   echo "RFQ_SETTLEMENT_E2E_SCRIPT must name an existing file" >&2
+  exit 1
+fi
+if [ -n "$NODE_IMPORT" ] && [ ! -f "$NODE_IMPORT" ]; then
+  echo "RFQ_SETTLEMENT_E2E_NODE_IMPORT must name an existing file" >&2
   exit 1
 fi
 
@@ -56,7 +61,12 @@ fetch(process.env.RFQ_ANVIL_RPC_URL, {
   sleep 0.1
 done
 
-if ! node "$E2E_SCRIPT"; then
+if [ -n "$NODE_IMPORT" ]; then
+  node --import "$NODE_IMPORT" "$E2E_SCRIPT" || e2e_status="$?"
+else
+  node "$E2E_SCRIPT" || e2e_status="$?"
+fi
+if [ "${e2e_status:-0}" -ne 0 ]; then
   cat "$LOG_FILE" >&2 || true
-  exit 1
+  exit "$e2e_status"
 fi

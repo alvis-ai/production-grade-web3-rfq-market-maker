@@ -27,7 +27,11 @@ const paths = {
   testnetIntegrationTest: "scripts/binance-testnet-integration-check.test.mjs",
   testnetFixture: "scripts/fixtures/binance-testnet-live-api.mjs",
   hedgeWorkerE2e: "scripts/hedge-worker-e2e.mjs",
+  settlementIndexerE2e: "scripts/settlement-indexer-e2e.mjs",
+  executionHedgeResultValidation: "backend/src/modules/execution/execution-service-hedge-result-validation.ts",
+  executionTest: "backend/test/execution.test.mjs",
   backendWorkflow: ".github/workflows/backend-ci.yml",
+  contractWorkflow: ".github/workflows/contract-ci.yml",
   makefile: "Makefile",
   packageJson: "package.json",
   verify: "scripts/verify.sh",
@@ -165,6 +169,14 @@ assert.match(source.hedgeWorkerE2e, /new BinanceSpotAdapter/);
 assert.match(source.hedgeWorkerE2e, /hedge_net_pnl_quote_quantity/);
 assert.match(source.hedgeWorkerE2e, /await hedgeWorker\.runOnce\(\)/);
 assert.match(source.hedgeWorkerE2e, /await feeWorker\.runOnce\(\)/);
+assert.match(source.executionHedgeResultValidation, /"venue"/);
+assert.match(source.executionHedgeResultValidation, /"feeReconciliationStatus"/);
+assert.match(source.executionTest, /accepts the durable PostgreSQL queued hedge status envelope/);
+assert.match(source.settlementIndexerE2e, /RFQ_BINANCE_TESTNET_FIXTURE_MODE !== "core-flow-filled"/);
+assert.match(source.settlementIndexerE2e, /new HedgeWorker/);
+assert.match(source.settlementIndexerE2e, /new HedgeFeeWorker/);
+assert.match(source.settlementIndexerE2e, /hedge_net_pnl_quote_quantity/);
+assert.match(source.makefile, /RFQ_BINANCE_TESTNET_FIXTURE_MODE=core-flow-filled/);
 assert.match(source.makefile, /binance-testnet-integration-check: backend-build/);
 assert.match(source.makefile, /binance-testnet-check: backend-build/);
 assert.match(source.makefile, /hedge-worker-e2e: backend-build/);
@@ -174,6 +186,8 @@ assert.match(source.packageJson, /"hedge:worker:e2e"/);
 assert.match(source.verify, /run_step make binance-testnet-check/);
 assert.match(source.backendWorkflow, /RFQ_HEDGE_WORKER_E2E_CONFIRM/);
 assert.match(source.backendWorkflow, /run: make hedge-worker-e2e/);
+assert.match(source.contractWorkflow, /Test settlement, hedge execution, and reorg recovery/);
+assert.match(source.contractWorkflow, /run: make db-migrate settlement-indexer-e2e/);
 
 assert.match(source.compose, /hedge-worker:[\s\S]*RFQ_TOKEN_REGISTRY_JSON:[\s\S]*RFQ_HEDGE_ROUTES_JSON:/);
 assert.match(source.compose, /hedge-worker:[\s\S]*RFQ_HEDGE_MAX_ORDER_AGE_MS:/);

@@ -86,6 +86,46 @@ test("SkeletonExecutionService suppresses duplicate settlement side effects", as
   assert.notEqual(storedHedge, first.hedgeResult?.record);
 });
 
+test("SkeletonExecutionService accepts the durable PostgreSQL queued hedge status envelope", async () => {
+  const inventoryService = new InventoryService();
+  let hedgeFailures = 0;
+  const executionService = new SkeletonExecutionService({
+    hedgeService: {
+      createHedgeIntent(intent) {
+        const record = {
+          hedgeOrderId: "h_postgres_queued",
+          status: "queued",
+          settlementEventId: intent.settlementEventId,
+          quoteId: intent.quoteId,
+          chainId: intent.chainId,
+          token: intent.token,
+          side: intent.side,
+          amount: intent.amount,
+          reason: intent.reason,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          venue: "internal",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        };
+        return { status: "queued", hedgeOrderId: record.hedgeOrderId, record };
+      },
+      recordHedgeFailure() {
+        hedgeFailures += 1;
+      },
+    },
+    inventoryService,
+    settlementEventService: new SettlementEventService(inventoryService),
+    settlementVerifier: new LocalSettlementVerifier(),
+  });
+
+  const result = await executionService.submitQuote(request, { quoteId: "q_postgres_hedge_envelope" });
+
+  assert.equal(result.response.status, "accepted");
+  assert.equal(result.response.hedgeOrderId, "h_postgres_queued");
+  assert.equal(result.hedgeResult?.record.venue, "internal");
+  assert.equal(result.hedgeFailure, undefined);
+  assert.equal(hedgeFailures, 0);
+});
+
 test("SkeletonExecutionService snapshots dependency object at construction", async () => {
   const inventoryService = new InventoryService();
   const replacementInventoryService = new InventoryService();

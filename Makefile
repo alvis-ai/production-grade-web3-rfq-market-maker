@@ -274,6 +274,8 @@ settlement-indexer-e2e: backend-build contract-build
 	@RFQ_ANVIL_CHAIN_ID=31338 \
 		RFQ_ANVIL_LOG_FILE=tmp/settlement-indexer-e2e-anvil.log \
 		RFQ_SETTLEMENT_E2E_SCRIPT=scripts/settlement-indexer-e2e.mjs \
+		RFQ_SETTLEMENT_E2E_NODE_IMPORT=./scripts/fixtures/binance-testnet-live-api.mjs \
+		RFQ_BINANCE_TESTNET_FIXTURE_MODE=core-flow-filled \
 		sh scripts/settlement-e2e.sh
 
 benchmark-quote: backend-build

@@ -1717,6 +1717,7 @@ grep -q 'SETTLEMENT_UNAVAILABLE' backend/src/modules/execution/execution.service
 test -s backend/src/modules/execution/execution-service-contract.ts
 test -s backend/src/modules/execution/execution-service-result-validation.ts
 test -s backend/src/modules/execution/execution-service-post-trade-validation.ts
+test -s backend/src/modules/execution/execution-service-hedge-result-validation.ts
 grep -q 'SettlementEventStore' backend/src/modules/execution/execution-service-contract.ts
 grep -q 'settlementEventStoreFailure' backend/src/modules/execution/execution.service.ts
 grep -q 'assertExecutionServiceDeps(value)' backend/src/modules/execution/execution-service-contract.ts
@@ -1731,9 +1732,11 @@ grep -q 'Execution service settlement verification amountOut must match quote am
 grep -q 'settlementEventResultFields = \["event", "duplicate"\]' backend/src/modules/execution/execution-service-result-validation.ts
 grep -q 'assertApplySettlementEventResult(settlementEventResult, input)' backend/src/modules/execution/execution.service.ts
 grep -q 'Execution service settlement event quoteHash must match submitted quote' backend/src/modules/execution/execution-service-result-validation.ts
-grep -q 'hedgeResultFields = \["status", "hedgeOrderId", "record"\]' backend/src/modules/execution/execution-service-post-trade-validation.ts
+grep -q 'hedgeResultFields = \["status", "hedgeOrderId", "record"\]' backend/src/modules/execution/execution-service-hedge-result-validation.ts
 grep -q 'assertHedgeResult(hedgeResult, intent)' backend/src/modules/execution/execution.service.ts
-grep -q 'Execution service hedge result.record amount must match hedge intent' backend/src/modules/execution/execution-service-post-trade-validation.ts
+grep -q 'Execution service hedge result.record amount must match hedge intent' backend/src/modules/execution/execution-service-hedge-result-validation.ts
+grep -q '"feeReconciliationStatus"' backend/src/modules/execution/execution-service-hedge-result-validation.ts
+grep -q 'accepts the durable PostgreSQL queued hedge status envelope' backend/test/execution.test.mjs
 grep -q 'inventoryPositionFields = \["chainId", "token", "balance"\]' backend/src/modules/execution/execution-service-post-trade-validation.ts
 grep -q 'readInventoryPositions(validatedRequest)' backend/src/modules/execution/execution.service.ts
 grep -q 'Execution service inventory position.${field}.balance must be a bigint' backend/src/modules/execution/execution-service-post-trade-validation.ts
@@ -1774,6 +1777,7 @@ grep -q 'validates the `ApplySettlementEventResult` returned by the settlement e
 grep -q 'Malformed or mismatched event-store output returns `SETTLEMENT_EVENT_STORE_UNAVAILABLE`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'validates the `HedgeResult` returned by the hedge adapter before exposing `hedgeOrderId`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'Malformed or mismatched hedge output is treated as `HEDGE_INTENT_FAILED`' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
+grep -q '合法的 durable PostgreSQL hedge envelope' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'class SettlementEventService' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'interface SettlementEventStore' backend/src/modules/settlement/settlement-event.service.ts
 grep -q 'getSettlementEvent' backend/src/modules/settlement/settlement-event.service.ts
@@ -2919,6 +2923,8 @@ grep -q 'make eip712-check' .github/workflows/contract-ci.yml
 grep -Fq '"sdk/src/abi.ts"' .github/workflows/contract-ci.yml
 grep -Fq '"sdk/src/eip712.ts"' .github/workflows/contract-ci.yml
 grep -Fq '"backend/src/modules/signer/signer.service.ts"' .github/workflows/contract-ci.yml
+grep -Fq '"backend/src/modules/execution/**"' .github/workflows/contract-ci.yml
+grep -Fq '"backend/test/execution*.test.mjs"' .github/workflows/contract-ci.yml
 grep -Fq '"scripts/check-contract-abi-consistency.mjs"' .github/workflows/contract-ci.yml
 grep -Fq '"scripts/check-eip712-consistency.mjs"' .github/workflows/contract-ci.yml
 grep -q 'pnpm install --frozen-lockfile' .github/workflows/backend-ci.yml
@@ -3722,6 +3728,11 @@ grep -Fq -- '- [x] CEX reference sources validate price without inflating execut
 grep -Fq -- '- [x] CEX connectors bound WebSocket and REST payload bytes before JSON decoding, reject binary frames and event-time regression, clear invalid books, and reconnect with capped equal jitter.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Indexer handles chain reorgs.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] Contract CI proves callback settlement, production hedge and fee workers, exact CEX execution evidence, net PnL, and replacement-chain reorg recovery in one E2E.' docs/security/audit-checklist.md
+grep -q 'RFQ_SETTLEMENT_E2E_NODE_IMPORT' scripts/settlement-e2e.sh
+grep -q 'RFQ_BINANCE_TESTNET_FIXTURE_MODE=core-flow-filled' Makefile
+grep -q 'core-flow-filled' scripts/fixtures/binance-testnet-live-api.mjs
+grep -q 'new HedgeFeeWorker' scripts/settlement-indexer-e2e.mjs
 grep -Fq -- '- [x] Inventory updates are replayable.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Sensitive thresholds are not exposed to users.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] ClickHouse analytics do not become operational source of truth.' docs/security/audit-checklist.md
