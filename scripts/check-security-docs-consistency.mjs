@@ -94,7 +94,7 @@ const requiredTerms = {
     "Trusted signer authorization is capped at five entries",
     "`/quote` validates address format and amount strings",
     "Risk Engine runs before Signer Service",
-    "CEX reference sources validate price without inflating executable liquidity",
+    "Non-local CEX markets enforce a quorum floor of two",
     "CEX connectors bound WebSocket and REST payload bytes before JSON decoding",
     "Coinbase Level2 subscribes to heartbeat",
     "Signer Service cannot be called directly from public API",
@@ -156,7 +156,7 @@ assert.ok(checkedAuditItems >= 20, "audit checklist must mark implemented baseli
 
 const implementedAuditControls = [
   "Non-local static market data requires a non-empty mandatory live CEX source set and cannot sign from demonstration prices alone.",
-  "CEX reference sources validate price without inflating executable liquidity; every published pair retains an accepted Binance hedge source bound to the API and worker shared route table.",
+  "Non-local CEX markets enforce a quorum floor of two, require an independent reference exchange, and accept executable liquidity only from a Binance hedge source bound to the API and worker shared route table.",
   "CEX connectors bound WebSocket and REST payload bytes before JSON decoding, reject binary frames and event-time regression, clear invalid books, and reconnect with capped equal jitter.",
   "Coinbase Level2 subscribes to heartbeat, ignores pre-snapshot liveness, and refreshes unchanged-book freshness only from monotonic heartbeat time, sequence and trade-id evidence.",
   "EIP-712 domain includes name, version, chainId and verifyingContract.",

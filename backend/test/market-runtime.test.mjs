@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assertCexHedgeSourcesRoutable,
+  assertProductionCexSourcePolicy,
   assertProductionMarketDataPolicy,
   buildRuntimeBinanceSymbolRulesHealth,
   readDefaultMarketDataRuntime,
@@ -82,6 +83,52 @@ test("non-local static market data requires a configured mandatory live CEX book
   );
   assert.doesNotThrow(
     () => assertProductionMarketDataPolicy("static", [], false, { NODE_ENV: "development" }),
+  );
+});
+
+test("non-local CEX market data requires an independent hedge and reference quorum", () => {
+  const hedge = {
+    chainId: 1,
+    tokenIn,
+    tokenOut,
+    exchange: "binance",
+    symbol: "ETHUSDT",
+    role: "hedge",
+  };
+  const sameVenueReference = {
+    ...hedge,
+    symbol: "ETHUSDC",
+    role: "reference",
+  };
+  const independentReference = {
+    ...hedge,
+    exchange: "coinbase",
+    symbol: "ETH-USD",
+    role: "reference",
+  };
+  const production = { NODE_ENV: "production" };
+
+  assert.throws(
+    () => assertProductionCexSourcePolicy([hedge, independentReference], 1, production),
+    /RFQ_CEX_MIN_SOURCES to be at least 2/,
+  );
+  assert.throws(
+    () => assertProductionCexSourcePolicy([hedge], 2, production),
+    /at least RFQ_CEX_MIN_SOURCES distinct sources/,
+  );
+  assert.throws(
+    () => assertProductionCexSourcePolicy([hedge, { ...hedge, symbol: "ETHUSDC", role: "hedge" }], 2, production),
+    /requires both hedge and reference sources/,
+  );
+  assert.throws(
+    () => assertProductionCexSourcePolicy([hedge, sameVenueReference], 2, production),
+    /reference source from an independent exchange/,
+  );
+  assert.doesNotThrow(
+    () => assertProductionCexSourcePolicy([hedge, independentReference], 2, production),
+  );
+  assert.doesNotThrow(
+    () => assertProductionCexSourcePolicy([hedge], 1, { NODE_ENV: "development" }),
   );
 });
 

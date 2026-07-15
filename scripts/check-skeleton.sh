@@ -3724,7 +3724,12 @@ grep -q 'runbook FQDN egress procedure must include' scripts/check-security-docs
 grep -Fq -- '- [x] EIP-712 domain includes name, version, chainId and verifyingContract.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] `submitQuote` rejects expired quotes.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Risk Engine runs before Signer Service.' docs/security/audit-checklist.md
-grep -Fq -- '- [x] CEX reference sources validate price without inflating executable liquidity; every published pair retains an accepted Binance hedge source bound to the API and worker shared route table.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] Non-local CEX markets enforce a quorum floor of two, require an independent reference exchange, and accept executable liquidity only from a Binance hedge source bound to the API and worker shared route table.' docs/security/audit-checklist.md
+grep -q 'assertProductionCexSourcePolicy' backend/src/runtime/market-runtime.ts
+grep -q 'RFQ_CEX_MIN_SOURCES to be at least 2' backend/src/runtime/market-runtime.ts
+grep -q 'reference source from an independent exchange' backend/src/runtime/market-runtime.ts
+grep -q 'non-local CEX market data requires an independent hedge and reference quorum' backend/test/market-runtime.test.mjs
+grep -q 'production RFQ API requires an independent two-source CEX quorum' backend/test/api-gateway-env.test.mjs
 grep -Fq -- '- [x] CEX connectors bound WebSocket and REST payload bytes before JSON decoding, reject binary frames and event-time regression, clear invalid books, and reconnect with capped equal jitter.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Settlement events use `(chainId, txHash, logIndex)` idempotency.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Indexer handles chain reorgs.' docs/security/audit-checklist.md

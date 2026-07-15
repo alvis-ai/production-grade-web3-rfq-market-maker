@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildServer, readServerListenConfig } from "../dist/main.js";
-import { buildRequiredCexCacheKeys, readCexOrderBookConfig } from "../dist/runtime/market-runtime.js";
+import {
+  buildRequiredCexCacheKeys,
+  readCexOrderBookConfig,
+  readCexOrderBookPairs,
+} from "../dist/runtime/market-runtime.js";
 import {
   configureAwsSignerEnvironment,
   localTestSignerService,
@@ -229,7 +233,7 @@ test("RFQ API rejects unsafe CEX order book runtime bounds", () => {
   }
 });
 
-test("production RFQ API requires two CEX sources per configured pair by default", () => {
+test("production RFQ API requires an independent two-source CEX quorum", () => {
   const names = [
     "NODE_ENV",
     ...signerRuntimeEnvNames,
@@ -272,7 +276,15 @@ test("production RFQ API requires two CEX sources per configured pair by default
         },
         signerService: localTestSignerService(),
       }),
-      /each pair must configure at least minSources distinct sources/,
+      /at least RFQ_CEX_MIN_SOURCES distinct sources/,
+    );
+
+    process.env.RFQ_CEX_PAIRS +=
+      ",1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:coinbase:ETH-USD:reference";
+    process.env.RFQ_CEX_MIN_SOURCES = "1";
+    assert.throws(
+      () => readCexOrderBookConfig(readCexOrderBookPairs()),
+      /RFQ_CEX_MIN_SOURCES to be at least 2/,
     );
   } finally {
     for (const name of names) restoreEnv(name, original[name]);
@@ -326,6 +338,13 @@ test("CEX runtime requires a live order book by default outside local environmen
     exchange: "binance",
     symbol: "ETHUSDT",
     role: "hedge",
+  }, {
+    chainId: 1,
+    tokenIn: "0x0000000000000000000000000000000000000002",
+    tokenOut: "0x0000000000000000000000000000000000000003",
+    exchange: "coinbase",
+    symbol: "ETH-USD",
+    role: "reference",
   }];
   try {
     delete process.env.NODE_ENV;

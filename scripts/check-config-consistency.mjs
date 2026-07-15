@@ -237,6 +237,12 @@ assert.ok(
   "non-local static market data must require a mandatory live CEX source set",
 );
 assert.ok(
+  backendSource.includes("assertProductionCexSourcePolicy") &&
+    backendSource.includes("RFQ_CEX_MIN_SOURCES to be at least 2") &&
+    backendSource.includes("reference source from an independent exchange"),
+  "non-local CEX market data must require a two-source independent-exchange quorum",
+);
+assert.ok(
   backendSource.includes("RFQ_HEDGE_ROUTES_JSON is required when RFQ_CEX_PAIRS contains hedge sources") &&
     backendSource.includes("assertCexHedgeSourcesRoutable") &&
     backendSource.includes("does not match its configured hedge route") &&

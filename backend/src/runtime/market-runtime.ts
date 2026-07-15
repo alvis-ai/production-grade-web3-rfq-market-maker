@@ -126,6 +126,41 @@ export function assertProductionMarketDataPolicy(
   }
 }
 
+export function assertProductionCexSourcePolicy(
+  pairs: readonly OrderBookPairConfig[],
+  minSources: number,
+  env: Record<string, string | undefined> | undefined = runtimeEnvironment(),
+): void {
+  if (!requiresExplicitRuntimeConfig(readOwnEnvValue(env, "NODE_ENV"))) return;
+  if (!Number.isSafeInteger(minSources) || minSources < 2) {
+    throw new Error("Non-local CEX market data requires RFQ_CEX_MIN_SOURCES to be at least 2");
+  }
+
+  const groups = new Map<string, OrderBookPairConfig[]>();
+  for (const pair of pairs) {
+    const key = pairKey(pair.chainId, pair.tokenIn, pair.tokenOut);
+    const group = groups.get(key) ?? [];
+    group.push(pair);
+    groups.set(key, group);
+  }
+
+  for (const [key, sources] of groups) {
+    const uniqueConnectors = new Set(sources.map(({ exchange, symbol }) => `${exchange}:${symbol.toUpperCase()}`));
+    if (uniqueConnectors.size < minSources) {
+      throw new Error(`Non-local CEX market ${key} must configure at least RFQ_CEX_MIN_SOURCES distinct sources`);
+    }
+    const hedgeSources = sources.filter(({ role }) => role === "hedge");
+    const referenceSources = sources.filter(({ role }) => role === "reference");
+    if (hedgeSources.length === 0 || referenceSources.length === 0) {
+      throw new Error(`Non-local CEX market ${key} requires both hedge and reference sources`);
+    }
+    if (!referenceSources.some((reference) =>
+      hedgeSources.some((hedge) => hedge.exchange !== reference.exchange))) {
+      throw new Error(`Non-local CEX market ${key} requires a reference source from an independent exchange`);
+    }
+  }
+}
+
 export function readTokenRegistry(): TokenRegistry {
   const env = runtimeEnvironment();
   const serializedConfig = readOwnEnvValue(env, "RFQ_TOKEN_REGISTRY_JSON");
@@ -404,6 +439,13 @@ export function readCexOrderBookConfig(pairs: OrderBookPairConfig[]) {
       "RFQ_CEX_REQUIRE_LIVE_BOOK=false requires RFQ_MARKET_DATA_PROVIDER=chainlink outside local environments",
     );
   }
+  const minSources = readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MIN_SOURCES"), {
+    defaultValue: requiresExplicitRuntimeConfig(nodeEnv) ? 2 : 1,
+    min: 1,
+    max: 10,
+    name: "RFQ_CEX_MIN_SOURCES",
+  });
+  assertProductionCexSourcePolicy(pairs, minSources, env);
   return {
     monitor: {
       pairs,
@@ -437,12 +479,7 @@ export function readCexOrderBookConfig(pairs: OrderBookPairConfig[]) {
         max: 60_000,
         name: "RFQ_CEX_MAX_FUTURE_SKEW_MS",
       }),
-      minSources: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MIN_SOURCES"), {
-        defaultValue: requiresExplicitRuntimeConfig(nodeEnv) ? 2 : 1,
-        min: 1,
-        max: 10,
-        name: "RFQ_CEX_MIN_SOURCES",
-      }),
+      minSources,
       maxSourceDeviationBps: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_CEX_MAX_SOURCE_DEVIATION_BPS"), {
         defaultValue: 100,
         min: 1,

@@ -29,7 +29,7 @@
 - [x] Risk Engine runs before Signer Service.
 - [x] Non-local static market data requires a non-empty mandatory live CEX source set and cannot sign from demonstration prices alone.
 - [x] Chainlink feeds require HTTPS remote RPC, non-zero proxy identity, exact onchain description/decimals, reviewed raw answer bounds, timestamp and L2 sequencer checks, plus a redacted target-environment read canary.
-- [x] CEX reference sources validate price without inflating executable liquidity; every published pair retains an accepted Binance hedge source bound to the API and worker shared route table.
+- [x] Non-local CEX markets enforce a quorum floor of two, require an independent reference exchange, and accept executable liquidity only from a Binance hedge source bound to the API and worker shared route table.
 - [x] CEX connectors bound WebSocket and REST payload bytes before JSON decoding, reject binary frames and event-time regression, clear invalid books, and reconnect with capped equal jitter.
 - [x] CEX connector failure logs are transition-based per exchange/symbol; repeated retries remain metrics-only until a synchronized valid book records recovery, and observer/logger failures cannot interrupt reconnect control flow.
 - [x] Coinbase Level2 subscribes to heartbeat, ignores pre-snapshot liveness, and refreshes unchanged-book freshness only from monotonic heartbeat time, sequence and trade-id evidence.

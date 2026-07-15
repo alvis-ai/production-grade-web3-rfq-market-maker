@@ -89,6 +89,13 @@ assert.ok(
   "non-local CEX runtime must default to a two-source quorum",
 );
 assert.ok(
+  mainSource.includes("assertProductionCexSourcePolicy") &&
+    mainSource.includes("RFQ_CEX_MIN_SOURCES to be at least 2") &&
+    mainSource.includes("requires both hedge and reference sources") &&
+    mainSource.includes("reference source from an independent exchange"),
+  "non-local CEX runtime must reject a single-venue or hedge-only source topology",
+);
+assert.ok(
     mainSource.includes("RFQ_CEX_REQUIRE_LIVE_BOOK=false requires RFQ_MARKET_DATA_PROVIDER=chainlink") &&
     mainSource.includes("buildRequiredCexCacheKeys") &&
     mainSource.includes("cexConfig?.requireLiveBook"),
@@ -286,6 +293,11 @@ assert.ok(
     routeBindingTestSource.includes("has no configured hedge route"),
   "tests must cover exact CEX source-to-hedge-route binding",
 );
+assert.ok(
+  routeBindingTestSource.includes("non-local CEX market data requires an independent hedge and reference quorum") &&
+    runtimeTestSource.includes("production RFQ API requires an independent two-source CEX quorum"),
+  "tests must prove production quorum cannot be configured below two or sourced from one exchange",
+);
 assert.ok(marketDataChapter.includes("developers.binance.com"), "market-data chapter must reference official Binance synchronization rules");
 assert.ok(marketDataChapter.includes("docs.cdp.coinbase.com"), "market-data chapter must reference official Coinbase Level-2 rules");
 assert.ok(
@@ -305,6 +317,8 @@ assert.ok(
 assert.ok(
   marketDataChapter.includes("`hedge` 或 `reference`") &&
     marketDataChapter.includes("reference quorum") &&
+    marketDataChapter.includes("`RFQ_CEX_MIN_SOURCES>=2`") &&
+    readmeSource.includes("hard production floor of two") &&
     readmeSource.includes("reference-only surviving quorum invalidates both directional cache entries") &&
     marketDataChapter.includes("`RFQ_HEDGE_ROUTES_JSON`") &&
     readmeSource.includes("API and Hedge Worker consume the same `RFQ_HEDGE_ROUTES_JSON`"),
