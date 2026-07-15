@@ -22,6 +22,7 @@ run_step make deployment-check
 run_step make ci-check
 run_step make compose-check
 run_step make cex-orderbook-check
+run_step make chainlink-canary-check
 run_step make hedge-planning-check
 run_step make hedge-execution-check
 run_step make binance-testnet-check

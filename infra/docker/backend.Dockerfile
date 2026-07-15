@@ -24,6 +24,7 @@ RUN corepack enable && pnpm install --filter @rfq-market-maker/backend... --prod
 COPY --from=build /app/backend/dist ./backend/dist
 COPY sdk/src sdk/src
 COPY --from=build /app/sdk/dist ./sdk/dist
+COPY scripts/chainlink-integration-check.mjs scripts/chainlink-integration-check.mjs
 COPY scripts/aws-kms-integration-check.mjs scripts/aws-kms-integration-check.mjs
 COPY scripts/target-api-quote-integration-check.mjs scripts/target-api-quote-integration-check.mjs
 COPY scripts/target-settlement-integration-check.mjs scripts/target-settlement-integration-check.mjs

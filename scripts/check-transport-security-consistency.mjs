@@ -9,6 +9,7 @@ const databaseConfig = await read("backend/src/db/config.ts");
 const databasePool = await read("backend/src/db/pool.ts");
 const redisRateLimiter = await read("backend/src/modules/rate-limit/redis-rate-limit.service.ts");
 const gatewayRuntime = await read("backend/src/runtime/gateway-runtime.ts");
+const chainlinkConfig = await read("backend/src/modules/market-data/chainlink-config.ts");
 const analyticsRuntime = await read("backend/src/analytics-worker-main.ts");
 const signerRuntime = await read("backend/src/signer-main.ts");
 const signerRuntimeTests = await read("backend/test/signer-process-runtime.test.mjs");
@@ -24,6 +25,7 @@ const redisTests = await read("backend/test/redis-rate-limit.test.mjs");
 const apiRedisTests = await read("backend/test/api-redis-rate-limit.test.mjs");
 const apiExecutionEnvTests = await read("backend/test/api-execution-env.test.mjs");
 const analyticsTests = await read("backend/test/analytics-worker-runtime.test.mjs");
+const chainlinkTests = await read("backend/test/chainlink-market-data.test.mjs");
 const compose = await read("docker-compose.yml");
 const rawSignerDeployment = await read("infra/k8s/signer-deployment.yaml");
 const rawSignerSecret = await read("infra/k8s/signer-secret.yaml");
@@ -109,6 +111,12 @@ assertContains(gatewayRuntime, [
   "createRedisRateLimitClient(redisUrl, {",
   "requireTls: requiresExplicitRuntimeConfig(nodeEnv)",
 ], "backend/src/runtime/gateway-runtime.ts");
+assertContains(chainlinkConfig, [
+  'parsed.protocol !== "https:"',
+  'parsed.protocol === "http:" && loopback',
+  'parsed.hostname.includes("*")',
+  "bounded HTTPS URL or loopback HTTP URL",
+], "backend/src/modules/market-data/chainlink-config.ts");
 
 assertContains(databaseTests, [
   "preserves verified TLS",
@@ -132,6 +140,10 @@ assertContains(analyticsTests, [
   "SASL credentials are required",
   "must use https",
 ], "backend/test/analytics-worker-runtime.test.mjs");
+assertContains(chainlinkTests, [
+  'rpcUrl = "http://rpc.example.com/v1/key"',
+  "/bounded HTTPS/",
+], "backend/test/chainlink-market-data.test.mjs");
 
 assert.equal(
   countOccurrences(compose, "NODE_ENV: development"),
@@ -201,7 +213,7 @@ for (const [label, source, terms] of [
   assertContains(source, terms, label);
 }
 
-console.log("Transport security consistency check passed for API, signer, migration, and 5 workers");
+console.log("Transport security consistency check passed for API, signer, Chainlink, migration, and 5 workers");
 
 function assertContains(source, needles, label) {
   for (const needle of needles) {

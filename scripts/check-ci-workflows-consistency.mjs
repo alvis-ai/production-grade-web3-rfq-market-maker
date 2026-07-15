@@ -129,6 +129,8 @@ assertContains(workflows.docs, [
   '- "scripts/binance-testnet-integration-check.mjs"',
   '- "scripts/binance-testnet-integration-check.test.mjs"',
   '- "scripts/fixtures/binance-testnet-live-api.mjs"',
+  '- "scripts/chainlink-integration-check.mjs"',
+  '- "scripts/chainlink-integration-check.test.mjs"',
   '- "scripts/check-metrics-consistency.mjs"',
   '- "scripts/check-kms-signer-consistency.mjs"',
   '- "scripts/aws-kms-integration-check.mjs"',

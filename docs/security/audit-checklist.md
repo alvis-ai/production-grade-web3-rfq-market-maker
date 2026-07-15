@@ -28,6 +28,7 @@
 - [x] `/quote` validates address format and amount strings.
 - [x] Risk Engine runs before Signer Service.
 - [x] Non-local static market data requires a non-empty mandatory live CEX source set and cannot sign from demonstration prices alone.
+- [x] Chainlink feeds require HTTPS remote RPC, non-zero proxy identity, exact onchain description/decimals, reviewed raw answer bounds, timestamp and L2 sequencer checks, plus a redacted target-environment read canary.
 - [x] CEX reference sources validate price without inflating executable liquidity; every published pair retains an accepted Binance hedge source bound to the API and worker shared route table.
 - [x] CEX hedge submissions use a persisted tick-aligned `LIMIT GTC` boundary derived from immutable quote economics and reviewed route slippage; the adapter contains no unbounded `MARKET` submit path.
 - [x] New CEX hedge orders persist a bounded maximum lifetime; PostgreSQL authorizes and records cancellation before the external call, and ambiguous cancel results remain query-first under the original client id.

@@ -13,7 +13,9 @@ import {
 export type ChainlinkRoundData = readonly [bigint, bigint, bigint, bigint, bigint];
 
 export interface ChainlinkReader {
+  readChainId(): Promise<unknown>;
   readDecimals(address: Address): Promise<unknown>;
+  readDescription(address: Address): Promise<unknown>;
   readLatestRoundData(address: Address): Promise<unknown>;
 }
 
@@ -31,10 +33,16 @@ export class ChainlinkMarketDataService implements MarketDataService {
   private readonly config: ChainlinkMarketDataConfig;
   private readonly networks = new Map<number, ChainlinkNetworkConfig>();
   private readonly readers = new Map<number, ChainlinkReader>();
-  private readonly decimalsByFeed = new Map<string, Promise<number>>();
+  private readonly chainChecks = new Map<number, Promise<void>>();
+  private readonly metadataByFeed = new Map<string, Promise<{ decimals: number; description: string }>>();
 
-  constructor(config: ChainlinkMarketDataConfig, readerFactory: ChainlinkReaderFactory = createReader) {
+  constructor(
+    config: ChainlinkMarketDataConfig,
+    readerFactory: ChainlinkReaderFactory = createReader,
+    private readonly now: () => number = () => Date.now(),
+  ) {
     assertChainlinkMarketDataConfig(config);
+    if (typeof now !== "function") throw new Error("Chainlink market data clock must be a function");
     this.config = cloneChainlinkMarketDataConfig(config);
     for (const network of this.config.networks) {
       this.networks.set(network.chainId, network);
@@ -53,13 +61,22 @@ export class ChainlinkMarketDataService implements MarketDataService {
       throw new Error(`Chainlink market data has no feed for ${request.tokenIn}/${request.tokenOut} on chain ${request.chainId}`);
     }
 
+    await this.assertNetworkChainId(network, reader);
     await this.assertSequencerAvailable(network, reader);
     const [roundData] = await Promise.all([
       reader.readLatestRoundData(resolved.feed.aggregator).then((value) => parseRoundData(value, "price feed")),
-      this.assertFeedDecimals(request.chainId, resolved.feed, reader),
+      this.assertFeedMetadata(request.chainId, resolved.feed, reader),
     ]);
-    const [roundId, answer, , updatedAt] = roundData;
-    const observedAtMs = assertFreshPriceRound(roundId, answer, updatedAt, this.config.maxPriceAgeMs);
+    const [roundId, answer, startedAt, updatedAt] = roundData;
+    const observedAtMs = assertFreshPriceRound(
+      roundId,
+      answer,
+      startedAt,
+      updatedAt,
+      resolved.feed,
+      this.config.maxPriceAgeMs,
+      this.readCurrentTimeMs(),
+    );
     const midPrice = formatAnswer(answer, resolved.feed.decimals, resolved.invert);
 
     return tagMarketDataSnapshot({
@@ -88,7 +105,7 @@ export class ChainlinkMarketDataService implements MarketDataService {
     );
     if (answer !== 0n) throw new Error(`Chainlink sequencer is down on chain ${network.chainId}`);
     if (startedAt <= 0n) throw new Error(`Chainlink sequencer status is not initialized on chain ${network.chainId}`);
-    const nowSeconds = BigInt(Math.floor(Date.now() / 1_000));
+    const nowSeconds = BigInt(Math.floor(this.readCurrentTimeMs() / 1_000));
     if (startedAt > nowSeconds + maxFutureSkewSeconds) {
       throw new Error(`Chainlink sequencer status is from the future on chain ${network.chainId}`);
     }
@@ -97,23 +114,54 @@ export class ChainlinkMarketDataService implements MarketDataService {
     }
   }
 
-  private async assertFeedDecimals(chainId: number, feed: ChainlinkFeedConfig, reader: ChainlinkReader): Promise<void> {
+  private async assertNetworkChainId(network: ChainlinkNetworkConfig, reader: ChainlinkReader): Promise<void> {
+    let check = this.chainChecks.get(network.chainId);
+    if (!check) {
+      check = reader.readChainId().then((actual) => {
+        if (typeof actual !== "number" || !Number.isSafeInteger(actual) || actual !== network.chainId) {
+          throw new Error(`Chainlink RPC chain ID does not match configured chain ${network.chainId}`);
+        }
+      });
+      this.chainChecks.set(network.chainId, check);
+      void check.catch(() => this.chainChecks.delete(network.chainId));
+    }
+    await check;
+  }
+
+  private async assertFeedMetadata(chainId: number, feed: ChainlinkFeedConfig, reader: ChainlinkReader): Promise<void> {
     const key = `${chainId}:${feed.aggregator.toLowerCase()}`;
-    let decimals = this.decimalsByFeed.get(key);
-    if (!decimals) {
-      decimals = reader.readDecimals(feed.aggregator).then((value) => {
-        if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 18) {
+    let metadata = this.metadataByFeed.get(key);
+    if (!metadata) {
+      metadata = Promise.all([
+        reader.readDecimals(feed.aggregator),
+        reader.readDescription(feed.aggregator),
+      ]).then(([decimals, description]) => {
+        if (typeof decimals !== "number" || !Number.isSafeInteger(decimals) || decimals < 0 || decimals > 18) {
           throw new Error("Chainlink price feed returned invalid decimals");
         }
-        return value;
+        if (typeof description !== "string" || description.length === 0 || description.length > 128) {
+          throw new Error("Chainlink price feed returned invalid description");
+        }
+        return { decimals, description };
       });
-      this.decimalsByFeed.set(key, decimals);
-      void decimals.catch(() => this.decimalsByFeed.delete(key));
+      this.metadataByFeed.set(key, metadata);
+      void metadata.catch(() => this.metadataByFeed.delete(key));
     }
-    const actual = await decimals;
-    if (actual !== feed.decimals) {
-      throw new Error(`Chainlink price feed decimals mismatch: configured ${feed.decimals}, onchain ${actual}`);
+    const actual = await metadata;
+    if (actual.decimals !== feed.decimals) {
+      throw new Error(`Chainlink price feed decimals mismatch: configured ${feed.decimals}, onchain ${actual.decimals}`);
     }
+    if (actual.description !== feed.description) {
+      throw new Error("Chainlink price feed description does not match configured pair identity");
+    }
+  }
+
+  private readCurrentTimeMs(): number {
+    const value = this.now();
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      throw new Error("Chainlink market data clock must return a positive safe integer");
+    }
+    return value;
   }
 }
 
@@ -126,10 +174,16 @@ function createReader(network: ChainlinkNetworkConfig): ChainlinkReader {
   });
   const client = createPublicClient({ chain, transport: http(network.rpcUrl) });
   return {
+    readChainId: () => client.getChainId(),
     readDecimals: (address) => client.readContract({
       address,
       abi: chainlinkAggregatorV3Abi,
       functionName: "decimals",
+    }),
+    readDescription: (address) => client.readContract({
+      address,
+      abi: chainlinkAggregatorV3Abi,
+      functionName: "description",
     }),
     readLatestRoundData: (address) => client.readContract({
       address,
@@ -158,14 +212,28 @@ function parseRoundData(value: unknown, label: string): ChainlinkRoundData {
   return value as unknown as ChainlinkRoundData;
 }
 
-function assertFreshPriceRound(roundId: bigint, answer: bigint, updatedAt: bigint, maxPriceAgeMs: number): number {
+function assertFreshPriceRound(
+  roundId: bigint,
+  answer: bigint,
+  startedAt: bigint,
+  updatedAt: bigint,
+  feed: ChainlinkFeedConfig,
+  maxPriceAgeMs: number,
+  nowMs: number,
+): number {
   if (roundId <= 0n) throw new Error("Chainlink price feed returned an invalid round ID");
   if (answer <= 0n) throw new Error("Chainlink price feed returned a non-positive answer");
+  if (answer < BigInt(feed.minAnswer) || answer > BigInt(feed.maxAnswer)) {
+    throw new Error("Chainlink price feed answer is outside configured circuit-breaker bounds");
+  }
+  if (startedAt <= 0n || startedAt > updatedAt) {
+    throw new Error("Chainlink price feed returned an invalid round start timestamp");
+  }
   if (updatedAt <= 0n || updatedAt > BigInt(Math.floor(Number.MAX_SAFE_INTEGER / 1_000))) {
     throw new Error("Chainlink price feed returned an invalid update timestamp");
   }
   const observedAtMs = Number(updatedAt) * 1_000;
-  const ageMs = Date.now() - observedAtMs;
+  const ageMs = nowMs - observedAtMs;
   if (ageMs < -Number(maxFutureSkewSeconds) * 1_000) throw new Error("Chainlink price feed update is from the future");
   if (ageMs > maxPriceAgeMs) throw new Error("Chainlink price feed update is stale");
   return observedAtMs;

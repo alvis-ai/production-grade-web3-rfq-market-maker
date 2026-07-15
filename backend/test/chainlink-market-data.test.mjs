@@ -42,19 +42,55 @@ test("ChainlinkMarketDataService returns fresh direct and inverse prices using o
     assert.match(direct.snapshotId, /^snapshot_1_chainlink_/);
     assert.equal(inverse.midPrice, "0.0005");
     assert.notEqual(inverse.snapshotId, direct.snapshotId);
+    assert.equal(reader.chainIdReads, 1);
     assert.equal(reader.decimalReads, 1);
+    assert.equal(reader.descriptionReads, 1);
   });
 });
 
-test("ChainlinkMarketDataService rejects stale, future, non-positive, and decimals-mismatched feeds", async () => {
+test("ChainlinkMarketDataService rejects unsafe rounds and mismatched feed identity", async () => {
   await withFixedNow(nowSeconds * 1_000, async () => {
     await assert.rejects(serviceForRound(round(1n, BigInt(nowSeconds - 61))).getSnapshot(request), /stale/);
     await assert.rejects(serviceForRound(round(1n, BigInt(nowSeconds + 2))).getSnapshot(request), /future/);
     await assert.rejects(serviceForRound(round(0n, BigInt(nowSeconds))).getSnapshot(request), /non-positive/);
+    await assert.rejects(
+      serviceForRound(round(99n, BigInt(nowSeconds)), { minAnswer: "100", maxAnswer: "200" }).getSnapshot(request),
+      /circuit-breaker bounds/,
+    );
+    await assert.rejects(
+      serviceForRound(round(201n, BigInt(nowSeconds)), { minAnswer: "100", maxAnswer: "200" }).getSnapshot(request),
+      /circuit-breaker bounds/,
+    );
+    await assert.rejects(
+      serviceForRound(round(1n, BigInt(nowSeconds), 1n, 0n)).getSnapshot(request),
+      /round start timestamp/,
+    );
 
     const reader = new FakeReader(18, new Map([[aggregator, round(1n, BigInt(nowSeconds))]]));
     const service = new ChainlinkMarketDataService(validConfig(), () => reader);
     await assert.rejects(service.getSnapshot(request), /decimals mismatch/);
+
+    const wrongDescription = new FakeReader(
+      8,
+      new Map([[aggregator, round(1n, BigInt(nowSeconds))]]),
+      "BTC / USD",
+    );
+    await assert.rejects(
+      new ChainlinkMarketDataService(validConfig(), () => wrongDescription).getSnapshot(request),
+      /description does not match/,
+    );
+
+    const wrongChain = new FakeReader(
+      8,
+      new Map([[aggregator, round(1n, BigInt(nowSeconds))]]),
+      "TOKEN / USD",
+      2,
+    );
+    await assert.rejects(
+      new ChainlinkMarketDataService(validConfig(), () => wrongChain).getSnapshot(request),
+      /RPC chain ID does not match/,
+    );
+    assert.equal(wrongChain.readsByAddress.get(aggregator) ?? 0, 0);
   });
 });
 
@@ -72,7 +108,7 @@ test("ChainlinkMarketDataService enforces L2 sequencer status and recovery grace
     [aggregator, round(200_000_000n, BigInt(nowSeconds - 10))],
     [sequencer, round(1n, BigInt(nowSeconds - 100), 7n, BigInt(nowSeconds - 100))],
   ]);
-  const reader = new FakeReader(8, rounds);
+  const reader = new FakeReader(8, rounds, "TOKEN / USD", 8_453);
   const service = new ChainlinkMarketDataService(config, () => reader);
 
   await withFixedNow(nowSeconds * 1_000, async () => {
@@ -86,6 +122,29 @@ test("ChainlinkMarketDataService enforces L2 sequencer status and recovery grace
     const snapshot = await service.getSnapshot(l2Request);
     assert.equal(snapshot.midPrice, "2");
   });
+});
+
+test("ChainlinkMarketDataService retries chain identity after a transient RPC failure", async () => {
+  const reader = new FakeReader(8, new Map([
+    [aggregator, round(200_000_000_000n, BigInt(nowSeconds - 10), 42n)],
+  ]));
+  const readChainId = reader.readChainId.bind(reader);
+  reader.readChainId = async () => {
+    if (reader.chainIdReads === 0) {
+      reader.chainIdReads += 1;
+      throw new Error("temporary chain identity failure");
+    }
+    return readChainId();
+  };
+  const service = new ChainlinkMarketDataService(validConfig(), () => reader);
+
+  await withFixedNow(nowSeconds * 1_000, async () => {
+    await assert.rejects(service.getSnapshot(request), /temporary chain identity failure/);
+    const snapshot = await service.getSnapshot(request);
+    assert.equal(snapshot.midPrice, "2000");
+  });
+  assert.equal(reader.chainIdReads, 2);
+  assert.equal(reader.readsByAddress.get(aggregator), 1);
 });
 
 test("Chainlink config parser rejects ambiguous feeds and unsafe runtime config", () => {
@@ -117,7 +176,19 @@ test("Chainlink config parser rejects ambiguous feeds and unsafe runtime config"
 
   const credentialedRpc = structuredClone(config);
   credentialedRpc.networks[0].rpcUrl = "https://user:secret@rpc.example.com";
-  assert.throws(() => parseChainlinkMarketDataConfig(JSON.stringify(credentialedRpc)), /absolute HTTP/);
+  assert.throws(() => parseChainlinkMarketDataConfig(JSON.stringify(credentialedRpc)), /bounded HTTPS/);
+
+  const plaintextRemoteRpc = structuredClone(config);
+  plaintextRemoteRpc.networks[0].rpcUrl = "http://rpc.example.com/v1/key";
+  assert.throws(() => parseChainlinkMarketDataConfig(JSON.stringify(plaintextRemoteRpc)), /bounded HTTPS/);
+
+  const zeroAggregator = structuredClone(config);
+  zeroAggregator.networks[0].feeds[0].aggregator = `0x${"0".repeat(40)}`;
+  assert.throws(() => parseChainlinkMarketDataConfig(JSON.stringify(zeroAggregator)), /must not be zero/);
+
+  const invertedBounds = structuredClone(config);
+  invertedBounds.networks[0].feeds[0].minAnswer = invertedBounds.networks[0].feeds[0].maxAnswer;
+  assert.throws(() => parseChainlinkMarketDataConfig(JSON.stringify(invertedBounds)), /lower than maxAnswer/);
 });
 
 test("CachedMarketDataService always prefers the CEX overlay to the base provider cache", async () => {
@@ -188,7 +259,16 @@ function validConfig() {
       chainId: 1,
       networkType: "l1",
       rpcUrl: "https://rpc.example.com/v1/key",
-      feeds: [{ tokenIn, tokenOut, aggregator, decimals: 8, invert: false }],
+      feeds: [{
+        tokenIn,
+        tokenOut,
+        aggregator,
+        decimals: 8,
+        description: "TOKEN / USD",
+        minAnswer: "1",
+        maxAnswer: "1000000000000000",
+        invert: false,
+      }],
     }],
     referenceLiquidityUsd: "50000000",
     referenceVolatilityBps: 25,
@@ -196,9 +276,11 @@ function validConfig() {
   };
 }
 
-function serviceForRound(roundData) {
+function serviceForRound(roundData, feedOverrides = {}) {
   const reader = new FakeReader(8, new Map([[aggregator, roundData]]));
-  return new ChainlinkMarketDataService(validConfig(), () => reader);
+  const config = validConfig();
+  Object.assign(config.networks[0].feeds[0], feedOverrides);
+  return new ChainlinkMarketDataService(config, () => reader);
 }
 
 function round(answer, updatedAt, roundId = 1n, startedAt = updatedAt) {
@@ -217,17 +299,31 @@ function snapshot(id, midPrice) {
 }
 
 class FakeReader {
+  chainIdReads = 0;
   decimalReads = 0;
+  descriptionReads = 0;
   readsByAddress = new Map();
 
-  constructor(decimals, rounds) {
+  constructor(decimals, rounds, description = "TOKEN / USD", chainId = 1) {
     this.decimals = decimals;
     this.rounds = rounds;
+    this.description = description;
+    this.chainId = chainId;
+  }
+
+  async readChainId() {
+    this.chainIdReads += 1;
+    return this.chainId;
   }
 
   async readDecimals() {
     this.decimalReads += 1;
     return this.decimals;
+  }
+
+  async readDescription() {
+    this.descriptionReads += 1;
+    return this.description;
   }
 
   async readLatestRoundData(address) {

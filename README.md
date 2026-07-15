@@ -268,7 +268,19 @@ make analytics-integration-check
 
 Binance and Coinbase WebSocket handshakes have a ten-second deadline. A socket that remains in `CONNECTING` or emits an explicit error is closed, its local book is cleared, and reconnection uses bounded exponential backoff; a half-open connection cannot leave a required source unavailable forever.
 
-The base provider defaults to `static`. Set `RFQ_MARKET_DATA_PROVIDER=chainlink` with `RFQ_CHAINLINK_CONFIG_JSON` to read configured AggregatorV3 feeds. Every network declares `networkType` as `l1` or `l2`; L2 configurations must provide both a Sequencer Uptime Feed and recovery grace period, while L1 configurations reject sequencer fields. The backend rejects non-positive, future-dated, stale, malformed, or decimals-mismatched rounds and uses the oracle `updatedAt` as the snapshot observation time. CEX snapshots live in a separate higher-priority cache, so the fallback provider cannot overwrite a synchronized order book merely because its updater ran later.
+The base provider defaults to `static`. Set `RFQ_MARKET_DATA_PROVIDER=chainlink` with `RFQ_CHAINLINK_CONFIG_JSON` to read configured AggregatorV3 proxy feeds. Every feed requires the reviewed onchain `description`, `decimals`, and raw positive `minAnswer`/`maxAnswer` circuit-breaker bounds; a wrong proxy with compatible decimals cannot silently price another pair. Remote RPC transport must use HTTPS, with plaintext HTTP accepted only for a loopback fixture. Every network declares `networkType` as `l1` or `l2`; L2 configurations must provide both a Sequencer Uptime Feed and recovery grace period, while L1 configurations reject sequencer fields. The backend rejects non-positive, out-of-bound, future-dated, stale, malformed, metadata-mismatched rounds and uses the oracle `updatedAt` as the snapshot observation time. CEX snapshots live in a separate higher-priority cache, so the fallback provider cannot overwrite a synchronized order book merely because its updater ran later.
+
+Before enabling a Chainlink-backed pair or changing its RPC/proxy/bounds, run the read-only target canary from the exact release image or workspace. It loads the same `RFQ_CHAINLINK_CONFIG_JSON` as the API, selects one explicit chain/pair, proves the RPC chain ID before any feed read, reads both RFQ directions through the production service, and verifies feed metadata, circuit breakers, freshness and the L2 sequencer policy without creating a quote or transaction. The output contains only public feed/snapshot evidence and never the RPC URL or provider error:
+
+```sh
+RFQ_CHAINLINK_INTEGRATION_CONFIRM=read-live-oracle \
+RFQ_CHAINLINK_INTEGRATION_CHAIN_ID=11155111 \
+RFQ_CHAINLINK_INTEGRATION_TOKEN_IN=0x1111111111111111111111111111111111111111 \
+RFQ_CHAINLINK_INTEGRATION_TOKEN_OUT=0x2222222222222222222222222222222222222222 \
+make chainlink-integration-check
+```
+
+`make chainlink-canary-check` runs the deterministic L1/L2 fixture in CI and never contacts an RPC. A fixture pass does not replace the target-environment read.
 
 The opt-in live check opens the public Binance and Coinbase market-data streams without credentials and drives the production `CEXOrderBookMonitor` with a two-source quorum. It requires both full books to be synchronized and fresh, verifies cross-source deviation and spread bounds, requires `cex:binance+coinbase` snapshots in both RFQ directions, and proves that only Binance hedge depth contributes executable liquidity. The symbols default to the matching `ETHUSDT` and `ETH-USD` markets and can be overridden together for another shared base asset:
 

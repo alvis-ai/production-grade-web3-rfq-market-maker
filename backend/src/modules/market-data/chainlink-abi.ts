@@ -8,6 +8,13 @@ export const chainlinkAggregatorV3Abi = [
   },
   {
     type: "function",
+    name: "description",
+    inputs: [],
+    outputs: [{ type: "string", name: "description" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "latestRoundData",
     inputs: [],
     outputs: [

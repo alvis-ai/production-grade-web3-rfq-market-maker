@@ -171,7 +171,7 @@ Use path filters and caching to reduce CI time. Security gates still run on crit
 
 ## Testing Strategy
 
-本地 `make ci-check` 验证 workflow trigger、最小权限、完整 SHA pin、submodule checkout、Contract CI 的 Anvil settlement E2E、SBOM/provenance、受限容器运行时门禁、digest signing、Helm package 和 release manifest。`make container-runtime-check` 本地构建并在最终用户身份与文件系统限制下探测两个镜像。`make verify` 在本机同时存在 Foundry 与 Anvil 时执行同一真实结算门禁，并始终用 `make target-settlement-check` 验证 staging canary 的单广播、非重试和链/API 证据编排；release verifier 和 Contract CI 始终安装这些工具。`make deployment-check` 验证原始清单不存在 `:latest`，并验证每个 Helm Deployment 的 init container 与 runtime container 共用 digest-aware image helper。fixture 不能替代带专用低价值钱包的 `make target-settlement-integration-check`。发布流程仍需在受控 tag 上做一次真实 GHCR canary，随后在 staging 校验 Cosign identity、Helm `--atomic` rollback 和 smoke test。
+本地 `make ci-check` 验证 workflow trigger、最小权限、完整 SHA pin、submodule checkout、Contract CI 的 Anvil settlement E2E、SBOM/provenance、受限容器运行时门禁、digest signing、Helm package 和 release manifest。`make container-runtime-check` 本地构建并在最终用户身份与文件系统限制下探测两个镜像。`make verify` 在本机同时存在 Foundry 与 Anvil 时执行同一真实结算门禁，并始终运行 Chainlink L1/L2 target-read fixture 与 staging settlement fixture，验证 feed identity/answer bounds 以及单广播、非重试和链/API 证据编排；release verifier 和 Contract CI 始终安装这些工具。`make deployment-check` 验证原始清单不存在 `:latest`，并验证每个 Helm Deployment 的 init container 与 runtime container 共用 digest-aware image helper。fixture 不能替代目标环境的 `make chainlink-integration-check` 或带专用低价值钱包的 `make target-settlement-integration-check`。发布流程仍需在受控 tag 上做一次真实 GHCR canary，随后在 staging 校验 Cosign identity、Helm `--atomic` rollback 和 smoke test。
 
 ## Interview Notes
 

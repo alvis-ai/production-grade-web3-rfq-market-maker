@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check binance-testnet-check aws-kms-canary-check target-api-quote-check target-settlement-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check hedge-net-pnl-integration-check analytics-integration-check cex-orderbook-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check target-settlement-integration-check contract-deployment-integration-check settlement-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check cex-orderbook-check hedge-planning-check hedge-execution-check chainlink-canary-check binance-testnet-check aws-kms-canary-check target-api-quote-check target-settlement-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check hedge-net-pnl-integration-check analytics-integration-check cex-orderbook-integration-check chainlink-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check target-settlement-integration-check contract-deployment-integration-check settlement-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -46,6 +46,8 @@ help:
 	@echo "  reconciliation-integration-check  Verify durable repair and reorg replacement against PostgreSQL"
 	@echo "  analytics-integration-check  Verify PostgreSQL -> Redpanda -> ClickHouse against running dependencies"
 	@echo "  cex-orderbook-integration-check  Verify the live Binance + Coinbase Level-2 quorum"
+	@echo "  chainlink-integration-check  Read and verify one configured target Chainlink feed"
+	@echo "  chainlink-canary-check  Test the Chainlink target canary without contacting an RPC"
 	@echo "  binance-testnet-integration-check  Place and cancel one non-marketable Binance Spot Testnet order"
 	@echo "  binance-testnet-check  Test the Binance Spot Testnet canary with protocol fixtures"
 	@echo "  aws-kms-integration-check  Sign and recover one synthetic quote with the target AWS KMS key"
@@ -211,6 +213,12 @@ analytics-integration-check: backend-build
 
 cex-orderbook-integration-check: backend-build
 	@node scripts/cex-orderbook-integration-check.mjs
+
+chainlink-integration-check: backend-build
+	@node scripts/chainlink-integration-check.mjs
+
+chainlink-canary-check: backend-build
+	@node --test scripts/chainlink-integration-check.test.mjs
 
 binance-testnet-integration-check: backend-build
 	@node scripts/binance-testnet-integration-check.mjs

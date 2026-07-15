@@ -3584,6 +3584,24 @@ grep -q 'RFQ_CEX_INTEGRATION_BINANCE_SYMBOL' scripts/cex-orderbook-integration-c
 grep -q 'RFQ_CEX_INTEGRATION_COINBASE_SYMBOL' scripts/cex-orderbook-integration-check.mjs
 grep -q 'minSources: 2' scripts/cex-orderbook-integration-check.mjs
 grep -q 'cex:binance+coinbase' scripts/cex-orderbook-integration-check.mjs
+test -s scripts/chainlink-integration-check.mjs
+test -s scripts/chainlink-integration-check.test.mjs
+grep -q 'chainlink-integration-check: backend-build' Makefile
+grep -q 'chainlink-canary-check: backend-build' Makefile
+grep -q 'chainlink:integration:check' package.json
+grep -q 'chainlink:canary:check' package.json
+grep -q 'run_step make chainlink-canary-check' scripts/verify.sh
+grep -q 'RFQ_CHAINLINK_INTEGRATION_CONFIRM=read-live-oracle' README.md
+grep -q 'parseChainlinkMarketDataConfig' scripts/chainlink-integration-check.mjs
+grep -q 'ChainlinkMarketDataService' scripts/chainlink-integration-check.mjs
+grep -q 'readChainId' backend/src/modules/market-data/chainlink-market-data.service.ts
+grep -q 'Target Chainlink integration check failed' scripts/chainlink-integration-check.mjs
+grep -q 'scripts/chainlink-integration-check.mjs' infra/docker/backend.Dockerfile
+grep -q 'Chainlink Feed Integrity' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+grep -q 'description: string' backend/src/modules/market-data/chainlink-config.ts
+grep -q 'minAnswer: string' backend/src/modules/market-data/chainlink-config.ts
+grep -q 'maxAnswer: string' backend/src/modules/market-data/chainlink-config.ts
+grep -q 'circuit-breaker bounds' backend/src/modules/market-data/chainlink-market-data.service.ts
 grep -q 'reconcileSettlementToQuote' scripts/reconciliation-check.mjs
 grep -q 'reconcileSettlementToHedge' scripts/reconciliation-check.mjs
 grep -q 'reconcileSettlementToPnl' scripts/reconciliation-check.mjs

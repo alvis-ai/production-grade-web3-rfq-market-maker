@@ -5,6 +5,9 @@ export interface ChainlinkFeedConfig {
   tokenOut: Address;
   aggregator: Address;
   decimals: number;
+  description: string;
+  minAnswer: string;
+  maxAnswer: string;
   invert: boolean;
 }
 
@@ -27,7 +30,10 @@ export interface ChainlinkMarketDataConfig {
 const configFields = ["networks", "referenceLiquidityUsd", "referenceVolatilityBps", "maxPriceAgeMs"] as const;
 const networkRequiredFields = ["chainId", "networkType", "rpcUrl", "feeds"] as const;
 const networkOptionalFields = ["sequencerUptimeFeed", "sequencerGracePeriodSeconds"] as const;
-const feedFields = ["tokenIn", "tokenOut", "aggregator", "decimals", "invert"] as const;
+const feedFields = [
+  "tokenIn", "tokenOut", "aggregator", "decimals", "description", "minAnswer", "maxAnswer", "invert",
+] as const;
+const maxInt256 = (1n << 255n) - 1n;
 
 export function parseChainlinkMarketDataConfig(value: string): ChainlinkMarketDataConfig {
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -109,7 +115,7 @@ function assertNetworkConfig(value: unknown): asserts value is ChainlinkNetworkC
     throw new Error("Chainlink L1 network must not configure a sequencer uptime feed");
   }
   if (hasSequencerFeed) {
-    assertAddress(value.sequencerUptimeFeed, "Chainlink network config.sequencerUptimeFeed");
+    assertNonZeroAddress(value.sequencerUptimeFeed, "Chainlink network config.sequencerUptimeFeed");
     assertInteger(value.sequencerGracePeriodSeconds, 1, 86_400, "Chainlink network config.sequencerGracePeriodSeconds");
   }
 
@@ -128,28 +134,43 @@ function assertNetworkConfig(value: unknown): asserts value is ChainlinkNetworkC
 function assertFeedConfig(value: unknown): asserts value is ChainlinkFeedConfig {
   assertRecord(value, "Chainlink feed config");
   assertExactFields(value, feedFields, [], "Chainlink feed config");
-  assertAddress(value.tokenIn, "Chainlink feed config.tokenIn");
-  assertAddress(value.tokenOut, "Chainlink feed config.tokenOut");
+  assertNonZeroAddress(value.tokenIn, "Chainlink feed config.tokenIn");
+  assertNonZeroAddress(value.tokenOut, "Chainlink feed config.tokenOut");
   if (value.tokenIn.toLowerCase() === value.tokenOut.toLowerCase()) {
     throw new Error("Chainlink feed token pair must contain distinct tokens");
   }
-  assertAddress(value.aggregator, "Chainlink feed config.aggregator");
+  assertNonZeroAddress(value.aggregator, "Chainlink feed config.aggregator");
   assertInteger(value.decimals, 0, 18, "Chainlink feed config.decimals");
+  assertDescription(value.description);
+  assertPositiveInt256String(value.minAnswer, "Chainlink feed config.minAnswer");
+  assertPositiveInt256String(value.maxAnswer, "Chainlink feed config.maxAnswer");
+  if (BigInt(value.minAnswer) >= BigInt(value.maxAnswer)) {
+    throw new Error("Chainlink feed config.minAnswer must be lower than maxAnswer");
+  }
   if (typeof value.invert !== "boolean") throw new Error("Chainlink feed config.invert must be a boolean");
 }
 
 function assertRpcUrl(value: unknown): void {
   if (typeof value !== "string" || value.length > 2_048 || value.trim() !== value) {
-    throw new Error("Chainlink network config.rpcUrl must be a bounded absolute HTTP(S) URL");
+    throw invalidRpcUrl();
   }
   try {
     const parsed = new URL(value);
-    if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || !parsed.hostname || parsed.username || parsed.password) {
+    const loopback = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "::1" || parsed.hostname === "[::1]";
+    if ((parsed.protocol !== "https:" && !(parsed.protocol === "http:" && loopback)) || !parsed.hostname ||
+        parsed.username || parsed.password || parsed.hash || parsed.hostname.includes("*")) {
       throw new Error();
     }
   } catch {
-    throw new Error("Chainlink network config.rpcUrl must be a bounded absolute HTTP(S) URL");
+    throw invalidRpcUrl();
   }
+}
+
+function invalidRpcUrl(): Error {
+  return new Error(
+    "Chainlink network config.rpcUrl must be a bounded HTTPS URL or loopback HTTP URL without credentials, wildcard, or fragment",
+  );
 }
 
 function assertRecord(value: unknown, label: string): asserts value is Record<string, unknown> {
@@ -179,6 +200,25 @@ function assertExactFields(
 function assertAddress(value: unknown, label: string): asserts value is Address {
   if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
     throw new Error(`${label} must be a 20-byte hex address`);
+  }
+}
+
+function assertNonZeroAddress(value: unknown, label: string): asserts value is Address {
+  assertAddress(value, label);
+  if (/^0x0{40}$/i.test(value)) throw new Error(`${label} must not be zero`);
+}
+
+function assertDescription(value: unknown): asserts value is string {
+  if (typeof value !== "string" || value.length === 0 || value.length > 128 || value.trim() !== value ||
+      !/^[\x20-\x7e]+$/.test(value)) {
+    throw new Error("Chainlink feed config.description must be a bounded printable ASCII string");
+  }
+}
+
+function assertPositiveInt256String(value: unknown, label: string): asserts value is string {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value) || value.length > 77 ||
+      BigInt(value) > maxInt256) {
+    throw new Error(`${label} must be a canonical positive int256 string`);
   }
 }
 

@@ -9,6 +9,7 @@ const tokenIn = "0x0000000000000000000000000000000000000002";
 const tokenOut = "0x0000000000000000000000000000000000000003";
 const aggregator = "0x0000000000000000000000000000000000000004";
 const decimalsSelector = toFunctionSelector("decimals()");
+const descriptionSelector = toFunctionSelector("description()");
 const latestRoundSelector = toFunctionSelector("latestRoundData()");
 
 test("RFQ API uses configured Chainlink rounds through quote, persistence, and readiness", async () => {
@@ -25,7 +26,16 @@ test("RFQ API uses configured Chainlink rounds through quote, persistence, and r
       chainId: 1,
       networkType: "l1",
       rpcUrl: `http://127.0.0.1:${rpcAddress.port}`,
-      feeds: [{ tokenIn, tokenOut, aggregator, decimals: 8, invert: false }],
+      feeds: [{
+        tokenIn,
+        tokenOut,
+        aggregator,
+        decimals: 8,
+        description: "TOKEN / USD",
+        minAnswer: "50000000",
+        maxAnswer: "200000000",
+        invert: false,
+      }],
     }],
     referenceLiquidityUsd: "50000000",
     referenceVolatilityBps: 25,
@@ -62,6 +72,7 @@ test("RFQ API uses configured Chainlink rounds through quote, persistence, and r
     assert.equal(JSON.parse(readiness.payload).components.marketData, "ok");
     assert.ok(rpc.calls.latestRoundData >= 1);
     assert.ok(rpc.calls.decimals >= 1);
+    assert.ok(rpc.calls.description >= 1);
   } finally {
     await server.close();
     await close(rpc.server);
@@ -72,7 +83,7 @@ test("RFQ API uses configured Chainlink rounds through quote, persistence, and r
 });
 
 function createRpcServer() {
-  const calls = { decimals: 0, latestRoundData: 0 };
+  const calls = { decimals: 0, description: 0, latestRoundData: 0 };
   const server = http.createServer(async (request, response) => {
     try {
       const payload = JSON.parse(await readBody(request));
@@ -96,6 +107,10 @@ function rpcResponse(request, calls) {
   if (data === decimalsSelector) {
     calls.decimals += 1;
     return success(request.id, encodeAbiParameters([{ type: "uint8" }], [8]));
+  }
+  if (data === descriptionSelector) {
+    calls.description += 1;
+    return success(request.id, encodeAbiParameters([{ type: "string" }], ["TOKEN / USD"]));
   }
   if (data === latestRoundSelector) {
     calls.latestRoundData += 1;
