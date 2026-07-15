@@ -12,6 +12,7 @@ const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const localEIP712SignerConfigFields = ["privateKey", "settlementAddress"] as const;
 const signQuoteInputFields = ["quote", "quoteId", "snapshotId"] as const;
+const signQuoteAuthorizationFields = ["riskDecisionId", "riskPolicyVersion", "traceId"] as const;
 const signedQuoteFields = [
   "user",
   "tokenIn",
@@ -42,6 +43,15 @@ export interface SignQuoteInput {
   quote: SignedQuote;
   quoteId: string;
   snapshotId: string;
+  riskDecisionId?: string;
+  riskPolicyVersion?: string;
+  traceId?: string;
+}
+
+export interface AuthorizedSignQuoteInput extends SignQuoteInput {
+  riskDecisionId: string;
+  riskPolicyVersion: string;
+  traceId: string;
 }
 
 export interface SignerService {
@@ -192,9 +202,34 @@ export function buildQuoteTypedData(quote: SignedQuote, settlementAddress: `0x${
 export function assertSignQuoteInput(input: SignQuoteInput): void {
   assertObject(input, "input");
   assertOwnFields(input, signQuoteInputFields, "input");
+  const allowedFields = new Set<string>([...signQuoteInputFields, ...signQuoteAuthorizationFields]);
+  const unknownField = Object.keys(input).find((field) => !allowedFields.has(field));
+  if (unknownField) throw new Error(`Signer input contains unknown field ${unknownField}`);
   assertSafeIdentifier(input.quoteId, "quoteId");
   assertSafeIdentifier(input.snapshotId, "snapshotId");
   assertSignedQuote(input.quote);
+  const authorizationFieldsPresent = signQuoteAuthorizationFields.filter((field) => field in input);
+  if (authorizationFieldsPresent.length !== 0 && authorizationFieldsPresent.length !== signQuoteAuthorizationFields.length) {
+    throw new Error("Signer authorization context must be provided in full");
+  }
+  if (authorizationFieldsPresent.length === signQuoteAuthorizationFields.length) {
+    assertOwnFields(input, signQuoteAuthorizationFields, "input");
+    assertSafeIdentifier(input.riskDecisionId, "riskDecisionId");
+    assertSafeVersion(input.riskPolicyVersion);
+    assertTraceId(input.traceId);
+    if (input.riskDecisionId !== `rd_${input.quoteId}`) {
+      throw new Error("Signer riskDecisionId must match quoteId");
+    }
+  }
+}
+
+export function assertAuthorizedSignQuoteInput(
+  input: SignQuoteInput,
+): asserts input is AuthorizedSignQuoteInput {
+  assertSignQuoteInput(input);
+  if (signQuoteAuthorizationFields.some((field) => !Object.prototype.hasOwnProperty.call(input, field))) {
+    throw new Error("Signer authorization context is required");
+  }
 }
 
 export function assertSignedQuote(quote: SignedQuote): void {
@@ -254,7 +289,10 @@ export function assertSignature(value: string): void {
   }
 }
 
-function assertSafeIdentifier(value: unknown, field: "quoteId" | "snapshotId"): void {
+function assertSafeIdentifier(
+  value: unknown,
+  field: "quoteId" | "snapshotId" | "riskDecisionId",
+): void {
   if (typeof value !== "string") {
     throw new Error(`Signer ${field} must be a primitive string`);
   }
@@ -266,6 +304,20 @@ function assertSafeIdentifier(value: unknown, field: "quoteId" | "snapshotId"): 
   }
   if (!safeIdentifierPattern.test(value)) {
     throw new Error(`Signer ${field} must contain only letters, numbers, underscore, colon, or hyphen`);
+  }
+}
+
+function assertSafeVersion(value: unknown): void {
+  if (typeof value !== "string" || value.length === 0 || value.length > maxSafeIdentifierLength ||
+      !/^[A-Za-z0-9_.:-]+$/.test(value)) {
+    throw new Error("Signer riskPolicyVersion must be a safe version identifier");
+  }
+}
+
+function assertTraceId(value: unknown): void {
+  if (typeof value !== "string" || value.length > maxSafeIdentifierLength ||
+      !/^tr_[A-Za-z0-9._:-]+$/.test(value)) {
+    throw new Error("Signer traceId must be a safe trace identifier");
   }
 }
 

@@ -2,7 +2,7 @@
 set -eu
 
 gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
-quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts"
+quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts"
 sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts"
 
 test -s package.json
@@ -94,6 +94,7 @@ test -s backend/src/db/migrations/024-hedge-net-pnl.sql
 test -s backend/src/db/migrations/025-bounded-hedge-limit.sql
 test -s backend/src/db/migrations/026-hedge-order-expiry.sql
 test -s backend/src/db/migrations/027-signer-audit.sql
+test -s backend/src/db/migrations/028-signer-risk-context.sql
 test -s backend/src/modules/signer/signer-audit.store.ts
 test -s backend/test/signer-audit-store.test.mjs
 test -s backend/src/modules/hedge/hedge-net-pnl.ts
@@ -298,6 +299,7 @@ test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/quote/quote-service-contract.ts
 test -s backend/src/modules/quote/quote-service-errors.ts
 test -s backend/src/modules/quote/quote-service-result-validation.ts
+test -s backend/src/modules/quote/quote-risk-decision.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
 grep -q 'checkHealth' backend/src/modules/quote/quote.repository.ts
@@ -324,7 +326,7 @@ grep -q 'assertSafeIdentifier(buildRiskDecisionId(input.quoteId), "riskDecisionI
 grep -q 'assertSafeIdentifier(quoteId, "quoteId")' backend/src/modules/risk/risk-decision.repository.ts
 grep -q 'Risk decision ${field} must be a primitive string' backend/src/modules/risk/risk-decision.repository.ts
 grep -q 'riskDecisionStore: RiskDecisionStore' $quote_service_sources
-grep -q 'await this.saveRiskDecision' $quote_service_sources
+grep -q 'persistQuoteRiskDecision' $quote_service_sources
 grep -q 'riskDecisionStoreStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'riskDecisionStore' backend/src/modules/metrics/metrics.service.ts
 grep -q 'InMemoryRiskDecisionRepository stores idempotent approved and rejected decisions' backend/test/risk-decision.test.mjs

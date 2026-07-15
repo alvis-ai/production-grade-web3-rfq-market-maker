@@ -110,6 +110,10 @@ const signerAuditMigrationSource = await readFile(
   "backend/src/db/migrations/027-signer-audit.sql",
   "utf8",
 );
+const signerRiskContextMigrationSource = await readFile(
+  "backend/src/db/migrations/028-signer-risk-context.sql",
+  "utf8",
+);
 const signerAuditStoreSource = await readFile(
   "backend/src/modules/signer/signer-audit.store.ts",
   "utf8",
@@ -1638,8 +1642,12 @@ assert.ok(
     signerAuditMigrationSource.includes("chk_signer_audit_signature_hash") &&
     signerAuditMigrationSource.includes("idx_signer_audit_quote") &&
     signerAuditStoreSource.includes("INSERT INTO signer_audit_events") &&
-    signerAuditStoreSource.includes("SELECT to_regclass('public.signer_audit_events')") &&
+    signerAuditStoreSource.includes("FROM pg_attribute") &&
     schemaSource.includes("('027', 'signer-audit')") &&
+    signerRiskContextMigrationSource.includes("chk_signer_audit_risk_context") &&
+    signerRiskContextMigrationSource.includes("idx_signer_audit_risk_decision") &&
+    signerAuditStoreSource.includes("risk_decision_id") &&
+    schemaSource.includes("('028', 'signer-risk-context')") &&
     erDiagramSource.includes("SIGNER_AUDIT_EVENTS") &&
     erDiagramSource.includes("append-only evidence"),
   "signer audit migration, store, and docs must preserve fail-closed append-only signing evidence",

@@ -41,6 +41,7 @@ export interface QuoteServiceConfig {
 export interface QuoteAccessContext {
   principalId: string;
   idempotencyKey?: string;
+  traceId?: string;
 }
 
 export interface SubmittableQuoteOptions {
@@ -67,7 +68,8 @@ const quoteServiceDepsFields = [
   "signerService",
 ] as const;
 const quoteAccessContextFields = ["principalId"] as const;
-const quoteAccessContextOptionalFields = ["idempotencyKey"] as const;
+const quoteAccessContextOptionalFields = ["idempotencyKey", "traceId"] as const;
+const traceIdPattern = /^tr_[A-Za-z0-9._:-]+$/;
 
 export function normalizeQuoteServiceConfig(config: QuoteServiceConfig): QuoteServiceConfig {
   assertRecord(config, "config");
@@ -88,6 +90,7 @@ export function normalizeQuoteAccessContext(context: QuoteAccessContext | undefi
   assertRecord(value, "access context");
   assertOwnFields(value, quoteAccessContextFields, "access context");
   assertOptionalOwnField(value, "idempotencyKey", "access context");
+  assertOptionalOwnField(value, "traceId", "access context");
   const allowedFields = new Set<string>([...quoteAccessContextFields, ...quoteAccessContextOptionalFields]);
   const unknownField = Object.keys(value).find((field) => !allowedFields.has(field));
   if (unknownField) throw new Error(`Quote service access context contains unknown field ${unknownField}`);
@@ -95,9 +98,14 @@ export function normalizeQuoteAccessContext(context: QuoteAccessContext | undefi
   if (value.idempotencyKey !== undefined && typeof value.idempotencyKey !== "string") {
     throw new Error("Quote service access context.idempotencyKey must be a string when provided");
   }
+  if (value.traceId !== undefined &&
+      (typeof value.traceId !== "string" || value.traceId.length > 128 || !traceIdPattern.test(value.traceId))) {
+    throw new Error("Quote service access context.traceId must be a safe trace identifier when provided");
+  }
   return {
     principalId: value.principalId,
     ...(value.idempotencyKey === undefined ? {} : { idempotencyKey: value.idempotencyKey }),
+    ...(value.traceId === undefined ? {} : { traceId: value.traceId }),
   };
 }
 

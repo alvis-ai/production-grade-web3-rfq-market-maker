@@ -2,7 +2,7 @@ import { recoverTypedDataAddress } from "viem";
 import { APIError } from "../../shared/errors/api-error.js";
 import type { SignedQuote } from "../../shared/types/rfq.js";
 import {
-  assertSignQuoteInput,
+  assertAuthorizedSignQuoteInput,
   assertSignature,
   assertSignedQuote,
   buildQuoteTypedData,
@@ -53,7 +53,7 @@ export class RemoteSignerService implements SignerService {
   }
 
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
-    assertSignQuoteInput(input);
+    assertAuthorizedSignQuoteInput(input);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
     timeout.unref();

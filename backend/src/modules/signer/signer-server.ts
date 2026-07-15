@@ -6,9 +6,10 @@ import type { TokenRegistry } from "../pricing/token-registry.js";
 import { requireTokenMetadata } from "../pricing/token-registry.js";
 import type { TokenLimitRiskPolicy, TokenRiskLimit } from "../risk/token-limit-risk.engine.js";
 import {
-  assertSignQuoteInput,
+  assertAuthorizedSignQuoteInput,
   assertSignature,
   buildQuoteTypedData,
+  type AuthorizedSignQuoteInput,
   type SignQuoteInput,
   type SignerService,
 } from "./signer.service.js";
@@ -127,10 +128,11 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
       metrics.record("auth_rejected", now());
       return reply.code(401).send({ error: "unauthorized" });
     }
-    let input: SignQuoteInput;
+    let input: AuthorizedSignQuoteInput;
     try {
-      input = request.body as SignQuoteInput;
-      assertSignQuoteInput(input);
+      const requestInput = request.body as SignQuoteInput;
+      assertAuthorizedSignQuoteInput(requestInput);
+      input = requestInput;
       assertSigningEnvelope(input, options.tokenRegistry, enabledChains, limits, config, now());
     } catch {
       metrics.record("invalid", now());
@@ -205,7 +207,7 @@ async function verifyReadiness(
 }
 
 function buildAuditEvent(
-  input: SignQuoteInput,
+  input: AuthorizedSignQuoteInput,
   config: SignerServerConfig,
   quoteDigest: `0x${string}`,
   outcome: "success" | "signer_error",
@@ -215,6 +217,9 @@ function buildAuditEvent(
   const event: SignerAuditEvent = {
     quoteId: input.quoteId,
     snapshotId: input.snapshotId,
+    riskDecisionId: input.riskDecisionId,
+    riskPolicyVersion: input.riskPolicyVersion,
+    traceId: input.traceId,
     quoteDigest,
     signerAddress: config.trustedSignerAddress,
     settlementAddress: config.settlementAddress,
@@ -240,7 +245,7 @@ async function appendAuditBestEffort(
 }
 
 function assertSigningEnvelope(
-  input: SignQuoteInput,
+  input: AuthorizedSignQuoteInput,
   registry: TokenRegistry,
   enabledChains: ReadonlySet<number>,
   limits: ReadonlyMap<string, TokenRiskLimit>,

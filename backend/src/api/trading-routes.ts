@@ -272,6 +272,7 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
 
       const response = await quoteService.createQuote(quoteRequest, {
         principalId: principal?.principalId ?? localPrincipalId,
+        traceId: requestTraceId(request),
         ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
       });
       metricsService.recordQuoteResponse();

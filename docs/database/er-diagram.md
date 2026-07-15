@@ -452,7 +452,7 @@ erDiagram
 - `execution_policy_version='bounded-limit-v1'` 在首次外部提交前冻结 raw step、`LIMIT GTC`、由 signed quote 经济性推导的买入上限或卖出下限、price tick 和最大滑点。数据库要求 limit price 正数且严格落在 tick 上；迁移前已经提交的订单保留 NULL 策略并只允许 query-first 对账，不能回填成并未实际采用的限价策略。
 - 同一执行策略还冻结 `execution_max_order_age_ms`。worker 只在 PostgreSQL `now()` 判定挂单到期后写入 `cancel_requested_at` 并调用 venue cancel；该时间戳是可恢复的外部副作用意图，不是取消成功证据。迁移 026 不为已经提交的旧订单补造过期策略，这些订单继续 query-only 对账。
 - `quotes.snapshot_id` 使用索引支持报价回放；nullable status pointers 使用 partial indexes，只索引非空的 `settlement_event_id`、`hedge_order_id` 和 `pnl_id`，支持审计 join 和 reconciliation 查询，同时避免大量未成交 quote 的空指针污染索引。
-- `signer_audit_events` 是独立 signer 的 append-only evidence。`quote_id` 与 `snapshot_id` 是逻辑关联键而非外键，使同一契约可以部署到隔离审计库并避免 signer 获得业务表权限。成功行保存 EIP-712 digest 与 signature hash，失败行不保存 signature hash；原始 signature、用户数量、token、认证信息和原始错误均不进入该表。
+- `signer_audit_events` 是独立 signer 的 append-only evidence。`quote_id` 与 `snapshot_id` 是逻辑关联键而非外键，使同一契约可以部署到隔离审计库并避免 signer 获得业务表权限。Migration 028 的 context version 2 要求 `risk_decision_id=rd_ || quote_id`，并同时保存有界 `risk_policy_version` 与 `trace_id`；migration 027 的历史行明确保留为 context version 1 且三个字段均为空。成功行保存 EIP-712 digest 与 signature hash，失败行不保存 signature hash；原始 signature、用户数量、token、认证信息和原始错误均不进入该表。
 - 所有带 `chain_id` 的操作表都使用 CHECK constraint 限制为 JavaScript safe integer range `1..9007199254740991`，与后端、SDK 和 OpenAPI 的 `chainId` 契约一致，避免数据库保存无法被运行时代码安全表示的链 ID。
 - `quotes.tx_hash` 是状态查询冗余字段，用于快速展示链上交易哈希；权威成交事件仍由 `settlement_events` 和 `quote_hash` 绑定。
 - `risk_decisions.policy_version` 用于解释风控变更后的历史行为，必须是非空字符串；`reason_code` 只允许出现在 rejected decision 上，approved decision 必须保持 NULL，且 rejected reason 必须来自后端 `RiskRejectReasonCode` 稳定枚举，包括市场流动性不足、波动率越界、USD 单笔名义金额超限、活动用户/交易对累计名义金额超限和缺少可信 USD reference 的 fail-closed 决策。

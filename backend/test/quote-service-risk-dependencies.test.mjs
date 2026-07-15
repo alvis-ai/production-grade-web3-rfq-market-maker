@@ -65,6 +65,56 @@ test("QuoteService persists approved and rejected risk decisions before signer b
   assert.equal(rejectedDecision.policyVersion, "basic-risk-v1");
 });
 
+test("QuoteService binds the persisted risk decision and request trace to signing", async () => {
+  let signerInput;
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    signerService: {
+      async signQuote(input) {
+        signerInput = input;
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() { return true; },
+    },
+  });
+
+  const quote = await service.createQuote(request, {
+    principalId: "principal_test",
+    traceId: "tr_external_42",
+  });
+  assert.equal(signerInput.quoteId, quote.quoteId);
+  assert.equal(signerInput.snapshotId, quote.snapshotId);
+  assert.equal(signerInput.riskDecisionId, `rd_${quote.quoteId}`);
+  assert.equal(signerInput.riskPolicyVersion, "basic-risk-v1");
+  assert.equal(signerInput.traceId, "tr_external_42");
+});
+
+test("QuoteService blocks signing when persisted risk evidence is malformed", async () => {
+  let signAttempts = 0;
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    riskDecisionStore: {
+      async saveDecision(input) {
+        return {
+          riskDecisionId: "rd_other",
+          quoteId: input.quoteId,
+          decision: input.decision.status,
+          policyVersion: input.decision.policyVersion,
+          createdAt: new Date().toISOString(),
+        };
+      },
+      async findByQuoteId() { return undefined; },
+    },
+    signerService: {
+      async signQuote() { signAttempts += 1; return fixedSignature(); },
+      async verifyQuoteSignature() { return true; },
+    },
+  });
+
+  await assert.rejects(service.createQuote(request), (error) => error?.code === "QUOTE_STORE_UNAVAILABLE");
+  assert.equal(signAttempts, 0);
+});
+
 test("QuoteService fails closed on malformed risk engine decisions before signing", async () => {
   const approvedWithInheritedReason = Object.assign(Object.create({ reasonCode: "SLIPPAGE_TOO_WIDE" }), {
     status: "approved",

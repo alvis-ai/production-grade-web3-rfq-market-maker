@@ -1,5 +1,12 @@
 import pg from "pg";
-import type { RiskDecisionRecord, SaveRiskDecisionInput, RiskDecisionStore } from "./risk-decision.repository.js";
+import {
+  assertRiskDecisionInput,
+  assertRiskDecisionQuoteId,
+  assertRiskDecisionRecord,
+  type RiskDecisionRecord,
+  type SaveRiskDecisionInput,
+  type RiskDecisionStore,
+} from "./risk-decision.repository.js";
 
 export class PostgresRiskDecisionStore implements RiskDecisionStore {
   private readonly pool: pg.Pool;
@@ -18,10 +25,11 @@ export class PostgresRiskDecisionStore implements RiskDecisionStore {
   }
 
   async saveDecision(input: SaveRiskDecisionInput): Promise<RiskDecisionRecord> {
-    const quoteId = assertNonEmptyString(input.quoteId, "quoteId");
+    assertRiskDecisionInput(input);
+    const quoteId = input.quoteId;
     const decision = input.decision.status;
     const reasonCode = input.decision.status === "rejected" ? input.decision.reasonCode : null;
-    const policyVersion = assertNonEmptyString(input.decision.policyVersion, "policyVersion");
+    const policyVersion = input.decision.policyVersion;
     const riskDecisionId = `rd_${quoteId}`;
 
     const client = await this.pool.connect();
@@ -29,29 +37,29 @@ export class PostgresRiskDecisionStore implements RiskDecisionStore {
       const result = await client.query(
         `INSERT INTO risk_decisions (id, quote_id, decision, reason_code, policy_version, created_at)
          VALUES ($1, $2, $3, $4, $5, now())
-         ON CONFLICT (id) DO UPDATE SET
-           decision = EXCLUDED.decision,
-           reason_code = EXCLUDED.reason_code,
-           policy_version = EXCLUDED.policy_version
+         ON CONFLICT (id) DO NOTHING
          RETURNING id, quote_id, decision, reason_code, policy_version, created_at`,
         [riskDecisionId, quoteId, decision, reasonCode, policyVersion],
       );
-
-      const row = result.rows[0];
-      return {
-        riskDecisionId: row.id,
-        quoteId: row.quote_id,
-        decision: row.decision,
-        reasonCode: row.reason_code ?? undefined,
-        policyVersion: row.policy_version,
-        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
-      };
+      const row = result.rows[0] ?? (await client.query(
+        `SELECT id, quote_id, decision, reason_code, policy_version, created_at
+         FROM risk_decisions WHERE id = $1`,
+        [riskDecisionId],
+      )).rows[0];
+      const record = parseRiskDecisionRecord(row);
+      try {
+        assertRiskDecisionRecord(record, input);
+      } catch {
+        throw new Error(`Risk decision conflict for ${quoteId}`);
+      }
+      return record;
     } finally {
       client.release();
     }
   }
 
   async findByQuoteId(quoteId: string): Promise<RiskDecisionRecord | undefined> {
+    assertRiskDecisionQuoteId(quoteId);
     const client = await this.pool.connect();
     try {
       const result = await client.query(
@@ -60,24 +68,26 @@ export class PostgresRiskDecisionStore implements RiskDecisionStore {
       );
       if (!result.rowCount) return undefined;
 
-      const row = result.rows[0];
-      return {
-        riskDecisionId: row.id,
-        quoteId: row.quote_id,
-        decision: row.decision,
-        reasonCode: row.reason_code ?? undefined,
-        policyVersion: row.policy_version,
-        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
-      };
+      return parseRiskDecisionRecord(result.rows[0]);
     } finally {
       client.release();
     }
   }
 }
 
-function assertNonEmptyString(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`Postgres risk decision ${field} must be a non-empty string`);
+function parseRiskDecisionRecord(row: unknown): RiskDecisionRecord {
+  if (typeof row !== "object" || row === null || Array.isArray(row)) {
+    throw new Error("Postgres risk decision query returned an invalid row");
   }
-  return value.trim();
+  const value = row as Record<string, unknown>;
+  const record: RiskDecisionRecord = {
+    riskDecisionId: value.id as string,
+    quoteId: value.quote_id as string,
+    decision: value.decision as RiskDecisionRecord["decision"],
+    ...(value.reason_code == null ? {} : { reasonCode: value.reason_code as RiskDecisionRecord["reasonCode"] }),
+    policyVersion: value.policy_version as string,
+    createdAt: value.created_at instanceof Date ? value.created_at.toISOString() : String(value.created_at),
+  };
+  assertRiskDecisionRecord(record);
+  return record;
 }

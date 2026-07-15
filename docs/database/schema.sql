@@ -1907,6 +1907,10 @@ CREATE TABLE signer_audit_events (
   id BIGSERIAL PRIMARY KEY,
   quote_id VARCHAR(128) NOT NULL,
   snapshot_id VARCHAR(128) NOT NULL,
+  context_version SMALLINT NOT NULL DEFAULT 1,
+  risk_decision_id VARCHAR(128),
+  risk_policy_version VARCHAR(128),
+  trace_id VARCHAR(128),
   quote_digest BYTEA NOT NULL,
   signature_hash BYTEA,
   signer_address CHAR(42) NOT NULL,
@@ -1918,6 +1922,22 @@ CREATE TABLE signer_audit_events (
   recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
   CONSTRAINT chk_signer_audit_quote_id CHECK (quote_id ~ '^[A-Za-z0-9_:-]{1,128}$'),
   CONSTRAINT chk_signer_audit_snapshot_id CHECK (snapshot_id ~ '^[A-Za-z0-9_:-]{1,128}$'),
+  CONSTRAINT chk_signer_audit_context_version CHECK (context_version IN (1, 2)),
+  CONSTRAINT chk_signer_audit_risk_context CHECK (
+    (context_version = 1
+      AND risk_decision_id IS NULL
+      AND risk_policy_version IS NULL
+      AND trace_id IS NULL)
+    OR
+    (context_version = 2
+      AND risk_decision_id IS NOT NULL
+      AND risk_policy_version IS NOT NULL
+      AND trace_id IS NOT NULL
+      AND risk_decision_id = 'rd_' || quote_id
+      AND risk_decision_id ~ '^[A-Za-z0-9_:-]{1,128}$'
+      AND risk_policy_version ~ '^[A-Za-z0-9_.:-]{1,128}$'
+      AND trace_id ~ '^tr_[A-Za-z0-9._:-]{1,125}$')
+  ),
   CONSTRAINT chk_signer_audit_quote_digest CHECK (octet_length(quote_digest) = 32),
   CONSTRAINT chk_signer_audit_signature_hash CHECK (
     (outcome = 'success' AND octet_length(signature_hash) = 32)
@@ -1941,6 +1961,10 @@ CREATE INDEX idx_signer_audit_quote
 
 CREATE INDEX idx_signer_audit_recorded
   ON signer_audit_events (recorded_at DESC, id DESC);
+
+CREATE INDEX idx_signer_audit_risk_decision
+  ON signer_audit_events (risk_decision_id, occurred_at DESC, id DESC)
+  WHERE risk_decision_id IS NOT NULL;
 
 CREATE TABLE _migrations (
   version TEXT PRIMARY KEY,
@@ -1975,4 +1999,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('024', 'hedge-net-pnl'),
   ('025', 'bounded-hedge-limit'),
   ('026', 'hedge-order-expiry'),
-  ('027', 'signer-audit');
+  ('027', 'signer-audit'),
+  ('028', 'signer-risk-context');

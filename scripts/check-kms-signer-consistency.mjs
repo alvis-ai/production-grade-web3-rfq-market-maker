@@ -13,6 +13,7 @@ const paths = [
   "backend/src/modules/signer/signer-server.ts",
   "backend/src/modules/signer/signer-audit.store.ts",
   "backend/src/db/migrations/027-signer-audit.sql",
+  "backend/src/db/migrations/028-signer-risk-context.sql",
   "backend/src/signer-main.ts",
   "backend/src/modules/settlement/settlement-verifier.service.ts",
   "backend/src/modules/signer/kms-signer.service.ts",
@@ -93,6 +94,7 @@ assertContains("backend/src/modules/signer/remote-signer.service.ts", [
   "readBoundedJson",
   "verifyQuoteSignature(input.quote, signature",
   "SIGNER_UNAVAILABLE",
+  "assertAuthorizedSignQuoteInput",
 ]);
 assertContains("backend/src/modules/signer/signer-server.ts", [
   'server.post("/internal/sign"',
@@ -107,13 +109,21 @@ assertContains("backend/src/modules/signer/signer-server.ts", [
 assertContains("backend/src/modules/signer/signer-audit.store.ts", [
   "class PostgresSignerAuditStore",
   "INSERT INTO signer_audit_events",
-  "SELECT to_regclass('public.signer_audit_events')",
+  "FROM pg_attribute",
+  "risk_decision_id",
+  "risk_policy_version",
+  "trace_id",
   "Signer audit success requires signatureHash",
 ]);
 assertContains("backend/src/db/migrations/027-signer-audit.sql", [
   "CREATE TABLE signer_audit_events",
   "chk_signer_audit_signature_hash",
   "idx_signer_audit_quote",
+]);
+assertContains("backend/src/db/migrations/028-signer-risk-context.sql", [
+  "ADD COLUMN context_version",
+  "chk_signer_audit_risk_context",
+  "idx_signer_audit_risk_decision",
 ]);
 assertContains("backend/src/signer-main.ts", [
   "Signer process requires RFQ_SIGNER_MODE=local or aws-kms",

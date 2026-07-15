@@ -33,6 +33,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "025", name: "bounded-hedge-limit", applied_at: "2026-07-15T00:02:00.000Z" },
         { version: "026", name: "hedge-order-expiry", applied_at: "2026-07-15T00:03:00.000Z" },
         { version: "027", name: "signer-audit", applied_at: "2026-07-15T00:04:00.000Z" },
+        { version: "028", name: "signer-risk-context", applied_at: "2026-07-15T00:05:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -877,6 +878,42 @@ test("database migration runner adds append-only signer audit evidence", async (
   assert.equal(client.queries.some(({ sql }) => sql.includes("idx_signer_audit_quote")), true);
   assert.equal(client.queries.some(({ sql, params }) =>
     sql.includes("INSERT INTO _migrations") && params[0] === "027"), true);
+});
+
+test("database migration runner binds signer audit to risk authorization context", async () => {
+  const appliedNames = [
+    "base-schema", "settlement-canonical", "hedge-worker-queue", "analytics-outbox",
+    "post-trade-reconciliation", "quote-snapshot-pnl", "settlement-indexer", "submit-reservations",
+    "risk-notional-reasons", "risk-market-regime-reasons", "open-quote-exposure", "pricing-attribution",
+    "market-spread-attribution", "hedge-execution-evidence", "hedge-fee-reconciliation",
+    "treasury-liquidity-reservations", "quote-principal-ownership", "quote-control", "pair-quote-control",
+    "toxic-flow-scores", "toxic-flow-markouts", "portfolio-var-reservations", "quote-idempotency",
+    "hedge-net-pnl", "bounded-hedge-limit", "hedge-order-expiry", "signer-audit",
+  ];
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: appliedNames.map((name, index) => ({
+        version: String(index + 1).padStart(3, "0"),
+        name,
+        applied_at: "2026-07-15T00:00:00.000Z",
+      })) };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "028");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("ADD COLUMN context_version")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("chk_signer_audit_risk_context")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("risk_decision_id IS NOT NULL")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("idx_signer_audit_risk_decision")), true);
+  assert.equal(client.queries.some(({ sql, params }) =>
+    sql.includes("INSERT INTO _migrations") && params[0] === "028"), true);
 });
 
 function fakePool(handler) {

@@ -30,6 +30,9 @@ const input = {
   },
   quoteId: "q_remote",
   snapshotId: "snapshot_remote",
+  riskDecisionId: "rd_q_remote",
+  riskPolicyVersion: "risk-v1",
+  traceId: "tr_remote",
 };
 
 test("RemoteSignerService authenticates an exact sign request and verifies the returned signer", async () => {
@@ -66,6 +69,13 @@ test("RemoteSignerService fails closed on transport, status, response, and signe
       (error) => error?.code === "SIGNER_UNAVAILABLE" && error?.statusCode === 503,
     );
   }
+});
+
+test("RemoteSignerService requires a complete risk authorization context", async () => {
+  const remote = new RemoteSignerService(config, async () => jsonResponse({ signature: "unreachable" }));
+  const { riskDecisionId: _riskDecisionId, ...missingDecision } = input;
+  await assert.rejects(remote.signQuote(missingDecision), /authorization context/);
+  await assert.rejects(remote.signQuote({ ...input, riskDecisionId: "rd_other" }), /must match quoteId/);
 });
 
 test("RemoteSignerService rejects unsafe transport and credential configuration", () => {

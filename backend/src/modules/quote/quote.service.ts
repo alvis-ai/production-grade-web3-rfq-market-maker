@@ -23,7 +23,7 @@ import type {
   SaveSignedQuoteInput,
 } from "./quote.repository.js";
 import type { RiskDecision, RiskInput } from "../risk/risk.engine.js";
-import type { SaveRiskDecisionInput } from "../risk/risk-decision.repository.js";
+import type { RiskDecisionRecord } from "../risk/risk-decision.repository.js";
 import type { RoutePlan } from "../routing/routing.engine.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
 import {
@@ -61,6 +61,7 @@ import {
   isExactSignedQuote,
   riskUnavailableDecision,
 } from "./quote-service-result-validation.js";
+import { persistQuoteRiskDecision } from "./quote-risk-decision.js";
 
 export { defaultQuoteServiceConfig } from "./quote-service-contract.js";
 export type {
@@ -273,8 +274,9 @@ export class QuoteService {
     } catch {
       risk = riskUnavailableDecision();
     }
+    let persistedRiskDecision: RiskDecisionRecord;
     try {
-      await this.saveRiskDecision({
+      persistedRiskDecision = await persistQuoteRiskDecision(this.deps.riskDecisionStore, {
         quoteId,
         decision: risk,
       });
@@ -319,6 +321,9 @@ export class QuoteService {
         quote: signedQuote,
         quoteId,
         snapshotId: snapshot.snapshotId,
+        riskDecisionId: persistedRiskDecision.riskDecisionId,
+        riskPolicyVersion: persistedRiskDecision.policyVersion,
+        traceId: access.traceId ?? `tr_${quoteId}`,
       });
     } catch (error) {
       if (exposureReserved) await this.releaseQuoteExposureBestEffort(quoteId);
@@ -423,14 +428,6 @@ export class QuoteService {
   private async saveSignedQuote(input: SaveSignedQuoteInput): Promise<void> {
     try {
       await this.deps.quoteRepository.saveSigned(input);
-    } catch (error) {
-      throw quoteStoreFailure(error);
-    }
-  }
-
-  private async saveRiskDecision(input: SaveRiskDecisionInput): Promise<void> {
-    try {
-      await this.deps.riskDecisionStore.saveDecision(input);
     } catch (error) {
       throw quoteStoreFailure(error);
     }

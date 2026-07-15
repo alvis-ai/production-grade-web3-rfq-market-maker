@@ -24,6 +24,9 @@ test("signer server authenticates and signs only an approved envelope", async ()
   assert.match(response.json().signature, /^0x[0-9a-f]{130}$/i);
   assert.equal(auditStore.snapshot().length, 1);
   assert.equal(auditStore.snapshot()[0].outcome, "success");
+  assert.equal(auditStore.snapshot()[0].riskDecisionId, "rd_q_signer_server");
+  assert.equal(auditStore.snapshot()[0].riskPolicyVersion, "risk-v1");
+  assert.equal(auditStore.snapshot()[0].traceId, "tr_signer_server");
   assert.match(auditStore.snapshot()[0].quoteDigest, /^0x[0-9a-f]{64}$/i);
   assert.match(auditStore.snapshot()[0].signatureHash, /^0x[0-9a-f]{64}$/i);
 
@@ -200,5 +203,8 @@ function signInput() {
     },
     quoteId: "q_signer_server",
     snapshotId: "snapshot_signer_server",
+    riskDecisionId: "rd_q_signer_server",
+    riskPolicyVersion: "risk-v1",
+    traceId: "tr_signer_server",
   };
 }

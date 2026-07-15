@@ -5,6 +5,9 @@ export type SignerAuditOutcome = "success" | "signer_error";
 export interface SignerAuditEvent {
   quoteId: string;
   snapshotId: string;
+  riskDecisionId: string;
+  riskPolicyVersion: string;
+  traceId: string;
   quoteDigest: `0x${string}`;
   signatureHash?: `0x${string}`;
   signerAddress: `0x${string}`;
@@ -23,6 +26,9 @@ export interface SignerAuditStore {
 const eventFields = [
   "quoteId",
   "snapshotId",
+  "riskDecisionId",
+  "riskPolicyVersion",
+  "traceId",
   "quoteDigest",
   "signatureHash",
   "signerAddress",
@@ -68,13 +74,17 @@ export class PostgresSignerAuditStore implements SignerAuditStore {
     assertSignerAuditEvent(event);
     const query: pg.QueryConfig & { query_timeout: number } = {
       text: `INSERT INTO signer_audit_events (
-               quote_id, snapshot_id, quote_digest, signature_hash,
+               quote_id, snapshot_id, context_version, risk_decision_id,
+               risk_policy_version, trace_id, quote_digest, signature_hash,
                signer_address, settlement_address, chain_id, deadline,
                outcome, occurred_at
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+             ) VALUES ($1, $2, 2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       values: [
         event.quoteId,
         event.snapshotId,
+        event.riskDecisionId,
+        event.riskPolicyVersion,
+        event.traceId,
         hexBytes(event.quoteDigest),
         event.signatureHash ? hexBytes(event.signatureHash) : null,
         event.signerAddress.toLowerCase(),
@@ -91,12 +101,17 @@ export class PostgresSignerAuditStore implements SignerAuditStore {
 
   async checkHealth(): Promise<void> {
     const query: pg.QueryConfig & { query_timeout: number } = {
-      text: "SELECT to_regclass('public.signer_audit_events') AS table_name",
+      text: `SELECT count(*)::integer AS required_columns
+             FROM pg_attribute
+             WHERE attrelid = to_regclass('public.signer_audit_events')
+               AND attname = ANY($1::text[])
+               AND NOT attisdropped`,
+      values: [["context_version", "risk_decision_id", "risk_policy_version", "trace_id"]],
       query_timeout: this.queryTimeoutMs,
     };
-    const result = await this.pool.query<{ table_name: string | null }>(query);
-    if (result.rows[0]?.table_name !== "signer_audit_events") {
-      throw new Error("Signer audit table is unavailable");
+    const result = await this.pool.query<{ required_columns: number }>(query);
+    if (result.rows[0]?.required_columns !== 4) {
+      throw new Error("Signer audit schema is unavailable");
     }
   }
 }
@@ -118,6 +133,12 @@ export function assertSignerAuditEvent(value: unknown): asserts value is SignerA
   }
   assertSafeIdentifier(event.quoteId, "quoteId");
   assertSafeIdentifier(event.snapshotId, "snapshotId");
+  assertSafeIdentifier(event.riskDecisionId, "riskDecisionId");
+  assertSafeVersion(event.riskPolicyVersion);
+  assertTraceId(event.traceId);
+  if (event.riskDecisionId !== `rd_${event.quoteId}`) {
+    throw new Error("Signer audit event.riskDecisionId must match quoteId");
+  }
   assertBytes32(event.quoteDigest, "quoteDigest");
   assertAddress(event.signerAddress, "signerAddress");
   assertAddress(event.settlementAddress, "settlementAddress");
@@ -137,6 +158,18 @@ export function assertSignerAuditEvent(value: unknown): asserts value is SignerA
       Number.isNaN(Date.parse(event.occurredAt)) ||
       new Date(event.occurredAt).toISOString() !== event.occurredAt) {
     throw new Error("Signer audit event.occurredAt must be a canonical UTC timestamp");
+  }
+}
+
+function assertTraceId(value: unknown): void {
+  if (typeof value !== "string" || !/^tr_[A-Za-z0-9._:-]{1,125}$/.test(value)) {
+    throw new Error("Signer audit event.traceId must be a safe trace identifier");
+  }
+}
+
+function assertSafeVersion(value: unknown): void {
+  if (typeof value !== "string" || !/^[A-Za-z0-9_.:-]{1,128}$/.test(value)) {
+    throw new Error("Signer audit event.riskPolicyVersion must be a safe version identifier");
   }
 }
 

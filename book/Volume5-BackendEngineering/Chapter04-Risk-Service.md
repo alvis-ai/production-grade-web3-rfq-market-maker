@@ -105,7 +105,7 @@ stateDiagram-v2
 
 其他稳定拒绝原因继续包括 `CHAIN_NOT_ENABLED`、`TOKEN_NOT_ALLOWED`、`MARKET_LIQUIDITY_TOO_LOW`、`MARKET_VOLATILITY_LIMIT_EXCEEDED`、`AMOUNT_IN_LIMIT_EXCEEDED`、`AMOUNT_OUT_TOO_SMALL`、`QUOTE_NOTIONAL_LIMIT_EXCEEDED`、`USD_REFERENCE_REQUIRED`、`SLIPPAGE_TOO_WIDE`、`QUOTED_SPREAD_TOO_WIDE`、toxic-flow 与 inventory limit 原因，以及依赖失败时的 `RISK_ENGINE_UNAVAILABLE`。
 
-Risk decision audit persistence rejects malformed root payloads, missing `decision` objects, inherited `quoteId` / `decision` fields, inherited required decision fields, and inherited rejected `reasonCode` before field access or state mutation；it validates `quoteId` as an own primitive-string `SafeIdentifier` and validates the derived `riskDecisionId` before storing。同一 quote 的 decision/status/reason/policyVersion 不允许被改写；数据库强制 approved decision 的 `reasonCode` 为 NULL，而 rejected decision 必须携带稳定且非空的 `reasonCode`。PostgreSQL `risk_decisions.reason_code` CHECK constraint 必须匹配后端 `RiskRejectReasonCode` union，新增或删除稳定原因时由 schema consistency gate 阻止单边变更。
+Risk decision audit persistence rejects malformed root payloads, missing `decision` objects, inherited `quoteId` / `decision` fields, inherited required decision fields, and inherited rejected `reasonCode` before field access or state mutation；it validates `quoteId` as an own primitive-string `SafeIdentifier` and validates the derived `riskDecisionId` before storing。同一 quote 的 decision/status/reason/policyVersion 不允许被改写；PostgreSQL store 使用 `INSERT ... ON CONFLICT DO NOTHING` 后读取并逐字段核对，禁止通过 upsert 覆盖已签名链路的风险证据。数据库强制 approved decision 的 `reasonCode` 为 NULL，而 rejected decision 必须携带稳定且非空的 `reasonCode`。PostgreSQL `risk_decisions.reason_code` CHECK constraint 必须匹配后端 `RiskRejectReasonCode` union，新增或删除稳定原因时由 schema consistency gate 阻止单边变更。
 
 ## API Design
 
