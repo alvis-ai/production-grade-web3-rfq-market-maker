@@ -142,6 +142,7 @@ HOST=127.0.0.1
 PORT=3000
 RFQ_LOG_LEVEL=info
 RFQ_QUOTE_TTL_SECONDS=30
+RFQ_QUOTE_IDEMPOTENCY_LEASE_MS=60000
 RFQ_BODY_LIMIT_BYTES=32768
 RFQ_SUBMIT_RESERVATION_LEASE_MS=900000
 RFQ_CORS_ALLOWED_ORIGINS=http://localhost:5173
@@ -197,6 +198,8 @@ The API quote kill switch is shared across replicas through PostgreSQL. `GET/PUT
 Dynamic toxic-flow scores are stored per normalized `chainId + user` and managed through `GET/PUT /admin/toxic-flow/scores/:chainId/:user`. Updates require `admin:write`, an exact `expectedVersion`, bounded score/markout evidence, and a versioned analyzer policy; every successful write appends `toxic_flow_score_audit`. The default Risk Engine applies fresh scores after deterministic token/inventory/market checks. Unknown users retain base policy, while stale, future, malformed, or unreadable known scores fail closed and are recorded internally as `RISK_ENGINE_UNAVAILABLE` without exposing risk thresholds to quote clients.
 
 The toxic-flow analyzer (`pnpm --dir backend start:toxic-flow-analyzer`) is an isolated process with health and metrics on port 3005. Migration 021 creates a settlement-triggered revision queue and canonical markout evidence. Replicas claim only eligible jobs with `FOR UPDATE SKIP LOCKED`, select the first same-direction `market_snapshots` row after `RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS` and within the configured maximum lag, calculate cross-decimal maker-side drift, then aggregate the canonical user window and publish through the same audited score CAS store. Missing snapshots retain the job with bounded exponential retry. Settlement reorgs invalidate the derived markout and publish a corrected aggregate, including a zeroed empty-sample clearing version when no canonical evidence remains. PostgreSQL is the operational truth; this worker does not depend on ClickHouse or the HTTP admin endpoint.
+
+`POST /quote` accepts a principal-scoped `Idempotency-Key` containing 16 to 128 safe ASCII characters and requires it outside local environments. Reusing the same key with the same normalized payload returns the exact persisted signed response; changing the payload returns `IDEMPOTENCY_KEY_CONFLICT`, while an active owner lease returns `IDEMPOTENCY_REQUEST_IN_PROGRESS`. PostgreSQL binds the key to `quote_id` before quote persistence so a crashed replica cannot sign a second nonce; after lease expiry it recovers an already persisted signed quote or fails the incomplete request closed. `RFQ_QUOTE_IDEMPOTENCY_LEASE_MS` defaults to at least `60000`, must be between `10000` and `3900000`, and must exceed the signed quote TTL.
 
 `RFQ_SUBMIT_RESERVATION_LEASE_MS` defaults to `900000` and must be between `60000` and `3600000`. Local mode uses an in-memory quote reservation; PostgreSQL mode uses `quote_submit_reservations` to atomically claim a quote across API replicas before receipt verification and post-trade effects. Release is owner-token conditional, stale rows become claimable using database time, reservation store failures return `SUBMIT_RESERVATION_UNAVAILABLE`/503, and contention returns the existing `QUOTE_ALREADY_USED`/409 contract.
 

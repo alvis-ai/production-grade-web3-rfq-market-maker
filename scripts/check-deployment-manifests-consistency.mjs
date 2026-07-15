@@ -828,6 +828,7 @@ assertContains(kubernetesChapter, [
   "`RFQ_REDIS_URL`",
   "`RFQ_API_KEY_CONFIG_JSON`",
   "`RFQ_SUBMIT_RESERVATION_LEASE_MS`",
+  "`RFQ_QUOTE_IDEMPOTENCY_LEASE_MS`",
   "`DATABASE_URL`",
   "`RFQ_TOKEN_REGISTRY_JSON`",
   "`RFQ_RISK_POLICY_JSON`",
@@ -849,6 +850,7 @@ assertContains(kubernetesChapter, [
   "`rfq-toxic-flow-analyzer`",
   "Migration 021",
   "Migration 022",
+  "Migration 023",
   "`RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS`",
 ], "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md");
 

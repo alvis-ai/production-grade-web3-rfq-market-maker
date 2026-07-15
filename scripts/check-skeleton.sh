@@ -830,6 +830,7 @@ test -s backend/src/db/migrations/014-hedge-execution-evidence.sql
 test -s backend/src/db/migrations/015-hedge-fee-reconciliation.sql
 test -s backend/src/db/migrations/016-treasury-liquidity-reservations.sql
 test -s backend/src/db/migrations/022-portfolio-var-reservations.sql
+test -s backend/src/db/migrations/023-quote-idempotency.sql
 test -s backend/src/db/migrations/017-quote-principal-ownership.sql
 test -s backend/src/modules/risk/treasury-liquidity.provider.ts
 test -s backend/src/modules/hedge/hedge-fee-worker.ts
@@ -849,6 +850,14 @@ grep -q 'quote-exposure:portfolio:' backend/src/modules/risk/postgres-quote-expo
 grep -q 'LOCK TABLE inventory_positions IN SHARE MODE' backend/src/modules/risk/postgres-portfolio-var.ts
 grep -q 'var_evaluation' docs/database/schema.sql
 grep -q "('022', 'portfolio-var-reservations')" docs/database/schema.sql
+grep -q "('023', 'quote-idempotency')" docs/database/schema.sql
+test -s backend/src/modules/quote/quote-idempotency.store.ts
+test -s backend/src/modules/quote/postgres-quote-idempotency.store.ts
+test -s backend/test/quote-idempotency-store.test.mjs
+test -s backend/test/postgres-quote-idempotency-store.test.mjs
+test -s backend/test/api-quote-idempotency.test.mjs
+grep -q 'IDEMPOTENCY_KEY_CONFLICT' backend/src/shared/errors/api-error.ts
+grep -q 'Idempotency-Key' docs/api/openapi.yaml
 test -s backend/test/submit-reservation-store.test.mjs
 test -s backend/test/postgres-submit-reservation-store.test.mjs
 test -s backend/test/api-submit-reservation.test.mjs

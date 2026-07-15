@@ -28,6 +28,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "020", name: "toxic-flow-scores", applied_at: "2026-07-14T00:11:00.000Z" },
         { version: "021", name: "toxic-flow-markouts", applied_at: "2026-07-14T00:12:00.000Z" },
         { version: "022", name: "portfolio-var-reservations", applied_at: "2026-07-14T00:13:00.000Z" },
+        { version: "023", name: "quote-idempotency", applied_at: "2026-07-15T00:00:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -706,6 +707,38 @@ test("database migration runner adds replayable portfolio VaR reservations", asy
   assert.equal(client.queries.some(({ sql }) => sql.includes("PORTFOLIO_VAR_LIMIT_EXCEEDED")), true);
   assert.equal(client.queries.some(({ sql, params }) =>
     sql.includes("INSERT INTO _migrations") && params[0] === "022"), true);
+});
+
+test("database migration runner adds principal-scoped quote idempotency", async () => {
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: [
+        ["001", "base-schema"], ["002", "settlement-canonical"], ["003", "hedge-worker-queue"],
+        ["004", "analytics-outbox"], ["005", "post-trade-reconciliation"], ["006", "quote-snapshot-pnl"],
+        ["007", "settlement-indexer"], ["008", "submit-reservations"], ["009", "risk-notional-reasons"],
+        ["010", "risk-market-regime-reasons"], ["011", "open-quote-exposure"], ["012", "pricing-attribution"],
+        ["013", "market-spread-attribution"], ["014", "hedge-execution-evidence"],
+        ["015", "hedge-fee-reconciliation"], ["016", "treasury-liquidity-reservations"],
+        ["017", "quote-principal-ownership"], ["018", "quote-control"], ["019", "pair-quote-control"],
+        ["020", "toxic-flow-scores"], ["021", "toxic-flow-markouts"],
+        ["022", "portfolio-var-reservations"],
+      ].map(([version, name]) => ({ version, name, applied_at: "2026-07-15T00:00:00.000Z" })) };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "023");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("CREATE TABLE quote_idempotency_requests")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("PRIMARY KEY (principal_id, idempotency_key)")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("trg_quote_idempotency_requests_set_updated_at")), true);
+  assert.equal(client.queries.some(({ sql, params }) =>
+    sql.includes("INSERT INTO _migrations") && params[0] === "023"), true);
 });
 
 function fakePool(handler) {

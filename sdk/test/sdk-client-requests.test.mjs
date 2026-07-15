@@ -98,6 +98,43 @@ test("RFQClient rejects unsafe quote requests before sending HTTP", async () => 
   }
 });
 
+test("RFQClient validates and sends quote idempotency keys", async () => {
+  const calls = [];
+  const restoreFetch = installFetch(async (url, init = {}) => {
+    calls.push({ url, init });
+    return jsonResponse(200, {
+      quoteId: "q_sdk_idempotent",
+      snapshotId: "snapshot_sdk_idempotent",
+      amountOut: "998400000",
+      minAmountOut: "993408000",
+      deadline: 1_893_456_030,
+      nonce: "43",
+      signature,
+    });
+  });
+  const request = {
+    chainId: quote.chainId,
+    user: quote.user,
+    tokenIn: quote.tokenIn,
+    tokenOut: quote.tokenOut,
+    amountIn: quote.amountIn,
+    slippageBps: 50,
+  };
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+    for (const options of [null, {}, { idempotencyKey: "short" }, { idempotencyKey: "quote_sdk_key_0001", extra: true }]) {
+      await assert.rejects(client.quote(request, options), RFQClientError);
+    }
+    assert.equal(calls.length, 0);
+
+    await client.quote(request, { idempotencyKey: "quote_sdk_key_0001" });
+    assert.equal(calls[0].init.headers["Idempotency-Key"], "quote_sdk_key_0001");
+  } finally {
+    restoreFetch();
+  }
+});
+
 test("RFQClient rejects unsafe submit requests before sending HTTP", async () => {
   const calls = [];
   const restoreFetch = installFetch(async (url, init = {}) => {

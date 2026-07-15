@@ -12,6 +12,7 @@ import type { MetricsService } from "../metrics/metrics.service.js";
 import type { PnlStore } from "../pnl/pnl.service.js";
 import type { PricingEngine, PricingResult } from "../pricing/pricing.engine.js";
 import type { QuoteRepository } from "../quote/quote.repository.js";
+import type { QuoteIdempotencyStore } from "../quote/quote-idempotency.store.js";
 import type { RateLimiter } from "../rate-limit/rate-limit.service.js";
 import type { RiskDecisionStore } from "../risk/risk-decision.repository.js";
 import type { RiskEngine } from "../risk/risk.engine.js";
@@ -61,6 +62,7 @@ export interface ReadinessServiceDeps {
   treasuryLiquidityProvider?: TreasuryLiquidityProvider;
   signerService: SignerService;
   quoteRepository: QuoteRepository;
+  quoteIdempotencyStore: QuoteIdempotencyStore;
   quoteControlStore: QuoteControlStore;
   riskDecisionStore: RiskDecisionStore;
   rateLimiter: Pick<RateLimiter, "checkHealth">;
@@ -150,6 +152,7 @@ const readinessServiceDepsFields = [
   "toxicFlowScoreStore",
   "signerService",
   "quoteRepository",
+  "quoteIdempotencyStore",
   "quoteControlStore",
   "riskDecisionStore",
   "rateLimiter",
@@ -221,7 +224,10 @@ export class ReadinessService {
     const pricingStatus = await this.checkPricing();
     const riskStatus = await this.checkRisk();
     const signerStatus = await this.checkSigner();
-    const quoteRepositoryStatus = await this.checkDependency(this.deps.quoteRepository);
+    const quoteRepositoryStatus = await this.checkDependencies([
+      this.deps.quoteRepository,
+      this.deps.quoteIdempotencyStore,
+    ]);
     const quoteControlStatus = await this.checkQuoteControl();
     const riskDecisionStoreStatus = await this.checkDependency(this.deps.riskDecisionStore);
     const rateLimitStoreStatus = await this.checkDependency(this.deps.rateLimiter);
@@ -364,6 +370,13 @@ export class ReadinessService {
       return "degraded";
     }
   }
+
+  private async checkDependencies(
+    dependencies: Array<{ checkHealth?: () => void | Promise<void> }>,
+  ): Promise<ReadinessComponentStatus> {
+    const statuses = await Promise.all(dependencies.map((dependency) => this.checkDependency(dependency)));
+    return statuses.every((status) => status === "ok") ? "ok" : "degraded";
+  }
 }
 
 function assertPositiveSafeInteger(value: number, field: keyof ReadinessServiceConfig): void {
@@ -419,6 +432,7 @@ function assertReadinessServiceDeps(deps: ReadinessServiceDeps): void {
   assertDependencyMethod(deps.signerService, "signerService", "verifyQuoteSignature");
   assertDependencyMethod(deps.marketSnapshotStore, "marketSnapshotStore", "checkHealth");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "checkHealth");
+  assertDependencyMethod(deps.quoteIdempotencyStore, "quoteIdempotencyStore", "checkHealth");
   assertDependencyMethod(deps.quoteControlStore, "quoteControlStore", "checkHealth");
   assertDependencyMethod(deps.quoteControlStore, "quoteControlStore", "getState");
   assertDependencyMethod(deps.quoteControlStore, "quoteControlStore", "getPausedPairCount");

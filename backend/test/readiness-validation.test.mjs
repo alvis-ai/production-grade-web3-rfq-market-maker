@@ -9,6 +9,7 @@ import { MetricsService } from "../dist/modules/metrics/metrics.service.js";
 import { PnlService } from "../dist/modules/pnl/pnl.service.js";
 import { FormulaPricingEngine } from "../dist/modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
+import { InMemoryQuoteIdempotencyStore } from "../dist/modules/quote/quote-idempotency.store.js";
 import { InMemoryQuoteControlStore } from "../dist/modules/quote-control/quote-control.store.js";
 import { InMemoryRiskDecisionRepository } from "../dist/modules/risk/risk-decision.repository.js";
 import { BasicRiskEngine } from "../dist/modules/risk/risk.engine.js";
@@ -228,6 +229,10 @@ test("ReadinessService rejects unsafe dependency configuration at construction",
     /Readiness service quoteRepository.checkHealth must be a function/,
   );
   assert.throws(
+    () => new ReadinessService({ ...deps, quoteIdempotencyStore: {} }),
+    /Readiness service quoteIdempotencyStore.checkHealth must be a function/,
+  );
+  assert.throws(
     () => new ReadinessService({ ...deps, quoteControlStore: {} }),
     /Readiness service quoteControlStore.checkHealth must be a function/,
   );
@@ -287,6 +292,7 @@ function readinessServiceDeps(overrides = {}) {
       settlementAddress: "0x0000000000000000000000000000000000000004",
     }),
     quoteRepository: overrides.quoteRepository ?? new InMemoryQuoteRepository(),
+    quoteIdempotencyStore: overrides.quoteIdempotencyStore ?? new InMemoryQuoteIdempotencyStore(),
     quoteControlStore: overrides.quoteControlStore ?? new InMemoryQuoteControlStore(),
     riskDecisionStore: overrides.riskDecisionStore ?? new InMemoryRiskDecisionRepository(),
     rateLimiter: overrides.rateLimiter ?? { checkHealth() {} },

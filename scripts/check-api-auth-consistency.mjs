@@ -73,8 +73,8 @@ for (const runtimeControl of [
 }
 
 assert.ok(
-  mainSource.includes('access-control-allow-headers", "content-type,x-api-key,x-trace-id"'),
-  "CORS must allow x-api-key for approved origins",
+  mainSource.includes('access-control-allow-headers", "content-type,idempotency-key,x-api-key,x-trace-id"'),
+  "CORS must allow idempotency and API-key headers for approved origins",
 );
 assert.ok(
   metricsSource.includes("rfq_api_auth_rejections_total") &&

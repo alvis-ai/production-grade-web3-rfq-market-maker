@@ -44,6 +44,7 @@ import {
   readGatewayServerSettings,
   resolveApiKeyAuthenticator,
   resolvePostgresPool,
+  resolveQuoteIdempotencyStore,
   resolveQuoteControlStore,
   resolveRateLimiter,
   resolveSubmitReservationStore,
@@ -72,7 +73,9 @@ export function buildServer(options: BuildServerOptions = {}) {
     corsAllowedOrigins,
     enableHsts,
     logger,
+    quoteIdempotencyLeaseMs,
     quoteTtlSeconds,
+    requireQuoteIdempotencyKey,
     submitReservationLeaseMs,
     trustProxy,
   } = readGatewayServerSettings(options);
@@ -110,6 +113,11 @@ export function buildServer(options: BuildServerOptions = {}) {
   );
   const quoteRepository = options.quoteRepository ?? (
     postgresPool ? new PostgresQuoteRepository(postgresPool) : new InMemoryQuoteRepository()
+  );
+  const quoteIdempotencyStore = resolveQuoteIdempotencyStore(
+    options.quoteIdempotencyStore,
+    postgresPool,
+    quoteIdempotencyLeaseMs,
   );
   const riskDecisionStore = options.riskDecisionStore ?? (
     postgresPool ? new PostgresRiskDecisionStore(postgresPool) : new InMemoryRiskDecisionRepository()
@@ -182,6 +190,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     marketSnapshotStore,
     hedgeService,
     pricingEngine,
+    quoteIdempotencyStore,
     quoteExposureStore,
     quoteRepository,
     riskDecisionStore,
@@ -232,6 +241,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     metricsService,
     pnlService,
     pricingEngine,
+    quoteIdempotencyStore,
     quoteExposureStore,
     quoteRepository,
     quoteControlStore,
@@ -260,6 +270,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     quoteService,
     rateLimiter,
     readinessService,
+    requireQuoteIdempotencyKey,
     settlementEventService,
     submitReservationStore,
     trustProxy,

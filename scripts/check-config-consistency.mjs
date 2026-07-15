@@ -23,6 +23,7 @@ const localExpected = {
   HOST: "127.0.0.1",
   PORT: "3000",
   RFQ_QUOTE_TTL_SECONDS: "30",
+  RFQ_QUOTE_IDEMPOTENCY_LEASE_MS: "60000",
   RFQ_BODY_LIMIT_BYTES: "32768",
   RFQ_SUBMIT_RESERVATION_LEASE_MS: "900000",
   RFQ_CORS_ALLOWED_ORIGINS: "http://localhost:5173",
@@ -48,6 +49,7 @@ const composeExpected = {
   PORT: "3000",
   NODE_ENV: "development",
   RFQ_QUOTE_TTL_SECONDS: "30",
+  RFQ_QUOTE_IDEMPOTENCY_LEASE_MS: "60000",
   RFQ_BODY_LIMIT_BYTES: "32768",
   RFQ_SUBMIT_RESERVATION_LEASE_MS: "900000",
   RFQ_CORS_ALLOWED_ORIGINS: "http://localhost:5173",
@@ -72,6 +74,7 @@ const productionExpected = {
   PORT: "3000",
   RFQ_LOG_LEVEL: "info",
   RFQ_QUOTE_TTL_SECONDS: "30",
+  RFQ_QUOTE_IDEMPOTENCY_LEASE_MS: "60000",
   RFQ_BODY_LIMIT_BYTES: "32768",
   RFQ_SUBMIT_RESERVATION_LEASE_MS: "900000",
   RFQ_CORS_ALLOWED_ORIGINS: "https://app.example.com",
@@ -119,6 +122,13 @@ assert.ok(
     backendSource.includes("max: 65_535") &&
     backendSource.includes("min: 1"),
   "backend must enforce PORT base-10 integer bounds",
+);
+assert.ok(
+  backendSource.includes('name: "RFQ_QUOTE_IDEMPOTENCY_LEASE_MS"') &&
+    backendSource.includes("maxQuoteIdempotencyLeaseMs") &&
+    backendSource.includes("minQuoteIdempotencyLeaseMs") &&
+    backendSource.includes("quoteIdempotencyLeaseMs must exceed quoteTtlSeconds in milliseconds"),
+  "backend must enforce quote idempotency lease bounds and TTL relationship",
 );
 assert.ok(
   backendSource.includes("readDecimalIntegerConfig") &&

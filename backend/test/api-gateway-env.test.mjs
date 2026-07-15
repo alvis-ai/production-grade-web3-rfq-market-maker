@@ -56,6 +56,29 @@ test("RFQ API rejects invalid RFQ_QUOTE_TTL_SECONDS at startup", () => {
   }
 });
 
+test("RFQ API rejects invalid quote idempotency lease configuration", () => {
+  const originalLease = process.env.RFQ_QUOTE_IDEMPOTENCY_LEASE_MS;
+  const originalTtl = process.env.RFQ_QUOTE_TTL_SECONDS;
+  try {
+    for (const lease of ["9999", "3900001", "6e4", "60000.0", "+60000"]) {
+      process.env.RFQ_QUOTE_IDEMPOTENCY_LEASE_MS = lease;
+      assert.throws(
+        () => buildServer({ logger: false }),
+        /RFQ_QUOTE_IDEMPOTENCY_LEASE_MS must be a base-10 integer between 10000 and 3900000/,
+      );
+    }
+    process.env.RFQ_QUOTE_TTL_SECONDS = "60";
+    process.env.RFQ_QUOTE_IDEMPOTENCY_LEASE_MS = "60000";
+    assert.throws(
+      () => buildServer({ logger: false }),
+      /quoteIdempotencyLeaseMs must exceed quoteTtlSeconds in milliseconds/,
+    );
+  } finally {
+    restoreEnv("RFQ_QUOTE_IDEMPOTENCY_LEASE_MS", originalLease);
+    restoreEnv("RFQ_QUOTE_TTL_SECONDS", originalTtl);
+  }
+});
+
 test("RFQ API rejects invalid RFQ_BODY_LIMIT_BYTES at startup", () => {
   const originalBodyLimit = process.env.RFQ_BODY_LIMIT_BYTES;
 

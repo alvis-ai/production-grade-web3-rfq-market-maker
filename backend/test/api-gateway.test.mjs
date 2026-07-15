@@ -86,6 +86,18 @@ test("RFQ API rejects unsafe direct runtime options at startup", () => {
     /quoteTtlSeconds must be an integer between 1 and 3600/,
   );
   assert.throws(
+    () => buildServer({ logger: false, quoteIdempotencyLeaseMs: 9_999 }),
+    /quoteIdempotencyLeaseMs must be an integer between 10000 and 3900000/,
+  );
+  assert.throws(
+    () => buildServer({ logger: false, quoteTtlSeconds: 60, quoteIdempotencyLeaseMs: 60_000 }),
+    /quoteIdempotencyLeaseMs must exceed quoteTtlSeconds in milliseconds/,
+  );
+  assert.throws(
+    () => buildServer({ logger: false, quoteIdempotencyStore: {} }),
+    /Quote idempotency store.acquire must be a function/,
+  );
+  assert.throws(
     () => buildServer({ logger: false, submitReservationLeaseMs: 59_999 }),
     /submitReservationLeaseMs must be an integer between 60000 and 3600000/,
   );

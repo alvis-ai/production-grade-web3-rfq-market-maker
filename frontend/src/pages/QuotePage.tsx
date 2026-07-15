@@ -19,7 +19,7 @@ import {
   loadQuoteLifecycle,
   type QuoteLifecycleSnapshot,
 } from "../lib/quote-lifecycle";
-import { buildQuoteFromResponse, rfqClient } from "../lib/rfq";
+import { buildQuoteFromResponse, nextQuoteIdempotencyKey, rfqClient } from "../lib/rfq";
 import { validateQuoteFormRequest } from "../lib/quote-request";
 import type { WalletState } from "../lib/wallet-submit";
 
@@ -173,7 +173,9 @@ export function QuotePage() {
     setIsLoading(true);
     try {
       const safeRequest = validateQuoteFormRequest(request);
-      const response = await rfqClient.quote(safeRequest);
+      const response = await rfqClient.quote(safeRequest, {
+        idempotencyKey: nextQuoteIdempotencyKey(),
+      });
       if (quoteSessionVersion.current !== quoteSession) return;
       setQuotedRequest(safeRequest);
       setQuote(response);

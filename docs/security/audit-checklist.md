@@ -38,6 +38,8 @@
 - [x] API key verification uses constant-time digest comparison, generic 401 responses, expiry, and fixed route scopes.
 - [x] Quote ownership is immutable and principal-scoped across quote status, submit, settlement, hedge, and PnL; mismatches use anti-enumeration 404 responses.
 - [x] Production `/submit` uses a PostgreSQL quote-scoped lease with server-time expiry and owner-token release across API replicas.
+- [x] Production `/quote` requires a principal-scoped idempotency key, fingerprints the payload, binds quote identity before persistence, and replays only the exact signed response.
+- [x] Quote idempotency conflicts, active ownership, and storage outages fail closed without issuing another nonce or signature.
 - [x] Submit reservation acquisition failures fail closed and active contention is rejected before settlement verification.
 - [x] All errors include traceId.
 - [x] API and worker logs are structured, level-controlled, trace-correlated where applicable, and redact credentials, signatures, private keys, cookies and request headers.

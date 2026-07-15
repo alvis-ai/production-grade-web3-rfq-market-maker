@@ -93,7 +93,9 @@ try {
     amountIn: amountIn.toString(),
     slippageBps: 50,
   };
-  const quoteResponse = await injectJson(server, "POST", "/quote", quoteRequest);
+  const quoteResponse = await injectJson(server, "POST", "/quote", quoteRequest, {
+    "idempotency-key": "quote_settlement_e2e_0001",
+  });
   assert.equal(quoteResponse.statusCode, 200, JSON.stringify(quoteResponse.body));
   assert.match(quoteResponse.body.signature, /^0x[0-9a-f]{130}$/i);
 
@@ -232,11 +234,11 @@ async function readBalance(abi, token, account) {
   return publicClient.readContract({ address: token, abi, functionName: "balanceOf", args: [account] });
 }
 
-async function injectJson(server, method, url, payload) {
+async function injectJson(server, method, url, payload, headers = {}) {
   const response = await server.inject({
     method,
     url,
-    headers: payload ? { "content-type": "application/json" } : undefined,
+    headers: payload ? { "content-type": "application/json", ...headers } : headers,
     payload: payload ? JSON.stringify(payload) : undefined,
   });
   return {

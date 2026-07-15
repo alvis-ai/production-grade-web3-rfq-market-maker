@@ -27,6 +27,15 @@ import type { PricingEngine } from "../modules/pricing/pricing.engine.js";
 import type { TokenRegistry } from "../modules/pricing/token-registry.js";
 import type { QuoteRepository } from "../modules/quote/quote.repository.js";
 import {
+  InMemoryQuoteIdempotencyStore,
+  assertQuoteIdempotencyStore,
+  defaultQuoteIdempotencyLeaseMs,
+  maxQuoteIdempotencyLeaseMs,
+  minQuoteIdempotencyLeaseMs,
+  type QuoteIdempotencyStore,
+} from "../modules/quote/quote-idempotency.store.js";
+import { PostgresQuoteIdempotencyStore } from "../modules/quote/postgres-quote-idempotency.store.js";
+import {
   InMemoryQuoteControlStore,
   assertQuoteControlStore,
   type QuoteControlStore,
@@ -93,6 +102,8 @@ const buildServerOptionFields = [
   "pnlService",
   "pricingEngine",
   "quoteRepository",
+  "quoteIdempotencyLeaseMs",
+  "quoteIdempotencyStore",
   "quoteControlStore",
   "quoteExposureStore",
   "quoteTtlSeconds",
@@ -122,6 +133,8 @@ export interface BuildServerOptions {
   marketSnapshotStore?: MarketSnapshotStore;
   pricingEngine?: PricingEngine;
   quoteRepository?: QuoteRepository;
+  quoteIdempotencyLeaseMs?: number;
+  quoteIdempotencyStore?: QuoteIdempotencyStore;
   quoteControlStore?: QuoteControlStore;
   quoteExposureStore?: QuoteExposureStore;
   riskDecisionStore?: RiskDecisionStore;
@@ -153,6 +166,8 @@ export interface GatewayServerSettings {
   enableHsts: boolean;
   logger: boolean;
   quoteTtlSeconds: number;
+  quoteIdempotencyLeaseMs: number;
+  requireQuoteIdempotencyKey: boolean;
   submitReservationLeaseMs: number;
   trustProxy: boolean;
 }
@@ -172,6 +187,21 @@ export function resolveToxicFlowScoreStore(
 
 export function readGatewayServerSettings(options: BuildServerOptions): GatewayServerSettings {
   assertBuildServerOptions(options);
+  const quoteTtlSeconds = options.quoteTtlSeconds === undefined
+    ? readQuoteTtlSeconds()
+    : assertIntegerOption(options.quoteTtlSeconds, "quoteTtlSeconds", 1, 3600);
+  const quoteIdempotencyLeaseMs = options.quoteIdempotencyLeaseMs === undefined
+    ? readQuoteIdempotencyLeaseMs(quoteTtlSeconds)
+    : assertIntegerOption(
+        options.quoteIdempotencyLeaseMs,
+        "quoteIdempotencyLeaseMs",
+        minQuoteIdempotencyLeaseMs,
+        maxQuoteIdempotencyLeaseMs,
+      );
+  if (quoteIdempotencyLeaseMs <= quoteTtlSeconds * 1_000) {
+    throw new Error("quoteIdempotencyLeaseMs must exceed quoteTtlSeconds in milliseconds");
+  }
+  const nodeEnv = readOwnEnvValue(runtimeEnvironment(), "NODE_ENV");
   return {
     logger: options.logger === undefined ? true : assertBooleanOption(options.logger, "logger"),
     bodyLimitBytes: options.bodyLimitBytes === undefined
@@ -183,9 +213,9 @@ export function readGatewayServerSettings(options: BuildServerOptions): GatewayS
     trustProxy: options.trustProxy === undefined
       ? readTrustProxy()
       : assertBooleanOption(options.trustProxy, "trustProxy"),
-    quoteTtlSeconds: options.quoteTtlSeconds === undefined
-      ? readQuoteTtlSeconds()
-      : assertIntegerOption(options.quoteTtlSeconds, "quoteTtlSeconds", 1, 3600),
+    quoteTtlSeconds,
+    quoteIdempotencyLeaseMs,
+    requireQuoteIdempotencyKey: requiresExplicitRuntimeConfig(nodeEnv),
     submitReservationLeaseMs: options.submitReservationLeaseMs === undefined
       ? readSubmitReservationLeaseMs()
       : assertIntegerOption(
@@ -352,6 +382,21 @@ export function resolveSubmitReservationStore(
     : new InMemorySubmitReservationStore(config);
 }
 
+export function resolveQuoteIdempotencyStore(
+  configured: QuoteIdempotencyStore | undefined,
+  postgresPool: pg.Pool | undefined,
+  leaseMs: number,
+): QuoteIdempotencyStore {
+  if (configured !== undefined) {
+    assertQuoteIdempotencyStore(configured);
+    return configured;
+  }
+  const config = { leaseMs };
+  return postgresPool
+    ? new PostgresQuoteIdempotencyStore(postgresPool, config)
+    : new InMemoryQuoteIdempotencyStore(config);
+}
+
 export function resolveQuoteControlStore(
   configured: QuoteControlStore | undefined,
   postgresPool: pg.Pool | undefined,
@@ -416,6 +461,16 @@ function readSubmitReservationLeaseMs(): number {
     max: maxSubmitReservationLeaseMs,
     min: minSubmitReservationLeaseMs,
     name: "RFQ_SUBMIT_RESERVATION_LEASE_MS",
+  });
+}
+
+function readQuoteIdempotencyLeaseMs(quoteTtlSeconds: number): number {
+  const env = runtimeEnvironment();
+  return readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_QUOTE_IDEMPOTENCY_LEASE_MS"), {
+    defaultValue: Math.max(defaultQuoteIdempotencyLeaseMs, (quoteTtlSeconds + 30) * 1_000),
+    max: maxQuoteIdempotencyLeaseMs,
+    min: minQuoteIdempotencyLeaseMs,
+    name: "RFQ_QUOTE_IDEMPOTENCY_LEASE_MS",
   });
 }
 

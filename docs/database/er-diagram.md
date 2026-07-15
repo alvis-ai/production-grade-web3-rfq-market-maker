@@ -6,6 +6,7 @@
 erDiagram
   QUOTES ||--o{ RISK_DECISIONS : has
   QUOTES ||--o| QUOTE_SUBMIT_RESERVATIONS : reserves
+  QUOTES |o--o| QUOTE_IDEMPOTENCY_REQUESTS : replays
   QUOTES ||--o| QUOTE_EXPOSURE_RESERVATIONS : limits
   QUOTES ||--o{ SETTLEMENT_EVENTS : settles
   SETTLEMENT_EVENTS ||--o{ HEDGE_ORDERS : triggers
@@ -65,6 +66,23 @@ erDiagram
     text owner_token
     timestamptz acquired_at
     timestamptz expires_at
+  }
+
+  QUOTE_IDEMPOTENCY_REQUESTS {
+    text principal_id PK
+    text idempotency_key PK
+    text request_hash
+    text state
+    text owner_token
+    timestamptz lease_expires_at
+    text quote_id
+    jsonb response
+    text error_code
+    text error_message
+    integer error_status_code
+    timestamptz completed_at
+    timestamptz created_at
+    timestamptz updated_at
   }
 
   QUOTE_EXPOSURE_RESERVATIONS {

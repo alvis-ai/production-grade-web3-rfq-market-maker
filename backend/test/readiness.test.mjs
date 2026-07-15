@@ -9,6 +9,7 @@ import { MetricsService } from "../dist/modules/metrics/metrics.service.js";
 import { PnlService } from "../dist/modules/pnl/pnl.service.js";
 import { FormulaPricingEngine } from "../dist/modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
+import { InMemoryQuoteIdempotencyStore } from "../dist/modules/quote/quote-idempotency.store.js";
 import { InMemoryQuoteControlStore } from "../dist/modules/quote-control/quote-control.store.js";
 import { InMemoryRiskDecisionRepository } from "../dist/modules/risk/risk-decision.repository.js";
 import { BasicRiskEngine } from "../dist/modules/risk/risk.engine.js";
@@ -73,6 +74,19 @@ test("ReadinessService degrades the aggregate status when a dependency probe fai
   assert.equal(readiness.components.settlementEventStore, "ok");
   assert.equal(readiness.components.pnl, "ok");
   assert.equal(readiness.components.metrics, "ok");
+});
+
+test("ReadinessService degrades quote persistence when idempotency storage is unavailable", async () => {
+  const readiness = await createReadinessService({
+    quoteIdempotencyStore: {
+      async checkHealth() {
+        throw new Error("quote idempotency unavailable");
+      },
+    },
+  }).check();
+
+  assert.equal(readiness.status, "degraded");
+  assert.equal(readiness.components.quoteRepository, "degraded");
 });
 
 test("ReadinessService degrades when the distributed rate limit store is unavailable", async () => {
@@ -310,6 +324,7 @@ function readinessServiceDeps(overrides = {}) {
       settlementAddress: "0x0000000000000000000000000000000000000004",
     }),
     quoteRepository: overrides.quoteRepository ?? new InMemoryQuoteRepository(),
+    quoteIdempotencyStore: overrides.quoteIdempotencyStore ?? new InMemoryQuoteIdempotencyStore(),
     quoteControlStore: overrides.quoteControlStore ?? new InMemoryQuoteControlStore(),
     riskDecisionStore: overrides.riskDecisionStore ?? new InMemoryRiskDecisionRepository(),
     rateLimiter: overrides.rateLimiter ?? { checkHealth() {} },

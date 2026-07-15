@@ -14,6 +14,7 @@ import type { TreasuryLiquidityProvider } from "../risk/treasury-liquidity.provi
 import type { RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
 import type { QuoteRepository } from "./quote.repository.js";
+import type { QuoteIdempotencyStore } from "./quote-idempotency.store.js";
 
 export interface QuoteServiceDeps {
   inventoryService: IInventoryService;
@@ -21,6 +22,7 @@ export interface QuoteServiceDeps {
   marketSnapshotStore: MarketSnapshotStore;
   pricingEngine: PricingEngine;
   hedgeService?: HedgeIntentService;
+  quoteIdempotencyStore?: QuoteIdempotencyStore;
   quoteRepository: QuoteRepository;
   quoteExposureStore?: QuoteExposureStore;
   treasuryLiquidityProvider?: TreasuryLiquidityProvider;
@@ -38,6 +40,7 @@ export interface QuoteServiceConfig {
 
 export interface QuoteAccessContext {
   principalId: string;
+  idempotencyKey?: string;
 }
 
 export interface SubmittableQuoteOptions {
@@ -64,6 +67,7 @@ const quoteServiceDepsFields = [
   "signerService",
 ] as const;
 const quoteAccessContextFields = ["principalId"] as const;
+const quoteAccessContextOptionalFields = ["idempotencyKey"] as const;
 
 export function normalizeQuoteServiceConfig(config: QuoteServiceConfig): QuoteServiceConfig {
   assertRecord(config, "config");
@@ -83,16 +87,25 @@ export function normalizeQuoteAccessContext(context: QuoteAccessContext | undefi
   const value = context ?? { principalId: localPrincipalId };
   assertRecord(value, "access context");
   assertOwnFields(value, quoteAccessContextFields, "access context");
-  const unknownField = Object.keys(value).find((field) => !quoteAccessContextFields.includes(field as "principalId"));
+  assertOptionalOwnField(value, "idempotencyKey", "access context");
+  const allowedFields = new Set<string>([...quoteAccessContextFields, ...quoteAccessContextOptionalFields]);
+  const unknownField = Object.keys(value).find((field) => !allowedFields.has(field));
   if (unknownField) throw new Error(`Quote service access context contains unknown field ${unknownField}`);
   assertPrincipalId(value.principalId, "Quote service access context.principalId");
-  return { principalId: value.principalId };
+  if (value.idempotencyKey !== undefined && typeof value.idempotencyKey !== "string") {
+    throw new Error("Quote service access context.idempotencyKey must be a string when provided");
+  }
+  return {
+    principalId: value.principalId,
+    ...(value.idempotencyKey === undefined ? {} : { idempotencyKey: value.idempotencyKey }),
+  };
 }
 
 function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   assertRecord(deps, "deps");
   assertOwnFields(deps, quoteServiceDepsFields, "deps");
   assertOptionalOwnField(deps, "hedgeService", "deps");
+  assertOptionalOwnField(deps, "quoteIdempotencyStore", "deps");
   assertOptionalOwnField(deps, "quoteExposureStore", "deps");
   assertOptionalOwnField(deps, "treasuryLiquidityProvider", "deps");
   assertDependencyMethod(deps.marketDataService, "marketDataService", "getSnapshot");
@@ -102,6 +115,11 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   assertDependencyMethod(deps.inventoryService, "inventoryService", "calculateQuoteSkewBps");
   assertDependencyMethod(deps.inventoryService, "inventoryService", "projectSettlement");
   assertOptionalDependencyMethod(deps.hedgeService, "hedgeService", "quoteRiskPenaltyBps");
+  if (deps.quoteIdempotencyStore !== undefined) {
+    for (const method of ["acquire", "bindQuote", "complete", "fail", "checkHealth"]) {
+      assertDependencyMethod(deps.quoteIdempotencyStore, "quoteIdempotencyStore", method);
+    }
+  }
   if (deps.quoteExposureStore !== undefined) {
     assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "reserve");
     assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "release");

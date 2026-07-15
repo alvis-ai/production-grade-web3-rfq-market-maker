@@ -30,6 +30,7 @@ const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const errorDocsSource = await readFile("docs/api/errors.md", "utf8");
 
 const backendCodes = [...apiErrorSource.matchAll(/\|\s+"([A-Z0-9_]+)"/g)].map((match) => match[1]);
+const backendRuntimeCodes = extractBackendRuntimeErrorCodes(apiErrorSource);
 const sdkCodes = extractSdkErrorCodes(sdkTypesSource);
 const openapiCodes = extractOpenapiErrorCodes(openapiSource);
 const docsStatusByCode = extractDocumentedErrorStatuses(errorDocsSource);
@@ -42,6 +43,7 @@ const allowedNonErrorResponseSchemas = new Map([
 ]);
 
 assert.deepEqual(sdkCodes, backendCodes, "SDK rfqErrorCodes array must match backend RFQErrorCode");
+assert.deepEqual(backendRuntimeCodes, backendCodes, "backend runtime RFQ error code validator must match RFQErrorCode");
 assert.deepEqual(openapiCodes, backendCodes, "OpenAPI ErrorResponse enum must match backend RFQErrorCode");
 assert.deepEqual(docsCodes, backendCodes, "docs/api/errors.md table must match backend RFQErrorCode");
 for (const [code, statuses] of backendStatusByCode) {
@@ -153,6 +155,12 @@ function extractSdkErrorCodes(source) {
   const match = source.match(/export const rfqErrorCodes = \[\n([\s\S]*?)\] as const;/);
   assert.ok(match, "SDK rfqErrorCodes constant array not found");
 
+  return [...match[1].matchAll(/^\s*"([A-Z0-9_]+)",$/gm)].map((item) => item[1]);
+}
+
+function extractBackendRuntimeErrorCodes(source) {
+  const match = source.match(/const rfqErrorCodeSet:[\s\S]*?new Set\(\[\n([\s\S]*?)\] satisfies readonly RFQErrorCode\[\]\);/);
+  assert.ok(match, "backend runtime RFQ error code set not found");
   return [...match[1].matchAll(/^\s*"([A-Z0-9_]+)",$/gm)].map((item) => item[1]);
 }
 

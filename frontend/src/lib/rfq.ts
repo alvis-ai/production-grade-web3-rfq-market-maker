@@ -6,10 +6,23 @@ const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn"
 const quoteResponseFields = ["quoteId", "snapshotId", "amountOut", "minAmountOut", "deadline", "nonce", "signature"] as const;
 
 let frontendTraceCounter = 0;
+let frontendQuoteCounter = 0;
 
 export function nextFrontendTraceId(): string {
   frontendTraceCounter = (frontendTraceCounter + 1) % Number.MAX_SAFE_INTEGER;
   return `tr_web_${Date.now().toString(36)}_${frontendTraceCounter.toString(36)}`;
+}
+
+export function nextQuoteIdempotencyKey(): string {
+  frontendQuoteCounter = (frontendQuoteCounter + 1) % Number.MAX_SAFE_INTEGER;
+  const random = new Uint32Array(2);
+  globalThis.crypto.getRandomValues(random);
+  return [
+    "quote_web",
+    Date.now().toString(36),
+    frontendQuoteCounter.toString(36),
+    ...Array.from(random, (value) => value.toString(16).padStart(8, "0")),
+  ].join("_");
 }
 
 export const rfqClient = new RFQClient(rfqApiBaseUrl, {

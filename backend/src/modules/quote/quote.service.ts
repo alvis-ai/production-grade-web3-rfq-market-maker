@@ -8,7 +8,7 @@ import type {
   Address,
   UIntString,
 } from "../../shared/types/rfq.js";
-import { APIError } from "../../shared/errors/api-error.js";
+import { APIError, toAPIError } from "../../shared/errors/api-error.js";
 import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
 import { validateSubmitQuoteRequest } from "../../shared/validation/submit-request.js";
 import { assertPrincipalId, localPrincipalId } from "../../shared/validation/principal-id.js";
@@ -26,6 +26,11 @@ import type { RiskDecision, RiskInput } from "../risk/risk.engine.js";
 import type { SaveRiskDecisionInput } from "../risk/risk-decision.repository.js";
 import type { RoutePlan } from "../routing/routing.engine.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
+import {
+  assertQuoteIdempotencyKey,
+  quoteRequestHash,
+  type QuoteIdempotencyReservation,
+} from "./quote-idempotency.store.js";
 import {
   defaultQuoteServiceConfig,
   normalizeQuoteAccessContext,
@@ -81,6 +86,65 @@ export class QuoteService {
   async createQuote(request: QuoteRequest, context?: QuoteAccessContext): Promise<QuoteResponse> {
     const access = normalizeQuoteAccessContext(context);
     const validatedRequest = validateQuoteRequest(request);
+    if (access.idempotencyKey === undefined) {
+      return this.createFreshQuote(validatedRequest, access);
+    }
+
+    try {
+      assertQuoteIdempotencyKey(access.idempotencyKey);
+    } catch {
+      throw new APIError("INVALID_REQUEST", "Idempotency-Key is invalid", 400);
+    }
+    const store = this.deps.quoteIdempotencyStore;
+    if (!store) throw new APIError("QUOTE_STORE_UNAVAILABLE", "Quote idempotency store unavailable", 503);
+
+    let claim;
+    try {
+      claim = await store.acquire(access.principalId, access.idempotencyKey, quoteRequestHash(validatedRequest));
+    } catch {
+      throw new APIError("QUOTE_STORE_UNAVAILABLE", "Quote idempotency store unavailable", 503);
+    }
+    if (claim.status === "replay") return claim.response;
+    if (claim.status === "failed") {
+      throw new APIError(claim.error.code, claim.error.message, claim.error.statusCode);
+    }
+    if (claim.status === "conflict") {
+      throw new APIError("IDEMPOTENCY_KEY_CONFLICT", "Idempotency-Key was already used for another request", 409);
+    }
+    if (claim.status === "in_progress") {
+      throw new APIError("IDEMPOTENCY_REQUEST_IN_PROGRESS", "Idempotent quote request is still processing", 409);
+    }
+
+    let response: QuoteResponse;
+    try {
+      response = await this.createFreshQuote(validatedRequest, access, claim.reservation);
+    } catch (error) {
+      const apiError = toAPIError(error);
+      try {
+        await store.fail(claim.reservation, {
+          code: apiError.code,
+          message: apiError.message,
+          statusCode: apiError.statusCode,
+        });
+      } catch {
+        throw new APIError("QUOTE_STORE_UNAVAILABLE", "Quote idempotency store unavailable", 503);
+      }
+      throw error;
+    }
+
+    try {
+      await store.complete(claim.reservation, response);
+    } catch {
+      throw new APIError("QUOTE_STORE_UNAVAILABLE", "Quote idempotency completion unavailable", 503);
+    }
+    return response;
+  }
+
+  private async createFreshQuote(
+    validatedRequest: QuoteRequest,
+    access: QuoteAccessContext,
+    idempotency?: QuoteIdempotencyReservation,
+  ): Promise<QuoteResponse> {
     const snapshot = await this.getUsableSnapshot(validatedRequest);
     const snapshotSource = getMarketDataSnapshotSource(snapshot);
     await this.saveMarketSnapshot({
@@ -91,6 +155,13 @@ export class QuoteService {
 
     const identity = this.identityGenerator.next();
     const quoteId = identity.quoteId;
+    if (idempotency) {
+      try {
+        await this.deps.quoteIdempotencyStore?.bindQuote(idempotency, quoteId);
+      } catch {
+        throw new APIError("QUOTE_STORE_UNAVAILABLE", "Quote idempotency binding unavailable", 503);
+      }
+    }
     await this.saveRequestedQuote({
       quoteId,
       principalId: access.principalId,
@@ -277,7 +348,7 @@ export class QuoteService {
       throw error;
     }
 
-    return {
+    const response: QuoteResponse = {
       quoteId,
       snapshotId: snapshot.snapshotId,
       amountOut: pricing.amountOut,
@@ -286,6 +357,7 @@ export class QuoteService {
       nonce: identity.nonce,
       signature,
     };
+    return response;
   }
 
   async getQuoteStatus(quoteId: string, context?: QuoteAccessContext): Promise<QuoteStatusResponse | undefined> {

@@ -87,7 +87,7 @@ async function importQuotePageModule() {
         "const loadQuoteLifecycle = async () => { throw new Error('mock lifecycle should not be called during server render'); };",
       )
       .replace(
-        'import { buildQuoteFromResponse, rfqClient } from "../lib/rfq";',
+        'import { buildQuoteFromResponse, nextQuoteIdempotencyKey, rfqClient } from "../lib/rfq";',
         [
           "const buildQuoteFromResponse = (request, response) => ({",
           "  user: request.user,",
@@ -100,6 +100,7 @@ async function importQuotePageModule() {
           "  deadline: response.deadline,",
           "  chainId: request.chainId,",
           "});",
+          "const nextQuoteIdempotencyKey = () => 'quote_component_test_0001';",
           "const rfqClient = {",
           "  quote: async () => { throw new Error('mock quote should not be called during server render'); },",
           "  submit: async () => { throw new Error('mock submit should not be called during server render'); },",

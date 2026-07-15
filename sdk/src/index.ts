@@ -35,6 +35,7 @@ export type {
   RFQClientErrorCode,
   RFQClientFetch,
   RFQClientOptions,
+  QuoteRequestOptions,
 } from "./client.js";
 export type {
   Address,

@@ -107,7 +107,7 @@ test("RFQ API emits CORS headers for allowed browser origins", async () => {
     assert.equal(response.headers["access-control-allow-origin"], "https://app.example.com");
     assert.equal(response.headers.vary, "Origin");
     assert.equal(response.headers["access-control-allow-methods"], "GET,POST,PUT,OPTIONS");
-    assert.equal(response.headers["access-control-allow-headers"], "content-type,x-api-key,x-trace-id");
+    assert.equal(response.headers["access-control-allow-headers"], "content-type,idempotency-key,x-api-key,x-trace-id");
     assert.equal(response.headers["access-control-max-age"], "600");
   } finally {
     await server.close();

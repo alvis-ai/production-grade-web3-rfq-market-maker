@@ -22,6 +22,10 @@ export type RFQClientFetch = (input: string, init?: RequestInit) => Promise<Resp
 export type RFQClientTraceIdProvider = () => string | undefined;
 export type RFQClientApiKeyProvider = () => string | undefined;
 
+export interface QuoteRequestOptions {
+  readonly idempotencyKey: string;
+}
+
 export interface RFQClientOptions {
   readonly fetch?: RFQClientFetch;
   readonly traceId?: string | RFQClientTraceIdProvider;
@@ -36,6 +40,7 @@ const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const retryAfterSecondsPattern = /^[1-9][0-9]*$/;
 const isoUtcTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const apiKeyPattern = /^[A-Za-z0-9_-]{3,64}\.[A-Za-z0-9_-]{32,128}$/;
+const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{16,128}$/;
 const clientOptionFields = ["fetch", "traceId", "apiKey"] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const submitRequestFields = ["quote", "signature"] as const;
@@ -174,12 +179,14 @@ export class RFQClient {
     this.apiKeyProvider = resolveApiKeyProvider(clientOptions);
   }
 
-  async quote(request: QuoteRequest): Promise<QuoteResponse> {
+  async quote(request: QuoteRequest, options?: QuoteRequestOptions): Promise<QuoteResponse> {
     assertQuoteRequest(request);
+    const quoteOptions = assertQuoteRequestOptions(options);
     const response = await this.fetchImpl(`${this.baseUrl}/quote`, {
       method: "POST",
       headers: this.requestHeaders({
         "content-type": "application/json",
+        ...(quoteOptions ? { "Idempotency-Key": quoteOptions.idempotencyKey } : {}),
       }),
       body: JSON.stringify(request),
     });
@@ -319,6 +326,25 @@ export class RFQClient {
       ...(traceId ? { "x-trace-id": traceId } : {}),
     };
   }
+}
+
+function assertQuoteRequestOptions(options: unknown): QuoteRequestOptions | undefined {
+  if (options === undefined) return undefined;
+  if (!isRecord(options)) {
+    throw new RFQClientError("RFQ quote options must be an object", 0);
+  }
+  const keys = Object.keys(options);
+  if (
+    keys.length !== 1 ||
+    keys[0] !== "idempotencyKey" ||
+    !Object.prototype.hasOwnProperty.call(options, "idempotencyKey")
+  ) {
+    throw new RFQClientError("RFQ quote options must contain only idempotencyKey", 0);
+  }
+  if (typeof options.idempotencyKey !== "string" || !idempotencyKeyPattern.test(options.idempotencyKey)) {
+    throw new RFQClientError("RFQ quote idempotencyKey must contain 16-128 safe ASCII characters", 0);
+  }
+  return { idempotencyKey: options.idempotencyKey };
 }
 
 function assertClientOptions(options: unknown): RFQClientOptions {

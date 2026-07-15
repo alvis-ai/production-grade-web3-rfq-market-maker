@@ -232,7 +232,7 @@ function applyCorsHeaders(
   reply.header("access-control-allow-origin", origin);
   reply.header("vary", "Origin");
   reply.header("access-control-allow-methods", "GET,POST,PUT,OPTIONS");
-  reply.header("access-control-allow-headers", "content-type,x-api-key,x-trace-id");
+  reply.header("access-control-allow-headers", "content-type,idempotency-key,x-api-key,x-trace-id");
   reply.header("access-control-max-age", "600");
 }
 

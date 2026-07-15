@@ -135,7 +135,16 @@ test("non-local RFQ API requires API key auth configuration or an injected authe
 
     const server = buildServer({ ...options, apiKeyAuthenticator: authenticator() });
     await server.ready();
-    await server.close();
+    try {
+      const missingIdempotencyKey = await injectJson(server, "POST", "/quote", baseQuoteRequest, {
+        "x-api-key": apiKey,
+      });
+      assert.equal(missingIdempotencyKey.statusCode, 400);
+      assert.equal(missingIdempotencyKey.body.code, "INVALID_REQUEST");
+      assert.equal(missingIdempotencyKey.body.message, "Idempotency-Key is required for quote requests");
+    } finally {
+      await server.close();
+    }
   } finally {
     restoreEnv(original);
   }
@@ -151,7 +160,7 @@ test("RFQ API CORS contract permits the API key request header", async () => {
       headers: { origin: "https://app.example.com", "access-control-request-method": "POST" },
     });
     assert.equal(response.statusCode, 204);
-    assert.equal(response.headers["access-control-allow-headers"], "content-type,x-api-key,x-trace-id");
+    assert.equal(response.headers["access-control-allow-headers"], "content-type,idempotency-key,x-api-key,x-trace-id");
   } finally {
     await server.close();
   }

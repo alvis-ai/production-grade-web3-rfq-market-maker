@@ -34,6 +34,7 @@ try {
       url: "/quote",
       headers: {
         "content-type": "application/json",
+        "idempotency-key": `quote_benchmark_${String(index).padStart(8, "0")}`,
       },
       payload: quoteRequest,
     });

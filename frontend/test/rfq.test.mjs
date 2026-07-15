@@ -24,7 +24,7 @@ async function importRfqModule() {
   return import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`);
 }
 
-const { buildQuoteFromResponse } = await importRfqModule();
+const { buildQuoteFromResponse, nextQuoteIdempotencyKey } = await importRfqModule();
 
 const request = Object.freeze({
   chainId: 1,
@@ -43,6 +43,14 @@ const response = Object.freeze({
   deadline: 1893456000,
   nonce: "42",
   signature: `0x${"11".repeat(64)}1b`,
+});
+
+test("nextQuoteIdempotencyKey returns bounded unique safe keys", () => {
+  const first = nextQuoteIdempotencyKey();
+  const second = nextQuoteIdempotencyKey();
+  assert.match(first, /^[A-Za-z0-9._:-]{16,128}$/);
+  assert.match(second, /^[A-Za-z0-9._:-]{16,128}$/);
+  assert.notEqual(first, second);
 });
 
 test("buildQuoteFromResponse returns the wallet quote shape", () => {

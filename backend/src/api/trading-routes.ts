@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { SkeletonExecutionService } from "../modules/execution/execution.service.js";
 import {
   assertSubmitReservation,
@@ -18,6 +18,7 @@ import {
   type QuoteControlStore,
 } from "../modules/quote-control/quote-control.store.js";
 import type { QuoteService } from "../modules/quote/quote.service.js";
+import { assertQuoteIdempotencyKey } from "../modules/quote/quote-idempotency.store.js";
 import type { RateLimiter } from "../modules/rate-limit/rate-limit.service.js";
 import type { SettlementEventStore } from "../modules/settlement/settlement-event.service.js";
 import { APIError, toAPIError } from "../shared/errors/api-error.js";
@@ -85,6 +86,7 @@ export interface TradingRouteDependencies {
   quoteService: QuoteService;
   rateLimiter?: RateLimiter;
   readinessService: ReadinessService;
+  requireQuoteIdempotencyKey: boolean;
   settlementEventService: SettlementEventStore;
   submitReservationStore: SubmitReservationStore;
   trustProxy: boolean;
@@ -103,6 +105,7 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
     quoteService,
     rateLimiter,
     readinessService,
+    requireQuoteIdempotencyKey,
     settlementEventService,
     submitReservationStore,
     trustProxy,
@@ -262,14 +265,17 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
         return rateLimitResult.response;
       }
 
+      const idempotencyKey = readQuoteIdempotencyKey(request, requireQuoteIdempotencyKey);
       await requireQuoteEnabled(quoteControlStore, metricsService);
       const quoteRequest = validateQuoteRequest(request.body);
       await requirePairQuoteEnabled(quoteControlStore, metricsService, quoteRequest);
 
       const response = await quoteService.createQuote(quoteRequest, {
         principalId: principal?.principalId ?? localPrincipalId,
+        ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
       });
       metricsService.recordQuoteResponse();
+      if (idempotencyKey !== undefined) reply.header("Idempotency-Key", idempotencyKey);
       return response;
     } catch (error) {
       metricsService.recordQuoteError();
@@ -362,6 +368,21 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
       metricsService.recordSubmitLatency(elapsedSeconds(startedAt));
     }
   });
+}
+
+function readQuoteIdempotencyKey(request: FastifyRequest, required: boolean): string | undefined {
+  const value = request.headers["idempotency-key"];
+  if (value === undefined) {
+    if (required) throw new APIError("INVALID_REQUEST", "Idempotency-Key is required for quote requests", 400);
+    return undefined;
+  }
+  if (Array.isArray(value)) throw new APIError("INVALID_REQUEST", "Idempotency-Key must appear exactly once", 400);
+  try {
+    assertQuoteIdempotencyKey(value);
+  } catch {
+    throw new APIError("INVALID_REQUEST", "Idempotency-Key is invalid", 400);
+  }
+  return value;
 }
 
 async function requireQuoteEnabled(

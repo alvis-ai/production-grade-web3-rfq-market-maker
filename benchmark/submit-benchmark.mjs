@@ -34,7 +34,9 @@ try {
   let submitErrors = 0;
 
   for (let index = 0; index < sampleSize; index += 1) {
-    const quoteResponse = await injectJson("POST", "/quote", quoteRequest);
+    const quoteResponse = await injectJson("POST", "/quote", quoteRequest, {
+      "idempotency-key": `submit_benchmark_${String(index).padStart(8, "0")}`,
+    });
     if (quoteResponse.statusCode !== 200) {
       quoteErrors += 1;
       continue;
@@ -89,12 +91,13 @@ try {
   await server.close();
 }
 
-async function injectJson(method, path, payload) {
+async function injectJson(method, path, payload, headers = {}) {
   const response = await server.inject({
     method,
     url: path,
     headers: {
       "content-type": "application/json",
+      ...headers,
     },
     payload,
   });

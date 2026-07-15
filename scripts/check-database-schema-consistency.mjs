@@ -90,6 +90,14 @@ const portfolioVarMigrationSource = await readFile(
   "backend/src/db/migrations/022-portfolio-var-reservations.sql",
   "utf8",
 );
+const quoteIdempotencyMigrationSource = await readFile(
+  "backend/src/db/migrations/023-quote-idempotency.sql",
+  "utf8",
+);
+const postgresQuoteIdempotencySource = await readFile(
+  "backend/src/modules/quote/postgres-quote-idempotency.store.ts",
+  "utf8",
+);
 const postgresQuoteControlSource = await readFile(
   "backend/src/modules/quote-control/postgres-quote-control.store.ts",
   "utf8",
@@ -302,6 +310,22 @@ const requiredTables = {
     "created_at",
   ],
   quote_submit_reservations: ["quote_id", "owner_token", "acquired_at", "expires_at"],
+  quote_idempotency_requests: [
+    "principal_id",
+    "idempotency_key",
+    "request_hash",
+    "state",
+    "owner_token",
+    "lease_expires_at",
+    "quote_id",
+    "response",
+    "error_code",
+    "error_message",
+    "error_status_code",
+    "completed_at",
+    "created_at",
+    "updated_at",
+  ],
   quote_exposure_reservations: [
     "quote_id",
     "chain_id",
@@ -516,6 +540,16 @@ const requiredCheckConstraints = {
   quote_submit_reservations: [
     ["chk_quote_submit_reservations_owner", "submit reservations must constrain owner tokens"],
     ["chk_quote_submit_reservations_expiry", "submit reservations must constrain lease expiry"],
+  ],
+  quote_idempotency_requests: [
+    ["chk_quote_idempotency_principal", "quote idempotency must constrain principal identifiers"],
+    ["chk_quote_idempotency_key", "quote idempotency must constrain client keys"],
+    ["chk_quote_idempotency_request_hash", "quote idempotency must constrain request fingerprints"],
+    ["chk_quote_idempotency_state", "quote idempotency must constrain state"],
+    ["chk_quote_idempotency_lease", "quote idempotency must constrain lease expiry"],
+    ["chk_quote_idempotency_payload", "quote idempotency must constrain state payloads"],
+    ["chk_quote_idempotency_owner", "quote idempotency must constrain owner tokens"],
+    ["chk_quote_idempotency_error", "quote idempotency must constrain cached errors"],
   ],
   quote_exposure_reservations: [
     ["chk_quote_exposure_chain_id", "quote exposure must constrain chain id"],
@@ -1505,6 +1539,18 @@ assert.ok(
     schemaSource.includes("('022', 'portfolio-var-reservations')") &&
     erDiagramSource.includes("jsonb var_evaluation"),
   "portfolio VaR migration must persist directional quote deltas and replayable risk evidence",
+);
+assert.ok(
+  quoteIdempotencyMigrationSource.includes("CREATE TABLE quote_idempotency_requests") &&
+    quoteIdempotencyMigrationSource.includes("PRIMARY KEY (principal_id, idempotency_key)") &&
+    quoteIdempotencyMigrationSource.includes("idx_quote_idempotency_processing_lease") &&
+    quoteIdempotencyMigrationSource.includes("trg_quote_idempotency_requests_set_updated_at") &&
+    schemaSource.includes("('023', 'quote-idempotency')") &&
+    erDiagramSource.includes("QUOTE_IDEMPOTENCY_REQUESTS") &&
+    postgresQuoteIdempotencySource.includes("FOR UPDATE") &&
+    postgresQuoteIdempotencySource.includes("recoverBoundQuote") &&
+    postgresQuoteIdempotencySource.includes("owner_token = $4"),
+  "quote idempotency migration, store, and docs must preserve principal-scoped ownership and crash recovery",
 );
 assert.ok(
   postgresToxicFlowMarkoutSource.includes("async claimNext") &&

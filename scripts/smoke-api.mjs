@@ -38,7 +38,9 @@ assertEqual(readiness.status, "ready", "readiness status");
 assertEqual(readiness.components.signer, "ok", "readiness signer component");
 assertEqual(readiness.components.marketData, "ok", "readiness market data component");
 
-const quoteResponse = await request("POST", "/quote", quoteRequest);
+const quoteResponse = await request("POST", "/quote", quoteRequest, {
+  "Idempotency-Key": "quote_smoke_request_0001",
+});
 assertString(quoteResponse.quoteId, "quoteId");
 assertString(quoteResponse.snapshotId, "snapshotId");
 assertString(quoteResponse.amountOut, "amountOut");
@@ -170,10 +172,10 @@ console.log(
   ),
 );
 
-async function request(method, path, body) {
+async function request(method, path, body, headers = {}) {
   const response = await fetch(`${apiUrl}${path}`, {
     method,
-    headers: body ? { "content-type": "application/json" } : undefined,
+    headers: body ? { "content-type": "application/json", ...headers } : headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await response.text();

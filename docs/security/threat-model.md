@@ -35,6 +35,7 @@ flowchart LR
 | Wrong KMS key or malformed DER | Quotes are signed by an unintended key or parser ambiguity changes signature meaning | explicit trusted signer, strict DER integer/length validation, low-s normalization, address recovery |
 | Signer rotation ordering gap | A rolling fleet rejects valid old/new quotes, or a stale authorized key remains usable indefinitely | bounded five-signer contract set, primary plus at most four backend overlap signers, two-phase rollout, TTL/finality buffer, explicit retirement event |
 | Quote replay | Same quote executed multiple times | Nonce replay protection in contract |
+| Quote retry amplification | Client or proxy retries create multiple signed nonces and duplicate open-exposure reservations | principal-scoped `Idempotency-Key`, request fingerprint, PostgreSQL owner lease, quote binding before persistence, exact response replay |
 | Cross-replica submit race | Multiple API replicas verify or relay the same signed quote concurrently | PostgreSQL quote-scoped lease with server-time expiry and owner-token release; fail closed when unavailable; contract nonce remains authoritative |
 | Cross-chain replay | Quote valid on unintended chain | EIP-712 domain and Quote `chainId` |
 | Quote field tampering | User changes amount or token | EIP-712 typed data verification |
@@ -64,6 +65,7 @@ flowchart LR
 - Signer rotation must establish old/new verification overlap before changing the signing key, then retire the old signer after the last old quote and settlement-observation buffers expire.
 - Contract must reject untrusted signer, used nonce, expired quote, unsupported token and wrong chain.
 - Non-local API replicas must acquire the shared submit reservation before settlement verification; they must not fall back to process-local state or bypass it during a database incident.
+- Non-local quote requests must claim a shared principal-scoped idempotency record before nonce generation; key reuse with a different payload, active ownership, or unavailable storage must fail closed.
 - API must validate all addresses and integer strings.
 - Every non-local business API request must authenticate with a scoped key; probes remain separately network-restricted.
 - Global and pair administrative quote-control routes require dedicated admin scopes; ordinary quote, submit, status, PnL and browser credentials must not inherit them.

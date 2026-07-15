@@ -34,6 +34,8 @@
 | `QUOTE_EXPIRED` | 409 | quote 已过期 | 重新询价 |
 | `QUOTE_ALREADY_USED` | 409 | quote nonce 已使用 | 重新询价 |
 | `QUOTE_FAILED` | 409 | quote 已进入失败终态，不能再次提交 | 重新询价 |
+| `IDEMPOTENCY_KEY_CONFLICT` | 409 | 当前 principal 已用同一 `Idempotency-Key` 提交过不同的 quote payload | 为新的逻辑询价生成新 key；仅原请求的网络重试复用旧 key |
+| `IDEMPOTENCY_REQUEST_IN_PROGRESS` | 409 | 同一 principal 的相同 quote 请求仍由另一个 API 副本处理 | 短暂退避后使用相同 key 和完全相同 payload 重试 |
 | `QUOTE_PAUSED` | 503 | 全局或该 `chainId + token pair` 运维熔断已暂停创建新的 signed quote；已签发 quote 的查询、提交和结算链路不受该开关阻断 | 不要循环重试 `/quote`；读取对应控制状态并等待运维恢复后重新询价 |
 | `QUOTE_CONTROL_CONFLICT` | 409 | 全局或 pair 管理更新使用的 `expectedVersion` 已过期，另一个操作员或副本已更新状态 | 重新读取同一全局或 pair 控制，复核状态后使用新 version 重试 |
 | `QUOTE_CONTROL_UNAVAILABLE` | 503 | 共享 quote-control 存储不可读取或不可更新，系统无法证明报价开关处于 enabled | 保持 fail-closed，不绕过共享状态；恢复 PostgreSQL 后重新读取状态 |
