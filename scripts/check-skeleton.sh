@@ -3871,6 +3871,20 @@ grep -q 'Target API quote integration check failed' scripts/target-api-quote-int
 grep -q 'scripts/target-api-quote-integration-check.mjs' infra/docker/backend.Dockerfile
 grep -q 'make target-api-quote-check' scripts/verify.sh
 
+test -s scripts/target-settlement-integration-check.mjs
+test -s scripts/target-settlement-integration-check.test.mjs
+grep -q 'target-settlement-integration-check: sdk-build' Makefile
+grep -q 'target-settlement-check: sdk-build' Makefile
+grep -q 'target:settlement:integration:check' package.json
+grep -q 'run_step make target-settlement-check' scripts/verify.sh
+grep -q 'RFQ_SETTLEMENT_CANARY_CONFIRM=broadcast-one-settlement' README.md
+grep -q 'broadcastAttempted = true' scripts/target-settlement-integration-check.mjs
+grep -q 'recoverTypedDataAddress' scripts/target-settlement-integration-check.mjs
+grep -q 'simulateContract' scripts/target-settlement-integration-check.mjs
+grep -q 'do not retry automatically' scripts/target-settlement-integration-check.mjs
+grep -q 'scripts/target-settlement-integration-check.mjs' infra/docker/backend.Dockerfile
+grep -q 'Target Settlement Canary' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
 test -s frontend/playwright.config.ts
 test -s frontend/e2e/rfq-flow.spec.ts
 test -s .github/workflows/frontend-e2e.yml

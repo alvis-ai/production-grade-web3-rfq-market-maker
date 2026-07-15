@@ -66,6 +66,10 @@ flowchart LR
 
 The runtime uses AWS KMS `MessageType=DIGEST` with `ECDSA_SHA_256`; the key spec must be `ECC_SECG_P256K1` and key usage must be `SIGN_VERIFY`. Never remove the old signer before the overlap rollouts and expiry buffers complete. Never leave an overlap address configured after its on-chain authorization has been retired.
 
+## Settlement Canary Wallet
+
+The staging settlement canary uses a separate low-value testnet wallet. It must never reuse the EIP-712 signer, contract deployer, admin, Treasury owner, hedge venue account or a production user wallet. Store its private key as one hex line in a regular non-symlink file owned by the invoking user with no group or other permission bits; the canary rejects environment-variable private keys and files broader than mode `0600`. Pre-approve only the reviewed `RFQ_SETTLEMENT_CANARY_MAX_AMOUNT_IN`, fund only bounded test assets and gas, and issue a dedicated API principal with `quote:write,submit:write,status:read`. Rotate or discard this wallet when staging access changes. An ambiguous broadcast is an incident to reconcile by transaction hash, never a reason to rerun the complete canary.
+
 ## Signing Audit Credential
 
 Signer 使用独立 PostgreSQL 登录，不得复用 API 的 `DATABASE_URL` 或 DDL migrator。迁移账号依次应用 migration `027-signer-audit.sql` 与 `028-signer-risk-context.sql` 后，由数据库管理员授予最小权限：

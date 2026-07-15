@@ -38,6 +38,8 @@
     "aws:kms:canary:check": "make aws-kms-canary-check",
     "target:api:quote:integration:check": "make target-api-quote-integration-check",
     "target:api:quote:check": "make target-api-quote-check",
+    "target:settlement:integration:check": "make target-settlement-integration-check",
+    "target:settlement:check": "make target-settlement-check",
     "contract:deployment:integration:check": "make contract-deployment-integration-check",
     "contract:deployment:check": "make contract-deployment-check",
     "settlement:e2e": "make settlement-e2e",

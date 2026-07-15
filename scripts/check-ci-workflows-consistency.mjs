@@ -135,6 +135,8 @@ assertContains(workflows.docs, [
   '- "scripts/aws-kms-integration-check.test.mjs"',
   '- "scripts/target-api-quote-integration-check.mjs"',
   '- "scripts/target-api-quote-integration-check.test.mjs"',
+  '- "scripts/target-settlement-integration-check.mjs"',
+  '- "scripts/target-settlement-integration-check.test.mjs"',
   '- "scripts/check-logging-consistency.mjs"',
   '- "scripts/check-settlement-indexer-consistency.mjs"',
   '- "scripts/check-submit-reservation-consistency.mjs"',

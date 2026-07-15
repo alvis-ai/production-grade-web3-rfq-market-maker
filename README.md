@@ -380,6 +380,32 @@ make target-api-quote-integration-check
 
 This canary creates one short-lived quote, risk decision, signer audit record and temporary exposure reservation. It never calls `/submit` or broadcasts a transaction, emits only the quote/snapshot identifiers plus digest and signature hash, and replaces target transport or API failure details with a fixed error. The release image includes `scripts/target-api-quote-integration-check.mjs` and the compiled SDK; run it from a controlled operator workload that can reach the public API. `make target-api-quote-check` runs the deterministic HTTPS protocol fixture in CI without contacting a deployed environment.
 
+Before enabling a staging market end to end, use a dedicated testnet wallet and an API principal limited to `quote:write,submit:write,status:read` to run one real settlement. The canary rejects known production chain IDs and requires `RFQ_SETTLEMENT_CANARY_ENVIRONMENT=staging-testnet`; verifies target chain, contract code, pause/whitelist/signer state, gas, balances, a pre-existing allowance no larger than the reviewed input cap, quote idempotency, TTL and signer; simulates the exact SDK calldata; broadcasts exactly once; then verifies transaction calldata, `QuoteSettled`, nonce consumption, exact user/Treasury balance deltas and backend settlement/hedge/PnL identifiers. Prepare a key file owned by the current user with mode `0600`, fund only the bounded test assets and gas needed for this operation, and run:
+
+```sh
+RFQ_SETTLEMENT_CANARY_CONFIRM=broadcast-one-settlement \
+RFQ_SETTLEMENT_CANARY_ENVIRONMENT=staging-testnet \
+RFQ_SETTLEMENT_CANARY_API_BASE_URL=https://staging-rfq.example \
+RFQ_SETTLEMENT_CANARY_API_KEY="${RFQ_STAGING_CANARY_API_KEY}" \
+RFQ_SETTLEMENT_CANARY_RPC_URL="${RFQ_STAGING_RPC_URL}" \
+RFQ_SETTLEMENT_CANARY_CHAIN_ID=11155111 \
+RFQ_SETTLEMENT_CANARY_SETTLEMENT_ADDRESS=0x1111111111111111111111111111111111111111 \
+RFQ_SETTLEMENT_CANARY_TRUSTED_SIGNER_ADDRESS=0x2222222222222222222222222222222222222222 \
+RFQ_SETTLEMENT_CANARY_EXPECTED_USER_ADDRESS=0x3333333333333333333333333333333333333333 \
+RFQ_SETTLEMENT_CANARY_USER_KEY_FILE=/secure/rfq-canary-user-key \
+RFQ_SETTLEMENT_CANARY_TOKEN_IN=0x4444444444444444444444444444444444444444 \
+RFQ_SETTLEMENT_CANARY_TOKEN_OUT=0x5555555555555555555555555555555555555555 \
+RFQ_SETTLEMENT_CANARY_AMOUNT_IN=1000 \
+RFQ_SETTLEMENT_CANARY_MAX_AMOUNT_IN=1000 \
+RFQ_SETTLEMENT_CANARY_MAX_AMOUNT_OUT=1000 \
+RFQ_SETTLEMENT_CANARY_MIN_TTL_SECONDS=15 \
+RFQ_SETTLEMENT_CANARY_MAX_TTL_SECONDS=120 \
+RFQ_SETTLEMENT_CANARY_CONFIRMATIONS=2 \
+make target-settlement-integration-check
+```
+
+Never point this command at a production chain or reuse a production user, signer, deployer, admin or Treasury key. The script does not approve tokens, retry a transaction or clean up an economic settlement. If submission is ambiguous it stops with an explicit non-retryable result; if a hash was returned, it preserves only that public hash for manual reconciliation while redacting API, RPC and wallet-provider details. The release image includes the script but no key or endpoint. `make target-settlement-check` exercises the full deterministic chain/API fixture in CI without broadcasting.
+
 Leave `RFQ_TRUST_PROXY=false`; only enable it when a trusted reverse proxy or ingress strips untrusted `x-forwarded-for` headers and sets the canonical client address. When enabled, the rate limiter keys by the first `x-forwarded-for` entry after enforcing the 128 character limit and `[A-Za-z0-9_.:-]` character set; otherwise it uses the direct socket IP. Redis uses one atomic Lua operation for counter, TTL and limit decisions across replicas. Redis errors return `RATE_LIMIT_UNAVAILABLE`/503 and degrade `rateLimitStore` readiness; the gateway never silently fails open.
 
 Production Kubernetes requires Cilium DNS-aware policy enforcement. API-to-signer HTTPS is allowed only between exact pod selectors on TCP 3006. The API FQDN list excludes AWS; only the signer workload may reach regional AWS STS/KMS 443. Every other dependency remains an exact workload-owned FQDN and port, with no generic 443 or wildcard rule.

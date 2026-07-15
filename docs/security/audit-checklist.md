@@ -20,6 +20,7 @@
 - [x] A Settlement owner without DEFAULT_ADMIN_ROLE cannot transfer ownership to restore administrative roles.
 - [x] Deployment atomically wires Settlement and Treasury, validates postconditions, transfers both ownership boundaries to an explicit final admin, and leaves the factory without roles.
 - [x] Target-chain deployment verification pins one fresh block, matches runtime artifacts outside declared immutable slots, recomputes the EIP-712 domain, and proves exact signer, token and role-member counts before quote admission.
+- [x] The target settlement canary is staging/testnet-only, uses a dedicated bounded wallet and allowance, simulates exact SDK calldata, broadcasts once without retry, and verifies receipt, transaction, event, nonce, balances and backend settlement/hedge/PnL projections without exposing credentials or raw signatures.
 - [x] Events contain enough data for idempotent indexing.
 
 ## Backend
