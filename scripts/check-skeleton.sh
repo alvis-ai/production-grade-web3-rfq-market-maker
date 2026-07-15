@@ -658,9 +658,11 @@ test -s infra/grafana/provisioning/datasources/prometheus.yml
 test -s infra/k8s/backend-deployment.yaml
 test -s infra/k8s/backend-secret.yaml
 test -s infra/k8s/network-policy.yaml
+test -s infra/k8s/cilium-fqdn-egress-policy.yaml
 test -s infra/helm/rfq-market-maker/Chart.yaml
 test -s infra/helm/rfq-market-maker/values.schema.json
 test -s infra/helm/rfq-market-maker/templates/network-policy.yaml
+test -s infra/helm/rfq-market-maker/templates/cilium-fqdn-egress-policy.yaml
 test -s scripts/check-transport-security-consistency.mjs
 test -s scripts/smoke-api.sh
 
@@ -3573,7 +3575,7 @@ grep -q 'baseline browser security headers' docs/security/audit-checklist.md
 grep -q 'CORS origin allowlist' docs/security/audit-checklist.md
 grep -q 'audit checklist must mark implemented baseline controls' scripts/check-security-docs-consistency.mjs
 grep -q 'audit checklist must mark implemented control' scripts/check-security-docs-consistency.mjs
-grep -q 'audit checklist must leave unresolved control unchecked' scripts/check-security-docs-consistency.mjs
+grep -q 'runbook FQDN egress procedure must include' scripts/check-security-docs-consistency.mjs
 grep -Fq -- '- [x] EIP-712 domain includes name, version, chainId and verifyingContract.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] `submitQuote` rejects expired quotes.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] Risk Engine runs before Signer Service.' docs/security/audit-checklist.md

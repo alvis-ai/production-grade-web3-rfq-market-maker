@@ -1,0 +1,233 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: rfq-backend-fqdn-egress
+  namespace: rfq-market-maker
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: rfq-backend
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    - toFQDNs:
+        - matchName: postgres.example.com
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+    - toFQDNs:
+        - matchName: redis.example.com
+      toPorts:
+        - ports:
+            - port: "6380"
+              protocol: TCP
+    - toFQDNs:
+        - matchName: kms.us-east-1.amazonaws.com
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    - toFQDNs:
+        - matchName: sts.us-east-1.amazonaws.com
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    - toFQDNs:
+        - matchName: api.binance.com
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    - toFQDNs:
+        - matchName: stream.binance.com
+      toPorts:
+        - ports:
+            - port: "9443"
+              protocol: TCP
+    - toFQDNs:
+        - matchName: ws-feed.exchange.coinbase.com
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    - toFQDNs:
+        - matchName: replace-with-production-rpc.example.com
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: rfq-hedge-worker-fqdn-egress
+  namespace: rfq-market-maker
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: rfq-hedge-worker
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    - toFQDNs:
+        - matchName: postgres.example.com
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+    - toFQDNs:
+        - matchName: api.binance.com
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: rfq-analytics-worker-fqdn-egress
+  namespace: rfq-market-maker
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: rfq-analytics-worker
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    - toFQDNs:
+        - matchName: postgres.example.com
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+    - toFQDNs:
+        - matchName: redpanda.example.internal
+      toPorts:
+        - ports:
+            - port: "9093"
+              protocol: TCP
+    - toFQDNs:
+        - matchName: clickhouse.example.internal
+      toPorts:
+        - ports:
+            - port: "8443"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: rfq-reconciliation-worker-fqdn-egress
+  namespace: rfq-market-maker
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: rfq-reconciliation-worker
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    - toFQDNs:
+        - matchName: postgres.example.com
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: rfq-settlement-indexer-fqdn-egress
+  namespace: rfq-market-maker
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: rfq-settlement-indexer
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    - toFQDNs:
+        - matchName: postgres.example.com
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+    - toFQDNs:
+        - matchName: replace-with-production-rpc.example.com
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: rfq-toxic-flow-analyzer-fqdn-egress
+  namespace: rfq-market-maker
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: rfq-toxic-flow-analyzer
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    - toFQDNs:
+        - matchName: postgres.example.com
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP

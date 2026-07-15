@@ -19,15 +19,4 @@ spec:
       ports:
         - protocol: TCP
           port: 3004
-  egress:
-    - ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
-    - ports:
-        - protocol: TCP
-          port: 5432
-    - ports:
-        - protocol: TCP
-          port: 443
+  egress: []

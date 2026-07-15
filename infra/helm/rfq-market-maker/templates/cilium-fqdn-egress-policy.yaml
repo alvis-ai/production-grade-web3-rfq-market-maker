@@ -1,0 +1,121 @@
+{{- define "rfq-market-maker.ciliumFqdnEgressRules" -}}
+- toEndpoints:
+    - matchLabels:
+        {{- toYaml .root.Values.networkPolicy.fqdnEgress.dns.endpointLabels | nindent 8 }}
+  toPorts:
+    - ports:
+        - port: {{ .root.Values.networkPolicy.fqdnEgress.dns.port | quote }}
+          protocol: ANY
+      rules:
+        dns:
+          - matchPattern: "*"
+{{- range .endpoints }}
+- toFQDNs:
+    - matchName: {{ .hostname | quote }}
+  toPorts:
+    - ports:
+        - port: {{ .port | quote }}
+          protocol: TCP
+{{- end }}
+{{- end }}
+{{- if and .Values.networkPolicy.enabled .Values.networkPolicy.fqdnEgress.enabled }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-fqdn-egress
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  egress:
+    {{- include "rfq-market-maker.ciliumFqdnEgressRules" (dict "root" . "endpoints" .Values.networkPolicy.fqdnEgress.api) | nindent 4 }}
+{{- if .Values.hedgeWorker.enabled }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-hedge-worker-fqdn-egress
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: hedge-worker
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: hedge-worker
+  egress:
+    {{- include "rfq-market-maker.ciliumFqdnEgressRules" (dict "root" . "endpoints" .Values.networkPolicy.fqdnEgress.hedgeWorker) | nindent 4 }}
+{{- end }}
+{{- if .Values.analyticsWorker.enabled }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-analytics-worker-fqdn-egress
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analytics-worker
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: analytics-worker
+  egress:
+    {{- include "rfq-market-maker.ciliumFqdnEgressRules" (dict "root" . "endpoints" .Values.networkPolicy.fqdnEgress.analyticsWorker) | nindent 4 }}
+{{- end }}
+{{- if .Values.reconciliationWorker.enabled }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-reconciliation-worker-fqdn-egress
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciliation-worker
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: reconciliation-worker
+  egress:
+    {{- include "rfq-market-maker.ciliumFqdnEgressRules" (dict "root" . "endpoints" .Values.networkPolicy.fqdnEgress.reconciliationWorker) | nindent 4 }}
+{{- end }}
+{{- if .Values.settlementIndexer.enabled }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-settlement-indexer-fqdn-egress
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: settlement-indexer
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: settlement-indexer
+  egress:
+    {{- include "rfq-market-maker.ciliumFqdnEgressRules" (dict "root" . "endpoints" .Values.networkPolicy.fqdnEgress.settlementIndexer) | nindent 4 }}
+{{- end }}
+{{- if .Values.toxicFlowAnalyzer.enabled }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-toxic-flow-analyzer-fqdn-egress
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: toxic-flow-analyzer
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: toxic-flow-analyzer
+  egress:
+    {{- include "rfq-market-maker.ciliumFqdnEgressRules" (dict "root" . "endpoints" .Values.networkPolicy.fqdnEgress.toxicFlowAnalyzer) | nindent 4 }}
+{{- end }}
+{{- end }}

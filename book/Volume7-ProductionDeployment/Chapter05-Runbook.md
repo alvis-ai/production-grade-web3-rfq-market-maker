@@ -292,6 +292,16 @@ Alerts: `RFQAnalyticsWorkerDown`, `RFQAnalyticsOutboxBacklog`, `RFQAnalyticsPubl
 6. Expect duplicate `event_id` rows after a crash between Kafka acknowledgement, PostgreSQL `published_at`, ClickHouse insert and offset commit. Validate logical counts using `FINAL` or an `argMax`/unique-event query; never rewrite outbox ids.
 7. Resume normal operation only when oldest pending age falls below threshold, publisher retries stop, consumer offsets advance and a sampled quote lifecycle is present end to end.
 
+### FQDN Egress Policy Incident
+
+When a workload loses readiness after a dependency hostname、region or port change, inspect Cilium policy verdicts and DNS proxy health before restarting it. A timeout to an approved service with successful DNS resolution usually means runtime configuration and `networkPolicy.fqdnEgress` drifted; do not restore service by adding generic 443、`toCIDR: 0.0.0.0/0` or wildcard FQDN access.
+
+1. Keep quote creation paused for affected API market-data、KMS or RPC dependencies; preserve submit/indexer/hedge processing only where their own policy and readiness remain healthy.
+2. Compare the hostname and port in the workload Secret/ConfigMap with its rendered `CiliumNetworkPolicy`. Confirm cluster DNS endpoint labels and port match the installed DNS deployment.
+3. In staging, add only the new exact FQDN/port pair, render and validate the chart, then prove the approved dependency succeeds and an unapproved HTTPS host remains unreachable.
+4. Apply the expanded policy before rolling out the new runtime URL. Verify `/ready`, Cilium denied-flow metrics and application dependency probes on every replica.
+5. Remove the old endpoint only after no replica or migration init container uses it. If readiness regresses, roll back application and policy together; never delete the standard `egress: []` fail-closed rule.
+
 ### Pod Termination Or Rollout Drain
 
 Alerts: Kubernetes rollout timeout, elevated 5xx during deployment, pods killed before graceful shutdown.
@@ -312,7 +322,7 @@ Incident commands must be fast and documented. Avoid relying on slow ad hoc data
 
 ## Testing Strategy
 
-Run game days: signer unavailable, stale market data, indexer lag, hedge venue failure. Verify alert, action and recovery.
+Run game days: signer unavailable, stale market data, indexer lag, hedge venue failure and denied approved/unapproved FQDN egress. Verify alert, action and recovery.
 
 ## Interview Notes
 
@@ -327,3 +337,4 @@ Runbook turns monitoring signals into concrete actions. It is required to protec
 - SRE incident response
 - Smart contract emergency pause
 - Key rotation procedures
+- Cilium DNS-based policy operations

@@ -73,4 +73,4 @@
 - [x] Alerts exist for signer failures, risk reject spikes, event lag and hedge failures.
 - [x] Dashboards cover quote latency, settlement failures and inventory exposure.
 - [x] Alerts and runbooks cover submit reservation persistence errors and contention spikes.
-- [ ] Production HTTPS egress is narrowed from port-level NetworkPolicy access to approved KMS, CEX, Chainlink, RPC and analytics destinations through an egress gateway, CNI FQDN policy or provider firewall.
+- [x] Production HTTPS egress is narrowed from port-level NetworkPolicy access to approved KMS, CEX, Chainlink, RPC and analytics destinations through an egress gateway, CNI FQDN policy or provider firewall.

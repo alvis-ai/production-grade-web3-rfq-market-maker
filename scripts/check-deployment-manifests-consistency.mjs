@@ -9,6 +9,10 @@ const k8sConfig = await readFile("infra/k8s/configmap.yaml", "utf8");
 const k8sSecret = await readFile("infra/k8s/backend-secret.yaml", "utf8");
 const k8sServiceAccount = await readFile("infra/k8s/backend-service-account.yaml", "utf8");
 const k8sNetworkPolicy = await readFile("infra/k8s/network-policy.yaml", "utf8");
+const k8sCiliumFqdnEgressPolicy = await readFile(
+  "infra/k8s/cilium-fqdn-egress-policy.yaml",
+  "utf8",
+);
 const k8sHedgeDeployment = await readFile("infra/k8s/hedge-worker-deployment.yaml", "utf8");
 const k8sHedgeService = await readFile("infra/k8s/hedge-worker-service.yaml", "utf8");
 const k8sHedgeSecret = await readFile("infra/k8s/hedge-worker-secret.yaml", "utf8");
@@ -50,6 +54,10 @@ const helmValuesSchema = JSON.parse(
 const helmDeployment = await readFile("infra/helm/rfq-market-maker/templates/deployment.yaml", "utf8");
 const helmNetworkPolicy = await readFile(
   "infra/helm/rfq-market-maker/templates/network-policy.yaml",
+  "utf8",
+);
+const helmCiliumFqdnEgressPolicy = await readFile(
+  "infra/helm/rfq-market-maker/templates/cilium-fqdn-egress-policy.yaml",
   "utf8",
 );
 const helmServiceAccount = await readFile("infra/helm/rfq-market-maker/templates/service-account.yaml", "utf8");
@@ -178,6 +186,7 @@ assertContains(k8sServiceAccount, [
   "name: rfq-backend-kms",
   `namespace: ${expectedRuntime.namespace}`,
   "eks.amazonaws.com/role-arn: replace-with-kms-signing-role-arn",
+  'eks.amazonaws.com/sts-regional-endpoints: "true"',
 ], "infra/k8s/backend-service-account.yaml");
 
 assertContains(k8sService, [
@@ -230,10 +239,7 @@ assertContains(k8sNetworkPolicy, [
   "kubernetes.io/metadata.name: ingress-nginx",
   "kubernetes.io/metadata.name: monitoring",
   "port: 3000",
-  "port: 53",
-  "port: 5432",
-  "port: 6379",
-  "port: 443",
+  "egress: []",
 ], "infra/k8s/network-policy.yaml");
 assert.ok(
   !k8sNetworkPolicy.includes("namespaceSelector: {}"),
@@ -297,8 +303,7 @@ assertContains(k8sHedgeNetworkPolicy, [
   "- Ingress",
   "- Egress",
   "port: 3001",
-  "port: 5432",
-  "port: 443",
+  "egress: []",
 ], "infra/k8s/hedge-worker-network-policy.yaml");
 
 assertContains(k8sAnalyticsDeployment, [
@@ -340,9 +345,7 @@ assertContains(k8sAnalyticsNetworkPolicy, [
   "- Ingress",
   "- Egress",
   "port: 3002",
-  "port: 5432",
-  "port: 9093",
-  "port: 8443",
+  "egress: []",
 ], "infra/k8s/analytics-worker-network-policy.yaml");
 
 assertContains(k8sReconciliationDeployment, [
@@ -383,7 +386,7 @@ assertContains(k8sReconciliationNetworkPolicy, [
   "- Ingress",
   "- Egress",
   "port: 3003",
-  "port: 5432",
+  "egress: []",
 ], "infra/k8s/reconciliation-worker-network-policy.yaml");
 
 assertContains(k8sIndexerDeployment, [
@@ -425,8 +428,7 @@ assertContains(k8sIndexerNetworkPolicy, [
   "- Ingress",
   "- Egress",
   "port: 3004",
-  "port: 5432",
-  "port: 443",
+  "egress: []",
 ], "infra/k8s/settlement-indexer-network-policy.yaml");
 
 assertContains(k8sToxicFlowAnalyzerDeployment, [
@@ -471,11 +473,60 @@ assertContains(k8sToxicFlowAnalyzerNetworkPolicy, [
   "- Ingress",
   "- Egress",
   "port: 3005",
-  "port: 5432",
+  "egress: []",
 ], "infra/k8s/toxic-flow-analyzer-network-policy.yaml");
 assert.ok(
   !k8sToxicFlowAnalyzerNetworkPolicy.includes("port: 443"),
   "toxic-flow analyzer must not receive public HTTPS egress",
+);
+
+assert.equal(
+  countOccurrences(k8sCiliumFqdnEgressPolicy, "kind: CiliumNetworkPolicy"),
+  6,
+  "raw manifests must define one Cilium FQDN policy per workload",
+);
+assertContains(k8sCiliumFqdnEgressPolicy, [
+  "apiVersion: cilium.io/v2",
+  "k8s:io.kubernetes.pod.namespace: kube-system",
+  "k8s:k8s-app: kube-dns",
+  'port: "53"',
+  "protocol: ANY",
+  "rules:",
+  "dns:",
+  'matchPattern: "*"',
+  "app.kubernetes.io/name: rfq-backend",
+  "app.kubernetes.io/name: rfq-hedge-worker",
+  "app.kubernetes.io/name: rfq-analytics-worker",
+  "app.kubernetes.io/name: rfq-reconciliation-worker",
+  "app.kubernetes.io/name: rfq-settlement-indexer",
+  "app.kubernetes.io/name: rfq-toxic-flow-analyzer",
+], "infra/k8s/cilium-fqdn-egress-policy.yaml");
+for (const [hostname, port, count] of [
+  ["postgres.example.com", 5432, 6],
+  ["redis.example.com", 6380, 1],
+  ["kms.us-east-1.amazonaws.com", 443, 1],
+  ["sts.us-east-1.amazonaws.com", 443, 1],
+  ["api.binance.com", 443, 2],
+  ["stream.binance.com", 9443, 1],
+  ["ws-feed.exchange.coinbase.com", 443, 1],
+  ["replace-with-production-rpc.example.com", 443, 2],
+  ["redpanda.example.internal", 9093, 1],
+  ["clickhouse.example.internal", 8443, 1],
+]) {
+  assert.equal(
+    countFqdnPortPairs(k8sCiliumFqdnEgressPolicy, hostname, port),
+    count,
+    `raw Cilium policy must bind ${hostname}:${port} exactly ${count} time(s)`,
+  );
+}
+assert.ok(
+  !k8sCiliumFqdnEgressPolicy.includes("toCIDR"),
+  "raw Cilium policy must not allow CIDR egress",
+);
+assert.equal(
+  countOccurrences(k8sCiliumFqdnEgressPolicy, 'matchPattern: "*"'),
+  6,
+  "raw Cilium policies may use a wildcard only for each workload's DNS proxy rule",
 );
 
 assertContains(helmValues, [
@@ -507,6 +558,7 @@ assertContains(helmValues, [
   "serviceAccount:",
   "name: rfq-backend-kms",
   "eks.amazonaws.com/role-arn: replace-with-kms-signing-role-arn",
+  'eks.amazonaws.com/sts-regional-endpoints: "true"',
   "redisSecret:",
   "urlKey: RFQ_REDIS_URL",
   "apiKeySecret:",
@@ -519,6 +571,17 @@ assertContains(helmValues, [
   "kubernetes.io/metadata.name: ingress-nginx",
   "monitoringNamespaceLabels:",
   "kubernetes.io/metadata.name: monitoring",
+  "fqdnEgress:",
+  "endpointLabels:",
+  "k8s:io.kubernetes.pod.namespace: kube-system",
+  "k8s:k8s-app: kube-dns",
+  "hostname: kms.us-east-1.amazonaws.com",
+  "hostname: stream.binance.com",
+  "port: 9443",
+  "hostname: redpanda.example.internal",
+  "port: 9093",
+  "hostname: clickhouse.example.internal",
+  "port: 8443",
   "hedgeWorker:",
   "RFQ_HEDGE_ROUTES_JSON:",
   "RFQ_BINANCE_REQUEST_TIMEOUT_MS:",
@@ -576,8 +639,13 @@ assert.ok(
 );
 assert.deepEqual(
   helmValuesSchema.properties.networkPolicy.required,
-  ["enabled", "apiIngressNamespaceLabels", "monitoringNamespaceLabels"],
-  "Helm values schema must require explicit API and monitoring namespace selectors",
+  ["enabled", "apiIngressNamespaceLabels", "monitoringNamespaceLabels", "fqdnEgress"],
+  "Helm values schema must require ingress selectors and FQDN egress policy",
+);
+assert.equal(
+  helmValuesSchema.properties.networkPolicy.properties.enabled.const,
+  true,
+  "Helm values schema must keep production NetworkPolicy enabled",
 );
 assert.equal(
   helmValuesSchema.properties.networkPolicy.properties.apiIngressNamespaceLabels.minProperties,
@@ -588,6 +656,47 @@ assert.equal(
   helmValuesSchema.properties.networkPolicy.properties.monitoringNamespaceLabels.minProperties,
   1,
   "Helm monitoring namespace selector must not be empty",
+);
+const fqdnEgressSchema = helmValuesSchema.properties.networkPolicy.properties.fqdnEgress;
+assert.equal(fqdnEgressSchema.properties.enabled.const, true, "Helm FQDN egress must remain enabled");
+assert.equal(
+  fqdnEgressSchema.properties.dns.properties.endpointLabels.minProperties,
+  1,
+  "Helm Cilium DNS endpoint selector must not be empty",
+);
+for (const workload of [
+  "api",
+  "hedgeWorker",
+  "analyticsWorker",
+  "reconciliationWorker",
+  "settlementIndexer",
+  "toxicFlowAnalyzer",
+]) {
+  assert.equal(
+    fqdnEgressSchema.properties[workload].$ref,
+    "#/definitions/fqdnEndpointList",
+    `Helm ${workload} FQDN endpoints must use the validated non-empty list schema`,
+  );
+}
+assert.equal(
+  helmValuesSchema.definitions.fqdnEndpointList.minItems,
+  1,
+  "Helm FQDN endpoint lists must not be empty",
+);
+assert.equal(
+  helmValuesSchema.definitions.fqdnEndpointList.uniqueItems,
+  true,
+  "Helm FQDN endpoint lists must reject duplicate entries",
+);
+assert.equal(
+  helmValuesSchema.definitions.fqdnEndpoint.properties.hostname.maxLength,
+  253,
+  "Helm FQDN hostnames must respect the DNS length bound",
+);
+assert.equal(
+  helmValuesSchema.definitions.fqdnEndpoint.properties.port.maximum,
+  65535,
+  "Helm FQDN endpoint ports must be bounded",
 );
 
 assertContains(helmDeployment, [
@@ -633,10 +742,7 @@ assertContains(helmNetworkPolicy, [
   "- Ingress",
   "- Egress",
   "port: {{ .Values.service.port }}",
-  "port: 53",
-  "port: 5432",
-  "port: 6379",
-  "port: 443",
+  "egress: []",
 ], "infra/helm/rfq-market-maker/templates/network-policy.yaml");
 assert.ok(
   !helmNetworkPolicy.includes("namespaceSelector: {}"),
@@ -700,8 +806,7 @@ assertContains(helmHedgeNetworkPolicy, [
   ".Values.networkPolicy.monitoringNamespaceLabels",
   "kind: NetworkPolicy",
   "app.kubernetes.io/component: hedge-worker",
-  "port: 5432",
-  "port: 443",
+  "egress: []",
 ], "infra/helm/rfq-market-maker/templates/hedge-worker-network-policy.yaml");
 
 assertContains(helmAnalyticsDeployment, [
@@ -728,9 +833,7 @@ assertContains(helmAnalyticsNetworkPolicy, [
   ".Values.analyticsWorker.networkPolicy.enabled",
   ".Values.networkPolicy.monitoringNamespaceLabels",
   "app.kubernetes.io/component: analytics-worker",
-  "port: 5432",
-  "port: 9093",
-  "port: 8443",
+  "egress: []",
 ], "infra/helm/rfq-market-maker/templates/analytics-worker-network-policy.yaml");
 
 assertContains(helmReconciliationDeployment, [
@@ -756,7 +859,7 @@ assertContains(helmReconciliationNetworkPolicy, [
   ".Values.reconciliationWorker.networkPolicy.enabled",
   ".Values.networkPolicy.monitoringNamespaceLabels",
   "app.kubernetes.io/component: reconciliation-worker",
-  "port: 5432",
+  "egress: []",
 ], "infra/helm/rfq-market-maker/templates/reconciliation-worker-network-policy.yaml");
 
 assertContains(helmIndexerDeployment, [
@@ -781,8 +884,7 @@ assertContains(helmIndexerNetworkPolicy, [
   ".Values.settlementIndexer.networkPolicy.enabled",
   ".Values.networkPolicy.monitoringNamespaceLabels",
   "app.kubernetes.io/component: settlement-indexer",
-  "port: 5432",
-  "port: 443",
+  "egress: []",
 ], "infra/helm/rfq-market-maker/templates/settlement-indexer-network-policy.yaml");
 
 assertContains(helmToxicFlowAnalyzerDeployment, [
@@ -808,11 +910,45 @@ assertContains(helmToxicFlowAnalyzerNetworkPolicy, [
   ".Values.toxicFlowAnalyzer.networkPolicy.enabled",
   ".Values.networkPolicy.monitoringNamespaceLabels",
   "app.kubernetes.io/component: toxic-flow-analyzer",
-  "port: 5432",
+  "egress: []",
 ], "infra/helm/rfq-market-maker/templates/toxic-flow-analyzer-network-policy.yaml");
 assert.ok(
   !helmToxicFlowAnalyzerNetworkPolicy.includes("port: 443"),
   "Helm toxic-flow analyzer must not receive public HTTPS egress",
+);
+
+assertContains(helmCiliumFqdnEgressPolicy, [
+  'define "rfq-market-maker.ciliumFqdnEgressRules"',
+  ".Values.networkPolicy.fqdnEgress.dns.endpointLabels",
+  ".Values.networkPolicy.fqdnEgress.dns.port",
+  "kind: CiliumNetworkPolicy",
+  "toFQDNs:",
+  "matchName: {{ .hostname | quote }}",
+  "port: {{ .port | quote }}",
+  "protocol: TCP",
+  "rules:",
+  "dns:",
+  'matchPattern: "*"',
+  ".Values.networkPolicy.fqdnEgress.api",
+  ".Values.networkPolicy.fqdnEgress.hedgeWorker",
+  ".Values.networkPolicy.fqdnEgress.analyticsWorker",
+  ".Values.networkPolicy.fqdnEgress.reconciliationWorker",
+  ".Values.networkPolicy.fqdnEgress.settlementIndexer",
+  ".Values.networkPolicy.fqdnEgress.toxicFlowAnalyzer",
+], "infra/helm/rfq-market-maker/templates/cilium-fqdn-egress-policy.yaml");
+assert.equal(
+  countOccurrences(helmCiliumFqdnEgressPolicy, "kind: CiliumNetworkPolicy"),
+  6,
+  "Helm must render one Cilium FQDN policy template per enabled workload",
+);
+assert.ok(
+  !helmCiliumFqdnEgressPolicy.includes("toCIDR"),
+  "Helm Cilium policy must not allow CIDR egress",
+);
+assert.equal(
+  countOccurrences(helmCiliumFqdnEgressPolicy, 'matchPattern: "*"'),
+  1,
+  "Helm Cilium template may use a wildcard only in the shared DNS proxy rule",
 );
 
 assertContains(kubernetesChapter, [
@@ -852,6 +988,10 @@ assertContains(kubernetesChapter, [
   "Migration 022",
   "Migration 023",
   "`RFQ_TOXIC_FLOW_MARKOUT_HORIZON_SECONDS`",
+  "Cilium DNS-aware policy enforcement",
+  "`networkPolicy.fqdnEgress`",
+  "`egress: []`",
+  "Binance REST 443 and WebSocket 9443",
 ], "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md");
 
 console.log("Deployment manifests consistency check passed");
@@ -864,4 +1004,13 @@ function assertContains(source, needles, label) {
 
 function countOccurrences(source, needle) {
   return source.split(needle).length - 1;
+}
+
+function countFqdnPortPairs(source, hostname, port) {
+  const escapedHostname = hostname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(
+    `matchName: ${escapedHostname}\\n[\\s\\S]{0,180}?port: "${port}"`,
+    "g",
+  );
+  return [...source.matchAll(pattern)].length;
 }

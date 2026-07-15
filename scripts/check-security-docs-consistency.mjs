@@ -65,7 +65,8 @@ const requiredTerms = {
     "Chain reorg",
     "Hedge credential leak",
     "Pod lateral movement or unrestricted exfiltration",
-    "ingress and egress NetworkPolicies",
+    "`egress: []`",
+    "Cilium exact-FQDN-and-port policies",
     "Plaintext or downgrade-prone dependency transport",
     "sslmode=verify-full",
     "AWS KMS workload identity",
@@ -173,6 +174,7 @@ const implementedAuditControls = [
   "All errors include traceId.",
   "API and worker logs are structured, level-controlled, trace-correlated where applicable, and redact credentials, signatures, private keys, cookies and request headers.",
   "API and worker pods have ingress-and-egress NetworkPolicies with explicit ingress-controller and monitoring namespace selectors plus workload-specific egress ports.",
+  "Production HTTPS egress is narrowed from port-level NetworkPolicy access to approved KMS, CEX, Chainlink, RPC and analytics destinations through an egress gateway, CNI FQDN policy or provider firewall.",
   "Non-local API, worker and migration processes require hostname-verified PostgreSQL TLS; Redis requires `rediss://`, while analytics requires Kafka TLS/SASL and ClickHouse HTTPS.",
   "Public API responses include no-store cache control and baseline browser security headers.",
   "Browser access is restricted by a CORS origin allowlist.",
@@ -198,17 +200,6 @@ for (const control of implementedAuditControls) {
   );
 }
 
-const intentionallyOpenAuditControls = [
-  "Production HTTPS egress is narrowed from port-level NetworkPolicy access to approved KMS, CEX, Chainlink, RPC and analytics destinations through an egress gateway, CNI FQDN policy or provider firewall.",
-];
-
-for (const control of intentionallyOpenAuditControls) {
-  assert.ok(
-    docs.auditChecklist.includes(`- [ ] ${control}`),
-    `audit checklist must leave unresolved control unchecked: ${control}`,
-  );
-}
-
 for (const term of [
   "Open a change record",
   "run the normal quote-path canary in staging",
@@ -228,6 +219,15 @@ for (const term of [
   "two-person approval",
 ]) {
   assert.ok(docs.runbook.includes(term), `runbook emergency pause procedure must include: ${term}`);
+}
+
+for (const term of [
+  "### FQDN Egress Policy Incident",
+  "`networkPolicy.fqdnEgress`",
+  "unapproved HTTPS host remains unreachable",
+  "never delete the standard `egress: []` fail-closed rule",
+]) {
+  assert.ok(docs.runbook.includes(term), `runbook FQDN egress procedure must include: ${term}`);
 }
 
 for (const term of [

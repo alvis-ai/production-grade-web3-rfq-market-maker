@@ -21,8 +21,10 @@ const paths = [
   "infra/k8s/settlement-indexer-deployment.yaml",
   "infra/k8s/settlement-indexer-secret.yaml",
   "infra/k8s/settlement-indexer-network-policy.yaml",
+  "infra/k8s/cilium-fqdn-egress-policy.yaml",
   "infra/helm/rfq-market-maker/values.yaml",
   "infra/helm/rfq-market-maker/templates/settlement-indexer-deployment.yaml",
+  "infra/helm/rfq-market-maker/templates/cilium-fqdn-egress-policy.yaml",
   "README.md",
 ];
 const files = Object.fromEntries(await Promise.all(
@@ -103,16 +105,26 @@ for (const forbidden of ["RFQ_AWS_KMS_KEY_ID", "RFQ_SIGNER_PRIVATE_KEY", "RFQ_BI
   assert.ok(!files["infra/k8s/settlement-indexer-secret.yaml"].includes(forbidden), `indexer Secret must exclude ${forbidden}`);
 }
 assertContains("infra/k8s/settlement-indexer-network-policy.yaml", [
-  "port: 5432",
-  "port: 443",
+  "egress: []",
+]);
+assertContains("infra/k8s/cilium-fqdn-egress-policy.yaml", [
+  "rfq-settlement-indexer-fqdn-egress",
+  "matchName: postgres.example.com",
+  'port: "5432"',
+  "matchName: replace-with-production-rpc.example.com",
+  'port: "443"',
 ]);
 assertContains("infra/helm/rfq-market-maker/values.yaml", [
   "settlementIndexer:",
   "configJsonKey: RFQ_SETTLEMENT_INDEXER_CONFIG_JSON",
+  "hostname: replace-with-production-rpc.example.com",
 ]);
 assertContains("infra/helm/rfq-market-maker/templates/settlement-indexer-deployment.yaml", [
   ".Values.settlementIndexer.enabled",
   ".Values.settlementIndexer.secret.configJsonKey",
+]);
+assertContains("infra/helm/rfq-market-maker/templates/cilium-fqdn-egress-policy.yaml", [
+  ".Values.networkPolicy.fqdnEgress.settlementIndexer",
 ]);
 assertContains("README.md", [
   "does not depend on the browser successfully calling `/submit`",

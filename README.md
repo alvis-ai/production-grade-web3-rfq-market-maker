@@ -315,6 +315,8 @@ When `NODE_ENV` is set to any non-local environment such as `production` or `sta
 
 Leave `RFQ_TRUST_PROXY=false` unless the public API is behind a trusted load balancer or ingress that removes incoming spoofed `x-forwarded-for` headers and sets the canonical client address. When enabled, the rate limiter keys by the first `x-forwarded-for` entry after enforcing the 128 character limit and `[A-Za-z0-9_.:-]` character set; otherwise it uses the direct socket IP. Redis uses one atomic Lua operation for counter, TTL and limit decisions across replicas. Redis errors return `RATE_LIMIT_UNAVAILABLE`/503 and degrade `rateLimitStore` readiness; the gateway never silently fails open.
 
+Production Kubernetes requires Cilium DNS-aware policy enforcement. The ordinary NetworkPolicies retain ingress controls and set `egress: []`; `infra/k8s/cilium-fqdn-egress-policy.yaml` or the Helm `networkPolicy.fqdnEgress` block is the only outbound allowlist. Each API or worker dependency is an exact FQDN and TCP port pair, including regional AWS STS/KMS 443、Binance market-data WebSocket 9443 and Redis TLS 6380, so a generic 443 rule cannot bypass destination ownership. The EKS ServiceAccount sets `eks.amazonaws.com/sts-regional-endpoints: "true"`; AWS SDK for JavaScript v3 uses the configured KMS Region for regional STS during IRSA credential exchange. Before deployment, replace every reference `example.com` / `example.internal` hostname with the exact host used by `DATABASE_URL`, `RFQ_REDIS_URL`, KMS region, CEX configuration, receipt/indexer/Chainlink RPC configuration, Kafka brokers and ClickHouse URL. Update runtime URL and FQDN policy in the same reviewed rollout; add the new host first, verify positive dependency probes and an unapproved-host negative probe in staging, then remove the old host. A cluster without the Cilium CRD rejects the policy while the Kubernetes default-deny rule keeps egress closed.
+
 Kubernetes deployments load these values from `rfq-backend-secrets`. Replace the placeholders in `infra/k8s/backend-secret.yaml` before applying manifests, or create the same Secret out of band:
 
 ```sh
@@ -488,3 +490,4 @@ The SDK also exports `erc20Abi`, `rfqSettlementAbi`, `treasuryAbi`, `buildErc20A
 - [Volume 4: Smart Contracts](book/Volume4-SmartContracts/README.md)
 - [Volume 5: Backend Engineering](book/Volume5-BackendEngineering/README.md)
 - [Volume 6: Frontend And SDK](book/Volume6-Frontend-And-SDK/README.md)
+- [Volume 7: Production Deployment](book/Volume7-ProductionDeployment/README.md)
