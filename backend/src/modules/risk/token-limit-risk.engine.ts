@@ -16,6 +16,7 @@ import {
 import type { QuoteExposurePolicy } from "./quote-exposure.store.js";
 import {
   assertPortfolioDeltaPolicy,
+  normalizePortfolioDeltaPolicy,
   type PortfolioDeltaPolicy,
 } from "./portfolio-delta.js";
 import {
@@ -99,11 +100,17 @@ export const defaultTokenLimitRiskPolicy: TokenLimitRiskPolicy = {
     }],
   },
   portfolioDelta: {
-    modelVersion: "gross-net-delta-v1",
+    modelVersion: "gross-net-asset-delta-v2",
     softGrossLimitUsd: "500000",
     hardGrossLimitUsd: "1000000",
     softNetLimitUsd: "250000",
     hardNetLimitUsd: "500000",
+    assetLimits: [{
+      chainId: 1,
+      tokenAddress: "0x0000000000000000000000000000000000000002",
+      softLimitUsd: "250000",
+      hardLimitUsd: "500000",
+    }],
   },
   minLiquidityUsd: "1000000",
   maxVolatilityBps: 500,
@@ -169,6 +176,7 @@ export class TokenLimitRiskEngine implements RiskEngine {
       },
     ]));
     const portfolioVar = normalizePortfolioVarPolicy(this.policy.portfolioVar, tokenRegistry);
+    const portfolioDelta = normalizePortfolioDeltaPolicy(this.policy.portfolioDelta);
     const valuationAssets = new Set(
       portfolioVar.valuationPairs.map((pair) => tokenLimitKey(pair.chainId, pair.tokenAddress)),
     );
@@ -183,6 +191,14 @@ export class TokenLimitRiskEngine implements RiskEngine {
       }
       if (!this.limitsByToken.has(tokenLimitKey(pair.chainId, pair.usdReferenceTokenAddress))) {
         throw new Error("Portfolio VaR USD reference must have a token risk limit");
+      }
+      if (!portfolioDelta.assetLimits.has(tokenLimitKey(pair.chainId, pair.tokenAddress))) {
+        throw new Error("Portfolio delta policy has no asset limit for a VaR valuation asset");
+      }
+    }
+    for (const key of portfolioDelta.assetLimits.keys()) {
+      if (!valuationAssets.has(key)) {
+        throw new Error("Portfolio delta asset limit must match a VaR valuation asset");
       }
     }
     this.restrictedUsers = new Set(this.policy.restrictedUsers.map((user) => user.toLowerCase()));
@@ -202,7 +218,7 @@ export class TokenLimitRiskEngine implements RiskEngine {
       maxUserOpenNotionalUsd: this.policy.maxUserOpenNotionalUsd,
       maxPairOpenNotionalUsd: this.policy.maxPairOpenNotionalUsd,
       portfolioVar: clonePortfolioVarPolicy(this.policy.portfolioVar),
-      portfolioDelta: { ...this.policy.portfolioDelta },
+      portfolioDelta: clonePortfolioDeltaPolicy(this.policy.portfolioDelta),
     };
   }
 
@@ -408,7 +424,7 @@ function cloneTokenLimitRiskPolicy(policy: TokenLimitRiskPolicy): TokenLimitRisk
       user: score.user.toLowerCase() as Address,
     })),
     portfolioVar: clonePortfolioVarPolicy(policy.portfolioVar),
-    portfolioDelta: { ...policy.portfolioDelta },
+    portfolioDelta: clonePortfolioDeltaPolicy(policy.portfolioDelta),
   };
 }
 
@@ -419,6 +435,16 @@ function clonePortfolioVarPolicy(policy: PortfolioVarPolicy): PortfolioVarPolicy
       ...pair,
       tokenAddress: pair.tokenAddress.toLowerCase() as Address,
       usdReferenceTokenAddress: pair.usdReferenceTokenAddress.toLowerCase() as Address,
+    })),
+  };
+}
+
+function clonePortfolioDeltaPolicy(policy: PortfolioDeltaPolicy): PortfolioDeltaPolicy {
+  return {
+    ...policy,
+    assetLimits: policy.assetLimits.map((limit) => ({
+      ...limit,
+      tokenAddress: limit.tokenAddress.toLowerCase() as Address,
     })),
   };
 }

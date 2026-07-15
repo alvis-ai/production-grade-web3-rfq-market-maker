@@ -161,7 +161,7 @@ test("InMemoryQuoteExposureStore enforces hard delta and replays soft-breach evi
     {
       ...policy("1000", "1000"),
       portfolioVar: portfolioVarPolicy("100"),
-      portfolioDelta: portfolioDeltaPolicy("50", "150"),
+      portfolioDelta: portfolioDeltaPolicy("1000", "2000", "50", "150"),
     },
     tokenRegistry,
     () => now,
@@ -174,6 +174,8 @@ test("InMemoryQuoteExposureStore enforces hard delta and replays soft-breach evi
   assert.equal(first.status, "reserved");
   assert.equal(first.portfolioDelta.postTradeGrossDeltaUsdE18, "101000000000000000000");
   assert.equal(first.portfolioDelta.softLimitBreached, true);
+  assert.equal(first.portfolioDelta.postTradeComponents[0].softLimitBreached, true);
+  assert.equal(first.portfolioDelta.postTradeComponents[0].hardLimitUsdE18, "150000000000000000000");
   assert.deepEqual(await store.reserve(firstInput), first);
   assert.equal(softBreaches, 1);
   assert.deepEqual(await store.reserve(input("q_delta_second", userB, now + 30)), {
@@ -279,13 +281,24 @@ function portfolioVarPolicy(maxPortfolioVarUsd) {
   };
 }
 
-function portfolioDeltaPolicy(softLimitUsd, hardLimitUsd) {
+function portfolioDeltaPolicy(
+  softLimitUsd,
+  hardLimitUsd,
+  assetSoftLimitUsd = softLimitUsd,
+  assetHardLimitUsd = hardLimitUsd,
+) {
   return {
-    modelVersion: "gross-net-delta-v1",
+    modelVersion: "gross-net-asset-delta-v2",
     softGrossLimitUsd: softLimitUsd,
     hardGrossLimitUsd: hardLimitUsd,
     softNetLimitUsd: softLimitUsd,
     hardNetLimitUsd: hardLimitUsd,
+    assetLimits: [{
+      chainId: 1,
+      tokenAddress: tokenA,
+      softLimitUsd: assetSoftLimitUsd,
+      hardLimitUsd: assetHardLimitUsd,
+    }],
   };
 }
 

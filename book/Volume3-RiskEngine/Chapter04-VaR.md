@@ -136,7 +136,7 @@ stateDiagram-v2
 
 `PortfolioVarEvaluation` 包含 `preTradeVarUsdE18`、`postTradeVarUsdE18`、`varLimitUsdE18`、`horizonSeconds`、`modelVersion`，以及 pre/post component arrays。每个 component 保存 normalized token address、base-unit balance、signed USD exposure、volatility、component VaR 和 snapshot id。接受的结果写入 `quote_exposure_reservations.var_evaluation` JSONB，方向性 `token_in/amount_in/token_out/amount_out` 同时持久化，因此事故调查可以按 policy version 和 snapshot 原始行重放。
 
-同一组 component 还驱动独立的 portfolio delta 门禁。它不乘 volatility 或 confidence multiplier，而是分别求 `gross = sum(abs(exposureUsdE18))` 与 `net = sum(exposureUsdE18)`。`portfolioDelta` 配置 gross/net 的 soft 与 hard USD limits；post-trade 任一 hard limit 被严格超过时返回 `PORTFOLIO_DELTA_LIMIT_EXCEEDED`，仅超过 soft limit 时继续签名并记录 `softLimitBreached`。pre/post gross、signed net、阈值、components 与 snapshot ids 写入独立 `delta_evaluation` JSONB，既不污染既有 VaR schema，也能复用同一事务内的 canonical inventory、active reservations 和 candidate quote 证据。
+同一组 component 还驱动独立的 portfolio delta 门禁。它不乘 volatility 或 confidence multiplier，而是按 chain/token 检查 absolute USD exposure，并分别求 `gross = sum(abs(exposureUsdE18))` 与 `net = sum(exposureUsdE18)`。`portfolioDelta.assetLimits` 必须与 VaR valuation assets 一一对应，另配置 gross/net soft 与 hard USD limits；post-trade 任一 asset、gross 或 net hard limit 被严格超过时返回 `PORTFOLIO_DELTA_LIMIT_EXCEEDED`，仅超过 soft limit 时继续签名并记录 component/aggregate `softLimitBreached`。pre/post gross、signed net、阈值、components 与 snapshot ids 写入独立 `delta_evaluation` JSONB，既不污染既有 VaR schema，也能复用同一事务内的 canonical inventory、active reservations 和 candidate quote 证据。
 
 ## API Design
 

@@ -194,7 +194,7 @@ export class InMemoryQuoteExposureStore implements QuoteExposureStore {
         return { status: "rejected", reasonCode: "PORTFOLIO_VAR_LIMIT_EXCEEDED" };
       }
       if (this.portfolioDeltaPolicy) {
-        portfolioDelta = evaluatePortfolioDelta(portfolioVar, this.portfolioDeltaPolicy);
+        portfolioDelta = evaluatePortfolioDelta(portfolioVar, this.portfolioDeltaPolicy, reservation.chainId);
         if (exceedsPortfolioDeltaHardLimit(portfolioDelta)) {
           return { status: "rejected", reasonCode: "PORTFOLIO_DELTA_LIMIT_EXCEEDED" };
         }

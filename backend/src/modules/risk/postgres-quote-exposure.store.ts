@@ -15,6 +15,7 @@ import {
 import { PostgresPortfolioVarEvaluator } from "./postgres-portfolio-var.js";
 import {
   assertPortfolioDeltaEvaluation,
+  assertPortfolioDeltaEvaluationMatchesPolicy,
   evaluatePortfolioDelta,
   exceedsPortfolioDeltaHardLimit,
   normalizePortfolioDeltaPolicy,
@@ -131,6 +132,13 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
         if (this.portfolioDeltaPolicy && !portfolioDelta) {
           throw new Error("Postgres quote exposure delta_evaluation is required by active policy");
         }
+        if (this.portfolioDeltaPolicy && portfolioDelta) {
+          assertPortfolioDeltaEvaluationMatchesPolicy(
+            portfolioDelta,
+            this.portfolioDeltaPolicy,
+            reservation.chainId,
+          );
+        }
         return {
           status: "reserved",
           notionalUsdE18: reservation.notionalUsdE18.toString(),
@@ -197,7 +205,7 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
           return { status: "rejected", reasonCode: "PORTFOLIO_VAR_LIMIT_EXCEEDED" };
         }
         if (this.portfolioDeltaPolicy) {
-          portfolioDelta = evaluatePortfolioDelta(portfolioVar, this.portfolioDeltaPolicy);
+          portfolioDelta = evaluatePortfolioDelta(portfolioVar, this.portfolioDeltaPolicy, reservation.chainId);
           if (exceedsPortfolioDeltaHardLimit(portfolioDelta)) {
             await client.query("ROLLBACK");
             transactionOpen = false;

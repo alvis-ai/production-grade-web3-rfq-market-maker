@@ -351,11 +351,17 @@ function configureBackendRuntime({ tokenIn, tokenOut, settlement }) {
       valuationPairs: [{ chainId, tokenAddress: tokenIn, usdReferenceTokenAddress: tokenOut }],
     },
     portfolioDelta: {
-      modelVersion: "gross-net-delta-v1",
+      modelVersion: "gross-net-asset-delta-v2",
       softGrossLimitUsd: "500000",
       hardGrossLimitUsd: "1000000",
       softNetLimitUsd: "250000",
       hardNetLimitUsd: "500000",
+      assetLimits: [{
+        chainId,
+        tokenAddress: tokenIn,
+        softLimitUsd: "250000",
+        hardLimitUsd: "500000",
+      }],
     },
     minLiquidityUsd: "1000000",
     maxVolatilityBps: 500,

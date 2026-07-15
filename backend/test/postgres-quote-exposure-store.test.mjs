@@ -210,7 +210,7 @@ test("PostgresQuoteExposureStore rejects hard delta and persists accepted soft-b
     {
       ...policy(),
       portfolioVar: portfolioVarPolicy("50"),
-      portfolioDelta: portfolioDeltaPolicy("100", "150"),
+      portfolioDelta: portfolioDeltaPolicy("1000", "2000", "100", "150"),
     },
     registry(false),
     () => now,
@@ -231,7 +231,7 @@ test("PostgresQuoteExposureStore rejects hard delta and persists accepted soft-b
     {
       ...policy(),
       portfolioVar: portfolioVarPolicy("50"),
-      portfolioDelta: portfolioDeltaPolicy("150", "300"),
+      portfolioDelta: portfolioDeltaPolicy("1000", "2000", "150", "300"),
     },
     registry(false),
     () => now,
@@ -242,6 +242,8 @@ test("PostgresQuoteExposureStore rejects hard delta and persists accepted soft-b
   assert.equal(result.portfolioDelta.softLimitBreached, true);
   assert.equal(result.portfolioDelta.preTradeGrossDeltaUsdE18, "101000000000000000000");
   assert.equal(result.portfolioDelta.postTradeGrossDeltaUsdE18, "202000000000000000000");
+  assert.equal(result.portfolioDelta.postTradeComponents[0].softLimitBreached, true);
+  assert.equal(result.portfolioDelta.postTradeComponents[0].hardLimitUsdE18, "300000000000000000000");
   const insert = acceptedPool.clients[0].queries.find(({ sql }) =>
     sql.startsWith("INSERT INTO quote_exposure_reservations"));
   assert.deepEqual(JSON.parse(insert.params[15]), result.portfolioDelta);
@@ -358,13 +360,24 @@ function portfolioVarPolicy(maxPortfolioVarUsd) {
   };
 }
 
-function portfolioDeltaPolicy(softLimitUsd, hardLimitUsd) {
+function portfolioDeltaPolicy(
+  softLimitUsd,
+  hardLimitUsd,
+  assetSoftLimitUsd = softLimitUsd,
+  assetHardLimitUsd = hardLimitUsd,
+) {
   return {
-    modelVersion: "gross-net-delta-v1",
+    modelVersion: "gross-net-asset-delta-v2",
     softGrossLimitUsd: softLimitUsd,
     hardGrossLimitUsd: hardLimitUsd,
     softNetLimitUsd: softLimitUsd,
     hardNetLimitUsd: hardLimitUsd,
+    assetLimits: [{
+      chainId: 1,
+      tokenAddress: tokenA,
+      softLimitUsd: assetSoftLimitUsd,
+      hardLimitUsd: assetHardLimitUsd,
+    }],
   };
 }
 

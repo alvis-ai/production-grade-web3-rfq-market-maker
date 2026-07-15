@@ -44,6 +44,7 @@ const files = Object.fromEntries(await Promise.all([
   "infra/helm/rfq-market-maker/values.yaml",
   "README.md",
   "book/Volume3-RiskEngine/Chapter05-Position-Limits.md",
+  "book/Volume3-RiskEngine/Chapter02-Delta.md",
   "book/Volume3-RiskEngine/Chapter04-VaR.md",
   "book/Volume5-BackendEngineering/Chapter04-Risk-Service.md",
 ].map(async (path) => [path, await readFile(path, "utf8")])));
@@ -76,6 +77,9 @@ for (const path of [
     "hardGrossLimitUsd",
     "softNetLimitUsd",
     "hardNetLimitUsd",
+    "assetLimits",
+    "softLimitUsd",
+    "hardLimitUsd",
     "minLiquidityUsd",
     "maxVolatilityBps",
     "RFQ_DAILY_LOSS_CONFIG_JSON",
@@ -150,6 +154,10 @@ assertContains("backend/src/modules/risk/portfolio-delta.ts", [
   "postTradeNetDeltaUsdE18",
   "softLimitBreached",
   "exceedsPortfolioDeltaHardLimit",
+  "Portfolio delta has no asset limit",
+  "assetLimitKey",
+  "must not contain duplicates",
+  "assertPortfolioDeltaEvaluationMatchesPolicy",
 ]);
 assertContains("backend/src/modules/risk/portfolio-var.ts", [
   "componentVarUsdE18",
@@ -275,6 +283,14 @@ assertContains("book/Volume3-RiskEngine/Chapter04-VaR.md", [
   "PORTFOLIO_DELTA_LIMIT_EXCEEDED",
   "var_evaluation",
   "inventory_positions",
+]);
+assertContains("book/Volume3-RiskEngine/Chapter02-Delta.md", [
+  "gross-net-asset-delta-v2",
+  "assetLimits",
+  "chainId",
+  "PORTFOLIO_DELTA_LIMIT_EXCEEDED",
+  "delta_evaluation",
+  "rfq_portfolio_delta_soft_breaches_total",
 ]);
 assertContains("backend/src/modules/risk/usd-reference-risk.engine.ts", [
   "USD_REFERENCE_DEPEG",

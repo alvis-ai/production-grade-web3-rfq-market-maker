@@ -107,7 +107,7 @@ stateDiagram-v2
 
 名义限额之外，生产 runtime 使用 `RFQ_RECEIPT_CONFIG_JSON` 的链 RPC 在同一 block 读取 `RFQSettlement.treasury()` 与 `tokenOut.balanceOf(treasury)`。reservation 额外持久化方向性的 `tokenOut/amountOut` 和链上观察证据，并为 `(chainId, tokenOut)` 获取 advisory lock。所有未过期 quote 的输出数量都参与流动性 SUM，包括已经 submitted/settled 的 quote；后者保留到 TTL 是有意的保守策略，用于覆盖 RPC 读取、链上余额下降和数据库状态切换无法组成原子事务的窗口。若 `reserved + candidate > observedBalance`，记录 `TREASURY_LIQUIDITY_INSUFFICIENT` 并在 Signer 前拒绝。RPC 不可用、treasury 地址畸形或 balance 非 uint256 都按 risk unavailable fail closed。
 
-组合 position limit 由 `portfolioDelta` 表达。Risk Engine 在 portfolio advisory lock 内复用 VaR valuation components，计算 pre/post gross USD delta 与 signed net USD delta。soft gross/net limit 被严格超过时 reservation 仍可接受，但持久化 `softLimitBreached` 并触发告警；hard gross/net limit 被严格超过时返回 `PORTFOLIO_DELTA_LIMIT_EXCEEDED`，事务回滚且 Signer 不可见该 quote。精确等于阈值不算越界。USD-reference token 作为现金腿不进入 delta component，仍由 open notional 与 Treasury liquidity 两层约束保护。
+组合 position limit 由 `portfolioDelta` 表达。Risk Engine 在 portfolio advisory lock 内复用 VaR valuation components，先按 `(chainId, tokenAddress)` 检查 absolute USD delta，再计算 pre/post gross USD delta 与 signed net USD delta。任一 asset/gross/net soft limit 被严格超过时 reservation 仍可接受，但持久化 component/aggregate `softLimitBreached` 并触发告警；任一 hard limit 被严格超过时返回 `PORTFOLIO_DELTA_LIMIT_EXCEEDED`，事务回滚且 Signer 不可见该 quote。精确等于阈值不算越界。USD-reference token 作为现金腿不进入 delta component，仍由 open notional 与 Treasury liquidity 两层约束保护。
 
 ## API Design
 

@@ -25,6 +25,7 @@ test("TokenLimitRiskEngine scopes token authorization by chain and address", asy
     portfolioVar: portfolioVarPolicy([
       { chainId: 10, tokenAddress: tokenC, usdReferenceTokenAddress: tokenD },
     ]),
+    portfolioDelta: portfolioDeltaPolicy([{ chainId: 10, tokenAddress: tokenC }]),
   }), tokenRegistry([
     token(1, tokenA, 18, true),
     token(1, tokenB, 6, true),
@@ -166,6 +167,7 @@ test("TokenLimitRiskEngine snapshots policy and returns defensive token limits",
   mutable.enabledChainIds.length = 0;
   mutable.tokenLimits[0].maxAmountIn = "1";
   mutable.tokenLimits[0].maxNotionalUsd = "1";
+  mutable.portfolioDelta.assetLimits[0].hardLimitUsd = "1";
   mutable.restrictedUsers.push(user);
 
   const exposed = engine.getTokenLimit(1, tokenA);
@@ -179,6 +181,9 @@ test("TokenLimitRiskEngine snapshots policy and returns defensive token limits",
     portfolioVar: portfolioVarPolicy(),
     portfolioDelta: portfolioDeltaPolicy(),
   });
+  const exposedPolicy = engine.getQuoteExposurePolicy();
+  exposedPolicy.portfolioDelta.assetLimits[0].hardLimitUsd = "1";
+  assert.equal(engine.getQuoteExposurePolicy().portfolioDelta.assetLimits[0].hardLimitUsd, "500000");
   assert.deepEqual(await engine.evaluate(riskInput()), {
     status: "approved",
     policyVersion: "token-limit-test-v1",
@@ -202,6 +207,24 @@ test("parseTokenLimitRiskPolicy rejects ambiguous and unsafe runtime configurati
       }],
     })),
     /duplicate chain\/token limits/,
+  );
+  assert.throws(
+    () => new TokenLimitRiskEngine(policy({
+      portfolioDelta: portfolioDeltaPolicy([{ chainId: 1, tokenAddress: tokenB }]),
+    })),
+    /has no asset limit for a VaR valuation asset/,
+  );
+  assert.throws(
+    () => new TokenLimitRiskEngine(policy({
+      portfolioDelta: {
+        ...portfolioDeltaPolicy(),
+        assetLimits: [
+          ...portfolioDeltaPolicy().assetLimits,
+          ...portfolioDeltaPolicy([{ chainId: 1, tokenAddress: tokenB }]).assetLimits,
+        ],
+      },
+    })),
+    /must match a VaR valuation asset/,
   );
   assert.throws(
     () => parseTokenLimitRiskPolicy(JSON.stringify({
@@ -295,13 +318,19 @@ function portfolioVarPolicy(valuationPairs = [{
   };
 }
 
-function portfolioDeltaPolicy() {
+function portfolioDeltaPolicy(assets = [{ chainId: 1, tokenAddress: tokenA }]) {
   return {
-    modelVersion: "gross-net-delta-v1",
+    modelVersion: "gross-net-asset-delta-v2",
     softGrossLimitUsd: "500000",
     hardGrossLimitUsd: "1000000",
     softNetLimitUsd: "250000",
     hardNetLimitUsd: "500000",
+    assetLimits: assets.map(({ chainId, tokenAddress }) => ({
+      chainId,
+      tokenAddress,
+      softLimitUsd: "250000",
+      hardLimitUsd: "500000",
+    })),
   };
 }
 
