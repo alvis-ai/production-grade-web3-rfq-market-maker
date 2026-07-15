@@ -353,10 +353,18 @@ export class ReadinessService {
       await this.deps.settlementIndexerRiskGuard?.checkHealth();
       await this.deps.treasuryLiquidityProvider?.checkHealth();
       await this.deps.riskEngine.checkHealth?.();
+      const inventoryProjection = await this.deps.inventoryService.projectSettlement({
+        chainId: this.config.probeRequest.chainId,
+        tokenIn: this.config.probeRequest.tokenIn,
+        tokenOut: this.config.probeRequest.tokenOut,
+        amountIn: this.config.probeRequest.amountIn,
+        amountOut: this.config.probePricing.amountOut,
+      });
       const decision = await this.deps.riskEngine.evaluate({
         request: this.config.probeRequest,
         pricing: this.config.probePricing,
         snapshot: this.config.probeSnapshot,
+        inventoryProjection,
       });
       return decision.status === "approved" ? "ok" : "degraded";
     } catch {

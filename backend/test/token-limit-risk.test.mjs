@@ -146,6 +146,27 @@ test("TokenLimitRiskEngine applies each projected inventory limit in that token'
   assert.equal((await engine.evaluate(riskInput({ inventoryProjection: projection(200n, -300n) }))).status, "approved");
 });
 
+test("TokenLimitRiskEngine rejects nonlinear inventory, size, and volatility risk", async () => {
+  const engine = new TokenLimitRiskEngine(policy({
+    tokenLimits: [
+      limit(1, tokenA, "1000000000000000000", "1", "10000", "1"),
+      limit(1, tokenB, "1000000000000000000", "1", "10000", "1"),
+    ],
+  }));
+
+  const rejected = await engine.evaluate(riskInput({
+    amountIn: "1",
+    amountOut: "250000000000000000",
+    minAmountOut: "1",
+    volatilityBps: 250,
+    inventoryProjection: projection(8_500n, -1n),
+  }));
+  assert.equal(rejected.reasonCode, "GAMMA_GUARDRAIL_TRIGGERED");
+
+  const missingInventory = await engine.evaluate(riskInput({ inventoryProjection: null }));
+  assert.equal(missingInventory.reasonCode, "RISK_ENGINE_UNAVAILABLE");
+});
+
 test("TokenLimitRiskEngine preserves restricted-user, toxic-flow, slippage, and spread gates", async () => {
   const restricted = new TokenLimitRiskEngine(policy({ restrictedUsers: [user] }));
   assert.equal((await restricted.evaluate(riskInput())).reasonCode, "TOXIC_FLOW_RESTRICTED_USER");
@@ -168,6 +189,7 @@ test("TokenLimitRiskEngine snapshots policy and returns defensive token limits",
   mutable.tokenLimits[0].maxAmountIn = "1";
   mutable.tokenLimits[0].maxNotionalUsd = "1";
   mutable.portfolioDelta.assetLimits[0].hardLimitUsd = "1";
+  mutable.gammaGuardrail.maxRiskMultiplierBps = 10_001;
   mutable.restrictedUsers.push(user);
 
   const exposed = engine.getTokenLimit(1, tokenA);
@@ -274,6 +296,16 @@ test("parseTokenLimitRiskPolicy rejects ambiguous and unsafe runtime configurati
     /maxVolatilityBps must be an integer between 0 and 10000/,
   );
   assert.throws(
+    () => parseTokenLimitRiskPolicy(JSON.stringify({
+      ...valid,
+      gammaGuardrail: {
+        ...valid.gammaGuardrail,
+        blockTradeUtilizationBps: valid.gammaGuardrail.largeTradeUtilizationBps,
+      },
+    })),
+    /0 < elevated < critical/,
+  );
+  assert.throws(
     () => new TokenLimitRiskEngine(Object.create(defaultTokenLimitRiskPolicy)),
     /policyVersion must be an own field/,
   );
@@ -294,6 +326,7 @@ function policy(overrides = {}) {
     maxPairOpenNotionalUsd: "5000000",
     portfolioVar: portfolioVarPolicy(),
     portfolioDelta: portfolioDeltaPolicy(),
+    gammaGuardrail: gammaGuardrailPolicy(),
     minLiquidityUsd: "1000000",
     maxVolatilityBps: 500,
     maxSlippageBps: 500,
@@ -334,6 +367,19 @@ function portfolioDeltaPolicy(assets = [{ chainId: 1, tokenAddress: tokenA }]) {
   };
 }
 
+function gammaGuardrailPolicy() {
+  return {
+    modelVersion: "piecewise-convexity-v1",
+    elevatedInventoryUtilizationBps: 6_000,
+    criticalInventoryUtilizationBps: 8_500,
+    largeTradeUtilizationBps: 2_500,
+    blockTradeUtilizationBps: 7_000,
+    elevatedVolatilityUtilizationBps: 5_000,
+    extremeVolatilityUtilizationBps: 8_000,
+    maxRiskMultiplierBps: 20_000,
+  };
+}
+
 function limit(chainId, tokenAddress, maxAmountIn, minAmountOut, maxAbsoluteInventory, maxNotionalUsd = "1000000") {
   return { chainId, tokenAddress, maxAmountIn, minAmountOut, maxNotionalUsd, maxAbsoluteInventory };
 }
@@ -367,6 +413,12 @@ function riskInput({
   volatilityBps = 25,
   inventoryProjection,
 } = {}) {
+  const resolvedInventoryProjection = inventoryProjection === null
+    ? undefined
+    : inventoryProjection ?? {
+        tokenIn: { chainId, token: tokenIn, balance: 0n },
+        tokenOut: { chainId, token: tokenOut, balance: 0n },
+      };
   return {
     request: { chainId, user, tokenIn, tokenOut, amountIn, slippageBps },
     pricing: {
@@ -388,7 +440,7 @@ function riskInput({
       volatilityBps,
       observedAt: "2026-01-01T00:00:00.000Z",
     },
-    ...(inventoryProjection ? { inventoryProjection } : {}),
+    ...(resolvedInventoryProjection ? { inventoryProjection: resolvedInventoryProjection } : {}),
   };
 }
 

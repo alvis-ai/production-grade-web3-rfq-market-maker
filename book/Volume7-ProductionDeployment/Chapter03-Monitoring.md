@@ -103,7 +103,7 @@ Key metrics include:
 - `rfq_quote_responses_total`
 - `rfq_quote_errors_total`
 - `rfq_quote_latency_seconds`
-- `rfq_quote_rejections_total` with bounded `reason`; alert separately on `TREASURY_LIQUIDITY_INSUFFICIENT`, `PORTFOLIO_VAR_LIMIT_EXCEEDED`, `PORTFOLIO_DELTA_LIMIT_EXCEEDED`, `USD_REFERENCE_DEPEG` and `RISK_ENGINE_UNAVAILABLE`
+- `rfq_quote_rejections_total` with bounded `reason`; alert separately on `TREASURY_LIQUIDITY_INSUFFICIENT`, `PORTFOLIO_VAR_LIMIT_EXCEEDED`, `PORTFOLIO_DELTA_LIMIT_EXCEEDED`, `GAMMA_GUARDRAIL_TRIGGERED`, `USD_REFERENCE_DEPEG` and `RISK_ENGINE_UNAVAILABLE`
 - `rfq_portfolio_delta_soft_breaches_total` counts newly accepted reservations above a reviewed chain/token asset, gross, or signed net delta soft limit; any increase requires component-level inventory and hedge review before a hard limit starts rejecting quotes
 - `rfq_quote_paused`
 - `rfq_quote_pairs_paused` without chain or token labels

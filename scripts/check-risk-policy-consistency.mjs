@@ -12,6 +12,7 @@ const files = Object.fromEntries(await Promise.all([
   "backend/src/modules/risk/postgres-quote-exposure.store.ts",
   "backend/src/modules/risk/portfolio-var.ts",
   "backend/src/modules/risk/portfolio-delta.ts",
+  "backend/src/modules/risk/gamma-guardrail.ts",
   "backend/src/modules/risk/in-memory-portfolio-var.ts",
   "backend/src/modules/risk/postgres-portfolio-var.ts",
   "backend/src/modules/risk/treasury-liquidity.provider.ts",
@@ -32,6 +33,7 @@ const files = Object.fromEntries(await Promise.all([
   "backend/test/quote-exposure-store.test.mjs",
   "backend/test/postgres-quote-exposure-store.test.mjs",
   "backend/test/portfolio-var.test.mjs",
+  "backend/test/gamma-guardrail.test.mjs",
   "backend/test/usd-reference-risk.test.mjs",
   "backend/test/daily-loss-risk.test.mjs",
   "backend/test/daily-loss-runtime.test.mjs",
@@ -45,6 +47,7 @@ const files = Object.fromEntries(await Promise.all([
   "README.md",
   "book/Volume3-RiskEngine/Chapter05-Position-Limits.md",
   "book/Volume3-RiskEngine/Chapter02-Delta.md",
+  "book/Volume3-RiskEngine/Chapter03-Gamma.md",
   "book/Volume3-RiskEngine/Chapter04-VaR.md",
   "book/Volume5-BackendEngineering/Chapter04-Risk-Service.md",
 ].map(async (path) => [path, await readFile(path, "utf8")])));
@@ -80,6 +83,15 @@ for (const path of [
     "assetLimits",
     "softLimitUsd",
     "hardLimitUsd",
+    "gammaGuardrail",
+    "piecewise-convexity-v1",
+    "elevatedInventoryUtilizationBps",
+    "criticalInventoryUtilizationBps",
+    "largeTradeUtilizationBps",
+    "blockTradeUtilizationBps",
+    "elevatedVolatilityUtilizationBps",
+    "extremeVolatilityUtilizationBps",
+    "maxRiskMultiplierBps",
     "minLiquidityUsd",
     "maxVolatilityBps",
     "RFQ_DAILY_LOSS_CONFIG_JSON",
@@ -110,13 +122,25 @@ assertContains("backend/src/modules/risk/token-limit-risk.engine.ts", [
   "MARKET_VOLATILITY_LIMIT_EXCEEDED",
   "input.snapshot.liquidityUsd",
   "input.snapshot.volatilityBps",
-  "10n ** BigInt(decimals)",
+  "10n ** BigInt(tokenInLimit.metadata.decimals)",
+  "10n ** BigInt(tokenOutLimit.metadata.decimals)",
   "tokenInLimit.maxAbsoluteInventory",
   "tokenOutLimit.maxAbsoluteInventory",
   "canonical positive uint256 string",
   "duplicate chain/token limits",
   "getQuoteExposurePolicy",
   "normalizePortfolioVarPolicy",
+  "evaluateGammaGuardrail",
+  "RISK_ENGINE_UNAVAILABLE",
+]);
+assertContains("backend/src/modules/risk/gamma-guardrail.ts", [
+  "classifyInventory",
+  "classifySize",
+  "classifyVolatility",
+  "boundedUtilizationBps",
+  "riskMultiplierBps >= policy.maxRiskMultiplierBps",
+  "must satisfy 0 < elevated < critical",
+  "GAMMA_GUARDRAIL_TRIGGERED",
 ]);
 assertContains("backend/src/modules/risk/quote-exposure.store.ts", [
   "class InMemoryQuoteExposureStore",
@@ -188,6 +212,13 @@ assertContains("backend/test/token-limit-risk.test.mjs", [
   "low-liquidity and extreme-volatility snapshots",
   "each projected inventory limit in that token's raw units",
   "duplicate chain\\/token limits",
+  "nonlinear inventory, size, and volatility risk",
+]);
+assertContains("backend/test/gamma-guardrail.test.mjs", [
+  "exact piecewise boundaries",
+  "rejects only the configured nonlinear combination",
+  "rounds utilization conservatively",
+  "malformed evidence",
 ]);
 assertContains("backend/test/api-risk-policy-runtime.test.mjs", [
   "configured chain/token limits to a cross-decimals quote",
@@ -254,6 +285,8 @@ assertContains("backend/src/modules/quote/quote.service.ts", [
 ]);
 assertContains("backend/src/modules/health/readiness.service.ts", [
   "snapshot: this.config.probeSnapshot",
+  "this.deps.inventoryService.projectSettlement",
+  "inventoryProjection,",
 ]);
 assertContains("book/Volume3-RiskEngine/Chapter05-Position-Limits.md", [
   "`TokenLimitRiskPolicy`",
@@ -291,6 +324,15 @@ assertContains("book/Volume3-RiskEngine/Chapter02-Delta.md", [
   "PORTFOLIO_DELTA_LIMIT_EXCEEDED",
   "delta_evaluation",
   "rfq_portfolio_delta_soft_breaches_total",
+]);
+assertContains("book/Volume3-RiskEngine/Chapter03-Gamma.md", [
+  "piecewise-convexity-v1",
+  "GammaGuardrailPolicy",
+  "GammaGuardrailResult",
+  "GAMMA_GUARDRAIL_TRIGGERED",
+  "RISK_ENGINE_UNAVAILABLE",
+  "maxRiskMultiplierBps",
+  "033-gamma-guardrail-risk.sql",
 ]);
 assertContains("backend/src/modules/risk/usd-reference-risk.engine.ts", [
   "USD_REFERENCE_DEPEG",
@@ -359,7 +401,7 @@ assertContains("backend/test/daily-loss-runtime.test.mjs", [
   "wraps approved risk with PostgreSQL evidence",
 ]);
 
-console.log("Risk policy consistency check passed: market-regime, atomic exposure, treasury, portfolio VaR/delta, USD-reference depeg, and UTC daily loss controls");
+console.log("Risk policy consistency check passed: market-regime, Gamma guardrail, atomic exposure, treasury, portfolio VaR/delta, USD-reference depeg, and UTC daily loss controls");
 
 function assertContains(path, needles) {
   for (const needle of needles) {

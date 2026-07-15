@@ -469,6 +469,7 @@ CREATE TABLE risk_decisions (
         'TREASURY_LIQUIDITY_INSUFFICIENT',
         'PORTFOLIO_VAR_LIMIT_EXCEEDED',
         'PORTFOLIO_DELTA_LIMIT_EXCEEDED',
+        'GAMMA_GUARDRAIL_TRIGGERED',
         'DAILY_LOSS_LIMIT_EXCEEDED',
         'USD_REFERENCE_REQUIRED',
         'USD_REFERENCE_DEPEG',
@@ -2079,4 +2080,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('029', 'bounded-hedge-failure-risk'),
   ('030', 'usd-reference-depeg-risk'),
   ('031', 'daily-loss-risk'),
-  ('032', 'portfolio-delta-risk');
+  ('032', 'portfolio-delta-risk'),
+  ('033', 'gamma-guardrail-risk');

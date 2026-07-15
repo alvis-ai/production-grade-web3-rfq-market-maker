@@ -38,6 +38,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "030", name: "usd-reference-depeg-risk", applied_at: "2026-07-16T00:00:00.000Z" },
         { version: "031", name: "daily-loss-risk", applied_at: "2026-07-16T00:01:00.000Z" },
         { version: "032", name: "portfolio-delta-risk", applied_at: "2026-07-16T00:02:00.000Z" },
+        { version: "033", name: "gamma-guardrail-risk", applied_at: "2026-07-16T00:03:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -1059,6 +1060,40 @@ test("database migration runner adds replayable portfolio delta evidence", async
   assert.equal(client.queries.some(({ sql }) => sql.includes("PORTFOLIO_DELTA_LIMIT_EXCEEDED")), true);
   assert.equal(client.queries.some(({ sql, params }) =>
     sql.includes("INSERT INTO _migrations") && params[0] === "032"), true);
+});
+
+test("database migration runner adds the gamma guardrail rejection reason", async () => {
+  const appliedNames = [
+    "base-schema", "settlement-canonical", "hedge-worker-queue", "analytics-outbox",
+    "post-trade-reconciliation", "quote-snapshot-pnl", "settlement-indexer", "submit-reservations",
+    "risk-notional-reasons", "risk-market-regime-reasons", "open-quote-exposure", "pricing-attribution",
+    "market-spread-attribution", "hedge-execution-evidence", "hedge-fee-reconciliation",
+    "treasury-liquidity-reservations", "quote-principal-ownership", "quote-control", "pair-quote-control",
+    "toxic-flow-scores", "toxic-flow-markouts", "portfolio-var-reservations", "quote-idempotency",
+    "hedge-net-pnl", "bounded-hedge-limit", "hedge-order-expiry", "signer-audit", "signer-risk-context",
+    "bounded-hedge-failure-risk", "usd-reference-depeg-risk", "daily-loss-risk", "portfolio-delta-risk",
+  ];
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: appliedNames.map((name, index) => ({
+        version: String(index + 1).padStart(3, "0"),
+        name,
+        applied_at: "2026-07-16T00:00:00.000Z",
+      })) };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "033");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("GAMMA_GUARDRAIL_TRIGGERED")), true);
+  assert.equal(client.queries.some(({ sql, params }) =>
+    sql.includes("INSERT INTO _migrations") && params[0] === "033"), true);
 });
 
 function fakePool(handler) {

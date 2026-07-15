@@ -138,6 +138,10 @@ const portfolioDeltaRiskMigrationSource = await readFile(
   "backend/src/db/migrations/032-portfolio-delta-risk.sql",
   "utf8",
 );
+const gammaGuardrailRiskMigrationSource = await readFile(
+  "backend/src/db/migrations/033-gamma-guardrail-risk.sql",
+  "utf8",
+);
 const signerAuditStoreSource = await readFile(
   "backend/src/modules/signer/signer-audit.store.ts",
   "utf8",
@@ -1724,6 +1728,13 @@ assert.ok(
     portfolioDeltaRiskMigrationSource.includes("PORTFOLIO_DELTA_LIMIT_EXCEEDED") &&
     schemaSource.includes("('032', 'portfolio-delta-risk')"),
   "portfolio delta migration must persist replayable evidence and extend the durable rejection contract",
+);
+assert.ok(
+  gammaGuardrailRiskMigrationSource.includes("chk_risk_decisions_reason_code_consistency") &&
+    gammaGuardrailRiskMigrationSource.includes("GAMMA_GUARDRAIL_TRIGGERED") &&
+    schemaSource.includes("('033', 'gamma-guardrail-risk')") &&
+    schemaSource.includes("'GAMMA_GUARDRAIL_TRIGGERED'"),
+  "gamma guardrail migration must extend the durable risk rejection contract",
 );
 assert.ok(
   postgresToxicFlowMarkoutSource.includes("async claimNext") &&

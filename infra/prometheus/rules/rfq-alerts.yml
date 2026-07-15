@@ -253,6 +253,15 @@ groups:
           summary: RFQ portfolio delta hard limit is rejecting quotes
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQGammaGuardrailTriggered
+        expr: sum(increase(rfq_quote_rejections_total{reason="GAMMA_GUARDRAIL_TRIGGERED"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ nonlinear inventory, size, and volatility guardrail is rejecting quotes
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQUsdReferenceDepeg
         expr: sum by (chain_id, token) (increase(rfq_usd_reference_health_failures_total{reason="DEPEG"}[5m])) > 0
         for: 1m

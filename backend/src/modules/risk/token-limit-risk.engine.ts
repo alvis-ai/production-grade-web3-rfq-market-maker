@@ -15,6 +15,12 @@ import {
 } from "./risk.engine.js";
 import type { QuoteExposurePolicy } from "./quote-exposure.store.js";
 import {
+  assertGammaGuardrailPolicy,
+  evaluateGammaGuardrail,
+  type GammaGuardrailNotionalExposure,
+  type GammaGuardrailPolicy,
+} from "./gamma-guardrail.js";
+import {
   assertPortfolioDeltaPolicy,
   normalizePortfolioDeltaPolicy,
   type PortfolioDeltaPolicy,
@@ -45,6 +51,7 @@ export interface TokenLimitRiskPolicy {
   maxPairOpenNotionalUsd: string;
   portfolioVar: PortfolioVarPolicy;
   portfolioDelta: PortfolioDeltaPolicy;
+  gammaGuardrail: GammaGuardrailPolicy;
   minLiquidityUsd: string;
   maxVolatilityBps: number;
   maxSlippageBps: number;
@@ -61,7 +68,7 @@ interface ParsedTokenRiskLimit {
 }
 
 export const defaultTokenLimitRiskPolicy: TokenLimitRiskPolicy = {
-  policyVersion: "token-limit-risk-v1",
+  policyVersion: "token-limit-risk-v2",
   enabledChainIds: [1],
   tokenLimits: [
     {
@@ -112,6 +119,16 @@ export const defaultTokenLimitRiskPolicy: TokenLimitRiskPolicy = {
       hardLimitUsd: "500000",
     }],
   },
+  gammaGuardrail: {
+    modelVersion: "piecewise-convexity-v1",
+    elevatedInventoryUtilizationBps: 6_000,
+    criticalInventoryUtilizationBps: 8_500,
+    largeTradeUtilizationBps: 2_500,
+    blockTradeUtilizationBps: 7_000,
+    elevatedVolatilityUtilizationBps: 5_000,
+    extremeVolatilityUtilizationBps: 8_000,
+    maxRiskMultiplierBps: 20_000,
+  },
   minLiquidityUsd: "1000000",
   maxVolatilityBps: 500,
   maxSlippageBps: 500,
@@ -129,6 +146,7 @@ const policyFields = [
   "maxPairOpenNotionalUsd",
   "portfolioVar",
   "portfolioDelta",
+  "gammaGuardrail",
   "minLiquidityUsd",
   "maxVolatilityBps",
   "maxSlippageBps",
@@ -249,20 +267,24 @@ export class TokenLimitRiskEngine implements RiskEngine {
     }
 
     const maxNotionalUsd = min(tokenInLimit.maxNotionalUsd, tokenOutLimit.maxNotionalUsd);
-    let hasUsdReference = false;
+    const notionalExposures: GammaGuardrailNotionalExposure[] = [];
     if (tokenInLimit.metadata.usdReference) {
-      hasUsdReference = true;
-      if (exceedsUsdNotional(input.request.amountIn, tokenInLimit.metadata.decimals, maxNotionalUsd)) {
+      const limit = maxNotionalUsd * (10n ** BigInt(tokenInLimit.metadata.decimals));
+      const amount = BigInt(input.request.amountIn);
+      if (amount > limit) {
         return this.reject("QUOTE_NOTIONAL_LIMIT_EXCEEDED");
       }
+      notionalExposures.push({ amount, limit });
     }
     if (tokenOutLimit.metadata.usdReference) {
-      hasUsdReference = true;
-      if (exceedsUsdNotional(input.pricing.amountOut, tokenOutLimit.metadata.decimals, maxNotionalUsd)) {
+      const limit = maxNotionalUsd * (10n ** BigInt(tokenOutLimit.metadata.decimals));
+      const amount = BigInt(input.pricing.amountOut);
+      if (amount > limit) {
         return this.reject("QUOTE_NOTIONAL_LIMIT_EXCEEDED");
       }
+      notionalExposures.push({ amount, limit });
     }
-    if (!hasUsdReference) return this.reject("USD_REFERENCE_REQUIRED");
+    if (notionalExposures.length === 0) return this.reject("USD_REFERENCE_REQUIRED");
 
     if (this.restrictedUsers.has(input.request.user.toLowerCase())) {
       return this.reject("TOXIC_FLOW_RESTRICTED_USER");
@@ -279,13 +301,31 @@ export class TokenLimitRiskEngine implements RiskEngine {
       return this.reject("QUOTED_SPREAD_TOO_WIDE");
     }
 
-    if (input.inventoryProjection) {
-      if (abs(input.inventoryProjection.tokenIn.balance) > tokenInLimit.maxAbsoluteInventory) {
-        return this.reject("TOKEN_IN_INVENTORY_LIMIT_EXCEEDED");
-      }
-      if (abs(input.inventoryProjection.tokenOut.balance) > tokenOutLimit.maxAbsoluteInventory) {
-        return this.reject("TOKEN_OUT_INVENTORY_LIMIT_EXCEEDED");
-      }
+    if (!input.inventoryProjection) return this.reject("RISK_ENGINE_UNAVAILABLE");
+    if (abs(input.inventoryProjection.tokenIn.balance) > tokenInLimit.maxAbsoluteInventory) {
+      return this.reject("TOKEN_IN_INVENTORY_LIMIT_EXCEEDED");
+    }
+    if (abs(input.inventoryProjection.tokenOut.balance) > tokenOutLimit.maxAbsoluteInventory) {
+      return this.reject("TOKEN_OUT_INVENTORY_LIMIT_EXCEEDED");
+    }
+
+    const gamma = evaluateGammaGuardrail({
+      notionalExposures,
+      inventoryExposures: [
+        {
+          balance: input.inventoryProjection.tokenIn.balance,
+          hardLimit: tokenInLimit.maxAbsoluteInventory,
+        },
+        {
+          balance: input.inventoryProjection.tokenOut.balance,
+          hardLimit: tokenOutLimit.maxAbsoluteInventory,
+        },
+      ],
+      volatilityBps: input.snapshot.volatilityBps,
+      volatilityLimitBps: this.policy.maxVolatilityBps,
+    }, this.policy.gammaGuardrail);
+    if (gamma.reasonCode) {
+      return this.reject(gamma.reasonCode);
     }
 
     return { status: "approved", policyVersion: this.policy.policyVersion };
@@ -330,6 +370,7 @@ export function assertTokenLimitRiskPolicy(value: unknown): asserts value is Tok
   );
   assertPortfolioVarPolicy(value.portfolioVar);
   assertPortfolioDeltaPolicy(value.portfolioDelta);
+  assertGammaGuardrailPolicy(value.gammaGuardrail);
   assertPositiveUint256String(value.minLiquidityUsd, "Token limit risk policy.minLiquidityUsd");
   assertBps(value.maxVolatilityBps, "Token limit risk policy.maxVolatilityBps");
   assertBps(value.maxSlippageBps, "Token limit risk policy.maxSlippageBps");
@@ -425,6 +466,7 @@ function cloneTokenLimitRiskPolicy(policy: TokenLimitRiskPolicy): TokenLimitRisk
     })),
     portfolioVar: clonePortfolioVarPolicy(policy.portfolioVar),
     portfolioDelta: clonePortfolioDeltaPolicy(policy.portfolioDelta),
+    gammaGuardrail: { ...policy.gammaGuardrail },
   };
 }
 
@@ -459,10 +501,6 @@ function abs(value: bigint): bigint {
 
 function min(left: bigint, right: bigint): bigint {
   return left < right ? left : right;
-}
-
-function exceedsUsdNotional(amount: string, decimals: number, maxNotionalUsd: bigint): boolean {
-  return BigInt(amount) > maxNotionalUsd * (10n ** BigInt(decimals));
 }
 
 function assertRecord(value: unknown, label: string): asserts value is Record<string, unknown> {

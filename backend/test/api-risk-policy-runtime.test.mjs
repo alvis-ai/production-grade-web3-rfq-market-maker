@@ -117,6 +117,11 @@ test("RFQ API fails startup on malformed, unknown-token, and incomplete risk pol
     process.env.RFQ_RISK_POLICY_JSON = JSON.stringify(incompletePolicy);
     assert.throws(() => buildServer({ logger: false }), /USD reference must have a token risk limit/);
 
+    const missingGammaPolicy = riskPolicy();
+    delete missingGammaPolicy.gammaGuardrail;
+    process.env.RFQ_RISK_POLICY_JSON = JSON.stringify(missingGammaPolicy);
+    assert.throws(() => buildServer({ logger: false }), /gammaGuardrail must be an own field/);
+
     const noUsdRegistry = tokenRegistry();
     noUsdRegistry.tokens = noUsdRegistry.tokens.map((token) => ({ ...token, usdReference: false }));
     process.env.RFQ_TOKEN_REGISTRY_JSON = JSON.stringify(noUsdRegistry);
@@ -368,6 +373,62 @@ test("RFQ API rejects portfolio VaR before invoking the signer", async () => {
   }
 });
 
+test("RFQ API rejects a nonlinear Gamma combination before invoking the signer", async () => {
+  const originalRegistry = process.env.RFQ_TOKEN_REGISTRY_JSON;
+  const originalPolicy = process.env.RFQ_RISK_POLICY_JSON;
+  process.env.RFQ_TOKEN_REGISTRY_JSON = JSON.stringify(tokenRegistry());
+  const configuredPolicy = riskPolicy();
+  configuredPolicy.tokenLimits = configuredPolicy.tokenLimits.map((limit) => ({
+    ...limit,
+    maxNotionalUsd: "7000",
+    ...(limit.tokenAddress === weth
+      ? { maxAbsoluteInventory: "1176470588235294118" }
+      : {}),
+  }));
+  process.env.RFQ_RISK_POLICY_JSON = JSON.stringify(configuredPolicy);
+  const server = buildServer({
+    logger: false,
+    marketDataService: {
+      async getSnapshot() {
+        return {
+          snapshotId: "snapshot_gamma_guardrail",
+          midPrice: "2000",
+          liquidityUsd: "50000000",
+          marketSpreadBps: 0,
+          volatilityBps: 250,
+          observedAt: new Date().toISOString(),
+        };
+      },
+    },
+  });
+
+  try {
+    await server.ready();
+    const response = await server.inject({
+      method: "POST",
+      url: "/quote",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({
+        chainId: 1,
+        user,
+        tokenIn: weth,
+        tokenOut: usdc,
+        amountIn: "1000000000000000000",
+        slippageBps: 50,
+      }),
+    });
+    assert.equal(response.statusCode, 409, response.payload);
+    assert.equal(JSON.parse(response.payload).code, "RISK_REJECTED");
+    const metrics = await server.inject({ method: "GET", url: "/metrics" });
+    assert.match(metrics.payload, /rfq_quote_rejections_total\{reason="GAMMA_GUARDRAIL_TRIGGERED"\} 1/);
+    assert.match(metrics.payload, /rfq_signer_requests_total\{operation="sign"\} 0/);
+  } finally {
+    await server.close();
+    restoreEnv("RFQ_TOKEN_REGISTRY_JSON", originalRegistry);
+    restoreEnv("RFQ_RISK_POLICY_JSON", originalPolicy);
+  }
+});
+
 function tokenRegistry() {
   return {
     tokens: [
@@ -446,10 +507,24 @@ function riskPolicy() {
         hardLimitUsd: "500000",
       }],
     },
+    gammaGuardrail: gammaGuardrailPolicy(),
     minLiquidityUsd: "1000000",
     maxVolatilityBps: 500,
     maxSlippageBps: 500,
     maxQuotedSpreadBps: 1000,
+  };
+}
+
+function gammaGuardrailPolicy() {
+  return {
+    modelVersion: "piecewise-convexity-v1",
+    elevatedInventoryUtilizationBps: 6_000,
+    criticalInventoryUtilizationBps: 8_500,
+    largeTradeUtilizationBps: 2_500,
+    blockTradeUtilizationBps: 7_000,
+    elevatedVolatilityUtilizationBps: 5_000,
+    extremeVolatilityUtilizationBps: 8_000,
+    maxRiskMultiplierBps: 20_000,
   };
 }
 
