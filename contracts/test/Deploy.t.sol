@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import { DeployRFQSettlement } from "../script/Deploy.s.sol";
 
+contract DeployMockToken { }
+
 contract DeployRFQSettlementTest {
     function testDeployAtomicallyConfiguresStackAndTransfersAdministration() public {
         DeployRFQSettlement script = new DeployRFQSettlement();
@@ -54,6 +56,11 @@ contract DeployRFQSettlementTest {
         tokens[1] = address(0);
         _expectInvalidWhitelistToken(script, trustedSigner, tokens);
 
+        tokens = _tokens();
+        tokens[1] = address(0x1002);
+        _expectInvalidWhitelistToken(script, trustedSigner, tokens);
+
+        tokens = _tokens();
         tokens[1] = tokens[0];
         _expectDuplicateWhitelistToken(script, trustedSigner, tokens);
     }
@@ -131,10 +138,10 @@ contract DeployRFQSettlementTest {
         }
     }
 
-    function _tokens() private pure returns (address[] memory tokens) {
+    function _tokens() private returns (address[] memory tokens) {
         tokens = new address[](2);
-        tokens[0] = address(0x1001);
-        tokens[1] = address(0x1002);
+        tokens[0] = address(new DeployMockToken());
+        tokens[1] = address(new DeployMockToken());
     }
 
     function _assertRoleHandoff(

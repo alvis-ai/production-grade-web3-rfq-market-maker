@@ -16,6 +16,7 @@ contract Treasury is ReentrancyGuard {
     error NotOwner();
     error NotSettlement();
     error InvalidAddress();
+    error InvalidSettlement();
     error InvalidAmount();
     error TransferFailed();
 
@@ -45,6 +46,7 @@ contract Treasury is ReentrancyGuard {
 
     function setSettlement(address newSettlement) external onlyOwner {
         if (newSettlement == address(0)) revert InvalidAddress();
+        if (newSettlement.code.length == 0) revert InvalidSettlement();
         emit SettlementUpdated(settlement, newSettlement);
         settlement = newSettlement;
     }

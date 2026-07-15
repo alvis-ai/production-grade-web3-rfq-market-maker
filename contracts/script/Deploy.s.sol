@@ -80,14 +80,14 @@ contract RFQDeploymentFactory {
         address trustedSigner,
         address contractAdmin,
         address[] calldata tokenWhitelist
-    ) private pure {
+    ) private view {
         if (trustedSigner == address(0)) revert InvalidTrustedSigner();
         if (contractAdmin == address(0)) revert InvalidContractAdmin();
         if (tokenWhitelist.length == 0) revert EmptyTokenWhitelist();
 
         for (uint256 index = 0; index < tokenWhitelist.length; index += 1) {
             address token = tokenWhitelist[index];
-            if (token == address(0)) revert InvalidWhitelistToken();
+            if (token == address(0) || token.code.length == 0) revert InvalidWhitelistToken();
             for (uint256 cursor = 0; cursor < index; cursor += 1) {
                 if (tokenWhitelist[cursor] == token) revert DuplicateWhitelistToken(token);
             }
@@ -173,14 +173,14 @@ contract DeployRFQSettlement {
         address trustedSigner,
         address contractAdmin,
         address[] memory tokenWhitelist
-    ) public pure {
+    ) public view {
         if (trustedSigner == address(0)) revert InvalidTrustedSigner();
         if (contractAdmin == address(0)) revert InvalidContractAdmin();
         if (tokenWhitelist.length == 0) revert EmptyTokenWhitelist();
 
         for (uint256 index = 0; index < tokenWhitelist.length; index += 1) {
             address token = tokenWhitelist[index];
-            if (token == address(0)) revert InvalidWhitelistToken();
+            if (token == address(0) || token.code.length == 0) revert InvalidWhitelistToken();
             for (uint256 cursor = 0; cursor < index; cursor += 1) {
                 if (tokenWhitelist[cursor] == token) revert DuplicateWhitelistToken(token);
             }

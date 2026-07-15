@@ -14,6 +14,7 @@
 - [x] ReentrancyGuard protects settlement.
 - [x] Pausable can stop settlement during incident response.
 - [x] AccessControl protects signer and token whitelist updates.
+- [x] Treasury, Settlement and newly whitelisted token configuration rejects EOAs, and Treasury rotation requires the candidate Treasury to point back to the active Settlement.
 - [x] Trusted signer authorization is capped at five entries, cannot remove the primary or final signer, and emits an event for every membership change.
 - [x] DEFAULT_ADMIN_ROLE cannot be orphaned by revoking the last admin.
 - [x] Deployment atomically wires Settlement and Treasury, validates postconditions, transfers both ownership boundaries to an explicit final admin, and leaves the factory without roles.

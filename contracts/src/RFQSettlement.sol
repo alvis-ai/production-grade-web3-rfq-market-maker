@@ -12,6 +12,7 @@ import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 interface ITreasuryMinimal {
     function release(address token, address to, uint256 amount) external;
+    function settlement() external view returns (address);
 }
 
 /// @notice RFQ settlement contract for validating EIP-712 signed quotes and settling token flows.
@@ -43,6 +44,8 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
 
     error NotOwner();
     error InvalidAddress();
+    error InvalidTreasury();
+    error InvalidTokenContract();
     error InvalidSigner();
     error TooManyTrustedSigners();
     error CannotRevokePrimaryTrustedSigner();
@@ -80,6 +83,7 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
         if (initialTrustedSigner == address(0) || initialTreasury == address(0)) {
             revert InvalidAddress();
         }
+        if (initialTreasury.code.length == 0) revert InvalidTreasury();
         owner = msg.sender;
         trustedSigner = initialTrustedSigner;
         treasury = initialTreasury;
@@ -175,6 +179,7 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
 
     function setTreasury(address newTreasury) external onlyRole(TREASURY_ADMIN_ROLE) {
         if (newTreasury == address(0)) revert InvalidAddress();
+        _requireBoundTreasury(newTreasury);
         emit TreasuryUpdated(treasury, newTreasury);
         treasury = newTreasury;
     }
@@ -184,6 +189,7 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
         onlyRole(TOKEN_ADMIN_ROLE)
     {
         if (token == address(0)) revert InvalidAddress();
+        if (whitelisted && token.code.length == 0) revert InvalidTokenContract();
         tokenWhitelist[token] = whitelisted;
         emit TokenWhitelistUpdated(token, whitelisted);
     }
@@ -291,6 +297,15 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
             _trustedSignerCount -= 1;
         }
         emit TrustedSignerAuthorizationUpdated(signer, authorized);
+    }
+
+    function _requireBoundTreasury(address candidate) internal view {
+        if (candidate.code.length == 0) revert InvalidTreasury();
+        try ITreasuryMinimal(candidate).settlement() returns (address configuredSettlement) {
+            if (configuredSettlement != address(this)) revert InvalidTreasury();
+        } catch {
+            revert InvalidTreasury();
+        }
     }
 
     function _collectTokenIn(Quote calldata quote) internal {

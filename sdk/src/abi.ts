@@ -445,6 +445,8 @@ export const rfqSettlementAbi = [
     inputs: [{ name: "str", type: "string" }],
   },
   { type: "error", name: "InvalidAddress", inputs: [] },
+  { type: "error", name: "InvalidTreasury", inputs: [] },
+  { type: "error", name: "InvalidTokenContract", inputs: [] },
   { type: "error", name: "InvalidSigner", inputs: [] },
   { type: "error", name: "TooManyTrustedSigners", inputs: [] },
   { type: "error", name: "CannotRevokePrimaryTrustedSigner", inputs: [] },
@@ -582,6 +584,7 @@ export const treasuryAbi = [
   { type: "error", name: "NotSettlement", inputs: [] },
   { type: "error", name: "ReentrancyGuardReentrantCall", inputs: [] },
   { type: "error", name: "InvalidAddress", inputs: [] },
+  { type: "error", name: "InvalidSettlement", inputs: [] },
   { type: "error", name: "InvalidAmount", inputs: [] },
   { type: "error", name: "TransferFailed", inputs: [] },
 ] as const;

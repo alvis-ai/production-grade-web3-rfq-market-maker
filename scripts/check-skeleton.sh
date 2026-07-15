@@ -2727,8 +2727,10 @@ grep -q 'testSubmitQuoteRejectsHighSignatureS' contracts/test/RFQSettlement.t.so
 grep -q 'testSubmitQuoteRejectsExpiredQuote' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsWrongChainId' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsUnwhitelistedToken' contracts/test/RFQSettlement.t.sol
-grep -q 'testSubmitQuoteRejectsNonContractTokenIn' contracts/test/RFQSettlement.t.sol
-grep -q 'testSubmitQuoteRejectsNonContractTokenOut' contracts/test/RFQSettlement.t.sol
+grep -q 'testWhitelistRejectsNonContractTokenIn' contracts/test/RFQSettlement.t.sol
+grep -q 'testWhitelistRejectsNonContractTokenOut' contracts/test/RFQSettlement.t.sol
+grep -q 'testRejectsInvalidTreasuryConfiguration' contracts/test/RFQSettlement.t.sol
+grep -q 'testRejectsNonContractSettlementConfiguration' contracts/test/Treasury.t.sol
 grep -q 'testSubmitQuoteRejectsAmountOutBelowMinimum' contracts/test/RFQSettlement.t.sol
 grep -q 'testSubmitQuoteRejectsZeroNonce' contracts/test/RFQSettlement.t.sol
 grep -q 'contract DeployRFQSettlement' contracts/script/Deploy.s.sol
@@ -3622,6 +3624,7 @@ grep -Fq -- '- [x] Emergency pause procedure is documented.' docs/security/audit
 grep -Fq -- '- [x] `submitQuote` uses SafeERC20 for transfers.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] `submitQuote` verifies exact user/Treasury balance deltas and rejects fee-on-transfer or rebasing settlement drift.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] AccessControl protects signer and token whitelist updates.' docs/security/audit-checklist.md
+grep -Fq -- '- [x] Treasury, Settlement and newly whitelisted token configuration rejects EOAs, and Treasury rotation requires the candidate Treasury to point back to the active Settlement.' docs/security/audit-checklist.md
 grep -Fq -- '- [x] DEFAULT_ADMIN_ROLE cannot be orphaned by revoking the last admin.' docs/security/audit-checklist.md
 grep -q 'SettlementEventService.removeSettlementEvent()' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
 grep -q 'allow the worker to find the common ancestor' book/Volume7-ProductionDeployment/Chapter05-Runbook.md

@@ -619,6 +619,24 @@ contract RFQSettlementTest {
         require(tokenOut.balanceOf(user) == quote.amountOut, "tokenOut not paid from new treasury");
     }
 
+    function testRejectsInvalidTreasuryConfiguration() public {
+        vm.expectRevert(RFQSettlement.InvalidTreasury.selector);
+        new RFQSettlement(signer, address(0x1234));
+
+        vm.expectRevert(RFQSettlement.InvalidTreasury.selector);
+        settlement.setTreasury(address(0x1234));
+
+        Treasury unboundTreasury = new Treasury(address(this));
+        vm.expectRevert(RFQSettlement.InvalidTreasury.selector);
+        settlement.setTreasury(address(unboundTreasury));
+
+        unboundTreasury.setSettlement(address(this));
+        vm.expectRevert(RFQSettlement.InvalidTreasury.selector);
+        settlement.setTreasury(address(unboundTreasury));
+
+        require(settlement.treasury() == address(treasury), "invalid treasury was configured");
+    }
+
     function testOnlyOwnerCanManageAdminControls() public {
         vm.prank(user);
         _expectMissingRole(PAUSER_ROLE, user);
@@ -725,28 +743,18 @@ contract RFQSettlementTest {
         settlement.submitQuote(quote, signature);
     }
 
-    function testSubmitQuoteRejectsNonContractTokenIn() public {
+    function testWhitelistRejectsNonContractTokenIn() public {
         address nonContractToken = address(0xE0A1);
+        vm.expectRevert(RFQSettlement.InvalidTokenContract.selector);
         settlement.setTokenWhitelist(nonContractToken, true);
-        IRFQSettlement.Quote memory quote = _quote(81);
-        quote.tokenIn = nonContractToken;
-        bytes memory signature = _sign(quote);
-
-        vm.prank(user);
-        vm.expectRevert(Treasury.TransferFailed.selector);
-        settlement.submitQuote(quote, signature);
+        require(!settlement.tokenWhitelist(nonContractToken), "non-contract token was whitelisted");
     }
 
-    function testSubmitQuoteRejectsNonContractTokenOut() public {
+    function testWhitelistRejectsNonContractTokenOut() public {
         address nonContractToken = address(0xE0A2);
+        vm.expectRevert(RFQSettlement.InvalidTokenContract.selector);
         settlement.setTokenWhitelist(nonContractToken, true);
-        IRFQSettlement.Quote memory quote = _quote(82);
-        quote.tokenOut = nonContractToken;
-        bytes memory signature = _sign(quote);
-
-        vm.prank(user);
-        vm.expectRevert(RFQSettlement.TransferFailed.selector);
-        settlement.submitQuote(quote, signature);
+        require(!settlement.tokenWhitelist(nonContractToken), "non-contract token was whitelisted");
     }
 
     function testSubmitQuoteAcceptsNoReturnERC20Transfers() public {

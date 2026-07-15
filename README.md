@@ -119,7 +119,7 @@ function submitQuote(
 ) external nonReentrant whenNotPaused returns (uint256 amountOut);
 ```
 
-核心保护包括 EIP-712 verification、trusted signer、nonce replay protection、deadline expiry、token whitelist、pause、reentrancy protection 和 SafeERC20。安全基础设施固定使用 OpenZeppelin Contracts `5.6.1` git submodule；克隆后先执行 `git submodule update --init --recursive`。`Treasury` 作为独立 custody 边界随部署脚本一起创建，并配置为信任对应的 `RFQSettlement` 地址；`RFQSettlement` 将用户 `tokenIn` 转入 Treasury，常规 `tokenOut` 放款走 settlement-only `release`，并校验两条 token 腿的 user/Treasury 实际余额差额与 signed quote 精确一致，从而原子拒绝 fee-on-transfer 或 rebasing drift；应急资金迁移走 owner-only `emergencyWithdraw`。
+核心保护包括 EIP-712 verification、trusted signer、nonce replay protection、deadline expiry、token whitelist、pause、reentrancy protection 和 SafeERC20。安全基础设施固定使用 OpenZeppelin Contracts `5.6.1` git submodule；克隆后先执行 `git submodule update --init --recursive`。`Treasury` 作为独立 custody 边界随部署脚本一起创建，并配置为信任对应的 `RFQSettlement` 地址；Treasury、Settlement 和新增白名单 Token 的管理入口会在配置期拒绝 EOA，Treasury 轮换还要求候选合约已反向绑定当前 Settlement。`RFQSettlement` 将用户 `tokenIn` 转入 Treasury，常规 `tokenOut` 放款走 settlement-only `release`，并校验两条 token 腿的 user/Treasury 实际余额差额与 signed quote 精确一致，从而原子拒绝 fee-on-transfer 或 rebasing drift；应急资金迁移走 owner-only `emergencyWithdraw`。
 
 Local deployment script:
 

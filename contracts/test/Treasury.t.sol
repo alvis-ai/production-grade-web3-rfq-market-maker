@@ -35,6 +35,12 @@ contract TreasuryRevertingToken {
     }
 }
 
+contract TreasurySettlementCaller {
+    function release(Treasury treasury, address token, address to, uint256 amount) external {
+        treasury.release(token, to, amount);
+    }
+}
+
 contract TreasuryReentrantToken {
     Treasury private immutable treasury;
     mapping(address account => uint256 balance) public balanceOf;
@@ -75,26 +81,29 @@ contract TreasuryTest {
         TreasuryVm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     address private constant OWNER = address(0xA11CE);
-    address private constant SETTLEMENT = address(0x5E771E);
     address private constant USER = address(0xB0B);
     address private constant NEW_OWNER = address(0xC0DE);
 
     Treasury private treasury;
     TreasuryMockERC20 private token;
+    TreasurySettlementCaller private settlementCaller;
 
     function setUp() public {
         treasury = new Treasury(OWNER);
         token = new TreasuryMockERC20();
+        settlementCaller = new TreasurySettlementCaller();
         token.mint(address(treasury), 1_000 ether);
 
         vm.prank(OWNER);
-        treasury.setSettlement(SETTLEMENT);
+        treasury.setSettlement(address(settlementCaller));
     }
 
     function testOwnerCanSetSettlementAndTransferOwnership() public {
+        TreasurySettlementCaller replacement = new TreasurySettlementCaller();
+
         vm.prank(OWNER);
-        treasury.setSettlement(address(0x1234));
-        require(treasury.settlement() == address(0x1234), "settlement mismatch");
+        treasury.setSettlement(address(replacement));
+        require(treasury.settlement() == address(replacement), "settlement mismatch");
 
         vm.prank(OWNER);
         treasury.transferOwnership(NEW_OWNER);
@@ -108,8 +117,7 @@ contract TreasuryTest {
     }
 
     function testSettlementCanReleaseFunds() public {
-        vm.prank(SETTLEMENT);
-        treasury.release(address(token), USER, 100 ether);
+        settlementCaller.release(treasury, address(token), USER, 100 ether);
 
         require(token.balanceOf(USER) == 100 ether, "user balance mismatch");
         require(token.balanceOf(address(treasury)) == 900 ether, "treasury balance mismatch");
@@ -130,25 +138,21 @@ contract TreasuryTest {
     }
 
     function testRejectsInvalidTransferInputs() public {
-        vm.prank(SETTLEMENT);
         vm.expectRevert(Treasury.InvalidAddress.selector);
-        treasury.release(address(0), USER, 100 ether);
+        settlementCaller.release(treasury, address(0), USER, 100 ether);
 
-        vm.prank(SETTLEMENT);
         vm.expectRevert(Treasury.InvalidAddress.selector);
-        treasury.release(address(token), address(0), 100 ether);
+        settlementCaller.release(treasury, address(token), address(0), 100 ether);
 
-        vm.prank(SETTLEMENT);
         vm.expectRevert(Treasury.InvalidAmount.selector);
-        treasury.release(address(token), USER, 0);
+        settlementCaller.release(treasury, address(token), USER, 0);
     }
 
     function testRejectsFailedTokenTransfers() public {
         TreasuryFalseReturnToken falseToken = new TreasuryFalseReturnToken();
 
-        vm.prank(SETTLEMENT);
         vm.expectRevert(Treasury.TransferFailed.selector);
-        treasury.release(address(falseToken), USER, 100 ether);
+        settlementCaller.release(treasury, address(falseToken), USER, 100 ether);
 
         TreasuryRevertingToken revertingToken = new TreasuryRevertingToken();
 
@@ -158,9 +162,18 @@ contract TreasuryTest {
     }
 
     function testRejectsNonContractTokenTransfers() public {
-        vm.prank(SETTLEMENT);
         vm.expectRevert(Treasury.TransferFailed.selector);
-        treasury.release(address(0xE0A), USER, 100 ether);
+        settlementCaller.release(treasury, address(0xE0A), USER, 100 ether);
+    }
+
+    function testRejectsNonContractSettlementConfiguration() public {
+        vm.prank(OWNER);
+        vm.expectRevert(Treasury.InvalidSettlement.selector);
+        treasury.setSettlement(address(0x5E771E));
+
+        require(
+            treasury.settlement() == address(settlementCaller), "invalid settlement was configured"
+        );
     }
 
     function testRejectsReentrantRelease() public {
