@@ -1,12 +1,16 @@
+{{- if .Values.networkPolicy.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: rfq-backend-default
-  namespace: rfq-market-maker
+  name: {{ include "rfq-market-maker.fullname" . }}
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: rfq-backend
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
   policyTypes:
     - Ingress
     - Egress
@@ -14,13 +18,13 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: ingress-nginx
+              {{- toYaml .Values.networkPolicy.apiIngressNamespaceLabels | nindent 14 }}
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: monitoring
+              {{- toYaml .Values.networkPolicy.monitoringNamespaceLabels | nindent 14 }}
       ports:
         - protocol: TCP
-          port: 3000
+          port: {{ .Values.service.port }}
   egress:
     - ports:
         - protocol: UDP
@@ -34,3 +38,4 @@ spec:
           port: 6379
         - protocol: TCP
           port: 443
+{{- end }}

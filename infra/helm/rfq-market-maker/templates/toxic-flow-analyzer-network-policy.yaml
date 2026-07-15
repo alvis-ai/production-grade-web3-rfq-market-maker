@@ -16,6 +16,9 @@ spec:
   ingress:
     - from:
         - podSelector: {}
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.monitoringNamespaceLabels | nindent 14 }}
       ports:
         - protocol: TCP
           port: {{ .Values.toxicFlowAnalyzer.port }}

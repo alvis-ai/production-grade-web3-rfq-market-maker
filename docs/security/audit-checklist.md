@@ -41,6 +41,7 @@
 - [x] Submit reservation acquisition failures fail closed and active contention is rejected before settlement verification.
 - [x] All errors include traceId.
 - [x] API and worker logs are structured, level-controlled, trace-correlated where applicable, and redact credentials, signatures, private keys, cookies and request headers.
+- [x] API and worker pods have ingress-and-egress NetworkPolicies with explicit ingress-controller and monitoring namespace selectors plus workload-specific egress ports.
 - [x] Public API responses include no-store cache control and baseline browser security headers.
 - [x] Browser access is restricted by a CORS origin allowlist.
 - [x] Browser bundles never receive institutional API secrets; production browser access requires a trusted backend-for-frontend or another approved session boundary.
@@ -69,3 +70,4 @@
 - [x] Alerts exist for signer failures, risk reject spikes, event lag and hedge failures.
 - [x] Dashboards cover quote latency, settlement failures and inventory exposure.
 - [x] Alerts and runbooks cover submit reservation persistence errors and contention spikes.
+- [ ] Production HTTPS egress is narrowed from port-level NetworkPolicy access to approved KMS, CEX, Chainlink, RPC and analytics destinations through an egress gateway, CNI FQDN policy or provider firewall.

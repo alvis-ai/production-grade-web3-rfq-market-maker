@@ -657,8 +657,10 @@ test -s infra/prometheus/rules/rfq-alerts.yml
 test -s infra/grafana/provisioning/datasources/prometheus.yml
 test -s infra/k8s/backend-deployment.yaml
 test -s infra/k8s/backend-secret.yaml
+test -s infra/k8s/network-policy.yaml
 test -s infra/helm/rfq-market-maker/Chart.yaml
 test -s infra/helm/rfq-market-maker/values.schema.json
+test -s infra/helm/rfq-market-maker/templates/network-policy.yaml
 test -s scripts/smoke-api.sh
 
 grep -q 'server.post("/quote"' $gateway_sources

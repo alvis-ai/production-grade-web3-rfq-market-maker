@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["image"],
+  "required": ["image", "networkPolicy"],
   "properties": {
     "image": {
       "type": "object",
@@ -31,6 +31,32 @@
         },
         "pullPolicy": {
           "enum": ["Always", "IfNotPresent", "Never"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "networkPolicy": {
+      "type": "object",
+      "required": ["enabled", "apiIngressNamespaceLabels", "monitoringNamespaceLabels"],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "apiIngressNamespaceLabels": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "monitoringNamespaceLabels": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "additionalProperties": false

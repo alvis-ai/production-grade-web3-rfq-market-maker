@@ -49,6 +49,7 @@ flowchart LR
 | Malicious or inconsistent RPC history | Indexer skips events or removes valid inventory | bounded block-hash checkpoints, log-to-quote verification, deep-reorg fail-closed, independent-provider incident verification |
 | Hedge credential leak | External venue account loss | secret isolation, least privilege, withdrawal disabled |
 | Analytics credential leak | Event exfiltration, forged analytics or broker disruption | separate worker Secret, SASL/TLS, topic/table ACLs, no signer or venue credentials |
+| Pod lateral movement or unrestricted exfiltration | A compromised workload reaches API internals, worker metrics, databases, Redis or arbitrary external services | pod-selecting ingress and egress NetworkPolicies, explicit ingress-controller and monitoring namespace labels, workload-specific destination ports, egress-gateway or CNI hostname allowlists for HTTPS |
 | Event poisoning or offset skip | Analytics evidence becomes incomplete or misleading | closed envelope validation, 1 MiB bound, insert-before-offset commit, replay and event-id deduplication |
 | API credential disclosure or scope escalation | Unauthorized quote, submit, status, or PnL access | SHA-256 secret digests only, constant-time comparison, fixed scopes, expiry, Secret isolation, generic rejection responses and rotation |
 | Cross-tenant IDOR or signed-quote submission | One institution reads or settles another institution's quote and derived records | Persist immutable quote `principal_id`; scope quote, submit and PnL access by principal; derive settlement and hedge ownership from quote; return not-found on mismatch |
@@ -66,6 +67,7 @@ flowchart LR
 - Every non-local business API request must authenticate with a scoped key; probes remain separately network-restricted.
 - Global and pair administrative quote-control routes require dedicated admin scopes; ordinary quote, submit, status, PnL and browser credentials must not inherit them.
 - Human toxic-flow score reads and corrections require separate least-privilege admin credentials. The automatic analyzer uses only its restricted PostgreSQL role; analyzer database credentials must not reach browser, quote, submit, signer, hedge or analytics runtimes, and admin API credentials must not reach analyzer pods.
+- API and worker pods must be selected by ingress-and-egress NetworkPolicies. API ingress is limited to explicitly labeled ingress-controller and monitoring namespaces; worker metrics ingress is limited to same-namespace callers and the explicit monitoring namespace. HTTPS destinations must be restricted outside standard NetworkPolicy through an egress gateway, CNI FQDN policy or provider firewall.
 - Authorization must use the stable institution principal. Key rotation preserves that principal, wallet addresses do not establish tenant ownership, and `principalId` must not enter EIP-712 or public response schemas.
 - Risk rejection must be logged but not leak sensitive thresholds.
 - Admin functions must be protected and auditable.

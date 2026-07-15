@@ -21,6 +21,13 @@ service:
     prometheus.io/path: /metrics
     prometheus.io/port: "3000"
 
+networkPolicy:
+  enabled: true
+  apiIngressNamespaceLabels:
+    kubernetes.io/metadata.name: ingress-nginx
+  monitoringNamespaceLabels:
+    kubernetes.io/metadata.name: monitoring
+
 env:
   NODE_ENV: production
   HOST: "0.0.0.0"

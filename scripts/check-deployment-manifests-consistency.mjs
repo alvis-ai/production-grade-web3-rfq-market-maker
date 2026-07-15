@@ -48,6 +48,10 @@ const helmValuesSchema = JSON.parse(
   await readFile("infra/helm/rfq-market-maker/values.schema.json", "utf8"),
 );
 const helmDeployment = await readFile("infra/helm/rfq-market-maker/templates/deployment.yaml", "utf8");
+const helmNetworkPolicy = await readFile(
+  "infra/helm/rfq-market-maker/templates/network-policy.yaml",
+  "utf8",
+);
 const helmServiceAccount = await readFile("infra/helm/rfq-market-maker/templates/service-account.yaml", "utf8");
 const helmService = await readFile("infra/helm/rfq-market-maker/templates/service.yaml", "utf8");
 const helmHedgeDeployment = await readFile("infra/helm/rfq-market-maker/templates/hedge-worker-deployment.yaml", "utf8");
@@ -207,8 +211,32 @@ assertContains(k8sNetworkPolicy, [
   `app.kubernetes.io/name: ${expectedRuntime.appName}`,
   "policyTypes:",
   "- Ingress",
+  "- Egress",
+  "kubernetes.io/metadata.name: ingress-nginx",
+  "kubernetes.io/metadata.name: monitoring",
   "port: 3000",
+  "port: 53",
+  "port: 5432",
+  "port: 6379",
+  "port: 443",
 ], "infra/k8s/network-policy.yaml");
+assert.ok(
+  !k8sNetworkPolicy.includes("namespaceSelector: {}"),
+  "backend NetworkPolicy must not admit every namespace",
+);
+
+for (const [label, source] of [
+  ["hedge worker", k8sHedgeNetworkPolicy],
+  ["analytics worker", k8sAnalyticsNetworkPolicy],
+  ["reconciliation worker", k8sReconciliationNetworkPolicy],
+  ["settlement indexer", k8sIndexerNetworkPolicy],
+  ["toxic-flow analyzer", k8sToxicFlowAnalyzerNetworkPolicy],
+]) {
+  assert.ok(
+    source.includes("kubernetes.io/metadata.name: monitoring"),
+    `${label} NetworkPolicy must admit the monitoring namespace`,
+  );
+}
 
 assertContains(k8sHedgeDeployment, [
   "kind: Deployment",
@@ -467,6 +495,10 @@ assertContains(helmValues, [
   "urlKey: DATABASE_URL",
   "migrationSecret:",
   "name: rfq-database-migration-secrets",
+  "apiIngressNamespaceLabels:",
+  "kubernetes.io/metadata.name: ingress-nginx",
+  "monitoringNamespaceLabels:",
+  "kubernetes.io/metadata.name: monitoring",
   "hedgeWorker:",
   "RFQ_HEDGE_ROUTES_JSON:",
   "RFQ_BINANCE_REQUEST_TIMEOUT_MS:",
@@ -512,9 +544,29 @@ assert.equal(
   "latest",
   "Helm values schema must reject the mutable latest tag",
 );
+assert.ok(
+  helmValuesSchema.required.includes("networkPolicy"),
+  "Helm values schema must require networkPolicy configuration",
+);
+assert.deepEqual(
+  helmValuesSchema.properties.networkPolicy.required,
+  ["enabled", "apiIngressNamespaceLabels", "monitoringNamespaceLabels"],
+  "Helm values schema must require explicit API and monitoring namespace selectors",
+);
+assert.equal(
+  helmValuesSchema.properties.networkPolicy.properties.apiIngressNamespaceLabels.minProperties,
+  1,
+  "Helm API ingress namespace selector must not be empty",
+);
+assert.equal(
+  helmValuesSchema.properties.networkPolicy.properties.monitoringNamespaceLabels.minProperties,
+  1,
+  "Helm monitoring namespace selector must not be empty",
+);
 
 assertContains(helmDeployment, [
   'include "rfq-market-maker.image" . | quote',
+  "app.kubernetes.io/component: api",
   "replicas: {{ .Values.replicaCount }}",
   "terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}",
   "serviceAccountName: {{ .Values.serviceAccount.name }}",
@@ -538,6 +590,36 @@ assertContains(helmDeployment, [
   "key: {{ .Values.databaseSecret.urlKey }}",
   "toYaml .Values.resources",
 ], "infra/helm/rfq-market-maker/templates/deployment.yaml");
+assert.equal(
+  countOccurrences(helmDeployment, "app.kubernetes.io/component: api"),
+  3,
+  "Helm API Deployment must label metadata, selector and pod template as the api component",
+);
+
+assertContains(helmNetworkPolicy, [
+  ".Values.networkPolicy.enabled",
+  "kind: NetworkPolicy",
+  'include "rfq-market-maker.selectorLabels"',
+  "app.kubernetes.io/component: api",
+  ".Values.networkPolicy.apiIngressNamespaceLabels",
+  ".Values.networkPolicy.monitoringNamespaceLabels",
+  "- Ingress",
+  "- Egress",
+  "port: {{ .Values.service.port }}",
+  "port: 53",
+  "port: 5432",
+  "port: 6379",
+  "port: 443",
+], "infra/helm/rfq-market-maker/templates/network-policy.yaml");
+assert.ok(
+  !helmNetworkPolicy.includes("namespaceSelector: {}"),
+  "Helm backend NetworkPolicy must not admit every namespace",
+);
+assert.equal(
+  countOccurrences(helmNetworkPolicy, "app.kubernetes.io/component: api"),
+  2,
+  "Helm API NetworkPolicy metadata and pod selector must identify only the api component",
+);
 
 assertContains(helmServiceAccount, [
   ".Values.serviceAccount.create",
@@ -548,11 +630,17 @@ assertContains(helmServiceAccount, [
 
 assertContains(helmService, [
   "type: {{ .Values.service.type }}",
+  "app.kubernetes.io/component: api",
   "annotations:",
   "toYaml .",
   "port: {{ .Values.service.port }}",
   "targetPort: http",
 ], "infra/helm/rfq-market-maker/templates/service.yaml");
+assert.equal(
+  countOccurrences(helmService, "app.kubernetes.io/component: api"),
+  2,
+  "Helm API Service metadata and selector must identify only the api component",
+);
 
 assertContains(helmHedgeDeployment, [
   "{{- if .Values.hedgeWorker.enabled }}",
@@ -580,6 +668,7 @@ assertContains(helmHedgeService, [
 
 assertContains(helmHedgeNetworkPolicy, [
   ".Values.hedgeWorker.networkPolicy.enabled",
+  ".Values.networkPolicy.monitoringNamespaceLabels",
   "kind: NetworkPolicy",
   "app.kubernetes.io/component: hedge-worker",
   "port: 5432",
@@ -606,6 +695,7 @@ assertContains(helmAnalyticsService, [
 ], "infra/helm/rfq-market-maker/templates/analytics-worker-service.yaml");
 assertContains(helmAnalyticsNetworkPolicy, [
   ".Values.analyticsWorker.networkPolicy.enabled",
+  ".Values.networkPolicy.monitoringNamespaceLabels",
   "app.kubernetes.io/component: analytics-worker",
   "port: 5432",
   "port: 9093",
@@ -631,6 +721,7 @@ assertContains(helmReconciliationService, [
 ], "infra/helm/rfq-market-maker/templates/reconciliation-worker-service.yaml");
 assertContains(helmReconciliationNetworkPolicy, [
   ".Values.reconciliationWorker.networkPolicy.enabled",
+  ".Values.networkPolicy.monitoringNamespaceLabels",
   "app.kubernetes.io/component: reconciliation-worker",
   "port: 5432",
 ], "infra/helm/rfq-market-maker/templates/reconciliation-worker-network-policy.yaml");
@@ -653,6 +744,7 @@ assertContains(helmIndexerService, [
 ], "infra/helm/rfq-market-maker/templates/settlement-indexer-service.yaml");
 assertContains(helmIndexerNetworkPolicy, [
   ".Values.settlementIndexer.networkPolicy.enabled",
+  ".Values.networkPolicy.monitoringNamespaceLabels",
   "app.kubernetes.io/component: settlement-indexer",
   "port: 5432",
   "port: 443",
@@ -677,6 +769,7 @@ assertContains(helmToxicFlowAnalyzerService, [
 ], "infra/helm/rfq-market-maker/templates/toxic-flow-analyzer-service.yaml");
 assertContains(helmToxicFlowAnalyzerNetworkPolicy, [
   ".Values.toxicFlowAnalyzer.networkPolicy.enabled",
+  ".Values.networkPolicy.monitoringNamespaceLabels",
   "app.kubernetes.io/component: toxic-flow-analyzer",
   "port: 5432",
 ], "infra/helm/rfq-market-maker/templates/toxic-flow-analyzer-network-policy.yaml");
@@ -728,4 +821,8 @@ function assertContains(source, needles, label) {
   for (const needle of needles) {
     assert.ok(source.includes(needle), `${label} must include ${needle}`);
   }
+}
+
+function countOccurrences(source, needle) {
+  return source.split(needle).length - 1;
 }

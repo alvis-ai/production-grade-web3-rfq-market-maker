@@ -64,6 +64,8 @@ const requiredTerms = {
     "Event duplication",
     "Chain reorg",
     "Hedge credential leak",
+    "Pod lateral movement or unrestricted exfiltration",
+    "ingress and egress NetworkPolicies",
     "AWS KMS workload identity",
     "Nonce replay protection",
     "EIP-712 domain",
@@ -88,6 +90,7 @@ const requiredTerms = {
     "Rate limits protect public trading endpoints",
     "Production `/submit` uses a PostgreSQL quote-scoped lease",
     "All errors include traceId",
+    "API and worker pods have ingress-and-egress NetworkPolicies",
     "Settlement events use `(chainId, txHash, logIndex)` idempotency",
     "Signer key rotation is documented",
     "Signer rotation uses two backend rollouts",
@@ -166,6 +169,7 @@ const implementedAuditControls = [
   "Submit reservation acquisition failures fail closed and active contention is rejected before settlement verification.",
   "All errors include traceId.",
   "API and worker logs are structured, level-controlled, trace-correlated where applicable, and redact credentials, signatures, private keys, cookies and request headers.",
+  "API and worker pods have ingress-and-egress NetworkPolicies with explicit ingress-controller and monitoring namespace selectors plus workload-specific egress ports.",
   "Public API responses include no-store cache control and baseline browser security headers.",
   "Browser access is restricted by a CORS origin allowlist.",
   "Sensitive thresholds are not exposed to users.",
@@ -190,7 +194,9 @@ for (const control of implementedAuditControls) {
   );
 }
 
-const intentionallyOpenAuditControls = [];
+const intentionallyOpenAuditControls = [
+  "Production HTTPS egress is narrowed from port-level NetworkPolicy access to approved KMS, CEX, Chainlink, RPC and analytics destinations through an egress gateway, CNI FQDN policy or provider firewall.",
+];
 
 for (const control of intentionallyOpenAuditControls) {
   assert.ok(
