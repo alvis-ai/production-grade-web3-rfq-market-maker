@@ -142,6 +142,8 @@ Prometheus metrics:
 - `rfq_signer_service_audit_errors_total`
 - `rfq_market_data_cache_hits_total`
 - `rfq_market_data_cache_misses_total`
+- `rfq_market_data_refreshes_total`
+- `rfq_market_snapshot_samples_total`
 - `rfq_cex_order_book_sources`
 - `rfq_cex_order_book_pairs`
 - `rfq_cex_order_book_deviation_rejected_sources`
@@ -207,6 +209,8 @@ The standalone toxic-flow analyzer exports `rfq_toxic_flow_markouts_total`, `rfq
 The settlement indexer exports durable cursor, safe-head, lag, range, event, bounded error, reorg, removed-event, last-poll, and cursor-age metrics. Labels are limited to configured `chain_id`, `outcome=applied|duplicate`, and the closed error-code enum; transaction hash, quote hash, user and RPC URL remain absent.
 
 The API-side pre-sign guard separately exports `rfq_settlement_indexer_risk_guard_safe{chain_id}` and `rfq_settlement_indexer_risk_guard_failures_total{chain_id,reason}`. `reason` is closed to `RPC_UNAVAILABLE|CURSOR_STORE_UNAVAILABLE|CURSOR_MISSING|CURSOR_INVALID|CONTRACT_MISMATCH|CURSOR_STALE|BLOCK_LAG`, and `chain_id` is limited to configured receipt chains. Unsupported request chains fail closed without being observed, so callers cannot create metric series. Observer failures are swallowed after the economic decision, so metrics cannot turn an allowed quote into a rejection or hide an unsafe cursor; RPC URLs, thresholds, addresses and database errors never enter labels.
+
+API market-data background tasks export `rfq_market_data_refreshes_total{outcome}` with `success|failure` and `rfq_market_snapshot_samples_total{outcome}` with `saved|unchanged|unavailable|failed`. Refresh counts represent configured base-provider pair attempts; sample counts represent per-pair cycle results. These fixed labels expose provider and persistence failures before quote traffic encounters a cold cache without leaking token pairs, RPC endpoints, snapshot ids or storage errors. Observer exceptions are swallowed so telemetry cannot alter cache writes, retries or graceful drain.
 
 - No high-cardinality quoteId labels in Prometheus.
 - Structured JSON logs complement Prometheus without turning dynamic identifiers into metric labels. API logs correlate a normalized route template with `traceId`、status and duration; worker logs bind bounded outcomes or durable audit ids to a fixed service name. The shared logger redacts credential-shaped fields and request serializers omit all headers, while `RFQ_LOG_LEVEL` applies consistently to API、hedge、analytics、reconciliation、settlement-indexer and toxic-flow processes.

@@ -126,6 +126,8 @@ Key metrics include:
 - `rfq_signer_service_audit_errors_total`
 - `rfq_market_data_cache_hits_total`
 - `rfq_market_data_cache_misses_total`
+- `rfq_market_data_refreshes_total`
+- `rfq_market_snapshot_samples_total`
 - `rfq_cex_order_book_sources`
 - `rfq_cex_order_book_pairs`
 - `rfq_cex_order_book_deviation_rejected_sources`
@@ -201,6 +203,7 @@ Kubernetes control-plane observability comes from kube-state-metrics rather than
 - Submit latency alerting should inspect verification, settlement event persistence, inventory, hedge and PnL work before lowering quote availability.
 - Signer throughput alerting should compare quote demand with `sign` operations; safe quote flow must never bypass the signer.
 - Market-data cache alerting should compare `rfq_market_data_cache_hits_total` and `rfq_market_data_cache_misses_total` before increasing quote limits; a cold cache points to disabled prefetch, stale CEX order book streams or unsupported pair configuration.
+- Base-provider prefetch exposes only `outcome=success|failure`; audit snapshot sampling exposes only `outcome=saved|unchanged|unavailable|failed`. Observer failures are isolated from refresh and persistence decisions, and pair addresses, chain ids, RPC URLs, snapshot ids and database errors remain outside labels. Alerts use refresh `failure` and persistence `failed`; sampler `unavailable` remains diagnostic because it can describe a cold cache without an attempted database write.
 - CEX order-book alerting uses fixed source/pair states, latest-cycle maximum event age, latest-cycle deviation rejections and connector error rates. A synchronized socket alone is not healthy: `ready` requires a valid two-sided book whose exchange event timestamp is within `RFQ_CEX_MAX_SOURCE_AGE_MS`; blocked pairs must remain on the lower-priority provider or fail closed until quorum and deviation checks recover.
 - Settlement-indexer API guard alerting pairs the current `rfq_settlement_indexer_risk_guard_safe{chain_id}` gauge with a closed failure counter. The only reason labels are `RPC_UNAVAILABLE|CURSOR_STORE_UNAVAILABLE|CURSOR_MISSING|CURSOR_INVALID|CONTRACT_MISMATCH|CURSOR_STALE|BLOCK_LAG`, and `chain_id` is restricted to configured receipt chains; unsupported request chains fail closed without creating metric series. Database messages, RPC URLs, contract addresses and configured thresholds remain outside Prometheus.
 - Hedge worker alerting correlates newly created intents with terminal/retry outcomes, live symbol-rule validity and last processed time. `rfq_hedge_worker_symbol_rules_valid=0` means the worker cannot prove that route assets, quantity step and price tick still match Binance `exchangeInfo`; API and worker readiness must stay degraded until reviewed configuration and live filters agree. Repeated retries or iteration errors require checking PostgreSQL leases and querying Binance by persisted client order id before any manual action.

@@ -24,8 +24,15 @@ export interface MarketSnapshotSampleResult {
   failed: number;
 }
 
+export interface MarketSnapshotSamplerObserver {
+  recordMarketSnapshotSampleCycle(result: Readonly<MarketSnapshotSampleResult>): void;
+}
+
 export const defaultMarketSnapshotSampleIntervalMs = 5_000;
 const samplerUser = "0x0000000000000000000000000000000000000001" as const;
+const noOpObserver: MarketSnapshotSamplerObserver = {
+  recordMarketSnapshotSampleCycle() {},
+};
 
 export class BackgroundMarketSnapshotSampler {
   private readonly pairs: QuoteRequest[];
@@ -39,9 +46,11 @@ export class BackgroundMarketSnapshotSampler {
   constructor(
     private readonly store: MarketSnapshotStore,
     config: MarketSnapshotSamplerConfig,
+    private readonly observer: MarketSnapshotSamplerObserver = noOpObserver,
   ) {
     assertStore(store);
     assertConfig(config);
+    assertObserver(observer);
     this.pairs = config.pairs.map((pair) => validateQuoteRequest(pair));
     this.caches = [...config.caches];
     this.requiredPrimaryCacheKeys = new Set(config.requiredPrimaryCacheKeys);
@@ -76,10 +85,14 @@ export class BackgroundMarketSnapshotSampler {
 
   private async performSampleOnce(): Promise<MarketSnapshotSampleResult> {
     const results = await Promise.all(this.pairs.map((pair) => this.samplePair(pair)));
-    return results.reduce<MarketSnapshotSampleResult>((total, outcome) => {
+    const summary = results.reduce<MarketSnapshotSampleResult>((total, outcome) => {
       total[outcome] += 1;
       return total;
     }, { saved: 0, unchanged: 0, unavailable: 0, failed: 0 });
+    try {
+      this.observer.recordMarketSnapshotSampleCycle({ ...summary });
+    } catch {}
+    return summary;
   }
 
   private async samplePair(
@@ -138,6 +151,13 @@ export function buildMarketSnapshotSamplingPairs(
 function assertStore(store: MarketSnapshotStore): void {
   if (typeof store !== "object" || store === null || typeof store.saveSnapshot !== "function") {
     throw new Error("Market snapshot sampler store.saveSnapshot must be a function");
+  }
+}
+
+function assertObserver(value: unknown): asserts value is MarketSnapshotSamplerObserver {
+  if (typeof value !== "object" || value === null ||
+      typeof (value as MarketSnapshotSamplerObserver).recordMarketSnapshotSampleCycle !== "function") {
+    throw new Error("Market snapshot sampler observer.recordMarketSnapshotSampleCycle must be a function");
   }
 }
 

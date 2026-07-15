@@ -25,6 +25,8 @@ test("RFQ API reads market data warmed by the background price updater", async (
     assert.equal(metrics.statusCode, 200);
     assert.match(metrics.payload, /rfq_market_data_cache_hits_total 1/);
     assert.match(metrics.payload, /rfq_market_data_cache_misses_total 0/);
+    assert.match(metrics.payload, /rfq_market_data_refreshes_total\{outcome="success"\} [1-9][0-9]*/);
+    assert.match(metrics.payload, /rfq_market_data_refreshes_total\{outcome="failure"\} 0/);
   } finally {
     await server.close();
   }

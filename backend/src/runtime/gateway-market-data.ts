@@ -91,7 +91,7 @@ export function buildGatewayMarketDataRuntime(
             pairs: priceUpdaterPairs,
             intervalMs: 250,
             maxAgeMs: 5_000,
-          })
+          }, metricsService)
         : undefined;
       const cexMonitor = defaultMarketData && cexPriceCache && cexConfig
         ? new CEXOrderBookMonitor(cexPriceCache, cexConfig.monitor, metricsService, undefined, logger)
@@ -105,7 +105,7 @@ export function buildGatewayMarketDataRuntime(
             caches: snapshotSamplerCaches,
             requiredPrimaryCacheKeys: requiredCexCacheKeys,
             intervalMs: defaultMarketSnapshotSampleIntervalMs,
-          })
+          }, metricsService)
         : undefined;
 
       priceUpdater?.start();

@@ -2,7 +2,7 @@
   "title": "RFQ Market Maker Overview",
   "uid": "rfq-market-maker-overview",
   "schemaVersion": 39,
-  "version": 7,
+  "version": 8,
   "refresh": "15s",
   "panels": [
     {
@@ -207,7 +207,9 @@
       "gridPos": { "x": 0, "y": 24, "w": 8, "h": 7 },
       "targets": [
         { "expr": "rate(rfq_market_data_cache_hits_total[5m])", "legendFormat": "cache hits/s", "refId": "A" },
-        { "expr": "rate(rfq_market_data_cache_misses_total[5m])", "legendFormat": "cache misses/s", "refId": "B" }
+        { "expr": "rate(rfq_market_data_cache_misses_total[5m])", "legendFormat": "cache misses/s", "refId": "B" },
+        { "expr": "sum by (outcome) (rate(rfq_market_data_refreshes_total[5m]))", "legendFormat": "refresh {{outcome}}/s", "refId": "C" },
+        { "expr": "sum by (outcome) (rate(rfq_market_snapshot_samples_total[5m]))", "legendFormat": "sample {{outcome}}/s", "refId": "D" }
       ]
     },
     {

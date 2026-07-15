@@ -75,6 +75,7 @@ test("BackgroundMarketSnapshotSampler coalesces overlapping cycles and waits for
   cache.set(pairKey(1, tokenA, tokenB), snapshot("snap_slow", "chainlink"));
   const gate = deferred();
   let writes = 0;
+  const observations = [];
   const sampler = new BackgroundMarketSnapshotSampler(
     {
       async saveSnapshot() {
@@ -84,6 +85,12 @@ test("BackgroundMarketSnapshotSampler coalesces overlapping cycles and waits for
       },
     },
     { pairs: [request], caches: [cache], requiredPrimaryCacheKeys: [], intervalMs: 5_000 },
+    {
+      recordMarketSnapshotSampleCycle(result) {
+        observations.push(result);
+        throw new Error("observer failed");
+      },
+    },
   );
 
   sampler.start();
@@ -101,6 +108,18 @@ test("BackgroundMarketSnapshotSampler coalesces overlapping cycles and waits for
   await stopping;
   assert.equal(stopped, true);
   assert.equal(writes, 1);
+  assert.deepEqual(observations, [{ saved: 1, unchanged: 0, unavailable: 0, failed: 0 }]);
+});
+
+test("BackgroundMarketSnapshotSampler validates its observer", () => {
+  assert.throws(
+    () => new BackgroundMarketSnapshotSampler(
+      { async saveSnapshot() { return {}; } },
+      { pairs: [request], caches: [new SharedPriceCache(60_000)], requiredPrimaryCacheKeys: [], intervalMs: 5_000 },
+      {},
+    ),
+    /observer.recordMarketSnapshotSampleCycle must be a function/,
+  );
 });
 
 function snapshot(snapshotId, source) {

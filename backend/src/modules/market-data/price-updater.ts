@@ -11,10 +11,20 @@ export interface PriceUpdaterConfig {
   maxAgeMs: number;
 }
 
+export type MarketDataRefreshOutcome = "success" | "failure";
+
+export interface PriceUpdaterObserver {
+  recordMarketDataRefresh(outcome: MarketDataRefreshOutcome): void;
+}
+
 export const defaultPriceUpdaterConfig: PriceUpdaterConfig = {
   pairs: [],
   intervalMs: 250,
   maxAgeMs: 5_000,
+};
+
+const noOpObserver: PriceUpdaterObserver = {
+  recordMarketDataRefresh() {},
 };
 
 /**
@@ -38,7 +48,9 @@ export class BackgroundPriceUpdater {
     marketData: MarketDataService,
     cache: SharedPriceCache,
     config: PriceUpdaterConfig = defaultPriceUpdaterConfig,
+    private readonly observer: PriceUpdaterObserver = noOpObserver,
   ) {
+    assertObserver(observer);
     this.marketData = marketData;
     this.cache = cache;
     this.pairs = config.pairs.map((p) => ({ ...p }));
@@ -83,12 +95,27 @@ export class BackgroundPriceUpdater {
     try {
       const snapshot = await this.marketData.getSnapshot(request);
       this.cache.set(pairKey(request.chainId, request.tokenIn, request.tokenOut), snapshot);
+      this.recordRefresh("success");
     } catch {
+      this.recordRefresh("failure");
       // Cache retains previous entry; next updater cycle will retry.
     }
   }
 
   private clearActiveUpdate(update: Promise<void>): void {
     if (this.activeUpdate === update) this.activeUpdate = undefined;
+  }
+
+  private recordRefresh(outcome: MarketDataRefreshOutcome): void {
+    try {
+      this.observer.recordMarketDataRefresh(outcome);
+    } catch {}
+  }
+}
+
+function assertObserver(value: unknown): asserts value is PriceUpdaterObserver {
+  if (typeof value !== "object" || value === null ||
+      typeof (value as PriceUpdaterObserver).recordMarketDataRefresh !== "function") {
+    throw new Error("Background price updater observer.recordMarketDataRefresh must be a function");
   }
 }

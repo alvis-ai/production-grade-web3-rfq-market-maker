@@ -307,6 +307,24 @@ groups:
           summary: RFQ market data cache is not producing quote-path hits
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQMarketDataRefreshFailures
+        expr: sum(increase(rfq_market_data_refreshes_total{outcome="failure"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ background base-market-data refreshes are failing
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQMarketSnapshotPersistenceFailures
+        expr: sum(increase(rfq_market_snapshot_samples_total{outcome="failed"}[10m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: RFQ background market snapshots cannot be persisted
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQCexOrderBookUnavailable
         expr: (sum(rfq_cex_order_book_sources) > 0 and sum(rfq_cex_order_book_sources{state="ready"}) == 0) or max(rfq_cex_order_book_max_update_age_seconds) > 5
         for: 2m

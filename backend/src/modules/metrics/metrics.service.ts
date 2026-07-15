@@ -9,6 +9,8 @@ import type {
   CexOrderBookCycleObservation,
 } from "../market-data/cex-orderbook/cex-orderbook-monitor.js";
 import type { OrderBookPairConfig } from "../market-data/cex-orderbook/orderbook.js";
+import type { MarketSnapshotSampleResult } from "../market-data/market-snapshot-sampler.js";
+import type { MarketDataRefreshOutcome } from "../market-data/price-updater.js";
 import type { SettlementIndexerRiskFailureCode } from "../risk/settlement-indexer-risk.guard.js";
 
 export interface InventoryMetricPosition {
@@ -100,6 +102,8 @@ export class MetricsService {
   private readonly realizedPnl = new Map<string, bigint>();
   private priceCacheHits = 0;
   private priceCacheMisses = 0;
+  private readonly marketDataRefreshes = new Map<MarketDataRefreshOutcome, number>();
+  private readonly marketSnapshotSamples = new Map<keyof MarketSnapshotSampleResult, number>();
   private cexOrderBookCycle: CexOrderBookCycleObservation = {
     configuredSources: 0,
     readySources: 0,
@@ -120,6 +124,23 @@ export class MetricsService {
 
   recordMarketDataCacheMiss(): void {
     this.priceCacheMisses += 1;
+  }
+
+  recordMarketDataRefresh(outcome: MarketDataRefreshOutcome): void {
+    if (!marketDataRefreshOutcomes.includes(outcome)) {
+      throw new Error("Metrics market data refresh outcome must be success or failure");
+    }
+    this.marketDataRefreshes.set(outcome, (this.marketDataRefreshes.get(outcome) ?? 0) + 1);
+  }
+
+  recordMarketSnapshotSampleCycle(result: Readonly<MarketSnapshotSampleResult>): void {
+    assertMarketSnapshotSampleResult(result);
+    for (const outcome of marketSnapshotSampleOutcomes) {
+      this.marketSnapshotSamples.set(
+        outcome,
+        (this.marketSnapshotSamples.get(outcome) ?? 0) + result[outcome],
+      );
+    }
   }
 
   recordCexOrderBookCycle(observation: CexOrderBookCycleObservation): void {
@@ -422,6 +443,16 @@ export class MetricsService {
       "# HELP rfq_market_data_cache_misses_total Total cache misses for market data snapshots.",
       "# TYPE rfq_market_data_cache_misses_total counter",
       `rfq_market_data_cache_misses_total ${this.priceCacheMisses}`,
+      "# HELP rfq_market_data_refreshes_total Background base-market-data pair refreshes by bounded outcome.",
+      "# TYPE rfq_market_data_refreshes_total counter",
+      ...marketDataRefreshOutcomes.map((outcome) => {
+        return `rfq_market_data_refreshes_total{outcome="${outcome}"} ${this.marketDataRefreshes.get(outcome) ?? 0}`;
+      }),
+      "# HELP rfq_market_snapshot_samples_total Background audit snapshot samples by bounded outcome.",
+      "# TYPE rfq_market_snapshot_samples_total counter",
+      ...marketSnapshotSampleOutcomes.map((outcome) => {
+        return `rfq_market_snapshot_samples_total{outcome="${outcome}"} ${this.marketSnapshotSamples.get(outcome) ?? 0}`;
+      }),
       "# HELP rfq_cex_order_book_sources Current configured CEX order-book sources by bounded health state.",
       "# TYPE rfq_cex_order_book_sources gauge",
       ...this.renderCexOrderBookSources(),
@@ -622,6 +653,13 @@ const dependencyMetricStatuses: readonly DependencyMetricStatus[] = ["ok", "degr
 const cexSourceMetricStates: readonly CexSourceMetricState[] = ["ready", "stale", "unavailable"];
 const cexPairMetricStates: readonly CexPairMetricState[] = ["usable", "blocked"];
 const cexOrderBookExchanges: readonly OrderBookPairConfig["exchange"][] = ["binance", "coinbase"];
+const marketDataRefreshOutcomes: readonly MarketDataRefreshOutcome[] = ["success", "failure"];
+const marketSnapshotSampleOutcomes: readonly (keyof MarketSnapshotSampleResult)[] = [
+  "saved",
+  "unchanged",
+  "unavailable",
+  "failed",
+];
 const settlementIndexerRiskFailureCodes: readonly SettlementIndexerRiskFailureCode[] = [
   "RPC_UNAVAILABLE",
   "CURSOR_STORE_UNAVAILABLE",
@@ -687,6 +725,16 @@ function assertCexOrderBookCycleObservation(value: unknown): asserts value is Ce
       (observation.readySources as number) + (observation.staleSources as number) +
       (observation.unavailableSources as number)) {
     throw new Error("Metrics CEX order book source states must sum to configuredSources");
+  }
+}
+
+function assertMarketSnapshotSampleResult(value: unknown): asserts value is MarketSnapshotSampleResult {
+  if (!isRecord(value)) throw new Error("Metrics market snapshot sample result must be an object");
+  assertOwnFields(value, marketSnapshotSampleOutcomes, "market snapshot sample result");
+  for (const outcome of marketSnapshotSampleOutcomes) {
+    if (!Number.isSafeInteger(value[outcome]) || (value[outcome] as number) < 0) {
+      throw new Error(`Metrics market snapshot sample result.${outcome} must be a non-negative safe integer`);
+    }
   }
 }
 
