@@ -102,6 +102,22 @@ test("ReadinessService degrades execution when live hedge route rules drift", as
   assert.equal(readiness.components.execution, "degraded");
 });
 
+test("ReadinessService uses a dedicated remote signer health probe when available", async () => {
+  let healthChecks = 0;
+  let signCalls = 0;
+  const readiness = await createReadinessService({
+    signerService: {
+      async checkHealth() { healthChecks += 1; },
+      async signQuote() { signCalls += 1; throw new Error("must not sign readiness quote"); },
+      async verifyQuoteSignature() { return false; },
+    },
+  }).check();
+
+  assert.equal(readiness.components.signer, "ok");
+  assert.equal(healthChecks, 1);
+  assert.equal(signCalls, 0);
+});
+
 test("ReadinessService degrades when the distributed rate limit store is unavailable", async () => {
   const readiness = await createReadinessService({
     rateLimiter: {

@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc && mkdir -p dist/db/migrations && cp src/db/migrations/*.sql dist/db/migrations/",
     "start": "node dist/main.js",
+    "start:signer": "node dist/signer-main.js",
     "start:hedge-worker": "node dist/hedge-worker-main.js",
     "start:analytics-worker": "node dist/analytics-worker-main.js",
     "start:reconciliation-worker": "node dist/reconciliation-worker-main.js",

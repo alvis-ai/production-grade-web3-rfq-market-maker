@@ -104,6 +104,16 @@
           "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(rfq_signer_latency_seconds_bucket[5m])))",
           "legendFormat": "p95 {{operation}}",
           "refId": "C"
+        },
+        {
+          "expr": "sum by (outcome) (rate(rfq_signer_service_requests_total[5m]))",
+          "legendFormat": "service {{outcome}}",
+          "refId": "D"
+        },
+        {
+          "expr": "time() - max(rfq_signer_service_last_success_timestamp_seconds)",
+          "legendFormat": "service success age",
+          "refId": "E"
         }
       ]
     },

@@ -1,0 +1,23 @@
+{{- if .Values.signerService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-signer
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: signer
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/scheme: https
+    prometheus.io/path: /metrics
+    prometheus.io/port: {{ .Values.signerService.port | quote }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "rfq-market-maker.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: signer
+  ports:
+    - name: https
+      port: {{ .Values.signerService.port }}
+      targetPort: https
+{{- end }}

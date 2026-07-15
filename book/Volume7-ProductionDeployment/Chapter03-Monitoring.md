@@ -121,6 +121,8 @@ Key metrics include:
 - `rfq_signer_requests_total`
 - `rfq_signer_errors_total`
 - `rfq_signer_latency_seconds`
+- `rfq_signer_service_requests_total`
+- `rfq_signer_service_last_success_timestamp_seconds`
 - `rfq_market_data_cache_hits_total`
 - `rfq_market_data_cache_misses_total`
 - `rfq_cex_order_book_sources`
@@ -183,7 +185,7 @@ Kubernetes control-plane observability comes from kube-state-metrics rather than
 
 - Every long-running backend process writes one-line structured JSON through the shared logger. `service` distinguishes `rfq-api`、`hedge-worker`、`analytics-worker`、`reconciliation-worker`、`settlement-indexer` and `toxic-flow-analyzer`; `RFQ_LOG_LEVEL` is validated at startup and is propagated by Docker Compose、raw Kubernetes and every Helm worker values block. Log aggregation should index service、level、traceId、route、errorCode and durable job ids, but must not index or retain API keys、CEX secrets、signatures、private keys、cookies、request bodies or credential-bearing headers.
 - No quoteId/user address labels in Prometheus.
-- Signer metrics use only the low-cardinality `operation` label: `sign` or `verify`.
+- API signer metrics use only the low-cardinality `operation` label: `sign` or `verify`. Isolated signer requests use the bounded `outcome=success|auth_rejected|invalid|error` label and never expose caller tokens, addresses or quote ids.
 - Rate-limit metrics use only the fixed `endpoint` label: `quote`, `submit` or `status`; dynamic route params must stay out of Prometheus labels.
 - Readiness metrics mirror the last `/ready` probe with fixed labels: `rfq_readiness_status{status="ready|degraded"}` and `rfq_dependency_status{component="marketData|marketSnapshotStore|routing|pricing|risk|signer|quoteRepository|quoteControl|riskDecisionStore|rateLimitStore|inventory|execution|settlementEventStore|pnl|metrics",status="ok|degraded"}`.
 - Quote-control metrics intentionally exclude operator identity and free-form reason. A pause gauge indicates the current safety state, update count supplies an audit correlation signal, and operation errors identify failed read/update paths without creating high-cardinality labels.

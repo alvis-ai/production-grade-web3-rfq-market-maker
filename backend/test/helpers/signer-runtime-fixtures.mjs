@@ -15,6 +15,10 @@ export const signerRuntimeEnvNames = [
   "RFQ_AWS_KMS_KEY_ID",
   "RFQ_AWS_KMS_REGION",
   "RFQ_AWS_KMS_MAX_ATTEMPTS",
+  "RFQ_SIGNER_SERVICE_URL",
+  "RFQ_SIGNER_SERVICE_TOKEN",
+  "RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS",
+  "RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP",
 ];
 
 export function configureAwsSignerEnvironment(env = process.env) {

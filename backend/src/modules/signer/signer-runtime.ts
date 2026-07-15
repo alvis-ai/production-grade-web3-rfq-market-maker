@@ -4,6 +4,7 @@ import {
   AwsKmsSignerProvider,
 } from "./aws-kms-signer.provider.js";
 import { KmsSignerService } from "./kms-signer.service.js";
+import { RemoteSignerService } from "./remote-signer.service.js";
 import {
   LocalEIP712SignerService,
   type SignerService,
@@ -12,6 +13,7 @@ import {
 const defaultLocalPrivateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const defaultLocalSettlementAddress = "0x0000000000000000000000000000000000000004";
 const defaultAwsKmsMaxAttempts = 3;
+const defaultRemoteSignerRequestTimeoutMs = 5_000;
 
 interface SignerIdentity {
   settlementAddress: `0x${string}`;
@@ -35,9 +37,18 @@ export interface ExternalSignerRuntimeConfig extends SignerIdentity {
   mode: "external";
 }
 
+export interface RemoteSignerRuntimeConfig extends SignerIdentity {
+  mode: "remote";
+  baseUrl: string;
+  allowInsecureHttp: boolean;
+  authToken: string;
+  requestTimeoutMs: number;
+}
+
 export type SignerRuntimeConfig =
   | LocalSignerRuntimeConfig
   | AwsKmsSignerRuntimeConfig
+  | RemoteSignerRuntimeConfig
   | ExternalSignerRuntimeConfig;
 
 export interface SignerRuntime {
@@ -54,8 +65,8 @@ export function readSignerRuntimeConfig(
   const modeValue = readOwnEnvValue(env, "RFQ_SIGNER_MODE");
   const localEnvironment = isLocalNodeEnvironment(nodeEnv);
   const mode = modeValue === undefined && localEnvironment ? "local" : modeValue;
-  if (mode !== "local" && mode !== "aws-kms" && mode !== "external") {
-    throw new Error("RFQ_SIGNER_MODE must be local, aws-kms, or external");
+  if (mode !== "local" && mode !== "aws-kms" && mode !== "remote" && mode !== "external") {
+    throw new Error("RFQ_SIGNER_MODE must be local, aws-kms, remote, or external");
   }
 
   const settlementAddressValue = readOwnEnvValue(env, "RFQ_SETTLEMENT_ADDRESS");
@@ -68,12 +79,17 @@ export function readSignerRuntimeConfig(
   const keyIdValue = readOwnEnvValue(env, "RFQ_AWS_KMS_KEY_ID");
   const regionValue = readOwnEnvValue(env, "RFQ_AWS_KMS_REGION");
   const maxAttemptsValue = readOwnEnvValue(env, "RFQ_AWS_KMS_MAX_ATTEMPTS");
+  const remoteUrlValue = readOwnEnvValue(env, "RFQ_SIGNER_SERVICE_URL");
+  const remoteTokenValue = readOwnEnvValue(env, "RFQ_SIGNER_SERVICE_TOKEN");
+  const remoteTimeoutValue = readOwnEnvValue(env, "RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS");
+  const remoteAllowInsecureHttpValue = readOwnEnvValue(env, "RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP");
 
   if (mode === "local") {
     if (!localEnvironment) {
       throw new Error(`RFQ_SIGNER_MODE=local is not allowed when NODE_ENV=${nodeEnv}`);
     }
     rejectConfiguredKmsFields(keyIdValue, regionValue, maxAttemptsValue);
+    rejectConfiguredRemoteFields(remoteUrlValue, remoteTokenValue, remoteTimeoutValue, remoteAllowInsecureHttpValue);
     const privateKey = parsePrivateKey(privateKeyValue ?? defaultLocalPrivateKey, "RFQ_SIGNER_PRIVATE_KEY");
     const settlementAddress = parseAddress(
       settlementAddressValue ?? defaultLocalSettlementAddress,
@@ -119,6 +135,7 @@ export function readSignerRuntimeConfig(
       throw new Error("RFQ_SIGNER_MODE=external requires an injected signerService");
     }
     rejectConfiguredKmsFields(keyIdValue, regionValue, maxAttemptsValue);
+    rejectConfiguredRemoteFields(remoteUrlValue, remoteTokenValue, remoteTimeoutValue, remoteAllowInsecureHttpValue);
     return {
       mode,
       settlementAddress,
@@ -126,6 +143,36 @@ export function readSignerRuntimeConfig(
       trustedSignerOverlapAddresses,
     };
   }
+
+  if (mode === "remote") {
+    rejectConfiguredKmsFields(keyIdValue, regionValue, maxAttemptsValue);
+    const allowInsecureHttp = parseLocalOnlyBoolean(
+      remoteAllowInsecureHttpValue,
+      "RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP",
+      localEnvironment,
+    );
+    return {
+      mode,
+      settlementAddress,
+      trustedSignerAddress,
+      trustedSignerOverlapAddresses,
+      baseUrl: parseRemoteSignerUrl(
+        requireConfigured(remoteUrlValue, "RFQ_SIGNER_SERVICE_URL"),
+        allowInsecureHttp,
+      ),
+      allowInsecureHttp,
+      authToken: parseRemoteSignerAuthToken(requireConfigured(remoteTokenValue, "RFQ_SIGNER_SERVICE_TOKEN")),
+      requestTimeoutMs: parsePositiveInteger(
+        remoteTimeoutValue,
+        defaultRemoteSignerRequestTimeoutMs,
+        "RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS",
+        60_000,
+        100,
+      ),
+    };
+  }
+
+  rejectConfiguredRemoteFields(remoteUrlValue, remoteTokenValue, remoteTimeoutValue, remoteAllowInsecureHttpValue);
 
   const awsConfig = {
     mode,
@@ -153,6 +200,18 @@ export function createSignerRuntime(config: SignerRuntimeConfig): SignerRuntime 
       service: new LocalEIP712SignerService({
         privateKey: config.privateKey,
         settlementAddress: config.settlementAddress,
+      }),
+    };
+  }
+  if (config.mode === "remote") {
+    return {
+      service: new RemoteSignerService({
+        baseUrl: config.baseUrl,
+        allowInsecureHttp: config.allowInsecureHttp,
+        authToken: config.authToken,
+        requestTimeoutMs: config.requestTimeoutMs,
+        settlementAddress: config.settlementAddress,
+        trustedSignerAddress: config.trustedSignerAddress,
       }),
     };
   }
@@ -245,16 +304,39 @@ function parsePositiveInteger(
   defaultValue: number,
   name: string,
   max: number,
+  min = 1,
 ): number {
   if (value === undefined) return defaultValue;
   if (!/^[1-9][0-9]*$/.test(value)) {
-    throw new Error(`${name} must be a base-10 integer between 1 and ${max}`);
+    throw new Error(`${name} must be a base-10 integer between ${min} and ${max}`);
   }
   const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed > max) {
-    throw new Error(`${name} must be a base-10 integer between 1 and ${max}`);
+  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${name} must be a base-10 integer between ${min} and ${max}`);
   }
   return parsed;
+}
+
+function parseRemoteSignerUrl(value: string, allowInsecureHttp: boolean): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("RFQ_SIGNER_SERVICE_URL must be a valid URL");
+  }
+  const loopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+  if ((url.protocol !== "https:" && !(url.protocol === "http:" && (loopback || allowInsecureHttp))) ||
+      url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
+    throw new Error("RFQ_SIGNER_SERVICE_URL must be an HTTPS origin or explicitly approved local HTTP origin");
+  }
+  return url.origin;
+}
+
+function parseRemoteSignerAuthToken(value: string): string {
+  if (!/^[A-Za-z0-9._~-]{43,256}$/.test(value)) {
+    throw new Error("RFQ_SIGNER_SERVICE_TOKEN must be 43-256 URL-safe characters");
+  }
+  return value;
 }
 
 function rejectConfiguredKmsFields(
@@ -265,6 +347,24 @@ function rejectConfiguredKmsFields(
   if (keyId !== undefined || region !== undefined || maxAttempts !== undefined) {
     throw new Error("RFQ_AWS_KMS_* fields are only allowed when RFQ_SIGNER_MODE=aws-kms");
   }
+}
+
+function rejectConfiguredRemoteFields(
+  baseUrl: string | undefined,
+  authToken: string | undefined,
+  requestTimeoutMs: string | undefined,
+  allowInsecureHttp: string | undefined,
+): void {
+  if (baseUrl !== undefined || authToken !== undefined || requestTimeoutMs !== undefined || allowInsecureHttp !== undefined) {
+    throw new Error("RFQ_SIGNER_SERVICE_* fields are only allowed when RFQ_SIGNER_MODE=remote");
+  }
+}
+
+function parseLocalOnlyBoolean(value: string | undefined, name: string, localEnvironment: boolean): boolean {
+  if (value === undefined || value === "false") return false;
+  if (value !== "true") throw new Error(`${name} must be true or false`);
+  if (!localEnvironment) throw new Error(`${name}=true is allowed only in local environments`);
+  return true;
 }
 
 function assertEnvironment(value: unknown): asserts value is Record<string, string | undefined> | undefined {

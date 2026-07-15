@@ -68,8 +68,11 @@ const composeExpected = {
   RFQ_BINANCE_BASE_URL: "${RFQ_BINANCE_BASE_URL:-https://testnet.binance.vision}",
   RFQ_BINANCE_REQUEST_TIMEOUT_MS: "10000",
   RFQ_BINANCE_SYMBOL_RULES_MAX_AGE_MS: "300000",
-  RFQ_SIGNER_MODE: "local",
-  RFQ_SIGNER_PRIVATE_KEY: localExpected.RFQ_SIGNER_PRIVATE_KEY,
+  RFQ_SIGNER_MODE: "remote",
+  RFQ_SIGNER_SERVICE_URL: "http://signer-service:3006",
+  RFQ_SIGNER_SERVICE_TOKEN: "devsigner_0123456789012345678901234567890123456789",
+  RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP: "true",
+  RFQ_TRUSTED_SIGNER_ADDRESS: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
   RFQ_SETTLEMENT_ADDRESS: localExpected.RFQ_SETTLEMENT_ADDRESS,
 };
 
@@ -86,15 +89,14 @@ const productionExpected = {
   RFQ_ENABLE_HSTS: "true",
   RFQ_TRUST_PROXY: "false",
   RFQ_RATE_LIMIT_BACKEND: "redis",
-  RFQ_SIGNER_MODE: "aws-kms",
+  RFQ_SIGNER_MODE: "remote",
+  RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS: "5000",
   RFQ_MARKET_DATA_PROVIDER: "static",
   RFQ_CEX_PAIRS: productionCexPairs,
   RFQ_CEX_REQUIRE_LIVE_BOOK: "true",
   RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS: "86400000",
   RFQ_TOXIC_FLOW_MAX_FUTURE_SKEW_MS: "60000",
   RFQ_TOXIC_FLOW_MIN_SAMPLE_SIZE: "5",
-  RFQ_AWS_KMS_REGION: "us-east-1",
-  RFQ_AWS_KMS_MAX_ATTEMPTS: "3",
   RFQ_TOKEN_REGISTRY_JSON: tokenRegistryJson,
   RFQ_RISK_POLICY_JSON: riskPolicyJson,
   RFQ_HEDGE_ROUTES_JSON: hedgeRoutesJson,
@@ -114,6 +116,17 @@ assertConfig(readmeLocalConfig, localExpected, "README Local Configuration block
 assertConfig(composeBackendEnv, composeExpected, "docker-compose backend environment");
 assertConfig(k8sConfig, productionExpected, "infra/k8s/configmap.yaml data");
 assertConfig(helmEnv, productionExpected, "infra/helm/rfq-market-maker/values.yaml env");
+assert.equal(
+  k8sConfig.RFQ_SIGNER_SERVICE_URL,
+  "https://rfq-signer.rfq-market-maker.svc.cluster.local:3006",
+  "Kubernetes API must use the isolated signer HTTPS service",
+);
+assert.ok(
+  helmValuesSource.includes('value: {{ printf "https://%s-signer:%v"') ||
+    (await readFile("infra/helm/rfq-market-maker/templates/deployment.yaml", "utf8"))
+      .includes('value: {{ printf "https://%s-signer:%v"'),
+  "Helm API deployment must derive the isolated signer HTTPS service URL",
+);
 
 assert.ok(backendSource.includes("const defaultBodyLimitBytes = 32_768;"), "backend default body limit must be 32768");
 assert.ok(

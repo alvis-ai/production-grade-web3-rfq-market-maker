@@ -1,0 +1,56 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { defaultTokenRegistryConfig } from "../dist/modules/pricing/token-registry.js";
+import { defaultTokenLimitRiskPolicy } from "../dist/modules/risk/token-limit-risk.engine.js";
+import { readSignerProcessConfig } from "../dist/signer-main.js";
+
+const env = {
+  NODE_ENV: "development",
+  RFQ_SIGNER_MODE: "local",
+  RFQ_SIGNER_SERVICE_TOKEN: "s".repeat(43),
+  RFQ_TOKEN_REGISTRY_JSON: JSON.stringify(defaultTokenRegistryConfig),
+  RFQ_RISK_POLICY_JSON: JSON.stringify(defaultTokenLimitRiskPolicy),
+};
+
+test("signer process runtime separates server credentials from local or KMS signer config", () => {
+  const config = readSignerProcessConfig(env);
+  assert.equal(config.signer.mode, "local");
+  assert.equal(config.authToken, "s".repeat(43));
+  assert.equal(config.quoteTtlSeconds, 30);
+  assert.equal(config.maxClockSkewSeconds, 5);
+  assert.equal(config.bodyLimitBytes, 32768);
+  assert.equal(config.listenHost, "127.0.0.1");
+  assert.equal(config.listenPort, 3006);
+  assert.ok(config.tokenRegistry.getToken(1, defaultTokenRegistryConfig.tokens[0].tokenAddress));
+});
+
+test("signer process runtime rejects remote mode and unsafe server controls", () => {
+  assert.throws(
+    () => readSignerProcessConfig({
+      ...env,
+      NODE_ENV: "production",
+      RFQ_SIGNER_MODE: "remote",
+      RFQ_SETTLEMENT_ADDRESS: "0x0000000000000000000000000000000000000004",
+      RFQ_TRUSTED_SIGNER_ADDRESS: "0x0000000000000000000000000000000000000005",
+      RFQ_SIGNER_SERVICE_URL: "https://signer.example.internal",
+    }),
+    /requires RFQ_SIGNER_MODE=local or aws-kms/,
+  );
+  assert.throws(() => readSignerProcessConfig({ ...env, RFQ_SIGNER_SERVICE_TOKEN: "short" }), /SERVICE_TOKEN/);
+  assert.throws(() => readSignerProcessConfig({ ...env, RFQ_SIGNER_SERVICE_PORT: "0" }), /SERVICE_PORT/);
+  assert.throws(() => readSignerProcessConfig({ ...env, RFQ_QUOTE_TTL_SECONDS: "3601" }), /QUOTE_TTL/);
+  assert.throws(() => readSignerProcessConfig({ ...env, RFQ_SIGNER_SERVICE_HOST: "bad host" }), /SERVICE_HOST/);
+  assert.throws(() => readSignerProcessConfig({
+    ...env,
+    NODE_ENV: "production",
+    RFQ_SIGNER_MODE: "aws-kms",
+    RFQ_SETTLEMENT_ADDRESS: "0x0000000000000000000000000000000000000004",
+    RFQ_TRUSTED_SIGNER_ADDRESS: "0x0000000000000000000000000000000000000005",
+    RFQ_AWS_KMS_KEY_ID: "alias/rfq-signer",
+    RFQ_AWS_KMS_REGION: "us-east-1",
+  }), /TLS certificate and key paths are required/);
+  assert.throws(() => readSignerProcessConfig({
+    ...env,
+    RFQ_SIGNER_TLS_CERT_PATH: "/etc/rfq-signer/tls.crt",
+  }), /must be configured together/);
+});

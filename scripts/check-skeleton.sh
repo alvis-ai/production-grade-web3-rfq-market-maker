@@ -668,7 +668,7 @@ grep -q 'pid /tmp/nginx.pid' infra/docker/nginx.conf
 grep -q 'listen 8080' infra/docker/nginx.conf
 grep -q 'container-runtime-check' Makefile
 grep -q 'kind: HorizontalPodAutoscaler' infra/k8s/backend-horizontal-pod-autoscaler.yaml
-test "$(grep -c 'kind: PodDisruptionBudget' infra/k8s/pod-disruption-budgets.yaml)" -eq 7
+test "$(grep -c 'kind: PodDisruptionBudget' infra/k8s/pod-disruption-budgets.yaml)" -eq 8
 test "$(grep -h -c 'topologySpreadConstraints:' infra/k8s/*-deployment.yaml | awk '{ total += $1 } END { print total }')" -eq 7
 grep -q 'define "rfq-market-maker.topologySpreadConstraints"' infra/helm/rfq-market-maker/templates/_helpers.tpl
 grep -q 'topology.kubernetes.io/zone' infra/helm/rfq-market-maker/values.yaml
@@ -3572,19 +3572,23 @@ grep -q 'removedPnlRetryReport' scripts/reconciliation-check.mjs
 grep -q 'rfq-backend-secrets' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'Missing or malformed signer Secret' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'asymmetric `ECC_SECG_P256K1` key' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
-grep -q '`RFQ_SIGNER_MODE=aws-kms`' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
+grep -q '`RFQ_SIGNER_MODE=remote`' book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md
 grep -q 'kind: Deployment' infra/k8s/backend-deployment.yaml
 grep -q 'path: /ready' infra/k8s/backend-deployment.yaml
-grep -q 'secretRef' infra/k8s/backend-deployment.yaml
+grep -q 'secretKeyRef' infra/k8s/backend-deployment.yaml
 grep -q 'rfq-backend-secrets' infra/k8s/backend-deployment.yaml
 grep -q 'kind: Secret' infra/k8s/backend-secret.yaml
-grep -q 'RFQ_AWS_KMS_KEY_ID' infra/k8s/backend-secret.yaml
+grep -q 'RFQ_SIGNER_SERVICE_TOKEN' infra/k8s/backend-secret.yaml
+! grep -q 'RFQ_AWS_KMS_KEY_ID' infra/k8s/backend-secret.yaml
+grep -q 'RFQ_AWS_KMS_KEY_ID' infra/k8s/signer-secret.yaml
 grep -q 'RFQ_TRUSTED_SIGNER_ADDRESS' infra/k8s/backend-secret.yaml
 ! grep -q 'RFQ_SIGNER_PRIVATE_KEY' infra/k8s/backend-secret.yaml
 grep -q 'RFQ_SETTLEMENT_ADDRESS' infra/k8s/backend-secret.yaml
-grep -q 'serviceAccountName: rfq-backend-kms' infra/k8s/backend-deployment.yaml
+grep -q 'serviceAccountName: rfq-backend' infra/k8s/backend-deployment.yaml
+grep -q 'serviceAccountName: rfq-signer-kms' infra/k8s/signer-deployment.yaml
 grep -q 'kind: ServiceAccount' infra/k8s/backend-service-account.yaml
-grep -q 'eks.amazonaws.com/role-arn' infra/k8s/backend-service-account.yaml
+! grep -q 'eks.amazonaws.com/role-arn' infra/k8s/backend-service-account.yaml
+grep -q 'eks.amazonaws.com/role-arn' infra/k8s/signer-service-account.yaml
 grep -q 'RFQ_QUOTE_TTL_SECONDS' infra/k8s/configmap.yaml
 grep -q 'RFQ_BODY_LIMIT_BYTES' infra/k8s/configmap.yaml
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' infra/k8s/configmap.yaml
@@ -3597,7 +3601,8 @@ grep -q 'prometheus.io/path' infra/k8s/backend-service.yaml
 grep -q '/metrics' infra/k8s/backend-service.yaml
 grep -q 'path: /ready' infra/helm/rfq-market-maker/templates/deployment.yaml
 grep -q 'secretKeyRef' infra/helm/rfq-market-maker/templates/deployment.yaml
-grep -q 'RFQ_AWS_KMS_KEY_ID' infra/helm/rfq-market-maker/templates/deployment.yaml
+! grep -q 'RFQ_AWS_KMS_KEY_ID' infra/helm/rfq-market-maker/templates/deployment.yaml
+grep -q 'RFQ_AWS_KMS_KEY_ID' infra/helm/rfq-market-maker/templates/signer-deployment.yaml
 grep -q 'RFQ_TRUSTED_SIGNER_ADDRESS' infra/helm/rfq-market-maker/templates/deployment.yaml
 ! grep -q 'RFQ_SIGNER_PRIVATE_KEY' infra/helm/rfq-market-maker/templates/deployment.yaml
 grep -q 'RFQ_SETTLEMENT_ADDRESS' infra/helm/rfq-market-maker/templates/deployment.yaml

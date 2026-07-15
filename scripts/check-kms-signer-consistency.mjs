@@ -9,6 +9,9 @@ const paths = [
   "backend/src/main.ts",
   "backend/src/modules/health/readiness.service.ts",
   "backend/src/modules/signer/signer-runtime.ts",
+  "backend/src/modules/signer/remote-signer.service.ts",
+  "backend/src/modules/signer/signer-server.ts",
+  "backend/src/signer-main.ts",
   "backend/src/modules/settlement/settlement-verifier.service.ts",
   "backend/src/modules/signer/kms-signer.service.ts",
   "backend/src/modules/signer/aws-kms-signer.provider.ts",
@@ -16,6 +19,9 @@ const paths = [
   "backend/test/aws-kms-signer-provider.test.mjs",
   "backend/test/api-readiness.test.mjs",
   "backend/test/signer-runtime.test.mjs",
+  "backend/test/remote-signer.test.mjs",
+  "backend/test/signer-server.test.mjs",
+  "backend/test/signer-process-runtime.test.mjs",
   "backend/test/settlement-verifier.test.mjs",
   "backend/test/settlement-verifier-policy-validation.test.mjs",
   "docker-compose.yml",
@@ -23,8 +29,12 @@ const paths = [
   "infra/k8s/backend-secret.yaml",
   "infra/k8s/backend-deployment.yaml",
   "infra/k8s/backend-service-account.yaml",
+  "infra/k8s/signer-secret.yaml",
+  "infra/k8s/signer-deployment.yaml",
+  "infra/k8s/signer-service-account.yaml",
   "infra/helm/rfq-market-maker/values.yaml",
   "infra/helm/rfq-market-maker/templates/deployment.yaml",
+  "infra/helm/rfq-market-maker/templates/signer-deployment.yaml",
   "infra/helm/rfq-market-maker/templates/service-account.yaml",
   "docs/adr/ADR-0005-Use-KMS-For-Production-Signing.md",
   "docs/adr/ADR-0008-Use-Bounded-Signer-Overlap-For-Key-Rotation.md",
@@ -71,6 +81,28 @@ assertContains("backend/src/modules/signer/signer-runtime.ts", [
   'requireConfigured(trustedSignerValue, "RFQ_TRUSTED_SIGNER_ADDRESS")',
   '"RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES"',
   "must contain at most 4 addresses",
+  'mode: "remote"',
+  "RemoteSignerService",
+]);
+assertContains("backend/src/modules/signer/remote-signer.service.ts", [
+  'new URL("/internal/sign", this.baseUrl)',
+  "authorization: `Bearer ${this.authToken}`",
+  "readBoundedJson",
+  "verifyQuoteSignature(input.quote, signature",
+  "SIGNER_UNAVAILABLE",
+]);
+assertContains("backend/src/modules/signer/signer-server.ts", [
+  'server.post("/internal/sign"',
+  "timingSafeEqual",
+  "assertSigningEnvelope",
+  "readinessCacheMs = 30_000",
+  "rfq_signer_service_requests_total",
+]);
+assertContains("backend/src/signer-main.ts", [
+  "Signer process requires RFQ_SIGNER_MODE=local or aws-kms",
+  "RFQ_SIGNER_TLS_CERT_PATH",
+  "RFQ_SIGNER_TLS_KEY_PATH",
+  "buildSignerServer",
 ]);
 assertContains("backend/src/modules/settlement/settlement-verifier.service.ts", [
   "trustedSignerOverlapAddresses",
@@ -120,15 +152,25 @@ assertContains("backend/test/settlement-verifier-policy-validation.test.mjs", [
 assertContains("docker-compose.yml", [
   "NODE_ENV: development",
   "RFQ_SIGNER_MODE: local",
+  "RFQ_SIGNER_MODE: remote",
+  "RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP",
 ]);
 assertContains("infra/k8s/configmap.yaml", [
-  "RFQ_SIGNER_MODE: aws-kms",
-  "RFQ_AWS_KMS_REGION: us-east-1",
+  "RFQ_SIGNER_MODE: remote",
+  "RFQ_SIGNER_SERVICE_URL: https://rfq-signer.rfq-market-maker.svc.cluster.local:3006",
 ]);
 assertContains("infra/k8s/backend-secret.yaml", [
-  "RFQ_AWS_KMS_KEY_ID:",
+  "RFQ_SIGNER_SERVICE_TOKEN:",
+  "ca.crt:",
   "RFQ_TRUSTED_SIGNER_ADDRESS:",
   "RFQ_SETTLEMENT_ADDRESS:",
+]);
+assert.ok(!files["infra/k8s/backend-secret.yaml"].includes("RFQ_AWS_KMS_KEY_ID"), "API Secret must not contain a KMS key id");
+assertContains("infra/k8s/signer-secret.yaml", [
+  "RFQ_AWS_KMS_KEY_ID:",
+  "RFQ_SIGNER_SERVICE_TOKEN:",
+  "tls.crt:",
+  "tls.key:",
 ]);
 for (const path of [
   "infra/k8s/backend-secret.yaml",
@@ -136,20 +178,38 @@ for (const path of [
 ]) {
   assert.ok(!files[path].includes("RFQ_SIGNER_PRIVATE_KEY"), `${path} must not mount a raw signer key`);
 }
-assertContains("infra/k8s/backend-deployment.yaml", ["serviceAccountName: rfq-backend-kms"]);
+assertContains("infra/k8s/backend-deployment.yaml", ["serviceAccountName: rfq-backend", "NODE_EXTRA_CA_CERTS"]);
+assert.ok(!files["infra/k8s/backend-deployment.yaml"].includes("RFQ_AWS_KMS_KEY_ID"), "API Deployment must not receive a KMS key id");
 assertContains("infra/k8s/backend-service-account.yaml", [
+  "kind: ServiceAccount",
+  "name: rfq-backend",
+]);
+assert.ok(!files["infra/k8s/backend-service-account.yaml"].includes("eks.amazonaws.com/role-arn"), "API ServiceAccount must not have a KMS role");
+assertContains("infra/k8s/signer-deployment.yaml", [
+  "serviceAccountName: rfq-signer-kms",
+  "RFQ_AWS_KMS_KEY_ID",
+  "RFQ_SIGNER_TLS_CERT_PATH",
+]);
+assertContains("infra/k8s/signer-service-account.yaml", [
   "kind: ServiceAccount",
   "eks.amazonaws.com/role-arn:",
 ]);
 assertContains("infra/helm/rfq-market-maker/values.yaml", [
-  "RFQ_SIGNER_MODE: aws-kms",
+  "RFQ_SIGNER_MODE: remote",
+  "signerService:",
   "kmsKeyIdKey: RFQ_AWS_KMS_KEY_ID",
   "trustedSignerAddressKey: RFQ_TRUSTED_SIGNER_ADDRESS",
   "trustedSignerOverlapAddresses:",
   "key: RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES",
 ]);
 assertContains("infra/helm/rfq-market-maker/templates/service-account.yaml", [
-  ".Values.serviceAccount.annotations",
+  ".Values.signerService.serviceAccount.annotations",
+]);
+assert.ok(!files["infra/helm/rfq-market-maker/templates/deployment.yaml"].includes("RFQ_AWS_KMS_KEY_ID"), "Helm API Deployment must not receive a KMS key id");
+assertContains("infra/helm/rfq-market-maker/templates/signer-deployment.yaml", [
+  "value: aws-kms",
+  "key: {{ .Values.signerService.secret.kmsKeyIdKey }}",
+  "RFQ_SIGNER_TLS_CERT_PATH",
 ]);
 assertContains("docs/adr/ADR-0005-Use-KMS-For-Production-Signing.md", [
   "## Status",
@@ -159,10 +219,11 @@ assertContains("docs/adr/ADR-0005-Use-KMS-For-Production-Signing.md", [
   "RFQ_TRUSTED_SIGNER_ADDRESS",
 ]);
 assertContains("README.md", [
+  "RFQ_SIGNER_MODE=remote",
   "RFQ_SIGNER_MODE=aws-kms",
-  "do not mount static AWS access keys",
-  "strictly decodes the returned DER signature",
-  "caches both successful and degraded signer status for 30 seconds",
+  "The API never receives a KMS key id",
+  "DER decoding, low-s normalization and recovery remain fail-closed",
+  "caches success for 30 seconds",
   "RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES",
   "two-rollout procedure",
 ]);

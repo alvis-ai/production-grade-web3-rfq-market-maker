@@ -15,7 +15,7 @@ spec:
       labels:
         app.kubernetes.io/name: rfq-backend
     spec:
-      serviceAccountName: rfq-backend-kms
+      serviceAccountName: rfq-backend
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
       topologySpreadConstraints:
@@ -80,8 +80,50 @@ spec:
           envFrom:
             - configMapRef:
                 name: rfq-backend-config
-            - secretRef:
-                name: rfq-backend-secrets
+          env:
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/rfq-signer-ca/ca.crt
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-backend-secrets
+                  key: DATABASE_URL
+            - name: RFQ_SIGNER_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-backend-secrets
+                  key: RFQ_SIGNER_SERVICE_TOKEN
+            - name: RFQ_TRUSTED_SIGNER_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-backend-secrets
+                  key: RFQ_TRUSTED_SIGNER_ADDRESS
+            - name: RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-backend-secrets
+                  key: RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES
+                  optional: true
+            - name: RFQ_SETTLEMENT_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-backend-secrets
+                  key: RFQ_SETTLEMENT_ADDRESS
+            - name: RFQ_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-backend-secrets
+                  key: RFQ_REDIS_URL
+            - name: RFQ_API_KEY_CONFIG_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-backend-secrets
+                  key: RFQ_API_KEY_CONFIG_JSON
+            - name: RFQ_RECEIPT_CONFIG_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-backend-secrets
+                  key: RFQ_RECEIPT_CONFIG_JSON
           lifecycle:
             preStop:
               exec:
@@ -108,7 +150,16 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: signer-ca
+              mountPath: /etc/rfq-signer-ca
+              readOnly: true
       volumes:
         - name: tmp
           emptyDir:
             sizeLimit: 16Mi
+        - name: signer-ca
+          secret:
+            secretName: rfq-backend-secrets
+            items:
+              - key: ca.crt
+                path: ca.crt

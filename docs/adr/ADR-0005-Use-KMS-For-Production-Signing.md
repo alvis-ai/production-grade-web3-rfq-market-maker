@@ -14,14 +14,13 @@ AWS KMS supports asymmetric `ECC_SECG_P256K1` signing keys and returns ECDSA sig
 
 ## Decision
 
-Non-local standalone backend processes use `RFQ_SIGNER_MODE=aws-kms` and the official AWS SDK v3 KMS client. The API Pod receives only:
+Production uses a dedicated signer workload. API processes run `RFQ_SIGNER_MODE=remote` and receive only:
 
-- KMS key id or alias;
-- AWS region and bounded retry count;
+- an authenticated signer HTTPS origin and bearer token;
 - expected `RFQ_TRUSTED_SIGNER_ADDRESS`;
 - EIP-712 `RFQ_SETTLEMENT_ADDRESS`.
 
-AWS credentials come from workload identity. The IAM principal receives `kms:Sign` only for the selected signing key. `RFQ_SIGNER_PRIVATE_KEY` is rejected in non-local modes.
+Only the signer workload runs `RFQ_SIGNER_MODE=aws-kms`. Its workload identity receives `kms:Sign` only for the selected key; the API ServiceAccount has no KMS role and cannot mount the signer TLS private key or KMS key id. API-to-signer transport requires HTTPS outside local environments, a private CA, a bounded request timeout and a 43-256 character service token. `RFQ_SIGNER_PRIVATE_KEY` is rejected in non-local modes.
 
 The runtime hashes EIP-712 typed data locally and calls KMS with `MessageType=DIGEST` and `ECDSA_SHA_256`. DER parsing is strict: canonical short-form lengths、unsigned minimally encoded integers、no trailing bytes and `0 < r,s < secp256k1n`. High-s values are converted to low-s. Recovery ids 27 and 28 are tested, and exactly one candidate must recover to the configured trusted signer.
 
@@ -30,17 +29,20 @@ The runtime hashes EIP-712 typed data locally and calls KMS with `MessageType=DI
 ```mermaid
 sequenceDiagram
   participant Q as Quote Service
-  participant S as KMS Signer
+  participant R as Remote Signer Client
+  participant S as Isolated Signer
   participant K as AWS KMS
-  participant V as Local Verifier
-  Q->>S: SignQuoteInput
+  Q->>R: SignQuoteInput
+  R->>S: HTTPS POST /internal/sign + bearer token
+  S->>S: chain/token/TTL/amount envelope
   S->>S: EIP-712 digest
   S->>K: Sign(DIGEST, ECDSA_SHA_256)
   K-->>S: DER(r,s)
   S->>S: strict DER + low-s + recover v
-  S->>V: signature + trusted signer
-  V-->>S: address match
-  S-->>Q: canonical 65-byte signature
+  S->>S: recover trusted signer
+  S-->>R: canonical 65-byte signature
+  R->>R: recover trusted signer again
+  R-->>Q: verified signature
 ```
 
 ## Consequences
@@ -48,6 +50,8 @@ sequenceDiagram
 ### Positive
 
 - Raw Ethereum private keys are absent from production API Pods and Kubernetes Secrets.
+- API compromise alone does not grant direct KMS signing permission or access to signer TLS key material.
+- The signer independently bounds chain, token, TTL and raw amounts before using KMS.
 - KMS access is independently auditable through cloud audit logs and IAM policy.
 - A wrong KMS key、wrong signer address or malformed signature fails closed before a quote is returned.
 - Existing quote、SDK、contract and settlement interfaces remain unchanged.
@@ -55,7 +59,7 @@ sequenceDiagram
 ### Negative
 
 - Every quote adds KMS network latency、cost and service quota dependency.
-- AWS KMS is the built-in provider, so non-AWS deployments must inject another `SignerService`.
+- The authenticated internal HTTPS protocol, certificate lifecycle and signer availability add operational dependencies.
 - KMS key rotation requires coordinated contract trusted-signer update and runtime configuration rollout.
 
 ### Mitigation
@@ -71,9 +75,9 @@ sequenceDiagram
 
 Rejected for non-local environments. Secret encryption at rest does not prevent the key from being materialized in every API process.
 
-### Dedicated Remote Signer Service
+### KMS Access In Every API Pod
 
-Valid for multi-cloud or HSM deployments and supported through `external` mode. It adds another authenticated network protocol and operational service, so it is not the default implementation.
+Rejected. It removes the raw private key but gives every Internet-facing API replica direct signing capability, broadening the workload-identity blast radius and preventing independent signer network policy.
 
 ### Contract Wallet Or Threshold Signing
 

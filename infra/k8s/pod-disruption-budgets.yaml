@@ -25,6 +25,18 @@ spec:
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
+  name: rfq-signer
+  namespace: rfq-market-maker
+spec:
+  maxUnavailable: 1
+  unhealthyPodEvictionPolicy: AlwaysAllow
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rfq-signer
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
   name: rfq-hedge-worker
   namespace: rfq-market-maker
 spec:

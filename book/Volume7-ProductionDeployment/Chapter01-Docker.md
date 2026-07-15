@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Docker Compose 是本项目的本地开发和集成测试基础。它提供 backend、frontend、PostgreSQL、Redis、Redpanda、ClickHouse、Prometheus 和 Grafana，使开发者可以在本地复现 RFQ 系统的核心运行环境。
+Docker Compose 是本项目的本地开发和集成测试基础。它提供 backend、独立 signer-service、frontend、PostgreSQL、Redis、Redpanda、ClickHouse、Prometheus 和 Grafana，使开发者可以在本地复现 RFQ 系统的核心运行环境。
 
 ## Learning Objectives
 
@@ -70,7 +70,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-Docker Compose 同时提供依赖服务和应用服务。`backend` 使用 `infra/docker/backend.Dockerfile` 构建 TypeScript 服务并暴露 `3000`，`frontend` 使用 `infra/docker/frontend.Dockerfile` 构建 Vite 静态资源并通过 Nginx 暴露到宿主机 `5173`。开发者仍可选择本机运行 backend/frontend，但 compose 默认路径应能直接启动参考实现。
+Docker Compose 同时提供依赖服务和应用服务。`signer-service` 使用本地 Anvil key 运行 `signer-main`，API 通过带 bearer token 的内部 HTTP 调用它；该明文开关只允许 `development`/`test`，生产必须使用 HTTPS。`backend` 不再挂载 signer private key，并等待 signer readiness 后启动。
 
 两个运行时镜像都不依赖 root。Node 镜像在依赖安装和构建完成后切换到固定 `node` 用户；Nginx 使用固定 `nginx` 用户、将 pid 和临时文件限制在 `/tmp`，并监听非特权容器端口 `8080`。Compose 只把宿主机 `5173` 映射到该端口，因此浏览器入口保持不变，同时本地运行能够提前暴露生产只读文件系统和用户权限假设。
 
@@ -120,7 +120,7 @@ No public API changes. Compose exposes backend API on `localhost:3000`, frontend
 - PostgreSQL uses `pg_isready` for the compose health check and loads the repository schema on first volume initialization.
 - Redis uses `redis-cli ping` and ClickHouse uses `clickhouse-client --query 'SELECT 1'` for local dependency health checks.
 - Prometheus and Grafana included from the first deployment docs stage.
-- Prometheus scrapes the compose `backend:3000` service directly.
+- Prometheus scrapes both `backend:3000` and `signer-service:3006` directly.
 - Backend runtime uses the image `node` user; frontend runtime uses the `nginx` user and unprivileged port 8080. Neither application process requires root after image construction.
 - Compose forwards the bounded `RFQ_CEX_*` freshness, quorum, spread and deviation controls into the backend. The local container runs with `NODE_ENV=development` and defaults to one source; production manifests require two distinct sources per configured pair.
 - The credential-isolated `hedge-worker` service is behind the explicit `hedge` Compose profile. It exposes health/readiness/metrics on container port 3001, claims PostgreSQL jobs with leases, and should use Binance Spot Testnet credentials for local integration.

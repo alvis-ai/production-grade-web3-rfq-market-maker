@@ -40,7 +40,7 @@ test("signer runtime reads only own environment fields", () => {
 test("signer runtime requires AWS KMS or explicit injection outside local environments", () => {
   assert.throws(
     () => readSignerRuntimeConfig({ NODE_ENV: "production" }),
-    /RFQ_SIGNER_MODE must be local, aws-kms, or external/,
+    /RFQ_SIGNER_MODE must be local, aws-kms, remote, or external/,
   );
   assert.throws(
     () => readSignerRuntimeConfig({ NODE_ENV: "production", RFQ_SIGNER_MODE: "local" }),
@@ -52,6 +52,54 @@ test("signer runtime requires AWS KMS or explicit injection outside local enviro
       RFQ_SIGNER_PRIVATE_KEY: privateKey,
     }),
     /must not be configured/,
+  );
+});
+
+test("remote signer mode isolates KMS material behind a bounded authenticated origin", () => {
+  const remote = {
+    NODE_ENV: "production",
+    RFQ_SIGNER_MODE: "remote",
+    RFQ_SETTLEMENT_ADDRESS: settlementAddress,
+    RFQ_TRUSTED_SIGNER_ADDRESS: trustedSignerAddress,
+    RFQ_SIGNER_SERVICE_URL: "https://rfq-signer.example.internal",
+    RFQ_SIGNER_SERVICE_TOKEN: "a".repeat(43),
+    RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS: "2500",
+  };
+  assert.deepEqual(readSignerRuntimeConfig(remote), {
+    mode: "remote",
+    settlementAddress,
+    trustedSignerAddress: trustedSignerAddress.toLowerCase(),
+    trustedSignerOverlapAddresses: [],
+    baseUrl: "https://rfq-signer.example.internal",
+    allowInsecureHttp: false,
+    authToken: "a".repeat(43),
+    requestTimeoutMs: 2500,
+  });
+  assert.throws(
+    () => readSignerRuntimeConfig({ ...remote, RFQ_SIGNER_SERVICE_URL: "http://rfq-signer.example.internal" }),
+    /HTTPS origin/,
+  );
+  assert.equal(readSignerRuntimeConfig({
+    ...remote,
+    NODE_ENV: "development",
+    RFQ_SIGNER_SERVICE_URL: "http://rfq-signer:3006",
+    RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP: "true",
+  }).allowInsecureHttp, true);
+  assert.throws(
+    () => readSignerRuntimeConfig({ ...remote, RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP: "true" }),
+    /only in local environments/,
+  );
+  assert.throws(
+    () => readSignerRuntimeConfig({ ...remote, RFQ_SIGNER_SERVICE_TOKEN: "short" }),
+    /RFQ_SIGNER_SERVICE_TOKEN/,
+  );
+  assert.throws(
+    () => readSignerRuntimeConfig({ ...remote, RFQ_AWS_KMS_KEY_ID: "alias/conflict" }),
+    /RFQ_AWS_KMS_\*/,
+  );
+  assert.throws(
+    () => readSignerRuntimeConfig({ ...awsEnvironment(), RFQ_SIGNER_SERVICE_URL: "https://conflict.example.com" }),
+    /RFQ_SIGNER_SERVICE_\*/,
   );
 });
 

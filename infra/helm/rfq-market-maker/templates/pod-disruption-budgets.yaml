@@ -30,6 +30,23 @@ spec:
       {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: frontend
 {{- end }}
+{{- if .Values.signerService.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-signer
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: signer
+spec:
+  maxUnavailable: {{ .Values.disruptionBudget.maxUnavailable }}
+  unhealthyPodEvictionPolicy: {{ .Values.disruptionBudget.unhealthyPodEvictionPolicy }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: signer
+{{- end }}
 {{- if .Values.hedgeWorker.enabled }}
 ---
 apiVersion: policy/v1

@@ -21,15 +21,18 @@ Key rotation must keep the institution's `principalId` stable while issuing a ne
 flowchart LR
   QuoteService --> RiskEngine
   RiskEngine --> SigningPolicy
-  SigningPolicy --> SignerRuntime
+  SigningPolicy --> RemoteSigner[Remote Signer Client]
+  RemoteSigner -->|HTTPS + bearer| SignerRuntime[Isolated Signer Runtime]
   SignerRuntime --> KMS[AWS KMS ECC_SECG_P256K1]
   KMS --> SignerRuntime
 ```
 
 ## Controls
 
-- `RFQ_SIGNER_MODE=aws-kms` for standalone non-local runtime; local private-key mode is rejected.
-- Workload identity with `kms:Sign` restricted to one asymmetric signing key; no static AWS credentials.
+- API uses `RFQ_SIGNER_MODE=remote`; only the isolated signer process uses `RFQ_SIGNER_MODE=aws-kms`. Local private-key mode is rejected outside development and tests.
+- Workload identity with `kms:Sign` restricted to one asymmetric key exists only on the signer ServiceAccount. The API ServiceAccount has no KMS role and no static AWS credentials.
+- API-to-signer transport uses HTTPS with a private CA, a bounded bearer token and default-deny NetworkPolicy. Plain HTTP requires an explicit local-only switch and is rejected in production.
+- The signer authenticates before parsing a request, independently enforces enabled chains, whitelisted tokens, TTL and raw amount bounds, then locally verifies every KMS signature. The API client verifies the trusted signer again before returning a quote.
 - Explicit `RFQ_TRUSTED_SIGNER_ADDRESS` independent from KMS output.
 - Optional `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES` contains at most four explicit prior or next signer addresses and is used only for settlement verification during a bounded rotation window.
 - Strict DER parsing, low-s normalization and address recovery before returning a signature.
@@ -54,8 +57,8 @@ flowchart LR
 1. Open a change record with both signer addresses, affected chains, the maximum quote TTL, receipt-confirmation allowance, indexer catch-up buffer and rollback owner.
 2. Create the new KMS key, verify its recovered address out of band, and run the normal quote-path canary in staging.
 3. Call `RFQSettlement.setTrustedSigner(newSigner)` through `SIGNER_ADMIN_ROLE`. Confirm that both addresses return true from `trustedSigners`, `trustedSignerCount` is within `MAX_TRUSTED_SIGNERS = 5`, and record the transaction hash. This does not revoke the old signer.
-4. Roll out a verifier-only transition to every backend replica while the old KMS key still signs: keep `RFQ_TRUSTED_SIGNER_ADDRESS=oldSigner` and set `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES=newSigner`. Confirm mixed old/new signatures are accepted before proceeding.
-5. Roll out the new KMS key and `RFQ_TRUSTED_SIGNER_ADDRESS=newSigner`, retaining `oldSigner` in `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES`. Record the final old-key signing time and run a new-key quote and settlement canary.
+4. Roll out a verifier-only transition to every API replica while the old signer workload still signs: keep `RFQ_TRUSTED_SIGNER_ADDRESS=oldSigner` and set `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES=newSigner`. Confirm mixed old/new signatures are accepted before proceeding.
+5. Roll the signer workload to the new KMS key and `RFQ_TRUSTED_SIGNER_ADDRESS=newSigner`, then roll API trust while retaining `oldSigner` in `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES`. Record the final old-key signing time and run a new-key quote and settlement canary.
 6. Wait for old quotes to expire. The retirement time must be later than the final old-key signature by `RFQ_QUOTE_TTL_SECONDS` plus clock-skew, receipt-confirmation and indexer catch-up buffers.
 7. Reconcile old-key quotes, then call `RFQSettlement.setTrustedSignerAuthorization(oldSigner, false)`. Confirm old signatures are rejected on chain while new signatures still settle.
 8. Remove `oldSigner` from `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES` in a final rollout and confirm all replicas expose healthy signer and settlement readiness.

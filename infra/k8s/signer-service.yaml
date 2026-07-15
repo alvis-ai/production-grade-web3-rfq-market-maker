@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rfq-signer
+  namespace: rfq-market-maker
+  labels:
+    app.kubernetes.io/name: rfq-signer
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/scheme: https
+    prometheus.io/path: /metrics
+    prometheus.io/port: "3006"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: rfq-signer
+  ports:
+    - name: https
+      port: 3006
+      targetPort: https

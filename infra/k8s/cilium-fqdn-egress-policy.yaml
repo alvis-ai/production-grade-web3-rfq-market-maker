@@ -32,18 +32,6 @@ spec:
             - port: "6380"
               protocol: TCP
     - toFQDNs:
-        - matchName: kms.us-east-1.amazonaws.com
-      toPorts:
-        - ports:
-            - port: "443"
-              protocol: TCP
-    - toFQDNs:
-        - matchName: sts.us-east-1.amazonaws.com
-      toPorts:
-        - ports:
-            - port: "443"
-              protocol: TCP
-    - toFQDNs:
         - matchName: api.binance.com
       toPorts:
         - ports:
@@ -63,6 +51,40 @@ spec:
               protocol: TCP
     - toFQDNs:
         - matchName: replace-with-production-rpc.example.com
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: rfq-signer-fqdn-egress
+  namespace: rfq-market-maker
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: rfq-signer
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    - toFQDNs:
+        - matchName: kms.us-east-1.amazonaws.com
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    - toFQDNs:
+        - matchName: sts.us-east-1.amazonaws.com
       toPorts:
         - ports:
             - port: "443"

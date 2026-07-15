@@ -53,11 +53,39 @@ containerSecurityContext:
       - ALL
 serviceAccount:
   create: true
-  name: rfq-backend-kms
+  name: rfq-backend
   automountServiceAccountToken: false
-  annotations:
-    eks.amazonaws.com/role-arn: replace-with-kms-signing-role-arn
-    eks.amazonaws.com/sts-regional-endpoints: "true"
+  annotations: {}
+
+signerService:
+  enabled: true
+  replicaCount: 2
+  port: 3006
+  serviceAccount:
+    create: true
+    name: rfq-signer-kms
+    annotations:
+      eks.amazonaws.com/role-arn: replace-with-kms-signing-role-arn
+      eks.amazonaws.com/sts-regional-endpoints: "true"
+  secret:
+    name: rfq-signer-secrets
+    kmsKeyIdKey: RFQ_AWS_KMS_KEY_ID
+    authTokenKey: RFQ_SIGNER_SERVICE_TOKEN
+    trustedSignerAddressKey: RFQ_TRUSTED_SIGNER_ADDRESS
+    settlementAddressKey: RFQ_SETTLEMENT_ADDRESS
+    tlsCertKey: tls.crt
+    tlsKeyKey: tls.key
+  awsRegion: us-east-1
+  awsMaxAttempts: 3
+  maxClockSkewSeconds: 5
+  bodyLimitBytes: 32768
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
 
 image:
   repository: ghcr.io/example/rfq-backend
@@ -136,10 +164,6 @@ networkPolicy:
         port: 5432
       - hostname: redis.example.com
         port: 6380
-      - hostname: kms.us-east-1.amazonaws.com
-        port: 443
-      - hostname: sts.us-east-1.amazonaws.com
-        port: 443
       - hostname: api.binance.com
         port: 443
       - hostname: stream.binance.com
@@ -147,6 +171,11 @@ networkPolicy:
       - hostname: ws-feed.exchange.coinbase.com
         port: 443
       - hostname: replace-with-production-rpc.example.com
+        port: 443
+    signer:
+      - hostname: kms.us-east-1.amazonaws.com
+        port: 443
+      - hostname: sts.us-east-1.amazonaws.com
         port: 443
     hedgeWorker:
       - hostname: postgres.example.com
@@ -186,9 +215,8 @@ env:
   RFQ_ENABLE_HSTS: "true"
   RFQ_TRUST_PROXY: "false"
   RFQ_RATE_LIMIT_BACKEND: redis
-  RFQ_SIGNER_MODE: aws-kms
-  RFQ_AWS_KMS_REGION: us-east-1
-  RFQ_AWS_KMS_MAX_ATTEMPTS: "3"
+  RFQ_SIGNER_MODE: remote
+  RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS: "5000"
   RFQ_MARKET_DATA_PROVIDER: static
   RFQ_CEX_PAIRS: "1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:binance:ETHUSDT:hedge,1:0x0000000000000000000000000000000000000002:0x0000000000000000000000000000000000000003:coinbase:ETH-USD:reference"
   RFQ_TOKEN_REGISTRY_JSON: '{"tokens":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","symbol":"TOKEN2","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":false},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","symbol":"TOKEN3","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true}]}'
@@ -213,7 +241,8 @@ env:
 
 signerSecret:
   name: rfq-backend-secrets
-  kmsKeyIdKey: RFQ_AWS_KMS_KEY_ID
+  authTokenKey: RFQ_SIGNER_SERVICE_TOKEN
+  caCertKey: ca.crt
   trustedSignerAddressKey: RFQ_TRUSTED_SIGNER_ADDRESS
   trustedSignerOverlapAddresses:
     enabled: false

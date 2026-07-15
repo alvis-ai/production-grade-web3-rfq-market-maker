@@ -271,6 +271,24 @@ groups:
           summary: RFQ signer p95 latency is above 500ms
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQSignerServiceFailures
+        expr: sum(increase(rfq_signer_service_requests_total{outcome=~"auth_rejected|error"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Isolated signer rejected authentication or failed to sign
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSignerServiceSuccessStale
+        expr: increase(rfq_quote_requests_total[10m]) > 0 and (max(rfq_signer_service_last_success_timestamp_seconds) == 0 or time() - max(rfq_signer_service_last_success_timestamp_seconds) > 600)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Isolated signer has no recent successful signature during quote traffic
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQMarketDataCacheCold
         expr: increase(rfq_market_data_cache_misses_total[10m]) > 0 and increase(rfq_market_data_cache_hits_total[10m]) == 0
         for: 10m

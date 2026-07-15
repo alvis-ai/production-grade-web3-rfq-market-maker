@@ -57,11 +57,15 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
-            - name: RFQ_AWS_KMS_KEY_ID
+            - name: RFQ_SIGNER_SERVICE_URL
+              value: {{ printf "https://%s-signer:%v" (include "rfq-market-maker.fullname" .) .Values.signerService.port | quote }}
+            - name: RFQ_SIGNER_SERVICE_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.signerSecret.name }}
-                  key: {{ .Values.signerSecret.kmsKeyIdKey }}
+                  key: {{ .Values.signerSecret.authTokenKey }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/rfq-signer-ca/ca.crt
             - name: RFQ_TRUSTED_SIGNER_ADDRESS
               valueFrom:
                 secretKeyRef:
@@ -125,7 +129,16 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: signer-ca
+              mountPath: /etc/rfq-signer-ca
+              readOnly: true
       volumes:
         - name: tmp
           emptyDir:
             sizeLimit: {{ .Values.tmpVolumeSizeLimit | quote }}
+        - name: signer-ca
+          secret:
+            secretName: {{ .Values.signerSecret.name }}
+            items:
+              - key: {{ .Values.signerSecret.caCertKey }}
+                path: ca.crt

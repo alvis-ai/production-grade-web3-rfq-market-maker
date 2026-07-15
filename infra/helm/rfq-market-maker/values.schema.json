@@ -109,6 +109,7 @@
     "containerSecurityContext",
     "tmpVolumeSizeLimit",
     "serviceAccount",
+    "signerService",
     "autoscaling",
     "disruptionBudget",
     "topologySpread",
@@ -217,6 +218,23 @@
         }
       },
       "additionalProperties": true
+    },
+    "signerService": {
+      "type": "object",
+      "required": ["enabled", "replicaCount", "port", "serviceAccount", "secret", "awsRegion", "awsMaxAttempts", "maxClockSkewSeconds", "bodyLimitBytes", "resources"],
+      "properties": {
+        "enabled": { "const": true },
+        "replicaCount": { "type": "integer", "minimum": 2, "maximum": 20 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "serviceAccount": { "type": "object" },
+        "secret": { "type": "object" },
+        "awsRegion": { "type": "string", "minLength": 1 },
+        "awsMaxAttempts": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "maxClockSkewSeconds": { "type": "integer", "minimum": 0, "maximum": 60 },
+        "bodyLimitBytes": { "type": "integer", "minimum": 1024, "maximum": 1048576 },
+        "resources": { "type": "object" }
+      },
+      "additionalProperties": false
     },
     "autoscaling": {
       "type": "object",
@@ -578,6 +596,7 @@
             "enabled",
             "dns",
             "api",
+            "signer",
             "hedgeWorker",
             "analyticsWorker",
             "reconciliationWorker",
@@ -609,6 +628,9 @@
               "additionalProperties": false
             },
             "api": {
+              "$ref": "#/definitions/fqdnEndpointList"
+            },
+            "signer": {
               "$ref": "#/definitions/fqdnEndpointList"
             },
             "hedgeWorker": {

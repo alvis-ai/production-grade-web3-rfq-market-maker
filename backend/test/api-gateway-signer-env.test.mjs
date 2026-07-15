@@ -19,7 +19,7 @@ test("production startup requires explicit AWS KMS signer identity without priva
 
     assert.throws(
       () => buildServer({ logger: false }),
-      /RFQ_SIGNER_MODE must be local, aws-kms, or external/,
+      /RFQ_SIGNER_MODE must be local, aws-kms, remote, or external/,
     );
 
     process.env.RFQ_SIGNER_MODE = "local";

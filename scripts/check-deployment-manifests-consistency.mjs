@@ -13,6 +13,11 @@ const k8sConfig = await readFile("infra/k8s/configmap.yaml", "utf8");
 const k8sSecret = await readFile("infra/k8s/backend-secret.yaml", "utf8");
 const k8sServiceAccount = await readFile("infra/k8s/backend-service-account.yaml", "utf8");
 const k8sNetworkPolicy = await readFile("infra/k8s/network-policy.yaml", "utf8");
+const k8sSignerDeployment = await readFile("infra/k8s/signer-deployment.yaml", "utf8");
+const k8sSignerService = await readFile("infra/k8s/signer-service.yaml", "utf8");
+const k8sSignerSecret = await readFile("infra/k8s/signer-secret.yaml", "utf8");
+const k8sSignerServiceAccount = await readFile("infra/k8s/signer-service-account.yaml", "utf8");
+const k8sSignerNetworkPolicy = await readFile("infra/k8s/signer-network-policy.yaml", "utf8");
 const k8sHorizontalPodAutoscaler = await readFile(
   "infra/k8s/backend-horizontal-pod-autoscaler.yaml",
   "utf8",
@@ -81,6 +86,9 @@ const helmCiliumFqdnEgressPolicy = await readFile(
 );
 const helmServiceAccount = await readFile("infra/helm/rfq-market-maker/templates/service-account.yaml", "utf8");
 const helmService = await readFile("infra/helm/rfq-market-maker/templates/service.yaml", "utf8");
+const helmSignerDeployment = await readFile("infra/helm/rfq-market-maker/templates/signer-deployment.yaml", "utf8");
+const helmSignerService = await readFile("infra/helm/rfq-market-maker/templates/signer-service.yaml", "utf8");
+const helmSignerNetworkPolicy = await readFile("infra/helm/rfq-market-maker/templates/signer-network-policy.yaml", "utf8");
 const helmHorizontalPodAutoscaler = await readFile(
   "infra/helm/rfq-market-maker/templates/horizontal-pod-autoscaler.yaml",
   "utf8",
@@ -154,13 +162,13 @@ const expectedRuntime = {
 
 assert.equal(
   countOccurrences(dockerCompose, `RFQ_SHUTDOWN_TIMEOUT_MS: ${expectedRuntime.shutdownTimeoutMs}`),
-  6,
-  "Compose must apply the reviewed shutdown deadline to the API and every worker",
+  7,
+  "Compose must apply the reviewed shutdown deadline to the API, signer and every worker",
 );
 
 assertContains(backendDockerfile, [
   "FROM node:22-alpine AS runtime",
-  "EXPOSE 3000 3001 3002 3003 3004 3005",
+  "EXPOSE 3000 3001 3002 3003 3004 3005 3006",
   "USER node",
   'CMD ["node", "backend/dist/main.js"]',
 ], "infra/docker/backend.Dockerfile");
@@ -206,21 +214,22 @@ assert.equal(
 
 assert.equal(
   countOccurrences(k8sPodDisruptionBudgets, "kind: PodDisruptionBudget"),
-  7,
+  8,
   "raw manifests must define one PodDisruptionBudget per workload",
 );
 assert.equal(
   countOccurrences(k8sPodDisruptionBudgets, "maxUnavailable: 1"),
-  7,
+  8,
   "every raw PodDisruptionBudget must permit at most one unavailable replica",
 );
 assert.equal(
   countOccurrences(k8sPodDisruptionBudgets, "unhealthyPodEvictionPolicy: AlwaysAllow"),
-  7,
+  8,
   "every raw PodDisruptionBudget must permit unhealthy Pod eviction",
 );
 for (const workloadName of [
   "rfq-backend",
+  "rfq-signer",
   "rfq-hedge-worker",
   "rfq-analytics-worker",
   "rfq-reconciliation-worker",
@@ -248,21 +257,22 @@ assertContains(helmHorizontalPodAutoscaler, [
 ], "Helm API HorizontalPodAutoscaler");
 assert.equal(
   countOccurrences(helmPodDisruptionBudgets, "kind: PodDisruptionBudget"),
-  7,
+  8,
   "Helm must template one PodDisruptionBudget per workload",
 );
 assert.equal(
   countOccurrences(helmPodDisruptionBudgets, ".Values.disruptionBudget.maxUnavailable"),
-  7,
+  8,
   "every Helm PodDisruptionBudget must use the reviewed unavailable bound",
 );
 assert.equal(
   countOccurrences(helmPodDisruptionBudgets, ".Values.disruptionBudget.unhealthyPodEvictionPolicy"),
-  7,
+  8,
   "every Helm PodDisruptionBudget must use the reviewed unhealthy eviction policy",
 );
 for (const component of [
   "api",
+  "signer",
   "hedge-worker",
   "analytics-worker",
   "reconciliation-worker",
@@ -620,14 +630,16 @@ assertContains(k8sDeployment, [
   `app.kubernetes.io/name: ${expectedRuntime.appName}`,
   `replicas: ${expectedRuntime.replicas}`,
   `terminationGracePeriodSeconds: ${expectedRuntime.terminationGracePeriodSeconds}`,
-  "serviceAccountName: rfq-backend-kms",
+  "serviceAccountName: rfq-backend",
+  "name: NODE_EXTRA_CA_CERTS",
+  "mountPath: /etc/rfq-signer-ca",
   "initContainers:",
   'command: ["node", "backend/dist/db/migrate.js"]',
   "name: rfq-database-migration-secrets",
   'command: ["sh", "-c", "sleep 5"]',
   "path: /ready",
   "path: /health",
-  "secretRef:",
+  "secretKeyRef:",
   "name: rfq-backend-secrets",
   "cpu: 100m",
   "memory: 128Mi",
@@ -637,11 +649,18 @@ assertContains(k8sDeployment, [
 
 assertContains(k8sServiceAccount, [
   "kind: ServiceAccount",
-  "name: rfq-backend-kms",
+  "name: rfq-backend",
+  `namespace: ${expectedRuntime.namespace}`,
+], "infra/k8s/backend-service-account.yaml");
+assert.ok(!k8sServiceAccount.includes("eks.amazonaws.com/role-arn"), "API ServiceAccount must not have a KMS role");
+
+assertContains(k8sSignerServiceAccount, [
+  "kind: ServiceAccount",
+  "name: rfq-signer-kms",
   `namespace: ${expectedRuntime.namespace}`,
   "eks.amazonaws.com/role-arn: replace-with-kms-signing-role-arn",
   'eks.amazonaws.com/sts-regional-endpoints: "true"',
-], "infra/k8s/backend-service-account.yaml");
+], "infra/k8s/signer-service-account.yaml");
 
 assertContains(k8sService, [
   "kind: Service",
@@ -662,9 +681,9 @@ assertContains(k8sConfig, [
   'RFQ_ENABLE_HSTS: "true"',
   'RFQ_TRUST_PROXY: "false"',
   "RFQ_RATE_LIMIT_BACKEND: redis",
-  "RFQ_SIGNER_MODE: aws-kms",
-  "RFQ_AWS_KMS_REGION: us-east-1",
-  'RFQ_AWS_KMS_MAX_ATTEMPTS: "3"',
+  "RFQ_SIGNER_MODE: remote",
+  "RFQ_SIGNER_SERVICE_URL: https://rfq-signer.rfq-market-maker.svc.cluster.local:3006",
+  'RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS: "5000"',
   `RFQ_SHUTDOWN_TIMEOUT_MS: "${expectedRuntime.shutdownTimeoutMs}"`,
   'RFQ_SUBMIT_RESERVATION_LEASE_MS: "900000"',
   "RFQ_TOKEN_REGISTRY_JSON:",
@@ -675,7 +694,8 @@ assertContains(k8sSecret, [
   "kind: Secret",
   `namespace: ${expectedRuntime.namespace}`,
   "type: Opaque",
-  "RFQ_AWS_KMS_KEY_ID: alias/replace-with-production-kms-key",
+  "RFQ_SIGNER_SERVICE_TOKEN: replace-with-43-character-url-safe-signer-service-token",
+  "ca.crt:",
   "RFQ_TRUSTED_SIGNER_ADDRESS: replace-with-kms-signer-address",
   "RFQ_SETTLEMENT_ADDRESS: replace-with-rfq-settlement-address",
   "RFQ_REDIS_URL: rediss://replace-with-user:replace-with-password@redis.example.com:6380/0",
@@ -683,6 +703,7 @@ assertContains(k8sSecret, [
   "DATABASE_URL: postgres://rfq-user:replace-with-password@postgres.example.com:5432/rfq_market_maker?sslmode=verify-full",
 ], "infra/k8s/backend-secret.yaml");
 assert.ok(!k8sSecret.includes("RFQ_SIGNER_PRIVATE_KEY"), "backend Secret must not contain raw signer private keys");
+assert.ok(!k8sSecret.includes("RFQ_AWS_KMS_KEY_ID"), "backend Secret must not contain a KMS key id");
 
 assertContains(k8sNetworkPolicy, [
   "kind: NetworkPolicy",
@@ -694,12 +715,50 @@ assertContains(k8sNetworkPolicy, [
   "kubernetes.io/metadata.name: ingress-nginx",
   "kubernetes.io/metadata.name: monitoring",
   "port: 3000",
-  "egress: []",
+  "app.kubernetes.io/name: rfq-signer",
+  "port: 3006",
 ], "infra/k8s/network-policy.yaml");
 assert.ok(
   !k8sNetworkPolicy.includes("namespaceSelector: {}"),
   "backend NetworkPolicy must not admit every namespace",
 );
+
+assertContains(k8sSignerDeployment, [
+  "kind: Deployment",
+  "app.kubernetes.io/name: rfq-signer",
+  "replicas: 2",
+  "serviceAccountName: rfq-signer-kms",
+  'command: ["node", "backend/dist/signer-main.js"]',
+  "RFQ_SIGNER_MODE",
+  "value: aws-kms",
+  "RFQ_AWS_KMS_KEY_ID",
+  "RFQ_SIGNER_TLS_CERT_PATH",
+  "RFQ_SIGNER_TLS_KEY_PATH",
+  "scheme: HTTPS",
+  "path: /ready",
+  "path: /health",
+], "infra/k8s/signer-deployment.yaml");
+assertContains(k8sSignerSecret, [
+  "kind: Secret",
+  "RFQ_AWS_KMS_KEY_ID: alias/replace-with-production-kms-key",
+  "RFQ_SIGNER_SERVICE_TOKEN:",
+  "tls.crt:",
+  "tls.key:",
+], "infra/k8s/signer-secret.yaml");
+assertContains(k8sSignerService, [
+  "kind: Service",
+  "name: rfq-signer",
+  "prometheus.io/scheme: https",
+  "port: 3006",
+], "infra/k8s/signer-service.yaml");
+assertContains(k8sSignerNetworkPolicy, [
+  "kind: NetworkPolicy",
+  "app.kubernetes.io/name: rfq-signer",
+  "app.kubernetes.io/name: rfq-backend",
+  "kubernetes.io/metadata.name: monitoring",
+  "port: 3006",
+  "egress: []",
+], "infra/k8s/signer-network-policy.yaml");
 
 for (const [label, source] of [
   ["hedge worker", k8sHedgeNetworkPolicy],
@@ -937,7 +996,7 @@ assert.ok(
 
 assert.equal(
   countOccurrences(k8sCiliumFqdnEgressPolicy, "kind: CiliumNetworkPolicy"),
-  6,
+  7,
   "raw manifests must define one Cilium FQDN policy per workload",
 );
 assertContains(k8sCiliumFqdnEgressPolicy, [
@@ -950,6 +1009,7 @@ assertContains(k8sCiliumFqdnEgressPolicy, [
   "dns:",
   'matchPattern: "*"',
   "app.kubernetes.io/name: rfq-backend",
+  "app.kubernetes.io/name: rfq-signer",
   "app.kubernetes.io/name: rfq-hedge-worker",
   "app.kubernetes.io/name: rfq-analytics-worker",
   "app.kubernetes.io/name: rfq-reconciliation-worker",
@@ -980,7 +1040,7 @@ assert.ok(
 );
 assert.equal(
   countOccurrences(k8sCiliumFqdnEgressPolicy, 'matchPattern: "*"'),
-  6,
+  7,
   "raw Cilium policies may use a wildcard only for each workload's DNS proxy rule",
 );
 
@@ -1008,21 +1068,26 @@ assertContains(helmValues, [
   'prometheus.io/port: "3000"',
   'RFQ_TRUST_PROXY: "false"',
   "RFQ_RATE_LIMIT_BACKEND: redis",
-  "RFQ_SIGNER_MODE: aws-kms",
-  "RFQ_AWS_KMS_REGION: us-east-1",
-  'RFQ_AWS_KMS_MAX_ATTEMPTS: "3"',
+  "RFQ_SIGNER_MODE: remote",
+  'RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS: "5000"',
   'RFQ_SUBMIT_RESERVATION_LEASE_MS: "900000"',
   `RFQ_SHUTDOWN_TIMEOUT_MS: "${expectedRuntime.shutdownTimeoutMs}"`,
   "RFQ_TOKEN_REGISTRY_JSON:",
   "RFQ_RISK_POLICY_JSON:",
   "name: rfq-backend-secrets",
-  "kmsKeyIdKey: RFQ_AWS_KMS_KEY_ID",
+  "authTokenKey: RFQ_SIGNER_SERVICE_TOKEN",
+  "caCertKey: ca.crt",
   "trustedSignerAddressKey: RFQ_TRUSTED_SIGNER_ADDRESS",
   "trustedSignerOverlapAddresses:",
   "key: RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES",
   "settlementAddressKey: RFQ_SETTLEMENT_ADDRESS",
   "serviceAccount:",
-  "name: rfq-backend-kms",
+  "name: rfq-backend",
+  "signerService:",
+  "name: rfq-signer-kms",
+  "kmsKeyIdKey: RFQ_AWS_KMS_KEY_ID",
+  "tlsCertKey: tls.crt",
+  "tlsKeyKey: tls.key",
   "eks.amazonaws.com/role-arn: replace-with-kms-signing-role-arn",
   'eks.amazonaws.com/sts-regional-endpoints: "true"',
   "redisSecret:",
@@ -1260,6 +1325,7 @@ assert.equal(
 );
 for (const workload of [
   "api",
+  "signer",
   "hedgeWorker",
   "analyticsWorker",
   "reconciliationWorker",
@@ -1308,7 +1374,9 @@ assertContains(helmDeployment, [
   "path: /ready",
   "path: /health",
   "secretKeyRef:",
-  "key: {{ .Values.signerSecret.kmsKeyIdKey }}",
+  "name: RFQ_SIGNER_SERVICE_URL",
+  "key: {{ .Values.signerSecret.authTokenKey }}",
+  "name: NODE_EXTRA_CA_CERTS",
   "key: {{ .Values.signerSecret.trustedSignerAddressKey }}",
   "key: {{ .Values.signerSecret.settlementAddressKey }}",
   "name: RFQ_REDIS_URL",
@@ -1326,6 +1394,32 @@ assert.equal(
   "Helm API Deployment must label metadata, selector and pod template as the api component",
 );
 
+assertContains(helmSignerDeployment, [
+  ".Values.signerService.enabled",
+  "app.kubernetes.io/component: signer",
+  "serviceAccountName: {{ .Values.signerService.serviceAccount.name }}",
+  'command: ["node", "backend/dist/signer-main.js"]',
+  "value: aws-kms",
+  "key: {{ .Values.signerService.secret.kmsKeyIdKey }}",
+  "key: {{ .Values.signerService.secret.authTokenKey }}",
+  "RFQ_SIGNER_TLS_CERT_PATH",
+  "RFQ_SIGNER_TLS_KEY_PATH",
+  "scheme: HTTPS",
+], "infra/helm/rfq-market-maker/templates/signer-deployment.yaml");
+assertContains(helmSignerService, [
+  ".Values.signerService.enabled",
+  "app.kubernetes.io/component: signer",
+  "prometheus.io/scheme: https",
+  "port: {{ .Values.signerService.port }}",
+], "infra/helm/rfq-market-maker/templates/signer-service.yaml");
+assertContains(helmSignerNetworkPolicy, [
+  ".Values.signerService.enabled",
+  "app.kubernetes.io/component: signer",
+  "app.kubernetes.io/component: api",
+  ".Values.networkPolicy.monitoringNamespaceLabels",
+  "egress: []",
+], "infra/helm/rfq-market-maker/templates/signer-network-policy.yaml");
+
 assertContains(helmNetworkPolicy, [
   ".Values.networkPolicy.enabled",
   "kind: NetworkPolicy",
@@ -1336,7 +1430,8 @@ assertContains(helmNetworkPolicy, [
   "- Ingress",
   "- Egress",
   "port: {{ .Values.service.port }}",
-  "egress: []",
+  "app.kubernetes.io/component: signer",
+  "port: {{ .Values.signerService.port }}",
 ], "infra/helm/rfq-market-maker/templates/network-policy.yaml");
 assert.ok(
   !helmNetworkPolicy.includes("namespaceSelector: {}"),
@@ -1353,6 +1448,8 @@ assertContains(helmServiceAccount, [
   "kind: ServiceAccount",
   "name: {{ .Values.serviceAccount.name }}",
   "with .Values.serviceAccount.annotations",
+  ".Values.signerService.serviceAccount.create",
+  "name: {{ .Values.signerService.serviceAccount.name }}",
 ], "infra/helm/rfq-market-maker/templates/service-account.yaml");
 
 assertContains(helmService, [
@@ -1529,6 +1626,7 @@ assertContains(helmCiliumFqdnEgressPolicy, [
   "dns:",
   'matchPattern: "*"',
   ".Values.networkPolicy.fqdnEgress.api",
+  ".Values.networkPolicy.fqdnEgress.signer",
   ".Values.networkPolicy.fqdnEgress.hedgeWorker",
   ".Values.networkPolicy.fqdnEgress.analyticsWorker",
   ".Values.networkPolicy.fqdnEgress.reconciliationWorker",
@@ -1537,7 +1635,7 @@ assertContains(helmCiliumFqdnEgressPolicy, [
 ], "infra/helm/rfq-market-maker/templates/cilium-fqdn-egress-policy.yaml");
 assert.equal(
   countOccurrences(helmCiliumFqdnEgressPolicy, "kind: CiliumNetworkPolicy"),
-  6,
+  7,
   "Helm must render one Cilium FQDN policy template per enabled workload",
 );
 assert.ok(
@@ -1556,7 +1654,7 @@ assertContains(kubernetesChapter, [
   "`RFQ_SHUTDOWN_TIMEOUT_MS=20000`",
   "Readiness 使用 `/ready`",
   "liveness 使用 `/health`",
-  "`RFQ_SIGNER_MODE=aws-kms`",
+  "`RFQ_SIGNER_MODE=remote`",
   "`RFQ_AWS_KMS_KEY_ID`",
   "`RFQ_TRUSTED_SIGNER_ADDRESS`",
   "`RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES`",

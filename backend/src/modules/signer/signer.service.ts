@@ -47,6 +47,7 @@ export interface SignQuoteInput {
 export interface SignerService {
   signQuote(input: SignQuoteInput): Promise<`0x${string}`>;
   verifyQuoteSignature(quote: SignedQuote, signature: `0x${string}`): Promise<boolean>;
+  checkHealth?(): Promise<void>;
 }
 
 export interface LocalEIP712SignerConfig {

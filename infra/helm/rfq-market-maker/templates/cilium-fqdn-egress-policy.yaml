@@ -33,6 +33,23 @@ spec:
       app.kubernetes.io/component: api
   egress:
     {{- include "rfq-market-maker.ciliumFqdnEgressRules" (dict "root" . "endpoints" .Values.networkPolicy.fqdnEgress.api) | nindent 4 }}
+{{- if .Values.signerService.enabled }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-signer-fqdn-egress
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: signer
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: signer
+  egress:
+    {{- include "rfq-market-maker.ciliumFqdnEgressRules" (dict "root" . "endpoints" .Values.networkPolicy.fqdnEgress.signer) | nindent 4 }}
+{{- end }}
 {{- if .Values.hedgeWorker.enabled }}
 ---
 apiVersion: cilium.io/v2

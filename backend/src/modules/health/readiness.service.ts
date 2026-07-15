@@ -301,6 +301,10 @@ export class ReadinessService {
 
   private async probeSigner(): Promise<ReadinessComponentStatus> {
     try {
+      if (typeof this.deps.signerService.checkHealth === "function") {
+        await this.deps.signerService.checkHealth();
+        return "ok";
+      }
       const signature = await this.deps.signerService.signQuote({
         quote: this.config.probeQuote,
         quoteId: "readiness_probe",

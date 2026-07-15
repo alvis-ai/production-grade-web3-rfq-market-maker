@@ -1,0 +1,119 @@
+{{- if .Values.signerService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rfq-market-maker.fullname" . }}-signer
+  labels:
+    {{- include "rfq-market-maker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: signer
+spec:
+  replicas: {{ .Values.signerService.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "rfq-market-maker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: signer
+  template:
+    metadata:
+      labels:
+        {{- include "rfq-market-maker.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: signer
+    spec:
+      serviceAccountName: {{ .Values.signerService.serviceAccount.name }}
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      topologySpreadConstraints:
+        {{- include "rfq-market-maker.topologySpreadConstraints" (list . "signer") | nindent 8 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: signer
+          image: {{ include "rfq-market-maker.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "backend/dist/signer-main.js"]
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: https
+              containerPort: {{ .Values.signerService.port }}
+          env:
+            - name: NODE_ENV
+              value: {{ .Values.env.NODE_ENV | quote }}
+            - name: RFQ_LOG_LEVEL
+              value: {{ .Values.env.RFQ_LOG_LEVEL | quote }}
+            - name: RFQ_SHUTDOWN_TIMEOUT_MS
+              value: {{ .Values.env.RFQ_SHUTDOWN_TIMEOUT_MS | quote }}
+            - name: RFQ_QUOTE_TTL_SECONDS
+              value: {{ .Values.env.RFQ_QUOTE_TTL_SECONDS | quote }}
+            - name: RFQ_TOKEN_REGISTRY_JSON
+              value: {{ .Values.env.RFQ_TOKEN_REGISTRY_JSON | quote }}
+            - name: RFQ_RISK_POLICY_JSON
+              value: {{ .Values.env.RFQ_RISK_POLICY_JSON | quote }}
+            - name: RFQ_SIGNER_MODE
+              value: aws-kms
+            - name: RFQ_AWS_KMS_REGION
+              value: {{ .Values.signerService.awsRegion | quote }}
+            - name: RFQ_AWS_KMS_MAX_ATTEMPTS
+              value: {{ .Values.signerService.awsMaxAttempts | quote }}
+            - name: RFQ_SIGNER_SERVICE_HOST
+              value: 0.0.0.0
+            - name: RFQ_SIGNER_SERVICE_PORT
+              value: {{ .Values.signerService.port | quote }}
+            - name: RFQ_SIGNER_SERVICE_MAX_CLOCK_SKEW_SECONDS
+              value: {{ .Values.signerService.maxClockSkewSeconds | quote }}
+            - name: RFQ_SIGNER_SERVICE_BODY_LIMIT_BYTES
+              value: {{ .Values.signerService.bodyLimitBytes | quote }}
+            - name: RFQ_SIGNER_TLS_CERT_PATH
+              value: /etc/rfq-signer-tls/tls.crt
+            - name: RFQ_SIGNER_TLS_KEY_PATH
+              value: /etc/rfq-signer-tls/tls.key
+            - name: RFQ_AWS_KMS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.signerService.secret.name }}
+                  key: {{ .Values.signerService.secret.kmsKeyIdKey }}
+            - name: RFQ_SIGNER_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.signerService.secret.name }}
+                  key: {{ .Values.signerService.secret.authTokenKey }}
+            - name: RFQ_TRUSTED_SIGNER_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.signerService.secret.name }}
+                  key: {{ .Values.signerService.secret.trustedSignerAddressKey }}
+            - name: RFQ_SETTLEMENT_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.signerService.secret.name }}
+                  key: {{ .Values.signerService.secret.settlementAddressKey }}
+          readinessProbe:
+            httpGet:
+              scheme: HTTPS
+              path: /ready
+              port: https
+          livenessProbe:
+            httpGet:
+              scheme: HTTPS
+              path: /health
+              port: https
+          resources:
+            {{- toYaml .Values.signerService.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: signer-tls
+              mountPath: /etc/rfq-signer-tls
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ .Values.tmpVolumeSizeLimit | quote }}
+        - name: signer-tls
+          secret:
+            secretName: {{ .Values.signerService.secret.name }}
+            items:
+              - key: {{ .Values.signerService.secret.tlsCertKey }}
+                path: tls.crt
+              - key: {{ .Values.signerService.secret.tlsKeyKey }}
+                path: tls.key
+{{- end }}

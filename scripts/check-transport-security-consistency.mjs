@@ -120,8 +120,8 @@ assertContains(analyticsTests, [
 
 assert.equal(
   countOccurrences(compose, "NODE_ENV: development"),
-  7,
-  "Compose must explicitly mark migration, API and five workers as development",
+  8,
+  "Compose must explicitly mark migration, API, signer and five workers as development",
 );
 assertContains(compose, [
   "RFQ_REDIS_URL: redis://redis:6379/0",

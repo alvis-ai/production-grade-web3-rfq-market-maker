@@ -19,6 +19,7 @@ const toxicFlowAnalyzerMetricsSource = await readFile(
   "backend/src/modules/risk/toxic-flow-analyzer.worker.ts",
   "utf8",
 );
+const signerServiceMetricsSource = await readFile("backend/src/modules/signer/signer-server.ts", "utf8");
 const readinessSource = await readFile("backend/src/modules/health/readiness.service.ts", "utf8");
 const rateLimitSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const prometheusConfigSource = await readFile("infra/prometheus/prometheus.yml", "utf8");
@@ -27,7 +28,7 @@ const backendMetricsChapter = await readFile("book/Volume5-BackendEngineering/Ch
 const monitoringChapter = await readFile("book/Volume7-ProductionDeployment/Chapter03-Monitoring.md", "utf8");
 
 const emittedMetrics = extractEmittedMetrics(
-  `${metricsSource}\n${hedgeWorkerMetricsSource}\n${hedgeFeeMetricsSource}\n${analyticsWorkerMetricsSource}\n${reconciliationWorkerMetricsSource}\n${settlementIndexerMetricsSource}\n${toxicFlowAnalyzerMetricsSource}`,
+  `${metricsSource}\n${hedgeWorkerMetricsSource}\n${hedgeFeeMetricsSource}\n${analyticsWorkerMetricsSource}\n${reconciliationWorkerMetricsSource}\n${settlementIndexerMetricsSource}\n${toxicFlowAnalyzerMetricsSource}\n${signerServiceMetricsSource}`,
 );
 const alertMetrics = extractAlertMetrics(alertRulesSource);
 const backendDocMetrics = extractDocumentedMetrics(backendMetricsChapter);
@@ -85,6 +86,7 @@ for (const alertName of alertNames) {
 }
 
 assert.ok(prometheusConfigSource.includes("job_name: rfq-backend"), "Prometheus must scrape the backend job");
+assert.ok(prometheusConfigSource.includes("job_name: rfq-signer"), "Prometheus must scrape the signer job");
 assert.ok(prometheusConfigSource.includes("job_name: rfq-hedge-worker"), "Prometheus must scrape the hedge worker job");
 assert.ok(prometheusConfigSource.includes("job_name: rfq-analytics-worker"), "Prometheus must scrape the analytics worker job");
 assert.ok(
