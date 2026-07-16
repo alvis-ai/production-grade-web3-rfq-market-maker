@@ -9,6 +9,7 @@ import type { HedgeIntentService } from "../modules/hedge/hedge.service.js";
 import type { ReadinessService } from "../modules/health/readiness.service.js";
 import { MetricsService } from "../modules/metrics/metrics.service.js";
 import type { PnlStore, RecordPnlInput } from "../modules/pnl/pnl.service.js";
+import { parsePnlPageQuery } from "../modules/pnl/pnl-pagination.js";
 import { convertBaseUnitAmount, normalizeHumanPrice } from "../modules/pricing/price-normalization.js";
 import type { QuoteRepository } from "../modules/quote/quote.repository.js";
 import {
@@ -143,7 +144,8 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
         principal,
       );
       if (!rateLimitResult.allowed) return rateLimitResult.response;
-      return await pnlService.summary(principal?.principalId ?? localPrincipalId);
+      const page = parsePnlPageQuery(request.query);
+      return await pnlService.summary(principal?.principalId ?? localPrincipalId, page);
     } catch (error) {
       return sendError(reply, requestTraceId(request), pnlStoreFailure(error));
     }

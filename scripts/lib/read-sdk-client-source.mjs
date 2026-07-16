@@ -7,6 +7,7 @@ export const sdkClientSourcePaths = [
   "sdk/src/client-response-validation.ts",
   "sdk/src/client-trading-responses.ts",
   "sdk/src/client-accounting-responses.ts",
+  "sdk/src/client-pnl-page.ts",
 ];
 
 export async function readSdkClientSource() {

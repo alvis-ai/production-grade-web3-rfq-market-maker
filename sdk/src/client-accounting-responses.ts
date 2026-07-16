@@ -13,6 +13,7 @@ import {
   isTokenDecimals,
   malformedFieldError,
 } from "./client-response-validation.js";
+import { assertPnlPageMetadata } from "./client-pnl-page.js";
 import type {
   HedgeNetPnlRecord,
   HedgeNetPnlSummary,
@@ -22,7 +23,7 @@ import type {
   PnlTradeRecord,
 } from "./types.js";
 
-const pnlSummaryFields = ["status", "totalTrades", "totals", "trades", "hedgeNet"] as const;
+const pnlSummaryFields = ["status", "totalTrades", "totals", "trades", "hedgeNet", "page"] as const;
 const pnlTokenTotalFields = ["chainId", "tokenOut", "totalTrades", "grossPnlTokenOut"] as const;
 const hedgeNetSummaryFields = [
   "model", "modelDescription", "totalTrades", "completeTrades", "pendingTrades", "unavailableTrades", "totals", "records",
@@ -45,11 +46,19 @@ export function assertPnlSummary(payload: unknown, status: number): asserts payl
   if (!isNonNegativeSafeInteger(payload.totalTrades)) throw malformedFieldError(status, label, "totalTrades");
   if (!Array.isArray(payload.totals)) throw malformedFieldError(status, label, "totals");
   if (!Array.isArray(payload.trades)) throw malformedFieldError(status, label, "trades");
-  if (payload.totalTrades !== payload.trades.length) throw malformedFieldError(status, label, "totalTrades");
+  if (payload.totalTrades < payload.trades.length) throw malformedFieldError(status, label, "totalTrades");
+  assertPnlPageMetadata(payload.page, payload.trades, payload.totalTrades, status);
 
   const expectedTotals = new Map<string, { totalTrades: number; grossPnl: bigint }>();
+  const seenPnlIds = new Set<string>();
+  const seenQuoteIds = new Set<string>();
   for (const trade of payload.trades) {
     assertPnlTradeRecord(trade, status);
+    if (seenPnlIds.has(trade.pnlId) || seenQuoteIds.has(trade.quoteId)) {
+      throw malformedFieldError(status, label, "trades");
+    }
+    seenPnlIds.add(trade.pnlId);
+    seenQuoteIds.add(trade.quoteId);
     const key = pnlTokenKey(trade.chainId, trade.tokenOut);
     const current = expectedTotals.get(key) ?? { totalTrades: 0, grossPnl: 0n };
     current.totalTrades += 1;
@@ -57,25 +66,47 @@ export function assertPnlSummary(payload: unknown, status: number): asserts payl
     expectedTotals.set(key, current);
   }
 
-  if (payload.totals.length !== expectedTotals.size) throw malformedFieldError(status, label, "totals");
   const seenTotals = new Set<string>();
+  let globalTotalTrades = 0;
+  let previousTotal: PnlTokenTotal | undefined;
   for (const total of payload.totals) {
     assertPnlTokenTotal(total, status);
     const key = pnlTokenKey(total.chainId, total.tokenOut);
-    if (seenTotals.has(key)) throw malformedFieldError(status, label, "totals");
+    if (seenTotals.has(key) || (previousTotal !== undefined &&
+        (previousTotal.chainId > total.chainId ||
+          (previousTotal.chainId === total.chainId &&
+            previousTotal.tokenOut.toLowerCase() > total.tokenOut.toLowerCase())))) {
+      throw malformedFieldError(status, label, "totals");
+    }
     seenTotals.add(key);
+    previousTotal = total;
+    globalTotalTrades += total.totalTrades;
+    if (!Number.isSafeInteger(globalTotalTrades)) throw malformedFieldError(status, label, "totals");
     const expected = expectedTotals.get(key);
-    if (!expected || total.totalTrades !== expected.totalTrades ||
-        BigInt(total.grossPnlTokenOut) !== expected.grossPnl) {
+    if (expected && total.totalTrades < expected.totalTrades) {
       throw malformedFieldError(status, label, "totals");
     }
   }
-  assertHedgeNetPnlSummary(payload.hedgeNet, payload.trades, status);
+  if (globalTotalTrades !== payload.totalTrades ||
+      [...expectedTotals.keys()].some((key) => !seenTotals.has(key))) {
+    throw malformedFieldError(status, label, "totals");
+  }
+  const completePage = payload.totalTrades === payload.trades.length;
+  if (completePage && (payload.totals.length !== expectedTotals.size || payload.totals.some((total) => {
+    const expected = expectedTotals.get(pnlTokenKey(total.chainId, total.tokenOut));
+    return !expected || total.totalTrades !== expected.totalTrades ||
+      BigInt(total.grossPnlTokenOut) !== expected.grossPnl;
+  }))) {
+    throw malformedFieldError(status, label, "totals");
+  }
+  assertHedgeNetPnlSummary(payload.hedgeNet, payload.trades, payload.totalTrades, completePage, status);
 }
 
 function assertHedgeNetPnlSummary(
   payload: unknown,
   trades: PnlTradeRecord[],
+  totalTrades: number,
+  completePage: boolean,
   status: number,
 ): asserts payload is HedgeNetPnlSummary {
   const label = "RFQ hedge net PnL summary response";
@@ -85,16 +116,18 @@ function assertHedgeNetPnlSummary(
   for (const field of ["totalTrades", "completeTrades", "pendingTrades", "unavailableTrades"] as const) {
     if (!isNonNegativeSafeInteger(payload[field])) throw malformedFieldError(status, label, field);
   }
-  if (!Array.isArray(payload.records) || !Array.isArray(payload.totals) || payload.totalTrades !== trades.length ||
+  if (!Array.isArray(payload.records) || !Array.isArray(payload.totals) || payload.totalTrades !== totalTrades ||
       payload.records.length !== trades.length) throw malformedFieldError(status, label, "totalTrades");
   const tradeByQuote = new Map(trades.map((trade) => [trade.quoteId, trade]));
   const seen = new Set<string>();
   const counts = { complete: 0, pending: 0, unavailable: 0 };
   const expectedTotals = new Map<string, { totalTrades: number; netScaled: bigint }>();
-  for (const record of payload.records) {
+  for (let index = 0; index < payload.records.length; index += 1) {
+    const record = payload.records[index];
     assertHedgeNetPnlRecord(record, status);
     const trade = tradeByQuote.get(record.quoteId);
-    if (!trade || trade.chainId !== record.chainId || seen.has(record.quoteId)) {
+    if (!trade || trade.chainId !== record.chainId || seen.has(record.quoteId) ||
+        record.quoteId !== trades[index]?.quoteId) {
       throw malformedFieldError(status, label, "records");
     }
     seen.add(record.quoteId);
@@ -107,22 +140,41 @@ function assertHedgeNetPnlSummary(
       expectedTotals.set(key, current);
     }
   }
-  if (payload.completeTrades !== counts.complete || payload.pendingTrades !== counts.pending ||
-      payload.unavailableTrades !== counts.unavailable ||
-      counts.complete + counts.pending + counts.unavailable !== payload.totalTrades) {
+  const completeTrades = payload.completeTrades as number;
+  const pendingTrades = payload.pendingTrades as number;
+  const unavailableTrades = payload.unavailableTrades as number;
+  if (completeTrades < counts.complete || pendingTrades < counts.pending || unavailableTrades < counts.unavailable ||
+      completeTrades + pendingTrades + unavailableTrades !== totalTrades ||
+      (completePage && (completeTrades !== counts.complete || pendingTrades !== counts.pending ||
+        unavailableTrades !== counts.unavailable))) {
     throw malformedFieldError(status, label, "completeTrades");
   }
-  if (payload.totals.length !== expectedTotals.size) throw malformedFieldError(status, label, "totals");
   const seenTotals = new Set<string>();
+  let globalCompleteTrades = 0;
+  let previousTotal: HedgeNetPnlTotal | undefined;
   for (const total of payload.totals) {
     assertHedgeNetPnlTotal(total, status);
     const key = hedgeNetKey(total.chainId, total.valuationToken, total.valuationAsset);
     const expected = expectedTotals.get(key);
-    if (!expected || seenTotals.has(key) || expected.totalTrades !== total.totalTrades ||
-        expected.netScaled !== signedDecimalToScale18(total.netPnlQuoteQuantity)) {
+    if (seenTotals.has(key) || (previousTotal !== undefined && compareHedgeNetTotals(previousTotal, total) > 0) ||
+        (expected !== undefined && expected.totalTrades > total.totalTrades)) {
       throw malformedFieldError(status, label, "totals");
     }
     seenTotals.add(key);
+    previousTotal = total;
+    globalCompleteTrades += total.totalTrades;
+    if (!Number.isSafeInteger(globalCompleteTrades)) throw malformedFieldError(status, label, "totals");
+  }
+  if (globalCompleteTrades !== completeTrades ||
+      [...expectedTotals.keys()].some((key) => !seenTotals.has(key))) {
+    throw malformedFieldError(status, label, "totals");
+  }
+  if (completePage && (payload.totals.length !== expectedTotals.size || payload.totals.some((total) => {
+    const expected = expectedTotals.get(hedgeNetKey(total.chainId, total.valuationToken, total.valuationAsset));
+    return !expected || expected.totalTrades !== total.totalTrades ||
+      expected.netScaled !== signedDecimalToScale18(total.netPnlQuoteQuantity);
+  }))) {
+    throw malformedFieldError(status, label, "totals");
   }
 }
 
@@ -279,6 +331,11 @@ function assertPnlTradeRecord(payload: unknown, status: number): asserts payload
 
 function hedgeNetKey(chainId: number, token: string, asset: string): string {
   return `${chainId}:${token.toLowerCase()}:${asset}`;
+}
+
+function compareHedgeNetTotals(left: HedgeNetPnlTotal, right: HedgeNetPnlTotal): number {
+  return left.chainId - right.chainId || left.valuationToken.toLowerCase().localeCompare(right.valuationToken.toLowerCase()) ||
+    left.valuationAsset.localeCompare(right.valuationAsset);
 }
 
 function isVenueAsset(value: unknown): value is string {

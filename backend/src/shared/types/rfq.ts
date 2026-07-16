@@ -239,3 +239,20 @@ export interface PnlSummaryResponse {
   trades: PnlTradeRecord[];
   hedgeNet: HedgeNetPnlSummary;
 }
+
+export interface PnlPageMetadata {
+  limit: number;
+  returned: number;
+  hasMore: boolean;
+  asOf: string;
+  nextCursor?: string;
+}
+
+export interface PaginatedPnlSummaryResponse {
+  status: "ok";
+  totalTrades: number;
+  totals: PnlTokenTotal[];
+  trades: PnlTradeRecord[];
+  hedgeNet: HedgeNetPnlSummary;
+  page: PnlPageMetadata;
+}

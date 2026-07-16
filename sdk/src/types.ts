@@ -233,6 +233,15 @@ export interface PnlSummary {
   totals: PnlTokenTotal[];
   trades: PnlTradeRecord[];
   hedgeNet: HedgeNetPnlSummary;
+  page: PnlPageMetadata;
+}
+
+export interface PnlPageMetadata {
+  limit: number;
+  returned: number;
+  hasMore: boolean;
+  asOf: string;
+  nextCursor?: string;
 }
 
 export const rfqErrorCodes = [

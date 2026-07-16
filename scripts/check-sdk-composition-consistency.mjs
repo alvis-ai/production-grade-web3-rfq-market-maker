@@ -11,6 +11,7 @@ const paths = {
   response: "sdk/src/client-response-validation.ts",
   trading: "sdk/src/client-trading-responses.ts",
   accounting: "sdk/src/client-accounting-responses.ts",
+  pnlPage: "sdk/src/client-pnl-page.ts",
 };
 const sources = Object.fromEntries(await Promise.all(
   Object.entries(paths).map(async ([name, path]) => [name, await readFile(path, "utf8")]),
@@ -19,7 +20,16 @@ const chapter = await readFile("book/Volume6-Frontend-And-SDK/Chapter04-SDK.md",
 const transportTests = await readFile("sdk/test/sdk-client-transport.test.mjs", "utf8");
 const readme = await readFile("README.md", "utf8");
 
-const limits = { client: 250, error: 50, request: 350, transport: 220, response: 400, trading: 350, accounting: 400 };
+const limits = {
+  client: 250,
+  error: 50,
+  request: 350,
+  transport: 220,
+  response: 400,
+  trading: 350,
+  accounting: 400,
+  pnlPage: 100,
+};
 for (const [name, limit] of Object.entries(limits)) {
   const lines = sources[name].split(/\r?\n/).length;
   assert.ok(lines <= limit, `${paths[name]} must remain bounded to ${limit} lines (got ${lines})`);
@@ -77,12 +87,18 @@ assertContains(sources.accounting, [
   "function assertHedgeNetPnlSummary",
   "function assertPnlTradeRecord",
 ], "SDK accounting response boundary");
+assertContains(sources.pnlPage, [
+  "export function assertPnlPageMetadata",
+  "payload.hasMore !== (nextCursor !== undefined)",
+  "previous.realizedAt < current.realizedAt",
+], "SDK PnL page response boundary");
 assertContains(chapter, [
   "`client.ts` remains the endpoint orchestration boundary",
   "`client-transport.ts`",
   "`client-request.ts`",
   "`client-trading-responses.ts`",
   "`client-accounting-responses.ts`",
+  "`client-pnl-page.ts`",
   "`client-response-validation.ts`",
   "`make sdk-composition-check`",
   "`requestTimeoutMs` defaults to 15000",

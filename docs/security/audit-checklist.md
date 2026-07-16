@@ -54,6 +54,7 @@
 - [x] Non-local business routes require scoped API keys whose plaintext secrets are never stored server-side.
 - [x] API key verification uses constant-time digest comparison, generic 401 responses, expiry, and fixed route scopes.
 - [x] Quote ownership is immutable and principal-scoped across quote status, submit, settlement, hedge, and PnL; mismatches use anti-enumeration 404 responses.
+- [x] PnL history uses a closed opaque cursor, default 50/max 100 keyset pages, a database-enforced immutable creation-time cutoff, deterministic covering indexes and database-side aggregates; every continuation reapplies principal scope and never treats the cursor as authorization.
 - [x] Production `/submit` uses a PostgreSQL quote-scoped lease with server-time expiry and owner-token release across API replicas.
 - [x] Production `/quote` requires a principal-scoped idempotency key, fingerprints the payload, binds quote identity before persistence, and replays only the exact signed response.
 - [x] The opt-in target API quote canary uses HTTPS and a least-privilege key, gates on readiness, proves exact idempotency replay and persisted signed status, independently recovers the trusted signer, and never submits or emits the raw signature or API failure details.

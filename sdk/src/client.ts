@@ -2,6 +2,7 @@ import { assertPnlSummary } from "./client-accounting-responses.js";
 import { RFQClientError } from "./client-error.js";
 import { RFQClientTransport } from "./client-transport.js";
 import {
+  assertPnlRequestOptions,
   assertQuoteRequest,
   assertQuoteRequestOptions,
   assertSubmitQuoteRequest,
@@ -27,6 +28,7 @@ import {
 } from "./client-trading-responses.js";
 import type {
   NormalizedRFQClientConfig,
+  PnlRequestOptions,
   QuoteRequestOptions,
   RFQClientApiKeyProvider,
   RFQClientFetch,
@@ -49,6 +51,7 @@ import type {
 export { RFQClientError } from "./client-error.js";
 export type { RFQClientErrorCode } from "./client-error.js";
 export type {
+  PnlRequestOptions,
   QuoteRequestOptions,
   RFQClientApiKeyProvider,
   RFQClientFetch,
@@ -146,8 +149,13 @@ export class RFQClient {
     );
   }
 
-  async pnl(): Promise<PnlSummary> {
-    return this.transport.request(`${this.baseUrl}/pnl`, this.requestInit(), "RFQ PnL request", async (boundedResponse) => {
+  async pnl(options?: PnlRequestOptions): Promise<PnlSummary> {
+    const pnlOptions = assertPnlRequestOptions(options);
+    const query = new URLSearchParams();
+    if (pnlOptions?.limit !== undefined) query.set("limit", String(pnlOptions.limit));
+    if (pnlOptions?.cursor !== undefined) query.set("cursor", pnlOptions.cursor);
+    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+    return this.transport.request(`${this.baseUrl}/pnl${suffix}`, this.requestInit(), "RFQ PnL request", async (boundedResponse) => {
       await assertOk(boundedResponse, "RFQ PnL summary failed");
       const payload = await readJsonResponse(boundedResponse, "RFQ PnL summary response");
       return assertResponsePayload(payload, boundedResponse.response, assertPnlSummary);

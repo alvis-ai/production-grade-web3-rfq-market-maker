@@ -126,11 +126,17 @@ const submitRequest = buildSubmitQuoteWriteRequest({
 const allowanceRequest = buildErc20AllowanceReadRequest({ token, owner, spender: settlementAddress });
 const approvalRequest = buildErc20ApprovalWriteRequest({ token, spender: settlementAddress, amount });
 const treasuryArgs = buildTreasuryTransferArgs({ token, to, amount });
+const firstPnlPage = await client.pnl({ limit: 50 });
+const nextPnlPage = firstPnlPage.page.nextCursor
+  ? await client.pnl({ limit: firstPnlPage.page.limit, cursor: firstPnlPage.page.nextCursor })
+  : undefined;
 ```
+
+`PnlSummary.totalTrades`、`totals` 和 `hedgeNet` counters/totals 表示同一 `page.asOf` 创建时间上限内的机构全局汇总；`trades` 与 `hedgeNet.records` 只表示当前页，按 `realizedAt DESC, pnlId DESC` 一一对齐。`asOf` 排除后续插入与回填，但 reorg 删除会立即修正结果。SDK 将 cursor 当作 opaque string，不从中推导授权或业务状态；服务端仍以 API key 对应的 principal 过滤所有查询。
 
 ## Engineering Decisions
 
-- `client.ts` remains the endpoint orchestration boundary: it owns endpoint selection, headers and response-specific sequencing, while delegating transport and protocol validation. `client-transport.ts` owns fetch、AbortController、完整响应 deadline、流式 byte cap 与取消；`client-request.ts` owns construction, credentials, request envelopes and path identifiers; `client-trading-responses.ts` owns quote, submit, lifecycle, hedge and settlement payloads; `client-accounting-responses.ts` owns gross and hedge-net PnL consistency; `client-response-validation.ts` owns closed response fields, primitive guards, trace correlation, health/readiness and API errors. `client-error.ts` keeps the public error contract independent of those concerns.
+- `client.ts` remains the endpoint orchestration boundary: it owns endpoint selection, headers and response-specific sequencing, while delegating transport and protocol validation. `client-transport.ts` owns fetch、AbortController、完整响应 deadline、流式 byte cap 与取消；`client-request.ts` owns construction, credentials, request envelopes and path identifiers; `client-trading-responses.ts` owns quote, submit, lifecycle, hedge and settlement payloads; `client-accounting-responses.ts` owns gross and hedge-net PnL consistency; `client-pnl-page.ts` owns bounded page metadata and newest-first ordering; `client-response-validation.ts` owns closed response fields, primitive guards, trace correlation, health/readiness and API errors. `client-error.ts` keeps the public error contract independent of those concerns.
 - `make sdk-composition-check` enforces bounded module sizes and verifies that response and request validators do not migrate back into the HTTP client. Public imports continue through `client.ts` and `index.ts`, so the refactor does not change consumer APIs.
 - SDK uses string amounts.
 - SDK owns EIP-712 helper.
@@ -182,7 +188,7 @@ SDK should stay lightweight. It should not bundle frontend-only wallet libraries
 
 ## Testing Strategy
 
-测试 client quote request、API error parsing、typed data structure、domain builder、settlement tuple conversion、submit write request builder、Treasury tuple conversion、quote/submit/quote status/settlement/hedge/PnL response validation 和 amount string handling。Transport 故障注入还必须覆盖 connection stall、headers 后 body stall、AbortSignal、超大 JSON/text stream cancellation、声明超限的 `Content-Length`、配置上下界和底层错误脱敏。
+测试 client quote request、API error parsing、typed data structure、domain builder、settlement tuple conversion、submit write request builder、Treasury tuple conversion、quote/submit/quote status/settlement/hedge/PnL response validation、PnL cursor/limit request validation 和 amount string handling。PnL 测试还要证明全局计数不小于页内计数、页内 trade/hedge identity 与顺序一致、`hasMore` 与 `nextCursor` 同步，以及单页覆盖全部记录时 totals 可由明细精确重算。Transport 故障注入还必须覆盖 connection stall、headers 后 body stall、AbortSignal、超大 JSON/text stream cancellation、声明超限的 `Content-Length`、配置上下界和底层错误脱敏。
 
 ## Interview Notes
 

@@ -3,7 +3,7 @@ set -eu
 
 gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-hedge-risk.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-settlement-indexer-risk.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
 quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts backend/src/modules/quote/quote-route-selection.ts"
-sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-transport.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts"
+sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-transport.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts sdk/src/client-pnl-page.ts"
 
 test -s package.json
 test -s pnpm-workspace.yaml
@@ -814,7 +814,7 @@ grep -Fq 'assertResponseFields(submit.body, ["status", "txHash", "settlementEven
 grep -q 'assertResponseFields(status.body' backend/test/api.test.mjs
 grep -q 'assertResponseFields(settlement.body' backend/test/api.test.mjs
 grep -q 'assertResponseFields(hedge.body' backend/test/api.test.mjs
-grep -Fq 'assertResponseFields(pnl.body, ["status", "totalTrades", "totals", "trades", "hedgeNet"])' backend/test/api.test.mjs
+grep -Fq 'assertResponseFields(pnl.body, ["status", "totalTrades", "totals", "trades", "hedgeNet", "page"])' backend/test/api.test.mjs
 grep -q 'assertResponseFields(pnl.body.trades\[0\]' backend/test/api.test.mjs
 grep -q 'successful response bodies must be closed field sets matching OpenAPI' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'RFQ API returns closed structured error responses' backend/test/api-validation-gateway.test.mjs
@@ -1717,6 +1717,19 @@ grep -q 'record.inventorySkewBps === input.inventorySkewBps' backend/src/modules
 grep -q 'record.volatilityPremiumBps === input.volatilityPremiumBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'record.hedgeCostBps === input.hedgeCostBps' backend/src/modules/quote/quote.repository.ts
 test -s backend/src/db/migrations/034-quote-route-attribution.sql
+test -s backend/src/db/migrations/035-pnl-cursor-pagination.sql
+test -s backend/src/modules/pnl/pnl-pagination.ts
+test -s backend/src/modules/pnl/postgres-pnl-record.ts
+test -s backend/test/pnl-pagination.test.mjs
+grep -q 'idx_pnl_records_page' backend/src/db/migrations/035-pnl-cursor-pagination.sql
+grep -q 'idx_quotes_principal_id' backend/src/db/migrations/035-pnl-cursor-pagination.sql
+grep -q 'trg_pnl_records_created_at_immutable' backend/src/db/migrations/035-pnl-cursor-pagination.sql
+grep -q 'parsePnlPageQuery' backend/src/modules/pnl/pnl-pagination.ts
+grep -q 'page.limit + 1' backend/src/modules/pnl/postgres-pnl.store.ts
+grep -q 'pnl.created_at <= \$2::timestamptz' backend/src/modules/pnl/postgres-pnl.store.ts
+grep -q 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY' backend/src/modules/pnl/postgres-pnl.store.ts
+grep -q 'PnlPageMetadata' docs/api/openapi.yaml
+grep -q 'nextCursor' docs/api/openapi.yaml
 grep -q 'chk_quotes_route_decision_atomic' docs/database/schema.sql
 grep -q 'quote.routing.v1' backend/src/db/migrations/034-quote-route-attribution.sql
 grep -q 'trg_quotes_enforce_route_immutability' backend/src/db/migrations/034-quote-route-attribution.sql

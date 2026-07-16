@@ -7,6 +7,7 @@ import {
   type HedgeNetPnlSummary,
   type HedgeNetPnlTotal,
   type IntString,
+  type PaginatedPnlSummaryResponse,
   type PnlSummaryResponse,
   type PnlTokenTotal,
   type PnlTradeRecord,
@@ -15,6 +16,14 @@ import {
 } from "../../shared/types/rfq.js";
 import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
 import { assertPrincipalId } from "../../shared/validation/principal-id.js";
+import {
+  assertPnlPageRequest,
+  comparePnlPositionDescending,
+  encodePnlCursor,
+  isAfterPnlCursor,
+  maxPnlPageLimit,
+  type PnlPageRequest,
+} from "./pnl-pagination.js";
 
 const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 const MIN_SAFE_INTEGER_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
@@ -73,6 +82,7 @@ export interface PnlStore {
   getPnlRecordByQuoteId(quoteId: string): PnlTradeRecord | undefined | Promise<PnlTradeRecord | undefined>;
   removePnlRecord(input: RemovePnlRecordInput): RemovePnlRecordResult | Promise<RemovePnlRecordResult>;
   summary(principalId?: string): PnlSummaryResponse | Promise<PnlSummaryResponse>;
+  summary(principalId: string, page: PnlPageRequest): PaginatedPnlSummaryResponse | Promise<PaginatedPnlSummaryResponse>;
 }
 
 export interface QuoteOwnershipReader {
@@ -82,8 +92,10 @@ export interface QuoteOwnershipReader {
 export class PnlService implements PnlStore {
   private readonly trades = new Map<string, PnlTradeRecord>();
   private readonly pnlIdsByQuoteModel = new Map<string, string>();
+  private readonly createdAtByPnlId = new Map<string, string>();
   private readonly valuationProvider: PnlValuationProvider;
   private readonly quoteOwnershipReader?: QuoteOwnershipReader;
+  private latestCreatedAt?: string;
 
   constructor(
     valuationProvider: PnlValuationProvider = missingPnlValuationProvider,
@@ -122,6 +134,9 @@ export class PnlService implements PnlStore {
 
     this.trades.set(record.pnlId, record);
     this.pnlIdsByQuoteModel.set(this.quoteModelKey(input.quoteId, record.model), record.pnlId);
+    const createdAt = this.nextCreatedAt();
+    this.createdAtByPnlId.set(record.pnlId, createdAt);
+    this.latestCreatedAt = createdAt;
     return clonePnlTradeRecord(record);
   }
 
@@ -149,6 +164,7 @@ export class PnlService implements PnlStore {
 
     this.trades.delete(pnlId);
     this.pnlIdsByQuoteModel.delete(key);
+    this.createdAtByPnlId.delete(pnlId);
 
     return {
       record: clonePnlTradeRecord(record),
@@ -158,23 +174,67 @@ export class PnlService implements PnlStore {
 
   summary(): PnlSummaryResponse;
   summary(principalId: string): Promise<PnlSummaryResponse>;
-  summary(principalId?: string): PnlSummaryResponse | Promise<PnlSummaryResponse> {
-    if (principalId !== undefined) return this.summaryForPrincipal(principalId);
+  summary(principalId: string, page: PnlPageRequest): Promise<PaginatedPnlSummaryResponse>;
+  summary(
+    principalId?: string,
+    page?: PnlPageRequest,
+  ): PnlSummaryResponse | Promise<PnlSummaryResponse | PaginatedPnlSummaryResponse> {
+    if (principalId !== undefined) return this.summaryForPrincipal(principalId, page);
+    if (page !== undefined) throw new Error("PnL principalId is required for paginated summaries");
     return buildPnlSummary([...this.trades.values()]);
   }
 
-  private async summaryForPrincipal(principalId: string): Promise<PnlSummaryResponse> {
+  private async summaryForPrincipal(
+    principalId: string,
+    page?: PnlPageRequest,
+  ): Promise<PnlSummaryResponse | PaginatedPnlSummaryResponse> {
     assertPrincipalId(principalId, "PnL summary principalId");
     if (!this.quoteOwnershipReader) throw new Error("PnL quote ownership reader is required for principal summary");
     const owned: PnlTradeRecord[] = [];
     for (const trade of this.trades.values()) {
       if (await this.quoteOwnershipReader.findPrincipalId(trade.quoteId) === principalId) owned.push(trade);
     }
-    return buildPnlSummary(owned);
+    if (page === undefined) return buildPnlSummary(owned);
+
+    assertPnlPageRequest(page);
+    const asOf = page.cursor?.asOf ?? this.currentAsOf();
+    const snapshot = owned.filter((trade) => {
+      const createdAt = this.createdAtByPnlId.get(trade.pnlId);
+      if (!createdAt) throw new Error(`PnL creation timestamp is missing for ${trade.pnlId}`);
+      return createdAt <= asOf;
+    });
+    const completeSummary = buildPnlSummary(snapshot);
+    const candidates = completeSummary.trades
+      .filter((trade) => page.cursor === undefined || isAfterPnlCursor(trade, page.cursor))
+      .sort(comparePnlPositionDescending);
+    const hasMore = candidates.length > page.limit;
+    const trades = candidates.slice(0, page.limit);
+    const hedgeByQuoteId = new Map(completeSummary.hedgeNet.records.map((record) => [record.quoteId, record]));
+    const hedgeRecords = trades.map((trade) => {
+      const record = hedgeByQuoteId.get(trade.quoteId);
+      if (!record) throw new Error(`Hedge net PnL record is missing for ${trade.quoteId}`);
+      return record;
+    });
+    return buildPaginatedPnlSummary(completeSummary, trades, hedgeRecords, {
+      limit: page.limit,
+      asOf,
+      hasMore,
+    });
   }
 
   private quoteModelKey(quoteId: string, model: PnlTradeRecord["model"]): string {
     return `${quoteId}:${model}`;
+  }
+
+  private nextCreatedAt(): string {
+    const now = new Date().toISOString();
+    if (this.latestCreatedAt === undefined || now > this.latestCreatedAt) return now;
+    return new Date(Date.parse(this.latestCreatedAt) + 1).toISOString();
+  }
+
+  private currentAsOf(): string {
+    const now = new Date().toISOString();
+    return this.latestCreatedAt !== undefined && this.latestCreatedAt > now ? this.latestCreatedAt : now;
   }
 }
 
@@ -280,6 +340,64 @@ export function buildPnlSummary(
     totals,
     trades,
     hedgeNet: buildHedgeNetPnlSummary(trades, hedgeNetRecords),
+  };
+}
+
+export function buildPaginatedPnlSummary(
+  aggregate: PnlSummaryResponse,
+  records: readonly PnlTradeRecord[],
+  hedgeNetRecords: readonly HedgeNetPnlRecord[],
+  page: { limit: number; asOf: string; hasMore: boolean },
+): PaginatedPnlSummaryResponse {
+  if (!Number.isSafeInteger(page.limit) || page.limit < 1 || page.limit > maxPnlPageLimit ||
+      records.length > page.limit ||
+      !isCanonicalUtcIsoTimestamp(page.asOf) || (page.hasMore && records.length !== page.limit)) {
+    throw new Error("PnL page metadata is inconsistent");
+  }
+  if (!Number.isSafeInteger(aggregate.totalTrades) || aggregate.totalTrades < records.length ||
+      aggregate.totals.reduce((sum, total) => sum + total.totalTrades, 0) !== aggregate.totalTrades ||
+      aggregate.hedgeNet.totalTrades !== aggregate.totalTrades ||
+      aggregate.hedgeNet.completeTrades + aggregate.hedgeNet.pendingTrades +
+        aggregate.hedgeNet.unavailableTrades !== aggregate.totalTrades ||
+      aggregate.hedgeNet.totals.reduce((sum, total) => sum + total.totalTrades, 0) !==
+        aggregate.hedgeNet.completeTrades) {
+    throw new Error("PnL aggregate metadata is inconsistent");
+  }
+  if (hedgeNetRecords.length !== records.length) {
+    throw new Error("Hedge net PnL page records must match PnL trades one-to-one");
+  }
+
+  const trades = records.map(clonePnlTradeRecord);
+  for (let index = 0; index < trades.length; index += 1) {
+    const trade = trades[index]!;
+    const hedgeRecord = hedgeNetRecords[index]!;
+    if (hedgeRecord.quoteId !== trade.quoteId || hedgeRecord.chainId !== trade.chainId ||
+        (index > 0 && comparePnlPositionDescending(trades[index - 1]!, trade) > 0)) {
+      throw new Error("PnL page record order or identity is inconsistent");
+    }
+  }
+
+  const last = trades.at(-1);
+  const nextCursor = page.hasMore && last !== undefined
+    ? encodePnlCursor({ asOf: page.asOf, realizedAt: last.realizedAt, pnlId: last.pnlId })
+    : undefined;
+  return {
+    status: "ok",
+    totalTrades: aggregate.totalTrades,
+    totals: aggregate.totals.map((total) => ({ ...total })),
+    trades,
+    hedgeNet: {
+      ...aggregate.hedgeNet,
+      totals: aggregate.hedgeNet.totals.map((total) => ({ ...total })),
+      records: hedgeNetRecords.map(cloneHedgeNetPnlRecord),
+    },
+    page: {
+      limit: page.limit,
+      returned: trades.length,
+      hasMore: page.hasMore,
+      asOf: page.asOf,
+      ...(nextCursor === undefined ? {} : { nextCursor }),
+    },
   };
 }
 

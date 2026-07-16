@@ -147,6 +147,12 @@ test("RFQClient sends quote, submit, status, health, and metrics requests with e
         valuationAsset: "USDT",
       }],
     },
+    page: {
+      limit: 50,
+      returned: 1,
+      hasMore: false,
+      asOf: "2026-06-27T00:00:01.000Z",
+    },
   };
   const healthResponse = { status: "ok" };
   const readinessResponse = {

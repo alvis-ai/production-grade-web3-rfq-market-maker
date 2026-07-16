@@ -175,6 +175,10 @@ const quoteRouteAttributionMigrationSource = await readFile(
   "backend/src/db/migrations/034-quote-route-attribution.sql",
   "utf8",
 );
+const pnlCursorPaginationMigrationSource = await readFile(
+  "backend/src/db/migrations/035-pnl-cursor-pagination.sql",
+  "utf8",
+);
 const signerAuditStoreSource = await readFile(
   "backend/src/modules/signer/signer-audit.store.ts",
   "utf8",
@@ -1132,6 +1136,7 @@ for (const indexName of [
   "idx_quotes_settlement_event_id",
   "idx_quotes_hedge_order_id",
   "idx_quotes_pnl_id",
+  "idx_quotes_principal_id",
   "idx_market_snapshots_pair_observed_at",
   "idx_risk_decisions_quote_id",
   "uq_settlement_events_canonical_quote_id",
@@ -1142,6 +1147,7 @@ for (const indexName of [
   "uq_hedge_orders_venue_client_order",
   "idx_hedge_orders_recent_failed_risk",
   "idx_pnl_records_realized_at",
+  "idx_pnl_records_page",
   "idx_pnl_records_chain_pair_realized_at",
   "uq_pnl_records_settlement_model",
   "idx_pnl_records_snapshot_id",
@@ -1150,6 +1156,22 @@ for (const indexName of [
   assert.ok(
     new RegExp(`CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+${indexName}\\b`, "i").test(schemaSource),
     `docs/database/schema.sql must define ${indexName}`,
+  );
+}
+
+for (const source of [schemaSource, pnlCursorPaginationMigrationSource]) {
+  assert.ok(
+    /idx_pnl_records_page[\s\S]*realized_at\s+DESC\s*,\s*id\s+DESC[\s\S]*INCLUDE\s*\(\s*created_at\s*,\s*quote_id\s*\)/i.test(source),
+    "PnL cursor pagination must have a deterministic covering keyset index",
+  );
+  assert.ok(
+    /idx_quotes_principal_id[\s\S]*\(\s*principal_id\s*,\s*id\s*\)/i.test(source),
+    "PnL cursor pagination must support principal-scoped quote joins",
+  );
+  assert.ok(
+    source.includes("trg_pnl_records_created_at_immutable") &&
+      source.includes("enforce_pnl_created_at_immutability"),
+    "PnL cursor pagination must keep its creation-time cutoff immutable",
   );
 }
 

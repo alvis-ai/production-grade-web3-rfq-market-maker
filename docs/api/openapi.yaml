@@ -502,8 +502,29 @@ paths:
         quote/base commissions and conservative sub-step residual marks; records
         with third-asset commission stay explicitly unavailable instead of assigning
         an estimated value. Wallet-paid settlement gas remains outside maker PnL.
+        Totals and counters cover the principal's complete asOf creation-time membership, while trades
+        and hedgeNet.records contain only the current newest-first cursor page. The
+        opaque cursor is a traversal token and never an authorization credential.
       tags:
         - PnL
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of trade and hedge-net record pairs returned.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque nextCursor from a previous response.
+          schema:
+            type: string
+            maxLength: 512
+            pattern: "^pnl1_[A-Za-z0-9_-]+$"
       responses:
         "200":
           description: Realized PnL summary
@@ -514,6 +535,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PnlSummary"
+        "400":
+          description: Invalid limit, cursor, or unknown query parameter
+          headers:
+            x-trace-id:
+              $ref: "#/components/headers/TraceId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Missing, malformed, invalid, or expired API key
           headers:
@@ -1982,8 +2012,37 @@ components:
             $ref: "#/components/schemas/HedgeNetPnlTotal"
         records:
           type: array
+          maxItems: 100
+          description: Current cursor page, one-to-one and in the same order as PnlSummary.trades.
           items:
             $ref: "#/components/schemas/HedgeNetPnlRecord"
+    PnlPageMetadata:
+      type: object
+      additionalProperties: false
+      required:
+        - limit
+        - returned
+        - hasMore
+        - asOf
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        returned:
+          type: integer
+          minimum: 0
+          maximum: 100
+        hasMore:
+          type: boolean
+        asOf:
+          type: string
+          format: date-time
+          description: Inclusive immutable pnl_records.created_at cutoff that excludes later inserts and backfills; reorg deletions remain visible.
+        nextCursor:
+          type: string
+          maxLength: 512
+          pattern: "^pnl1_[A-Za-z0-9_-]+$"
     PnlSummary:
       type: object
       additionalProperties: false
@@ -1993,6 +2052,7 @@ components:
         - totals
         - trades
         - hedgeNet
+        - page
       properties:
         status:
           type: string
@@ -2007,10 +2067,14 @@ components:
             $ref: "#/components/schemas/PnlTokenTotal"
         trades:
           type: array
+          maxItems: 100
+          description: Current cursor page ordered by realizedAt DESC, pnlId DESC.
           items:
             $ref: "#/components/schemas/PnlTradeRecord"
         hedgeNet:
           $ref: "#/components/schemas/HedgeNetPnlSummary"
+        page:
+          $ref: "#/components/schemas/PnlPageMetadata"
     HealthResponse:
       type: object
       additionalProperties: false

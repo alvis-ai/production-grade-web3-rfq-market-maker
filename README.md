@@ -69,7 +69,7 @@ POST /submit
 GET /quote/:id
 GET /settlements/:id
 GET /hedges/:id
-GET /pnl
+GET /pnl?limit=50&cursor=...
 GET /admin/quote-control
 PUT /admin/quote-control
 GET /admin/quote-control/pairs/:chainId/:tokenA/:tokenB
@@ -338,7 +338,7 @@ The frontend reads `VITE_RFQ_API_BASE_URL`, `VITE_RFQ_SETTLEMENT_ADDRESS` and `V
 
 Every SDK call keeps connection, response streaming and UTF-8/JSON decoding inside one deadline, while the response cap bounds the input passed to synchronous schema validation. `RFQClientOptions.requestTimeoutMs` defaults to 15 seconds and is bounded from 100 ms through 120 seconds; injected fetch implementations receive the same `AbortSignal`. `maxResponseBytes` defaults to 8 MiB and is bounded from 1 KiB through 16 MiB. Success, error and metrics bodies are streamed through that byte cap before decode, declared oversized bodies are canceled before parsing, and a missing or false `Content-Length` cannot bypass the accumulated-byte check. Timeout and native transport failures become stable status-0 `RFQClientError` values without exposing credential-bearing upstream details.
 
-The gross model is bound to the immutable quote-time market snapshot and aggregates `/pnl` totals by `(chainId, tokenOut)`; the net model uses its separate valuation-token grouping.
+The gross model is bound to the immutable quote-time market snapshot and aggregates `/pnl` totals by `(chainId, tokenOut)`; the net model uses its separate valuation-token grouping. `GET /pnl` returns global principal-scoped totals plus at most 50 newest trade/hedge record pairs by default (hard maximum 100). `page.asOf` is an inclusive cutoff on database-enforced immutable PnL creation time, excluding later inserts and backfills, while `page.nextCursor` advances the `(realizedAt DESC, pnlId DESC)` keyset without offset drift. Valid reorg deletions remain visible immediately. PostgreSQL executes the page and aggregate reads in one read-only repeatable-read transaction; the cursor remains opaque and never replaces API-key authorization.
 
 The hedge status response keeps exact fees separated in `commissionTotals`; consumers must not add quantities whose assets differ.
 

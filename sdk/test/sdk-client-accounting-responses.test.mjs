@@ -197,6 +197,12 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
         reasonCode: "HEDGE_EVIDENCE_MISSING",
       }],
     },
+    page: {
+      limit: 50,
+      returned: 1,
+      hasMore: false,
+      asOf: "2026-06-27T00:00:01.000Z",
+    },
   };
 
   const cases = [
@@ -209,7 +215,7 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
       message: "RFQ PnL summary response returned malformed reconciliationId",
     },
     {
-      payload: { ...basePnlResponse, totalTrades: 2 },
+      payload: { ...basePnlResponse, totalTrades: 0 },
       message: "RFQ PnL summary response returned malformed totalTrades",
     },
     {
@@ -398,6 +404,18 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
       },
       message: "RFQ PnL summary response trade returned malformed realizedAt",
     },
+    {
+      payload: { ...basePnlResponse, page: { ...basePnlResponse.page, returned: 0 } },
+      message: "RFQ PnL summary response page returned malformed limit",
+    },
+    {
+      payload: { ...basePnlResponse, page: { ...basePnlResponse.page, hasMore: true } },
+      message: "RFQ PnL summary response page returned malformed nextCursor",
+    },
+    {
+      payload: { ...basePnlResponse, page: { ...basePnlResponse.page, asOf: "not-a-date" } },
+      message: "RFQ PnL summary response page returned malformed limit",
+    },
   ];
 
   for (const { payload, message } of cases) {
@@ -419,6 +437,61 @@ test("RFQClient rejects malformed PnL summary responses", async () => {
     } finally {
       restoreFetch();
     }
+  }
+});
+
+test("RFQClient sends bounded PnL cursor options and rejects malformed options locally", async () => {
+  const urls = [];
+  const response = {
+    status: "ok",
+    totalTrades: 0,
+    totals: [],
+    trades: [],
+    hedgeNet: {
+      model: "hedge_fill_net_v1",
+      modelDescription: hedgeFillNetPnlModelDescription,
+      totalTrades: 0,
+      completeTrades: 0,
+      pendingTrades: 0,
+      unavailableTrades: 0,
+      totals: [],
+      records: [],
+    },
+    page: {
+      limit: 2,
+      returned: 0,
+      hasMore: false,
+      asOf: "2026-07-16T00:00:00.000Z",
+    },
+  };
+  const restoreFetch = installFetch(async (url) => {
+    urls.push(url);
+    return jsonResponse(200, response);
+  });
+
+  try {
+    const client = new RFQClient("http://127.0.0.1:3000");
+    await client.pnl({ limit: 2, cursor: "pnl1_abc_DEF-123" });
+    assert.equal(urls[0], "http://127.0.0.1:3000/pnl?limit=2&cursor=pnl1_abc_DEF-123");
+
+    for (const options of [
+      null,
+      { limit: 0 },
+      { limit: 101 },
+      { limit: "2" },
+      { cursor: "invalid" },
+      { offset: 1 },
+      Object.create({ cursor: "pnl1_abc" }),
+    ]) {
+      await assert.rejects(client.pnl(options), (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        return true;
+      });
+    }
+    assert.equal(urls.length, 1);
+  } finally {
+    restoreFetch();
   }
 });
 

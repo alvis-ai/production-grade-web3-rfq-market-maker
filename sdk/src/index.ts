@@ -35,6 +35,7 @@ export type {
   RFQClientErrorCode,
   RFQClientFetch,
   RFQClientOptions,
+  PnlRequestOptions,
   QuoteRequestOptions,
 } from "./client.js";
 export type {
@@ -49,6 +50,7 @@ export type {
   HedgeNetPnlUnavailableReason,
   HealthResponse,
   IntString,
+  PnlPageMetadata,
   PnlSummary,
   PnlTokenTotal,
   PnlTradeRecord,

@@ -202,6 +202,62 @@ test("RFQ API maps PnL summary store failures to structured errors", async () =>
   }
 });
 
+test("RFQ API validates PnL pagination before calling the principal-scoped store", async () => {
+  const calls = [];
+  const server = buildServer({
+    logger: false,
+    pnlService: {
+      checkHealth() {},
+      recordSettlement() { throw new Error("not used"); },
+      summary(principalId, page) {
+        calls.push({ principalId, page });
+        return {
+          status: "ok",
+          totalTrades: 0,
+          totals: [],
+          trades: [],
+          hedgeNet: {
+            model: "hedge_fill_net_v1",
+            modelDescription: "Net hedge execution PnL in the route quote asset using exact fills, quote/base commissions, and conservatively marked sub-step residual; third-asset commissions are unavailable",
+            totalTrades: 0,
+            completeTrades: 0,
+            pendingTrades: 0,
+            unavailableTrades: 0,
+            totals: [],
+            records: [],
+          },
+          page: { limit: page.limit, returned: 0, hasMore: false, asOf: "2026-07-16T00:00:00.000Z" },
+        };
+      },
+    },
+  });
+  await server.ready();
+
+  try {
+    const valid = await injectJson(server, "GET", "/pnl?limit=2");
+    assert.equal(valid.statusCode, 200);
+    assert.equal(valid.body.page.limit, 2);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].principalId, "local");
+    assert.deepEqual(calls[0].page, { limit: 2 });
+
+    for (const url of [
+      "/pnl?limit=0",
+      "/pnl?limit=01",
+      "/pnl?limit=1&limit=2",
+      "/pnl?cursor=invalid",
+      "/pnl?offset=1",
+    ]) {
+      const response = await injectJson(server, "GET", url);
+      assert.equal(response.statusCode, 400);
+      assert.equal(response.body.code, "INVALID_REQUEST");
+    }
+    assert.equal(calls.length, 1);
+  } finally {
+    await server.close();
+  }
+});
+
 async function injectJson(server, method, url, payload, headers = {}) {
   const requestHeaders = { ...headers };
   if (payload) {

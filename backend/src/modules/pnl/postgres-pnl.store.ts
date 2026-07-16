@@ -1,30 +1,41 @@
 import pg from "pg";
 import {
-  quoteSnapshotPnlModelDescription,
   hedgeFillNetPnlModelDescription,
   type Address,
-  type HedgeNetPnlRecord,
-  type IntString,
+  type HedgeNetPnlSummary,
+  type HedgeNetPnlTotal,
+  type PaginatedPnlSummaryResponse,
   type PnlSummaryResponse,
+  type PnlTokenTotal,
   type PnlTradeRecord,
-  type UIntString,
 } from "../../shared/types/rfq.js";
-import { isCanonicalUtcIsoTimestamp } from "../../shared/validation/timestamp.js";
-import { normalizeHumanPrice } from "../pricing/price-normalization.js";
 import { assertPrincipalId } from "../../shared/validation/principal-id.js";
 import {
   buildPnlSummary,
+  buildPaginatedPnlSummary,
   buildPnlTradeRecord,
   clonePnlTradeRecord,
   matchesPnlInput,
   normalizeRemovePnlRecordInput,
-  unavailableHedgeRecord,
   type PnlStore,
   type PnlValuationProvider,
   type RecordPnlInput,
   type RemovePnlRecordInput,
   type RemovePnlRecordResult,
 } from "./pnl.service.js";
+import { assertPnlPageRequest, type PnlPageRequest } from "./pnl-pagination.js";
+import {
+  normalizeSignedDecimal,
+  parseAddress,
+  parseHedgeNetPnlRow,
+  parseIntString,
+  parsePnlRow,
+  parsePositiveSafeInteger,
+  parseSafeInteger,
+  parseTimestamp,
+  parseVenueAsset,
+  pnlAttributionMatches,
+} from "./postgres-pnl-record.js";
 
 const pnlColumns = `
   id, quote_id, settlement_event_id, snapshot_id, chain_id, user_address, token_in, token_out,
@@ -145,10 +156,23 @@ export class PostgresPnlStore implements PnlStore {
     }
   }
 
-  async summary(principalId?: string): Promise<PnlSummaryResponse> {
+  async summary(): Promise<PnlSummaryResponse>;
+  async summary(principalId: string): Promise<PnlSummaryResponse>;
+  async summary(principalId: string, page: PnlPageRequest): Promise<PaginatedPnlSummaryResponse>;
+  async summary(
+    principalId?: string,
+    page?: PnlPageRequest,
+  ): Promise<PnlSummaryResponse | PaginatedPnlSummaryResponse> {
     if (principalId !== undefined) assertPrincipalId(principalId, "Postgres PnL summary principalId");
+    if (page !== undefined) {
+      if (principalId === undefined) throw new Error("Postgres PnL principalId is required for paginated summaries");
+      assertPnlPageRequest(page);
+    }
     const client = await this.pool.connect();
     try {
+      if (page !== undefined && principalId !== undefined) {
+        return await this.paginatedSummary(client, principalId, page);
+      }
       const result = await client.query(
         `SELECT ${qualifiedPnlColumns}, ${hedgeNetColumns}
          FROM pnl_records pnl
@@ -164,102 +188,231 @@ export class PostgresPnlStore implements PnlStore {
       client.release();
     }
   }
+
+  private async paginatedSummary(
+    client: pg.PoolClient,
+    principalId: string,
+    page: PnlPageRequest,
+  ): Promise<PaginatedPnlSummaryResponse> {
+    let transactionOpen = false;
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      transactionOpen = true;
+      const asOf = page.cursor?.asOf ?? await readTransactionTimestamp(client);
+      const boundaryRealizedAt = page.cursor?.realizedAt ?? null;
+      const boundaryPnlId = page.cursor?.pnlId ?? null;
+      const pageResult = await client.query(
+        `SELECT ${qualifiedPnlColumns}, ${hedgeNetColumns}
+         FROM pnl_records pnl
+         JOIN quotes quote ON quote.id = pnl.quote_id
+         LEFT JOIN hedge_orders hedge ON hedge.quote_id = pnl.quote_id
+         WHERE quote.principal_id = $1
+           AND pnl.created_at <= $2::timestamptz
+           AND (
+             $3::timestamptz IS NULL
+             OR pnl.realized_at < $3::timestamptz
+             OR (pnl.realized_at = $3::timestamptz AND pnl.id < $4)
+           )
+         ORDER BY pnl.realized_at DESC, pnl.id DESC
+         LIMIT $5`,
+        [principalId, asOf, boundaryRealizedAt, boundaryPnlId, page.limit + 1],
+      );
+      if (pageResult.rows.length > page.limit + 1) {
+        throw new Error("Postgres PnL page query exceeded its requested bound");
+      }
+      const selectedRows = pageResult.rows.slice(0, page.limit);
+      const trades = selectedRows.map(parsePnlRow);
+      const hedgeRecords = selectedRows.map((row, index) => parseHedgeNetPnlRow(row, trades[index]!));
+
+      const grossResult = await client.query(
+        `SELECT pnl.chain_id, lower(pnl.token_out) AS token_out,
+                count(*)::text AS total_trades,
+                sum(pnl.gross_pnl_token_out)::text AS gross_pnl_token_out
+         FROM pnl_records pnl
+         JOIN quotes quote ON quote.id = pnl.quote_id
+         WHERE quote.principal_id = $1 AND pnl.created_at <= $2::timestamptz
+         GROUP BY pnl.chain_id, lower(pnl.token_out)
+         ORDER BY pnl.chain_id ASC, lower(pnl.token_out) ASC`,
+        [principalId, asOf],
+      );
+      const gross = parseGrossPnlAggregates(grossResult.rows);
+
+      const hedgeCountsResult = await client.query(
+        `WITH classified AS (
+           SELECT CASE
+             WHEN hedge.id IS NULL OR hedge.route_accounting_version IS NULL THEN 'unavailable'
+             WHEN hedge.route_accounting_version IS DISTINCT FROM 'venue-assets-v1'
+               OR hedge.hedge_net_pnl_model IS DISTINCT FROM 'hedge_fill_net_v1'
+               OR hedge.hedge_net_pnl_model_description IS DISTINCT FROM $3 THEN 'invalid'
+             WHEN hedge.venue_quote_asset IS NULL OR hedge.venue_quote_token_address IS NULL THEN 'invalid'
+             WHEN hedge.hedge_net_pnl_status = 'pending'
+               AND hedge.status = 'failed'
+               AND hedge.filled_amount IS NULL
+               AND hedge.fee_reconciliation_status IS NULL THEN 'unavailable'
+             WHEN hedge.hedge_net_pnl_status IN ('pending', 'complete', 'unavailable')
+               THEN hedge.hedge_net_pnl_status
+             ELSE 'invalid'
+           END AS effective_status
+           FROM pnl_records pnl
+           JOIN quotes quote ON quote.id = pnl.quote_id
+           LEFT JOIN hedge_orders hedge ON hedge.quote_id = pnl.quote_id
+           WHERE quote.principal_id = $1 AND pnl.created_at <= $2::timestamptz
+         )
+         SELECT count(*)::text AS total_trades,
+                count(*) FILTER (WHERE effective_status = 'complete')::text AS complete_trades,
+                count(*) FILTER (WHERE effective_status = 'pending')::text AS pending_trades,
+                count(*) FILTER (WHERE effective_status = 'unavailable')::text AS unavailable_trades
+         FROM classified`,
+        [principalId, asOf, hedgeFillNetPnlModelDescription],
+      );
+      const hedgeCounts = parseHedgeNetCounts(hedgeCountsResult.rows);
+
+      const hedgeTotalsResult = await client.query(
+        `SELECT pnl.chain_id,
+                lower(hedge.venue_quote_token_address) AS valuation_token,
+                hedge.venue_quote_asset AS valuation_asset,
+                count(*)::text AS total_trades,
+                sum(hedge.hedge_net_pnl_quote_quantity)::text AS net_pnl_quote_quantity
+         FROM pnl_records pnl
+         JOIN quotes quote ON quote.id = pnl.quote_id
+         JOIN hedge_orders hedge ON hedge.quote_id = pnl.quote_id
+         WHERE quote.principal_id = $1
+           AND pnl.created_at <= $2::timestamptz
+           AND hedge.route_accounting_version = 'venue-assets-v1'
+           AND hedge.hedge_net_pnl_model = 'hedge_fill_net_v1'
+           AND hedge.hedge_net_pnl_model_description = $3
+           AND hedge.hedge_net_pnl_status = 'complete'
+         GROUP BY pnl.chain_id, lower(hedge.venue_quote_token_address), hedge.venue_quote_asset
+         ORDER BY pnl.chain_id ASC, lower(hedge.venue_quote_token_address) ASC, hedge.venue_quote_asset ASC`,
+        [principalId, asOf, hedgeFillNetPnlModelDescription],
+      );
+      const hedgeTotals = parseHedgeNetTotals(hedgeTotalsResult.rows);
+      const aggregate: PnlSummaryResponse = {
+        status: "ok",
+        totalTrades: gross.totalTrades,
+        totals: gross.totals,
+        trades: [],
+        hedgeNet: {
+          model: "hedge_fill_net_v1",
+          modelDescription: hedgeFillNetPnlModelDescription,
+          ...hedgeCounts,
+          totals: hedgeTotals,
+          records: [],
+        },
+      };
+      const response = buildPaginatedPnlSummary(aggregate, trades, hedgeRecords, {
+        limit: page.limit,
+        asOf,
+        hasMore: pageResult.rows.length > page.limit,
+      });
+      await client.query("COMMIT");
+      transactionOpen = false;
+      return response;
+    } catch (error) {
+      if (transactionOpen) {
+        try {
+          await client.query("ROLLBACK");
+        } catch {
+          // Preserve the query or validation failure that caused the rollback.
+        }
+      }
+      throw error;
+    }
+  }
 }
 
-function parseHedgeNetPnlRow(row: unknown, trade: PnlTradeRecord): HedgeNetPnlRecord {
-  if (typeof row !== "object" || row === null || Array.isArray(row)) {
-    throw new Error("Postgres hedge net PnL row must be an object");
+async function readTransactionTimestamp(client: pg.PoolClient): Promise<string> {
+  const result = await client.query("SELECT transaction_timestamp() AS as_of");
+  if (result.rows.length !== 1) throw new Error("Postgres PnL transaction timestamp query returned invalid rows");
+  return parseTimestamp(result.rows[0]?.as_of, "as_of");
+}
+
+function parseGrossPnlAggregates(rows: unknown[]): { totalTrades: number; totals: PnlTokenTotal[] } {
+  const totals: PnlTokenTotal[] = [];
+  const keys = new Set<string>();
+  let totalTrades = 0;
+  for (const row of rows) {
+    const value = parseAggregateRow(row, "gross aggregate");
+    const chainId = parsePositiveSafeInteger(value.chain_id, "aggregate chain_id");
+    const tokenOut = parseAddress(value.token_out, "aggregate token_out").toLowerCase() as Address;
+    const count = parsePositiveSafeInteger(value.total_trades, "aggregate total_trades");
+    const key = `${chainId}:${tokenOut}`;
+    if (keys.has(key)) throw new Error("Postgres PnL gross aggregates contain duplicate groups");
+    keys.add(key);
+    totalTrades = addSafeCount(totalTrades, count, "gross aggregate totalTrades");
+    totals.push({
+      chainId,
+      tokenOut,
+      totalTrades: count,
+      grossPnlTokenOut: parseIntString(value.gross_pnl_token_out, "aggregate gross_pnl_token_out"),
+    });
   }
-  const value = row as Record<string, unknown>;
-  if (value.hedge_order_id === null || value.hedge_order_id === undefined) {
-    return unavailableHedgeRecord(trade, "HEDGE_EVIDENCE_MISSING");
-  }
-  const hedgeOrderId = parseIdentifier(value.hedge_order_id, "hedge_order_id");
-  if (value.hedge_route_accounting_version === null || value.hedge_route_accounting_version === undefined) {
-    return unavailableHedgeRecord(trade, "LEGACY_ROUTE_ACCOUNTING_UNAVAILABLE", hedgeOrderId);
-  }
-  if (value.hedge_route_accounting_version !== "venue-assets-v1" ||
-      value.hedge_net_model !== "hedge_fill_net_v1" ||
-      value.hedge_net_model_description !== hedgeFillNetPnlModelDescription) {
-    throw new Error("Postgres hedge net PnL accounting metadata is invalid");
-  }
-  const valuationToken = parseAddress(value.hedge_valuation_token, "hedge_valuation_token").toLowerCase() as Address;
-  const valuationAsset = parseVenueAsset(value.hedge_valuation_asset, "hedge_valuation_asset");
-  const common = {
-    quoteId: trade.quoteId,
-    chainId: trade.chainId,
-    hedgeOrderId,
-    model: "hedge_fill_net_v1" as const,
-    modelDescription: hedgeFillNetPnlModelDescription,
-    valuationToken,
-    valuationAsset,
+  totals.sort((left, right) => left.chainId - right.chainId || left.tokenOut.localeCompare(right.tokenOut));
+  return { totalTrades, totals };
+}
+
+function parseHedgeNetCounts(rows: unknown[]): Pick<
+  HedgeNetPnlSummary,
+  "totalTrades" | "completeTrades" | "pendingTrades" | "unavailableTrades"
+> {
+  if (rows.length !== 1) throw new Error("Postgres hedge net PnL counts returned invalid rows");
+  const value = parseAggregateRow(rows[0], "hedge count aggregate");
+  const result = {
+    totalTrades: parseNonNegativeSafeInteger(value.total_trades, "hedge aggregate total_trades"),
+    completeTrades: parseNonNegativeSafeInteger(value.complete_trades, "hedge aggregate complete_trades"),
+    pendingTrades: parseNonNegativeSafeInteger(value.pending_trades, "hedge aggregate pending_trades"),
+    unavailableTrades: parseNonNegativeSafeInteger(value.unavailable_trades, "hedge aggregate unavailable_trades"),
   };
-  if (value.hedge_net_status === "pending") {
-    if (value.hedge_status === "failed" &&
-        (value.hedge_filled_amount === null || value.hedge_filled_amount === undefined) &&
-        (value.hedge_fee_reconciliation_status === null || value.hedge_fee_reconciliation_status === undefined)) {
-      return { ...common, status: "unavailable", reasonCode: "HEDGE_NOT_EXECUTED" };
-    }
-    return { ...common, status: "pending" };
+  if (result.completeTrades + result.pendingTrades + result.unavailableTrades !== result.totalTrades) {
+    throw new Error("Postgres hedge net PnL counts are inconsistent");
   }
-  if (value.hedge_net_status === "complete") {
-    return {
-      ...common,
-      status: "complete",
-      netPnlQuoteQuantity: normalizeSignedDecimal(value.hedge_net_quantity, "hedge_net_quantity"),
-      realizedAt: parseTimestamp(value.hedge_net_realized_at, "hedge_net_realized_at"),
-    };
-  }
-  if (value.hedge_net_status === "unavailable") {
-    const reasonCode = value.hedge_net_reason_code;
-    if (reasonCode !== "UNVALUED_COMMISSION_ASSET" && reasonCode !== "HEDGE_NOT_EXECUTED" &&
-        reasonCode !== "PARTIAL_HEDGE_UNCLOSED") {
-      throw new Error("Postgres hedge net PnL reason code is invalid");
-    }
-    const assets = parseStringArray(value.hedge_unvalued_commission_assets, "hedge_unvalued_commission_assets");
-    if ((reasonCode === "UNVALUED_COMMISSION_ASSET") !== (assets.length > 0)) {
-      throw new Error("Postgres hedge net PnL unavailable assets are inconsistent");
-    }
-    return {
-      ...common,
-      status: "unavailable",
-      reasonCode,
-      ...(assets.length === 0 ? {} : { unvaluedCommissionAssets: assets }),
-      realizedAt: parseTimestamp(value.hedge_net_realized_at, "hedge_net_realized_at"),
-    };
-  }
-  throw new Error("Postgres hedge net PnL status is invalid");
+  return result;
 }
 
-function parseVenueAsset(value: unknown, field: string): string {
-  if (typeof value !== "string" || !/^[A-Z0-9._-]{1,32}$/.test(value)) {
-    throw new Error(`Postgres PnL row ${field} is invalid`);
+function parseHedgeNetTotals(rows: unknown[]): HedgeNetPnlTotal[] {
+  const totals: HedgeNetPnlTotal[] = [];
+  const keys = new Set<string>();
+  for (const row of rows) {
+    const value = parseAggregateRow(row, "hedge total aggregate");
+    const chainId = parsePositiveSafeInteger(value.chain_id, "hedge aggregate chain_id");
+    const valuationToken = parseAddress(value.valuation_token, "hedge aggregate valuation_token")
+      .toLowerCase() as Address;
+    const valuationAsset = parseVenueAsset(value.valuation_asset, "hedge aggregate valuation_asset");
+    const key = `${chainId}:${valuationToken}:${valuationAsset}`;
+    if (keys.has(key)) throw new Error("Postgres hedge net PnL totals contain duplicate groups");
+    keys.add(key);
+    totals.push({
+      chainId,
+      valuationToken,
+      valuationAsset,
+      totalTrades: parsePositiveSafeInteger(value.total_trades, "hedge aggregate total_trades"),
+      netPnlQuoteQuantity: normalizeSignedDecimal(
+        value.net_pnl_quote_quantity,
+        "hedge aggregate net_pnl_quote_quantity",
+      ),
+    });
   }
-  return value;
+  totals.sort((left, right) => left.chainId - right.chainId ||
+    left.valuationToken.localeCompare(right.valuationToken) || left.valuationAsset.localeCompare(right.valuationAsset));
+  return totals;
 }
 
-function normalizeSignedDecimal(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.length > 98) {
-    throw new Error(`Postgres PnL row ${field} must be a signed decimal`);
+function parseAggregateRow(value: unknown, label: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Postgres PnL ${label} row must be an object`);
   }
-  const match = value.match(/^(-?)(0|[1-9][0-9]*)(?:\.([0-9]{1,18}))?$/);
-  if (!match) throw new Error(`Postgres PnL row ${field} must be a signed decimal`);
-  const fraction = (match[3] ?? "").replace(/0+$/, "");
-  const normalized = `${match[1]}${match[2]}${fraction.length === 0 ? "" : `.${fraction}`}`;
-  return normalized === "-0" ? "0" : normalized;
+  return value as Record<string, unknown>;
 }
 
-function parseStringArray(value: unknown, field: string): string[] {
-  if (!Array.isArray(value) || value.length > 32) throw new Error(`Postgres PnL row ${field} must be an array`);
-  const result = value.map((item) => {
-    if (typeof item !== "string" || !/^[A-Z0-9._-]{1,32}$/.test(item)) {
-      throw new Error(`Postgres PnL row ${field} contains an invalid asset`);
-    }
-    return item;
-  });
-  if (new Set(result).size !== result.length || result.some((item, index) => index > 0 && result[index - 1]! > item)) {
-    throw new Error(`Postgres PnL row ${field} must be unique and sorted`);
-  }
+function parseNonNegativeSafeInteger(value: unknown, field: string): number {
+  const parsed = parseSafeInteger(value, field);
+  if (parsed < 0) throw new Error(`Postgres PnL row ${field} must be non-negative`);
+  return parsed;
+}
+
+function addSafeCount(left: number, right: number, field: string): number {
+  const result = left + right;
+  if (!Number.isSafeInteger(result)) throw new Error(`Postgres PnL ${field} must be a safe integer`);
   return result;
 }
 
@@ -289,156 +442,6 @@ function pnlParams(record: PnlTradeRecord): unknown[] {
     record.modelDescription,
     record.realizedAt,
   ];
-}
-
-function pnlAttributionMatches(left: PnlTradeRecord, right: PnlTradeRecord): boolean {
-  return left.pnlId === right.pnlId &&
-    left.settlementEventId === right.settlementEventId &&
-    left.snapshotId === right.snapshotId &&
-    left.midPrice === right.midPrice &&
-    left.tokenInDecimals === right.tokenInDecimals &&
-    left.tokenOutDecimals === right.tokenOutDecimals &&
-    left.fairAmountOut === right.fairAmountOut &&
-    left.valuationObservedAt === right.valuationObservedAt &&
-    left.grossPnlTokenOut === right.grossPnlTokenOut &&
-    left.grossPnlBps === right.grossPnlBps &&
-    left.model === right.model &&
-    left.modelDescription === right.modelDescription &&
-    left.realizedAt === right.realizedAt;
-}
-
-function parsePnlRow(row: unknown): PnlTradeRecord {
-  if (typeof row !== "object" || row === null || Array.isArray(row)) {
-    throw new Error("Postgres PnL row must be an object");
-  }
-  const value = row as Record<string, unknown>;
-  if (value.model !== "quote_snapshot_edge_v1") {
-    throw new Error("Postgres PnL row model is invalid");
-  }
-  if (value.model_description !== quoteSnapshotPnlModelDescription) {
-    throw new Error("Postgres PnL row model_description is invalid");
-  }
-  const record: PnlTradeRecord = {
-    pnlId: parseIdentifier(value.id, "id"),
-    quoteId: parseIdentifier(value.quote_id, "quote_id"),
-    settlementEventId: parseIdentifier(value.settlement_event_id, "settlement_event_id"),
-    snapshotId: parseIdentifier(value.snapshot_id, "snapshot_id"),
-    chainId: parsePositiveSafeInteger(value.chain_id, "chain_id"),
-    user: parseAddress(value.user_address, "user_address"),
-    tokenIn: parseAddress(value.token_in, "token_in"),
-    tokenOut: parseAddress(value.token_out, "token_out"),
-    amountIn: parsePositiveUInt(value.amount_in, "amount_in"),
-    amountOut: parsePositiveUInt(value.amount_out, "amount_out"),
-    minAmountOut: parsePositiveUInt(value.min_amount_out, "min_amount_out"),
-    nonce: parsePositiveUInt(value.nonce, "nonce"),
-    deadline: parsePositiveSafeInteger(value.deadline, "deadline"),
-    midPrice: parsePositiveDecimal(value.mid_price, "mid_price"),
-    tokenInDecimals: parseTokenDecimals(value.token_in_decimals, "token_in_decimals"),
-    tokenOutDecimals: parseTokenDecimals(value.token_out_decimals, "token_out_decimals"),
-    fairAmountOut: parsePositiveUInt(value.fair_amount_out, "fair_amount_out"),
-    valuationObservedAt: parseTimestamp(value.valuation_observed_at, "valuation_observed_at"),
-    grossPnlTokenOut: parseIntString(value.gross_pnl_token_out, "gross_pnl_token_out"),
-    grossPnlBps: parseSafeInteger(value.gross_pnl_bps, "gross_pnl_bps"),
-    model: value.model,
-    modelDescription: value.model_description,
-    realizedAt: parseTimestamp(value.realized_at, "realized_at"),
-  };
-  const expected = buildPnlTradeRecord({
-    quoteId: record.quoteId,
-    settlementEventId: record.settlementEventId,
-    snapshotId: record.snapshotId,
-    realizedAt: record.realizedAt,
-    quote: {
-      user: record.user,
-      tokenIn: record.tokenIn,
-      tokenOut: record.tokenOut,
-      amountIn: record.amountIn,
-      amountOut: record.amountOut,
-      minAmountOut: record.minAmountOut,
-      nonce: record.nonce,
-      deadline: record.deadline,
-      chainId: record.chainId,
-    },
-  }, {
-    snapshotId: record.snapshotId,
-    midPrice: record.midPrice,
-    tokenInDecimals: record.tokenInDecimals,
-    tokenOutDecimals: record.tokenOutDecimals,
-    observedAt: record.valuationObservedAt,
-  });
-  if (!pnlAttributionMatches(record, expected)) {
-    throw new Error("Postgres PnL row attribution is inconsistent");
-  }
-  return record;
-}
-
-function parseIdentifier(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.length === 0 || value.length > 128 || !/^[A-Za-z0-9_:-]+$/.test(value)) {
-    throw new Error(`Postgres PnL row ${field} must be a safe identifier`);
-  }
-  return value;
-}
-
-function parseAddress(value: unknown, field: string): Address {
-  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
-    throw new Error(`Postgres PnL row ${field} must be a 20-byte hex address`);
-  }
-  return value as Address;
-}
-
-function parsePositiveUInt(value: unknown, field: string): UIntString {
-  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
-    throw new Error(`Postgres PnL row ${field} must be a canonical positive uint string`);
-  }
-  return value as UIntString;
-}
-
-function parsePositiveDecimal(value: unknown, field: string): string {
-  if (typeof value !== "string") {
-    throw new Error(`Postgres PnL row ${field} must be a positive canonical decimal`);
-  }
-  try {
-    normalizeHumanPrice(value);
-  } catch {
-    throw new Error(`Postgres PnL row ${field} must be a positive canonical decimal`);
-  }
-  return value;
-}
-
-function parseIntString(value: unknown, field: string): IntString {
-  if (typeof value !== "string" || !/^(0|-?[1-9][0-9]*)$/.test(value)) {
-    throw new Error(`Postgres PnL row ${field} must be a canonical integer string`);
-  }
-  return value as IntString;
-}
-
-function parsePositiveSafeInteger(value: unknown, field: string): number {
-  const parsed = parseSafeInteger(value, field);
-  if (parsed <= 0) throw new Error(`Postgres PnL row ${field} must be positive`);
-  return parsed;
-}
-
-function parseTokenDecimals(value: unknown, field: string): number {
-  const parsed = parseSafeInteger(value, field);
-  if (parsed < 0 || parsed > 36) {
-    throw new Error(`Postgres PnL row ${field} must be between 0 and 36`);
-  }
-  return parsed;
-}
-
-function parseSafeInteger(value: unknown, field: string): number {
-  const parsed = typeof value === "number" ? value :
-    typeof value === "string" && /^(0|-?[1-9][0-9]*)$/.test(value) ? Number(value) : Number.NaN;
-  if (!Number.isSafeInteger(parsed)) throw new Error(`Postgres PnL row ${field} must be a safe integer`);
-  return parsed;
-}
-
-function parseTimestamp(value: unknown, field: string): string {
-  const timestamp = value instanceof Date ? value.toISOString() : value;
-  if (typeof timestamp !== "string" || !isCanonicalUtcIsoTimestamp(timestamp)) {
-    throw new Error(`Postgres PnL row ${field} must be a canonical UTC ISO timestamp`);
-  }
-  return timestamp;
 }
 
 function assertPool(pool: unknown): asserts pool is pg.Pool {

@@ -10,6 +10,11 @@ export interface QuoteRequestOptions {
   readonly idempotencyKey: string;
 }
 
+export interface PnlRequestOptions {
+  readonly limit?: number;
+  readonly cursor?: string;
+}
+
 export interface RFQClientOptions {
   readonly fetch?: RFQClientFetch;
   readonly traceId?: string | RFQClientTraceIdProvider;
@@ -33,6 +38,7 @@ const maxStatusIdentifierLength = 128;
 const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const apiKeyPattern = /^[A-Za-z0-9_-]{3,64}\.[A-Za-z0-9_-]{32,128}$/;
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{16,128}$/;
+const pnlCursorPattern = /^pnl1_[A-Za-z0-9_-]+$/;
 const clientOptionFields = ["fetch", "traceId", "apiKey", "requestTimeoutMs", "maxResponseBytes"] as const;
 const defaultRequestTimeoutMs = 15_000;
 const defaultMaxResponseBytes = 8 * 1_024 * 1_024;
@@ -95,6 +101,29 @@ export function assertQuoteRequestOptions(options: unknown): QuoteRequestOptions
     throw new RFQClientError("RFQ quote idempotencyKey must contain 16-128 safe ASCII characters", 0);
   }
   return { idempotencyKey: options.idempotencyKey };
+}
+
+export function assertPnlRequestOptions(options: unknown): PnlRequestOptions | undefined {
+  if (options === undefined) return undefined;
+  if (!isRecord(options)) throw new RFQClientError("RFQ PnL options must be an object", 0);
+  const keys = Object.keys(options);
+  if (keys.some((key) => key !== "limit" && key !== "cursor") ||
+      ("limit" in options && !Object.prototype.hasOwnProperty.call(options, "limit")) ||
+      ("cursor" in options && !Object.prototype.hasOwnProperty.call(options, "cursor"))) {
+    throw new RFQClientError("RFQ PnL options may contain only limit and cursor", 0);
+  }
+  if (options.limit !== undefined &&
+      (!Number.isSafeInteger(options.limit) || Number(options.limit) < 1 || Number(options.limit) > 100)) {
+    throw new RFQClientError("RFQ PnL limit must be an integer from 1 to 100", 0);
+  }
+  if (options.cursor !== undefined &&
+      (typeof options.cursor !== "string" || options.cursor.length > 512 || !pnlCursorPattern.test(options.cursor))) {
+    throw new RFQClientError("RFQ PnL cursor is invalid", 0);
+  }
+  return {
+    ...(options.limit === undefined ? {} : { limit: Number(options.limit) }),
+    ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+  };
 }
 
 export function assertQuoteRequest(request: QuoteRequest): void {

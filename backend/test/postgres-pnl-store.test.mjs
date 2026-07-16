@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PostgresPnlStore } from "../dist/modules/pnl/postgres-pnl.store.js";
+import { parsePnlPageQuery } from "../dist/modules/pnl/pnl-pagination.js";
 import {
   createTestPnlValuationProvider,
   pnlInput,
@@ -100,6 +101,80 @@ test("PostgresPnlStore scopes summary rows by quote principal", async () => {
   assert.match(client.queries[0].sql, /JOIN quotes quote ON quote\.id = pnl\.quote_id/);
   assert.match(client.queries[0].sql, /WHERE quote\.principal_id = \$1/);
   assert.deepEqual(client.queries[0].params, ["institution_a"]);
+});
+
+test("PostgresPnlStore bounds principal pages and keeps global aggregates in a read-only snapshot", async () => {
+  const newer = pnlRow({
+    id: "pnl_q_newer",
+    quote_id: "q_newer",
+    settlement_event_id: "se_q_newer",
+    snapshot_id: "snapshot_q_newer",
+    nonce: "2",
+    realized_at: "2026-07-11T00:00:02.000Z",
+  });
+  const older = pnlRow();
+  const handler = async (sql) => {
+    if (sql === "SELECT transaction_timestamp() AS as_of") {
+      return { rows: [{ as_of: new Date("2026-07-16T00:00:00.000Z") }], rowCount: 1 };
+    }
+    if (sql.includes("ORDER BY pnl.realized_at DESC, pnl.id DESC")) {
+      return { rows: [newer, older], rowCount: 2 };
+    }
+    if (sql.includes("sum(pnl.gross_pnl_token_out)")) {
+      return {
+        rows: [{ chain_id: "1", token_out: quote.tokenOut, total_trades: "2", gross_pnl_token_out: "20" }],
+        rowCount: 1,
+      };
+    }
+    if (sql.startsWith("WITH classified AS")) {
+      return {
+        rows: [{ total_trades: "2", complete_trades: "0", pending_trades: "0", unavailable_trades: "2" }],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes("sum(hedge.hedge_net_pnl_quote_quantity)")) return { rows: [], rowCount: 0 };
+    return { rows: [], rowCount: 0 };
+  };
+  const { pool, client } = fakePool(handler);
+
+  const summary = await new PostgresPnlStore(pool, valuationProvider).summary("institution_a", { limit: 1 });
+
+  assert.equal(summary.totalTrades, 2);
+  assert.deepEqual(summary.trades.map(({ quoteId }) => quoteId), ["q_newer"]);
+  assert.equal(summary.totals[0].totalTrades, 2);
+  assert.equal(summary.hedgeNet.unavailableTrades, 2);
+  assert.deepEqual(summary.hedgeNet.records.map(({ quoteId }) => quoteId), ["q_newer"]);
+  assert.equal(summary.page.limit, 1);
+  assert.equal(summary.page.returned, 1);
+  assert.equal(summary.page.hasMore, true);
+  assert.match(summary.page.nextCursor, /^pnl1_[A-Za-z0-9_-]+$/);
+  const decoded = parsePnlPageQuery({ limit: "1", cursor: summary.page.nextCursor });
+  assert.equal(decoded.cursor.asOf, summary.page.asOf);
+  assert.equal(decoded.cursor.pnlId, "pnl_q_newer");
+
+  assert.equal(client.queries[0].sql, "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+  const pageQuery = client.queries.find(({ sql }) => sql.includes("ORDER BY pnl.realized_at DESC, pnl.id DESC"));
+  assert.deepEqual(pageQuery.params, ["institution_a", summary.page.asOf, null, null, 2]);
+  assert.match(pageQuery.sql, /pnl\.created_at <= \$2::timestamptz/);
+  assert.equal(client.queries.at(-1).sql, "COMMIT");
+  assert.equal(client.released, true);
+
+  const continuationPool = fakePool(handler);
+  await new PostgresPnlStore(continuationPool.pool, valuationProvider).summary("institution_a", decoded);
+  assert.equal(
+    continuationPool.client.queries.some(({ sql }) => sql === "SELECT transaction_timestamp() AS as_of"),
+    false,
+  );
+  const continuationQuery = continuationPool.client.queries.find(
+    ({ sql }) => sql.includes("ORDER BY pnl.realized_at DESC, pnl.id DESC"),
+  );
+  assert.deepEqual(continuationQuery.params, [
+    "institution_a",
+    summary.page.asOf,
+    decoded.cursor.realizedAt,
+    decoded.cursor.pnlId,
+    2,
+  ]);
 });
 
 test("PostgresPnlStore aggregates completed hedge-fill net PnL without treating unavailable rows as zero", async () => {

@@ -21,7 +21,8 @@ const schemaMappings = [
   ["SettlementEventStatusResponse", "SettlementEventStatus", "SettlementEventStatus"],
   ["PnlTradeRecord", "PnlTradeRecord", "PnlTradeRecord"],
   ["PnlTokenTotal", "PnlTokenTotal", "PnlTokenTotal"],
-  ["PnlSummaryResponse", "PnlSummary", "PnlSummary"],
+  ["PnlPageMetadata", "PnlPageMetadata", "PnlPageMetadata"],
+  ["PaginatedPnlSummaryResponse", "PnlSummary", "PnlSummary"],
 ];
 const closedOpenApiSchemas = [
   "QuoteRequest",
@@ -34,6 +35,7 @@ const closedOpenApiSchemas = [
   "SettlementEventStatus",
   "PnlTradeRecord",
   "PnlTokenTotal",
+  "PnlPageMetadata",
   "PnlSummary",
   "HealthResponse",
   "ReadinessResponse",
@@ -48,7 +50,7 @@ const inlineEnumMappings = [
   ["SettlementEventStatusResponse", "SettlementEventStatus", "SettlementEventStatus", "status"],
   ["PnlTradeRecord", "PnlTradeRecord", "PnlTradeRecord", "model"],
   ["PnlTradeRecord", "PnlTradeRecord", "PnlTradeRecord", "modelDescription"],
-  ["PnlSummaryResponse", "PnlSummary", "PnlSummary", "status"],
+  ["PaginatedPnlSummaryResponse", "PnlSummary", "PnlSummary", "status"],
 ];
 const sdkRuntimeEnumMappings = [
   ["SubmitQuoteResponse", "status", "assertSubmitQuoteResponse"],
