@@ -56,6 +56,7 @@ jobs:
         env:
           NODE_ENV: test
           DATABASE_URL: "postgres://rfq:rfq@127.0.0.1:5432/rfq_market_maker?minPool=2&maxPool=8"
+          RFQ_MIGRATION_TIMEOUT_MS: "60000"
         run: pnpm --dir backend exec node dist/db/migrate.js
       - name: Verify transactional analytics delivery
         timeout-minutes: 5

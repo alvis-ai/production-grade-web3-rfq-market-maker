@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { migrate, migrateUpTo } from "../dist/db/migrate.js";
+import {
+  executeMigrationCli,
+  migrate,
+  migrateUpTo,
+  readMigrationTimeoutMs,
+} from "../dist/db/migrate.js";
 
 test("database migration runner holds one session advisory lock across discovery", async () => {
   const { pool, client } = fakePool(async (sql) => {
@@ -47,10 +52,61 @@ test("database migration runner holds one session advisory lock across discovery
 
   await migrate(pool);
 
-  assert.match(client.queries[0].sql, /pg_advisory_lock/);
+  assert.match(client.queries[0].sql, /pg_try_advisory_lock/);
   assert.match(client.queries.at(-1).sql, /pg_advisory_unlock/);
   assert.equal(client.released, true);
   assert.equal(client.queries.filter(({ sql }) => sql === "BEGIN").length, 0);
+});
+
+test("database migration runner bounds advisory lock waiting", async () => {
+  const { pool, client } = fakePool(async () => ({ rows: [] }), { lockAcquired: false });
+
+  await assert.rejects(
+    migrate(pool, { lockWaitTimeoutMs: 0 }),
+    /advisory lock was not acquired within 0ms/,
+  );
+
+  assert.equal(client.released, true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("pg_advisory_unlock")), false);
+});
+
+test("database migration CLI closes the pool after migration failure", async () => {
+  const logs = [];
+  const errors = [];
+  const processLike = {};
+  let closeCalls = 0;
+
+  await executeMigrationCli({
+    async close() { closeCalls += 1; },
+    logger: {
+      error(message, error) { errors.push([message, error]); },
+      log(message) { logs.push(message); },
+    },
+    async migrate(onStage) {
+      onStage("acquiring-lock");
+      throw new Error("database unavailable");
+    },
+    processLike,
+  });
+
+  assert.equal(closeCalls, 1);
+  assert.equal(processLike.exitCode, 1);
+  assert.deepEqual(logs, ["[db-migrate] acquiring-lock", "[db-migrate] closing-pool"]);
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0][0], "Migration failed:");
+});
+
+test("database migration timeout config is bounded and reads only own fields", () => {
+  assert.equal(readMigrationTimeoutMs({}), 300_000);
+  assert.equal(readMigrationTimeoutMs({ RFQ_MIGRATION_TIMEOUT_MS: "60000" }), 60_000);
+  const inherited = Object.create({ RFQ_MIGRATION_TIMEOUT_MS: "1000" });
+  assert.equal(readMigrationTimeoutMs(inherited), 300_000);
+  for (const value of ["0", "999", "1800001", "01", "1.5", " 60000 "]) {
+    assert.throws(
+      () => readMigrationTimeoutMs({ RFQ_MIGRATION_TIMEOUT_MS: value }),
+      /integer between 1000 and 1800000/,
+    );
+  }
 });
 
 test("database migration runner applies hedge queue migration transactionally under the lock", async () => {
@@ -1136,13 +1192,14 @@ test("database migration runner adds immutable quote route attribution", async (
     sql.includes("INSERT INTO _migrations") && params[0] === "034"), true);
 });
 
-function fakePool(handler) {
+function fakePool(handler, { lockAcquired = true } = {}) {
   const client = {
     queries: [],
     released: false,
     async query(sql, params = []) {
       const normalized = sql.trim();
       this.queries.push({ sql: normalized, params });
+      if (normalized.includes("pg_try_advisory_lock")) return { rows: [{ acquired: lockAcquired }] };
       return handler(normalized, params);
     },
     release() { this.released = true; },

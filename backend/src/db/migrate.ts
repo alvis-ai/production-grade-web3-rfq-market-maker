@@ -14,18 +14,38 @@ interface MigrationRecord {
 }
 
 const migrationLockId = 1_384_717_920;
+const defaultMigrationTimeoutMs = 300_000;
+const defaultMigrationLockWaitTimeoutMs = 240_000;
+const migrationLockRetryIntervalMs = 250;
 
-export async function migrate(pool?: pg.Pool): Promise<void> {
+export type MigrationStageObserver = (stage: string) => void;
+
+export interface MigrationExecutionOptions {
+  lockWaitTimeoutMs?: number;
+  onStage?: MigrationStageObserver;
+}
+
+export async function migrate(
+  pool?: pg.Pool,
+  options: MigrationExecutionOptions = {},
+): Promise<void> {
   const p = pool ?? getPool();
+  const onStage = options.onStage ?? noOpMigrationStageObserver;
+  onStage("connecting");
   const client = await p.connect();
+  let lockAcquired = false;
   try {
-    await client.query("SELECT pg_advisory_lock($1)", [migrationLockId]);
+    onStage("acquiring-lock");
+    await acquireMigrationLock(client, options.lockWaitTimeoutMs);
+    lockAcquired = true;
+    onStage("reading-state");
     await ensureMigrationsTable(client);
     const applied = await getAppliedMigrations(client);
     const available = await getAvailableMigrations();
 
     for (const migration of available) {
       if (applied.has(migration.version)) continue;
+      onStage(`applying-${migration.version}`);
       const filePath = path.join(migrationsDir, migration.fileName);
       const sql = fs.readFileSync(filePath, "utf-8");
       try {
@@ -44,15 +64,24 @@ export async function migrate(pool?: pg.Pool): Promise<void> {
       }
     }
   } finally {
-    await unlockBestEffort(client);
+    if (lockAcquired) {
+      onStage("releasing-lock");
+      await unlockBestEffort(client);
+    }
     client.release();
   }
 }
 
-export async function migrateUpTo(pool: pg.Pool, targetVersion: string): Promise<void> {
+export async function migrateUpTo(
+  pool: pg.Pool,
+  targetVersion: string,
+  options: MigrationExecutionOptions = {},
+): Promise<void> {
   const client = await pool.connect();
+  let lockAcquired = false;
   try {
-    await client.query("SELECT pg_advisory_lock($1)", [migrationLockId]);
+    await acquireMigrationLock(client, options.lockWaitTimeoutMs);
+    lockAcquired = true;
     await ensureMigrationsTable(client);
     const applied = await getAppliedMigrations(client);
     const available = await getAvailableMigrations();
@@ -80,9 +109,37 @@ export async function migrateUpTo(pool: pg.Pool, targetVersion: string): Promise
       }
     }
   } finally {
-    await unlockBestEffort(client);
+    if (lockAcquired) await unlockBestEffort(client);
     client.release();
   }
+}
+
+async function acquireMigrationLock(
+  client: pg.PoolClient,
+  lockWaitTimeoutMs = defaultMigrationLockWaitTimeoutMs,
+): Promise<void> {
+  if (!Number.isSafeInteger(lockWaitTimeoutMs) || lockWaitTimeoutMs < 0) {
+    throw new Error("Migration lock wait timeout must be a non-negative integer");
+  }
+
+  const deadline = Date.now() + lockWaitTimeoutMs;
+  while (true) {
+    const result = await client.query<{ acquired: boolean }>(
+      "SELECT pg_try_advisory_lock($1) AS acquired",
+      [migrationLockId],
+    );
+    if (result.rows.length === 1 && result.rows[0]?.acquired === true) return;
+
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) {
+      throw new Error(`Migration advisory lock was not acquired within ${lockWaitTimeoutMs}ms`);
+    }
+    await delay(Math.min(migrationLockRetryIntervalMs, remainingMs));
+  }
+}
+
+function delay(timeoutMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, timeoutMs));
 }
 
 async function ensureMigrationsTable(client: pg.PoolClient): Promise<void> {
@@ -125,6 +182,53 @@ interface AvailableMigration {
   fileName: string;
 }
 
+export interface MigrationCliDependencies {
+  close(): Promise<void>;
+  logger: {
+    error(message: string, error: unknown): void;
+    log(message: string): void;
+  };
+  migrate(onStage: MigrationStageObserver): Promise<void>;
+  processLike: { exitCode?: string | number | null };
+}
+
+export async function executeMigrationCli(deps: MigrationCliDependencies): Promise<void> {
+  let failed = false;
+  try {
+    await deps.migrate((stage) => deps.logger.log(`[db-migrate] ${stage}`));
+    deps.logger.log("All migrations applied successfully.");
+  } catch (error) {
+    failed = true;
+    deps.logger.error("Migration failed:", error);
+  }
+
+  try {
+    deps.logger.log("[db-migrate] closing-pool");
+    await deps.close();
+  } catch (error) {
+    failed = true;
+    deps.logger.error("Migration cleanup failed:", error);
+  }
+  deps.processLike.exitCode = failed ? 1 : 0;
+}
+
+export function readMigrationTimeoutMs(
+  env: Record<string, string | undefined> | undefined = process.env,
+): number {
+  const raw = env && Object.hasOwn(env, "RFQ_MIGRATION_TIMEOUT_MS")
+    ? env.RFQ_MIGRATION_TIMEOUT_MS
+    : undefined;
+  if (raw === undefined || raw === "") return defaultMigrationTimeoutMs;
+  if (!/^[1-9][0-9]*$/.test(raw)) {
+    throw new Error("RFQ_MIGRATION_TIMEOUT_MS must be an integer between 1000 and 1800000");
+  }
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed < 1_000 || parsed > 1_800_000) {
+    throw new Error("RFQ_MIGRATION_TIMEOUT_MS must be an integer between 1000 and 1800000");
+  }
+  return parsed;
+}
+
 function assertTargetMigrationExists(available: AvailableMigration[], targetVersion: string): void {
   if (!available.some((migration) => migration.version === targetVersion)) {
     throw new Error(`Target migration does not exist: ${targetVersion}`);
@@ -159,16 +263,23 @@ async function getAvailableMigrations(): Promise<AvailableMigration[]> {
 // CLI entry point
 const processLike = globalThis.process;
 if (processLike?.argv?.[1] && import.meta.url.endsWith(processLike.argv[1])) {
-  migrate()
-    .then(() => {
-      console.log("All migrations applied successfully.");
-      return endPool();
-    })
-    .then(() => {
-      if (processLike) processLike.exitCode = 0;
-    })
-    .catch((error) => {
-      console.error("Migration failed:", error);
-      if (processLike) processLike.exitCode = 1;
-    });
+  let activeStage = "initializing";
+  const timeoutMs = readMigrationTimeoutMs(processLike.env);
+  const deadline = setTimeout(() => {
+    console.error(`Migration exceeded ${timeoutMs}ms hard deadline during ${activeStage}`);
+    processLike.exit(1);
+  }, timeoutMs);
+  void executeMigrationCli({
+    close: endPool,
+    logger: console,
+    migrate: (onStage) => migrate(undefined, {
+      onStage: (stage) => {
+        activeStage = stage;
+        onStage(stage);
+      },
+    }),
+    processLike,
+  }).finally(() => clearTimeout(deadline));
 }
+
+function noOpMigrationStageObserver(): void {}

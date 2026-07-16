@@ -91,6 +91,7 @@ assertContains(workflows.analytics, [
   "docker compose --profile analytics run --rm redpanda-topic-init",
   "name: Apply database migrations",
   "timeout-minutes: 2",
+  'RFQ_MIGRATION_TIMEOUT_MS: "60000"',
   "run: pnpm --dir backend exec node dist/db/migrate.js",
   "name: Verify transactional analytics delivery",
   "timeout-minutes: 5",

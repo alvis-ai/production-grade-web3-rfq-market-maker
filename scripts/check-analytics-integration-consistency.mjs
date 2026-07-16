@@ -71,6 +71,7 @@ assertContains(".github/workflows/analytics-ci.yml", [
   "run: pnpm --dir backend build",
   "name: Apply database migrations",
   "timeout-minutes: 2",
+  "RFQ_MIGRATION_TIMEOUT_MS: \"60000\"",
   "run: pnpm --dir backend exec node dist/db/migrate.js",
   "name: Verify transactional analytics delivery",
   "timeout-minutes: 5",
