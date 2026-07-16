@@ -24,7 +24,6 @@ import type {
 } from "./quote.repository.js";
 import type { RiskDecision, RiskInput } from "../risk/risk.engine.js";
 import type { RiskDecisionRecord } from "../risk/risk-decision.repository.js";
-import type { RoutePlan } from "../routing/routing.engine.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
 import {
   assertQuoteIdempotencyKey,
@@ -47,7 +46,6 @@ import {
   pricingFailure,
   quoteFailureCode,
   quoteStoreFailure,
-  routingFailure,
 } from "./quote-service-errors.js";
 import {
   assertHedgeRiskPenaltyBps,
@@ -57,11 +55,11 @@ import {
   assertPricingResult,
   assertQuoteExposureReservationResult,
   assertRiskDecision,
-  assertRoutePlan,
   isExactSignedQuote,
   riskUnavailableDecision,
 } from "./quote-service-result-validation.js";
 import { persistQuoteRiskDecision } from "./quote-risk-decision.js";
+import { selectAndPersistQuoteRoute } from "./quote-route-selection.js";
 
 export { defaultQuoteServiceConfig } from "./quote-service-contract.js";
 export type {
@@ -170,16 +168,12 @@ export class QuoteService {
       request: validatedRequest,
     });
 
-    let routePlan: RoutePlan;
-    try {
-      const routeResult = await this.deps.routingEngine.selectRoute({ request: validatedRequest, snapshot });
-      assertRoutePlan(routeResult, validatedRequest);
-      routePlan = routeResult;
-    } catch (error) {
-      const failure = routingFailure(error);
-      await this.markQuoteFailedBestEffort(quoteId, failure.code);
-      throw failure;
-    }
+    const routePlan = await selectAndPersistQuoteRoute(this.deps, {
+      quoteId,
+      principalId: access.principalId,
+      request: validatedRequest,
+      snapshot,
+    });
     let inventorySkewBps: number;
     let hedgeCostBps: number;
     try {

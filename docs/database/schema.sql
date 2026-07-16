@@ -12,6 +12,10 @@ CREATE TABLE quotes (
   nonce NUMERIC(78, 0),
   deadline BIGINT,
   snapshot_id TEXT NOT NULL,
+  route_id TEXT,
+  route_venue TEXT,
+  route_expected_liquidity_usd NUMERIC(78, 0),
+  route_decided_at TIMESTAMPTZ,
   pricing_version TEXT,
   spread_bps INTEGER,
   size_impact_bps INTEGER,
@@ -66,6 +70,31 @@ CREATE TABLE quotes (
     AND token_out ~ '^0x[0-9a-fA-F]{40}$'
   ),
   CONSTRAINT chk_quotes_distinct_tokens CHECK (lower(token_in) <> lower(token_out)),
+  CONSTRAINT chk_quotes_route_id_safe CHECK (
+    route_id IS NULL
+    OR (
+      btrim(route_id) <> ''
+      AND char_length(route_id) <= 128
+      AND route_id ~ '^[A-Za-z0-9_:-]+$'
+    )
+  ),
+  CONSTRAINT chk_quotes_route_venue CHECK (
+    route_venue IS NULL OR route_venue = 'internal_inventory'
+  ),
+  CONSTRAINT chk_quotes_route_decision_atomic CHECK (
+    (
+      route_id IS NULL
+      AND route_venue IS NULL
+      AND route_expected_liquidity_usd IS NULL
+      AND route_decided_at IS NULL
+    )
+    OR (
+      route_id IS NOT NULL
+      AND route_venue IS NOT NULL
+      AND route_expected_liquidity_usd > 0
+      AND route_decided_at IS NOT NULL
+    )
+  ),
   CONSTRAINT chk_quotes_metadata_non_empty CHECK (
     (pricing_version IS NULL OR btrim(pricing_version) <> '')
     AND (risk_policy_version IS NULL OR btrim(risk_policy_version) <> '')
@@ -180,6 +209,8 @@ CREATE UNIQUE INDEX uq_quotes_chain_user_nonce ON quotes (chain_id, user_address
   WHERE nonce IS NOT NULL;
 CREATE INDEX idx_quotes_snapshot_id ON quotes (snapshot_id)
   WHERE snapshot_id IS NOT NULL;
+CREATE INDEX idx_quotes_route_id ON quotes (route_id)
+  WHERE route_id IS NOT NULL;
 CREATE INDEX idx_quotes_settlement_event_id ON quotes (settlement_event_id)
   WHERE settlement_event_id IS NOT NULL;
 CREATE INDEX idx_quotes_hedge_order_id ON quotes (hedge_order_id)
@@ -1360,6 +1391,57 @@ $$ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, public;
 
+CREATE OR REPLACE FUNCTION enqueue_quote_routing_analytics_event()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.analytics_outbox (
+    topic, event_key, event_type, schema_version, aggregate_type, aggregate_id, payload
+  ) VALUES (
+    'rfq.analytics.v1',
+    NEW.id,
+    'quote.routing.v1',
+    1,
+    'quote',
+    NEW.id,
+    jsonb_build_object(
+      'operation', lower(TG_OP),
+      'quoteId', NEW.id,
+      'chainId', NEW.chain_id,
+      'tokenIn', lower(NEW.token_in),
+      'tokenOut', lower(NEW.token_out),
+      'snapshotId', NEW.snapshot_id,
+      'routeId', NEW.route_id,
+      'venue', NEW.route_venue,
+      'expectedLiquidityUsd', NEW.route_expected_liquidity_usd::text,
+      'decidedAt', NEW.route_decided_at
+    )
+  );
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public;
+
+CREATE OR REPLACE FUNCTION enforce_quote_route_decision_immutability()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.route_id IS NOT NULL AND (
+    OLD.route_id IS DISTINCT FROM NEW.route_id
+    OR OLD.route_venue IS DISTINCT FROM NEW.route_venue
+    OR OLD.route_expected_liquidity_usd IS DISTINCT FROM NEW.route_expected_liquidity_usd
+    OR OLD.route_decided_at IS DISTINCT FROM NEW.route_decided_at
+  ) THEN
+    RAISE EXCEPTION 'Quote % route decision is immutable', OLD.id
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public;
+
 CREATE OR REPLACE FUNCTION enqueue_hedge_analytics_event_v3()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -1463,6 +1545,23 @@ WHEN (
   OR OLD.pnl_id IS DISTINCT FROM NEW.pnl_id
 )
 EXECUTE FUNCTION enqueue_rfq_analytics_event();
+
+CREATE TRIGGER trg_quotes_routing_analytics_insert
+AFTER INSERT ON quotes
+FOR EACH ROW
+WHEN (NEW.route_id IS NOT NULL)
+EXECUTE FUNCTION enqueue_quote_routing_analytics_event();
+
+CREATE TRIGGER trg_quotes_enforce_route_immutability
+BEFORE UPDATE OF route_id, route_venue, route_expected_liquidity_usd, route_decided_at ON quotes
+FOR EACH ROW
+EXECUTE FUNCTION enforce_quote_route_decision_immutability();
+
+CREATE TRIGGER trg_quotes_routing_analytics_update
+AFTER UPDATE ON quotes
+FOR EACH ROW
+WHEN (OLD.route_id IS NULL AND NEW.route_id IS NOT NULL)
+EXECUTE FUNCTION enqueue_quote_routing_analytics_event();
 
 CREATE TRIGGER trg_market_snapshots_analytics_insert
 AFTER INSERT ON market_snapshots

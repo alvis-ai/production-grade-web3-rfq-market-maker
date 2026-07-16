@@ -3,6 +3,7 @@ import type {
   QuoteRecord,
   QuoteStatusMetadata,
   SaveRequestedQuoteInput,
+  SaveRouteDecisionInput,
   SaveRejectedQuoteInput,
   SaveSignedQuoteInput,
   QuoteRepository,
@@ -21,6 +22,8 @@ import { assertPrincipalId } from "../../shared/validation/principal-id.js";
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
+const routeDecisionInputFields = ["quoteId", "principalId", "snapshotId", "routePlan"] as const;
+const routePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"] as const;
 
 const quoteSelectColumns = [
   "id AS quote_id",
@@ -36,6 +39,10 @@ const quoteSelectColumns = [
   "nonce",
   "deadline",
   "snapshot_id",
+  "route_id",
+  "route_venue",
+  "route_expected_liquidity_usd",
+  "route_decided_at",
   "pricing_version",
   "spread_bps",
   "size_impact_bps",
@@ -116,6 +123,71 @@ export class PostgresQuoteRepository implements QuoteRepository {
         }
         assertCanSaveRequestedQuote(existing, input);
       }
+    } finally {
+      client.release();
+    }
+  }
+
+  async saveRouteDecision(input: SaveRouteDecisionInput): Promise<void> {
+    assertRecord(input, "route decision input");
+    assertOwnFields(input, routeDecisionInputFields, "route decision input");
+    assertNoUnknownFields(input, routeDecisionInputFields, "route decision input");
+    const quoteId = assertSafeIdentifier(input.quoteId, "quoteId");
+    assertPrincipalId(input.principalId, "Postgres route decision principalId");
+    const snapshotId = assertSafeIdentifier(input.snapshotId, "snapshotId");
+    const routePlan = input.routePlan;
+    assertRecord(routePlan, "routePlan");
+    assertOwnFields(routePlan, routePlanFields, "routePlan");
+    assertNoUnknownFields(routePlan, routePlanFields, "routePlan");
+    const routeId = assertSafeIdentifier(routePlan.routeId, "routePlan.routeId");
+    if (routePlan.venue !== "internal_inventory") {
+      throw new Error("Postgres quote routePlan.venue must be internal_inventory");
+    }
+    const tokenIn = assertAddress(routePlan.tokenIn, "routePlan.tokenIn");
+    const tokenOut = assertAddress(routePlan.tokenOut, "routePlan.tokenOut");
+    assertDistinctTokens(tokenIn, tokenOut);
+    const expectedLiquidityUsd = assertPositiveUIntString(
+      routePlan.expectedLiquidityUsd,
+      "routePlan.expectedLiquidityUsd",
+    );
+
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `UPDATE quotes SET
+           route_id = $4,
+           route_venue = $5,
+           route_expected_liquidity_usd = $6,
+           route_decided_at = now(),
+           updated_at = now()
+         WHERE id = $1
+           AND status = 'requested'
+           AND principal_id = $2
+           AND snapshot_id = $3
+           AND lower(token_in) = $7
+           AND lower(token_out) = $8
+           AND route_id IS NULL
+           AND route_venue IS NULL
+           AND route_expected_liquidity_usd IS NULL
+           AND route_decided_at IS NULL`,
+        [
+          quoteId,
+          input.principalId,
+          snapshotId,
+          routeId,
+          routePlan.venue,
+          expectedLiquidityUsd,
+          tokenIn,
+          tokenOut,
+        ],
+      );
+      if (result.rowCount === 1) return;
+      if (result.rowCount !== 0) {
+        throw new Error(`Quote ${quoteId} route decision updated multiple rows`);
+      }
+
+      const existing = await findQuoteRecordById(client, quoteId);
+      assertCanSaveRouteDecision(existing, input);
     } finally {
       client.release();
     }
@@ -598,6 +670,12 @@ function quoteRecordFromRow(row: Record<string, unknown>): QuoteRecord {
     nonce: row.nonce != null ? String(row.nonce) : undefined,
     deadline: row.deadline != null ? Number(row.deadline) : undefined,
     snapshotId: row.snapshot_id != null ? String(row.snapshot_id) : undefined,
+    routeId: row.route_id != null ? String(row.route_id) : undefined,
+    routeVenue: row.route_venue != null ? String(row.route_venue) as QuoteRecord["routeVenue"] : undefined,
+    routeExpectedLiquidityUsd: row.route_expected_liquidity_usd != null
+      ? String(row.route_expected_liquidity_usd)
+      : undefined,
+    routeDecidedAt: row.route_decided_at != null ? new Date(String(row.route_decided_at)).toISOString() : undefined,
     pricingVersion: row.pricing_version != null ? String(row.pricing_version) : undefined,
     spreadBps: row.spread_bps != null ? Number(row.spread_bps) : undefined,
     sizeImpactBps: row.size_impact_bps != null ? Number(row.size_impact_bps) : undefined,
@@ -626,6 +704,27 @@ function assertCanSaveRequestedQuote(record: QuoteRecord, input: SaveRequestedQu
   }
 
   throw new Error(`Quote ${input.quoteId} cannot save requested quote from ${record.status}`);
+}
+
+function assertCanSaveRouteDecision(
+  record: QuoteRecord | undefined,
+  input: SaveRouteDecisionInput,
+): asserts record is QuoteRecord {
+  if (!record) {
+    throw new Error(`Quote ${input.quoteId} cannot save route decision without requested state`);
+  }
+  if (!isSameRouteDecisionIdentity(record, input)) {
+    throw new Error(`Route decision does not match requested quote ${input.quoteId}`);
+  }
+  if (record.routeId !== undefined) {
+    if (isSameRouteDecisionPayload(record, input)) {
+      return;
+    }
+    throw new Error(`Route decision cannot be changed for ${input.quoteId}`);
+  }
+  if (record.status !== "requested") {
+    throw new Error(`Quote ${input.quoteId} cannot save route decision from ${record.status}`);
+  }
 }
 
 function assertCanSaveRejectedQuote(record: QuoteRecord, input: SaveRejectedQuoteInput): void {
@@ -679,6 +778,26 @@ function isSameRequestedQuotePayload(record: QuoteRecord, input: SaveRequestedQu
     record.amountIn === input.request.amountIn &&
     record.slippageBps === input.request.slippageBps &&
     record.snapshotId === input.snapshotId
+  );
+}
+
+function isSameRouteDecisionIdentity(record: QuoteRecord, input: SaveRouteDecisionInput): boolean {
+  return (
+    record.quoteId === input.quoteId &&
+    record.principalId === input.principalId &&
+    record.snapshotId === input.snapshotId &&
+    record.tokenIn.toLowerCase() === input.routePlan.tokenIn.toLowerCase() &&
+    record.tokenOut.toLowerCase() === input.routePlan.tokenOut.toLowerCase()
+  );
+}
+
+function isSameRouteDecisionPayload(record: QuoteRecord, input: SaveRouteDecisionInput): boolean {
+  return (
+    isSameRouteDecisionIdentity(record, input) &&
+    record.routeId === input.routePlan.routeId &&
+    record.routeVenue === input.routePlan.venue &&
+    record.routeExpectedLiquidityUsd === input.routePlan.expectedLiquidityUsd &&
+    record.routeDecidedAt !== undefined
   );
 }
 
@@ -852,6 +971,28 @@ function assertNonEmptyString(value: unknown, field: string): string {
     throw new Error(`Postgres quote ${field} must be a non-empty string`);
   }
   return value.trim();
+}
+
+function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Postgres quote ${field} must be an object`);
+  }
+}
+
+function assertOwnFields(value: object, fields: readonly string[], path: string): void {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new Error(`Postgres quote ${path}.${field} must be an own field`);
+    }
+  }
+}
+
+function assertNoUnknownFields(value: object, fields: readonly string[], path: string): void {
+  const allowed = new Set<string>(fields);
+  const unknownField = Object.keys(value).find((field) => !allowed.has(field));
+  if (unknownField !== undefined) {
+    throw new Error(`Postgres quote ${path} contains unknown field ${unknownField}`);
+  }
 }
 
 function assertSafeIdentifier(value: unknown, field: string): string {

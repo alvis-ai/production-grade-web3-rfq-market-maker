@@ -173,6 +173,64 @@ test("InMemoryQuoteRepository rejects inherited quote persistence fields before 
   assert.equal(await quoteRepository.findSignedQuoteByChainUserNonce(1, signedQuote.user, signedQuote.nonce), undefined);
 });
 
+test("InMemoryQuoteRepository validates route decision envelopes before mutation", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const routePlan = {
+    routeId: "route_1_0000000000000000000000000000000000000002_0000000000000000000000000000000000000003",
+    venue: "internal_inventory",
+    tokenIn: request.tokenIn,
+    tokenOut: request.tokenOut,
+    expectedLiquidityUsd: "1000000",
+  };
+  const input = {
+    quoteId: "q_route_validation",
+    principalId,
+    snapshotId: "snapshot_1",
+    routePlan,
+  };
+
+  await assert.rejects(
+    quoteRepository.saveRouteDecision(undefined),
+    /Route decision input must be an object/,
+  );
+  await assert.rejects(
+    quoteRepository.saveRouteDecision(Object.create(input)),
+    /Route decision input.quoteId must be an own field/,
+  );
+  await assert.rejects(
+    quoteRepository.saveRouteDecision({ ...input, routePlan: Object.create(routePlan) }),
+    /Route decision routePlan.routeId must be an own field/,
+  );
+  await assert.rejects(
+    quoteRepository.saveRouteDecision({
+      ...input,
+      routePlan: { ...routePlan, fallbackVenue: "external" },
+    }),
+    /Route decision routePlan contains unknown field fallbackVenue/,
+  );
+  await assert.rejects(
+    quoteRepository.saveRouteDecision({
+      ...input,
+      routePlan: { ...routePlan, expectedLiquidityUsd: "01000000" },
+    }),
+    /Route decision routePlan.expectedLiquidityUsd must be a positive uint string/,
+  );
+
+  await quoteRepository.saveRequested({
+    quoteId: input.quoteId,
+    principalId,
+    snapshotId: input.snapshotId,
+    request,
+  });
+  await assert.rejects(
+    quoteRepository.saveRouteDecision({
+      ...input,
+      routePlan: { ...routePlan, tokenOut: "0x0000000000000000000000000000000000000004" },
+    }),
+    /Route decision does not match requested quote/,
+  );
+});
+
 function fixedSignature() {
   return `0x${"11".repeat(64)}1b`;
 }

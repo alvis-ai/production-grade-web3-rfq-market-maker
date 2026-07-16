@@ -38,6 +38,7 @@ const pnlId = `pnl_analytics_${runId}`;
 const user = `0x${randomBytes(20).toString("hex")}`;
 const tokenIn = `0x${randomBytes(20).toString("hex")}`;
 const tokenOut = `0x${randomBytes(20).toString("hex")}`;
+const routeId = `route_1_${tokenIn.slice(2)}_${tokenOut.slice(2)}`;
 const txHash = `0x${randomBytes(32).toString("hex")}`;
 const quoteHash = `0x${randomBytes(32).toString("hex")}`;
 const principalId = `analytics_integration_${runId}`;
@@ -49,6 +50,7 @@ const expectedTypes = [
   "market.snapshot.v1",
   "pnl.attribution.v2",
   "quote.lifecycle.v1",
+  "quote.routing.v1",
   "risk.decision.v1",
   "settlement.lifecycle.v1",
 ];
@@ -77,14 +79,16 @@ try {
   await client.query(
     `INSERT INTO quotes (
        id, principal_id, chain_id, user_address, token_in, token_out, amount_in, slippage_bps,
-       amount_out, min_amount_out, nonce, deadline, snapshot_id, pricing_version,
+       amount_out, min_amount_out, nonce, deadline, snapshot_id,
+       route_id, route_venue, route_expected_liquidity_usd, route_decided_at, pricing_version,
        spread_bps, size_impact_bps, market_spread_bps, inventory_skew_bps, volatility_premium_bps,
        hedge_cost_bps, risk_policy_version,
        status, signature
      ) VALUES ($1, $2, 1, $3, $4, $5, 1000000000000000000, 50,
        990000000000000000, 980000000000000000, 1, 4102444800, $6,
-       'formula-v4', 20, 5, 10, 0, 5, 0, 'risk-v1', 'signed', $7)`,
-    [quoteId, principalId, user, tokenIn, tokenOut, snapshotId, signature],
+       $7, 'internal_inventory', 1000000, now(),
+       'formula-v4', 20, 5, 10, 0, 5, 0, 'risk-v1', 'signed', $8)`,
+    [quoteId, principalId, user, tokenIn, tokenOut, snapshotId, routeId, signature],
   );
   await client.query(
     `INSERT INTO risk_decisions (id, quote_id, decision, policy_version)
@@ -135,7 +139,7 @@ try {
      ORDER BY id`,
     [fixtureAggregateIds],
   );
-  assert.equal(emitted.rows.length, 7, "operational transaction must atomically emit all seven analytics events");
+  assert.equal(emitted.rows.length, 8, "operational transaction must atomically emit all eight analytics events");
   assert.deepEqual(emitted.rows.map((row) => row.event_type).sort(), expectedTypes);
   eventIds = emitted.rows.map((row) => `ao_${row.id}`);
   clickhouseCleanupNeeded = true;
@@ -148,7 +152,7 @@ try {
        ORDER BY id`,
       [fixtureAggregateIds],
     );
-    return result.rows.length === 7 && result.rows.every((row) => row.published_at !== null)
+    return result.rows.length === 8 && result.rows.every((row) => row.published_at !== null)
       ? result.rows
       : undefined;
   }, 30_000, "analytics outbox publication");
@@ -160,11 +164,11 @@ try {
       `SELECT count() AS row_count, uniqExact(event_id) AS unique_count, groupUniqArray(event_type) AS event_types FROM ${clickhouseTable} FINAL WHERE event_id IN (${eventIdFilter})`,
     );
     const row = result.data?.[0];
-    return Number(row?.unique_count) === 7 ? row : undefined;
+    return Number(row?.unique_count) === 8 ? row : undefined;
   }, 30_000, "ClickHouse analytics projection");
 
-  assert.equal(Number(projection.row_count), 7);
-  assert.equal(Number(projection.unique_count), 7);
+  assert.equal(Number(projection.row_count), 8);
+  assert.equal(Number(projection.unique_count), 8);
   assert.deepEqual([...projection.event_types].sort(), expectedTypes);
 
   const quoteProjection = await clickhouseQuery(
@@ -174,6 +178,14 @@ try {
   assert.equal(quotePayload.amountIn, "1000000000000000000");
   assert.equal(typeof quotePayload.amountIn, "string");
   assert.equal(quotePayload.marketSpreadBps, 10);
+
+  const routeProjection = await clickhouseQuery(
+    `SELECT payload FROM ${clickhouseTable} FINAL WHERE event_type = 'quote.routing.v1' AND event_id IN (${eventIdFilter}) LIMIT 1`,
+  );
+  const routePayload = JSON.parse(routeProjection.data[0].payload);
+  assert.equal(routePayload.routeId, routeId);
+  assert.equal(routePayload.venue, "internal_inventory");
+  assert.equal(routePayload.expectedLiquidityUsd, "1000000");
 
   const snapshotProjection = await clickhouseQuery(
     `SELECT payload FROM ${clickhouseTable} FINAL WHERE event_type = 'market.snapshot.v1' AND event_id IN (${eventIdFilter}) LIMIT 1`,

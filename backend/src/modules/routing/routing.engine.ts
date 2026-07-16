@@ -30,8 +30,8 @@ export class InternalInventoryRoutingEngine implements RoutingEngine {
       routeId: [
         "route",
         input.request.chainId.toString(),
-        input.request.tokenIn.slice(2, 10).toLowerCase(),
-        input.request.tokenOut.slice(2, 10).toLowerCase(),
+        input.request.tokenIn.slice(2).toLowerCase(),
+        input.request.tokenOut.slice(2).toLowerCase(),
       ].join("_"),
       venue: "internal_inventory",
       tokenIn: input.request.tokenIn,

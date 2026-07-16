@@ -317,6 +317,70 @@ test("InMemoryQuoteRepository rejects signed quote payload rewrites", async () =
   assert.equal(indexed.snapshotId, "snapshot_1");
 });
 
+test("InMemoryQuoteRepository persists an immutable route decision across signing", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const quoteId = "q_route_attribution";
+  const routeDecision = {
+    quoteId,
+    principalId: "local",
+    snapshotId: "snapshot_1",
+    routePlan: {
+      routeId: "route_1_0000000000000000000000000000000000000002_0000000000000000000000000000000000000003",
+      venue: "internal_inventory",
+      tokenIn: request.tokenIn,
+      tokenOut: request.tokenOut,
+      expectedLiquidityUsd: "1000000",
+    },
+  };
+  await quoteRepository.saveRequested({
+    quoteId,
+    principalId: "local",
+    snapshotId: "snapshot_1",
+    request,
+  });
+  await quoteRepository.saveRouteDecision(routeDecision);
+  await quoteRepository.saveRouteDecision(routeDecision);
+  await quoteRepository.saveSigned({
+    quoteId,
+    principalId: "local",
+    snapshotId: "snapshot_1",
+    slippageBps: request.slippageBps,
+    spreadBps: 8,
+    sizeImpactBps: 0,
+    marketSpreadBps: 0,
+    inventorySkewBps: 0,
+    volatilityPremiumBps: 0,
+    hedgeCostBps: 0,
+    quote: {
+      user: request.user,
+      tokenIn: request.tokenIn,
+      tokenOut: request.tokenOut,
+      amountIn: request.amountIn,
+      amountOut: "998400000",
+      minAmountOut: "993408000",
+      nonce: "99",
+      deadline: Math.floor(Date.now() / 1000) + 30,
+      chainId: request.chainId,
+    },
+    pricingVersion: "test-pricing",
+    riskPolicyVersion: "test-risk",
+    signature: fixedSignature(),
+  });
+
+  const stored = await quoteRepository.findSignedQuoteByQuoteId(quoteId);
+  assert.equal(stored.routeId, routeDecision.routePlan.routeId);
+  assert.equal(stored.routeVenue, "internal_inventory");
+  assert.equal(stored.routeExpectedLiquidityUsd, "1000000");
+  assert.match(stored.routeDecidedAt, /^\d{4}-\d{2}-\d{2}T/);
+  await assert.rejects(
+    quoteRepository.saveRouteDecision({
+      ...routeDecision,
+      routePlan: { ...routeDecision.routePlan, expectedLiquidityUsd: "2000000" },
+    }),
+    /Route decision cannot be changed/,
+  );
+});
+
 function fixedSignature() {
   return `0x${"11".repeat(64)}1b`;
 }

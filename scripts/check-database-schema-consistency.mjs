@@ -9,6 +9,16 @@ const erDiagramSource = await readFile("docs/database/er-diagram.md", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");
 const quoteRepositorySource = await readFile("backend/src/modules/quote/quote.repository.ts", "utf8");
+const postgresQuoteRepositorySource = await readFile(
+  "backend/src/modules/quote/postgres-quote.repository.ts",
+  "utf8",
+);
+const quoteServiceSource = await readFile("backend/src/modules/quote/quote.service.ts", "utf8");
+const quoteRouteSelectionSource = await readFile(
+  "backend/src/modules/quote/quote-route-selection.ts",
+  "utf8",
+);
+const routingEngineSource = await readFile("backend/src/modules/routing/routing.engine.ts", "utf8");
 const riskEngineSource = await readFile("backend/src/modules/risk/risk.engine.ts", "utf8");
 const riskDecisionRepositorySource = await readFile(
   "backend/src/modules/risk/risk-decision.repository.ts",
@@ -142,6 +152,10 @@ const gammaGuardrailRiskMigrationSource = await readFile(
   "backend/src/db/migrations/033-gamma-guardrail-risk.sql",
   "utf8",
 );
+const quoteRouteAttributionMigrationSource = await readFile(
+  "backend/src/db/migrations/034-quote-route-attribution.sql",
+  "utf8",
+);
 const signerAuditStoreSource = await readFile(
   "backend/src/modules/signer/signer-audit.store.ts",
   "utf8",
@@ -220,6 +234,10 @@ const requiredTables = {
     "nonce",
     "deadline",
     "snapshot_id",
+    "route_id",
+    "route_venue",
+    "route_expected_liquidity_usd",
+    "route_decided_at",
     "pricing_version",
     "spread_bps",
     "size_impact_bps",
@@ -516,6 +534,9 @@ const requiredCheckConstraints = {
     ["chk_quotes_amounts_non_negative", "quotes must constrain unsigned quote amount fields"],
     ["chk_quotes_addresses_hex", "quotes must constrain address-shaped fields"],
     ["chk_quotes_distinct_tokens", "quotes must constrain token_in and token_out to distinct addresses"],
+    ["chk_quotes_route_id_safe", "quotes must constrain route ids to safe identifiers"],
+    ["chk_quotes_route_venue", "quotes must constrain persisted routing venues"],
+    ["chk_quotes_route_decision_atomic", "quotes must persist route decision evidence atomically"],
     ["chk_quotes_metadata_non_empty", "quotes must constrain nullable text metadata to be non-empty when present"],
     ["chk_quotes_signature_and_tx_hash_hex", "quotes must constrain signature and transaction hash shape"],
     ["chk_quotes_status_payload_consistency", "quotes must constrain lifecycle status pointer consistency"],
@@ -728,6 +749,58 @@ assert.ok(
   /record\.slippageBps\s*===\s*input\.slippageBps/i.test(quoteRepositorySource),
   "signed quote persistence must reject slippageBps rewrites",
 );
+for (const columnName of ["route_id", "route_venue"]) {
+  assert.ok(
+    new RegExp(`\\b${columnName}\\s+TEXT\\b`, "i").test(tables.get("quotes").body),
+    `quotes.${columnName} must persist route attribution`,
+  );
+}
+assert.ok(
+  /\broute_expected_liquidity_usd\s+NUMERIC\s*\(\s*78\s*,\s*0\s*\)/i.test(tables.get("quotes").body),
+  "quotes.route_expected_liquidity_usd must preserve canonical routing liquidity",
+);
+assert.ok(
+  /\broute_decided_at\s+TIMESTAMPTZ\b/i.test(tables.get("quotes").body),
+  "quotes.route_decided_at must preserve route decision time",
+);
+assert.ok(
+  /route_venue\s+IS\s+NULL\s+OR\s+route_venue\s*=\s*'internal_inventory'/i.test(tables.get("quotes").body),
+  "quotes must constrain route_venue to the supported internal inventory venue",
+);
+assert.ok(
+  /export\s+interface\s+SaveRouteDecisionInput\s*\{[\s\S]*?quoteId:\s*string;[\s\S]*?principalId:\s*string;[\s\S]*?snapshotId:\s*string;[\s\S]*?routePlan:\s*RoutePlan;/i.test(
+    quoteRepositorySource,
+  ),
+  "QuoteRepository must expose the quote-bound route decision contract",
+);
+assert.ok(
+  /async\s+saveRouteDecision\s*\(\s*input:\s*SaveRouteDecisionInput\s*\)/i.test(postgresQuoteRepositorySource) &&
+    /route_decided_at\s*=\s*now\(\)/i.test(postgresQuoteRepositorySource) &&
+    /AND\s+route_id\s+IS\s+NULL/i.test(postgresQuoteRepositorySource),
+  "Postgres quote persistence must atomically set an unset route decision",
+);
+assert.ok(
+  /routePlan\s*=\s*await\s+selectAndPersistQuoteRoute\s*\([\s\S]*?let\s+inventorySkewBps/i.test(quoteServiceSource) &&
+    /await\s+deps\.quoteRepository\.saveRouteDecision\s*\(/i.test(quoteRouteSelectionSource),
+  "QuoteService must persist route attribution before pricing dependencies run",
+);
+assert.ok(
+  (routingEngineSource.match(/\.slice\(2\)\.toLowerCase\(\)/g) ?? []).length >= 2 &&
+    !routingEngineSource.includes("slice(2, 10)"),
+  "internal route ids must use complete token addresses instead of colliding prefixes",
+);
+for (const source of [schemaSource, quoteRouteAttributionMigrationSource]) {
+  assert.ok(
+    source.includes("trg_quotes_enforce_route_immutability") &&
+      source.includes("enforce_quote_route_decision_immutability"),
+    "route attribution must reject database-level rewrites after the initial decision",
+  );
+  assert.ok(source.includes("quote.routing.v1"), "route attribution must emit a versioned analytics event");
+  assert.ok(
+    source.includes("trg_quotes_routing_analytics_update"),
+    "route attribution must install the quote routing analytics trigger",
+  );
+}
 for (const columnName of [
   "spread_bps",
   "size_impact_bps",

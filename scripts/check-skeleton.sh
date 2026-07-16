@@ -2,7 +2,7 @@
 set -eu
 
 gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-hedge-risk.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-settlement-indexer-risk.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
-quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts"
+quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts backend/src/modules/quote/quote-route-selection.ts"
 sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts"
 
 test -s package.json
@@ -550,6 +550,9 @@ test -s backend/src/shared/errors/api-error.ts
 grep -q 'APIError serializes stable client responses without internal reason codes' backend/test/api-error.test.mjs
 test -s backend/src/modules/routing/routing.engine.ts
 grep -q 'InternalInventoryRoutingEngine creates deterministic internal inventory route plans' backend/test/routing.test.mjs
+grep -q 'route ids do not collide for matching token prefixes' backend/test/routing.test.mjs
+grep -Fq 'input.request.tokenIn.slice(2).toLowerCase()' backend/src/modules/routing/routing.engine.ts
+grep -Fq 'input.request.tokenOut.slice(2).toLowerCase()' backend/src/modules/routing/routing.engine.ts
 grep -q 'assertRouteInput(input)' backend/src/modules/routing/routing.engine.ts
 grep -q 'assertObject(input.request, "request")' backend/src/modules/routing/routing.engine.ts
 grep -q 'assertObject(input.snapshot, "snapshot")' backend/src/modules/routing/routing.engine.ts
@@ -1058,6 +1061,7 @@ grep -q 'Quote service ${path}.${field} must be an own field' $quote_service_sou
 grep -q 'Quote service ${path}.${field} must be an own field when provided' $quote_service_sources
 grep -q 'assertQuoteServiceDeps(deps)' $quote_service_sources
 grep -q 'assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findSignedQuoteByChainUserNonce")' $quote_service_sources
+grep -q 'assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRouteDecision")' $quote_service_sources
 grep -q 'normalizeQuoteServiceDeps' $quote_service_sources
 grep -q 'normalizeQuoteServiceConfig' $quote_service_sources
 grep -q 'MARKET_DATA_UNAVAILABLE' $quote_service_sources
@@ -1065,7 +1069,10 @@ grep -q 'ROUTING_UNAVAILABLE' $quote_service_sources
 grep -q 'routingFailure' $quote_service_sources
 grep -q 'routePlanFields = \["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"\]' $quote_service_sources
 grep -q 'inventoryProjectionFields = \["tokenIn", "tokenOut"\]' $quote_service_sources
-grep -q 'assertRoutePlan(routeResult, validatedRequest)' $quote_service_sources
+grep -q 'assertRoutePlan(result, input.request)' $quote_service_sources
+test -s backend/src/modules/quote/quote-route-selection.ts
+grep -q 'selectAndPersistQuoteRoute(this.deps' $quote_service_sources
+grep -q 'await deps.quoteRepository.saveRouteDecision({' backend/src/modules/quote/quote-route-selection.ts
 grep -q 'Quote service route plan token pair must match quote request token pair' $quote_service_sources
 grep -q 'PRICING_UNAVAILABLE' $quote_service_sources
 grep -q 'pricingFailure' $quote_service_sources
@@ -1705,6 +1712,12 @@ grep -q 'record.sizeImpactBps === input.sizeImpactBps' backend/src/modules/quote
 grep -q 'record.inventorySkewBps === input.inventorySkewBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'record.volatilityPremiumBps === input.volatilityPremiumBps' backend/src/modules/quote/quote.repository.ts
 grep -q 'record.hedgeCostBps === input.hedgeCostBps' backend/src/modules/quote/quote.repository.ts
+test -s backend/src/db/migrations/034-quote-route-attribution.sql
+grep -q 'chk_quotes_route_decision_atomic' docs/database/schema.sql
+grep -q 'quote.routing.v1' backend/src/db/migrations/034-quote-route-attribution.sql
+grep -q 'trg_quotes_enforce_route_immutability' backend/src/db/migrations/034-quote-route-attribution.sql
+grep -q 'QuoteService persists route attribution before pricing' backend/test/quote-service-market-routing-dependencies.test.mjs
+grep -q 'PostgresQuoteRepository records a route decision with one atomic update' backend/test/postgres-quote-repository.test.mjs
 grep -q 'slippageBps: request.slippageBps + 1' backend/test/quote-repository-lifecycle.test.mjs
 grep -q 'Signed quote slippageBps must be less than or equal to 10000 bps' backend/test/quote-repository-signed-validation.test.mjs
 grep -q 'Signed quote spreadBps must be less than or equal to 10000 bps' backend/test/quote-repository-signed-validation.test.mjs

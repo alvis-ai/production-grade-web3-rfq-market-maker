@@ -32,6 +32,73 @@ test("PostgresQuoteRepository rejects requested quote rewrites when upsert confl
   assert.equal(client.released, true);
 });
 
+test("PostgresQuoteRepository records a route decision with one atomic update", async () => {
+  const fixture = fakePool([{ rowCount: 1, rows: [] }]);
+  const repository = new PostgresQuoteRepository(fixture.pool);
+
+  await repository.saveRouteDecision(routeDecisionInput());
+
+  assert.equal(fixture.connectCount, 1);
+  assert.equal(fixture.client.released, true);
+  assert.match(fixture.client.queries[0].sql, /route_decided_at = now\(\)/);
+  assert.match(fixture.client.queries[0].sql, /AND status = 'requested'/);
+  assert.match(fixture.client.queries[0].sql, /AND route_id IS NULL/);
+  assert.deepEqual(fixture.client.queries[0].params, [
+    "q_1",
+    principalId,
+    "snapshot_1",
+    routeDecisionInput().routePlan.routeId,
+    "internal_inventory",
+    "1000000",
+    request.tokenIn,
+    request.tokenOut,
+  ]);
+});
+
+test("PostgresQuoteRepository rejects route decision rewrites after a concurrent write", async () => {
+  const fixture = fakePool([
+    { rowCount: 0, rows: [] },
+    {
+      rowCount: 1,
+      rows: [quoteRow({
+        route_id: routeDecisionInput().routePlan.routeId,
+        route_venue: "internal_inventory",
+        route_expected_liquidity_usd: "2000000",
+        route_decided_at: "2026-07-16T00:00:00.000Z",
+      })],
+    },
+  ]);
+  const repository = new PostgresQuoteRepository(fixture.pool);
+
+  await assert.rejects(
+    repository.saveRouteDecision(routeDecisionInput()),
+    /Route decision cannot be changed/,
+  );
+  assert.equal(fixture.connectCount, 1);
+  assert.equal(fixture.client.queries.length, 2);
+});
+
+test("PostgresQuoteRepository rejects inherited and extended route decision envelopes before SQL", async () => {
+  const fixture = fakePool([]);
+  const repository = new PostgresQuoteRepository(fixture.pool);
+
+  await assert.rejects(
+    repository.saveRouteDecision({
+      ...routeDecisionInput(),
+      routePlan: Object.create(routeDecisionInput().routePlan),
+    }),
+    /Postgres quote routePlan.routeId must be an own field/,
+  );
+  await assert.rejects(
+    repository.saveRouteDecision({
+      ...routeDecisionInput(),
+      routePlan: { ...routeDecisionInput().routePlan, fallbackVenue: "external" },
+    }),
+    /Postgres quote routePlan contains unknown field fallbackVenue/,
+  );
+  assert.equal(fixture.connectCount, 0);
+});
+
 test("PostgresQuoteRepository rejects rejected quote payload rewrites", async () => {
   const { pool } = fakePool([
     {
@@ -218,6 +285,10 @@ function quoteRow(overrides = {}) {
     nonce: null,
     deadline: null,
     snapshot_id: "snapshot_1",
+    route_id: null,
+    route_venue: null,
+    route_expected_liquidity_usd: null,
+    route_decided_at: null,
     pricing_version: null,
     spread_bps: null,
     size_impact_bps: null,
@@ -234,6 +305,21 @@ function quoteRow(overrides = {}) {
     hedge_order_id: null,
     pnl_id: null,
     ...overrides,
+  };
+}
+
+function routeDecisionInput() {
+  return {
+    quoteId: "q_1",
+    principalId,
+    snapshotId: "snapshot_1",
+    routePlan: {
+      routeId: "route_1_0000000000000000000000000000000000000002_0000000000000000000000000000000000000003",
+      venue: "internal_inventory",
+      tokenIn: request.tokenIn,
+      tokenOut: request.tokenOut,
+      expectedLiquidityUsd: "1000000",
+    },
   };
 }
 

@@ -150,6 +150,7 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   assertDependencyMethod(deps.signerService, "signerService", "signQuote");
   assertDependencyMethod(deps.signerService, "signerService", "verifyQuoteSignature");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRequested");
+  assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRouteDecision");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRejected");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveSigned");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "findStatus");

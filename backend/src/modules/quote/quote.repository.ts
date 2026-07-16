@@ -7,11 +7,14 @@ import type {
   UIntString,
 } from "../../shared/types/rfq.js";
 import { assertPrincipalId } from "../../shared/validation/principal-id.js";
+import type { RoutePlan } from "../routing/routing.engine.js";
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
 const maxSafeIdentifierLength = 128;
 const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const requestedQuoteInputFields = ["quoteId", "principalId", "request", "snapshotId"] as const;
+const routeDecisionInputFields = ["quoteId", "principalId", "snapshotId", "routePlan"] as const;
+const routePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"] as const;
 const rejectedQuoteInputFields = ["quoteId", "principalId", "request", "snapshotId", "rejectCode"] as const;
 const rejectedQuoteOptionalFields = ["riskPolicyVersion"] as const;
 const clearSettlementStatusInputFields = ["quoteId", "txHash", "settlementEventId"] as const;
@@ -59,6 +62,10 @@ export interface QuoteRecord {
   nonce?: UIntString;
   deadline?: number;
   snapshotId?: string;
+  routeId?: string;
+  routeVenue?: RoutePlan["venue"];
+  routeExpectedLiquidityUsd?: UIntString;
+  routeDecidedAt?: string;
   pricingVersion?: string;
   spreadBps?: number;
   sizeImpactBps?: number;
@@ -98,6 +105,7 @@ export interface ClearSettlementStatusResult {
 export interface QuoteRepository {
   checkHealth?(): Promise<void>;
   saveRequested(input: SaveRequestedQuoteInput): Promise<void>;
+  saveRouteDecision(input: SaveRouteDecisionInput): Promise<void>;
   saveRejected(input: SaveRejectedQuoteInput): Promise<void>;
   saveSigned(input: SaveSignedQuoteInput): Promise<void>;
   findStatus(quoteId: string, principalId?: string): Promise<QuoteStatusResponse | undefined>;
@@ -130,6 +138,13 @@ export interface SaveRejectedQuoteInput {
   snapshotId: string;
   rejectCode: string;
   riskPolicyVersion?: string;
+}
+
+export interface SaveRouteDecisionInput {
+  quoteId: string;
+  principalId: string;
+  snapshotId: string;
+  routePlan: RoutePlan;
 }
 
 export interface SaveSignedQuoteInput {
@@ -177,6 +192,24 @@ export class InMemoryQuoteRepository implements QuoteRepository {
       slippageBps: input.request.slippageBps,
       snapshotId: input.snapshotId,
       status: "requested",
+    });
+  }
+
+  async saveRouteDecision(input: SaveRouteDecisionInput): Promise<void> {
+    assertRouteDecisionInput(input);
+
+    const current = this.records.get(input.quoteId);
+    assertCanSaveRouteDecision(current, input);
+    if (current?.routeId !== undefined) {
+      return;
+    }
+
+    this.records.set(input.quoteId, {
+      ...current,
+      routeId: input.routePlan.routeId,
+      routeVenue: input.routePlan.venue,
+      routeExpectedLiquidityUsd: input.routePlan.expectedLiquidityUsd,
+      routeDecidedAt: new Date().toISOString(),
     });
   }
 
@@ -440,6 +473,32 @@ function assertRequestedQuoteInput(input: SaveRequestedQuoteInput): void {
   assertQuoteRequest(input.request, "Requested quote");
 }
 
+function assertRouteDecisionInput(input: SaveRouteDecisionInput): void {
+  assertObject(input, "input", "Route decision");
+  assertOwnFields(input, routeDecisionInputFields, "input", "Route decision");
+  assertNoUnknownFields(input, routeDecisionInputFields, "input", "Route decision");
+  assertObject(input.routePlan, "routePlan", "Route decision");
+  assertOwnFields(input.routePlan, routePlanFields, "routePlan", "Route decision");
+  assertNoUnknownFields(input.routePlan, routePlanFields, "routePlan", "Route decision");
+  assertSafeIdentifier(input.quoteId, "quoteId", "Route decision");
+  assertPrincipalId(input.principalId, "Route decision principalId");
+  assertSafeIdentifier(input.snapshotId, "snapshotId", "Route decision");
+  assertSafeIdentifier(input.routePlan.routeId, "routePlan.routeId", "Route decision");
+  if (input.routePlan.venue !== "internal_inventory") {
+    throw new Error("Route decision routePlan.venue must be internal_inventory");
+  }
+  assertAddress(input.routePlan.tokenIn, "routePlan.tokenIn", "Route decision");
+  assertAddress(input.routePlan.tokenOut, "routePlan.tokenOut", "Route decision");
+  if (input.routePlan.tokenIn.toLowerCase() === input.routePlan.tokenOut.toLowerCase()) {
+    throw new Error("Route decision routePlan token pair must contain distinct tokens");
+  }
+  assertPositiveUIntString(
+    input.routePlan.expectedLiquidityUsd,
+    "routePlan.expectedLiquidityUsd",
+    "Route decision",
+  );
+}
+
 function assertRejectedQuoteInput(input: SaveRejectedQuoteInput): void {
   assertObject(input, "input", "Rejected quote");
   assertOwnFields(input, rejectedQuoteInputFields, "input", "Rejected quote");
@@ -530,7 +589,7 @@ function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   }
 }
 
-function assertObject(value: unknown, field: "input" | "request" | "quote", subject: string): void {
+function assertObject(value: unknown, field: "input" | "request" | "quote" | "routePlan", subject: string): void {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${subject} ${field} must be an object`);
   }
@@ -549,6 +608,14 @@ function assertOwnOptionalFields(value: object, fields: readonly string[], path:
     if (field in value && !Object.prototype.hasOwnProperty.call(value, field)) {
       throw new Error(`${subject} ${path}.${field} must be an own field when provided`);
     }
+  }
+}
+
+function assertNoUnknownFields(value: object, fields: readonly string[], path: string, subject: string): void {
+  const allowed = new Set<string>(fields);
+  const unknownField = Object.keys(value).find((field) => !allowed.has(field));
+  if (unknownField !== undefined) {
+    throw new Error(`${subject} ${path} contains unknown field ${unknownField}`);
   }
 }
 
@@ -660,6 +727,27 @@ function assertCanSaveRequestedQuote(record: QuoteRecord, input: SaveRequestedQu
   throw new Error(`Quote ${input.quoteId} cannot save requested quote from ${record.status}`);
 }
 
+function assertCanSaveRouteDecision(
+  record: QuoteRecord | undefined,
+  input: SaveRouteDecisionInput,
+): asserts record is QuoteRecord {
+  if (!record) {
+    throw new Error(`Quote ${input.quoteId} cannot save route decision without requested state`);
+  }
+  if (!isSameRouteDecisionIdentity(record, input)) {
+    throw new Error(`Route decision does not match requested quote ${input.quoteId}`);
+  }
+  if (record.routeId !== undefined) {
+    if (isSameRouteDecisionPayload(record, input)) {
+      return;
+    }
+    throw new Error(`Route decision cannot be changed for ${input.quoteId}`);
+  }
+  if (record.status !== "requested") {
+    throw new Error(`Quote ${input.quoteId} cannot save route decision from ${record.status}`);
+  }
+}
+
 function assertCanSaveRejectedQuote(record: QuoteRecord | undefined, input: SaveRejectedQuoteInput): void {
   if (!record) {
     throw new Error(`Quote ${input.quoteId} cannot save rejected quote without requested state`);
@@ -740,6 +828,26 @@ function isSameRequestedQuotePayload(record: QuoteRecord, input: SaveRequestedQu
     record.amountIn === input.request.amountIn &&
     record.slippageBps === input.request.slippageBps &&
     record.snapshotId === input.snapshotId
+  );
+}
+
+function isSameRouteDecisionIdentity(record: QuoteRecord, input: SaveRouteDecisionInput): boolean {
+  return (
+    record.quoteId === input.quoteId &&
+    record.principalId === input.principalId &&
+    record.snapshotId === input.snapshotId &&
+    record.tokenIn.toLowerCase() === input.routePlan.tokenIn.toLowerCase() &&
+    record.tokenOut.toLowerCase() === input.routePlan.tokenOut.toLowerCase()
+  );
+}
+
+function isSameRouteDecisionPayload(record: QuoteRecord, input: SaveRouteDecisionInput): boolean {
+  return (
+    isSameRouteDecisionIdentity(record, input) &&
+    record.routeId === input.routePlan.routeId &&
+    record.routeVenue === input.routePlan.venue &&
+    record.routeExpectedLiquidityUsd === input.routePlan.expectedLiquidityUsd &&
+    record.routeDecidedAt !== undefined
   );
 }
 

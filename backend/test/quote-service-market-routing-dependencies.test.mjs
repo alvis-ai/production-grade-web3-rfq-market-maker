@@ -134,6 +134,84 @@ test("QuoteService marks requested quotes as failed when routing is unavailable"
   assert.equal(signerCalls, 0);
 });
 
+test("QuoteService persists route attribution before pricing and preserves it on the signed quote", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const saveRouteDecision = quoteRepository.saveRouteDecision.bind(quoteRepository);
+  const pricingEngine = new FormulaPricingEngine();
+  let persistedRouteDecision;
+  quoteRepository.saveRouteDecision = async (input) => {
+    persistedRouteDecision = input;
+    await saveRouteDecision(input);
+  };
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteRepository,
+    pricingEngine: {
+      async price(input) {
+        assert.ok(persistedRouteDecision, "route decision must be durable before pricing starts");
+        assert.equal(persistedRouteDecision.routePlan.routeId, input.routePlan.routeId);
+        return pricingEngine.price(input);
+      },
+    },
+  });
+
+  const response = await service.createQuote(request);
+  const stored = await quoteRepository.findSignedQuoteByQuoteId(response.quoteId);
+
+  assert.equal(stored.routeId, persistedRouteDecision.routePlan.routeId);
+  assert.equal(stored.routeVenue, "internal_inventory");
+  assert.equal(stored.routeExpectedLiquidityUsd, "10000000000000");
+  assert.match(stored.routeDecidedAt, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test("QuoteService fails closed before pricing when route attribution cannot be persisted", async () => {
+  const quoteRepository = new InMemoryQuoteRepository();
+  const saveRequested = quoteRepository.saveRequested.bind(quoteRepository);
+  let requestedQuoteId;
+  let pricingCalls = 0;
+  let signerCalls = 0;
+  quoteRepository.saveRequested = async (input) => {
+    requestedQuoteId = input.quoteId;
+    await saveRequested(input);
+  };
+  quoteRepository.saveRouteDecision = async () => {
+    throw new Error("route audit store offline");
+  };
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    quoteRepository,
+    pricingEngine: {
+      async price() {
+        pricingCalls += 1;
+        throw new Error("pricing should not be called");
+      },
+    },
+    signerService: {
+      async signQuote() {
+        signerCalls += 1;
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() {
+        return true;
+      },
+    },
+  });
+
+  await assert.rejects(
+    service.createQuote(request),
+    (error) => {
+      assert.equal(error.code, "QUOTE_STORE_UNAVAILABLE");
+      return true;
+    },
+  );
+
+  const status = await quoteRepository.findStatus(requestedQuoteId);
+  assert.equal(status.status, "failed");
+  assert.equal(status.errorCode, "QUOTE_STORE_UNAVAILABLE");
+  assert.equal(pricingCalls, 0);
+  assert.equal(signerCalls, 0);
+});
+
 test("QuoteService rejects malformed route plans before pricing and signing", async () => {
   const validRoutePlan = {
     routeId: "route_test",

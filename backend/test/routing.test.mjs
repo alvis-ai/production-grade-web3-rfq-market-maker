@@ -27,12 +27,27 @@ test("InternalInventoryRoutingEngine creates deterministic internal inventory ro
   });
 
   assert.deepEqual(route, {
-    routeId: "route_8453_a0000000_b0000000",
+    routeId: "route_8453_a000000000000000000000000000000000000002_b000000000000000000000000000000000000003",
     venue: "internal_inventory",
     tokenIn: request.tokenIn,
     tokenOut: request.tokenOut,
     expectedLiquidityUsd: snapshot.liquidityUsd,
   });
+});
+
+test("InternalInventoryRoutingEngine route ids do not collide for matching token prefixes", async () => {
+  const engine = new InternalInventoryRoutingEngine();
+  const first = await engine.selectRoute({ request, snapshot });
+  const second = await engine.selectRoute({
+    request: {
+      ...request,
+      tokenIn: "0xA0000000ffffffffffffffffffffffffffffffff",
+      tokenOut: "0xB0000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    },
+    snapshot,
+  });
+
+  assert.notEqual(first.routeId, second.routeId);
 });
 
 test("InternalInventoryRoutingEngine rejects malformed route payload envelopes before planning", async () => {
@@ -209,5 +224,8 @@ test("InternalInventoryRoutingEngine rejects unsafe route inputs before planning
   );
 
   const route = await engine.selectRoute({ request, snapshot });
-  assert.equal(route.routeId, "route_8453_a0000000_b0000000");
+  assert.equal(
+    route.routeId,
+    "route_8453_a000000000000000000000000000000000000002_b000000000000000000000000000000000000003",
+  );
 });

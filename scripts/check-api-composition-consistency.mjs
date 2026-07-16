@@ -29,6 +29,10 @@ const quoteServiceErrors = await readFile(
   "backend/src/modules/quote/quote-service-errors.ts",
   "utf8",
 );
+const quoteRouteSelection = await readFile(
+  "backend/src/modules/quote/quote-route-selection.ts",
+  "utf8",
+);
 const quoteServiceResultValidation = await readFile(
   "backend/src/modules/quote/quote-service-result-validation.ts",
   "utf8",
@@ -67,6 +71,7 @@ const gatewayApplicationLines = gatewayApplication.split(/\r?\n/).length;
 const quoteServiceLines = quoteService.split(/\r?\n/).length;
 const quoteServiceContractLines = quoteServiceContract.split(/\r?\n/).length;
 const quoteServiceErrorsLines = quoteServiceErrors.split(/\r?\n/).length;
+const quoteRouteSelectionLines = quoteRouteSelection.split(/\r?\n/).length;
 const quoteServiceResultValidationLines = quoteServiceResultValidation.split(/\r?\n/).length;
 const executionServiceLines = executionService.split(/\r?\n/).length;
 const executionServiceContractLines = executionServiceContract.split(/\r?\n/).length;
@@ -89,6 +94,10 @@ assert.ok(
 assert.ok(
   quoteServiceErrorsLines <= 100,
   `quote-service-errors.ts must remain a bounded error boundary (got ${quoteServiceErrorsLines} lines)`,
+);
+assert.ok(
+  quoteRouteSelectionLines <= 100,
+  `quote-route-selection.ts must remain a bounded route transaction boundary (got ${quoteRouteSelectionLines} lines)`,
 );
 assert.ok(
   quoteServiceResultValidationLines <= 500,
@@ -255,6 +264,13 @@ assertContains(quoteServiceErrors, [
   "routingFailure",
   "assertUsableSnapshot",
 ], "quote service error boundary");
+assertContains(quoteRouteSelection, [
+  "selectAndPersistQuoteRoute",
+  "assertRoutePlan",
+  "saveRouteDecision",
+  "routingFailure",
+  "quoteStoreFailure",
+], "quote route transaction boundary");
 assertContains(executionService, [
   'from "./execution-service-contract.js"',
   'from "./execution-service-post-trade-validation.js"',

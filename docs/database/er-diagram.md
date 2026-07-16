@@ -49,6 +49,10 @@ erDiagram
     numeric nonce
     bigint deadline
     text snapshot_id
+    text route_id
+    text route_venue
+    numeric route_expected_liquidity_usd
+    timestamptz route_decided_at
     integer spread_bps
     integer size_impact_bps
     integer market_spread_bps
@@ -434,6 +438,8 @@ erDiagram
 - `quotes.pricing_version`、`quotes.risk_policy_version` 和 `quotes.reject_code` 在状态允许为 NULL 时可以缺失，但一旦写入必须是非空字符串，避免 signed/rejected/failed quote 带着不可解释的空白元数据。
 - `quotes.deadline` 使用 BIGINT 保存 EIP-712 signed quote 的 Unix seconds，而不是 timestamptz；它必须位于 JavaScript safe integer range `1..9007199254740991`，保证数据库值与 API、Signer、Settlement verifier 和链上 `uint256 deadline` 语义一致。
 - `quotes.snapshot_id` 是指向 `market_snapshots.id` 的必填 foreign key，用于报价回放；每条持久化 quote 都必须能回到用于定价的 market snapshot。
+- `quotes.route_id`、`route_venue`、`route_expected_liquidity_usd` 和 `route_decided_at` 保存 routing adapter 在定价前选定的不可变证据。四个字段必须全空或全有，venue 当前固定为 `internal_inventory`，expected liquidity 必须为正数；数据库 BEFORE UPDATE trigger 也拒绝首次写入后的字段变化，不能通过绕开应用仓储改写。历史记录无法可靠恢复 routing 决策，因此 migration `034` 不伪造回填；新报价在 route 写入失败时 fail closed，不进入 pricing 或 signer。
+- 内部 inventory route id 由 `chainId + full normalized tokenIn + full normalized tokenOut` 构成，完整地址避免共享前缀的 token 发生确定性碰撞。`quote.routing.v1` 在 route 从空变为非空时只写一次 transactional outbox，payload 关联 quote、snapshot、directional pair、venue、liquidity 和 decision time。
 - `quotes.slippage_bps` 保存原始 `QuoteRequest.slippageBps`，必须是 `0..10000` bps 内的整数。EIP-712 `SignedQuote` 只携带最终 `minAmountOut`，数据库单独保留请求滑点，才能在报价回放、风控审计和用户争议处理中解释 `min_amount_out` 如何由 `amount_out` 推导而来。
 - `quotes.spread_bps`、`quotes.size_impact_bps`、`quotes.market_spread_bps`、`quotes.inventory_skew_bps`、`quotes.volatility_premium_bps` 和 `quotes.hedge_cost_bps` 保存 signed quote 的定价组成。除可正可负的 `inventory_skew_bps` 必须在 `-10000..10000` 外，其余 bps 字段必须在 `0..10000`；这些字段和 `pricing_version` 一起解释 `amount_out` 如何从 market snapshot、route liquidity、可执行 market spread、inventory、volatility 和 hedge pressure 推导而来。
 - `market_snapshots.source` 必须是非空字符串，用于保留行情来源、provider 或聚合管线版本，避免报价回放时无法解释价格输入。
@@ -468,7 +474,7 @@ erDiagram
 - `hedge_orders` 与 `pnl_records` 是 settlement event 之后的 durable idempotent projections。它们不与链上 event+inventory 强行放在同一长事务；若进程在步骤间崩溃，settlement event 作为 source of truth，由 reconciliation 补齐缺失 projection 和 quote pointers。
 - `post_trade_reconciliation_jobs` 以 `quote_id` 为唯一收敛键。settlement insert 或 `canonical` 变化在同一事务中通过 trigger 更新 `desired_settlement_event_id` 与单调 `desired_revision`；多 worker 使用 `FOR UPDATE SKIP LOCKED` 和 expiring lease claim。worker 只有在 lease owner 与 revision 同时匹配时才推进 `processed_revision`，旧 revision 的副作用会由仍待处理的新 revision 再次收敛。
 - canonical job 按 hedge、PnL、quote pointer 顺序幂等补齐；没有 canonical event 的 job 清除可逆 quote/PnL projection，并只删除尚未向外部 venue 提交的 hedge。已 submission-attempted 或 terminal 的 CEX 证据保留，交由人工补偿而不是伪装成随链 reorg 消失。
-- `analytics_outbox` 实现 transactional outbox，由数据库 trigger 在 quote、market snapshot、risk、settlement、inventory、hedge 和 PnL 行发生有效业务变化的同一事务中追加。它不对 `aggregate_id` 建立跨表外键，因为一个统一事件表承载多种 aggregate；事件 payload 只保存分析所需字段，78 位金额全部编码为十进制字符串。
+- `analytics_outbox` 实现 transactional outbox，由数据库 trigger 在 quote lifecycle、quote routing、market snapshot、risk、settlement、inventory、hedge 和 PnL 行发生有效业务变化的同一事务中追加。它不对 `aggregate_id` 建立跨表外键，因为一个统一事件表承载多种 aggregate；事件 payload 只保存分析所需字段，78 位金额全部编码为十进制字符串。
 - `idx_analytics_outbox_pending` 支持多 publisher 使用 `FOR UPDATE SKIP LOCKED` 和 expiring lease 并发 claim。Kafka acknowledgement 成功后才写 `published_at`；失败只更新 `available_at` 和稳定 `last_error_code`。已发布行按 retention 分批删除，未发布行不会因重试次数耗尽而丢弃。
 - Outbox 到 Redpanda 是 at-least-once：publisher 可能在 broker 已确认但 `published_at` 尚未提交时崩溃。每条 envelope 使用稳定 `ao_<outbox_id>` event id，ClickHouse 以 `ReplacingMergeTree(ingested_at) ORDER BY event_id` 收敛重复；分析查询需要在要求即时去重时使用 `FINAL` 或 `argMax`。Kafka offset 只在 ClickHouse batch insert 成功后提交。
 - `enqueue_rfq_analytics_event()` 使用 migration owner 的 `SECURITY DEFINER` 权限并固定 `search_path = pg_catalog, public`，使低权限业务角色无需直接获得 outbox/identity sequence 写权限。函数体只接受 trigger row，不拼接动态 SQL。Analytics worker 使用独立数据库角色，权限限定为 outbox `SELECT/UPDATE/DELETE`；它不应拥有 quote、settlement、inventory 或 hedge 状态写权限。

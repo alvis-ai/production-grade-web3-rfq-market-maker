@@ -65,6 +65,7 @@ test("RFQ API maps quote store failures before signing", async () => {
       async saveRequested() {
         throw new Error("quote store offline");
       },
+      async saveRouteDecision() {},
       async saveRejected() {},
       async saveSigned() {},
       async findStatus() {
