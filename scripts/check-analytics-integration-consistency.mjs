@@ -34,6 +34,11 @@ assertContains("scripts/analytics-integration-check.mjs", [
   "RFQ_CLICKHOUSE_USERNAME",
   "authorization: `Basic",
   "ALTER TABLE ${clickhouseTable} DELETE",
+  "RFQ_ANALYTICS_INTEGRATION_TIMEOUT_MS",
+  "RFQ_ANALYTICS_INTEGRATION_REQUEST_TIMEOUT_MS",
+  "AbortSignal.timeout(requestTimeoutMs)",
+  "Analytics integration exceeded ${integrationTimeoutMs}ms hard deadline",
+  "[analytics-integration] ${message}",
 ]);
 assert.ok(
   !files["scripts/analytics-integration-check.mjs"].includes('["001", "002"'),
@@ -46,7 +51,15 @@ assertContains("scripts/analytics-e2e.sh", [
   'export RFQ_ANALYTICS_WORKER_PORT="$PORT"',
   "body.status === \"ok\"",
   "scripts/analytics-integration-check.mjs",
-  "trap cleanup EXIT INT TERM",
+  "trap cleanup EXIT",
+  "trap 'exit 130' INT",
+  "trap 'exit 143' TERM",
+  "RFQ_ANALYTICS_E2E_TIMEOUT_SECONDS",
+  "RFQ_ANALYTICS_E2E_READY_REQUEST_TIMEOUT_MS",
+  "AbortSignal.timeout(timeoutMs)",
+  "kill -KILL",
+  'watchdog_stop_file="${LOG_FILE}.watchdog-stop.$$"',
+  "Analytics E2E exceeded ${E2E_TIMEOUT_SECONDS}s hard deadline",
 ]);
 assertContains(".github/workflows/analytics-ci.yml", [
   "name: Analytics CI",
@@ -55,6 +68,9 @@ assertContains(".github/workflows/analytics-ci.yml", [
   "docker compose up -d --wait postgres redpanda clickhouse",
   "docker compose --profile analytics run --rm redpanda-topic-init",
   "RFQ_ANALYTICS_INTEGRATION_CONFIRM: \"yes\"",
+  "timeout-minutes: 10",
+  "RFQ_ANALYTICS_E2E_TIMEOUT_SECONDS: \"120\"",
+  "RFQ_ANALYTICS_INTEGRATION_TIMEOUT_MS: \"60000\"",
   "run: make db-migrate analytics-e2e",
   "if: failure()",
   "if: always()",
@@ -73,14 +89,21 @@ assertContains("package.json", [
   '"analytics:pipeline:check": "make analytics-pipeline-check"',
   '"analytics:e2e": "make analytics-e2e"',
 ]);
-assertContains("README.md", ["make analytics-e2e", "Analytics CI"]);
+assertContains("README.md", [
+  "make analytics-e2e",
+  "Analytics CI",
+  "RFQ_ANALYTICS_E2E_TIMEOUT_SECONDS",
+  "RFQ_ANALYTICS_INTEGRATION_TIMEOUT_MS",
+]);
 assertContains("book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md", [
   "Analytics CI",
   "current compiled schema",
+  "complete shell lifecycle",
 ]);
 assertContains("book/Volume7-ProductionDeployment/Chapter04-CI-CD.md", [
   "Analytics CI",
   "PostgreSQL -> Redpanda -> ClickHouse",
+  "十分钟 job",
 ]);
 
 console.log("Analytics integration consistency check passed: current-schema outbox delivery is enforced end to end");

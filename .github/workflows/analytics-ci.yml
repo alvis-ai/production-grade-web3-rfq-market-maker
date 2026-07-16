@@ -28,6 +28,7 @@ on:
 jobs:
   analytics:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -58,6 +59,10 @@ jobs:
           RFQ_ANALYTICS_KAFKA_SSL: "false"
           RFQ_ANALYTICS_WORKER_HOST: 127.0.0.1
           RFQ_ANALYTICS_WORKER_PORT: "13002"
+          RFQ_ANALYTICS_E2E_TIMEOUT_SECONDS: "120"
+          RFQ_ANALYTICS_E2E_READY_REQUEST_TIMEOUT_MS: "1000"
+          RFQ_ANALYTICS_INTEGRATION_TIMEOUT_MS: "60000"
+          RFQ_ANALYTICS_INTEGRATION_REQUEST_TIMEOUT_MS: "5000"
           RFQ_ANALYTICS_BATCH_SIZE: "10"
           RFQ_ANALYTICS_LEASE_MS: "120000"
           RFQ_CLICKHOUSE_URL: http://127.0.0.1:8123

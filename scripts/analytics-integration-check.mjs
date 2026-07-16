@@ -15,6 +15,20 @@ const clickhouseDatabase = process.env.RFQ_CLICKHOUSE_DATABASE ?? "default";
 const clickhouseTable = process.env.RFQ_CLICKHOUSE_ANALYTICS_TABLE ?? "rfq_analytics_events";
 const clickhouseUsername = process.env.RFQ_CLICKHOUSE_USERNAME ?? "default";
 const clickhousePassword = process.env.RFQ_CLICKHOUSE_PASSWORD ?? "";
+const integrationTimeoutMs = readBoundedInteger(
+  "RFQ_ANALYTICS_INTEGRATION_TIMEOUT_MS",
+  process.env.RFQ_ANALYTICS_INTEGRATION_TIMEOUT_MS,
+  60_000,
+  10_000,
+  300_000,
+);
+const requestTimeoutMs = readBoundedInteger(
+  "RFQ_ANALYTICS_INTEGRATION_REQUEST_TIMEOUT_MS",
+  process.env.RFQ_ANALYTICS_INTEGRATION_REQUEST_TIMEOUT_MS,
+  5_000,
+  100,
+  30_000,
+);
 for (const [name, value] of [["RFQ_CLICKHOUSE_DATABASE", clickhouseDatabase], ["RFQ_CLICKHOUSE_ANALYTICS_TABLE", clickhouseTable]]) {
   if (!/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(value)) throw new Error(`${name} is invalid`);
 }
@@ -25,7 +39,14 @@ for (const [name, value] of [["RFQ_CLICKHOUSE_USERNAME", clickhouseUsername], ["
   }
 }
 
+const hardDeadline = setTimeout(() => {
+  process.stderr.write(`Analytics integration exceeded ${integrationTimeoutMs}ms hard deadline\n`);
+  process.exit(1);
+}, integrationTimeoutMs);
+hardDeadline.unref();
+
 const pool = getPool();
+writeStage("connecting to PostgreSQL");
 const client = await pool.connect();
 const runId = randomBytes(8).toString("hex");
 const quoteId = `q_analytics_${runId}`;
@@ -67,6 +88,7 @@ let eventIds = [];
 let clickhouseCleanupNeeded = false;
 
 try {
+  writeStage("writing atomic operational fixtures");
   await client.query("BEGIN");
   await client.query(
     `INSERT INTO market_snapshots (
@@ -144,6 +166,7 @@ try {
   eventIds = emitted.rows.map((row) => `ao_${row.id}`);
   clickhouseCleanupNeeded = true;
 
+  writeStage("waiting for outbox publication");
   const outbox = await waitFor(async () => {
     const result = await pool.query(
       `SELECT id::text, event_type, published_at
@@ -159,6 +182,7 @@ try {
   assert.deepEqual(outbox.map((row) => row.event_type).sort(), expectedTypes);
   const eventIdFilter = sqlStringList(eventIds);
 
+  writeStage("waiting for ClickHouse projection");
   const projection = await waitFor(async () => {
     const result = await clickhouseQuery(
       `SELECT count() AS row_count, uniqExact(event_id) AS unique_count, groupUniqArray(event_type) AS event_types FROM ${clickhouseTable} FINAL WHERE event_id IN (${eventIdFilter})`,
@@ -204,6 +228,7 @@ try {
     expectedMigrationVersions,
   );
 
+  writeStage("cleaning integration fixtures");
   await cleanupOperationalFixtures();
   fixturesCommitted = false;
   await clickhouseCommand(
@@ -249,6 +274,7 @@ try {
 } finally {
   client.release();
   await endPool();
+  clearTimeout(hardDeadline);
 }
 
 async function clickhouseQuery(query) {
@@ -271,6 +297,7 @@ async function clickhouseRequest(query, expectsJson) {
       "content-type": "text/plain",
     },
     body: query,
+    signal: AbortSignal.timeout(requestTimeoutMs),
   });
   if (!response.ok) throw new Error(`ClickHouse query failed with HTTP ${response.status}: ${await response.text()}`);
   return response;
@@ -335,4 +362,20 @@ function assertIntegrationTargets(postgresUrl, analyticsUrl) {
       throw new Error(`${name} must use loopback unless RFQ_ANALYTICS_INTEGRATION_ALLOW_REMOTE=yes`);
     }
   }
+}
+
+function readBoundedInteger(name, value, fallback, min, max) {
+  const resolved = value === undefined || value === "" ? String(fallback) : value;
+  if (!/^(0|[1-9][0-9]*)$/.test(resolved)) {
+    throw new Error(`${name} must be an integer between ${min} and ${max}`);
+  }
+  const parsed = Number(resolved);
+  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${name} must be an integer between ${min} and ${max}`);
+  }
+  return parsed;
+}
+
+function writeStage(message) {
+  process.stdout.write(`[analytics-integration] ${message}\n`);
 }
