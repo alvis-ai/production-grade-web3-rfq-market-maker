@@ -114,7 +114,7 @@ signQuote(input: SignQuoteInput): Promise<`0x${string}`>
 - Signer 不做风险判断。
 - Signer 验证 approved context。
 - 本地开发使用 `RFQ_SIGNER_MODE=local`、`RFQ_SIGNER_PRIVATE_KEY` 和 `RFQ_SETTLEMENT_ADDRESS`。默认 Anvil key 只允许用于 unset `NODE_ENV`、`development` 或 `test`；任何非本地环境都拒绝 local mode 和原始私钥。
-- API 生产进程使用 `RFQ_SIGNER_MODE=remote`，只持有 HTTPS signer origin、内部 bearer token、trusted signer、settlement address 和 signer CA；`RemoteSignerService` 对响应限长并再次执行 EIP-712 恢复地址校验。
+- API 生产进程使用 `RFQ_SIGNER_MODE=remote`，只持有 HTTPS signer origin、内部 bearer token、trusted signer、settlement address 和 signer CA；`RemoteSignerService` 使用同一个 AbortController deadline 覆盖连接、响应流与 JSON 解码，成功的 `/internal/sign` 和 `/ready` body 在解码前执行 1 KiB 流式上限，非成功 body 直接取消。超限、停滞、畸形或 signer identity 不匹配统一返回 `SIGNER_UNAVAILABLE`，随后仍独立执行 EIP-712 恢复地址校验。
 - 独立 signer 生产进程使用 `RFQ_SIGNER_MODE=aws-kms`。启动必须同时获得 KMS 配置、trusted signer、settlement address、TLS certificate/key、token registry 和 risk policy；API ServiceAccount 不具备 `kms:Sign`，只有 signer ServiceAccount 绑定 key-scoped IAM role。
 - `/internal/sign` 先使用 constant-time digest comparison 验证 bearer token，再要求完整的 `riskDecisionId`、`riskPolicyVersion` 与 `traceId`，验证 `riskDecisionId=rd_${quoteId}`，并独立限制 enabled chain、whitelisted token、TTL、clock skew、input/output raw amount。该 envelope 证明请求引用了已持久化的 approved decision，但 Signer 不读取业务数据库，独立 envelope 仍是纵深防御而不是第二套完整风险引擎。
 - 通过 envelope 校验后，Signer 计算与结算合约一致的 EIP-712 digest，完成签名与恢复地址验证，再把 `quoteId`、`snapshotId`、`riskDecisionId`、`riskPolicyVersion`、`traceId`、digest、signature hash、current signer、settlement、chain、deadline、bounded outcome 和 canonical timestamp 写入 `SignerAuditStore`。成功审计提交之前不得返回 signature；审计失败返回通用 503 并增加 `rfq_signer_service_audit_errors_total`。

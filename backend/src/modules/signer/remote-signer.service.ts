@@ -1,5 +1,9 @@
 import { recoverTypedDataAddress } from "viem";
 import { APIError } from "../../shared/errors/api-error.js";
+import {
+  cancelResponseBody,
+  readBoundedJsonResponse,
+} from "../../shared/http/bounded-json-response.js";
 import type { SignedQuote } from "../../shared/types/rfq.js";
 import {
   assertAuthorizedSignQuoteInput,
@@ -54,60 +58,34 @@ export class RemoteSignerService implements SignerService {
 
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
     assertAuthorizedSignQuoteInput(input);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
-    timeout.unref();
-    try {
-      const response = await this.fetchFn(new URL("/internal/sign", this.baseUrl), {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${this.authToken}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(input),
-        signal: controller.signal,
-      }).catch(() => {
-        throw signerUnavailable();
-      });
-      if (!response.ok) throw signerUnavailable();
-      const body = await readBoundedJson(response);
-      if (!isRecord(body) || Object.keys(body).length !== 1 ||
-          !Object.prototype.hasOwnProperty.call(body, "signature")) {
-        throw signerUnavailable();
-      }
-      const signature = body.signature;
-      try {
-        assertSignature(signature as string);
-      } catch {
-        throw signerUnavailable();
-      }
-      if (!await this.verifyQuoteSignature(input.quote, signature as `0x${string}`)) {
-        throw signerUnavailable();
-      }
-      return signature as `0x${string}`;
-    } finally {
-      clearTimeout(timeout);
+    const body = await this.requestBoundedJson("/internal/sign", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${this.authToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(input),
+    });
+    if (!isRecord(body) || Object.keys(body).length !== 1 ||
+        !Object.prototype.hasOwnProperty.call(body, "signature")) {
+      throw signerUnavailable();
     }
+    const signature = body.signature;
+    try {
+      assertSignature(signature as string);
+    } catch {
+      throw signerUnavailable();
+    }
+    if (!await this.verifyQuoteSignature(input.quote, signature as `0x${string}`)) {
+      throw signerUnavailable();
+    }
+    return signature as `0x${string}`;
   }
 
   async checkHealth(): Promise<void> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
-    timeout.unref();
-    try {
-      const response = await this.fetchFn(new URL("/ready", this.baseUrl), {
-        method: "GET",
-        signal: controller.signal,
-      }).catch(() => {
-        throw signerUnavailable();
-      });
-      if (!response.ok) throw signerUnavailable();
-      const body = await readBoundedJson(response);
-      if (!isRecord(body) || Object.keys(body).length !== 1 || body.status !== "ok") {
-        throw signerUnavailable();
-      }
-    } finally {
-      clearTimeout(timeout);
+    const body = await this.requestBoundedJson("/ready", { method: "GET" });
+    if (!isRecord(body) || Object.keys(body).length !== 1 || body.status !== "ok") {
+      throw signerUnavailable();
     }
   }
 
@@ -124,18 +102,32 @@ export class RemoteSignerService implements SignerService {
       return false;
     }
   }
+
+  private async requestBoundedJson(path: "/internal/sign" | "/ready", init: RequestInit): Promise<unknown> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+    timeout.unref();
+    try {
+      let response: Response;
+      try {
+        response = await this.fetchFn(new URL(path, this.baseUrl), { ...init, signal: controller.signal });
+      } catch {
+        throw signerUnavailable();
+      }
+      if (!response.ok) {
+        await cancelResponseBody(response);
+        throw signerUnavailable();
+      }
+      return await readBoundedJson(response);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
 }
 
 async function readBoundedJson(response: Response): Promise<unknown> {
-  let text: string;
   try {
-    text = await response.text();
-  } catch {
-    throw signerUnavailable();
-  }
-  if (Buffer.byteLength(text, "utf8") > maxResponseBytes) throw signerUnavailable();
-  try {
-    return JSON.parse(text) as unknown;
+    return await readBoundedJsonResponse(response, "Remote signer response", maxResponseBytes);
   } catch {
     throw signerUnavailable();
   }

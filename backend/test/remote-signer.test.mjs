@@ -71,6 +71,58 @@ test("RemoteSignerService fails closed on transport, status, response, and signe
   }
 });
 
+test("RemoteSignerService cancels oversized response streams before complete buffering", async () => {
+  let bodyCanceled = false;
+  const remote = new RemoteSignerService(config, async () => new Response(new ReadableStream({
+    start(controller) {
+      controller.enqueue(new Uint8Array(1_025));
+    },
+    cancel() {
+      bodyCanceled = true;
+    },
+  })));
+
+  await assert.rejects(
+    remote.signQuote(input),
+    (error) => error?.code === "SIGNER_UNAVAILABLE" && error?.statusCode === 503,
+  );
+  assert.equal(bodyCanceled, true);
+});
+
+test("RemoteSignerService keeps stalled response bodies inside the request timeout", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  let requestSignal;
+  const remote = new RemoteSignerService(
+    { ...config, requestTimeoutMs: 100 },
+    async (_url, init) => {
+      requestSignal = init.signal;
+      return stallingJsonResponse(init.signal);
+    },
+  );
+
+  const pending = remote.signQuote(input);
+  const rejected = assert.rejects(
+    pending,
+    (error) => error?.code === "SIGNER_UNAVAILABLE" && error?.statusCode === 503,
+  );
+  await settle();
+  context.mock.timers.tick(100);
+  await rejected;
+  assert.equal(requestSignal.aborted, true);
+});
+
+test("RemoteSignerService cancels unused sign and readiness error bodies", async () => {
+  const canceledPaths = [];
+  const remote = new RemoteSignerService(config, async (url) => {
+    const path = new URL(url).pathname;
+    return cancelableResponse(503, () => canceledPaths.push(path));
+  });
+
+  await assert.rejects(remote.signQuote(input), (error) => error?.code === "SIGNER_UNAVAILABLE");
+  await assert.rejects(remote.checkHealth(), (error) => error?.code === "SIGNER_UNAVAILABLE");
+  assert.deepEqual(canceledPaths, ["/internal/sign", "/ready"]);
+});
+
 test("RemoteSignerService requires a complete risk authorization context", async () => {
   const remote = new RemoteSignerService(config, async () => jsonResponse({ signature: "unreachable" }));
   const { riskDecisionId: _riskDecisionId, ...missingDecision } = input;
@@ -110,4 +162,25 @@ function jsonResponse(body, status = 200) {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+function cancelableResponse(status, onCancel) {
+  return new Response(new ReadableStream({
+    cancel() { onCancel(); },
+  }), { status });
+}
+
+function stallingJsonResponse(signal) {
+  return new Response(new ReadableStream({
+    start(controller) {
+      const abort = () => controller.error(new DOMException("aborted", "AbortError"));
+      if (signal.aborted) abort();
+      else signal.addEventListener("abort", abort, { once: true });
+    },
+  }));
+}
+
+async function settle() {
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
 }

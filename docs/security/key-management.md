@@ -32,6 +32,7 @@ flowchart LR
 - API uses `RFQ_SIGNER_MODE=remote`; only the isolated signer process uses `RFQ_SIGNER_MODE=aws-kms`. Local private-key mode is rejected outside development and tests.
 - Workload identity with `kms:Sign` restricted to one asymmetric key exists only on the signer ServiceAccount. The API ServiceAccount has no KMS role and no static AWS credentials.
 - API-to-signer transport uses HTTPS with a private CA, a bounded bearer token and default-deny NetworkPolicy. Plain HTTP requires an explicit local-only switch and is rejected in production.
+- The API streams remote signer success bodies through a 1 KiB pre-decode cap inside the same request deadline, cancels unused non-success bodies, and maps oversized, stalled or malformed responses to one generic unavailable result.
 - The signer authenticates before parsing a request, independently enforces enabled chains, whitelisted tokens, TTL and raw amount bounds, then locally verifies every KMS signature. The API client verifies the trusted signer again before returning a quote.
 - Explicit `RFQ_TRUSTED_SIGNER_ADDRESS` independent from KMS output.
 - Optional `RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES` contains at most four explicit prior or next signer addresses and is used only for settlement verification during a bounded rotation window.

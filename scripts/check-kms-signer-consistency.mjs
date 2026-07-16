@@ -11,6 +11,7 @@ const paths = [
   "backend/src/modules/signer/signer-runtime.ts",
   "backend/src/modules/signer/signer.service.ts",
   "backend/src/modules/signer/remote-signer.service.ts",
+  "backend/src/shared/http/bounded-json-response.ts",
   "backend/src/modules/signer/signer-server.ts",
   "backend/src/modules/signer/signer-audit.store.ts",
   "backend/src/db/migrations/027-signer-audit.sql",
@@ -107,12 +108,31 @@ assertContains("backend/src/modules/signer/signer-runtime.ts", [
   "RemoteSignerService",
 ]);
 assertContains("backend/src/modules/signer/remote-signer.service.ts", [
-  'new URL("/internal/sign", this.baseUrl)',
+  'this.requestBoundedJson("/internal/sign"',
+  'path: "/internal/sign" | "/ready"',
+  "new URL(path, this.baseUrl)",
   "authorization: `Bearer ${this.authToken}`",
   "readBoundedJson",
+  "readBoundedJsonResponse",
+  "cancelResponseBody",
+  "requestBoundedJson",
+  "maxResponseBytes = 1_024",
   "verifyQuoteSignature(input.quote, signature",
   "SIGNER_UNAVAILABLE",
   "assertAuthorizedSignQuoteInput",
+]);
+assert.ok(
+  !files["backend/src/modules/signer/remote-signer.service.ts"].includes("response.text()"),
+  "remote signer responses must be byte-bounded before complete buffering",
+);
+assertContains("backend/src/shared/http/bounded-json-response.ts", [
+  "response.body.getReader()",
+  "receivedBytes > maxBytes",
+]);
+assertContains("backend/test/remote-signer.test.mjs", [
+  "cancels oversized response streams before complete buffering",
+  "keeps stalled response bodies inside the request timeout",
+  "cancels unused sign and readiness error bodies",
 ]);
 assertContains("backend/src/modules/signer/signer-server.ts", [
   'server.post("/internal/sign"',
@@ -335,6 +355,7 @@ assertContains("docs/security/key-management.md", [
   "RFQSettlement.setTrustedSignerAuthorization(oldSigner, false)",
   "receipt-confirmation and indexer catch-up buffers",
   "make aws-kms-integration-check",
+  "1 KiB pre-decode cap",
 ]);
 assertContains("README.md", ["make aws-kms-integration-check", "make aws-kms-canary-check"]);
 assertContains("book/Volume5-BackendEngineering/Chapter05-Signer-Service.md", [
@@ -349,8 +370,15 @@ assertContains("book/Volume7-ProductionDeployment/Chapter05-Runbook.md", [
 assertContains("book/Volume1-SystemArchitecture/Chapter09-Architecture-Review.md", [
   "AWS KMS signer identity canary",
 ]);
-assertContains("docs/security/threat-model.md", ["Unverified KMS rollout identity or diagnostic leakage"]);
-assertContains("docs/security/audit-checklist.md", ["target-workload AWS KMS canary"]);
+assertContains("docs/security/threat-model.md", [
+  "Unverified KMS rollout identity or diagnostic leakage",
+  "Oversized or stalled remote signer response",
+]);
+assertContains("docs/security/audit-checklist.md", [
+  "target-workload AWS KMS canary",
+  "1 KiB streaming pre-decode cap",
+]);
+assertContains("README.md", ["response streaming and JSON decoding inside `RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS`"]);
 
 console.log("KMS signer consistency check passed: explicit trust root and workload identity");
 
