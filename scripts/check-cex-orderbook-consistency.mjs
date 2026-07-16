@@ -11,6 +11,7 @@ const [
   decimalSource,
   orderBookSource,
   connectorSafetySource,
+  boundedJsonSource,
   binanceSource,
   coinbaseSource,
   metricsSource,
@@ -38,6 +39,7 @@ const [
   "backend/src/modules/market-data/cex-orderbook/decimal.ts",
   "backend/src/modules/market-data/cex-orderbook/orderbook.ts",
   "backend/src/modules/market-data/cex-orderbook/connector-safety.ts",
+  "backend/src/shared/http/bounded-json-response.ts",
   "backend/src/modules/market-data/cex-orderbook/binance-connector.ts",
   "backend/src/modules/market-data/cex-orderbook/coinbase-connector.ts",
   "backend/src/modules/metrics/metrics.service.ts",
@@ -152,7 +154,8 @@ assert.ok(orderBookSource.includes("normalizeLevels") && orderBookSource.include
 assert.ok(
   connectorSafetySource.includes("MAX_CEX_WS_MESSAGE_BYTES = 1_048_576") &&
     connectorSafetySource.includes("MAX_CEX_SNAPSHOT_BYTES = 2_097_152") &&
-    connectorSafetySource.includes("response.body.getReader()") &&
+    connectorSafetySource.includes("readBoundedHttpJsonResponse") &&
+    boundedJsonSource.includes("response.body.getReader()") &&
     connectorSafetySource.includes("new TextEncoder().encode(raw).byteLength"),
   "CEX connector payloads must be byte-bounded before JSON decoding",
 );

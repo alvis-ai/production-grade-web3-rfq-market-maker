@@ -5,6 +5,7 @@ import {
   BinanceSpotAdapter,
   CexVenueError,
 } from "../dist/modules/hedge/binance-spot.adapter.js";
+import { MAX_BINANCE_HTTP_RESPONSE_BYTES } from "../dist/modules/hedge/binance-http-response.js";
 import { BinanceSymbolRulesError } from "../dist/modules/hedge/binance-symbol-rules.js";
 
 const config = {
@@ -182,6 +183,36 @@ test("BinanceSpotAdapter treats transport ambiguity and malformed venue data saf
     missingQuoteEvidence.queryOrder({ symbol: "ETHUSDT", clientOrderId }),
     /BINANCE_RESPONSE_INVALID/,
   );
+});
+
+test("BinanceSpotAdapter bounds order and clock-sync responses before JSON decoding", async () => {
+  let orderBodyCanceled = false;
+  const oversizedOrder = new BinanceSpotAdapter(
+    config,
+    allowingRules,
+    async () => declaredOversizedResponse(() => { orderBodyCanceled = true; }),
+    () => 1_700_000_000_000,
+  );
+  await assert.rejects(
+    oversizedOrder.queryOrder({ symbol: "ETHUSDT", clientOrderId }),
+    (error) => error instanceof CexVenueError && error.retryable &&
+      error.errorCode === "BINANCE_RESPONSE_INVALID",
+  );
+  assert.equal(orderBodyCanceled, true);
+
+  let calls = 0;
+  const oversizedClock = new BinanceSpotAdapter(config, allowingRules, async (input) => {
+    calls += 1;
+    return new URL(input).pathname === "/api/v3/time"
+      ? declaredOversizedResponse()
+      : jsonResponse({ code: -1021, msg: "Invalid timestamp." }, 400);
+  }, () => 1_700_000_000_000);
+  await assert.rejects(
+    oversizedClock.queryOrder({ symbol: "ETHUSDT", clientOrderId }),
+    (error) => error instanceof CexVenueError && error.retryable &&
+      error.errorCode === "BINANCE_TIME_SYNC_FAILED",
+  );
+  assert.equal(calls, 2);
 });
 
 test("BinanceSpotAdapter resynchronizes clock once and retries timestamp-rejected requests", async () => {
@@ -385,6 +416,14 @@ function jsonResponse(body, status = 200, headers = {}) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json", ...headers },
+  });
+}
+
+function declaredOversizedResponse(onCancel) {
+  return new Response(new ReadableStream({
+    cancel() { onCancel?.(); },
+  }), {
+    headers: { "content-length": String(MAX_BINANCE_HTTP_RESPONSE_BYTES + 1) },
   });
 }
 

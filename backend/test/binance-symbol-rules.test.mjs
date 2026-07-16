@@ -4,6 +4,7 @@ import {
   BinanceSymbolRulesError,
   BinanceSymbolRulesService,
 } from "../dist/modules/hedge/binance-symbol-rules.js";
+import { MAX_BINANCE_HTTP_RESPONSE_BYTES } from "../dist/modules/hedge/binance-http-response.js";
 import { HedgeRouteTable } from "../dist/modules/hedge/hedge-route.js";
 
 const token = "0x0000000000000000000000000000000000000003";
@@ -119,6 +120,21 @@ test("BinanceSymbolRulesService single-flights fetches and classifies transport 
   await assert.rejects(
     rejected.checkHealth(),
     (error) => code(error) === "BINANCE_SYMBOL_RULES_HTTP_400" && error.retryable,
+  );
+});
+
+test("BinanceSymbolRulesService bounds exchangeInfo responses before JSON decoding", async () => {
+  const service = new BinanceSymbolRulesService(
+    config,
+    new HedgeRouteTable([route]),
+    async () => new Response("{}", {
+      headers: { "content-length": String(MAX_BINANCE_HTTP_RESPONSE_BYTES + 1) },
+    }),
+  );
+
+  await assert.rejects(
+    service.checkHealth(),
+    (error) => code(error) === "BINANCE_SYMBOL_RULES_INVALID" && error.retryable,
   );
 });
 

@@ -1,3 +1,5 @@
+import { readBoundedJsonResponse as readBoundedHttpJsonResponse } from "../../../shared/http/bounded-json-response.js";
+
 export const MAX_CEX_WS_MESSAGE_BYTES = 1_048_576;
 export const MAX_CEX_SNAPSHOT_BYTES = 2_097_152;
 
@@ -36,47 +38,7 @@ export async function readBoundedJsonResponse(
   label: string,
   maxBytes = MAX_CEX_SNAPSHOT_BYTES,
 ): Promise<unknown> {
-  assertByteLimit(maxBytes);
-  const contentLength = response.headers.get("content-length");
-  if (contentLength !== null) {
-    if (!/^(0|[1-9]\d*)$/.test(contentLength)) {
-      throw new Error(`${label} has an invalid content-length`);
-    }
-    const declaredBytes = Number(contentLength);
-    if (!Number.isSafeInteger(declaredBytes) || declaredBytes > maxBytes) {
-      throw new Error(`${label} exceeds ${maxBytes} bytes`);
-    }
-  }
-
-  if (!response.body) {
-    return parseBoundedJsonMessage(await response.text(), label, maxBytes);
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder("utf-8", { fatal: true });
-  const textChunks: string[] = [];
-  let receivedBytes = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      receivedBytes += value.byteLength;
-      if (receivedBytes > maxBytes) {
-        await reader.cancel().catch(() => undefined);
-        throw new Error(`${label} exceeds ${maxBytes} bytes`);
-      }
-      textChunks.push(decoder.decode(value, { stream: true }));
-    }
-    textChunks.push(decoder.decode());
-  } catch (error) {
-    await reader.cancel().catch(() => undefined);
-    if (error instanceof Error) throw error;
-    throw new Error(`${label} could not be read`);
-  } finally {
-    reader.releaseLock();
-  }
-
-  return parseBoundedJsonMessage(textChunks.join(""), label, maxBytes);
+  return readBoundedHttpJsonResponse(response, label, maxBytes);
 }
 
 export function exponentialReconnectDelayMs(

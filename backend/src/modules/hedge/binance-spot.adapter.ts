@@ -3,6 +3,7 @@ import {
   BinanceSymbolRulesError,
   type BinanceLimitOrderInput,
 } from "./binance-symbol-rules.js";
+import { readBoundedBinanceJsonResponse } from "./binance-http-response.js";
 
 export interface SubmitLimitOrderInput {
   symbol: string;
@@ -67,6 +68,11 @@ type LimitOrderRulesValidator = {
   validateLimitOrder(input: BinanceLimitOrderInput): Promise<void>;
 };
 
+interface ParsedBinanceResponse {
+  response: Response;
+  payload: unknown;
+}
+
 export class CexVenueError extends Error {
   constructor(
     readonly errorCode: string,
@@ -120,21 +126,21 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
 
   async queryOrder(input: QueryOrderInput): Promise<CexOrderResult | undefined> {
     assertQueryInput(input);
-    const response = await this.signedRequest("GET", "/api/v3/order", {
+    const { response, payload } = await this.signedRequest("GET", "/api/v3/order", {
       symbol: input.symbol,
       origClientOrderId: input.clientOrderId,
     });
     if (!response.ok) {
-      const error = await parseErrorResponse(response);
+      const error = parseErrorResponse(payload);
       if (error.code === -2013) return undefined;
       throw venueErrorForResponse(response.status, error.code, error.message, parseRetryAfterMs(response));
     }
-    return parseOrderResponse(await parseJson(response), input.symbol, input.clientOrderId);
+    return parseOrderResponse(payload, input.symbol, input.clientOrderId);
   }
 
   async submitLimitOrder(input: SubmitLimitOrderInput): Promise<CexOrderResult> {
     assertSubmitInput(input);
-    const response = await this.signedRequest("POST", "/api/v3/order", {
+    const { response, payload } = await this.signedRequest("POST", "/api/v3/order", {
       symbol: input.symbol,
       side: input.side.toUpperCase(),
       type: "LIMIT",
@@ -145,10 +151,10 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
       newOrderRespType: "FULL",
     });
     if (!response.ok) {
-      const error = await parseErrorResponse(response);
+      const error = parseErrorResponse(payload);
       throw venueErrorForResponse(response.status, error.code, error.message, parseRetryAfterMs(response));
     }
-    return parseOrderResponse(await parseJson(response), input.symbol, input.clientOrderId);
+    return parseOrderResponse(payload, input.symbol, input.clientOrderId);
   }
 
   async validateLimitOrder(input: BinanceLimitOrderInput): Promise<void> {
@@ -164,15 +170,15 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
 
   async cancelOrder(input: CancelOrderInput): Promise<CexOrderResult> {
     assertQueryInput(input);
-    const response = await this.signedRequest("DELETE", "/api/v3/order", {
+    const { response, payload } = await this.signedRequest("DELETE", "/api/v3/order", {
       symbol: input.symbol,
       origClientOrderId: input.clientOrderId,
     });
     if (!response.ok) {
-      const error = await parseErrorResponse(response);
+      const error = parseErrorResponse(payload);
       throw venueErrorForResponse(response.status, error.code, error.message, parseRetryAfterMs(response));
     }
-    return parseOrderResponse(await parseJson(response), input.symbol, input.clientOrderId);
+    return parseOrderResponse(payload, input.symbol, input.clientOrderId);
   }
 
   async queryOrderTrades(input: QueryOrderTradesInput): Promise<CexTradeFill[]> {
@@ -180,17 +186,17 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
     const fills: CexTradeFill[] = [];
     let fromId: string | undefined;
     for (let pageNumber = 0; pageNumber < maxTradePages; pageNumber += 1) {
-      const response = await this.signedRequest("GET", "/api/v3/myTrades", {
+      const { response, payload } = await this.signedRequest("GET", "/api/v3/myTrades", {
         symbol: input.symbol,
         orderId: input.venueOrderId,
         limit: String(tradePageSize),
         ...(fromId === undefined ? {} : { fromId }),
       });
       if (!response.ok) {
-        const error = await parseErrorResponse(response);
+        const error = parseErrorResponse(payload);
         throw venueErrorForResponse(response.status, error.code, error.message, parseRetryAfterMs(response));
       }
-      const page = parseTradeResponse(await parseJson(response), input.symbol, input.venueOrderId);
+      const page = parseTradeResponse(payload, input.symbol, input.venueOrderId);
       const previousTradeId = fills[fills.length - 1]?.venueTradeId;
       if (previousTradeId !== undefined && page[0] !== undefined &&
           Number(page[0].venueTradeId) <= Number(previousTradeId)) {
@@ -207,11 +213,14 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
     method: "GET" | "POST" | "DELETE",
     path: string,
     requestParams: Record<string, string>,
-  ): Promise<Response> {
-    const response = await this.sendSignedRequest(method, path, requestParams);
-    if (!await hasVenueErrorCode(response, -1021)) return response;
+  ): Promise<ParsedBinanceResponse> {
+    let response = await this.sendSignedRequest(method, path, requestParams);
+    let payload = await parseJsonResponse(response);
+    if (response.ok || !hasVenueErrorCode(payload, -1021)) return { response, payload };
     await this.synchronizeClock();
-    return this.sendSignedRequest(method, path, requestParams);
+    response = await this.sendSignedRequest(method, path, requestParams);
+    payload = await parseJsonResponse(response);
+    return { response, payload };
   }
 
   private async sendSignedRequest(
@@ -271,7 +280,7 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
     }
     let value: unknown;
     try {
-      value = await response.json();
+      value = await readBoundedBinanceJsonResponse(response, "Binance time response");
     } catch {
       throw new CexVenueError("BINANCE_TIME_SYNC_FAILED", true);
     }
@@ -308,15 +317,9 @@ export class BinanceSpotAdapter implements CexExecutionAdapter {
   }
 }
 
-async function hasVenueErrorCode(response: Response, expectedCode: number): Promise<boolean> {
-  if (response.ok) return false;
-  try {
-    const value = await response.clone().json() as unknown;
-    return typeof value === "object" && value !== null && !Array.isArray(value) &&
-      (value as Record<string, unknown>).code === expectedCode;
-  } catch {
-    return false;
-  }
+function hasVenueErrorCode(value: unknown, expectedCode: number): boolean {
+  return typeof value === "object" && value !== null && !Array.isArray(value) &&
+    (value as Record<string, unknown>).code === expectedCode;
 }
 
 function parseOrderResponse(value: unknown, expectedSymbol: string, expectedClientOrderId: string): CexOrderResult {
@@ -414,16 +417,15 @@ function isCommissionAsset(value: string): boolean {
   return value.length >= 1 && value.length <= 64 && !/[\s\p{Cc}]/u.test(value);
 }
 
-async function parseJson(response: Response): Promise<unknown> {
+async function parseJsonResponse(response: Response): Promise<unknown> {
   try {
-    return await response.json();
+    return await readBoundedBinanceJsonResponse(response, "Binance API response");
   } catch {
     throw new CexVenueError("BINANCE_RESPONSE_INVALID", true);
   }
 }
 
-async function parseErrorResponse(response: Response): Promise<{ code?: number; message?: string }> {
-  const value = await parseJson(response);
+function parseErrorResponse(value: unknown): { code?: number; message?: string } {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
   const code = (value as Record<string, unknown>).code;
   const message = (value as Record<string, unknown>).msg;

@@ -7,7 +7,9 @@ const paths = {
   route: "backend/src/modules/hedge/hedge-route.ts",
   worker: "backend/src/modules/hedge/hedge-worker.ts",
   adapter: "backend/src/modules/hedge/binance-spot.adapter.ts",
+  binanceHttp: "backend/src/modules/hedge/binance-http-response.ts",
   symbolRules: "backend/src/modules/hedge/binance-symbol-rules.ts",
+  boundedJson: "backend/src/shared/http/bounded-json-response.ts",
   store: "backend/src/modules/hedge/postgres-hedge-job.store.ts",
   migration: "backend/src/db/migrations/014-hedge-execution-evidence.sql",
   boundedLimitMigration: "backend/src/db/migrations/025-bounded-hedge-limit.sql",
@@ -67,6 +69,14 @@ assert.match(source.worker, /const targetAmount = quantizeHedgeAmount\(job\.amou
 assert.match(source.worker, /filledAmount === undefined \|\| filledAmount !== targetAmount/);
 assert.match(source.worker, /completeFilled[\s\S]*filledAmount/);
 assert.match(source.adapter, /cummulativeQuoteQty/);
+assert.match(source.binanceHttp, /MAX_BINANCE_HTTP_RESPONSE_BYTES = 2_097_152/);
+assert.match(source.binanceHttp, /readBoundedJsonResponse/);
+assert.match(source.boundedJson, /response\.body\.getReader\(\)/);
+assert.match(source.boundedJson, /response\.body\?\.cancel\(\)/);
+assert.match(source.adapter, /readBoundedBinanceJsonResponse/);
+assert.match(source.symbolRules, /readBoundedBinanceJsonResponse/);
+assert.doesNotMatch(source.adapter, /response\.clone\(\)\.json\(\)|response\.json\(\)/);
+assert.doesNotMatch(source.symbolRules, /response\.json\(\)/);
 assert.match(source.worker, /parseCexQuoteQuantity\(order\.executedQuoteQuantity\)/);
 assert.match(source.worker, /if \(job\.submissionAttempted\)[\s\S]*scheduleRetry/);
 assert.match(source.worker, /if \(!job\.submissionAttempted\) \{[\s\S]*prepareRoute/);
@@ -97,7 +107,7 @@ assert.match(source.migration, /hedge\.lifecycle\.v2/);
 assert.match(source.adapter, /\/api\/v3\/myTrades/);
 assert.match(source.adapter, /orderId: input\.venueOrderId/);
 assert.match(source.adapter, /fromId/);
-assert.match(source.adapter, /hasVenueErrorCode\(response, -1021\)/);
+assert.match(source.adapter, /hasVenueErrorCode\(payload, -1021\)/);
 assert.match(source.adapter, /\/api\/v3\/time/);
 assert.match(source.adapter, /clockSyncPromise/);
 assert.match(source.feeWorker, /sumCexTradeQuantity\(fills, "quantity"\)/);
@@ -124,6 +134,7 @@ assert.match(source.marketRuntime, /buildRuntimeBinanceSymbolRulesHealth/);
 assert.match(source.readiness, /hedgeRouteRulesHealth/);
 assert.match(source.adapterTest, /resynchronizes clock once and retries timestamp-rejected requests/);
 assert.match(source.adapterTest, /single-flights concurrent clock synchronization/);
+assert.match(source.adapterTest, /bounds order and clock-sync responses before JSON decoding/);
 assert.match(source.adapterTest, /signs cancellation and preserves cumulative execution evidence/);
 assert.match(source.routeTest, /binds route decimals to the shared token registry/);
 assert.match(source.routeTest, /applies slippage and tick rounding conservatively/);
@@ -137,6 +148,7 @@ assert.match(source.runtimeTest, /RFQ_TOKEN_REGISTRY_JSON is required/);
 assert.match(source.runtimeTest, /does not match token registry decimals/);
 assert.match(source.symbolRulesTest, /refreshes its bounded cache/);
 assert.match(source.symbolRulesTest, /enforces LOT_SIZE, PRICE_FILTER and NOTIONAL exactly/);
+assert.match(source.symbolRulesTest, /bounds exchangeInfo responses before JSON decoding/);
 assert.match(source.workerTest, /validates venue rules before persisting or authorizing a submission/);
 
 assert.match(source.testnetIntegration, /const testnetBaseUrl = "https:\/\/testnet\.binance\.vision"/);
@@ -222,7 +234,9 @@ for (const [name, needle] of [
   ["runbook", /fee_reconciliation_status='pending'/],
   ["runbook", /BINANCE_TIME_SYNC_FAILED/],
   ["readme", /four configured request-timeout windows/],
+  ["readme", /streamed through a 2 MiB cap before JSON decoding/],
   ["hedgeBook", /GET \/api\/v3\/time/],
+  ["hedgeBook", /2 MiB 流式上限/],
   ["readme", /cancel_requested_at/],
   ["hedgeBook", /DELETE \/api\/v3\/order/],
   ["kubernetesBook", /Migration 026/],
@@ -238,6 +252,8 @@ for (const [name, needle] of [
   ["hedgeBook", /make binance-testnet-integration-check/],
   ["runbook", /make binance-testnet-integration-check/],
   ["architectureReview", /Spot Testnet execution canary/],
+  ["threatModel", /Oversized CEX execution response/],
+  ["auditChecklist", /responses are capped at 2 MiB before JSON decoding/],
   ["threatModel", /unexpected testnet canary fill/],
   ["auditChecklist", /Spot Testnet execution canary/],
   ["readme", /make db-migrate hedge-worker-e2e/],
