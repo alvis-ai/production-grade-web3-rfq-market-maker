@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createMigrationCliLogger,
   executeMigrationCli,
   migrate,
   migrateUpTo,
@@ -107,6 +108,27 @@ test("database migration timeout config is bounded and reads only own fields", (
       /integer between 1000 and 1800000/,
     );
   }
+});
+
+test("database migration CLI emits escaped GitHub annotations only in Actions", () => {
+  const logs = [];
+  const errors = [];
+  const sink = {
+    error(message, error) { errors.push([message, error]); },
+    log(message) { logs.push(message); },
+  };
+  const error = new Error("connection % failed\nretry");
+
+  createMigrationCliLogger(sink, { GITHUB_ACTIONS: "false" }).error("Migration failed:", error);
+  assert.equal(logs.length, 0);
+  assert.equal(errors.length, 1);
+
+  createMigrationCliLogger(sink, { GITHUB_ACTIONS: "true" }).error("Migration failed:", error);
+  assert.equal(errors.length, 2);
+  assert.match(
+    logs[0],
+    /^::error title=Database migration failed::Migration failed: Error: connection %25 failed%0Aretry/,
+  );
 });
 
 test("database migration runner applies hedge queue migration transactionally under the lock", async () => {

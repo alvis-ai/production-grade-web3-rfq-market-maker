@@ -184,12 +184,35 @@ interface AvailableMigration {
 
 export interface MigrationCliDependencies {
   close(): Promise<void>;
-  logger: {
-    error(message: string, error: unknown): void;
-    log(message: string): void;
-  };
+  logger: MigrationCliLogger;
   migrate(onStage: MigrationStageObserver): Promise<void>;
   processLike: { exitCode?: string | number | null };
+}
+
+export interface MigrationCliLogger {
+  error(message: string, error: unknown): void;
+  log(message: string): void;
+}
+
+export function createMigrationCliLogger(
+  logger: MigrationCliLogger,
+  env: Record<string, string | undefined> | undefined = process.env,
+): MigrationCliLogger {
+  if (env?.GITHUB_ACTIONS !== "true") return logger;
+  return {
+    error(message, error) {
+      logger.error(message, error);
+      const detail = error instanceof Error ? error.stack ?? error.message : String(error);
+      const annotation = `${message} ${detail}`.slice(0, 4_000)
+        .replaceAll("%", "%25")
+        .replaceAll("\r", "%0D")
+        .replaceAll("\n", "%0A");
+      logger.log(`::error title=Database migration failed::${annotation}`);
+    },
+    log(message) {
+      logger.log(message);
+    },
+  };
 }
 
 export async function executeMigrationCli(deps: MigrationCliDependencies): Promise<void> {
@@ -271,7 +294,7 @@ if (processLike?.argv?.[1] && import.meta.url.endsWith(processLike.argv[1])) {
   }, timeoutMs);
   void executeMigrationCli({
     close: endPool,
-    logger: console,
+    logger: createMigrationCliLogger(console, processLike.env),
     migrate: (onStage) => migrate(undefined, {
       onStage: (stage) => {
         activeStage = stage;
