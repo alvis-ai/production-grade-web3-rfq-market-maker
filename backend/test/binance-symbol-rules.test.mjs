@@ -115,12 +115,14 @@ test("BinanceSymbolRulesService single-flights fetches and classifies transport 
     unavailable.checkHealth(),
     (error) => code(error) === "BINANCE_SYMBOL_RULES_UNAVAILABLE" && error.retryable,
   );
+  let rejectedBodyCanceled = false;
   const rejected = new BinanceSymbolRulesService(config, new HedgeRouteTable([route]), async () =>
-    jsonResponse({ code: -1121 }, 400));
+    cancelableResponse(400, () => { rejectedBodyCanceled = true; }));
   await assert.rejects(
     rejected.checkHealth(),
     (error) => code(error) === "BINANCE_SYMBOL_RULES_HTTP_400" && error.retryable,
   );
+  assert.equal(rejectedBodyCanceled, true);
 });
 
 test("BinanceSymbolRulesService bounds exchangeInfo responses before JSON decoding", async () => {
@@ -136,6 +138,29 @@ test("BinanceSymbolRulesService bounds exchangeInfo responses before JSON decodi
     service.checkHealth(),
     (error) => code(error) === "BINANCE_SYMBOL_RULES_INVALID" && error.retryable,
   );
+});
+
+test("BinanceSymbolRulesService bounds stalled exchangeInfo bodies by request timeout", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  let requestSignal;
+  const service = new BinanceSymbolRulesService(
+    { ...config, requestTimeoutMs: 100 },
+    new HedgeRouteTable([route]),
+    async (_input, init) => {
+      requestSignal = init.signal;
+      return stallingJsonResponse(init.signal);
+    },
+  );
+
+  const pending = service.checkHealth();
+  const rejected = assert.rejects(
+    pending,
+    (error) => code(error) === "BINANCE_SYMBOL_RULES_UNAVAILABLE" && error.retryable,
+  );
+  await settle();
+  context.mock.timers.tick(100);
+  await rejected;
+  assert.equal(requestSignal.aborted, true);
 });
 
 test("BinanceSymbolRulesService rejects unsafe configuration", () => {
@@ -184,4 +209,24 @@ function exchangeInfo(overrides = {}) {
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+}
+
+function cancelableResponse(status, onCancel) {
+  return new Response(new ReadableStream({
+    cancel() { onCancel(); },
+  }), { status });
+}
+
+function stallingJsonResponse(signal) {
+  return new Response(new ReadableStream({
+    start(controller) {
+      const abort = () => controller.error(new DOMException("aborted", "AbortError"));
+      if (signal.aborted) abort();
+      else signal.addEventListener("abort", abort, { once: true });
+    },
+  }));
+}
+
+async function settle() {
+  await new Promise((resolve) => setImmediate(resolve));
 }

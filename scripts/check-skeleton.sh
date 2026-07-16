@@ -145,7 +145,7 @@ grep -q 'createHmac("sha256"' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'origClientOrderId' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'newClientOrderId' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q '/api/v3/time' backend/src/modules/hedge/binance-spot.adapter.ts
-grep -q 'hasVenueErrorCode(payload, -1021)' backend/src/modules/hedge/binance-spot.adapter.ts
+grep -q 'hasVenueErrorCode(result.payload, -1021)' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'MAX_BINANCE_HTTP_RESPONSE_BYTES = 2_097_152' backend/src/modules/hedge/binance-http-response.ts
 grep -q 'readBoundedBinanceJsonResponse' backend/src/modules/hedge/binance-spot.adapter.ts
 grep -q 'readBoundedBinanceJsonResponse' backend/src/modules/hedge/binance-symbol-rules.ts

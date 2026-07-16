@@ -1,5 +1,6 @@
 import type { HedgeRoute, HedgeRouteTable } from "./hedge-route.js";
 import { readBoundedBinanceJsonResponse } from "./binance-http-response.js";
+import { cancelResponseBody } from "../../shared/http/bounded-json-response.js";
 
 export interface BinanceSymbolRulesConfig {
   baseUrl?: string;
@@ -127,13 +128,17 @@ export class BinanceSymbolRulesService implements BinanceSymbolRulesHealth {
         throw new BinanceSymbolRulesError("BINANCE_SYMBOL_RULES_UNAVAILABLE", true);
       }
       if (!response.ok) {
+        await cancelResponseBody(response);
         throw new BinanceSymbolRulesError(`BINANCE_SYMBOL_RULES_HTTP_${response.status}`, true);
       }
       let value: unknown;
       try {
         value = await readBoundedBinanceJsonResponse(response, "Binance exchangeInfo response");
       } catch {
-        throw new BinanceSymbolRulesError("BINANCE_SYMBOL_RULES_INVALID", true);
+        throw new BinanceSymbolRulesError(
+          controller.signal.aborted ? "BINANCE_SYMBOL_RULES_UNAVAILABLE" : "BINANCE_SYMBOL_RULES_INVALID",
+          true,
+        );
       }
       return parseExchangeInfo(value, symbol);
     } finally {

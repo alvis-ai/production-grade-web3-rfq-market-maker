@@ -48,7 +48,7 @@ export async function readBoundedJsonResponse(
   return parseBoundedJson(textChunks.join(""), label, maxBytes);
 }
 
-async function cancelResponseBody(response: Response): Promise<void> {
+export async function cancelResponseBody(response: Response): Promise<void> {
   await response.body?.cancel().catch(() => undefined);
 }
 

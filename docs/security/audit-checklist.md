@@ -36,7 +36,7 @@
 - [x] CEX hedge submissions use a persisted tick-aligned `LIMIT GTC` boundary derived from immutable quote economics and reviewed route slippage; the adapter contains no unbounded `MARKET` submit path.
 - [x] New CEX hedge orders persist a bounded maximum lifetime; PostgreSQL authorizes and records cancellation before the external call, and ambiguous cancel results remain query-first under the original client id.
 - [x] The Binance Spot Testnet execution canary cannot override its testnet origin, requires explicit place-and-cancel acknowledgement, rejects prices too close to the live book, validates production adapter signing, and requires confirmed cancellation with zero fills.
-- [x] Binance order, trade-history, clock-sync and symbol-rules responses are capped at 2 MiB before JSON decoding, and signed responses are not cloned for a second unbounded parse.
+- [x] Binance order, trade-history, clock-sync and symbol-rules body reads remain inside the request timeout and a 2 MiB pre-decode cap; unused non-success bodies are canceled, and signed responses are not cloned for a second parse.
 - [x] Backend CI runs the production reconciliation, hedge and fee workers against PostgreSQL plus a signature-verifying Binance fill fixture, and proves exact inventory, commission and hedge-net PnL convergence.
 - [x] Default token authorization and raw-unit limits are keyed by both chainId and token address.
 - [x] Startup cross-checks risk-policy tokens against the trusted token registry and active market pairs.

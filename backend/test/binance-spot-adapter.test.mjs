@@ -215,6 +215,76 @@ test("BinanceSpotAdapter bounds order and clock-sync responses before JSON decod
   assert.equal(calls, 2);
 });
 
+test("BinanceSpotAdapter keeps stalled response body reads inside the request timeout", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  let requestSignal;
+  const adapter = new BinanceSpotAdapter(
+    { ...config, requestTimeoutMs: 100 },
+    allowingRules,
+    async (_input, init) => {
+      requestSignal = init.signal;
+      return stallingJsonResponse(init.signal);
+    },
+    () => 1_700_000_000_000,
+  );
+
+  const pending = adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId });
+  const rejected = assert.rejects(
+    pending,
+    (error) => error instanceof CexVenueError && error.retryable &&
+      error.errorCode === "BINANCE_REQUEST_FAILED",
+  );
+  await settle();
+  context.mock.timers.tick(100);
+  await rejected;
+  assert.equal(requestSignal.aborted, true);
+});
+
+test("BinanceSpotAdapter keeps stalled clock bodies inside the request timeout", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  let clockSignal;
+  const adapter = new BinanceSpotAdapter(
+    { ...config, requestTimeoutMs: 100 },
+    allowingRules,
+    async (input, init) => {
+      if (new URL(input).pathname !== "/api/v3/time") {
+        return jsonResponse({ code: -1021, msg: "Invalid timestamp." }, 400);
+      }
+      clockSignal = init.signal;
+      return stallingJsonResponse(init.signal);
+    },
+    () => 1_700_000_000_000,
+  );
+
+  const pending = adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId });
+  const rejected = assert.rejects(
+    pending,
+    (error) => error instanceof CexVenueError && error.retryable &&
+      error.errorCode === "BINANCE_TIME_SYNC_FAILED",
+  );
+  await settle();
+  assert.ok(clockSignal);
+  context.mock.timers.tick(100);
+  await rejected;
+  assert.equal(clockSignal.aborted, true);
+});
+
+test("BinanceSpotAdapter cancels unused clock error bodies and preserves retry delay", async () => {
+  let clockBodyCanceled = false;
+  const adapter = new BinanceSpotAdapter(config, allowingRules, async (input) => {
+    return new URL(input).pathname === "/api/v3/time"
+      ? cancelableResponse(503, () => { clockBodyCanceled = true; }, { "retry-after": "7" })
+      : jsonResponse({ code: -1021, msg: "Invalid timestamp." }, 400);
+  }, () => 1_700_000_000_000);
+
+  await assert.rejects(
+    adapter.queryOrder({ symbol: "ETHUSDT", clientOrderId }),
+    (error) => error instanceof CexVenueError && error.retryable &&
+      error.errorCode === "BINANCE_TIME_SYNC_FAILED" && error.retryAfterMs === 7_000,
+  );
+  assert.equal(clockBodyCanceled, true);
+});
+
 test("BinanceSpotAdapter resynchronizes clock once and retries timestamp-rejected requests", async () => {
   const localTime = 1_700_000_000_000;
   const serverTime = localTime + 2_500;
@@ -425,6 +495,27 @@ function declaredOversizedResponse(onCancel) {
   }), {
     headers: { "content-length": String(MAX_BINANCE_HTTP_RESPONSE_BYTES + 1) },
   });
+}
+
+function cancelableResponse(status, onCancel, headers = {}) {
+  return new Response(new ReadableStream({
+    cancel() { onCancel(); },
+  }), { status, headers });
+}
+
+function stallingJsonResponse(signal) {
+  return new Response(new ReadableStream({
+    start(controller) {
+      const abort = () => controller.error(new DOMException("aborted", "AbortError"));
+      if (signal.aborted) abort();
+      else signal.addEventListener("abort", abort, { once: true });
+    },
+  }));
+}
+
+async function settle() {
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
 }
 
 function deferred() {

@@ -75,6 +75,11 @@ assert.match(source.boundedJson, /response\.body\.getReader\(\)/);
 assert.match(source.boundedJson, /response\.body\?\.cancel\(\)/);
 assert.match(source.adapter, /readBoundedBinanceJsonResponse/);
 assert.match(source.symbolRules, /readBoundedBinanceJsonResponse/);
+assert.match(source.adapter, /withResponseDeadline/);
+assert.match(source.adapter, /signal\.aborted \? "BINANCE_REQUEST_FAILED"/);
+assert.match(source.adapter, /cancelResponseBody\(response\)/);
+assert.match(source.symbolRules, /cancelResponseBody\(response\)/);
+assert.doesNotMatch(source.adapter, /fetchWithTimeout/);
 assert.doesNotMatch(source.adapter, /response\.clone\(\)\.json\(\)|response\.json\(\)/);
 assert.doesNotMatch(source.symbolRules, /response\.json\(\)/);
 assert.match(source.worker, /parseCexQuoteQuantity\(order\.executedQuoteQuantity\)/);
@@ -107,7 +112,7 @@ assert.match(source.migration, /hedge\.lifecycle\.v2/);
 assert.match(source.adapter, /\/api\/v3\/myTrades/);
 assert.match(source.adapter, /orderId: input\.venueOrderId/);
 assert.match(source.adapter, /fromId/);
-assert.match(source.adapter, /hasVenueErrorCode\(payload, -1021\)/);
+assert.match(source.adapter, /hasVenueErrorCode\(result\.payload, -1021\)/);
 assert.match(source.adapter, /\/api\/v3\/time/);
 assert.match(source.adapter, /clockSyncPromise/);
 assert.match(source.feeWorker, /sumCexTradeQuantity\(fills, "quantity"\)/);
@@ -135,6 +140,9 @@ assert.match(source.readiness, /hedgeRouteRulesHealth/);
 assert.match(source.adapterTest, /resynchronizes clock once and retries timestamp-rejected requests/);
 assert.match(source.adapterTest, /single-flights concurrent clock synchronization/);
 assert.match(source.adapterTest, /bounds order and clock-sync responses before JSON decoding/);
+assert.match(source.adapterTest, /keeps stalled response body reads inside the request timeout/);
+assert.match(source.adapterTest, /keeps stalled clock bodies inside the request timeout/);
+assert.match(source.adapterTest, /cancels unused clock error bodies and preserves retry delay/);
 assert.match(source.adapterTest, /signs cancellation and preserves cumulative execution evidence/);
 assert.match(source.routeTest, /binds route decimals to the shared token registry/);
 assert.match(source.routeTest, /applies slippage and tick rounding conservatively/);
@@ -149,6 +157,7 @@ assert.match(source.runtimeTest, /does not match token registry decimals/);
 assert.match(source.symbolRulesTest, /refreshes its bounded cache/);
 assert.match(source.symbolRulesTest, /enforces LOT_SIZE, PRICE_FILTER and NOTIONAL exactly/);
 assert.match(source.symbolRulesTest, /bounds exchangeInfo responses before JSON decoding/);
+assert.match(source.symbolRulesTest, /bounds stalled exchangeInfo bodies by request timeout/);
 assert.match(source.workerTest, /validates venue rules before persisting or authorizing a submission/);
 
 assert.match(source.testnetIntegration, /const testnetBaseUrl = "https:\/\/testnet\.binance\.vision"/);
@@ -234,9 +243,9 @@ for (const [name, needle] of [
   ["runbook", /fee_reconciliation_status='pending'/],
   ["runbook", /BINANCE_TIME_SYNC_FAILED/],
   ["readme", /four configured request-timeout windows/],
-  ["readme", /streamed through a 2 MiB cap before JSON decoding/],
+  ["readme", /remains inside the same request timeout after headers arrive/],
   ["hedgeBook", /GET \/api\/v3\/time/],
-  ["hedgeBook", /2 MiB 流式上限/],
+  ["hedgeBook", /2 MiB 流式读取/],
   ["readme", /cancel_requested_at/],
   ["hedgeBook", /DELETE \/api\/v3\/order/],
   ["kubernetesBook", /Migration 026/],
@@ -252,8 +261,8 @@ for (const [name, needle] of [
   ["hedgeBook", /make binance-testnet-integration-check/],
   ["runbook", /make binance-testnet-integration-check/],
   ["architectureReview", /Spot Testnet execution canary/],
-  ["threatModel", /Oversized CEX execution response/],
-  ["auditChecklist", /responses are capped at 2 MiB before JSON decoding/],
+  ["threatModel", /Oversized or stalled CEX execution response/],
+  ["auditChecklist", /body reads remain inside the request timeout and a 2 MiB pre-decode cap/],
   ["threatModel", /unexpected testnet canary fill/],
   ["auditChecklist", /Spot Testnet execution canary/],
   ["readme", /make db-migrate hedge-worker-e2e/],
