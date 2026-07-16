@@ -804,6 +804,59 @@ test("CEX connectors close errored sockets before backoff", (context) => {
   }
 });
 
+test("CEX connectors isolate throwing callbacks from synchronized state and reconnect cleanup", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const initialSocketCount = FakeWebSocket.instances.length;
+  const OriginalWebSocket = globalThis.WebSocket;
+  const originalFetch = globalThis.fetch;
+  globalThis.WebSocket = FakeWebSocket;
+  globalThis.fetch = async () => jsonResponse({
+    lastUpdateId: 100,
+    bids: [["99", "1"]],
+    asks: [["101", "1"]],
+  });
+  const throwingBookObserver = () => { throw new Error("book observer failed"); };
+  const throwingErrorObserver = () => { throw new Error("error observer failed"); };
+  const binance = new BinanceConnector("ETHUSDT", throwingBookObserver, throwingErrorObserver);
+  const coinbase = new CoinbaseConnector("ETH-USD", throwingBookObserver, throwingErrorObserver);
+
+  try {
+    binance.start();
+    const binanceSocket = FakeWebSocket.instances.at(-1);
+    binanceSocket.open();
+    await settle();
+    coinbase.start();
+    const coinbaseSocket = FakeWebSocket.instances.at(-1);
+    coinbaseSocket.open();
+    assert.doesNotThrow(() => coinbaseSocket.message(coinbaseSnapshot()));
+
+    assert.equal(binance.isReady(), true);
+    assert.equal(coinbase.isReady(), true);
+    assert.equal(binanceSocket.readyState, FakeWebSocket.OPEN);
+    assert.equal(coinbaseSocket.readyState, FakeWebSocket.OPEN);
+
+    assert.doesNotThrow(() => binanceSocket.rawMessage("{"));
+    assert.doesNotThrow(() => coinbaseSocket.rawMessage("{"));
+    assert.equal(binance.isReady(), false);
+    assert.equal(coinbase.isReady(), false);
+    assert.equal(binanceSocket.readyState, FakeWebSocket.CLOSED);
+    assert.equal(coinbaseSocket.readyState, FakeWebSocket.CLOSED);
+    assert.equal(binance.getOrderBook().bids.size, 0);
+    assert.equal(coinbase.getOrderBook().bids.size, 0);
+
+    context.mock.timers.tick(1_500);
+    const replacementSockets = FakeWebSocket.instances.slice(initialSocketCount + 2);
+    assert.equal(replacementSockets.length, 2);
+    assert.ok(replacementSockets.every((socket) => socket !== binanceSocket && socket !== coinbaseSocket));
+  } finally {
+    binance.stop();
+    coinbase.stop();
+    globalThis.WebSocket = OriginalWebSocket;
+    globalThis.fetch = originalFetch;
+    FakeWebSocket.instances.length = 0;
+  }
+});
+
 test("CoinbaseConnector reconnects when subscription send fails", (context) => {
   context.mock.timers.enable({ apis: ["setTimeout"] });
   const OriginalWebSocket = globalThis.WebSocket;

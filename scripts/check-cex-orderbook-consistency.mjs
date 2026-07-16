@@ -164,6 +164,15 @@ assert.ok(
   "CEX connectors must use capped exponential reconnect jitter",
 );
 assert.ok(
+  connectorSafetySource.includes("callCexCallbackBestEffort") &&
+    /callCexCallbackBestEffort\(\s*this\.onOrderBook,/.test(binanceSource) &&
+    /callCexCallbackBestEffort\(\s*this\.onError,/.test(binanceSource) &&
+    /callCexCallbackBestEffort\(\s*this\.onOrderBook,/.test(coinbaseSource) &&
+    /callCexCallbackBestEffort\(\s*this\.onError,/.test(coinbaseSource) &&
+    testSource.includes("isolate throwing callbacks from synchronized state and reconnect cleanup"),
+  "CEX connector callbacks must not change synchronized state or block required reconnect cleanup",
+);
+assert.ok(
   orderBookSource.includes("computeBidDepth") &&
     orderBookSource.includes("computeAskDepth") &&
     monitorSource.includes("source.metrics.askLiquidityUsd"),

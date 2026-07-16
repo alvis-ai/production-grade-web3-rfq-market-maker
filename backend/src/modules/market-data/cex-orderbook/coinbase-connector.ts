@@ -1,5 +1,9 @@
 import { OrderBook, type OrderBookSnapshot, type PriceLevel } from "./orderbook.js";
-import { exponentialReconnectDelayMs, parseBoundedJsonMessage } from "./connector-safety.js";
+import {
+  callCexCallbackBestEffort,
+  exponentialReconnectDelayMs,
+  parseBoundedJsonMessage,
+} from "./connector-safety.js";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -254,7 +258,7 @@ export class CoinbaseConnector {
   }
 
   private flushOrderBook(): void {
-    this.onOrderBook?.({
+    callCexCallbackBestEffort(this.onOrderBook, {
       bids: [...this.book.bids.entries()].map(([p, q]) => [p, q] as PriceLevel),
       asks: [...this.book.asks.entries()].map(([p, q]) => [p, q] as PriceLevel),
     });
@@ -335,7 +339,7 @@ export class CoinbaseConnector {
 
   private reportError(error: unknown, fallback?: string): void {
     const normalized = error instanceof Error ? error : new Error(fallback ?? String(error));
-    this.onError?.(normalized);
+    callCexCallbackBestEffort(this.onError, normalized);
   }
 }
 

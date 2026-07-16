@@ -1,5 +1,6 @@
 import { OrderBook, type OrderBookSnapshot, type PriceLevel } from "./orderbook.js";
 import {
+  callCexCallbackBestEffort,
   exponentialReconnectDelayMs,
   parseBoundedJsonMessage,
   readBoundedJsonResponse,
@@ -239,7 +240,7 @@ export class BinanceConnector {
   }
 
   private flushOrderBook(): void {
-    this.onOrderBook?.({
+    callCexCallbackBestEffort(this.onOrderBook, {
       bids: [...this.book.bids.entries()].map(([price, quantity]) => [price, quantity] as PriceLevel),
       asks: [...this.book.asks.entries()].map(([price, quantity]) => [price, quantity] as PriceLevel),
     });
@@ -297,7 +298,10 @@ export class BinanceConnector {
   }
 
   private reportError(error: unknown, fallback?: string): void {
-    this.onError?.(error instanceof Error ? error : new Error(fallback ?? String(error)));
+    callCexCallbackBestEffort(
+      this.onError,
+      error instanceof Error ? error : new Error(fallback ?? String(error)),
+    );
   }
 }
 

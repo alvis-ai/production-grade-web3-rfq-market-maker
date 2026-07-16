@@ -1,6 +1,17 @@
 export const MAX_CEX_WS_MESSAGE_BYTES = 1_048_576;
 export const MAX_CEX_SNAPSHOT_BYTES = 2_097_152;
 
+export function callCexCallbackBestEffort<T>(
+  callback: ((value: T) => void) | undefined,
+  value: T,
+): void {
+  try {
+    callback?.(value);
+  } catch {
+    // Connector state transitions must not depend on optional observers.
+  }
+}
+
 export function parseBoundedJsonMessage(
   raw: unknown,
   label: string,
