@@ -24,6 +24,9 @@ case "$PORT" in
     ;;
 esac
 
+export RFQ_ANALYTICS_WORKER_HOST="$HOST"
+export RFQ_ANALYTICS_WORKER_PORT="$PORT"
+
 mkdir -p "$(dirname "$LOG_FILE")"
 node backend/dist/analytics-worker-main.js >"$LOG_FILE" 2>&1 &
 worker_pid="$!"

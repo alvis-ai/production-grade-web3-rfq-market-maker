@@ -42,6 +42,8 @@ assert.ok(
 assertContains("scripts/analytics-e2e.sh", [
   "backend/dist/analytics-worker-main.js",
   "RFQ_ANALYTICS_E2E_READY_URL",
+  'export RFQ_ANALYTICS_WORKER_HOST="$HOST"',
+  'export RFQ_ANALYTICS_WORKER_PORT="$PORT"',
   "body.status === \"ok\"",
   "scripts/analytics-integration-check.mjs",
   "trap cleanup EXIT INT TERM",
