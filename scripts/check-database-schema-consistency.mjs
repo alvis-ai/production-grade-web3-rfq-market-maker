@@ -1,10 +1,29 @@
 #!/usr/bin/env node
 
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
 
 const schemaSource = await readFile("docs/database/schema.sql", "utf8");
+const migrationFiles = (await readdir("backend/src/db/migrations"))
+  .filter((fileName) => /^\d{3}[-_].+\.sql$/.test(fileName))
+  .sort();
+const availableMigrations = migrationFiles.map((fileName) => {
+  const match = fileName.match(/^(\d{3})[-_](.+)\.sql$/);
+  assert.ok(match, `invalid migration filename: ${fileName}`);
+  return [match[1], match[2]];
+});
+const migrationLedgerMatch = schemaSource.match(
+  /INSERT INTO _migrations \(version, name\) VALUES([\s\S]*?);/,
+);
+assert.ok(migrationLedgerMatch, "docs/database/schema.sql must seed the migration ledger");
+const schemaMigrations = [...migrationLedgerMatch[1].matchAll(/\('(\d{3})', '([^']+)'\)/g)]
+  .map((match) => [match[1], match[2]]);
+assert.deepEqual(
+  schemaMigrations,
+  availableMigrations,
+  "bootstrap migration ledger must exactly match backend migration files",
+);
 const erDiagramSource = await readFile("docs/database/er-diagram.md", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");

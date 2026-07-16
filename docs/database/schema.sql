@@ -2180,4 +2180,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('030', 'usd-reference-depeg-risk'),
   ('031', 'daily-loss-risk'),
   ('032', 'portfolio-delta-risk'),
-  ('033', 'gamma-guardrail-risk');
+  ('033', 'gamma-guardrail-risk'),
+  ('034', 'quote-route-attribution');
