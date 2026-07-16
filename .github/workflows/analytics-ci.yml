@@ -48,7 +48,14 @@ jobs:
         run: |
           docker compose up -d --wait postgres redpanda clickhouse
           docker compose --profile analytics run --rm redpanda-topic-init
+      - name: Apply database migrations
+        timeout-minutes: 2
+        env:
+          NODE_ENV: test
+          DATABASE_URL: "postgres://rfq:rfq@127.0.0.1:5432/rfq_market_maker?minPool=2&maxPool=8"
+        run: make db-migrate
       - name: Verify transactional analytics delivery
+        timeout-minutes: 5
         env:
           NODE_ENV: test
           DATABASE_URL: "postgres://rfq:rfq@127.0.0.1:5432/rfq_market_maker?minPool=2&maxPool=8"
@@ -71,7 +78,7 @@ jobs:
           RFQ_CLICKHOUSE_DATABASE: default
           RFQ_CLICKHOUSE_ANALYTICS_TABLE: rfq_analytics_events
           RFQ_ANALYTICS_INTEGRATION_CONFIRM: "yes"
-        run: make db-migrate analytics-e2e
+        run: make analytics-e2e
       - name: Print analytics diagnostics
         if: failure()
         run: |
