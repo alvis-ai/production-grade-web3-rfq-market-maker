@@ -14,12 +14,16 @@ export interface RFQClientOptions {
   readonly fetch?: RFQClientFetch;
   readonly traceId?: string | RFQClientTraceIdProvider;
   readonly apiKey?: string | RFQClientApiKeyProvider;
+  readonly requestTimeoutMs?: number;
+  readonly maxResponseBytes?: number;
 }
 
 export interface NormalizedRFQClientConfig {
   readonly apiKeyProvider?: RFQClientApiKeyProvider;
   readonly baseUrl: string;
   readonly fetchImpl: RFQClientFetch;
+  readonly maxResponseBytes: number;
+  readonly requestTimeoutMs: number;
   readonly traceIdProvider?: RFQClientTraceIdProvider;
 }
 
@@ -29,7 +33,9 @@ const maxStatusIdentifierLength = 128;
 const statusIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const apiKeyPattern = /^[A-Za-z0-9_-]{3,64}\.[A-Za-z0-9_-]{32,128}$/;
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{16,128}$/;
-const clientOptionFields = ["fetch", "traceId", "apiKey"] as const;
+const clientOptionFields = ["fetch", "traceId", "apiKey", "requestTimeoutMs", "maxResponseBytes"] as const;
+const defaultRequestTimeoutMs = 15_000;
+const defaultMaxResponseBytes = 8 * 1_024 * 1_024;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const submitRequestFields = ["quote", "signature"] as const;
 const submitRequestOptionalFields = ["txHash"] as const;
@@ -39,9 +45,37 @@ export function normalizeClientConfig(baseUrl: string, options: unknown): Normal
   return {
     baseUrl: normalizeBaseUrl(baseUrl),
     fetchImpl: resolveFetch(clientOptions),
+    requestTimeoutMs: normalizeBoundedInteger(
+      clientOptions.requestTimeoutMs,
+      defaultRequestTimeoutMs,
+      100,
+      120_000,
+      "requestTimeoutMs",
+    ),
+    maxResponseBytes: normalizeBoundedInteger(
+      clientOptions.maxResponseBytes,
+      defaultMaxResponseBytes,
+      1_024,
+      16 * 1_024 * 1_024,
+      "maxResponseBytes",
+    ),
     traceIdProvider: resolveTraceIdProvider(clientOptions),
     apiKeyProvider: resolveApiKeyProvider(clientOptions),
   };
+}
+
+function normalizeBoundedInteger(
+  value: unknown,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+  field: "requestTimeoutMs" | "maxResponseBytes",
+): number {
+  if (value === undefined) return fallback;
+  if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) {
+    throw new RFQClientError(`RFQClient ${field} must be an integer from ${minimum} to ${maximum}`, 0);
+  }
+  return value as number;
 }
 
 export function assertQuoteRequestOptions(options: unknown): QuoteRequestOptions | undefined {

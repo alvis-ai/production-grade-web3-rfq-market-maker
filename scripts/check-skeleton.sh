@@ -3,7 +3,7 @@ set -eu
 
 gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-hedge-risk.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-settlement-indexer-risk.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
 quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts backend/src/modules/quote/quote-route-selection.ts"
-sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts"
+sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-transport.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts"
 
 test -s package.json
 test -s pnpm-workspace.yaml
@@ -621,6 +621,7 @@ test -s sdk/test/sdk-client-requests.test.mjs
 test -s sdk/test/sdk-client-accounting-responses.test.mjs
 test -s sdk/test/sdk-client-responses.test.mjs
 test -s sdk/test/sdk-client-status-responses.test.mjs
+test -s sdk/test/sdk-client-transport.test.mjs
 test -s sdk/test/sdk-settlement.test.mjs
 test -s sdk/test/sdk-settlement-validation.test.mjs
 test -s sdk/test/sdk.test.mjs
@@ -2554,7 +2555,7 @@ grep -q 'new String("se_test")' sdk/test/sdk-client-requests.test.mjs
 grep -q 'identifiers must be non-empty, 128 characters or fewer' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'boxed `String` identifiers fail before `encodeURIComponent()` or fetch' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'export interface RFQClientOptions' $sdk_client_sources
-grep -q 'clientOptionFields = \["fetch", "traceId", "apiKey"\]' $sdk_client_sources
+grep -q 'clientOptionFields = \["fetch", "traceId", "apiKey", "requestTimeoutMs", "maxResponseBytes"\]' $sdk_client_sources
 grep -Fq 'assertClientOptions(options)' $sdk_client_sources
 grep -Fq 'RFQClient options.${field} must be an own field when provided' $sdk_client_sources
 grep -q 'RFQClient options must not include unknown field' $sdk_client_sources
@@ -2565,8 +2566,19 @@ grep -q 'RFQClient options.fetch must be an own field when provided' sdk/test/sd
 grep -q 'RFQClient options.traceId must be an own field when provided' sdk/test/sdk-client-config.test.mjs
 grep -q 'RFQClient options must not include unknown field retry' sdk/test/sdk-client-config.test.mjs
 grep -q 'RFQClient accepts injected fetch implementations' sdk/test/sdk-client-config.test.mjs
+grep -q 'RFQClient validates bounded transport options at construction' sdk/test/sdk-client-config.test.mjs
+grep -q 'RFQClient keeps stalled response bodies inside one request deadline' sdk/test/sdk-client-transport.test.mjs
+grep -q 'RFQClient preserves timeouts while reading non-success response bodies' sdk/test/sdk-client-transport.test.mjs
+grep -q 'RFQClient cancels oversized JSON and metrics response streams' sdk/test/sdk-client-transport.test.mjs
+grep -q 'export class RFQClientTransport' sdk/src/client-transport.ts
+grep -q 'new AbortController()' sdk/src/client-transport.ts
+grep -q 'Promise.race(\[requestPromise, timeoutPromise\])' sdk/src/client-transport.ts
+grep -q 'response.body.getReader()' sdk/src/client-transport.ts
+grep -q 'receivedBytes > this.maxResponseBytes' sdk/src/client-transport.ts
+grep -q 'requestTimeoutMs` defaults to 15000' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'maxResponseBytes` defaults to 8 MiB' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'can receive an injected `fetch` implementation' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'Client options are closed to own optional `fetch` / `traceId` / `apiKey` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'Client options are closed to own optional `fetch` / `traceId` / `apiKey` / `requestTimeoutMs` / `maxResponseBytes` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'Inherited `traceId` options' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'new RFQClient("http://localhost:3000", { fetch: customFetch })' README.md
 grep -q 'errorResponseFields = \["code", "message", "traceId"\]' $sdk_client_sources
@@ -2625,7 +2637,7 @@ grep -q 'expectedFields.every((field) => hasOwnField(value, field))' $sdk_client
 grep -q 'assertResponsePayload' $sdk_client_sources
 grep -q 'withResponseTrace' $sdk_client_sources
 grep -q 'response.headers.get("x-trace-id")' $sdk_client_sources
-grep -q 'ignores prototype-backed API error bodies' sdk/test/sdk-client-errors.test.mjs
+grep -q 'ignores prototype-pollution-shaped API error bodies' sdk/test/sdk-client-errors.test.mjs
 grep -q 'tr_error_header' sdk/test/sdk-client-errors.test.mjs
 grep -q 'tr_header_unknown' sdk/test/sdk-client-errors.test.mjs
 grep -q 'tr_malformed_json' sdk/test/sdk-client-responses.test.mjs
@@ -2634,8 +2646,8 @@ grep -q 'ignores unsafe response trace ids and falls back to safe trace headers'
 grep -q 'tr_safe_header' sdk/test/sdk-client-errors.test.mjs
 grep -q 'falls back to safe `x-trace-id` response headers' README.md
 grep -q 'falls back to safe `x-trace-id` response headers' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'prototype-backed error body' README.md
-grep -q 'prototype-backed error bodies' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
+grep -q 'prototype-pollution-shaped error body' README.md
+grep -q 'prototype-pollution-shaped error bodies' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'unsafe body or header values are ignored' README.md
 grep -q 'Unsafe response trace ids' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient baseUrl must be a string' $sdk_client_sources
@@ -2705,7 +2717,7 @@ grep -q 'quoteResponseFields = \["quoteId", "snapshotId", "amountOut", "minAmoun
 grep -Fq 'Object.create({ status: "ok" })' sdk/test/sdk-client-status-responses.test.mjs
 grep -q 'Object.create({' sdk/test/sdk-client-status-responses.test.mjs
 grep -q 'payload: Object.create(quoteResponse)' sdk/test/sdk-client-responses.test.mjs
-grep -q 'withPrototype({ txHash: submitResponse.txHash }, { status: "accepted" })' sdk/test/sdk-client-responses.test.mjs
+grep -Fq 'return new Response(JSON.stringify(payload), { status, headers })' sdk/test/sdk-client-responses.test.mjs
 grep -q 'successful response validators require closed own response fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'routeHint: "debug"' sdk/test/sdk-client-responses.test.mjs
 grep -q 'relayer: quote.user' sdk/test/sdk-client-responses.test.mjs

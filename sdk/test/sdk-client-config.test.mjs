@@ -41,7 +41,10 @@ test("RFQClient normalizes safe base URL origins and path prefixes", async () =>
   });
 
   assert.deepEqual(await client.health(), response);
-  assert.deepEqual(calls, [{ url: "http://api.example.com/rfq/health", init: {} }]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://api.example.com/rfq/health");
+  assert.deepEqual(Object.keys(calls[0].init), ["signal"]);
+  assert.ok(calls[0].init.signal instanceof AbortSignal);
 });
 
 test("RFQClient rejects unsafe fetch dependencies at construction", () => {
@@ -111,6 +114,43 @@ test("RFQClient rejects unsafe fetch dependencies at construction", () => {
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("RFQClient validates bounded transport options at construction", () => {
+  for (const [options, expectedMessage] of [
+    [{ requestTimeoutMs: 99 }, "RFQClient requestTimeoutMs must be an integer from 100 to 120000"],
+    [{ requestTimeoutMs: 120_001 }, "RFQClient requestTimeoutMs must be an integer from 100 to 120000"],
+    [{ requestTimeoutMs: 1_000.5 }, "RFQClient requestTimeoutMs must be an integer from 100 to 120000"],
+    [{ maxResponseBytes: 1_023 }, "RFQClient maxResponseBytes must be an integer from 1024 to 16777216"],
+    [{ maxResponseBytes: 16_777_217 }, "RFQClient maxResponseBytes must be an integer from 1024 to 16777216"],
+    [{ maxResponseBytes: "8192" }, "RFQClient maxResponseBytes must be an integer from 1024 to 16777216"],
+  ]) {
+    assert.throws(
+      () => new RFQClient("http://127.0.0.1:3000", options),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.status, 0);
+        assert.equal(error.message, expectedMessage);
+        return true;
+      },
+    );
+  }
+
+  for (const field of ["requestTimeoutMs", "maxResponseBytes"]) {
+    assert.throws(
+      () => new RFQClient("http://127.0.0.1:3000", Object.create({ [field]: 1_024 })),
+      (error) => {
+        assert.ok(error instanceof RFQClientError);
+        assert.equal(error.message, `RFQClient options.${field} must be an own field when provided`);
+        return true;
+      },
+    );
+  }
+
+  assert.doesNotThrow(() => new RFQClient("http://127.0.0.1:3000", {
+    requestTimeoutMs: 100,
+    maxResponseBytes: 1_024,
+  }));
 });
 
 test("RFQClient rejects unsafe trace id options", async () => {
@@ -218,7 +258,10 @@ test("RFQClient accepts injected fetch implementations", async () => {
     });
 
     assert.equal(await client.metrics(), metricsResponse);
-    assert.deepEqual(calls, [{ url: "http://127.0.0.1:3000/metrics", init: {} }]);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3000/metrics");
+    assert.deepEqual(Object.keys(calls[0].init), ["signal"]);
+    assert.ok(calls[0].init.signal instanceof AbortSignal);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -246,8 +289,10 @@ test("RFQClient sends API keys only to protected endpoints and supports rotation
     assert.equal(error.code, "AUTHENTICATION_REQUIRED");
     return true;
   });
-  assert.deepEqual(calls[0].init, {});
+  assert.deepEqual(Object.keys(calls[0].init), ["signal"]);
+  assert.ok(calls[0].init.signal instanceof AbortSignal);
   assert.deepEqual(calls[1].init.headers, { "x-api-key": key });
+  assert.ok(calls[1].init.signal instanceof AbortSignal);
 });
 
 test("RFQClient validates static and rotating API key options without evaluating them for public probes", async () => {
@@ -272,35 +317,9 @@ function installFetch(fetchImpl) {
 }
 
 function jsonResponse(status, payload, headers = {}) {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    headers: responseHeaders(headers),
-    async json() {
-      return payload;
-    },
-  };
+  return new Response(JSON.stringify(payload), { status, headers });
 }
 
 function textResponse(status, payload, headers = {}) {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    headers: responseHeaders(headers),
-    async json() {
-      throw new Error("text response does not support json");
-    },
-    async text() {
-      return payload;
-    },
-  };
-}
-
-function responseHeaders(headers) {
-  const normalized = new Map(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
-  return {
-    get(name) {
-      return normalized.get(name.toLowerCase()) ?? null;
-    },
-  };
+  return new Response(payload, { status, headers });
 }

@@ -204,15 +204,11 @@ test("RFQClient falls back for unknown API error codes", async () => {
   }
 });
 
-test("RFQClient ignores prototype-backed API error bodies", async () => {
+test("RFQClient ignores prototype-pollution-shaped API error bodies", async () => {
   const restoreFetch = installFetch(async () =>
-    jsonResponse(
+    textResponse(
       409,
-      Object.create({
-        code: "RISK_REJECTED",
-        message: "Risk policy rejected quote",
-        traceId: "tr_prototype_body",
-      }),
+      '{"code":"RISK_REJECTED","message":"Risk policy rejected quote","traceId":"tr_prototype_body","__proto__":{"code":"INTERNAL_ERROR"}}',
       { "x-trace-id": "tr_error_header" },
     ),
   );
@@ -311,35 +307,9 @@ function installFetch(fetchImpl) {
 }
 
 function jsonResponse(status, payload, headers = {}) {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    headers: responseHeaders(headers),
-    async json() {
-      return payload;
-    },
-  };
+  return new Response(JSON.stringify(payload), { status, headers });
 }
 
 function textResponse(status, payload, headers = {}) {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    headers: responseHeaders(headers),
-    async json() {
-      throw new Error("text response does not support json");
-    },
-    async text() {
-      return payload;
-    },
-  };
-}
-
-function responseHeaders(headers) {
-  const normalized = new Map(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
-  return {
-    get(name) {
-      return normalized.get(name.toLowerCase()) ?? null;
-    },
-  };
+  return new Response(payload, { status, headers });
 }

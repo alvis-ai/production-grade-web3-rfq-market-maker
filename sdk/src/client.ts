@@ -1,5 +1,6 @@
 import { assertPnlSummary } from "./client-accounting-responses.js";
 import { RFQClientError } from "./client-error.js";
+import { RFQClientTransport } from "./client-transport.js";
 import {
   assertQuoteRequest,
   assertQuoteRequestOptions,
@@ -14,6 +15,7 @@ import {
   isHealthResponse,
   isReadinessResponse,
   readJsonResponse,
+  readTextResponse,
   traceIdFromResponse,
 } from "./client-response-validation.js";
 import {
@@ -56,14 +58,18 @@ export type {
 
 export class RFQClient {
   private readonly baseUrl: string;
-  private readonly fetchImpl: RFQClientFetch;
+  private readonly transport: RFQClientTransport;
   private readonly traceIdProvider?: RFQClientTraceIdProvider;
   private readonly apiKeyProvider?: RFQClientApiKeyProvider;
 
   constructor(baseUrl: string, options: RFQClientOptions = {}) {
     const config: NormalizedRFQClientConfig = normalizeClientConfig(baseUrl, options);
     this.baseUrl = config.baseUrl;
-    this.fetchImpl = config.fetchImpl;
+    this.transport = new RFQClientTransport(
+      config.fetchImpl,
+      config.requestTimeoutMs,
+      config.maxResponseBytes,
+    );
     this.traceIdProvider = config.traceIdProvider;
     this.apiKeyProvider = config.apiKeyProvider;
   }
@@ -71,115 +77,133 @@ export class RFQClient {
   async quote(request: QuoteRequest, options?: QuoteRequestOptions): Promise<QuoteResponse> {
     assertQuoteRequest(request);
     const quoteOptions = assertQuoteRequestOptions(options);
-    const response = await this.fetchImpl(`${this.baseUrl}/quote`, {
+    return this.transport.request(`${this.baseUrl}/quote`, {
       method: "POST",
       headers: this.requestHeaders({
         "content-type": "application/json",
         ...(quoteOptions ? { "Idempotency-Key": quoteOptions.idempotencyKey } : {}),
       }),
       body: JSON.stringify(request),
+    }, "RFQ quote request", async (boundedResponse) => {
+      await assertOk(boundedResponse, "RFQ quote failed");
+      const payload = await readJsonResponse(boundedResponse, "RFQ quote response");
+      return assertResponsePayload(payload, boundedResponse.response, assertQuoteResponse);
     });
-    await assertOk(response, "RFQ quote failed");
-    const payload = await readJsonResponse(response, "RFQ quote response");
-    return assertResponsePayload(payload, response, assertQuoteResponse);
   }
 
   async submit(request: SubmitQuoteRequest): Promise<SubmitQuoteResponse> {
     assertSubmitQuoteRequest(request);
-    const response = await this.fetchImpl(`${this.baseUrl}/submit`, {
+    return this.transport.request(`${this.baseUrl}/submit`, {
       method: "POST",
       headers: this.requestHeaders({ "content-type": "application/json" }),
       body: JSON.stringify(request),
+    }, "RFQ submit request", async (boundedResponse) => {
+      await assertOk(boundedResponse, "RFQ submit failed");
+      const payload = await readJsonResponse(boundedResponse, "RFQ submit response");
+      return assertResponsePayload(payload, boundedResponse.response, assertSubmitQuoteResponse);
     });
-    await assertOk(response, "RFQ submit failed");
-    const payload = await readJsonResponse(response, "RFQ submit response");
-    return assertResponsePayload(payload, response, assertSubmitQuoteResponse);
   }
 
   async getQuote(quoteId: string): Promise<QuoteStatus> {
     const safeQuoteId = assertNonEmptyIdentifier(quoteId, "quoteId");
-    const response = await this.fetchImpl(
+    return this.transport.request(
       `${this.baseUrl}/quote/${encodeURIComponent(safeQuoteId)}`,
       this.requestInit(),
+      "RFQ quote status request",
+      async (boundedResponse) => {
+        await assertOk(boundedResponse, "RFQ quote status failed");
+        const payload = await readJsonResponse(boundedResponse, "RFQ quote status response");
+        return assertResponsePayload(payload, boundedResponse.response, assertQuoteStatus);
+      },
     );
-    await assertOk(response, "RFQ quote status failed");
-    const payload = await readJsonResponse(response, "RFQ quote status response");
-    return assertResponsePayload(payload, response, assertQuoteStatus);
   }
 
   async getHedge(hedgeOrderId: string): Promise<HedgeIntentStatus> {
     const safeHedgeOrderId = assertNonEmptyIdentifier(hedgeOrderId, "hedgeOrderId");
-    const response = await this.fetchImpl(
+    return this.transport.request(
       `${this.baseUrl}/hedges/${encodeURIComponent(safeHedgeOrderId)}`,
       this.requestInit(),
+      "RFQ hedge status request",
+      async (boundedResponse) => {
+        await assertOk(boundedResponse, "RFQ hedge status failed");
+        const payload = await readJsonResponse(boundedResponse, "RFQ hedge status response");
+        return assertResponsePayload(payload, boundedResponse.response, assertHedgeIntentStatus);
+      },
     );
-    await assertOk(response, "RFQ hedge status failed");
-    const payload = await readJsonResponse(response, "RFQ hedge status response");
-    return assertResponsePayload(payload, response, assertHedgeIntentStatus);
   }
 
   async getSettlement(settlementEventId: string): Promise<SettlementEventStatus> {
     const safeSettlementEventId = assertNonEmptyIdentifier(settlementEventId, "settlementEventId");
-    const response = await this.fetchImpl(
+    return this.transport.request(
       `${this.baseUrl}/settlements/${encodeURIComponent(safeSettlementEventId)}`,
       this.requestInit(),
+      "RFQ settlement status request",
+      async (boundedResponse) => {
+        await assertOk(boundedResponse, "RFQ settlement event status failed");
+        const payload = await readJsonResponse(boundedResponse, "RFQ settlement event status response");
+        return assertResponsePayload(payload, boundedResponse.response, assertSettlementEventStatus);
+      },
     );
-    await assertOk(response, "RFQ settlement event status failed");
-    const payload = await readJsonResponse(response, "RFQ settlement event status response");
-    return assertResponsePayload(payload, response, assertSettlementEventStatus);
   }
 
   async pnl(): Promise<PnlSummary> {
-    const response = await this.fetchImpl(`${this.baseUrl}/pnl`, this.requestInit());
-    await assertOk(response, "RFQ PnL summary failed");
-    const payload = await readJsonResponse(response, "RFQ PnL summary response");
-    return assertResponsePayload(payload, response, assertPnlSummary);
+    return this.transport.request(`${this.baseUrl}/pnl`, this.requestInit(), "RFQ PnL request", async (boundedResponse) => {
+      await assertOk(boundedResponse, "RFQ PnL summary failed");
+      const payload = await readJsonResponse(boundedResponse, "RFQ PnL summary response");
+      return assertResponsePayload(payload, boundedResponse.response, assertPnlSummary);
+    });
   }
 
   async health(): Promise<HealthResponse> {
-    const response = await this.fetchImpl(`${this.baseUrl}/health`, this.requestInit({}, false));
-    await assertOk(response, "RFQ health check failed");
-    const payload = await readJsonResponse(response, "RFQ health response");
-    if (!isHealthResponse(payload)) {
-      throw new RFQClientError(
-        "RFQ health response returned malformed status",
-        response.status,
-        "RFQ_CLIENT_ERROR",
-        traceIdFromResponse(response),
-      );
-    }
-    return payload;
+    return this.transport.request(`${this.baseUrl}/health`, this.requestInit({}, false), "RFQ health request", async (boundedResponse) => {
+      const { response } = boundedResponse;
+      await assertOk(boundedResponse, "RFQ health check failed");
+      const payload = await readJsonResponse(boundedResponse, "RFQ health response");
+      if (!isHealthResponse(payload)) {
+        throw new RFQClientError(
+          "RFQ health response returned malformed status",
+          response.status,
+          "RFQ_CLIENT_ERROR",
+          traceIdFromResponse(response),
+        );
+      }
+      return payload;
+    });
   }
 
   async ready(): Promise<ReadinessResponse> {
-    const response = await this.fetchImpl(`${this.baseUrl}/ready`, this.requestInit({}, false));
-    if (!response.ok) {
-      let payload: unknown;
-      try {
-        payload = await response.json();
-      } catch {
-        payload = undefined;
+    return this.transport.request(`${this.baseUrl}/ready`, this.requestInit({}, false), "RFQ readiness request", async (boundedResponse) => {
+      const { response } = boundedResponse;
+      if (!response.ok) {
+        let payload: unknown;
+        try {
+          payload = await readJsonResponse(boundedResponse, "RFQ readiness response");
+        } catch (error) {
+          if (error instanceof RFQClientError && error.status === 0) throw error;
+          payload = undefined;
+        }
+        if (isReadinessResponse(payload)) return payload;
+        throw clientErrorFromResponse(response, payload, "RFQ readiness check failed");
       }
-      if (isReadinessResponse(payload)) return payload;
-      throw clientErrorFromResponse(response, payload, "RFQ readiness check failed");
-    }
 
-    const payload = await readJsonResponse(response, "RFQ readiness response");
-    if (!isReadinessResponse(payload)) {
-      throw new RFQClientError(
-        "RFQ readiness response returned malformed status",
-        response.status,
-        "RFQ_CLIENT_ERROR",
-        traceIdFromResponse(response),
-      );
-    }
-    return payload;
+      const payload = await readJsonResponse(boundedResponse, "RFQ readiness response");
+      if (!isReadinessResponse(payload)) {
+        throw new RFQClientError(
+          "RFQ readiness response returned malformed status",
+          response.status,
+          "RFQ_CLIENT_ERROR",
+          traceIdFromResponse(response),
+        );
+      }
+      return payload;
+    });
   }
 
   async metrics(): Promise<string> {
-    const response = await this.fetchImpl(`${this.baseUrl}/metrics`, this.requestInit({}, false));
-    await assertOk(response, "RFQ metrics request failed");
-    return response.text();
+    return this.transport.request(`${this.baseUrl}/metrics`, this.requestInit({}, false), "RFQ metrics request", async (boundedResponse) => {
+      await assertOk(boundedResponse, "RFQ metrics request failed");
+      return readTextResponse(boundedResponse, "RFQ metrics response");
+    });
   }
 
   private requestInit(headers: Record<string, string> = {}, authenticated = true): RequestInit | undefined {

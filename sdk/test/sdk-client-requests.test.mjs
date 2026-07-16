@@ -361,23 +361,7 @@ function installFetch(fetchImpl) {
 }
 
 function jsonResponse(status, payload, headers = {}) {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    headers: responseHeaders(headers),
-    async json() {
-      return payload;
-    },
-  };
-}
-
-function responseHeaders(headers) {
-  const normalized = new Map(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
-  return {
-    get(name) {
-      return normalized.get(name.toLowerCase()) ?? null;
-    },
-  };
+  return new Response(JSON.stringify(payload), { status, headers });
 }
 
 function malleateSignature(value) {

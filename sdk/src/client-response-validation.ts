@@ -1,5 +1,6 @@
 import { rfqErrorCodes } from "./types.js";
 import { RFQClientError } from "./client-error.js";
+import type { BoundedClientResponse } from "./client-transport.js";
 import type { HealthResponse, ReadinessResponse, RFQErrorResponse } from "./types.js";
 
 const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
@@ -31,17 +32,12 @@ const readinessDependencyComponents = [
   "metrics",
 ] as const;
 
-export async function readJsonResponse(response: Response, label: string): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch {
-    throw new RFQClientError(
-      `${label} returned malformed JSON`,
-      response.status,
-      "RFQ_CLIENT_ERROR",
-      traceIdFromResponse(response),
-    );
-  }
+export async function readJsonResponse(response: BoundedClientResponse, label: string): Promise<unknown> {
+  return response.readJson(label);
+}
+
+export async function readTextResponse(response: BoundedClientResponse, label: string): Promise<string> {
+  return response.readText(label);
 }
 
 export function assertResponsePayload<T>(
@@ -57,13 +53,15 @@ export function assertResponsePayload<T>(
   }
 }
 
-export async function assertOk(response: Response, fallbackMessage: string): Promise<void> {
+export async function assertOk(boundedResponse: BoundedClientResponse, fallbackMessage: string): Promise<void> {
+  const { response } = boundedResponse;
   if (response.ok) return;
 
   let error: RFQErrorResponse | undefined;
   try {
-    error = (await response.json()) as RFQErrorResponse;
-  } catch {
+    error = (await boundedResponse.readJson("RFQ error response")) as RFQErrorResponse;
+  } catch (cause) {
+    if (cause instanceof RFQClientError && cause.status === 0) throw cause;
     error = undefined;
   }
 

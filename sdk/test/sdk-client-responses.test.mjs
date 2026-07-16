@@ -322,10 +322,6 @@ test("RFQClient rejects malformed successful response fields", async () => {
   };
   const submitCases = [
     {
-      payload: withPrototype({ txHash: submitResponse.txHash }, { status: "accepted" }),
-      message: "RFQ submit response returned malformed txHash",
-    },
-    {
       payload: { ...submitResponse, txHash: "0x1234" },
       message: "RFQ submit response returned malformed txHash",
     },
@@ -427,41 +423,11 @@ function installFetch(fetchImpl) {
 }
 
 function jsonResponse(status, payload, headers = {}) {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    headers: responseHeaders(headers),
-    async json() {
-      return payload;
-    },
-  };
+  return new Response(JSON.stringify(payload), { status, headers });
 }
 
 function textResponse(status, payload, headers = {}) {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    headers: responseHeaders(headers),
-    async json() {
-      throw new Error("text response does not support json");
-    },
-    async text() {
-      return payload;
-    },
-  };
-}
-
-function responseHeaders(headers) {
-  const normalized = new Map(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
-  return {
-    get(name) {
-      return normalized.get(name.toLowerCase()) ?? null;
-    },
-  };
-}
-
-function withPrototype(prototype, ownFields) {
-  return Object.assign(Object.create(prototype), ownFields);
+  return new Response(payload, { status, headers });
 }
 
 function malleateSignature(value) {
