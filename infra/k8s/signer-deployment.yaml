@@ -76,9 +76,13 @@ spec:
             - name: RFQ_SIGNER_TLS_KEY_PATH
               value: /etc/rfq-signer-tls/tls.key
             - name: RFQ_SIGNER_AUDIT_BACKEND
-              value: postgres
+              value: redis-stream
             - name: RFQ_SIGNER_AUDIT_TIMEOUT_MS
               value: "2000"
+            - name: RFQ_SIGNER_AUDIT_MIN_REPLICA_ACKS
+              value: "1"
+            - name: RFQ_SIGNER_AUDIT_STREAM_EPOCH
+              value: production_v1
             - name: RFQ_AWS_KMS_KEY_ID
               valueFrom:
                 secretKeyRef:
@@ -104,6 +108,11 @@ spec:
                 secretKeyRef:
                   name: rfq-signer-secrets
                   key: RFQ_SIGNER_AUDIT_DATABASE_URL
+            - name: RFQ_SIGNER_AUDIT_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rfq-signer-secrets
+                  key: RFQ_SIGNER_AUDIT_REDIS_URL
           readinessProbe:
             httpGet:
               scheme: HTTPS

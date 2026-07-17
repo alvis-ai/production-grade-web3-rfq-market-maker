@@ -13,7 +13,9 @@ const nowMs = 1_700_000_000_000;
 
 test("signer server authenticates and signs only an approved envelope", async () => {
   const auditStore = new InMemorySignerAuditStore();
-  const server = createServer(undefined, auditStore);
+  const server = createServer(undefined, auditStore, {
+    renderPrometheus: () => "rfq_signer_audit_stream_backlog 3\n",
+  });
   const response = await server.inject({
     method: "POST",
     url: "/internal/sign",
@@ -33,6 +35,7 @@ test("signer server authenticates and signs only an approved envelope", async ()
   const metrics = await server.inject({ method: "GET", url: "/metrics" });
   assert.match(metrics.body, /rfq_signer_service_requests_total\{outcome="success"\} 1/);
   assert.match(metrics.body, /rfq_signer_service_last_success_timestamp_seconds 1700000000/);
+  assert.match(metrics.body, /rfq_signer_audit_stream_backlog 3/);
 
   const readiness = await server.inject({ method: "GET", url: "/ready" });
   assert.equal(readiness.statusCode, 200);
@@ -170,10 +173,12 @@ test("signer server readiness degrades when the audit store is unavailable", asy
 function createServer(
   signerService = new LocalEIP712SignerService({ privateKey, settlementAddress }),
   auditStore = new InMemorySignerAuditStore(),
+  auditMetrics = undefined,
 ) {
   return buildSignerServer({
     signerService,
     auditStore,
+    auditMetrics,
     tokenRegistry: new ConfiguredTokenRegistry(),
     riskPolicy: defaultTokenLimitRiskPolicy,
     config: {

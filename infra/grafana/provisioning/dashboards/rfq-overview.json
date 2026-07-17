@@ -422,6 +422,18 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Signer Audit Stream",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 94, "w": 24, "h": 7 },
+      "targets": [
+        { "expr": "max(rfq_signer_audit_stream_backlog)", "legendFormat": "unmirrored backlog", "refId": "A" },
+        { "expr": "sum by (result) (rate(rfq_signer_audit_stream_appends_total[5m]))", "legendFormat": "append {{result}}/s", "refId": "B" },
+        { "expr": "sum by (result) (rate(rfq_signer_audit_mirrored_total[5m]))", "legendFormat": "mirror {{result}}/s", "refId": "C" },
+        { "expr": "sum(rate(rfq_signer_audit_mirror_errors_total[5m]))", "legendFormat": "mirror errors/s", "refId": "D" }
+      ]
     }
   ]
 }

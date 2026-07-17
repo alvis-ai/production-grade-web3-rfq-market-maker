@@ -103,11 +103,18 @@ test -s backend/src/db/migrations/025-bounded-hedge-limit.sql
 test -s backend/src/db/migrations/026-hedge-order-expiry.sql
 test -s backend/src/db/migrations/027-signer-audit.sql
 test -s backend/src/db/migrations/028-signer-risk-context.sql
+test -s backend/src/db/migrations/036-signer-audit-stream.sql
 test -s backend/src/db/migrations/029-bounded-hedge-failure-risk.sql
 test -s backend/src/db/migrations/030-usd-reference-depeg-risk.sql
 test -s backend/src/db/migrations/031-daily-loss-risk.sql
 test -s backend/src/modules/signer/signer-audit.store.ts
+test -s backend/src/modules/signer/redis-signer-audit.store.ts
+test -s backend/src/modules/signer/signer-audit-mirror.ts
+test -s backend/src/modules/signer/signer-audit-runtime.ts
+test -s backend/src/modules/signer/signer-audit-stream.metrics.ts
 test -s backend/test/signer-audit-store.test.mjs
+test -s backend/test/redis-signer-audit-store.test.mjs
+test -s backend/test/signer-audit-mirror.test.mjs
 test -s backend/src/modules/hedge/hedge-net-pnl.ts
 test -s backend/test/hedge-net-pnl.test.mjs
 test -s scripts/hedge-net-pnl-integration-check.mjs
@@ -3766,11 +3773,15 @@ grep -q 'kind: Secret' infra/k8s/backend-secret.yaml
 grep -q 'RFQ_SIGNER_SERVICE_TOKEN' infra/k8s/backend-secret.yaml
 ! grep -q 'RFQ_AWS_KMS_KEY_ID' infra/k8s/backend-secret.yaml
 grep -q 'RFQ_AWS_KMS_KEY_ID' infra/k8s/signer-secret.yaml
+grep -q 'RFQ_SIGNER_AUDIT_REDIS_URL: rediss://' infra/k8s/signer-secret.yaml
 grep -q 'RFQ_TRUSTED_SIGNER_ADDRESS' infra/k8s/backend-secret.yaml
 ! grep -q 'RFQ_SIGNER_PRIVATE_KEY' infra/k8s/backend-secret.yaml
 grep -q 'RFQ_SETTLEMENT_ADDRESS' infra/k8s/backend-secret.yaml
 grep -q 'serviceAccountName: rfq-backend' infra/k8s/backend-deployment.yaml
 grep -q 'serviceAccountName: rfq-signer-kms' infra/k8s/signer-deployment.yaml
+grep -q 'RFQ_SIGNER_AUDIT_BACKEND' infra/k8s/signer-deployment.yaml
+grep -q 'RFQ_SIGNER_AUDIT_STREAM_EPOCH' infra/k8s/signer-deployment.yaml
+grep -q 'RFQ_SIGNER_AUDIT_MIN_REPLICA_ACKS' infra/k8s/signer-deployment.yaml
 grep -q 'kind: ServiceAccount' infra/k8s/backend-service-account.yaml
 ! grep -q 'eks.amazonaws.com/role-arn' infra/k8s/backend-service-account.yaml
 grep -q 'eks.amazonaws.com/role-arn' infra/k8s/signer-service-account.yaml

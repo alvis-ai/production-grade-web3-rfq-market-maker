@@ -1,5 +1,9 @@
 import { Redis } from "ioredis";
 import {
+  normalizeRedisUrl as normalizeSharedRedisUrl,
+  type RedisUrlPolicy,
+} from "../../shared/redis/redis-url.js";
+import {
   assertRateLimitConfig,
   cloneRateLimitConfig,
   limitForRateLimitEndpoint,
@@ -39,9 +43,7 @@ export interface RedisRateLimiterOptions {
   keyPrefix?: string;
 }
 
-export interface RedisUrlPolicy {
-  requireTls?: boolean;
-}
+export type { RedisUrlPolicy } from "../../shared/redis/redis-url.js";
 
 export class RedisRateLimiter implements RateLimiter {
   private readonly client: RedisRateLimitClient;
@@ -140,38 +142,13 @@ export function createRedisRateLimitClient(
 }
 
 export function normalizeRedisUrl(value: string, policy: RedisUrlPolicy = {}): string {
-  assertRedisUrlPolicy(policy);
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error("RFQ_REDIS_URL must be a non-empty redis:// or rediss:// URL");
-  }
-
-  let url: URL;
   try {
-    url = new URL(value.trim());
-  } catch {
-    throw new Error("RFQ_REDIS_URL must be a valid redis:// or rediss:// URL");
-  }
-  if (!['redis:', 'rediss:'].includes(url.protocol) || !url.hostname || url.hash) {
-    throw new Error("RFQ_REDIS_URL must be a valid redis:// or rediss:// URL without a fragment");
-  }
-  if (url.port && (!/^[0-9]+$/.test(url.port) || Number(url.port) < 1 || Number(url.port) > 65_535)) {
-    throw new Error("RFQ_REDIS_URL port must be between 1 and 65535");
-  }
-  if (policy.requireTls === true && url.protocol !== "rediss:") {
-    throw new Error("RFQ_REDIS_URL must use rediss:// outside local environments");
-  }
-
-  return url.toString();
-}
-
-function assertRedisUrlPolicy(value: unknown): asserts value is RedisUrlPolicy {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error("Redis URL policy must be an object");
-  }
-  const record = value as Record<string, unknown>;
-  if (Object.keys(record).some((key) => key !== "requireTls") ||
-      (record.requireTls !== undefined && typeof record.requireTls !== "boolean")) {
-    throw new Error("Redis URL policy requireTls must be a boolean when provided");
+    return normalizeSharedRedisUrl(value, policy);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Redis URL is invalid";
+    throw new Error(message.startsWith("Redis URL policy")
+      ? message
+      : message.replace(/^Redis URL/, "RFQ_REDIS_URL"));
   }
 }
 

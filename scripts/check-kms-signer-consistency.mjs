@@ -14,8 +14,13 @@ const paths = [
   "backend/src/shared/http/bounded-json-response.ts",
   "backend/src/modules/signer/signer-server.ts",
   "backend/src/modules/signer/signer-audit.store.ts",
+  "backend/src/modules/signer/redis-signer-audit.store.ts",
+  "backend/src/modules/signer/signer-audit-mirror.ts",
+  "backend/src/modules/signer/signer-audit-runtime.ts",
+  "backend/src/modules/signer/signer-audit-stream.metrics.ts",
   "backend/src/db/migrations/027-signer-audit.sql",
   "backend/src/db/migrations/028-signer-risk-context.sql",
+  "backend/src/db/migrations/036-signer-audit-stream.sql",
   "backend/src/signer-main.ts",
   "backend/src/modules/settlement/settlement-verifier.service.ts",
   "backend/src/modules/signer/kms-signer.service.ts",
@@ -27,6 +32,8 @@ const paths = [
   "backend/test/remote-signer.test.mjs",
   "backend/test/signer-server.test.mjs",
   "backend/test/signer-audit-store.test.mjs",
+  "backend/test/redis-signer-audit-store.test.mjs",
+  "backend/test/signer-audit-mirror.test.mjs",
   "backend/test/signer-process-runtime.test.mjs",
   "backend/test/settlement-verifier.test.mjs",
   "backend/test/settlement-verifier-policy-validation.test.mjs",
@@ -163,14 +170,24 @@ assertContains("backend/src/db/migrations/028-signer-risk-context.sql", [
   "chk_signer_audit_risk_context",
   "idx_signer_audit_risk_decision",
 ]);
+assertContains("backend/src/db/migrations/036-signer-audit-stream.sql", [
+  "ADD COLUMN source_stream_id",
+  "uq_signer_audit_source_stream_id",
+]);
 assertContains("backend/src/signer-main.ts", [
   "Signer process requires RFQ_SIGNER_MODE=local or aws-kms",
   "RFQ_SIGNER_TLS_CERT_PATH",
   "RFQ_SIGNER_TLS_KEY_PATH",
   "buildSignerServer",
+  "createSignerAuditRuntime",
+]);
+assertContains("backend/src/modules/signer/signer-audit-runtime.ts", [
   "RFQ_SIGNER_AUDIT_BACKEND",
   "RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "RFQ_SIGNER_AUDIT_REDIS_URL",
   "PostgresSignerAuditStore",
+  "RedisSignerAuditStore",
+  "SignerAuditMirror",
 ]);
 assertContains("backend/src/modules/settlement/settlement-verifier.service.ts", [
   "trustedSignerOverlapAddresses",
@@ -306,6 +323,7 @@ assertContains("infra/k8s/signer-deployment.yaml", [
   "RFQ_SIGNER_TLS_CERT_PATH",
   "RFQ_SIGNER_AUDIT_BACKEND",
   "RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "RFQ_SIGNER_AUDIT_REDIS_URL",
 ]);
 assertContains("infra/k8s/signer-service-account.yaml", [
   "kind: ServiceAccount",
@@ -317,6 +335,7 @@ assertContains("infra/helm/rfq-market-maker/values.yaml", [
   "kmsKeyIdKey: RFQ_AWS_KMS_KEY_ID",
   "trustedSignerAddressKey: RFQ_TRUSTED_SIGNER_ADDRESS",
   "auditDatabaseUrlKey: RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "auditRedisUrlKey: RFQ_SIGNER_AUDIT_REDIS_URL",
   "trustedSignerOverlapAddresses:",
   "key: RFQ_TRUSTED_SIGNER_OVERLAP_ADDRESSES",
 ]);
@@ -329,6 +348,7 @@ assertContains("infra/helm/rfq-market-maker/templates/signer-deployment.yaml", [
   "key: {{ .Values.signerService.secret.kmsKeyIdKey }}",
   "RFQ_SIGNER_TLS_CERT_PATH",
   "RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "RFQ_SIGNER_AUDIT_REDIS_URL",
 ]);
 assertContains("docs/adr/ADR-0005-Use-KMS-For-Production-Signing.md", [
   "## Status",

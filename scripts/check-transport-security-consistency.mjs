@@ -8,6 +8,7 @@ const read = (path) => readFile(path, "utf8");
 const databaseConfig = await read("backend/src/db/config.ts");
 const databasePool = await read("backend/src/db/pool.ts");
 const redisRateLimiter = await read("backend/src/modules/rate-limit/redis-rate-limit.service.ts");
+const redisUrl = await read("backend/src/shared/redis/redis-url.ts");
 const gatewayRuntime = await read("backend/src/runtime/gateway-runtime.ts");
 const rpcValidation = await read("backend/src/shared/validation/rpc.ts");
 const receiptProvider = await read("backend/src/modules/execution/receipt-settlement-evidence.provider.ts");
@@ -18,6 +19,7 @@ const settlementIndexerRuntime = await read("backend/src/settlement-indexer-main
 const chainlinkConfig = await read("backend/src/modules/market-data/chainlink-config.ts");
 const analyticsRuntime = await read("backend/src/analytics-worker-main.ts");
 const signerRuntime = await read("backend/src/signer-main.ts");
+const signerAuditRuntime = await read("backend/src/modules/signer/signer-audit-runtime.ts");
 const signerRuntimeTests = await read("backend/test/signer-process-runtime.test.mjs");
 const workerSources = await Promise.all([
   "backend/src/hedge-worker-main.ts",
@@ -101,22 +103,27 @@ assertContains(analyticsRuntime, [
   "Analytics Kafka SASL credentials are required when NODE_ENV=${nodeEnv}",
   "RFQ_CLICKHOUSE_URL must use https:// when NODE_ENV=${nodeEnv}",
 ], "backend/src/analytics-worker-main.ts");
-assertContains(signerRuntime, [
+assertContains(signerAuditRuntime, [
   'RFQ_SIGNER_AUDIT_BACKEND=memory is not allowed when NODE_ENV=',
-  'readDatabaseConfig({ NODE_ENV: nodeEnv, DATABASE_URL: auditDatabaseUrl })',
-  'RFQ_SIGNER_AUDIT_DATABASE_URL is required for the postgres signer audit backend',
-], "backend/src/signer-main.ts");
+  'readDatabaseConfig({ NODE_ENV: nodeEnv, DATABASE_URL: databaseUrl })',
+  'RFQ_SIGNER_AUDIT_DATABASE_URL is required for durable signer audit backends',
+  'RFQ_SIGNER_AUDIT_REDIS_URL',
+  'RFQ_SIGNER_AUDIT_MIN_REPLICA_ACKS must be at least 1 outside local environments',
+], "backend/src/modules/signer/signer-audit-runtime.ts");
 assertContains(signerRuntimeTests, [
   "dedicated production audit database",
   "sslmode=verify-full",
   "sslrootcert=",
 ], "backend/test/signer-process-runtime.test.mjs");
 
-assertContains(redisRateLimiter, [
+assertContains(redisUrl, [
   "export interface RedisUrlPolicy",
   "assertRedisUrlPolicy(policy)",
   "policy.requireTls === true",
-  "RFQ_REDIS_URL must use rediss:// outside local environments",
+  "Redis URL must use rediss:// outside local environments",
+], "backend/src/shared/redis/redis-url.ts");
+assertContains(redisRateLimiter, [
+  'message.replace(/^Redis URL/, "RFQ_REDIS_URL")',
 ], "backend/src/modules/rate-limit/redis-rate-limit.service.ts");
 assertContains(gatewayRuntime, [
   "createRedisRateLimitClient(redisUrl, {",
@@ -253,12 +260,19 @@ assert.match(
   /^\s+RFQ_SIGNER_AUDIT_DATABASE_URL: postgres:\/\/[^\n]*sslmode=verify-full[^\n]*sslrootcert=/m,
   "signer audit Secret must require hostname-verified PostgreSQL TLS with an explicit CA",
 );
+assertContains(rawSignerSecret, ["RFQ_SIGNER_AUDIT_REDIS_URL: rediss://"], "infra/k8s/signer-secret.yaml");
+assert.ok(!rawSignerSecret.includes("RFQ_SIGNER_AUDIT_REDIS_URL: redis://"),
+  "signer audit Redis Secret must not use plaintext");
 assertContains(rawSignerDeployment, [
   "RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "RFQ_SIGNER_AUDIT_REDIS_URL",
+  "RFQ_SIGNER_AUDIT_MIN_REPLICA_ACKS",
   "mountPath: /etc/rfq-signer-database-ca",
 ], "infra/k8s/signer-deployment.yaml");
 assertContains(helmSignerDeployment, [
   "RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "RFQ_SIGNER_AUDIT_REDIS_URL",
+  ".Values.signerService.auditMinReplicaAcks",
   ".Values.signerService.secret.databaseCaCertKey",
 ], "Helm signer deployment");
 

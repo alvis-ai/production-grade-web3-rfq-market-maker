@@ -2116,6 +2116,7 @@ CREATE TABLE signer_audit_events (
   deadline BIGINT NOT NULL,
   outcome VARCHAR(32) NOT NULL,
   occurred_at TIMESTAMPTZ NOT NULL,
+  source_stream_id VARCHAR(128),
   recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
   CONSTRAINT chk_signer_audit_quote_id CHECK (quote_id ~ '^[A-Za-z0-9_:-]{1,128}$'),
   CONSTRAINT chk_signer_audit_snapshot_id CHECK (snapshot_id ~ '^[A-Za-z0-9_:-]{1,128}$'),
@@ -2150,7 +2151,11 @@ CREATE TABLE signer_audit_events (
   ),
   CONSTRAINT chk_signer_audit_chain_id CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_signer_audit_deadline CHECK (deadline BETWEEN 1 AND 9007199254740991),
-  CONSTRAINT chk_signer_audit_outcome CHECK (outcome IN ('success', 'signer_error'))
+  CONSTRAINT chk_signer_audit_outcome CHECK (outcome IN ('success', 'signer_error')),
+  CONSTRAINT chk_signer_audit_source_stream_id CHECK (
+    source_stream_id IS NULL OR source_stream_id ~ '^[A-Za-z][A-Za-z0-9_-]{0,63}:[0-9]+-[0-9]+$'
+  ),
+  CONSTRAINT uq_signer_audit_source_stream_id UNIQUE (source_stream_id)
 );
 
 CREATE INDEX idx_signer_audit_quote
@@ -2204,4 +2209,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('032', 'portfolio-delta-risk'),
   ('033', 'gamma-guardrail-risk'),
   ('034', 'quote-route-attribution'),
-  ('035', 'pnl-cursor-pagination');
+  ('035', 'pnl-cursor-pagination'),
+  ('036', 'signer-audit-stream');

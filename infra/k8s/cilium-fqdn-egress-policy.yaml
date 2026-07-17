@@ -95,6 +95,12 @@ spec:
         - ports:
             - port: "5432"
               protocol: TCP
+    - toFQDNs:
+        - matchName: redis.example.com
+      toPorts:
+        - ports:
+            - port: "6380"
+              protocol: TCP
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy

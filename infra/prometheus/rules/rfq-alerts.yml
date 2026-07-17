@@ -379,6 +379,42 @@ groups:
           summary: Isolated signer cannot persist or verify signing audit evidence
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQSignerAuditStreamBacklogHigh
+        expr: max(rfq_signer_audit_stream_backlog) > 1000
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Isolated signer audit stream mirror is falling behind
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSignerAuditAdmissionFailures
+        expr: sum(increase(rfq_signer_audit_stream_appends_total{result=~"backlog_full|replica_ack_failed"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Isolated signer durable audit admission is failing closed
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSignerAuditMirrorErrors
+        expr: sum(increase(rfq_signer_audit_mirror_errors_total[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Isolated signer audit events cannot mirror to PostgreSQL
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQSignerAuditMirrorStalled
+        expr: max(rfq_signer_audit_stream_backlog) > 0 and sum(increase(rfq_signer_audit_mirrored_total[5m])) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Isolated signer audit stream has backlog without PostgreSQL mirror progress
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQMarketDataCacheCold
         expr: increase(rfq_market_data_cache_misses_total[10m]) > 0 and increase(rfq_market_data_cache_hits_total[10m]) == 0
         for: 10m

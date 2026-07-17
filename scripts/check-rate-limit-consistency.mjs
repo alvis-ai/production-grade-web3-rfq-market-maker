@@ -7,6 +7,7 @@ import { readSdkClientSource } from "./lib/read-sdk-client-source.mjs";
 
 const rateLimiterSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const redisRateLimiterSource = await readFile("backend/src/modules/rate-limit/redis-rate-limit.service.ts", "utf8");
+const redisUrlSource = await readFile("backend/src/shared/redis/redis-url.ts", "utf8");
 const mainSource = await readBackendGatewaySource();
 const apiGatewayEnvTestSource = await readFile("backend/test/api-gateway-env.test.mjs", "utf8");
 const apiGatewayTestSource = await readFile("backend/test/api-gateway.test.mjs", "utf8");
@@ -70,10 +71,13 @@ assertContains(redisRateLimiterSource, [
   "lazyConnect: true",
   "enableOfflineQueue: false",
   "maxRetriesPerRequest: 1",
-  "RFQ_REDIS_URL must be a valid redis:// or rediss:// URL without a fragment",
-  "RFQ_REDIS_URL must use rediss:// outside local environments",
-  "policy.requireTls === true",
+  'message.replace(/^Redis URL/, "RFQ_REDIS_URL")',
 ], "backend/src/modules/rate-limit/redis-rate-limit.service.ts");
+assertContains(redisUrlSource, [
+  "Redis URL must be a valid redis:// or rediss:// URL without a fragment",
+  "Redis URL must use rediss:// outside local environments",
+  "policy.requireTls === true",
+], "backend/src/shared/redis/redis-url.ts");
 
 assertContains(mainSource, [
   "new InMemoryRateLimiter",

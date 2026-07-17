@@ -33,6 +33,11 @@ export interface SignerServerOptions {
   logger?: FastifyServerOptions["logger"];
   https?: HttpsServerOptions;
   now?: () => number;
+  auditMetrics?: SignerAuditMetricsProvider;
+}
+
+export interface SignerAuditMetricsProvider {
+  renderPrometheus(): string;
 }
 
 type SignerRequestOutcome = "success" | "auth_rejected" | "invalid" | "error";
@@ -121,7 +126,9 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
     }
   });
   server.get("/metrics", async (_request, reply) =>
-    reply.type("text/plain; version=0.0.4; charset=utf-8").send(metrics.renderPrometheus()));
+    reply.type("text/plain; version=0.0.4; charset=utf-8").send(
+      `${metrics.renderPrometheus()}${options.auditMetrics?.renderPrometheus() ?? ""}`,
+    ));
 
   server.post("/internal/sign", async (request, reply) => {
     if (!authorized(request.headers.authorization, tokenDigest)) {
@@ -344,6 +351,11 @@ function assertOptions(options: SignerServerOptions): void {
   if (typeof options.auditStore !== "object" || options.auditStore === null ||
       typeof options.auditStore.append !== "function" || typeof options.auditStore.checkHealth !== "function") {
     throw new Error("Signer server auditStore is invalid");
+  }
+  if (options.auditMetrics !== undefined &&
+      (typeof options.auditMetrics !== "object" || options.auditMetrics === null ||
+       typeof options.auditMetrics.renderPrometheus !== "function")) {
+    throw new Error("Signer server auditMetrics is invalid");
   }
   if (typeof options.tokenRegistry !== "object" || options.tokenRegistry === null ||
       typeof options.tokenRegistry.getToken !== "function") {

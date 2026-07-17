@@ -47,6 +47,7 @@ test("database migration runner holds one session advisory lock across discovery
         { version: "033", name: "gamma-guardrail-risk", applied_at: "2026-07-16T00:03:00.000Z" },
         { version: "034", name: "quote-route-attribution", applied_at: "2026-07-16T00:04:00.000Z" },
         { version: "035", name: "pnl-cursor-pagination", applied_at: "2026-07-16T00:05:00.000Z" },
+        { version: "036", name: "signer-audit-stream", applied_at: "2026-07-17T00:00:00.000Z" },
       ] };
     }
     return { rows: [] };
@@ -1251,6 +1252,42 @@ test("database migration runner adds deterministic PnL cursor indexes", async ()
   assert.equal(client.queries.some(({ sql }) => sql.includes("trg_pnl_records_created_at_immutable")), true);
   assert.equal(client.queries.some(({ sql, params }) =>
     sql.includes("INSERT INTO _migrations") && params[0] === "035"), true);
+});
+
+test("database migration runner makes signer audit stream mirroring idempotent", async () => {
+  const appliedNames = [
+    "base-schema", "settlement-canonical", "hedge-worker-queue", "analytics-outbox",
+    "post-trade-reconciliation", "quote-snapshot-pnl", "settlement-indexer", "submit-reservations",
+    "risk-notional-reasons", "risk-market-regime-reasons", "open-quote-exposure", "pricing-attribution",
+    "market-spread-attribution", "hedge-execution-evidence", "hedge-fee-reconciliation",
+    "treasury-liquidity-reservations", "quote-principal-ownership", "quote-control", "pair-quote-control",
+    "toxic-flow-scores", "toxic-flow-markouts", "portfolio-var-reservations", "quote-idempotency",
+    "hedge-net-pnl", "bounded-hedge-limit", "hedge-order-expiry", "signer-audit", "signer-risk-context",
+    "bounded-hedge-failure-risk", "usd-reference-depeg-risk", "daily-loss-risk", "portfolio-delta-risk",
+    "gamma-guardrail-risk", "quote-route-attribution", "pnl-cursor-pagination",
+  ];
+  const { pool, client } = fakePool(async (sql) => {
+    if (sql.includes("SELECT version, name")) {
+      return { rows: appliedNames.map((name, index) => ({
+        version: String(index + 1).padStart(3, "0"),
+        name,
+        applied_at: "2026-07-17T00:00:00.000Z",
+      })) };
+    }
+    return { rows: [] };
+  });
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await migrateUpTo(pool, "036");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(client.queries.some(({ sql }) => sql.includes("ADD COLUMN source_stream_id")), true);
+  assert.equal(client.queries.some(({ sql }) => sql.includes("uq_signer_audit_source_stream_id")), true);
+  assert.equal(client.queries.some(({ sql, params }) =>
+    sql.includes("INSERT INTO _migrations") && params[0] === "036"), true);
 });
 
 function fakePool(handler, { lockAcquired = true } = {}) {

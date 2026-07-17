@@ -1,13 +1,12 @@
 import { readFile } from "node:fs/promises";
-import { readDatabaseConfig, type DatabaseConfig } from "./db/config.js";
-import { endPool, getPool } from "./db/pool.js";
+import { endPool } from "./db/pool.js";
 import { parseTokenRegistryConfig, ConfiguredTokenRegistry } from "./modules/pricing/token-registry.js";
 import { parseTokenLimitRiskPolicy } from "./modules/risk/token-limit-risk.engine.js";
 import {
-  InMemorySignerAuditStore,
-  PostgresSignerAuditStore,
-  type SignerAuditStore,
-} from "./modules/signer/signer-audit.store.js";
+  createSignerAuditRuntime,
+  readSignerAuditProcessConfig,
+  type SignerAuditProcessConfig,
+} from "./modules/signer/signer-audit-runtime.js";
 import { buildSignerServer } from "./modules/signer/signer-server.js";
 import {
   createSignerRuntime,
@@ -34,9 +33,7 @@ export interface SignerProcessConfig {
   tlsKeyPath?: string;
 }
 
-export type SignerAuditProcessConfig =
-  | { backend: "memory" }
-  | { backend: "postgres"; database: DatabaseConfig; queryTimeoutMs: number };
+export type { SignerAuditProcessConfig } from "./modules/signer/signer-audit-runtime.js";
 
 export function readSignerProcessConfig(
   env: Record<string, string | undefined> | undefined = process.env,
@@ -83,14 +80,16 @@ export async function startSignerProcess(): Promise<void> {
   const config = readSignerProcessConfig();
   const logger = createStructuredLogger("signer-service");
   const runtime = createSignerRuntime(config.signer);
-  const auditStore = createSignerAuditStore(config.audit, logger);
+  const auditRuntime = createSignerAuditRuntime(config.audit, logger);
+  await auditRuntime.start();
   const https = config.tlsCertPath && config.tlsKeyPath ? {
     cert: await readFile(config.tlsCertPath),
     key: await readFile(config.tlsKeyPath),
   } : undefined;
   const server = buildSignerServer({
     signerService: runtime.service,
-    auditStore,
+    auditStore: auditRuntime.store,
+    ...(auditRuntime.metrics ? { auditMetrics: auditRuntime.metrics } : {}),
     tokenRegistry: config.tokenRegistry,
     riskPolicy: config.riskPolicy,
     config: {
@@ -114,7 +113,8 @@ export async function startSignerProcess(): Promise<void> {
     onShutdown: () => {
       Promise.resolve(server.close())
         .then(() => runtime.close?.())
-        .then(() => config.audit.backend === "postgres" ? endPool() : undefined)
+        .then(() => auditRuntime.close())
+        .then(() => auditRuntime.usesPostgres ? endPool() : undefined)
         .then(() => {
           controller.complete();
           process.exitCode = 0;
@@ -126,45 +126,6 @@ export async function startSignerProcess(): Promise<void> {
         });
     },
   });
-}
-
-function readSignerAuditProcessConfig(
-  env: Record<string, string | undefined> | undefined,
-): SignerAuditProcessConfig {
-  const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
-  const localEnvironment = isLocalEnvironment(nodeEnv);
-  const backend = readOwnEnvValue(env, "RFQ_SIGNER_AUDIT_BACKEND") ?? (localEnvironment ? "memory" : undefined);
-  const auditDatabaseUrl = readOwnEnvValue(env, "RFQ_SIGNER_AUDIT_DATABASE_URL");
-  const timeoutValue = readOwnEnvValue(env, "RFQ_SIGNER_AUDIT_TIMEOUT_MS");
-  if (backend !== "memory" && backend !== "postgres") {
-    throw new Error("RFQ_SIGNER_AUDIT_BACKEND must be memory or postgres");
-  }
-  if (backend === "memory") {
-    if (!localEnvironment) {
-      throw new Error(`RFQ_SIGNER_AUDIT_BACKEND=memory is not allowed when NODE_ENV=${nodeEnv}`);
-    }
-    if (auditDatabaseUrl !== undefined || timeoutValue !== undefined) {
-      throw new Error("Signer audit database settings require RFQ_SIGNER_AUDIT_BACKEND=postgres");
-    }
-    return { backend };
-  }
-  if (auditDatabaseUrl === undefined || auditDatabaseUrl.length === 0 ||
-      auditDatabaseUrl.trim() !== auditDatabaseUrl || auditDatabaseUrl.startsWith("replace-with-")) {
-    throw new Error("RFQ_SIGNER_AUDIT_DATABASE_URL is required for the postgres signer audit backend");
-  }
-  return {
-    backend,
-    database: readDatabaseConfig({ NODE_ENV: nodeEnv, DATABASE_URL: auditDatabaseUrl }),
-    queryTimeoutMs: readInteger(env, "RFQ_SIGNER_AUDIT_TIMEOUT_MS", 2_000, 100, 10_000),
-  };
-}
-
-function createSignerAuditStore(
-  config: SignerAuditProcessConfig,
-  logger: ReturnType<typeof createStructuredLogger>,
-): SignerAuditStore {
-  if (config.backend === "memory") return new InMemorySignerAuditStore();
-  return new PostgresSignerAuditStore(getPool(config.database, logger), config.queryTimeoutMs);
 }
 
 function readAuthToken(env: Record<string, string | undefined> | undefined): string {

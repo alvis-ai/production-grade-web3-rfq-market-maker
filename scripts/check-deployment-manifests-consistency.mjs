@@ -736,6 +736,9 @@ assertContains(k8sSignerDeployment, [
   "RFQ_SIGNER_TLS_KEY_PATH",
   "RFQ_SIGNER_AUDIT_BACKEND",
   "RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "RFQ_SIGNER_AUDIT_REDIS_URL",
+  "RFQ_SIGNER_AUDIT_STREAM_EPOCH",
+  "RFQ_SIGNER_AUDIT_MIN_REPLICA_ACKS",
   "RFQ_SIGNER_AUDIT_TIMEOUT_MS",
   "signer-database-ca",
   "scheme: HTTPS",
@@ -749,6 +752,7 @@ assertContains(k8sSignerSecret, [
   "tls.crt:",
   "tls.key:",
   "RFQ_SIGNER_AUDIT_DATABASE_URL:",
+  "RFQ_SIGNER_AUDIT_REDIS_URL: rediss://",
   "database-ca.crt:",
 ], "infra/k8s/signer-secret.yaml");
 assertContains(k8sSignerService, [
@@ -1024,7 +1028,7 @@ assertContains(k8sCiliumFqdnEgressPolicy, [
 ], "infra/k8s/cilium-fqdn-egress-policy.yaml");
 for (const [hostname, port, count] of [
   ["postgres.example.com", 5432, 7],
-  ["redis.example.com", 6380, 1],
+  ["redis.example.com", 6380, 2],
   ["kms.us-east-1.amazonaws.com", 443, 1],
   ["sts.us-east-1.amazonaws.com", 443, 1],
   ["api.binance.com", 443, 2],
@@ -1095,6 +1099,9 @@ assertContains(helmValues, [
   "tlsCertKey: tls.crt",
   "tlsKeyKey: tls.key",
   "auditDatabaseUrlKey: RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "auditRedisUrlKey: RFQ_SIGNER_AUDIT_REDIS_URL",
+  "auditMinReplicaAcks: 1",
+  "auditStreamEpoch: production_v1",
   "databaseCaCertKey: database-ca.crt",
   "eks.amazonaws.com/role-arn: replace-with-kms-signing-role-arn",
   'eks.amazonaws.com/sts-regional-endpoints: "true"',
@@ -1414,7 +1421,10 @@ assertContains(helmSignerDeployment, [
   "RFQ_SIGNER_TLS_KEY_PATH",
   "RFQ_SIGNER_AUDIT_BACKEND",
   "RFQ_SIGNER_AUDIT_DATABASE_URL",
+  "RFQ_SIGNER_AUDIT_REDIS_URL",
+  "RFQ_SIGNER_AUDIT_STREAM_EPOCH",
   ".Values.signerService.auditTimeoutMs",
+  ".Values.signerService.auditMinReplicaAcks",
   ".Values.signerService.secret.databaseCaCertKey",
   "scheme: HTTPS",
 ], "infra/helm/rfq-market-maker/templates/signer-deployment.yaml");

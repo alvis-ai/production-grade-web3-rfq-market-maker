@@ -22,6 +22,8 @@ services:
         condition: service_healthy
       database-migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     environment:
       NODE_ENV: development
       RFQ_LOG_LEVEL: ${RFQ_LOG_LEVEL:-info}
@@ -33,9 +35,13 @@ services:
       RFQ_SIGNER_SERVICE_TOKEN: devsigner_0123456789012345678901234567890123456789
       RFQ_SIGNER_SERVICE_HOST: 0.0.0.0
       RFQ_SIGNER_SERVICE_PORT: 3006
-      RFQ_SIGNER_AUDIT_BACKEND: postgres
+      RFQ_SIGNER_AUDIT_BACKEND: redis-stream
       RFQ_SIGNER_AUDIT_DATABASE_URL: postgres://rfq:rfq@postgres:5432/rfq_market_maker?minPool=1&maxPool=3
       RFQ_SIGNER_AUDIT_TIMEOUT_MS: 2000
+      RFQ_SIGNER_AUDIT_REDIS_URL: redis://redis:6379/0
+      RFQ_SIGNER_AUDIT_STREAM_EPOCH: compose_v1
+      RFQ_SIGNER_AUDIT_MIN_REPLICA_ACKS: 0
+      RFQ_SIGNER_AUDIT_CONSUMER_ID: signer_compose
       RFQ_TOKEN_REGISTRY_JSON: '{"tokens":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","symbol":"TOKEN2","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":false},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","symbol":"TOKEN3","decimals":18,"isWhitelisted":true,"riskTier":"low","usdReference":true}]}'
       RFQ_RISK_POLICY_JSON: '{"policyVersion":"token-limit-risk-v2","enabledChainIds":[1],"tokenLimits":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","maxAmountIn":"1000000000000000000000","minAmountOut":"1","maxNotionalUsd":"1000000","maxAbsoluteInventory":"10000000000000000000000"},{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000003","maxAmountIn":"1000000000000000000000","minAmountOut":"1","maxNotionalUsd":"1000000","maxAbsoluteInventory":"10000000000000000000000"}],"restrictedUsers":[],"toxicFlowScores":[],"maxToxicScoreBps":8000,"maxUserOpenNotionalUsd":"2000000","maxPairOpenNotionalUsd":"5000000","portfolioVar":{"modelVersion":"component-sum-v1","maxPortfolioVarUsd":"500000","confidenceMultiplierBps":23300,"horizonSeconds":86400,"maxSnapshotAgeMs":5000,"maxFutureSkewMs":5000,"valuationPairs":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","usdReferenceTokenAddress":"0x0000000000000000000000000000000000000003"}]},"portfolioDelta":{"modelVersion":"gross-net-asset-delta-v2","softGrossLimitUsd":"500000","hardGrossLimitUsd":"1000000","softNetLimitUsd":"250000","hardNetLimitUsd":"500000","assetLimits":[{"chainId":1,"tokenAddress":"0x0000000000000000000000000000000000000002","softLimitUsd":"250000","hardLimitUsd":"500000"}]},"gammaGuardrail":{"modelVersion":"piecewise-convexity-v1","elevatedInventoryUtilizationBps":6000,"criticalInventoryUtilizationBps":8500,"largeTradeUtilizationBps":2500,"blockTradeUtilizationBps":7000,"elevatedVolatilityUtilizationBps":5000,"extremeVolatilityUtilizationBps":8000,"maxRiskMultiplierBps":20000},"minLiquidityUsd":"1000000","maxVolatilityBps":500,"maxSlippageBps":500,"maxQuotedSpreadBps":1000}'
     healthcheck:
@@ -322,6 +328,7 @@ services:
 
   redis:
     image: redis:7
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "always"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -329,6 +336,8 @@ services:
       retries: 5
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
 
   redpanda:
     image: redpandadata/redpanda:v26.1.12
@@ -398,5 +407,6 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:
   clickhouse-data:
   grafana-data:

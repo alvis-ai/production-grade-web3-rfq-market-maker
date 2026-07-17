@@ -90,3 +90,49 @@ test("signer process parses a dedicated production audit database without exposi
   assert.equal(config.audit.queryTimeoutMs, 1500);
   assert.equal("auditDatabaseUrl" in config, false);
 });
+
+test("signer process requires replicated TLS Redis for the production audit stream", () => {
+  const production = {
+    ...env,
+    NODE_ENV: "production",
+    HOSTNAME: "signer-pod-1",
+    RFQ_SIGNER_MODE: "aws-kms",
+    RFQ_SETTLEMENT_ADDRESS: "0x0000000000000000000000000000000000000004",
+    RFQ_TRUSTED_SIGNER_ADDRESS: "0x0000000000000000000000000000000000000005",
+    RFQ_AWS_KMS_KEY_ID: "alias/rfq-signer",
+    RFQ_AWS_KMS_REGION: "us-east-1",
+    RFQ_SIGNER_TLS_CERT_PATH: "/etc/rfq-signer/tls.crt",
+    RFQ_SIGNER_TLS_KEY_PATH: "/etc/rfq-signer/tls.key",
+    RFQ_SIGNER_AUDIT_BACKEND: "redis-stream",
+    RFQ_SIGNER_AUDIT_DATABASE_URL:
+      "postgres://rfq_signer_audit:secret@postgres.example.com:5432/rfq_market_maker?minPool=1&maxPool=3&sslmode=verify-full&sslrootcert=%2Fetc%2Frfq%2Fdatabase-ca%2Fca.crt",
+    RFQ_SIGNER_AUDIT_REDIS_URL: "rediss://audit-redis.example.com:6380/0",
+    RFQ_SIGNER_AUDIT_STREAM_EPOCH: "production_v1",
+    RFQ_SIGNER_AUDIT_MIN_REPLICA_ACKS: "1",
+  };
+  const config = readSignerProcessConfig(production);
+  assert.equal(config.audit.backend, "redis-stream");
+  assert.equal(config.audit.redisUrl, "rediss://audit-redis.example.com:6380/0");
+  assert.equal(config.audit.minReplicaAcks, 1);
+  assert.equal(config.audit.requireAof, true);
+  assert.equal(config.audit.sourceEpoch, "production_v1");
+  assert.equal(config.audit.consumer, "signer-pod-1");
+  assert.equal(config.audit.maxBacklog, 10_000);
+
+  assert.throws(
+    () => readSignerProcessConfig({ ...production, RFQ_SIGNER_AUDIT_REDIS_URL: "redis://redis:6379/0" }),
+    /must use rediss/,
+  );
+  assert.throws(
+    () => readSignerProcessConfig({ ...production, RFQ_SIGNER_AUDIT_MIN_REPLICA_ACKS: "0" }),
+    /must be at least 1/,
+  );
+  const { RFQ_SIGNER_AUDIT_MIN_REPLICA_ACKS: _acks, ...withoutAcks } = production;
+  assert.throws(() => readSignerProcessConfig(withoutAcks), /MIN_REPLICA_ACKS is required/);
+  const { RFQ_SIGNER_AUDIT_STREAM_EPOCH: _epoch, ...withoutEpoch } = production;
+  assert.throws(() => readSignerProcessConfig(withoutEpoch), /STREAM_EPOCH is required/);
+  assert.throws(
+    () => readSignerProcessConfig({ ...production, RFQ_SIGNER_AUDIT_STREAM_EPOCH: "2026/07" }),
+    /must be a safe epoch identifier/,
+  );
+});

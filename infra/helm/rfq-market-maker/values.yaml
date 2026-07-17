@@ -74,6 +74,7 @@ signerService:
     trustedSignerAddressKey: RFQ_TRUSTED_SIGNER_ADDRESS
     settlementAddressKey: RFQ_SETTLEMENT_ADDRESS
     auditDatabaseUrlKey: RFQ_SIGNER_AUDIT_DATABASE_URL
+    auditRedisUrlKey: RFQ_SIGNER_AUDIT_REDIS_URL
     tlsCertKey: tls.crt
     tlsKeyKey: tls.key
     databaseCaCertKey: database-ca.crt
@@ -82,6 +83,8 @@ signerService:
   maxClockSkewSeconds: 5
   bodyLimitBytes: 32768
   auditTimeoutMs: 2000
+  auditMinReplicaAcks: 1
+  auditStreamEpoch: production_v1
   resources:
     requests:
       cpu: 50m
@@ -178,6 +181,8 @@ networkPolicy:
     signer:
       - hostname: postgres.example.com
         port: 5432
+      - hostname: redis.example.com
+        port: 6380
       - hostname: kms.us-east-1.amazonaws.com
         port: 443
       - hostname: sts.us-east-1.amazonaws.com

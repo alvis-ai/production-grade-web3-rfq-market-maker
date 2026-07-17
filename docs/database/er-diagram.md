@@ -134,6 +134,10 @@ erDiagram
     bigint id PK
     text quote_id
     text snapshot_id
+    smallint context_version
+    text risk_decision_id
+    text risk_policy_version
+    text trace_id
     bytea quote_digest
     bytea signature_hash
     text signer_address
@@ -142,6 +146,7 @@ erDiagram
     bigint deadline
     text outcome
     timestamptz occurred_at
+    text source_stream_id UK
     timestamptz recorded_at
   }
 

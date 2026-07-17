@@ -27,6 +27,10 @@ const toxicFlowAnalyzerMetricsSource = await readFile(
   "utf8",
 );
 const signerServiceMetricsSource = await readFile("backend/src/modules/signer/signer-server.ts", "utf8");
+const signerAuditMetricsSource = await readFile(
+  "backend/src/modules/signer/signer-audit-stream.metrics.ts",
+  "utf8",
+);
 const readinessSource = await readFile("backend/src/modules/health/readiness.service.ts", "utf8");
 const rateLimitSource = await readFile("backend/src/modules/rate-limit/rate-limit.service.ts", "utf8");
 const prometheusConfigSource = await readFile("infra/prometheus/prometheus.yml", "utf8");
@@ -35,7 +39,7 @@ const backendMetricsChapter = await readFile("book/Volume5-BackendEngineering/Ch
 const monitoringChapter = await readFile("book/Volume7-ProductionDeployment/Chapter03-Monitoring.md", "utf8");
 
 const emittedMetrics = extractEmittedMetrics(
-  `${metricsSource}\n${hedgeWorkerMetricsSource}\n${hedgeFeeMetricsSource}\n${analyticsWorkerMetricsSource}\n${reconciliationWorkerMetricsSource}\n${settlementIndexerMetricsSource}\n${toxicFlowAnalyzerMetricsSource}\n${signerServiceMetricsSource}`,
+  `${metricsSource}\n${hedgeWorkerMetricsSource}\n${hedgeFeeMetricsSource}\n${analyticsWorkerMetricsSource}\n${reconciliationWorkerMetricsSource}\n${settlementIndexerMetricsSource}\n${toxicFlowAnalyzerMetricsSource}\n${signerServiceMetricsSource}\n${signerAuditMetricsSource}`,
 );
 const alertMetrics = extractAlertMetrics(alertRulesSource);
 const backendDocMetrics = extractDocumentedMetrics(backendMetricsChapter);

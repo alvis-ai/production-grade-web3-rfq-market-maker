@@ -273,6 +273,10 @@ const pnlCursorPaginationMigrationSource = await readFile(
   "backend/src/db/migrations/035-pnl-cursor-pagination.sql",
   "utf8",
 );
+const signerAuditStreamMigrationSource = await readFile(
+  "backend/src/db/migrations/036-signer-audit-stream.sql",
+  "utf8",
+);
 const signerAuditStoreSource = await readFile(
   "backend/src/modules/signer/signer-audit.store.ts",
   "utf8",
@@ -1897,7 +1901,12 @@ assert.ok(
     signerRiskContextMigrationSource.includes("idx_signer_audit_risk_decision") &&
     signerAuditStoreSource.includes("risk_decision_id") &&
     schemaSource.includes("('028', 'signer-risk-context')") &&
+    signerAuditStreamMigrationSource.includes("ADD COLUMN source_stream_id") &&
+    signerAuditStreamMigrationSource.includes("uq_signer_audit_source_stream_id") &&
+    signerAuditStoreSource.includes("ON CONFLICT (source_stream_id) DO NOTHING") &&
+    schemaSource.includes("('036', 'signer-audit-stream')") &&
     erDiagramSource.includes("SIGNER_AUDIT_EVENTS") &&
+    erDiagramSource.includes("source_stream_id") &&
     erDiagramSource.includes("append-only evidence"),
   "signer audit migration, store, and docs must preserve fail-closed append-only signing evidence",
 );

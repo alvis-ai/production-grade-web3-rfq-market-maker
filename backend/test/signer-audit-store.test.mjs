@@ -37,12 +37,13 @@ test("PostgresSignerAuditStore writes only bounded audit evidence and checks tab
   const pool = {
     async query(config) {
       queries.push(config);
-      if (config.text.includes("FROM pg_attribute")) return { rows: [{ required_columns: 4 }] };
+      if (config.text.includes("FROM pg_attribute")) return { rows: [{ required_columns: 5 }] };
       return { rows: [], rowCount: 1 };
     },
   };
   const store = new PostgresSignerAuditStore(pool, 2_000);
   await store.append(event);
+  assert.equal(await store.appendMirrored(event, "test_v1:1700000000000-1"), true);
   await store.checkHealth();
 
   assert.match(queries[0].text, /INSERT INTO signer_audit_events/);
@@ -51,7 +52,9 @@ test("PostgresSignerAuditStore writes only bounded audit evidence and checks tab
   assert.deepEqual(queries[0].values.slice(2, 5), [event.riskDecisionId, event.riskPolicyVersion, event.traceId]);
   assert.deepEqual(queries[0].values[5], Buffer.from("11".repeat(32), "hex"));
   assert.deepEqual(queries[0].values[6], Buffer.from("22".repeat(32), "hex"));
-  assert.equal(queries[1].query_timeout, 2_000);
+  assert.equal(queries[1].values[13], "test_v1:1700000000000-1");
+  assert.match(queries[1].text, /ON CONFLICT \(source_stream_id\) DO NOTHING/);
+  assert.equal(queries[2].query_timeout, 2_000);
 });
 
 test("PostgresSignerAuditStore fails readiness when the append-only table is absent", async () => {
@@ -61,6 +64,7 @@ test("PostgresSignerAuditStore fails readiness when the append-only table is abs
   await assert.rejects(store.checkHealth(), /schema is unavailable/);
   assert.throws(() => new PostgresSignerAuditStore({}, 1_000), /must expose query/);
   assert.throws(() => new PostgresSignerAuditStore({ query() {} }, 99), /queryTimeoutMs/);
+  await assert.rejects(store.appendMirrored(event, "not-a-stream-id"), /sourceStreamId/);
 });
 
 test("signer audit validation rejects malformed or privacy-expanding event envelopes", () => {

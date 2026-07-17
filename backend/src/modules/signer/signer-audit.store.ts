@@ -71,14 +71,27 @@ export class PostgresSignerAuditStore implements SignerAuditStore {
   }
 
   async append(event: SignerAuditEvent): Promise<void> {
+    await this.insert(event);
+  }
+
+  async appendMirrored(event: SignerAuditEvent, sourceStreamId: string): Promise<boolean> {
+    if (typeof sourceStreamId !== "string" ||
+        !/^[A-Za-z][A-Za-z0-9_-]{0,63}:\d+-\d+$/.test(sourceStreamId)) {
+      throw new Error("Postgres signer audit sourceStreamId must be a Redis stream id");
+    }
+    return this.insert(event, sourceStreamId);
+  }
+
+  private async insert(event: SignerAuditEvent, sourceStreamId?: string): Promise<boolean> {
     assertSignerAuditEvent(event);
     const query: pg.QueryConfig & { query_timeout: number } = {
       text: `INSERT INTO signer_audit_events (
                quote_id, snapshot_id, context_version, risk_decision_id,
                risk_policy_version, trace_id, quote_digest, signature_hash,
                signer_address, settlement_address, chain_id, deadline,
-               outcome, occurred_at
-             ) VALUES ($1, $2, 2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+               outcome, occurred_at, source_stream_id
+             ) VALUES ($1, $2, 2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             ON CONFLICT (source_stream_id) DO NOTHING`,
       values: [
         event.quoteId,
         event.snapshotId,
@@ -93,10 +106,12 @@ export class PostgresSignerAuditStore implements SignerAuditStore {
         event.deadline,
         event.outcome,
         event.occurredAt,
+        sourceStreamId ?? null,
       ],
       query_timeout: this.queryTimeoutMs,
     };
-    await this.pool.query(query);
+    const result = await this.pool.query(query);
+    return result.rowCount === 1;
   }
 
   async checkHealth(): Promise<void> {
@@ -106,11 +121,11 @@ export class PostgresSignerAuditStore implements SignerAuditStore {
              WHERE attrelid = to_regclass('public.signer_audit_events')
                AND attname = ANY($1::text[])
                AND NOT attisdropped`,
-      values: [["context_version", "risk_decision_id", "risk_policy_version", "trace_id"]],
+      values: [["context_version", "risk_decision_id", "risk_policy_version", "trace_id", "source_stream_id"]],
       query_timeout: this.queryTimeoutMs,
     };
     const result = await this.pool.query<{ required_columns: number }>(query);
-    if (result.rows[0]?.required_columns !== 4) {
+    if (result.rows[0]?.required_columns !== 5) {
       throw new Error("Signer audit schema is unavailable");
     }
   }
