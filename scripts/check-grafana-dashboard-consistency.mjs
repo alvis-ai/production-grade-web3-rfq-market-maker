@@ -2,8 +2,9 @@
 
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
+import { readBackendMetricsSource } from "./lib/read-backend-metrics-source.mjs";
 
-const metricsSource = await readFile("backend/src/modules/metrics/metrics.service.ts", "utf8");
+const metricsSource = await readBackendMetricsSource();
 const hedgeWorkerMetricsSource = await readFile("backend/src/modules/hedge/hedge-worker.ts", "utf8");
 const hedgeFeeMetricsSource = await readFile("backend/src/modules/hedge/hedge-fee-worker.ts", "utf8");
 const analyticsWorkerMetricsSource = await readFile("backend/src/modules/analytics/analytics-worker.metrics.ts", "utf8");

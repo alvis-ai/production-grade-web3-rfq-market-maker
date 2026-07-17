@@ -344,7 +344,7 @@ grep -q 'Risk decision ${field} must be a primitive string' backend/src/modules/
 grep -q 'riskDecisionStore: RiskDecisionStore' $quote_service_sources
 grep -q 'persistQuoteRiskDecision' $quote_service_sources
 grep -q 'riskDecisionStoreStatus' backend/src/modules/health/readiness.service.ts
-grep -q 'riskDecisionStore' backend/src/modules/metrics/metrics.service.ts
+grep -q 'riskDecisionStore' backend/src/modules/metrics/metrics-contract.ts
 grep -q 'InMemoryRiskDecisionRepository stores idempotent approved and rejected decisions' backend/test/risk-decision.test.mjs
 grep -q 'InMemoryRiskDecisionRepository rejects malformed decision payload envelopes before storing' backend/test/risk-decision.test.mjs
 grep -q 'InMemoryRiskDecisionRepository rejects inherited decision payload fields before storing' backend/test/risk-decision.test.mjs
@@ -416,6 +416,10 @@ test -s backend/src/modules/hedge/hedge.service.ts
 test -s backend/src/modules/hedge/postgres-hedge.service.ts
 grep -q 'checkHealth' backend/src/modules/hedge/hedge.service.ts
 test -s backend/src/modules/metrics/metrics.service.ts
+test -s backend/src/modules/metrics/metrics-contract.ts
+test -s backend/src/modules/metrics/metrics-validation.ts
+test -s backend/src/modules/metrics/prometheus-metrics.ts
+test -s scripts/lib/read-backend-metrics-source.mjs
 grep -q 'checkHealth' backend/src/modules/metrics/metrics.service.ts
 grep -q 'MetricsService sanitizes reason labels and renders core settlement metrics' backend/test/metrics.test.mjs
 test -s backend/src/modules/pnl/pnl.service.ts
@@ -470,7 +474,7 @@ grep -q 'observedAt: "2026-02-31T00:00:00.000Z"' backend/test/market-data-valida
 grep -q 'marketSnapshotStore: MarketSnapshotStore' $quote_service_sources
 grep -q 'await this.saveMarketSnapshot' $quote_service_sources
 grep -q 'marketSnapshotStoreStatus' backend/src/modules/health/readiness.service.ts
-grep -q 'marketSnapshotStore' backend/src/modules/metrics/metrics.service.ts
+grep -q 'marketSnapshotStore' backend/src/modules/metrics/metrics-contract.ts
 grep -q 'getMarketSnapshotIssue' backend/src/modules/market-data/market-data.service.ts
 grep -q 'defaultStaticMarketDataConfig' backend/src/modules/market-data/market-data.service.ts
 grep -q 'Market data pair is not configured' backend/src/modules/market-data/market-data.service.ts
@@ -2153,44 +2157,44 @@ grep -q 'PnlTradeRecord.grossPnlBps must document the JavaScript safe integer mi
 grep -q 'payload.user' $sdk_client_sources
 grep -q 'payload.minAmountOut' $sdk_client_sources
 grep -q 'malformed nonce' sdk/test/sdk-client-responses.test.mjs
-grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/metrics.service.ts
-grep -q 'rfq_quote_latency_seconds' backend/src/modules/metrics/metrics.service.ts
-grep -q 'rfq_quote_rejections_total' backend/src/modules/metrics/metrics.service.ts
-grep -q 'rfq_submit_latency_seconds' backend/src/modules/metrics/metrics.service.ts
-grep -q 'rfq_rate_limited_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'rfq_quote_latency_seconds' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'rfq_quote_rejections_total' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'rfq_submit_latency_seconds' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'rfq_rate_limited_total' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'recordRateLimited' $gateway_sources
-grep -q 'rfq_signer_requests_total' backend/src/modules/metrics/metrics.service.ts
-grep -q 'rfq_signer_errors_total' backend/src/modules/metrics/metrics.service.ts
-grep -q 'rfq_signer_latency_seconds' backend/src/modules/metrics/metrics.service.ts
-grep -q 'rfq_readiness_status' backend/src/modules/metrics/metrics.service.ts
-grep -q 'rfq_dependency_status' backend/src/modules/metrics/metrics.service.ts
-grep -q '"routing"' backend/src/modules/metrics/metrics.service.ts
-grep -q 'readonly ReadinessComponentName\[\]' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_signer_requests_total' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'rfq_signer_errors_total' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'rfq_signer_latency_seconds' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'rfq_readiness_status' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'rfq_dependency_status' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q '"routing"' backend/src/modules/metrics/metrics-contract.ts
+grep -q 'readonly ReadinessComponentName\[\]' backend/src/modules/metrics/metrics-contract.ts
 grep -q 'assertRateLimitedEndpoint(endpoint)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertSignerMetricOperation(operation)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertReadinessMetricInput(readiness)' backend/src/modules/metrics/metrics.service.ts
-grep -q 'readinessMetricInputFields = \["status", "components"\]' backend/src/modules/metrics/metrics.service.ts
-grep -q 'inventoryMetricPositionFields = \["chainId", "token", "balance"\]' backend/src/modules/metrics/metrics.service.ts
-grep -q 'pnlTradeMetricRecordFields = \[' backend/src/modules/metrics/metrics.service.ts
-grep -q 'assertOwnFields(readiness, readinessMetricInputFields, "readiness")' backend/src/modules/metrics/metrics.service.ts
-grep -q 'assertOwnFields(readiness.components, readinessDependencyComponents, "readiness components")' backend/src/modules/metrics/metrics.service.ts
-grep -q 'assertOwnFields(position, inventoryMetricPositionFields, "inventory position")' backend/src/modules/metrics/metrics.service.ts
-grep -q 'assertOwnFields(record, pnlTradeMetricRecordFields, "PnL trade record")' backend/src/modules/metrics/metrics.service.ts
-grep -q 'Metrics ${path}.${field} must be an own field' backend/src/modules/metrics/metrics.service.ts
-grep -q 'assertMetricLabelValue(value)' backend/src/modules/metrics/metrics.service.ts
-grep -q 'assertFiniteHistogramObservation(value)' backend/src/modules/metrics/metrics.service.ts
+grep -q 'readinessMetricInputFields = \["status", "components"\]' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'inventoryMetricPositionFields = \["chainId", "token", "balance"\]' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'pnlTradeMetricRecordFields = \[' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'assertOwnFields(readiness, readinessMetricInputFields, "readiness")' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'assertOwnFields(readiness.components, readinessDependencyComponents, "readiness components")' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'assertOwnFields(position, inventoryMetricPositionFields, "inventory position")' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'assertOwnFields(record, pnlTradeMetricRecordFields, "PnL trade record")' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'Metrics ${path}.${field} must be an own field' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'Metrics label value must be a string' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'Metrics histogram observation must be a finite number' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'MetricsService rejects unsupported fixed-label inputs before mutating state' backend/test/metrics-validation.test.mjs
 grep -q 'MetricsService rejects non-string dynamic label values before mutating state' backend/test/metrics-validation.test.mjs
 grep -q 'MetricsService rejects non-finite histogram observations before mutating state' backend/test/metrics-validation.test.mjs
-grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/metrics/metrics.service.ts
-grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/metrics/metrics.service.ts
-grep -q 'assertSafeIdentifier(record.pnlId, "PnL trade pnlId")' backend/src/modules/metrics/metrics.service.ts
-grep -q 'assertSafeIdentifier(record.quoteId, "PnL trade quoteId")' backend/src/modules/metrics/metrics.service.ts
-grep -q 'Metrics ${field} must be a primitive string' backend/src/modules/metrics/metrics.service.ts
-grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)' backend/src/modules/metrics/metrics.service.ts
-grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/metrics/metrics.service.ts
-grep -Fq 'typeof value !== "string" || !/^(0|-?[1-9][0-9]*)$/.test(value)' backend/src/modules/metrics/metrics.service.ts
-grep -q 'isCanonicalUtcIsoTimestamp(record.realizedAt)' backend/src/modules/metrics/metrics.service.ts
+grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/metrics/metrics-validation.ts
+grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'assertSafeIdentifier(record.pnlId, "PnL trade pnlId")' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'assertSafeIdentifier(record.quoteId, "PnL trade quoteId")' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'Metrics ${field} must be a primitive string' backend/src/modules/metrics/metrics-validation.ts
+grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)' backend/src/modules/metrics/metrics-validation.ts
+grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/metrics/metrics-validation.ts
+grep -Fq 'typeof value !== "string" || !/^(0|-?[1-9][0-9]*)$/.test(value)' backend/src/modules/metrics/metrics-validation.ts
+grep -q 'isCanonicalUtcIsoTimestamp(record.realizedAt)' backend/src/modules/metrics/metrics-validation.ts
 grep -q 'Metrics PnL trade pnlId must be a primitive string' backend/test/metrics-inventory-pnl-validation.test.mjs
 grep -q 'Metrics PnL trade record.pnlId must be an own field' backend/test/metrics-inventory-pnl-validation.test.mjs
 grep -q 'Metrics PnL trade pnlId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/metrics-inventory-pnl-validation.test.mjs
@@ -2247,31 +2251,31 @@ grep -q 'recordQuoteRejection' $gateway_sources
 grep -q 'recordSubmitLatency' $gateway_sources
 grep -q 'quoteService.markQuoteFailed' $gateway_sources
 grep -q 'SETTLEMENT_REVERTED' $gateway_sources
-grep -q 'rfq_settlements_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_settlements_total' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'rfq_settlements_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_settlements_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
-grep -q 'rfq_hedge_intents_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_hedge_intents_total' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'rfq_hedge_intents_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_hedge_intents_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
-grep -q 'rfq_hedge_intent_errors_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_hedge_intent_errors_total' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'rfq_hedge_intent_errors_total' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_hedge_intent_errors_total' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'recordHedgeIntentError' $gateway_sources
-grep -q 'rfq_hedge_lag_seconds' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_hedge_lag_seconds' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'recordHedgeLag' $gateway_sources
 grep -q 'rfq_hedge_lag_seconds' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_hedge_lag_seconds' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'RFQInventoryExposureHigh' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_inventory_balance' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
-grep -q 'rfq_quote_status_update_errors_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_quote_status_update_errors_total' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'recordQuoteStatusUpdateError' $gateway_sources
-grep -q 'rfq_inventory_balance' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_inventory_balance' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'rfq_inventory_balance' book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md
 grep -q 'rfq_inventory_balance' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
-grep -q 'rfq_pnl_trades_total' backend/src/modules/metrics/metrics.service.ts
-grep -q 'rfq_pnl_record_errors_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_pnl_trades_total' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'rfq_pnl_record_errors_total' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'recordPnlRecordError' $gateway_sources
-grep -q 'rfq_realized_pnl_token_out' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_realized_pnl_token_out' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'assertInventoryMetricPosition(position)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'assertPnlTradeMetricRecord(record)' backend/src/modules/metrics/metrics.service.ts
 grep -q 'cloneInventoryMetricPosition' backend/src/modules/metrics/metrics.service.ts
@@ -3950,7 +3954,7 @@ grep -q 'DynamicToxicFlowRiskEngine' $gateway_sources
 grep -q 'toxic_flow_score_audit' docs/database/schema.sql
 grep -q "('020', 'toxic-flow-scores')" docs/database/schema.sql
 grep -q 'RFQ_TOXIC_FLOW_MAX_SCORE_AGE_MS' infra/k8s/configmap.yaml
-grep -q 'rfq_toxic_flow_score_updates_total' backend/src/modules/metrics/metrics.service.ts
+grep -q 'rfq_toxic_flow_score_updates_total' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'RFQToxicFlowScoreErrors' infra/prometheus/rules/rfq-alerts.yml
 
 test -s docs/adr/ADR-0008-Use-Bounded-Signer-Overlap-For-Key-Rotation.md

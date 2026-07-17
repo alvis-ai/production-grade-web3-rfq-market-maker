@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
+import { readBackendMetricsSource } from "./lib/read-backend-metrics-source.mjs";
 
 const files = {
   main: await readBackendGatewaySource(),
@@ -11,7 +12,7 @@ const files = {
   migration: await readFile("backend/src/db/migrations/008-submit-reservations.sql", "utf8"),
   schema: await readFile("docs/database/schema.sql", "utf8"),
   errors: await readFile("docs/api/errors.md", "utf8"),
-  metrics: await readFile("backend/src/modules/metrics/metrics.service.ts", "utf8"),
+  metrics: await readBackendMetricsSource(),
   alerts: await readFile("infra/prometheus/rules/rfq-alerts.yml", "utf8"),
   runbook: await readFile("book/Volume7-ProductionDeployment/Chapter05-Runbook.md", "utf8"),
   concurrencyTest: await readFile("backend/test/submit-concurrency.test.mjs", "utf8"),

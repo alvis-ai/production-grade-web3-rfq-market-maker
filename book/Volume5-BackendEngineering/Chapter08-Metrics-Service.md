@@ -209,6 +209,8 @@ ClickHouse events include quoteId, snapshotId, policyVersion, pricingVersion, st
 
 ## Engineering Decisions
 
+同步 API 的 metrics 实现按职责拆分为四个模块：`metrics.service.ts` 只保存进程内计数/观测并提供稳定记录接口，`metrics-contract.ts` 固定低基数 label 集和共享状态类型，`metrics-validation.ts` 在状态变化前校验领域输入，`prometheus-metrics.ts` 只把只读状态渲染成 Prometheus text format。渲染器不能反向依赖 stateful service，组合一致性检查同时限制各模块行数，避免指标增长再次形成单文件职责聚合。
+
 The standalone post-trade worker exports `rfq_reconciliation_jobs_total`, `rfq_reconciliation_iteration_errors_total`, `rfq_reconciliation_pending_jobs`, `rfq_reconciliation_oldest_pending_age_seconds`, and `rfq_reconciliation_last_processed_timestamp_seconds`. Job outcome is bounded to repaired, already consistent, retry scheduled, or stale revision; quote ids and settlement ids are never Prometheus labels.
 
 The standalone toxic-flow analyzer exports `rfq_toxic_flow_markouts_total`, `rfq_toxic_flow_analyzer_iteration_errors_total`, `rfq_toxic_flow_markout_pending`, `rfq_toxic_flow_markout_oldest_eligible_age_seconds`, and `rfq_toxic_flow_analyzer_last_processed_timestamp_seconds`. Outcome is bounded to scored, invalidated, or retry scheduled. User addresses, quote ids, settlement event ids, token addresses, and policy versions remain in PostgreSQL audit evidence and never become Prometheus labels.

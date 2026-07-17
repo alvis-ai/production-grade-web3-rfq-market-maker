@@ -2,8 +2,15 @@
 
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
+import {
+  backendMetricsSourcePaths,
+  readBackendMetricsSource,
+} from "./lib/read-backend-metrics-source.mjs";
 
-const metricsSource = await readFile("backend/src/modules/metrics/metrics.service.ts", "utf8");
+const metricsSource = await readBackendMetricsSource();
+const metricsModules = new Map(await Promise.all(backendMetricsSourcePaths.map(async (path) => {
+  return [path, await readFile(path, "utf8")];
+})));
 const hedgeWorkerMetricsSource = await readFile("backend/src/modules/hedge/hedge-worker.ts", "utf8");
 const hedgeFeeMetricsSource = await readFile("backend/src/modules/hedge/hedge-fee-worker.ts", "utf8");
 const analyticsWorkerMetricsSource = await readFile("backend/src/modules/analytics/analytics-worker.metrics.ts", "utf8");
@@ -47,6 +54,26 @@ const kubernetesAvailabilityMetrics = [
   "kube_poddisruptionbudget_status_pod_disruptions_allowed",
   "kube_pod_status_unschedulable",
 ];
+
+const metricsModuleLineLimits = new Map([
+  ["backend/src/modules/metrics/metrics.service.ts", 500],
+  ["backend/src/modules/metrics/metrics-contract.ts", 140],
+  ["backend/src/modules/metrics/metrics-validation.ts", 350],
+  ["backend/src/modules/metrics/prometheus-metrics.ts", 520],
+]);
+for (const [path, maxLines] of metricsModuleLineLimits) {
+  const source = metricsModules.get(path);
+  assert.ok(source, `Metrics module ${path} must be included in the composed source`);
+  assert.ok(source.split("\n").length <= maxLines, `Metrics module ${path} must stay within ${maxLines} lines`);
+}
+assert.ok(
+  metricsModules.get("backend/src/modules/metrics/metrics.service.ts")?.includes("renderPrometheusMetrics({"),
+  "MetricsService must delegate Prometheus serialization to the renderer",
+);
+assert.ok(
+  !metricsModules.get("backend/src/modules/metrics/prometheus-metrics.ts")?.includes("metrics.service"),
+  "Prometheus renderer must not depend on the stateful MetricsService facade",
+);
 
 assert.ok(emittedMetrics.length >= 20, "MetricsService must expose a production-grade metric surface");
 assert.equal(new Set(emittedMetrics).size, emittedMetrics.length, "MetricsService metric HELP blocks must be unique");

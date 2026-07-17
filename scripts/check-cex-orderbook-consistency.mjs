@@ -42,7 +42,7 @@ const [
   "backend/src/shared/http/bounded-json-response.ts",
   "backend/src/modules/market-data/cex-orderbook/binance-connector.ts",
   "backend/src/modules/market-data/cex-orderbook/coinbase-connector.ts",
-  "backend/src/modules/metrics/metrics.service.ts",
+  "backend/src/modules/metrics/prometheus-metrics.ts",
   "backend/test/cex-orderbook.test.mjs",
   "backend/test/chainlink-market-data.test.mjs",
   "backend/test/api-gateway-env.test.mjs",
