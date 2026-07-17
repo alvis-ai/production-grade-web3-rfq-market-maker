@@ -6,11 +6,28 @@ import {
   assertProductionMarketDataPolicy,
   buildRuntimeBinanceSymbolRulesHealth,
   readDefaultMarketDataRuntime,
+  readPricingCacheConfig,
 } from "../dist/runtime/market-runtime.js";
 import { ConfiguredTokenRegistry } from "../dist/modules/pricing/token-registry.js";
 
 const tokenIn = "0x1000000000000000000000000000000000000001";
 const tokenOut = "0x2000000000000000000000000000000000000002";
+
+test("pricing cache runtime config is bounded and deterministic", () => {
+  assert.deepEqual(readPricingCacheConfig({}), { ttlMs: 100, maxEntries: 10_000 });
+  assert.deepEqual(readPricingCacheConfig({
+    RFQ_PRICING_CACHE_TTL_MS: "250",
+    RFQ_PRICING_CACHE_MAX_ENTRIES: "50000",
+  }), { ttlMs: 250, maxEntries: 50_000 });
+  assert.throws(
+    () => readPricingCacheConfig({ RFQ_PRICING_CACHE_TTL_MS: "0" }),
+    /RFQ_PRICING_CACHE_TTL_MS must be a base-10 integer between 1 and 5000/,
+  );
+  assert.throws(
+    () => readPricingCacheConfig({ RFQ_PRICING_CACHE_MAX_ENTRIES: "1000001" }),
+    /RFQ_PRICING_CACHE_MAX_ENTRIES must be a base-10 integer between 1 and 1000000/,
+  );
+});
 
 test("static market data runtime applies RFQ_MARKET_PAIRS to the provider allowlist", async () => {
   const originalProvider = process.env.RFQ_MARKET_DATA_PROVIDER;

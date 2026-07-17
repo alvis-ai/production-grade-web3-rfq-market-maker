@@ -4,6 +4,10 @@ import type { CexOrderBookCycleObservation } from "../market-data/cex-orderbook/
 import type { OrderBookPairConfig } from "../market-data/cex-orderbook/orderbook.js";
 import type { MarketSnapshotSampleResult } from "../market-data/market-snapshot-sampler.js";
 import type { MarketDataRefreshOutcome } from "../market-data/price-updater.js";
+import {
+  quoteLatencyStages,
+  type QuoteLatencyStage,
+} from "../quote/quote-service-observability.js";
 import type { RateLimitedEndpoint } from "../rate-limit/rate-limit.service.js";
 import {
   apiAuthMetricRejectionReasons,
@@ -40,6 +44,7 @@ export interface PrometheusMetricsState {
   quoteResponses: number;
   quoteErrors: number;
   quoteLatency: HistogramState;
+  quoteStageLatency: ReadonlyMap<QuoteLatencyStage, HistogramState>;
   quoteRejections: ReadonlyMap<string, number>;
   portfolioDeltaSoftBreaches: number;
   quotePaused: number;
@@ -72,6 +77,8 @@ export interface PrometheusMetricsState {
   realizedPnl: ReadonlyMap<string, bigint>;
   priceCacheHits: number;
   priceCacheMisses: number;
+  pricingCacheHits: number;
+  pricingCacheMisses: number;
   marketDataRefreshes: ReadonlyMap<MarketDataRefreshOutcome, number>;
   marketSnapshotSamples: ReadonlyMap<keyof MarketSnapshotSampleResult, number>;
   cexOrderBookCycle: CexOrderBookCycleObservation;
@@ -122,6 +129,15 @@ export function renderPrometheusMetrics(state: PrometheusMetricsState): string {
     "# HELP rfq_quote_latency_seconds RFQ quote request latency in seconds.",
     "# TYPE rfq_quote_latency_seconds histogram",
     ...renderHistogram("rfq_quote_latency_seconds", state.quoteLatency),
+    "# HELP rfq_quote_stage_latency_seconds RFQ quote dependency latency by bounded stage in seconds.",
+    "# TYPE rfq_quote_stage_latency_seconds histogram",
+    ...quoteLatencyStages.flatMap((stage) => {
+      return renderLabeledHistogram(
+        "rfq_quote_stage_latency_seconds",
+        { stage },
+        state.quoteStageLatency.get(stage) ?? createHistogramState(),
+      );
+    }),
     "# HELP rfq_quote_rejections_total Total risk-rejected quote requests by stable internal reason.",
     "# TYPE rfq_quote_rejections_total counter",
     ...renderStringCounter("rfq_quote_rejections_total", "reason", state.quoteRejections),
@@ -240,6 +256,12 @@ export function renderPrometheusMetrics(state: PrometheusMetricsState): string {
     "# HELP rfq_market_data_cache_misses_total Total cache misses for market data snapshots.",
     "# TYPE rfq_market_data_cache_misses_total counter",
     `rfq_market_data_cache_misses_total ${state.priceCacheMisses}`,
+    "# HELP rfq_pricing_cache_hits_total Total exact pricing-result cache hits.",
+    "# TYPE rfq_pricing_cache_hits_total counter",
+    `rfq_pricing_cache_hits_total ${state.pricingCacheHits}`,
+    "# HELP rfq_pricing_cache_misses_total Total exact pricing-result cache misses.",
+    "# TYPE rfq_pricing_cache_misses_total counter",
+    `rfq_pricing_cache_misses_total ${state.pricingCacheMisses}`,
     "# HELP rfq_market_data_refreshes_total Background base-market-data pair refreshes by bounded outcome.",
     "# TYPE rfq_market_data_refreshes_total counter",
     ...marketDataRefreshOutcomes.map((outcome) => {

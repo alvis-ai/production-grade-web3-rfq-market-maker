@@ -121,6 +121,7 @@ Prometheus metrics:
 - `rfq_quote_rejections_total`
 - `rfq_portfolio_delta_soft_breaches_total`
 - `rfq_quote_latency_seconds`
+- `rfq_quote_stage_latency_seconds`
 - `rfq_quote_paused`
 - `rfq_quote_pairs_paused`
 - `rfq_quote_control_updates_total`
@@ -143,6 +144,8 @@ Prometheus metrics:
 - `rfq_signer_service_audit_errors_total`
 - `rfq_market_data_cache_hits_total`
 - `rfq_market_data_cache_misses_total`
+- `rfq_pricing_cache_hits_total`
+- `rfq_pricing_cache_misses_total`
 - `rfq_market_data_refreshes_total`
 - `rfq_market_snapshot_samples_total`
 - `rfq_cex_order_book_sources`
@@ -240,6 +243,8 @@ CEX connector metrics intentionally count every retry error by the fixed `binanc
 - Fee worker 只使用 `reconciled|retry_scheduled` 固定 status；`rfq_hedge_fee_pending` 和 `rfq_hedge_fee_oldest_due_age_seconds` 来自 PostgreSQL 的只读 scrape-time 聚合。统计查询失败时保留进程 counter，但不输出伪造的零 backlog；symbol、order id、trade id、commission asset 和 venue message 都不得成为 label。
 - `rfq_quote_status_update_errors_total` 使用低基数 `target_status` label，记录 settlement 已接受后 quote 状态落库失败，或 settlement rejection 后 failed 状态落库失败的次数；该指标用于触发 reconciliation，而不是让已应用 settlement 回滚或掩盖原始拒绝原因。
 - `rfq_market_data_cache_hits_total` 和 `rfq_market_data_cache_misses_total` 记录 `/quote` 行情读取是否命中后台预热缓存。它们不带 pair、token 或 exchange label，避免把交易对、地址或 CEX symbol 写入高基数 Prometheus 维度；具体 pair 级诊断应通过日志、trace 或 ClickHouse 事件完成。
+- `rfq_pricing_cache_hits_total` 和 `rfq_pricing_cache_misses_total` 记录默认公式定价引擎对完整定价状态键的短 TTL 命中。缓存只保存确定性的 `PricingResult`，不保存 nonce、风险决策、敞口 reservation、签名或完整 signed quote；并发相同计算使用 single-flight，观察器故障不得影响报价。
+- `rfq_quote_stage_latency_seconds` 只使用固定 `stage` 集合，记录 Quote Service 依赖边界耗时。它覆盖行情、快照持久化、路由、定价输入、定价、库存投影、风险、资金流动性、indexer guard、敞口预留、风险落库与签名，可在总体 p99 超过 50ms 时定位瓶颈，同时禁止 user、pair、quote id 等高基数 label。
 - CEX order-book 指标只使用固定 `state="ready|stale|unavailable"`、`state="usable|blocked"` 和 `exchange="binance|coinbase"` 标签。`rfq_cex_order_book_sources`、`rfq_cex_order_book_pairs`、`rfq_cex_order_book_deviation_rejected_sources`、`rfq_cex_order_book_max_update_age_seconds` 与 `rfq_cex_order_book_connector_errors_total` 能区分连接故障、事件时间过期、quorum 不足和跨源价格偏离，同时不会把 token 地址、symbol 或错误消息写入 Prometheus 标签。
 - `rfq_rate_limited_total` 使用固定 `endpoint="quote|submit|status"` label，把具体 HTTP route 收敛到稳定端点组，避免把 quoteId、settlementEventId、hedgeOrderId 或动态路径写入 Prometheus。
 - `rfq_api_auth_rejections_total` 只使用固定 `reason="missing|malformed|invalid|expired|scope_denied"` label；不得把 key id、principal、header 或摘要写入指标。

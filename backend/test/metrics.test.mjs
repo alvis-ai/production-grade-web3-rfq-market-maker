@@ -77,6 +77,10 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   metrics.recordQuoteStatusUpdateError("settled");
   metrics.recordSignerRequest("sign");
   metrics.recordSignerLatency("sign", 0.0123);
+  metrics.recordQuoteStageLatency("pricing", 0.003);
+  metrics.recordPricingCacheHit();
+  metrics.recordPricingCacheHit();
+  metrics.recordPricingCacheMiss();
   metrics.recordSubmitLatency(-1);
   metrics.recordInventoryPosition({
     chainId: 1,
@@ -122,6 +126,10 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   assert.match(output, /rfq_quote_status_update_errors_total\{target_status="SETTLED"\} 1/);
   assert.match(output, /rfq_signer_requests_total\{operation="sign"\} 1/);
   assert.match(output, /rfq_signer_latency_seconds_count\{operation="sign"\} 1/);
+  assert.match(output, /rfq_quote_stage_latency_seconds_count\{stage="pricing"\} 1/);
+  assert.match(output, /rfq_quote_stage_latency_seconds_count\{stage="signing"\} 0/);
+  assert.match(output, /rfq_pricing_cache_hits_total 2/);
+  assert.match(output, /rfq_pricing_cache_misses_total 1/);
   assert.match(output, /rfq_submit_latency_seconds_sum 0/);
   assert.match(output, /rfq_inventory_balance\{chain_id="1",token="0x0000000000000000000000000000000000000003"\} -998400000/);
   assert.match(output, /rfq_pnl_trades_total 1/);

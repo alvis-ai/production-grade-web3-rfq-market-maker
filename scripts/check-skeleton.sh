@@ -197,6 +197,7 @@ test -s backend/test/market-snapshot-repository-validation.test.mjs
 test -s backend/test/metrics.test.mjs
 test -s backend/test/metrics-inventory-pnl-validation.test.mjs
 test -s backend/test/metrics-validation.test.mjs
+test -s backend/test/cached-pricing-engine.test.mjs
 test -s backend/test/quote-identity.test.mjs
 test -s backend/test/quote-repository-lifecycle.test.mjs
 test -s backend/test/quote-repository.test.mjs
@@ -205,6 +206,7 @@ test -s backend/test/quote-repository-validation.test.mjs
 test -s backend/test/quote-service-dependencies.test.mjs
 test -s backend/test/quote-service-market-routing-dependencies.test.mjs
 test -s backend/test/quote-service-pricing-dependencies.test.mjs
+test -s backend/test/quote-service-observability.test.mjs
 test -s backend/test/quote-service-risk-dependencies.test.mjs
 test -s backend/test/quote-service-submit.test.mjs
 test -s backend/test/quote-service.test.mjs
@@ -316,6 +318,7 @@ test -s backend/src/modules/quote/quote.service.ts
 test -s backend/src/modules/quote/quote-service-contract.ts
 test -s backend/src/modules/quote/quote-service-errors.ts
 test -s backend/src/modules/quote/quote-service-result-validation.ts
+test -s backend/src/modules/quote/quote-service-observability.ts
 test -s backend/src/modules/quote/quote-risk-decision.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
@@ -2173,6 +2176,9 @@ grep -q 'payload.minAmountOut' $sdk_client_sources
 grep -q 'malformed nonce' sdk/test/sdk-client-responses.test.mjs
 grep -q 'rfq_quote_errors_total' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'rfq_quote_latency_seconds' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'rfq_quote_stage_latency_seconds' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'rfq_pricing_cache_hits_total' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'rfq_pricing_cache_misses_total' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'rfq_quote_rejections_total' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'rfq_submit_latency_seconds' backend/src/modules/metrics/prometheus-metrics.ts
 grep -q 'rfq_rate_limited_total' backend/src/modules/metrics/prometheus-metrics.ts
@@ -2958,7 +2964,8 @@ grep -q 'benchmark:quote' package.json
 grep -q 'benchmark:submit' package.json
 grep -q 'make benchmark-quote' README.md
 grep -q 'make benchmark-submit' README.md
-grep -q 'RFQ_BENCHMARK_MAX_P95_MS' README.md
+grep -q 'RFQ_BENCHMARK_MAX_P50_MS' README.md
+grep -q 'RFQ_BENCHMARK_MAX_P99_MS' README.md
 grep -q 'RFQ_BENCHMARK_SUBMIT_MAX_P95_MS' README.md
 grep -q 'make benchmark-quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'make benchmark-submit' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
@@ -2966,7 +2973,8 @@ grep -q 'make benchmark-submit' book/Volume5-BackendEngineering/Chapter06-Execut
 grep -q 'make benchmark-quote' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'make benchmark-submit' book/Volume7-ProductionDeployment/Chapter03-Monitoring.md
 grep -q 'RFQ_BENCHMARK_QUOTE_REQUESTS' benchmark/quote-benchmark.mjs
-grep -q 'RFQ_BENCHMARK_MAX_P95_MS' benchmark/quote-benchmark.mjs
+grep -q 'RFQ_BENCHMARK_MAX_P50_MS' benchmark/quote-benchmark.mjs
+grep -q 'RFQ_BENCHMARK_MAX_P99_MS' benchmark/quote-benchmark.mjs
 grep -q 'POST /quote' benchmark/quote-benchmark.mjs
 grep -q 'buildServer' benchmark/quote-benchmark.mjs
 grep -q 'rateLimit: false' benchmark/quote-benchmark.mjs
@@ -3495,6 +3503,10 @@ test -s backend/test/price-normalization.test.mjs
 test -s backend/test/token-registry.test.mjs
 test -s scripts/check-price-normalization-consistency.mjs
 grep -q 'assertPositiveSafeInteger(config.volatilityDivisor, "volatilityDivisor")' backend/src/modules/pricing/pricing.engine.ts
+test -s backend/src/modules/pricing/cached-pricing.engine.ts
+grep -q 'class CachedPricingEngine' backend/src/modules/pricing/cached-pricing.engine.ts
+grep -q 'RFQ_PRICING_CACHE_TTL_MS' backend/src/runtime/market-runtime.ts
+grep -q 'RFQ_PRICING_CACHE_MAX_ENTRIES' backend/src/runtime/market-runtime.ts
 grep -q 'assertBpsUpperBound(config.maxTotalAdjustmentBps, "maxTotalAdjustmentBps")' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'cloneFormulaPricingConfig' backend/src/modules/pricing/pricing.engine.ts
 grep -q 'assertPricingInput(input)' backend/src/modules/pricing/pricing.engine.ts
@@ -3618,7 +3630,7 @@ grep -q 'maxQuotedSpreadBps' book/Volume3-RiskEngine/Chapter05-Position-Limits.m
 grep -q 'rfq_quote_requests_total' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteResponsesStalled' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'rfq_quote_responses_total' book/Volume7-ProductionDeployment/Chapter05-Runbook.md
-grep -q 'RFQQuoteLatencyP95High' infra/prometheus/rules/rfq-alerts.yml
+grep -q 'RFQQuoteLatencyP99High' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQQuoteRiskRejectSpike' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQTreasuryLiquidityInsufficient' infra/prometheus/rules/rfq-alerts.yml
 grep -q 'RFQPortfolioVarLimitExceeded' infra/prometheus/rules/rfq-alerts.yml

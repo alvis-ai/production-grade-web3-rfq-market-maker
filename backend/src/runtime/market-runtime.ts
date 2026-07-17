@@ -36,6 +36,12 @@ import {
   type PricingEngine,
 } from "../modules/pricing/pricing.engine.js";
 import {
+  CachedPricingEngine,
+  defaultPricingCacheConfig,
+  type PricingCacheConfig,
+  type PricingCacheObserver,
+} from "../modules/pricing/cached-pricing.engine.js";
+import {
   ConfiguredTokenRegistry,
   defaultTokenRegistryConfig,
   parseTokenRegistryConfig,
@@ -186,6 +192,7 @@ export function resolvePricingRuntime(
   configuredTokenRegistry: TokenRegistry | undefined,
   pricingPairs: readonly { chainId: number; tokenIn: `0x${string}`; tokenOut: `0x${string}` }[],
   cexPairs: readonly OrderBookPairConfig[],
+  pricingCacheObserver?: PricingCacheObserver,
 ): PricingRuntime {
   if (configuredPricingEngine !== undefined && cexPairs.length === 0) return { engine: configuredPricingEngine };
   const tokenRegistry = configuredTokenRegistry ?? readTokenRegistry();
@@ -196,8 +203,31 @@ export function resolvePricingRuntime(
   }
   assertPricingPairsSupported(tokenRegistry, pricingPairs);
   return {
-    engine: new FormulaPricingEngine(defaultFormulaPricingConfig, tokenRegistry),
+    engine: new CachedPricingEngine(
+      new FormulaPricingEngine(defaultFormulaPricingConfig, tokenRegistry),
+      readPricingCacheConfig(),
+      pricingCacheObserver,
+    ),
     tokenRegistry,
+  };
+}
+
+export function readPricingCacheConfig(
+  env: Record<string, string | undefined> | undefined = runtimeEnvironment(),
+): PricingCacheConfig {
+  return {
+    ttlMs: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_PRICING_CACHE_TTL_MS"), {
+      defaultValue: defaultPricingCacheConfig.ttlMs,
+      min: 1,
+      max: 5_000,
+      name: "RFQ_PRICING_CACHE_TTL_MS",
+    }),
+    maxEntries: readDecimalIntegerConfig(readOwnEnvValue(env, "RFQ_PRICING_CACHE_MAX_ENTRIES"), {
+      defaultValue: defaultPricingCacheConfig.maxEntries,
+      min: 1,
+      max: 1_000_000,
+      name: "RFQ_PRICING_CACHE_MAX_ENTRIES",
+    }),
   };
 }
 

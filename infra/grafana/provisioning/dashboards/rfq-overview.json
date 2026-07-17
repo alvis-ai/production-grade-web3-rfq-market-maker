@@ -56,13 +56,13 @@
       "gridPos": { "x": 0, "y": 5, "w": 8, "h": 7 },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, rate(rfq_quote_latency_seconds_bucket[5m]))",
-          "legendFormat": "p95",
+          "expr": "histogram_quantile(0.50, rate(rfq_quote_latency_seconds_bucket[5m]))",
+          "legendFormat": "p50",
           "refId": "A"
         },
         {
-          "expr": "rate(rfq_quote_latency_seconds_sum[5m]) / rate(rfq_quote_latency_seconds_count[5m])",
-          "legendFormat": "avg",
+          "expr": "histogram_quantile(0.99, rate(rfq_quote_latency_seconds_bucket[5m]))",
+          "legendFormat": "p99",
           "refId": "B"
         }
       ]
@@ -203,14 +203,16 @@
     },
     {
       "type": "timeseries",
-      "title": "Market Data Cache",
+      "title": "Hot Path Caches",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 0, "y": 24, "w": 8, "h": 7 },
       "targets": [
         { "expr": "rate(rfq_market_data_cache_hits_total[5m])", "legendFormat": "cache hits/s", "refId": "A" },
         { "expr": "rate(rfq_market_data_cache_misses_total[5m])", "legendFormat": "cache misses/s", "refId": "B" },
         { "expr": "sum by (outcome) (rate(rfq_market_data_refreshes_total[5m]))", "legendFormat": "refresh {{outcome}}/s", "refId": "C" },
-        { "expr": "sum by (outcome) (rate(rfq_market_snapshot_samples_total[5m]))", "legendFormat": "sample {{outcome}}/s", "refId": "D" }
+        { "expr": "sum by (outcome) (rate(rfq_market_snapshot_samples_total[5m]))", "legendFormat": "sample {{outcome}}/s", "refId": "D" },
+        { "expr": "rate(rfq_pricing_cache_hits_total[5m])", "legendFormat": "pricing hits/s", "refId": "E" },
+        { "expr": "rate(rfq_pricing_cache_misses_total[5m])", "legendFormat": "pricing misses/s", "refId": "F" }
       ]
     },
     {
@@ -406,6 +408,19 @@
         { "expr": "max by (chain_id, token) (rfq_daily_loss_limit_remaining_usd)", "legendFormat": "{{chain_id}} {{token}} remaining USD", "refId": "B" },
         { "expr": "min by (chain_id, token) (rfq_daily_loss_risk_safe)", "legendFormat": "{{chain_id}} {{token}} safe", "refId": "C" },
         { "expr": "sum by (chain_id, token, reason) (rate(rfq_daily_loss_risk_failures_total[5m]))", "legendFormat": "{{chain_id}} {{token}} {{reason}}/s", "refId": "D" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Quote Stage P99 Latency",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 87, "w": 24, "h": 7 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, stage) (rate(rfq_quote_stage_latency_seconds_bucket[5m])))",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
       ]
     }
   ]

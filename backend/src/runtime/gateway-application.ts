@@ -19,6 +19,7 @@ import { QuoteSnapshotPnlValuationProvider } from "../modules/pnl/quote-snapshot
 import { InMemoryQuoteRepository } from "../modules/quote/quote.repository.js";
 import { PostgresQuoteRepository } from "../modules/quote/postgres-quote.repository.js";
 import { defaultQuoteServiceConfig, QuoteService } from "../modules/quote/quote.service.js";
+import { observeQuoteServiceDependencies } from "../modules/quote/quote-service-observability.js";
 import { InMemoryRiskDecisionRepository } from "../modules/risk/risk-decision.repository.js";
 import { PostgresRiskDecisionStore } from "../modules/risk/postgres-risk-decision.repository.js";
 import { InternalInventoryRoutingEngine } from "../modules/routing/routing.engine.js";
@@ -143,6 +144,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     options.tokenRegistry,
     pricingPairs,
     cexPairs,
+    metricsService,
   );
   const pricingEngine = pricingRuntime.engine;
   const runtimeTokenRegistry = options.tokenRegistry ?? pricingRuntime.tokenRegistry ?? readTokenRegistry();
@@ -215,7 +217,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     enableHsts,
     metricsService,
   });
-  const quoteService = new QuoteService({
+  const quoteService = new QuoteService(observeQuoteServiceDependencies({
     inventoryService,
     marketDataService,
     marketSnapshotStore,
@@ -230,7 +232,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     settlementIndexerRiskGuard,
     signerService: new ObservedSignerService(signerService, metricsService),
     treasuryLiquidityProvider,
-  }, {
+  }, metricsService), {
     ...defaultQuoteServiceConfig,
     maxSnapshotAgeMs,
     quoteTtlSeconds,

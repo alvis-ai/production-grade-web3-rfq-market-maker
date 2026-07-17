@@ -103,6 +103,7 @@ Key metrics include:
 - `rfq_quote_responses_total`
 - `rfq_quote_errors_total`
 - `rfq_quote_latency_seconds`
+- `rfq_quote_stage_latency_seconds` with a bounded `stage` label; alert when any stage p99 remains above 25ms
 - `rfq_quote_rejections_total` with bounded `reason`; alert separately on `TREASURY_LIQUIDITY_INSUFFICIENT`, `PORTFOLIO_VAR_LIMIT_EXCEEDED`, `PORTFOLIO_DELTA_LIMIT_EXCEEDED`, `GAMMA_GUARDRAIL_TRIGGERED`, `USD_REFERENCE_DEPEG` and `RISK_ENGINE_UNAVAILABLE`
 - `rfq_portfolio_delta_soft_breaches_total` counts newly accepted reservations above a reviewed chain/token asset, gross, or signed net delta soft limit; any increase requires component-level inventory and hedge review before a hard limit starts rejecting quotes
 - `rfq_quote_paused`
@@ -127,6 +128,8 @@ Key metrics include:
 - `rfq_signer_service_audit_errors_total`
 - `rfq_market_data_cache_hits_total`
 - `rfq_market_data_cache_misses_total`
+- `rfq_pricing_cache_hits_total`
+- `rfq_pricing_cache_misses_total`
 - `rfq_market_data_refreshes_total`
 - `rfq_market_snapshot_samples_total`
 - `rfq_cex_order_book_sources`
@@ -208,6 +211,8 @@ Kubernetes control-plane observability comes from kube-state-metrics rather than
 - Submit latency alerting should inspect verification, settlement event persistence, inventory, hedge and PnL work before lowering quote availability.
 - Signer throughput alerting should compare quote demand with `sign` operations; safe quote flow must never bypass the signer.
 - Market-data cache alerting should compare `rfq_market_data_cache_hits_total` and `rfq_market_data_cache_misses_total` before increasing quote limits; a cold cache points to disabled prefetch, stale CEX order book streams or unsupported pair configuration.
+- Pricing-cache alerting compares `rfq_pricing_cache_hits_total` with `rfq_pricing_cache_misses_total`. Sustained misses without hits under repeated flow indicate excessive snapshot churn, a TTL/capacity error or request distribution that cannot benefit from exact caching; operators must not widen the key or TTL past route, inventory and market-state validity.
+- Quote SLO alerting uses `rfq_quote_latency_seconds` p99 below 50ms and `rfq_quote_stage_latency_seconds` p99 by bounded stage. A local in-process benchmark is only a regression baseline; production readiness requires the same thresholds under representative PostgreSQL, Redis, RPC, signer, TLS and concurrency load.
 - Base-provider prefetch exposes only `outcome=success|failure`; audit snapshot sampling exposes only `outcome=saved|unchanged|unavailable|failed`. Observer failures are isolated from refresh and persistence decisions, and pair addresses, chain ids, RPC URLs, snapshot ids and database errors remain outside labels. Alerts use refresh `failure` and persistence `failed`; sampler `unavailable` remains diagnostic because it can describe a cold cache without an attempted database write.
 - CEX order-book alerting uses fixed source/pair states, latest-cycle maximum event age, latest-cycle deviation rejections and connector error rates. A synchronized socket alone is not healthy: `ready` requires a valid two-sided book whose exchange event timestamp is within `RFQ_CEX_MAX_SOURCE_AGE_MS`; blocked pairs must remain on the lower-priority provider or fail closed until quorum and deviation checks recover.
 - Settlement-indexer API guard alerting pairs the current `rfq_settlement_indexer_risk_guard_safe{chain_id}` gauge with a closed failure counter. The only reason labels are `RPC_UNAVAILABLE|CURSOR_STORE_UNAVAILABLE|CURSOR_MISSING|CURSOR_INVALID|CONTRACT_MISMATCH|CURSOR_STALE|BLOCK_LAG`, and `chain_id` is restricted to configured receipt chains; unsupported request chains fail closed without creating metric series. Database messages, RPC URLs, contract addresses and configured thresholds remain outside Prometheus.
@@ -271,7 +276,7 @@ Metrics endpoint must not leak private keys, full wallet labels, or internal thr
 
 Metrics collection must be low overhead. Histograms should use bounded buckets.
 
-本地性能回归使用 `make benchmark-quote` 和 `make benchmark-submit`。Quote benchmark 输出 `POST /quote` 的 samples、errors、p50、p95 和 max latency，默认门禁为 p95 <= 50 ms 且 errors = 0。Submit benchmark 为每个样本先生成 fresh signed quote，再测量 `POST /submit` 的 settlement、inventory、hedge 和 PnL 接受路径，默认门禁为 50 measured samples、p95 <= 100 ms 且 setup/submit errors = 0。CI 通过 `make verify` 运行这些门禁。生产环境仍应使用真实网络、真实 signer、真实数据库和并发流量做容量测试，本地 benchmark 只用于捕捉代码级明显回归。
+本地性能回归使用 `make benchmark-quote` 和 `make benchmark-submit`。Quote benchmark 先预热，再以默认并发 5 输出 `POST /quote` 的 samples、errors、throughput、p50、p95、p99 和 max latency，默认门禁为 p50 <= 10 ms、p99 <= 50 ms 且 errors = 0。Submit benchmark 为每个样本先生成 fresh signed quote，再测量 `POST /submit` 的 settlement、inventory、hedge 和 PnL 接受路径，默认门禁为 50 measured samples、p95 <= 100 ms 且 setup/submit errors = 0。CI 通过 `make verify` 运行这些门禁。生产环境仍应使用真实网络、真实 signer、真实数据库和阶梯并发流量做容量测试，本地 benchmark 只用于捕捉代码级明显回归。
 
 ## Testing Strategy
 

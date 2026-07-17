@@ -39,6 +39,10 @@ test("MetricsService rejects unsupported fixed-label inputs before mutating stat
     /Metrics signer operation must be sign or verify/,
   );
   assert.throws(
+    () => metrics.recordQuoteStageLatency("database", 0.1),
+    /Metrics quote latency stage is invalid/,
+  );
+  assert.throws(
     () => metrics.recordQuoteControlError("delete"),
     /Metrics quote control operation must be read or update/,
   );
@@ -107,6 +111,7 @@ test("MetricsService rejects unsupported fixed-label inputs before mutating stat
   assert.match(output, /rfq_rate_limited_total\{endpoint="status"\} 0/);
   assert.match(output, /rfq_signer_requests_total\{operation="sign"\} 0/);
   assert.match(output, /rfq_signer_latency_seconds_count\{operation="sign"\} 0/);
+  assert.match(output, /rfq_quote_stage_latency_seconds_count\{stage="pricing"\} 0/);
   assert.match(output, /rfq_toxic_flow_score_updates_total 0/);
   assert.match(output, /rfq_toxic_flow_score_errors_total\{operation="read"\} 0/);
   assert.match(output, /rfq_toxic_flow_score_errors_total\{operation="update"\} 0/);
@@ -152,6 +157,10 @@ test("MetricsService rejects non-finite histogram observations before mutating s
     /Metrics histogram observation must be a finite number/,
   );
   assert.throws(
+    () => metrics.recordQuoteStageLatency("pricing", Number.NaN),
+    /Metrics histogram observation must be a finite number/,
+  );
+  assert.throws(
     () => metrics.recordSubmitLatency(Number.POSITIVE_INFINITY),
     /Metrics histogram observation must be a finite number/,
   );
@@ -168,6 +177,7 @@ test("MetricsService rejects non-finite histogram observations before mutating s
 
   assert.match(output, /rfq_quote_latency_seconds_sum 0/);
   assert.match(output, /rfq_quote_latency_seconds_count 0/);
+  assert.match(output, /rfq_quote_stage_latency_seconds_count\{stage="pricing"\} 0/);
   assert.match(output, /rfq_submit_latency_seconds_sum 0/);
   assert.match(output, /rfq_submit_latency_seconds_count 0/);
   assert.match(output, /rfq_signer_latency_seconds_sum\{operation="sign"\} 0/);

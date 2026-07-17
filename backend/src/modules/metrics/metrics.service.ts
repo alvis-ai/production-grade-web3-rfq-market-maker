@@ -4,6 +4,10 @@ import type { CexOrderBookCycleObservation } from "../market-data/cex-orderbook/
 import type { OrderBookPairConfig } from "../market-data/cex-orderbook/orderbook.js";
 import type { MarketSnapshotSampleResult } from "../market-data/market-snapshot-sampler.js";
 import type { MarketDataRefreshOutcome } from "../market-data/price-updater.js";
+import {
+  quoteLatencyStages,
+  type QuoteLatencyStage,
+} from "../quote/quote-service-observability.js";
 import type { RateLimitedEndpoint } from "../rate-limit/rate-limit.service.js";
 import type { DailyLossRiskFailureCode } from "../risk/daily-loss-risk.engine.js";
 import type { SettlementIndexerRiskFailureCode } from "../risk/settlement-indexer-risk.guard.js";
@@ -78,6 +82,7 @@ export class MetricsService {
   private readonly pnlRecordErrors = new Map<string, number>();
   private pnlTrades = 0;
   private readonly quoteLatency = createHistogramState();
+  private readonly quoteStageLatency = new Map<QuoteLatencyStage, HistogramState>();
   private readonly submitLatency = createHistogramState();
   private readonly signerLatency = new Map<SignerMetricOperation, HistogramState>();
   private readinessStatus?: ReadinessMetricStatus;
@@ -88,6 +93,8 @@ export class MetricsService {
   private readonly realizedPnl = new Map<string, bigint>();
   private priceCacheHits = 0;
   private priceCacheMisses = 0;
+  private pricingCacheHits = 0;
+  private pricingCacheMisses = 0;
   private readonly marketDataRefreshes = new Map<MarketDataRefreshOutcome, number>();
   private readonly marketSnapshotSamples = new Map<keyof MarketSnapshotSampleResult, number>();
   private cexOrderBookCycle: CexOrderBookCycleObservation = {
@@ -115,6 +122,14 @@ export class MetricsService {
 
   recordMarketDataCacheMiss(): void {
     this.priceCacheMisses += 1;
+  }
+
+  recordPricingCacheHit(): void {
+    this.pricingCacheHits += 1;
+  }
+
+  recordPricingCacheMiss(): void {
+    this.pricingCacheMisses += 1;
   }
 
   recordMarketDataRefresh(outcome: MarketDataRefreshOutcome): void {
@@ -238,6 +253,11 @@ export class MetricsService {
 
   recordQuoteLatency(seconds: number): void {
     recordHistogram(this.quoteLatency, seconds);
+  }
+
+  recordQuoteStageLatency(stage: QuoteLatencyStage, seconds: number): void {
+    if (!quoteLatencyStages.includes(stage)) throw new Error("Metrics quote latency stage is invalid");
+    recordHistogram(this.getQuoteStageLatency(stage), seconds);
   }
 
   recordQuoteRejection(reasonCode: string): void {
@@ -392,6 +412,7 @@ export class MetricsService {
       quoteResponses: this.quoteResponses,
       quoteErrors: this.quoteErrors,
       quoteLatency: this.quoteLatency,
+      quoteStageLatency: this.quoteStageLatency,
       quoteRejections: this.quoteRejections,
       portfolioDeltaSoftBreaches: this.portfolioDeltaSoftBreaches,
       quotePaused: this.quotePaused,
@@ -424,6 +445,8 @@ export class MetricsService {
       realizedPnl: this.realizedPnl,
       priceCacheHits: this.priceCacheHits,
       priceCacheMisses: this.priceCacheMisses,
+      pricingCacheHits: this.pricingCacheHits,
+      pricingCacheMisses: this.pricingCacheMisses,
       marketDataRefreshes: this.marketDataRefreshes,
       marketSnapshotSamples: this.marketSnapshotSamples,
       cexOrderBookCycle: this.cexOrderBookCycle,
@@ -443,6 +466,14 @@ export class MetricsService {
     if (existing) return existing;
     const created = createHistogramState();
     this.signerLatency.set(operation, created);
+    return created;
+  }
+
+  private getQuoteStageLatency(stage: QuoteLatencyStage): HistogramState {
+    const existing = this.quoteStageLatency.get(stage);
+    if (existing) return existing;
+    const created = createHistogramState();
+    this.quoteStageLatency.set(stage, created);
     return created;
   }
 
