@@ -42,6 +42,8 @@ const quoteRepositoryModuleLineLimits = new Map([
   ["backend/src/modules/quote/quote-repository-contract.ts", 160],
   ["backend/src/modules/quote/quote-repository-invariants.ts", 750],
   ["backend/src/modules/quote/in-memory-quote.repository.ts", 350],
+  ["backend/src/modules/quote/postgres-quote-row.ts", 140],
+  ["backend/src/modules/quote/postgres-quote.repository.ts", 620],
 ]);
 for (const [path, maxLines] of quoteRepositoryModuleLineLimits) {
   const source = quoteRepositoryModules.get(path);
@@ -63,6 +65,12 @@ const quoteRepositoryInvariantsSource = quoteRepositoryModules.get(
 const inMemoryQuoteRepositorySource = quoteRepositoryModules.get(
   "backend/src/modules/quote/in-memory-quote.repository.ts",
 );
+const postgresQuoteRowSource = quoteRepositoryModules.get(
+  "backend/src/modules/quote/postgres-quote-row.ts",
+);
+const postgresQuoteRepositorySource = quoteRepositoryModules.get(
+  "backend/src/modules/quote/postgres-quote.repository.ts",
+) ?? "";
 assert.ok(
   quoteRepositoryFacadeSource?.includes('export * from "./quote-repository-contract.js"') &&
     quoteRepositoryFacadeSource.includes(
@@ -84,9 +92,39 @@ assert.ok(
   inMemoryQuoteRepositorySource?.includes('from "./quote-repository-invariants.js"'),
   "In-memory quote persistence must delegate validation and transition invariants",
 );
-const postgresQuoteRepositorySource = await readFile(
-  "backend/src/modules/quote/postgres-quote.repository.ts",
-  "utf8",
+assert.ok(
+  postgresQuoteRepositorySource.includes('from "./quote-repository-invariants.js"') &&
+    postgresQuoteRepositorySource.includes('from "./postgres-quote-row.js"'),
+  "Postgres quote persistence must delegate shared invariants and row mapping",
+);
+assert.ok(
+  postgresQuoteRowSource &&
+    !postgresQuoteRowSource.includes("quote-repository-invariants") &&
+    !postgresQuoteRowSource.includes("PostgresQuoteRepository"),
+  "Postgres quote row mapping must not depend on lifecycle rules or the stateful repository",
+);
+assert.ok(
+  [
+    "assertRequestedQuoteInput(input)",
+    "assertRouteDecisionInput(input)",
+    "assertRejectedQuoteInput(input)",
+    "assertSignedQuoteInput(input)",
+    "normalizeClearSettlementStatusInput(input)",
+  ].every((call) => postgresQuoteRepositorySource.includes(call)) &&
+    !postgresQuoteRepositorySource.includes("function assertSignedQuoteInput"),
+  "Postgres quote persistence must reuse the shared input boundary without local validator copies",
+);
+assert.ok(
+  /SET status = 'failed',[\s\S]*?status IN \('requested', 'signed'\)/.test(
+    postgresQuoteRepositorySource,
+  ),
+  "Postgres failed status writes must use one conditional lifecycle update",
+);
+assert.ok(
+  /UPDATE quotes SET \$\{updates\.join\("[,] "\)\}[\s\S]*?AND status = \$\$\{expectedStatusIndex\}[\s\S]*?tx_hash IS NOT DISTINCT FROM \$\$\{expectedTxHashIndex\}[\s\S]*?pnl_id IS NOT DISTINCT FROM \$\$\{expectedPnlIdIndex\}/.test(
+    postgresQuoteRepositorySource,
+  ),
+  "Postgres quote status writes must compare lifecycle state and every settlement pointer",
 );
 const quoteServiceSource = await readFile("backend/src/modules/quote/quote.service.ts", "utf8");
 const quoteRouteSelectionSource = await readFile(

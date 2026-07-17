@@ -2,6 +2,7 @@ import type {
   QuoteLifecycleStatus,
   QuoteRequest,
   QuoteStatusResponse,
+  SignedQuote,
 } from "../../shared/types/rfq.js";
 import { assertPrincipalId } from "../../shared/validation/principal-id.js";
 import type {
@@ -22,8 +23,13 @@ const routeDecisionInputFields = ["quoteId", "principalId", "snapshotId", "route
 const routePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"] as const;
 const rejectedQuoteInputFields = ["quoteId", "principalId", "request", "snapshotId", "rejectCode"] as const;
 const rejectedQuoteOptionalFields = ["riskPolicyVersion"] as const;
+const rejectedQuoteAllowedFields = [...rejectedQuoteInputFields, ...rejectedQuoteOptionalFields] as const;
 const clearSettlementStatusInputFields = ["quoteId", "txHash", "settlementEventId"] as const;
 const clearSettlementStatusOptionalFields = ["nowSeconds"] as const;
+const clearSettlementStatusAllowedFields = [
+  ...clearSettlementStatusInputFields,
+  ...clearSettlementStatusOptionalFields,
+] as const;
 const quoteRequestFields = ["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"] as const;
 const signedQuoteInputFields = [
   "quoteId",
@@ -74,6 +80,7 @@ export function quoteStatusResponseFromRecord(record: QuoteRecord): QuoteStatusR
 export function assertRequestedQuoteInput(input: SaveRequestedQuoteInput): void {
   assertObject(input, "input", "Requested quote");
   assertOwnFields(input, requestedQuoteInputFields, "input", "Requested quote");
+  assertNoUnknownFields(input, requestedQuoteInputFields, "input", "Requested quote");
   assertObject(input.request, "request", "Requested quote");
   assertSafeIdentifier(input.quoteId, "quoteId", "Requested quote");
   assertPrincipalId(input.principalId, "Requested quote principalId");
@@ -111,6 +118,7 @@ export function assertRejectedQuoteInput(input: SaveRejectedQuoteInput): void {
   assertObject(input, "input", "Rejected quote");
   assertOwnFields(input, rejectedQuoteInputFields, "input", "Rejected quote");
   assertOwnOptionalFields(input, rejectedQuoteOptionalFields, "input", "Rejected quote");
+  assertNoUnknownFields(input, rejectedQuoteAllowedFields, "input", "Rejected quote");
   assertObject(input.request, "request", "Rejected quote");
   assertSafeIdentifier(input.quoteId, "quoteId", "Rejected quote");
   assertPrincipalId(input.principalId, "Rejected quote principalId");
@@ -128,6 +136,7 @@ export function normalizeClearSettlementStatusInput(
   assertObject(input, "input", "Clear settlement status");
   assertOwnFields(input, clearSettlementStatusInputFields, "input", "Clear settlement status");
   assertOwnOptionalFields(input, clearSettlementStatusOptionalFields, "input", "Clear settlement status");
+  assertNoUnknownFields(input, clearSettlementStatusAllowedFields, "input", "Clear settlement status");
   assertSafeIdentifier(input.quoteId, "quoteId", "Clear settlement status");
   assertSafeIdentifier(input.settlementEventId, "settlementEventId", "Clear settlement status");
   if (typeof input.txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(input.txHash)) {
@@ -148,6 +157,7 @@ export function normalizeClearSettlementStatusInput(
 function assertQuoteRequest(request: QuoteRequest, subject: "Requested quote" | "Rejected quote"): void {
   assertObject(request, "request", subject);
   assertOwnFields(request, quoteRequestFields, "request", subject);
+  assertNoUnknownFields(request, quoteRequestFields, "request", subject);
   assertPositiveSafeInteger(request.chainId, "request.chainId", subject);
   assertAddress(request.user, "request.user", subject);
   assertAddress(request.tokenIn, "request.tokenIn", subject);
@@ -164,6 +174,7 @@ function assertQuoteRequest(request: QuoteRequest, subject: "Requested quote" | 
 export function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertObject(input, "input", "Signed quote");
   assertOwnFields(input, signedQuoteInputFields, "input", "Signed quote");
+  assertNoUnknownFields(input, signedQuoteInputFields, "input", "Signed quote");
   assertObject(input.quote, "quote", "Signed quote");
   assertSafeIdentifier(input.quoteId, "quoteId");
   assertPrincipalId(input.principalId, "Signed quote principalId");
@@ -179,6 +190,7 @@ export function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
   assertNonNegativeBps(input.hedgeCostBps, "hedgeCostBps", "Signed quote");
   assertSignature(input.signature);
   assertOwnFields(input.quote, signedQuoteFields, "quote", "Signed quote");
+  assertNoUnknownFields(input.quote, signedQuoteFields, "quote", "Signed quote");
   assertPositiveSafeInteger(input.quote.chainId, "quote.chainId");
   assertAddress(input.quote.user, "quote.user");
   assertAddress(input.quote.tokenIn, "quote.tokenIn");
@@ -510,6 +522,14 @@ function isSameSignedQuotePayload(record: QuoteRecord, input: SaveSignedQuoteInp
     record.hedgeCostBps === input.hedgeCostBps &&
     record.riskPolicyVersion === input.riskPolicyVersion &&
     record.signature?.toLowerCase() === input.signature.toLowerCase()
+  );
+}
+
+export function isSameSignedQuoteIdentity(record: QuoteRecord, quote: SignedQuote): boolean {
+  return (
+    record.chainId === quote.chainId &&
+    record.user.toLowerCase() === quote.user.toLowerCase() &&
+    record.nonce === quote.nonce
   );
 }
 

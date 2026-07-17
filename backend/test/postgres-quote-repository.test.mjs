@@ -87,14 +87,48 @@ test("PostgresQuoteRepository rejects inherited and extended route decision enve
       ...routeDecisionInput(),
       routePlan: Object.create(routeDecisionInput().routePlan),
     }),
-    /Postgres quote routePlan.routeId must be an own field/,
+    /Route decision routePlan.routeId must be an own field/,
   );
   await assert.rejects(
     repository.saveRouteDecision({
       ...routeDecisionInput(),
       routePlan: { ...routeDecisionInput().routePlan, fallbackVenue: "external" },
     }),
-    /Postgres quote routePlan contains unknown field fallbackVenue/,
+    /Route decision routePlan contains unknown field fallbackVenue/,
+  );
+  assert.equal(fixture.connectCount, 0);
+});
+
+test("PostgresQuoteRepository rejects extended persistence envelopes before SQL", async () => {
+  const fixture = fakePool([]);
+  const repository = new PostgresQuoteRepository(fixture.pool);
+
+  await assert.rejects(
+    repository.saveRequested({
+      quoteId: "q_1",
+      principalId,
+      request,
+      snapshotId: "snapshot_1",
+      auditContext: "unexpected",
+    }),
+    /Requested quote input contains unknown field auditContext/,
+  );
+  await assert.rejects(
+    repository.saveRejected({
+      quoteId: "q_1",
+      principalId,
+      request: { ...request, source: "unexpected" },
+      snapshotId: "snapshot_1",
+      rejectCode: "RISK_REJECTED",
+    }),
+    /Rejected quote request contains unknown field source/,
+  );
+  await assert.rejects(
+    repository.saveSigned({
+      ...signedInput(),
+      quote: { ...signedInput().quote, routingHint: "unexpected" },
+    }),
+    /Signed quote quote contains unknown field routingHint/,
   );
   assert.equal(fixture.connectCount, 0);
 });
@@ -144,6 +178,107 @@ test("PostgresQuoteRepository rejects signed quote payload rewrites", async () =
     }),
     /Signed quote payload cannot be changed/,
   );
+});
+
+test("PostgresQuoteRepository rejects malformed status metadata before SQL", async () => {
+  const fixture = fakePool([]);
+  const repository = new PostgresQuoteRepository(fixture.pool);
+
+  await assert.rejects(
+    repository.markStatus("q_1", "submitted", {
+      txHash: "0x1234",
+      settlementEventId: "se_1",
+    }),
+    /Quote status txHash must be a 32-byte hex string/,
+  );
+  assert.equal(fixture.connectCount, 0);
+});
+
+test("PostgresQuoteRepository rejects requested status bypasses", async () => {
+  const fixture = fakePool([
+    { rowCount: 1, rows: [quoteRow()] },
+  ]);
+  const repository = new PostgresQuoteRepository(fixture.pool);
+
+  await assert.rejects(
+    repository.markStatus("q_1", "submitted", {
+      txHash: `0x${"aa".repeat(32)}`,
+      settlementEventId: "se_1",
+    }),
+    /cannot transition from requested to submitted through markStatus/,
+  );
+  assert.equal(fixture.client.queries.length, 1);
+  assert.equal(fixture.client.released, true);
+});
+
+test("PostgresQuoteRepository updates status with state and pointer CAS", async () => {
+  const fixture = fakePool([
+    { rowCount: 1, rows: [signedQuoteRow()] },
+    { rowCount: 1, rows: [] },
+  ]);
+  const repository = new PostgresQuoteRepository(fixture.pool);
+  const txHash = `0x${"aa".repeat(32)}`;
+
+  await repository.markStatus("q_1", "submitted", {
+    txHash,
+    settlementEventId: "se_1",
+  });
+
+  assert.match(fixture.client.queries[1].sql, /AND status = \$5/);
+  assert.match(fixture.client.queries[1].sql, /tx_hash IS NOT DISTINCT FROM \$6/);
+  assert.match(fixture.client.queries[1].sql, /pnl_id IS NOT DISTINCT FROM \$9/);
+  assert.deepEqual(fixture.client.queries[1].params, [
+    "q_1",
+    "submitted",
+    txHash,
+    "se_1",
+    "signed",
+    null,
+    null,
+    null,
+    null,
+  ]);
+});
+
+test("PostgresQuoteRepository surfaces concurrent status update conflicts", async () => {
+  const fixture = fakePool([
+    { rowCount: 1, rows: [signedQuoteRow()] },
+    { rowCount: 0, rows: [] },
+  ]);
+  const repository = new PostgresQuoteRepository(fixture.pool);
+
+  await assert.rejects(
+    repository.markStatus("q_1", "submitted", {
+      txHash: `0x${"aa".repeat(32)}`,
+      settlementEventId: "se_1",
+    }),
+    /Quote q_1 status update conflict/,
+  );
+});
+
+test("PostgresQuoteRepository marks failures with one conditional update", async () => {
+  const fixture = fakePool([{ rowCount: 1, rows: [] }]);
+  const repository = new PostgresQuoteRepository(fixture.pool);
+
+  await repository.markFailed("q_1", "SIGNER_UNAVAILABLE");
+
+  assert.equal(fixture.client.queries.length, 1);
+  assert.match(fixture.client.queries[0].sql, /status IN \('requested', 'signed'\)/);
+  assert.deepEqual(fixture.client.queries[0].params, ["q_1", "SIGNER_UNAVAILABLE"]);
+});
+
+test("PostgresQuoteRepository rejects failure regressions after a conditional write miss", async () => {
+  const fixture = fakePool([
+    { rowCount: 0, rows: [] },
+    { rowCount: 1, rows: [signedQuoteRow({ status: "settled" })] },
+  ]);
+  const repository = new PostgresQuoteRepository(fixture.pool);
+
+  await assert.rejects(
+    repository.markFailed("q_1", "SIGNER_UNAVAILABLE"),
+    /cannot transition from settled to failed/,
+  );
+  assert.equal(fixture.client.queries.length, 2);
 });
 
 test("PostgresQuoteRepository restores canonical settlement with one pooled connection", async () => {

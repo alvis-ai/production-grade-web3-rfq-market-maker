@@ -5,6 +5,8 @@ export const backendQuoteRepositorySourcePaths = [
   "backend/src/modules/quote/quote-repository-contract.ts",
   "backend/src/modules/quote/quote-repository-invariants.ts",
   "backend/src/modules/quote/in-memory-quote.repository.ts",
+  "backend/src/modules/quote/postgres-quote-row.ts",
+  "backend/src/modules/quote/postgres-quote.repository.ts",
 ];
 
 export async function readBackendQuoteRepositorySource() {

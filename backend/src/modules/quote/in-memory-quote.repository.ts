@@ -2,7 +2,6 @@ import type {
   Address,
   QuoteLifecycleStatus,
   QuoteStatusResponse,
-  SignedQuote,
   UIntString,
 } from "../../shared/types/rfq.js";
 import { assertPrincipalId } from "../../shared/validation/principal-id.js";
@@ -37,6 +36,7 @@ import {
   assertStatusTransition,
   cloneQuoteRecord,
   hasSettlementStatusMetadata,
+  isSameSignedQuoteIdentity,
   mergeQuoteStatusMetadata,
   normalizeClearSettlementStatusInput,
   normalizeQuoteStatusMetadata,
@@ -128,7 +128,7 @@ export class InMemoryQuoteRepository implements QuoteRepository {
     if (existingQuoteId && existingQuoteId !== input.quoteId) {
       throw new Error(`Signed quote nonce key already exists for ${existingQuoteId}`);
     }
-    if (current?.nonce && !this.isSameSignedQuoteIdentity(current, input.quote)) {
+    if (current?.nonce && !isSameSignedQuoteIdentity(current, input.quote)) {
       throw new Error(`Signed quote identity cannot be changed for ${input.quoteId}`);
     }
     if (current) {
@@ -314,13 +314,5 @@ export class InMemoryQuoteRepository implements QuoteRepository {
 
   private chainUserNonceKey(chainId: number, user: Address, nonce: UIntString): string {
     return `${chainId}:${user.toLowerCase()}:${nonce}`;
-  }
-
-  private isSameSignedQuoteIdentity(record: QuoteRecord, quote: SignedQuote): boolean {
-    return (
-      record.chainId === quote.chainId &&
-      record.user.toLowerCase() === quote.user.toLowerCase() &&
-      record.nonce === quote.nonce
-    );
   }
 }

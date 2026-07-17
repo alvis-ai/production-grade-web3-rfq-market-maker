@@ -71,7 +71,7 @@ Quote Service 依赖 Market Data、MarketSnapshotStore、Pricing、Risk、Signer
 
 代码按职责拆分：`quote.service.ts` 只保留 quote/status/submit 编排；`quote-service-contract.ts` 定义并验证构造配置、依赖和 principal context；`quote-service-errors.ts` 负责稳定的依赖错误映射和 snapshot 可用性；`quote-service-result-validation.ts` 校验 routing、pricing、inventory、exposure/VaR 与 risk adapter 返回值。`make api-composition-check` 将编排文件限制在 600 行以内，并分别将 contract、errors、result-validation 边界限制在 250、100、500 行以内，防止跨层防御逻辑重新聚合成单一大类。
 
-Quote Repository 同样采用显式职责边界：`quote-repository-contract.ts` 只定义持久化接口和记录类型，`quote-repository-invariants.ts` 集中输入校验、幂等和状态迁移不变量，`in-memory-quote.repository.ts` 只维护内存索引与状态，`quote.repository.ts` 作为兼容出口保留既有 import path。数据库一致性门禁读取这组组合源码，并限制各模块行数和依赖方向，避免契约、纯校验与有状态实现再次聚合。
+Quote Repository 同样采用显式职责边界：`quote-repository-contract.ts` 只定义持久化接口和记录类型，`quote-repository-invariants.ts` 集中输入校验、幂等和状态迁移不变量，内存与 PostgreSQL 实现必须复用同一组规则；`in-memory-quote.repository.ts` 只维护内存索引与状态，`postgres-quote-row.ts` 只负责 SQL 行映射，`postgres-quote.repository.ts` 负责连接、SQL 和并发控制，`quote.repository.ts` 作为兼容出口保留既有 import path。PostgreSQL 的 failed 写入使用状态条件更新，普通状态写入同时比较 lifecycle status 与全部 settlement pointers，避免先读后写窗口把并发结算或 reorg 修复覆盖。数据库一致性门禁读取这组组合源码，并限制各模块行数和依赖方向，避免契约、纯校验与有状态实现再次聚合。
 
 ## Sequence Diagram
 

@@ -1,64 +1,49 @@
 import pg from "pg";
 import type {
-  QuoteRecord,
-  QuoteStatusMetadata,
-  SaveRequestedQuoteInput,
-  SaveRouteDecisionInput,
-  SaveRejectedQuoteInput,
-  SaveSignedQuoteInput,
-  QuoteRepository,
   ClearSettlementStatusInput,
   ClearSettlementStatusResult,
-} from "./quote.repository.js";
+  QuoteRecord,
+  QuoteRepository,
+  QuoteStatusMetadata,
+  SaveRejectedQuoteInput,
+  SaveRequestedQuoteInput,
+  SaveRouteDecisionInput,
+  SaveSignedQuoteInput,
+} from "./quote-repository-contract.js";
 import type {
   Address,
   QuoteLifecycleStatus,
   QuoteStatusResponse,
-  SignedQuote,
   UIntString,
 } from "../../shared/types/rfq.js";
 import { assertPrincipalId } from "../../shared/validation/principal-id.js";
-
-const SECP256K1N_HALF = BigInt("0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0");
-const maxSafeIdentifierLength = 128;
-const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
-const routeDecisionInputFields = ["quoteId", "principalId", "snapshotId", "routePlan"] as const;
-const routePlanFields = ["routeId", "venue", "tokenIn", "tokenOut", "expectedLiquidityUsd"] as const;
-
-const quoteSelectColumns = [
-  "id AS quote_id",
-  "principal_id",
-  "chain_id",
-  "user_address AS user",
-  "token_in",
-  "token_out",
-  "amount_in",
-  "slippage_bps",
-  "amount_out",
-  "min_amount_out",
-  "nonce",
-  "deadline",
-  "snapshot_id",
-  "route_id",
-  "route_venue",
-  "route_expected_liquidity_usd",
-  "route_decided_at",
-  "pricing_version",
-  "spread_bps",
-  "size_impact_bps",
-  "market_spread_bps",
-  "inventory_skew_bps",
-  "volatility_premium_bps",
-  "hedge_cost_bps",
-  "risk_policy_version",
-  "status",
-  "signature",
-  "reject_code",
-  "tx_hash",
-  "settlement_event_id",
-  "hedge_order_id",
-  "pnl_id",
-].join(", ");
+import {
+  assertCanMarkFailed,
+  assertCanSaveRejectedQuote,
+  assertCanSaveRequestedQuote,
+  assertCanSaveRouteDecision,
+  assertCanSaveSignedQuote,
+  assertNonEmptyString,
+  assertNonSettlementStatusMetadata,
+  assertQuoteStatusMetadata,
+  assertQuoteStatusMetadataDoesNotConflict,
+  assertRejectedQuoteInput,
+  assertRequestedQuoteInput,
+  assertRouteDecisionInput,
+  assertSafeIdentifier,
+  assertSettlementStatusMetadata,
+  assertSignedQuoteInput,
+  assertStatusTransition,
+  isSameSignedQuoteIdentity,
+  normalizeClearSettlementStatusInput,
+  normalizeQuoteStatusMetadata,
+} from "./quote-repository-invariants.js";
+import {
+  findQuoteRecordById,
+  quoteRecordFromRow,
+  quoteSelectColumns,
+  quoteStatusResponseFromRow,
+} from "./postgres-quote-row.js";
 
 export class PostgresQuoteRepository implements QuoteRepository {
   private readonly pool: pg.Pool;
@@ -77,16 +62,15 @@ export class PostgresQuoteRepository implements QuoteRepository {
   }
 
   async saveRequested(input: SaveRequestedQuoteInput): Promise<void> {
-    const quoteId = assertNonEmptyString(input.quoteId, "quoteId");
-    assertPrincipalId(input.principalId, "Postgres quote principalId");
-    const chainId = assertPositiveSafeInteger(input.request.chainId, "chainId");
-    const user = assertAddress(input.request.user, "user");
-    const tokenIn = assertAddress(input.request.tokenIn, "tokenIn");
-    const tokenOut = assertAddress(input.request.tokenOut, "tokenOut");
-    const amountIn = assertPositiveUIntString(input.request.amountIn, "amountIn");
-    const slippageBps = assertNonNegativeBps(input.request.slippageBps, "slippageBps");
-    const snapshotId = assertNonEmptyString(input.snapshotId, "snapshotId");
-    assertDistinctTokens(tokenIn, tokenOut);
+    assertRequestedQuoteInput(input);
+    const quoteId = input.quoteId;
+    const chainId = input.request.chainId;
+    const user = input.request.user.toLowerCase();
+    const tokenIn = input.request.tokenIn.toLowerCase();
+    const tokenOut = input.request.tokenOut.toLowerCase();
+    const amountIn = input.request.amountIn;
+    const slippageBps = input.request.slippageBps;
+    const snapshotId = input.snapshotId;
 
     const client = await this.pool.connect();
     try {
@@ -129,27 +113,14 @@ export class PostgresQuoteRepository implements QuoteRepository {
   }
 
   async saveRouteDecision(input: SaveRouteDecisionInput): Promise<void> {
-    assertRecord(input, "route decision input");
-    assertOwnFields(input, routeDecisionInputFields, "route decision input");
-    assertNoUnknownFields(input, routeDecisionInputFields, "route decision input");
-    const quoteId = assertSafeIdentifier(input.quoteId, "quoteId");
-    assertPrincipalId(input.principalId, "Postgres route decision principalId");
-    const snapshotId = assertSafeIdentifier(input.snapshotId, "snapshotId");
+    assertRouteDecisionInput(input);
+    const quoteId = input.quoteId;
+    const snapshotId = input.snapshotId;
     const routePlan = input.routePlan;
-    assertRecord(routePlan, "routePlan");
-    assertOwnFields(routePlan, routePlanFields, "routePlan");
-    assertNoUnknownFields(routePlan, routePlanFields, "routePlan");
-    const routeId = assertSafeIdentifier(routePlan.routeId, "routePlan.routeId");
-    if (routePlan.venue !== "internal_inventory") {
-      throw new Error("Postgres quote routePlan.venue must be internal_inventory");
-    }
-    const tokenIn = assertAddress(routePlan.tokenIn, "routePlan.tokenIn");
-    const tokenOut = assertAddress(routePlan.tokenOut, "routePlan.tokenOut");
-    assertDistinctTokens(tokenIn, tokenOut);
-    const expectedLiquidityUsd = assertPositiveUIntString(
-      routePlan.expectedLiquidityUsd,
-      "routePlan.expectedLiquidityUsd",
-    );
+    const routeId = routePlan.routeId;
+    const tokenIn = routePlan.tokenIn.toLowerCase();
+    const tokenOut = routePlan.tokenOut.toLowerCase();
+    const expectedLiquidityUsd = routePlan.expectedLiquidityUsd;
 
     const client = await this.pool.connect();
     try {
@@ -194,20 +165,9 @@ export class PostgresQuoteRepository implements QuoteRepository {
   }
 
   async saveRejected(input: SaveRejectedQuoteInput): Promise<void> {
-    const quoteId = assertNonEmptyString(input.quoteId, "quoteId");
-    assertPrincipalId(input.principalId, "Postgres quote principalId");
-    const chainId = assertPositiveSafeInteger(input.request.chainId, "chainId");
-    const user = assertAddress(input.request.user, "user");
-    const tokenIn = assertAddress(input.request.tokenIn, "tokenIn");
-    const tokenOut = assertAddress(input.request.tokenOut, "tokenOut");
-    const amountIn = assertPositiveUIntString(input.request.amountIn, "amountIn");
-    const slippageBps = assertNonNegativeBps(input.request.slippageBps, "slippageBps");
-    const snapshotId = assertNonEmptyString(input.snapshotId, "snapshotId");
-    const rejectCode = assertNonEmptyString(input.rejectCode, "rejectCode");
-    if (input.riskPolicyVersion !== undefined) {
-      assertNonEmptyString(input.riskPolicyVersion, "riskPolicyVersion");
-    }
-    assertDistinctTokens(tokenIn, tokenOut);
+    assertRejectedQuoteInput(input);
+    const quoteId = input.quoteId;
+    const rejectCode = input.rejectCode;
 
     const client = await this.pool.connect();
     try {
@@ -354,10 +314,10 @@ export class PostgresQuoteRepository implements QuoteRepository {
   }
 
   async findPrincipalId(quoteId: string): Promise<string | undefined> {
-    const normalizedQuoteId = assertSafeIdentifier(quoteId, "quoteId");
+    assertSafeIdentifier(quoteId, "quoteId", "Quote ownership");
     const client = await this.pool.connect();
     try {
-      const result = await client.query("SELECT principal_id FROM quotes WHERE id = $1", [normalizedQuoteId]);
+      const result = await client.query("SELECT principal_id FROM quotes WHERE id = $1", [quoteId]);
       if (!result.rowCount) return undefined;
       const principalId = result.rows[0]?.principal_id;
       assertPrincipalId(principalId, "Postgres quote row principal_id");
@@ -368,31 +328,26 @@ export class PostgresQuoteRepository implements QuoteRepository {
   }
 
   async markFailed(quoteId: string, errorCode: string): Promise<void> {
-    assertNonEmptyString(errorCode, "errorCode");
+    assertNonEmptyString(errorCode, "errorCode", "Failed quote");
 
     const client = await this.pool.connect();
     try {
-      const existing = await client.query(
-        "SELECT status, reject_code FROM quotes WHERE id = $1",
-        [quoteId],
+      const updated = await client.query(
+        `UPDATE quotes
+         SET status = 'failed', reject_code = $2, updated_at = now()
+         WHERE id = $1 AND status IN ('requested', 'signed')`,
+        [quoteId, errorCode],
       );
-      if (!existing.rowCount) return;
-
-      const row = existing.rows[0];
-      if (row.status === "failed") {
-        if (row.reject_code === errorCode) return;
-        throw new Error(`Failed quote errorCode cannot be changed for ${quoteId}`);
-      }
-
-      if (row.status === "requested" || row.status === "signed") {
-        await client.query(
-          "UPDATE quotes SET status = 'failed', reject_code = $2, updated_at = now() WHERE id = $1",
-          [quoteId, errorCode],
-        );
+      if (updated.rowCount === 1) {
         return;
       }
+      if (updated.rowCount !== 0) {
+        throw new Error(`Quote ${quoteId} failed transition updated multiple rows`);
+      }
 
-      throw new Error(`Quote ${quoteId} cannot transition from ${row.status} to failed`);
+      const current = await findQuoteRecordById(client, quoteId);
+      if (!current) return;
+      assertCanMarkFailed(current, errorCode);
     } finally {
       client.release();
     }
@@ -403,99 +358,110 @@ export class PostgresQuoteRepository implements QuoteRepository {
     status: QuoteLifecycleStatus,
     metadata?: QuoteStatusMetadata,
   ): Promise<void> {
+    assertQuoteStatusMetadata(metadata);
+    const normalizedMetadata = normalizeQuoteStatusMetadata(metadata);
     const client = await this.pool.connect();
     try {
-      const existing = await client.query(
-        "SELECT status, tx_hash, settlement_event_id, hedge_order_id, pnl_id FROM quotes WHERE id = $1",
-        [quoteId],
-      );
-      if (!existing.rowCount) return;
+      const current = await findQuoteRecordById(client, quoteId);
+      if (!current) return;
+      assertStatusTransition(current, status);
+      assertQuoteStatusMetadataDoesNotConflict(current, normalizedMetadata);
+      assertNonSettlementStatusMetadata(current, status, normalizedMetadata);
+      assertSettlementStatusMetadata(current, status, normalizedMetadata);
 
-      const row = existing.rows[0];
-      assertStatusTransition(row.status, status);
-
-      // Validate metadata
-      const meta = normalizeMetadata(metadata);
-      assertMetadataDoesNotConflict(row, meta);
-      assertSettlementStatusFields(row, status, meta);
-
-      // Build update
       const updates: string[] = ["status = $2", "updated_at = now()"];
       const params: unknown[] = [quoteId, status];
       let paramIndex = 3;
 
-      if (meta?.txHash !== undefined) {
+      if (normalizedMetadata?.txHash !== undefined) {
         updates.push(`tx_hash = $${paramIndex++}`);
-        params.push(meta.txHash.toLowerCase());
+        params.push(normalizedMetadata.txHash);
       }
-      if (meta?.settlementEventId !== undefined) {
+      if (normalizedMetadata?.settlementEventId !== undefined) {
         updates.push(`settlement_event_id = $${paramIndex++}`);
-        params.push(meta.settlementEventId);
+        params.push(normalizedMetadata.settlementEventId);
       }
-      if (meta?.hedgeOrderId !== undefined) {
+      if (normalizedMetadata?.hedgeOrderId !== undefined) {
         updates.push(`hedge_order_id = $${paramIndex++}`);
-        params.push(meta.hedgeOrderId);
+        params.push(normalizedMetadata.hedgeOrderId);
       }
-      if (meta?.pnlId !== undefined) {
+      if (normalizedMetadata?.pnlId !== undefined) {
         updates.push(`pnl_id = $${paramIndex++}`);
-        params.push(meta.pnlId);
+        params.push(normalizedMetadata.pnlId);
       }
 
-      await client.query(
-        `UPDATE quotes SET ${updates.join(", ")} WHERE id = $1`,
+      const expectedStatusIndex = paramIndex++;
+      params.push(current.status);
+      const expectedTxHashIndex = paramIndex++;
+      params.push(current.txHash ?? null);
+      const expectedSettlementEventIdIndex = paramIndex++;
+      params.push(current.settlementEventId ?? null);
+      const expectedHedgeOrderIdIndex = paramIndex++;
+      params.push(current.hedgeOrderId ?? null);
+      const expectedPnlIdIndex = paramIndex;
+      params.push(current.pnlId ?? null);
+
+      const result = await client.query(
+        `UPDATE quotes SET ${updates.join(", ")}
+         WHERE id = $1
+           AND status = $${expectedStatusIndex}
+           AND tx_hash IS NOT DISTINCT FROM $${expectedTxHashIndex}
+           AND settlement_event_id IS NOT DISTINCT FROM $${expectedSettlementEventIdIndex}
+           AND hedge_order_id IS NOT DISTINCT FROM $${expectedHedgeOrderIdIndex}
+           AND pnl_id IS NOT DISTINCT FROM $${expectedPnlIdIndex}`,
         params,
       );
+      if (result.rowCount !== 1) {
+        throw new Error(`Quote ${quoteId} status update conflict`);
+      }
     } finally {
       client.release();
     }
   }
 
   async restoreSettlementStatus(quoteId: string, metadata: QuoteStatusMetadata): Promise<void> {
+    assertQuoteStatusMetadata(metadata);
+    const normalizedMetadata = normalizeQuoteStatusMetadata(metadata);
     const client = await this.pool.connect();
     try {
-      const existing = await client.query(
-        "SELECT id, status, tx_hash, settlement_event_id, hedge_order_id, pnl_id FROM quotes WHERE id = $1",
-        [quoteId],
-      );
-      if (!existing.rowCount) return;
-      const row = existing.rows[0];
-      if (row.status !== "expired") {
-        assertStatusTransition(row.status, "settled");
+      const current = await findQuoteRecordById(client, quoteId);
+      if (!current) return;
+      if (current.status !== "expired") {
+        assertStatusTransition(current, "settled");
       }
 
-      const normalized = normalizeMetadata(metadata);
-      assertMetadataDoesNotConflict(row, normalized);
-      assertSettlementStatusFields(row, "settled", normalized);
+      assertQuoteStatusMetadataDoesNotConflict(current, normalizedMetadata);
+      assertSettlementStatusMetadata(current, "settled", normalizedMetadata);
 
       const updates: string[] = ["status = 'settled'", "updated_at = now()"];
       const params: unknown[] = [quoteId];
       let paramIndex = 2;
-      if (normalized?.txHash !== undefined) {
+      if (normalizedMetadata?.txHash !== undefined) {
         updates.push(`tx_hash = $${paramIndex++}`);
-        params.push(normalized.txHash.toLowerCase());
+        params.push(normalizedMetadata.txHash);
       }
-      if (normalized?.settlementEventId !== undefined) {
+      if (normalizedMetadata?.settlementEventId !== undefined) {
         updates.push(`settlement_event_id = $${paramIndex++}`);
-        params.push(normalized.settlementEventId);
+        params.push(normalizedMetadata.settlementEventId);
       }
-      if (normalized?.hedgeOrderId !== undefined) {
+      if (normalizedMetadata?.hedgeOrderId !== undefined) {
         updates.push(`hedge_order_id = $${paramIndex++}`);
-        params.push(normalized.hedgeOrderId);
+        params.push(normalizedMetadata.hedgeOrderId);
       }
-      if (normalized?.pnlId !== undefined) {
+      if (normalizedMetadata?.pnlId !== undefined) {
         updates.push(`pnl_id = $${paramIndex++}`);
-        params.push(normalized.pnlId);
+        params.push(normalizedMetadata.pnlId);
       }
       const expectedStatusIndex = paramIndex;
-      params.push(row.status);
+      params.push(current.status);
       const expectedTxHashIndex = ++paramIndex;
-      params.push(row.tx_hash ?? null);
+      params.push(current.txHash ?? null);
       const expectedSettlementEventIdIndex = ++paramIndex;
-      params.push(row.settlement_event_id ?? null);
+      params.push(current.settlementEventId ?? null);
       const expectedHedgeOrderIdIndex = ++paramIndex;
-      params.push(row.hedge_order_id ?? null);
+      params.push(current.hedgeOrderId ?? null);
       const expectedPnlIdIndex = ++paramIndex;
-      params.push(row.pnl_id ?? null);
+      params.push(current.pnlId ?? null);
 
       const result = await client.query(
         `UPDATE quotes SET ${updates.join(", ")}
@@ -516,12 +482,8 @@ export class PostgresQuoteRepository implements QuoteRepository {
   }
 
   async clearSettlementStatus(input: ClearSettlementStatusInput): Promise<ClearSettlementStatusResult> {
-    const quoteId = assertSafeIdentifier(input.quoteId, "quoteId");
-    const txHash = assertHash(input.txHash, "txHash");
-    const settlementEventId = assertSafeIdentifier(input.settlementEventId, "settlementEventId");
-    const nowSeconds = input.nowSeconds === undefined
-      ? Math.floor(Date.now() / 1000)
-      : assertPositiveSafeInteger(input.nowSeconds, "nowSeconds");
+    const normalizedInput = normalizeClearSettlementStatusInput(input);
+    const { quoteId, txHash, settlementEventId, nowSeconds } = normalizedInput;
 
     const client = await this.pool.connect();
     try {
@@ -624,444 +586,5 @@ export class PostgresQuoteRepository implements QuoteRepository {
     if (!quoteId) return undefined;
 
     return this.findSignedQuoteByQuoteId(quoteId, principalId);
-  }
-}
-
-// --- Row mappers ---
-
-async function findQuoteRecordById(client: pg.PoolClient, quoteId: string): Promise<QuoteRecord | undefined> {
-  const result = await client.query(
-    `SELECT ${quoteSelectColumns} FROM quotes WHERE id = $1`,
-    [quoteId],
-  );
-  if (!result.rowCount) return undefined;
-
-  return quoteRecordFromRow(result.rows[0]);
-}
-
-function quoteStatusResponseFromRow(row: Record<string, unknown>): QuoteStatusResponse {
-  return {
-    quoteId: String(row.quote_id),
-    status: String(row.status) as QuoteStatusResponse["status"],
-    snapshotId: row.snapshot_id != null ? String(row.snapshot_id) : undefined,
-    deadline: row.deadline != null ? Number(row.deadline) : undefined,
-    txHash: row.tx_hash != null ? String(row.tx_hash) as `0x${string}` : undefined,
-    settlementEventId: row.settlement_event_id != null ? String(row.settlement_event_id) : undefined,
-    hedgeOrderId: row.hedge_order_id != null ? String(row.hedge_order_id) : undefined,
-    pnlId: row.pnl_id != null ? String(row.pnl_id) : undefined,
-    errorCode: row.reject_code != null ? String(row.reject_code) : undefined,
-  };
-}
-
-function quoteRecordFromRow(row: Record<string, unknown>): QuoteRecord {
-  const principalId = row.principal_id;
-  assertPrincipalId(principalId, "Postgres quote row principal_id");
-  return {
-    quoteId: String(row.quote_id),
-    principalId,
-    chainId: Number(row.chain_id),
-    user: String(row.user) as Address,
-    tokenIn: String(row.token_in) as Address,
-    tokenOut: String(row.token_out) as Address,
-    amountIn: String(row.amount_in),
-    slippageBps: Number(row.slippage_bps),
-    amountOut: row.amount_out != null ? String(row.amount_out) : undefined,
-    minAmountOut: row.min_amount_out != null ? String(row.min_amount_out) : undefined,
-    nonce: row.nonce != null ? String(row.nonce) : undefined,
-    deadline: row.deadline != null ? Number(row.deadline) : undefined,
-    snapshotId: row.snapshot_id != null ? String(row.snapshot_id) : undefined,
-    routeId: row.route_id != null ? String(row.route_id) : undefined,
-    routeVenue: row.route_venue != null ? String(row.route_venue) as QuoteRecord["routeVenue"] : undefined,
-    routeExpectedLiquidityUsd: row.route_expected_liquidity_usd != null
-      ? String(row.route_expected_liquidity_usd)
-      : undefined,
-    routeDecidedAt: row.route_decided_at != null ? new Date(String(row.route_decided_at)).toISOString() : undefined,
-    pricingVersion: row.pricing_version != null ? String(row.pricing_version) : undefined,
-    spreadBps: row.spread_bps != null ? Number(row.spread_bps) : undefined,
-    sizeImpactBps: row.size_impact_bps != null ? Number(row.size_impact_bps) : undefined,
-    marketSpreadBps: row.market_spread_bps != null ? Number(row.market_spread_bps) : undefined,
-    inventorySkewBps: row.inventory_skew_bps != null ? Number(row.inventory_skew_bps) : undefined,
-    volatilityPremiumBps: row.volatility_premium_bps != null ? Number(row.volatility_premium_bps) : undefined,
-    hedgeCostBps: row.hedge_cost_bps != null ? Number(row.hedge_cost_bps) : undefined,
-    riskPolicyVersion: row.risk_policy_version != null ? String(row.risk_policy_version) : undefined,
-    status: String(row.status) as QuoteRecord["status"],
-    signature: row.signature != null ? String(row.signature) as `0x${string}` : undefined,
-    rejectCode: row.reject_code != null ? String(row.reject_code) : undefined,
-    txHash: row.tx_hash != null ? String(row.tx_hash) as `0x${string}` : undefined,
-    settlementEventId: row.settlement_event_id != null ? String(row.settlement_event_id) : undefined,
-    hedgeOrderId: row.hedge_order_id != null ? String(row.hedge_order_id) : undefined,
-    pnlId: row.pnl_id != null ? String(row.pnl_id) : undefined,
-  };
-}
-
-function assertCanSaveRequestedQuote(record: QuoteRecord, input: SaveRequestedQuoteInput): void {
-  if (record.status === "requested") {
-    if (isSameRequestedQuotePayload(record, input)) {
-      return;
-    }
-
-    throw new Error(`Requested quote payload cannot be changed for ${input.quoteId}`);
-  }
-
-  throw new Error(`Quote ${input.quoteId} cannot save requested quote from ${record.status}`);
-}
-
-function assertCanSaveRouteDecision(
-  record: QuoteRecord | undefined,
-  input: SaveRouteDecisionInput,
-): asserts record is QuoteRecord {
-  if (!record) {
-    throw new Error(`Quote ${input.quoteId} cannot save route decision without requested state`);
-  }
-  if (!isSameRouteDecisionIdentity(record, input)) {
-    throw new Error(`Route decision does not match requested quote ${input.quoteId}`);
-  }
-  if (record.routeId !== undefined) {
-    if (isSameRouteDecisionPayload(record, input)) {
-      return;
-    }
-    throw new Error(`Route decision cannot be changed for ${input.quoteId}`);
-  }
-  if (record.status !== "requested") {
-    throw new Error(`Quote ${input.quoteId} cannot save route decision from ${record.status}`);
-  }
-}
-
-function assertCanSaveRejectedQuote(record: QuoteRecord, input: SaveRejectedQuoteInput): void {
-  if (record.status === "requested") {
-    if (isSameRequestedQuotePayload(record, input)) {
-      return;
-    }
-
-    throw new Error(`Rejected quote request cannot differ from requested quote ${input.quoteId}`);
-  }
-
-  if (record.status === "rejected") {
-    if (isSameRejectedQuotePayload(record, input)) {
-      return;
-    }
-
-    throw new Error(`Rejected quote payload cannot be changed for ${input.quoteId}`);
-  }
-
-  throw new Error(`Quote ${input.quoteId} cannot save rejected quote from ${record.status}`);
-}
-
-function assertCanSaveSignedQuote(record: QuoteRecord, input: SaveSignedQuoteInput): void {
-  if (record.status === "requested") {
-    if (isSameRequestedQuotePayloadAsSigned(record, input)) {
-      return;
-    }
-
-    throw new Error(`Signed quote request cannot differ from requested quote ${input.quoteId}`);
-  }
-
-  if (record.status === "signed") {
-    if (isSameSignedQuotePayload(record, input)) {
-      return;
-    }
-
-    throw new Error(`Signed quote payload cannot be changed for ${input.quoteId}`);
-  }
-
-  throw new Error(`Quote ${input.quoteId} cannot save signed quote from ${record.status}`);
-}
-
-function isSameRequestedQuotePayload(record: QuoteRecord, input: SaveRequestedQuoteInput | SaveRejectedQuoteInput): boolean {
-  return (
-    record.quoteId === input.quoteId &&
-    record.principalId === input.principalId &&
-    record.chainId === input.request.chainId &&
-    record.user.toLowerCase() === input.request.user.toLowerCase() &&
-    record.tokenIn.toLowerCase() === input.request.tokenIn.toLowerCase() &&
-    record.tokenOut.toLowerCase() === input.request.tokenOut.toLowerCase() &&
-    record.amountIn === input.request.amountIn &&
-    record.slippageBps === input.request.slippageBps &&
-    record.snapshotId === input.snapshotId
-  );
-}
-
-function isSameRouteDecisionIdentity(record: QuoteRecord, input: SaveRouteDecisionInput): boolean {
-  return (
-    record.quoteId === input.quoteId &&
-    record.principalId === input.principalId &&
-    record.snapshotId === input.snapshotId &&
-    record.tokenIn.toLowerCase() === input.routePlan.tokenIn.toLowerCase() &&
-    record.tokenOut.toLowerCase() === input.routePlan.tokenOut.toLowerCase()
-  );
-}
-
-function isSameRouteDecisionPayload(record: QuoteRecord, input: SaveRouteDecisionInput): boolean {
-  return (
-    isSameRouteDecisionIdentity(record, input) &&
-    record.routeId === input.routePlan.routeId &&
-    record.routeVenue === input.routePlan.venue &&
-    record.routeExpectedLiquidityUsd === input.routePlan.expectedLiquidityUsd &&
-    record.routeDecidedAt !== undefined
-  );
-}
-
-function isSameRejectedQuotePayload(record: QuoteRecord, input: SaveRejectedQuoteInput): boolean {
-  return (
-    isSameRequestedQuotePayload(record, input) &&
-    record.rejectCode === input.rejectCode &&
-    record.riskPolicyVersion === input.riskPolicyVersion
-  );
-}
-
-function isSameRequestedQuotePayloadAsSigned(record: QuoteRecord, input: SaveSignedQuoteInput): boolean {
-  return (
-    record.quoteId === input.quoteId &&
-    record.principalId === input.principalId &&
-    record.chainId === input.quote.chainId &&
-    record.user.toLowerCase() === input.quote.user.toLowerCase() &&
-    record.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
-    record.tokenOut.toLowerCase() === input.quote.tokenOut.toLowerCase() &&
-    record.amountIn === input.quote.amountIn &&
-    record.slippageBps === input.slippageBps &&
-    record.snapshotId === input.snapshotId
-  );
-}
-
-function isSameSignedQuotePayload(record: QuoteRecord, input: SaveSignedQuoteInput): boolean {
-  return (
-    record.quoteId === input.quoteId &&
-    record.principalId === input.principalId &&
-    record.chainId === input.quote.chainId &&
-    record.user.toLowerCase() === input.quote.user.toLowerCase() &&
-    record.tokenIn.toLowerCase() === input.quote.tokenIn.toLowerCase() &&
-    record.tokenOut.toLowerCase() === input.quote.tokenOut.toLowerCase() &&
-    record.amountIn === input.quote.amountIn &&
-    record.slippageBps === input.slippageBps &&
-    record.amountOut === input.quote.amountOut &&
-    record.minAmountOut === input.quote.minAmountOut &&
-    record.nonce === input.quote.nonce &&
-    record.deadline === input.quote.deadline &&
-    record.snapshotId === input.snapshotId &&
-    record.pricingVersion === input.pricingVersion &&
-    record.spreadBps === input.spreadBps &&
-    record.sizeImpactBps === input.sizeImpactBps &&
-    record.marketSpreadBps === input.marketSpreadBps &&
-    record.inventorySkewBps === input.inventorySkewBps &&
-    record.volatilityPremiumBps === input.volatilityPremiumBps &&
-    record.hedgeCostBps === input.hedgeCostBps &&
-    record.riskPolicyVersion === input.riskPolicyVersion &&
-    record.signature?.toLowerCase() === input.signature.toLowerCase()
-  );
-}
-
-function isSameSignedQuoteIdentity(record: QuoteRecord, quote: SignedQuote): boolean {
-  return (
-    record.chainId === quote.chainId &&
-    record.user.toLowerCase() === quote.user.toLowerCase() &&
-    record.nonce === quote.nonce
-  );
-}
-
-// --- State machine validation ---
-
-function assertStatusTransition(currentStatus: string, nextStatus: string): void {
-  if (currentStatus === "expired" && nextStatus !== "expired") {
-    throw new Error(`Quote cannot transition from terminal status expired to ${nextStatus}`);
-  }
-  if (currentStatus === "failed" || currentStatus === "rejected") {
-    throw new Error(`Quote cannot transition from terminal status ${currentStatus} to ${nextStatus}`);
-  }
-  if (currentStatus === "signed" && !["submitted", "settled", "expired"].includes(nextStatus)) {
-    throw new Error(`Quote cannot transition from signed to ${nextStatus}`);
-  }
-  if (currentStatus === "submitted" && nextStatus !== "settled") {
-    throw new Error(`Quote cannot transition from submitted to ${nextStatus}`);
-  }
-  if (currentStatus === "settled" && nextStatus !== "settled") {
-    throw new Error(`Quote cannot transition from settled to ${nextStatus}`);
-  }
-}
-
-function normalizeMetadata(metadata: QuoteStatusMetadata | undefined): QuoteStatusMetadata | undefined {
-  if (!metadata) return undefined;
-  return {
-    ...metadata,
-    txHash: metadata.txHash?.toLowerCase() as `0x${string}` | undefined,
-  };
-}
-
-function assertMetadataDoesNotConflict(
-  row: Record<string, unknown>,
-  metadata: QuoteStatusMetadata | undefined,
-): void {
-  if (!metadata) return;
-
-  if (row.tx_hash && metadata.txHash && String(row.tx_hash).toLowerCase() !== metadata.txHash.toLowerCase()) {
-    throw new Error("Quote status txHash cannot be changed once set");
-  }
-  if (row.settlement_event_id && metadata.settlementEventId && row.settlement_event_id !== metadata.settlementEventId) {
-    throw new Error("Quote status settlementEventId cannot be changed once set");
-  }
-  if (row.hedge_order_id && metadata.hedgeOrderId && row.hedge_order_id !== metadata.hedgeOrderId) {
-    throw new Error("Quote status hedgeOrderId cannot be changed once set");
-  }
-  if (row.pnl_id && metadata.pnlId && row.pnl_id !== metadata.pnlId) {
-    throw new Error("Quote status pnlId cannot be changed once set");
-  }
-}
-
-function assertSettlementStatusFields(
-  row: Record<string, unknown>,
-  status: string,
-  metadata: QuoteStatusMetadata | undefined,
-): void {
-  if (status !== "submitted" && status !== "settled") {
-    if (metadata?.txHash !== undefined || metadata?.settlementEventId !== undefined ||
-        metadata?.hedgeOrderId !== undefined || metadata?.pnlId !== undefined) {
-      throw new Error(`Quote ${row.id} ${status} status must not include settlement metadata`);
-    }
-    return;
-  }
-
-  const txHash = metadata?.txHash ?? (row.tx_hash != null ? String(row.tx_hash) : undefined);
-  const settlementEventId = metadata?.settlementEventId ?? (row.settlement_event_id != null ? String(row.settlement_event_id) : undefined);
-
-  if (txHash === undefined) {
-    throw new Error(`Quote ${row.id} ${status} status requires txHash`);
-  }
-  if (settlementEventId === undefined) {
-    throw new Error(`Quote ${row.id} ${status} status requires settlementEventId`);
-  }
-}
-
-// --- Input validation ---
-
-function assertSignedQuoteInput(input: SaveSignedQuoteInput): void {
-  assertNonEmptyString(input.quoteId, "quoteId");
-  assertPrincipalId(input.principalId, "Postgres quote principalId");
-  assertNonEmptyString(input.snapshotId, "snapshotId");
-  assertNonEmptyString(input.pricingVersion, "pricingVersion");
-  assertNonEmptyString(input.riskPolicyVersion, "riskPolicyVersion");
-  assertNonNegativeBps(input.slippageBps, "slippageBps");
-  assertNonNegativeBps(input.spreadBps, "spreadBps");
-  assertNonNegativeBps(input.sizeImpactBps, "sizeImpactBps");
-  assertNonNegativeBps(input.marketSpreadBps, "marketSpreadBps");
-  assertBpsMagnitude(input.inventorySkewBps, "inventorySkewBps");
-  assertNonNegativeBps(input.volatilityPremiumBps, "volatilityPremiumBps");
-  assertNonNegativeBps(input.hedgeCostBps, "hedgeCostBps");
-  assertSignature(input.signature);
-
-  const q = input.quote;
-  assertPositiveSafeInteger(q.chainId, "chainId");
-  assertAddress(q.user, "user");
-  assertAddress(q.tokenIn, "tokenIn");
-  assertAddress(q.tokenOut, "tokenOut");
-  assertDistinctTokens(q.tokenIn, q.tokenOut);
-  assertPositiveUIntString(q.amountIn, "amountIn");
-  assertPositiveUIntString(q.amountOut, "amountOut");
-  assertPositiveUIntString(q.minAmountOut, "minAmountOut");
-  assertPositiveUIntString(q.nonce, "nonce");
-  assertPositiveSafeInteger(q.deadline, "deadline");
-
-  if (BigInt(q.amountOut) < BigInt(q.minAmountOut)) {
-    throw new Error("Signed quote amountOut must be greater than or equal to minAmountOut");
-  }
-}
-
-// --- Validation helpers ---
-
-function assertNonEmptyString(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`Postgres quote ${field} must be a non-empty string`);
-  }
-  return value.trim();
-}
-
-function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`Postgres quote ${field} must be an object`);
-  }
-}
-
-function assertOwnFields(value: object, fields: readonly string[], path: string): void {
-  for (const field of fields) {
-    if (!Object.prototype.hasOwnProperty.call(value, field)) {
-      throw new Error(`Postgres quote ${path}.${field} must be an own field`);
-    }
-  }
-}
-
-function assertNoUnknownFields(value: object, fields: readonly string[], path: string): void {
-  const allowed = new Set<string>(fields);
-  const unknownField = Object.keys(value).find((field) => !allowed.has(field));
-  if (unknownField !== undefined) {
-    throw new Error(`Postgres quote ${path} contains unknown field ${unknownField}`);
-  }
-}
-
-function assertSafeIdentifier(value: unknown, field: string): string {
-  const identifier = assertNonEmptyString(value, field);
-  if (identifier.length > maxSafeIdentifierLength || !safeIdentifierPattern.test(identifier)) {
-    throw new Error(`Postgres quote ${field} must be a safe identifier`);
-  }
-  return identifier;
-}
-
-function assertHash(value: unknown, field: string): `0x${string}` {
-  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
-    throw new Error(`Postgres quote ${field} must be a 32-byte hex string`);
-  }
-  return value.toLowerCase() as `0x${string}`;
-}
-
-function assertAddress(value: unknown, field: string): `0x${string}` {
-  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
-    throw new Error(`Postgres quote ${field} must be a 20-byte hex address`);
-  }
-  return value.toLowerCase() as `0x${string}`;
-}
-
-function assertPositiveSafeInteger(value: unknown, field: string): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`Postgres quote ${field} must be a positive safe integer`);
-  }
-  return value;
-}
-
-function assertPositiveUIntString(value: unknown, field: string): string {
-  if (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)) {
-    throw new Error(`Postgres quote ${field} must be a positive uint string`);
-  }
-  return value;
-}
-
-function assertNonNegativeBps(value: unknown, field: string): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 10000) {
-    throw new Error(`Postgres quote ${field} must be a non-negative bps integer`);
-  }
-  return value;
-}
-
-function assertBpsMagnitude(value: unknown, field: string): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || Math.abs(value) > 10000) {
-    throw new Error(`Postgres quote ${field} must be a safe bps integer`);
-  }
-  return value;
-}
-
-function assertSignature(value: unknown): void {
-  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(value)) {
-    throw new Error("Postgres quote signature must be a 65-byte hex string");
-  }
-  const s = BigInt(`0x${value.slice(66, 130)}`);
-  if (s > SECP256K1N_HALF) {
-    throw new Error("Postgres quote signature s value must be in the lower half order");
-  }
-  const v = Number.parseInt(value.slice(130, 132), 16);
-  const normalizedV = v < 27 ? v + 27 : v;
-  if (normalizedV !== 27 && normalizedV !== 28) {
-    throw new Error("Postgres quote signature v value must be 27 or 28");
-  }
-}
-
-function assertDistinctTokens(tokenIn: string, tokenOut: string): void {
-  if (tokenIn.toLowerCase() === tokenOut.toLowerCase()) {
-    throw new Error("Postgres quote token pair must contain distinct tokens");
   }
 }

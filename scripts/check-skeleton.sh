@@ -3,7 +3,7 @@ set -eu
 
 gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-hedge-risk.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-settlement-indexer-risk.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
 quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts backend/src/modules/quote/quote-route-selection.ts"
-quote_repository_sources="backend/src/modules/quote/quote-repository-contract.ts backend/src/modules/quote/quote-repository-invariants.ts backend/src/modules/quote/in-memory-quote.repository.ts"
+quote_repository_sources="backend/src/modules/quote/quote-repository-contract.ts backend/src/modules/quote/quote-repository-invariants.ts backend/src/modules/quote/in-memory-quote.repository.ts backend/src/modules/quote/postgres-quote-row.ts backend/src/modules/quote/postgres-quote.repository.ts"
 sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-transport.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts sdk/src/client-pnl-page.ts"
 
 test -s package.json
@@ -322,6 +322,8 @@ test -s backend/src/modules/quote/quote.repository.ts
 test -s backend/src/modules/quote/quote-repository-contract.ts
 test -s backend/src/modules/quote/quote-repository-invariants.ts
 test -s backend/src/modules/quote/in-memory-quote.repository.ts
+test -s backend/src/modules/quote/postgres-quote-row.ts
+test -s backend/src/modules/quote/postgres-quote.repository.ts
 grep -q 'export \* from "./quote-repository-contract.js"' backend/src/modules/quote/quote.repository.ts
 grep -q 'export { InMemoryQuoteRepository } from "./in-memory-quote.repository.js"' backend/src/modules/quote/quote.repository.ts
 grep -q 'checkHealth' $quote_repository_sources
@@ -1747,6 +1749,10 @@ grep -q 'quote.routing.v1' backend/src/db/migrations/034-quote-route-attribution
 grep -q 'trg_quotes_enforce_route_immutability' backend/src/db/migrations/034-quote-route-attribution.sql
 grep -q 'QuoteService persists route attribution before pricing' backend/test/quote-service-market-routing-dependencies.test.mjs
 grep -q 'PostgresQuoteRepository records a route decision with one atomic update' backend/test/postgres-quote-repository.test.mjs
+grep -q 'PostgresQuoteRepository rejects extended persistence envelopes before SQL' backend/test/postgres-quote-repository.test.mjs
+grep -q 'PostgresQuoteRepository rejects requested status bypasses' backend/test/postgres-quote-repository.test.mjs
+grep -q 'PostgresQuoteRepository updates status with state and pointer CAS' backend/test/postgres-quote-repository.test.mjs
+grep -q 'PostgresQuoteRepository marks failures with one conditional update' backend/test/postgres-quote-repository.test.mjs
 grep -q 'slippageBps: request.slippageBps + 1' backend/test/quote-repository-lifecycle.test.mjs
 grep -q 'Signed quote slippageBps must be less than or equal to 10000 bps' backend/test/quote-repository-signed-validation.test.mjs
 grep -q 'Signed quote spreadBps must be less than or equal to 10000 bps' backend/test/quote-repository-signed-validation.test.mjs
