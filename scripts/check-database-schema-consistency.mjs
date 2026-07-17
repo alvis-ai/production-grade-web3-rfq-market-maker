@@ -3,6 +3,10 @@
 import { readFile, readdir } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { readBackendGatewaySource } from "./lib/read-backend-gateway-source.mjs";
+import {
+  backendQuoteRepositorySourcePaths,
+  readBackendQuoteRepositorySource,
+} from "./lib/read-backend-quote-repository-source.mjs";
 
 const schemaSource = await readFile("docs/database/schema.sql", "utf8");
 const migrationFiles = (await readdir("backend/src/db/migrations"))
@@ -27,7 +31,59 @@ assert.deepEqual(
 const erDiagramSource = await readFile("docs/database/er-diagram.md", "utf8");
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const backendTypesSource = await readFile("backend/src/shared/types/rfq.ts", "utf8");
-const quoteRepositorySource = await readFile("backend/src/modules/quote/quote.repository.ts", "utf8");
+const quoteRepositorySource = await readBackendQuoteRepositorySource();
+const quoteRepositoryModules = new Map(
+  await Promise.all(
+    backendQuoteRepositorySourcePaths.map(async (path) => [path, await readFile(path, "utf8")]),
+  ),
+);
+const quoteRepositoryModuleLineLimits = new Map([
+  ["backend/src/modules/quote/quote.repository.ts", 10],
+  ["backend/src/modules/quote/quote-repository-contract.ts", 160],
+  ["backend/src/modules/quote/quote-repository-invariants.ts", 750],
+  ["backend/src/modules/quote/in-memory-quote.repository.ts", 350],
+]);
+for (const [path, maxLines] of quoteRepositoryModuleLineLimits) {
+  const source = quoteRepositoryModules.get(path);
+  assert.ok(source, `Quote repository module ${path} must exist`);
+  assert.ok(
+    source.split("\n").length <= maxLines,
+    `Quote repository module ${path} must stay within ${maxLines} lines`,
+  );
+}
+const quoteRepositoryFacadeSource = quoteRepositoryModules.get(
+  "backend/src/modules/quote/quote.repository.ts",
+);
+const quoteRepositoryContractSource = quoteRepositoryModules.get(
+  "backend/src/modules/quote/quote-repository-contract.ts",
+);
+const quoteRepositoryInvariantsSource = quoteRepositoryModules.get(
+  "backend/src/modules/quote/quote-repository-invariants.ts",
+);
+const inMemoryQuoteRepositorySource = quoteRepositoryModules.get(
+  "backend/src/modules/quote/in-memory-quote.repository.ts",
+);
+assert.ok(
+  quoteRepositoryFacadeSource?.includes('export * from "./quote-repository-contract.js"') &&
+    quoteRepositoryFacadeSource.includes(
+      'export { InMemoryQuoteRepository } from "./in-memory-quote.repository.js"',
+    ),
+  "Quote repository facade must preserve the public contract and in-memory implementation exports",
+);
+assert.ok(
+  quoteRepositoryContractSource &&
+    !quoteRepositoryContractSource.includes("quote-repository-invariants"),
+  "Quote repository contract must not depend on persistence invariants",
+);
+assert.ok(
+  quoteRepositoryInvariantsSource &&
+    !quoteRepositoryInvariantsSource.includes("in-memory-quote.repository"),
+  "Quote repository invariants must not depend on the stateful in-memory implementation",
+);
+assert.ok(
+  inMemoryQuoteRepositorySource?.includes('from "./quote-repository-invariants.js"'),
+  "In-memory quote persistence must delegate validation and transition invariants",
+);
 const postgresQuoteRepositorySource = await readFile(
   "backend/src/modules/quote/postgres-quote.repository.ts",
   "utf8",

@@ -3,6 +3,7 @@ set -eu
 
 gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-hedge-risk.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-settlement-indexer-risk.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
 quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts backend/src/modules/quote/quote-route-selection.ts"
+quote_repository_sources="backend/src/modules/quote/quote-repository-contract.ts backend/src/modules/quote/quote-repository-invariants.ts backend/src/modules/quote/in-memory-quote.repository.ts"
 sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-transport.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts sdk/src/client-pnl-page.ts"
 
 test -s package.json
@@ -318,7 +319,12 @@ test -s backend/src/modules/quote/quote-service-result-validation.ts
 test -s backend/src/modules/quote/quote-risk-decision.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
-grep -q 'checkHealth' backend/src/modules/quote/quote.repository.ts
+test -s backend/src/modules/quote/quote-repository-contract.ts
+test -s backend/src/modules/quote/quote-repository-invariants.ts
+test -s backend/src/modules/quote/in-memory-quote.repository.ts
+grep -q 'export \* from "./quote-repository-contract.js"' backend/src/modules/quote/quote.repository.ts
+grep -q 'export { InMemoryQuoteRepository } from "./in-memory-quote.repository.js"' backend/src/modules/quote/quote.repository.ts
+grep -q 'checkHealth' $quote_repository_sources
 test -s backend/src/modules/risk/risk-decision.repository.ts
 grep -q 'interface RiskDecisionStore' backend/src/modules/risk/risk-decision.repository.ts
 grep -q 'class InMemoryRiskDecisionRepository' backend/src/modules/risk/risk-decision.repository.ts
@@ -656,6 +662,7 @@ test -s scripts/check-api-error-consistency.mjs
 test -s scripts/check-api-schema-consistency.mjs
 test -s scripts/check-api-route-consistency.mjs
 test -s scripts/check-database-schema-consistency.mjs
+test -s scripts/lib/read-backend-quote-repository-source.mjs
 test -s scripts/reconciliation-check.mjs
 test -s scripts/verify.sh
 test -s scripts/check-kms-signer-consistency.mjs
@@ -1171,9 +1178,10 @@ grep -q 'lastTimestampMs' backend/src/modules/quote/quote-identity.ts
 grep -q 'QuoteIdentityGenerator creates monotonic unique nonces within one millisecond' backend/test/quote-identity.test.mjs
 grep -q 'per-millisecond sequence wraps' backend/test/quote-identity.test.mjs
 grep -q 'QuoteIdentityGenerator uses Web Crypto instead of Math.random' backend/test/quote-identity.test.mjs
-grep -q 'class InMemoryQuoteRepository' backend/src/modules/quote/quote.repository.ts
-grep -q 'markFailed' backend/src/modules/quote/quote.repository.ts
-grep -q 'cloneQuoteRecord' backend/src/modules/quote/quote.repository.ts
+grep -q 'class InMemoryQuoteRepository' $quote_repository_sources
+grep -q 'markFailed' $quote_repository_sources
+grep -q 'cloneQuoteRecord' $quote_repository_sources
+grep -q 'Quote Repository 同样采用显式职责边界' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'class BasicRiskEngine' backend/src/modules/risk/risk.engine.ts
 ! grep -q 'AllowAllRiskEngine' backend/src/modules/risk/risk.engine.ts
 ! grep -q 'allow-all-skeleton-v0' backend/src/modules/risk/risk.engine.ts
@@ -1337,44 +1345,44 @@ grep -q 'requireSubmittableSignedQuote' $quote_service_sources
 grep -q 'QUOTE_FAILED' $quote_service_sources
 grep -q 'markQuoteExpiredBestEffort' $quote_service_sources
 grep -q 'QUOTE_EXPIRED' $quote_service_sources
-grep -q 'findSignedQuoteByChainUserNonce' backend/src/modules/quote/quote.repository.ts
-grep -q 'findSignedQuoteByQuoteId' backend/src/modules/quote/quote.repository.ts
-grep -q 'chainUserNonceKey' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertRequestedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertRejectedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertObject(input, "input", "Requested quote")' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertObject(request, "request", subject)' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertObject(input.quote, "quote", "Signed quote")' backend/src/modules/quote/quote.repository.ts
-grep -q 'requestedQuoteInputFields = \["quoteId", "principalId", "request", "snapshotId"\]' backend/src/modules/quote/quote.repository.ts
-grep -q 'rejectedQuoteInputFields = \["quoteId", "principalId", "request", "snapshotId", "rejectCode"\]' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertPrincipalId(input.principalId, "Requested quote principalId")' backend/src/modules/quote/quote.repository.ts
-grep -q 'rejectedQuoteOptionalFields = \["riskPolicyVersion"\]' backend/src/modules/quote/quote.repository.ts
-grep -q 'quoteRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertOwnFields(input, requestedQuoteInputFields, "input", "Requested quote")' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertOwnFields(input, rejectedQuoteInputFields, "input", "Rejected quote")' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertOwnOptionalFields(input, rejectedQuoteOptionalFields, "input", "Rejected quote")' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertOwnFields(request, quoteRequestFields, "request", subject)' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertOwnFields(input, signedQuoteInputFields, "input", "Signed quote")' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertOwnFields(input.quote, signedQuoteFields, "quote", "Signed quote")' backend/src/modules/quote/quote.repository.ts
-grep -q '${subject} ${path}.${field} must be an own field' backend/src/modules/quote/quote.repository.ts
-grep -q '${subject} ${path}.${field} must be an own field when provided' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertCanSaveRequestedQuote(current, input)' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertCanSaveRejectedQuote(current, input)' backend/src/modules/quote/quote.repository.ts
-grep -q 'isSameRequestedQuotePayload' backend/src/modules/quote/quote.repository.ts
-grep -q 'isSameRequestedQuotePayloadAsSigned' backend/src/modules/quote/quote.repository.ts
-grep -q 'Requested quote payload cannot be changed' backend/src/modules/quote/quote.repository.ts
-grep -q 'cannot save rejected quote without requested state' backend/src/modules/quote/quote.repository.ts
-grep -q 'Signed quote request cannot differ from requested quote' backend/src/modules/quote/quote.repository.ts
-grep -q 'Signed quote nonce key already exists' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertSignedQuoteInput(input)' backend/src/modules/quote/quote.repository.ts
-grep -q 'Signed quote signature must be a 65-byte hex string' backend/src/modules/quote/quote.repository.ts
-grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)' backend/src/modules/quote/quote.repository.ts
-grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' backend/src/modules/quote/quote.repository.ts
-grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(value)' backend/src/modules/quote/quote.repository.ts
-grep -Fq 'typeof metadata.txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(metadata.txHash)' backend/src/modules/quote/quote.repository.ts
-grep -q 'SECP256K1N_HALF' backend/src/modules/quote/quote.repository.ts
-grep -q 'Signed quote signature s value must be in the lower half order' backend/src/modules/quote/quote.repository.ts
-grep -q 'Signed quote signature v value must be 27 or 28' backend/src/modules/quote/quote.repository.ts
+grep -q 'findSignedQuoteByChainUserNonce' $quote_repository_sources
+grep -q 'findSignedQuoteByQuoteId' $quote_repository_sources
+grep -q 'chainUserNonceKey' $quote_repository_sources
+grep -q 'assertRequestedQuoteInput(input)' $quote_repository_sources
+grep -q 'assertRejectedQuoteInput(input)' $quote_repository_sources
+grep -q 'assertObject(input, "input", "Requested quote")' $quote_repository_sources
+grep -q 'assertObject(request, "request", subject)' $quote_repository_sources
+grep -q 'assertObject(input.quote, "quote", "Signed quote")' $quote_repository_sources
+grep -q 'requestedQuoteInputFields = \["quoteId", "principalId", "request", "snapshotId"\]' $quote_repository_sources
+grep -q 'rejectedQuoteInputFields = \["quoteId", "principalId", "request", "snapshotId", "rejectCode"\]' $quote_repository_sources
+grep -q 'assertPrincipalId(input.principalId, "Requested quote principalId")' $quote_repository_sources
+grep -q 'rejectedQuoteOptionalFields = \["riskPolicyVersion"\]' $quote_repository_sources
+grep -q 'quoteRequestFields = \["chainId", "user", "tokenIn", "tokenOut", "amountIn", "slippageBps"\]' $quote_repository_sources
+grep -q 'assertOwnFields(input, requestedQuoteInputFields, "input", "Requested quote")' $quote_repository_sources
+grep -q 'assertOwnFields(input, rejectedQuoteInputFields, "input", "Rejected quote")' $quote_repository_sources
+grep -q 'assertOwnOptionalFields(input, rejectedQuoteOptionalFields, "input", "Rejected quote")' $quote_repository_sources
+grep -q 'assertOwnFields(request, quoteRequestFields, "request", subject)' $quote_repository_sources
+grep -q 'assertOwnFields(input, signedQuoteInputFields, "input", "Signed quote")' $quote_repository_sources
+grep -q 'assertOwnFields(input.quote, signedQuoteFields, "quote", "Signed quote")' $quote_repository_sources
+grep -q '${subject} ${path}.${field} must be an own field' $quote_repository_sources
+grep -q '${subject} ${path}.${field} must be an own field when provided' $quote_repository_sources
+grep -q 'assertCanSaveRequestedQuote(current, input)' $quote_repository_sources
+grep -q 'assertCanSaveRejectedQuote(current, input)' $quote_repository_sources
+grep -q 'isSameRequestedQuotePayload' $quote_repository_sources
+grep -q 'isSameRequestedQuotePayloadAsSigned' $quote_repository_sources
+grep -q 'Requested quote payload cannot be changed' $quote_repository_sources
+grep -q 'cannot save rejected quote without requested state' $quote_repository_sources
+grep -q 'Signed quote request cannot differ from requested quote' $quote_repository_sources
+grep -q 'Signed quote nonce key already exists' $quote_repository_sources
+grep -q 'assertSignedQuoteInput(input)' $quote_repository_sources
+grep -q 'Signed quote signature must be a 65-byte hex string' $quote_repository_sources
+grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)' $quote_repository_sources
+grep -Fq 'typeof value !== "string" || !/^[1-9][0-9]*$/.test(value)' $quote_repository_sources
+grep -Fq 'typeof value !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(value)' $quote_repository_sources
+grep -Fq 'typeof metadata.txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(metadata.txHash)' $quote_repository_sources
+grep -q 'SECP256K1N_HALF' $quote_repository_sources
+grep -q 'Signed quote signature s value must be in the lower half order' $quote_repository_sources
+grep -q 'Signed quote signature v value must be 27 or 28' $quote_repository_sources
 grep -q 'Signed quote signature s value must be in the lower half order' backend/test/quote-repository-signed-validation.test.mjs
 grep -q 'new String(fixedSignature())' backend/test/quote-repository-signed-validation.test.mjs
 grep -q 'q_bad_amount_leading_zero' backend/test/quote-repository-lifecycle.test.mjs
@@ -1387,16 +1395,16 @@ grep -q 'Requested quote request.chainId must be an own field' backend/test/quot
 grep -q 'Rejected quote input.riskPolicyVersion must be an own field when provided' backend/test/quote-repository-validation.test.mjs
 grep -q 'Signed quote quote.user must be an own field' backend/test/quote-repository-validation.test.mjs
 grep -q 'Signed quote input.quoteId must be an own field' backend/test/quote-repository-validation.test.mjs
-grep -q 'maxSafeIdentifierLength = 128' backend/src/modules/quote/quote.repository.ts
-grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertSafeIdentifier(input.quoteId, "quoteId", "Requested quote")' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertSafeIdentifier(input.snapshotId, "snapshotId", "Rejected quote")' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertSafeMetadataIdentifier(metadata.settlementEventId, "settlementEventId")' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertSafeMetadataIdentifier(metadata.hedgeOrderId, "hedgeOrderId")' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertSafeMetadataIdentifier(metadata.pnlId, "pnlId")' backend/src/modules/quote/quote.repository.ts
-grep -q '${subject} ${field} must be a primitive string' backend/src/modules/quote/quote.repository.ts
-grep -q 'Quote status ${field} must be a primitive string' backend/src/modules/quote/quote.repository.ts
+grep -q 'maxSafeIdentifierLength = 128' $quote_repository_sources
+grep -Fq 'safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/' $quote_repository_sources
+grep -q 'assertSafeIdentifier(input.quoteId, "quoteId", "Requested quote")' $quote_repository_sources
+grep -q 'assertSafeIdentifier(input.snapshotId, "snapshotId", "Rejected quote")' $quote_repository_sources
+grep -q 'assertSafeIdentifier(input.quoteId, "quoteId")' $quote_repository_sources
+grep -q 'assertSafeMetadataIdentifier(metadata.settlementEventId, "settlementEventId")' $quote_repository_sources
+grep -q 'assertSafeMetadataIdentifier(metadata.hedgeOrderId, "hedgeOrderId")' $quote_repository_sources
+grep -q 'assertSafeMetadataIdentifier(metadata.pnlId, "pnlId")' $quote_repository_sources
+grep -q '${subject} ${field} must be a primitive string' $quote_repository_sources
+grep -q 'Quote status ${field} must be a primitive string' $quote_repository_sources
 grep -q 'Requested quote quoteId must be a primitive string' backend/test/quote-repository-lifecycle.test.mjs
 grep -q 'Requested quote quoteId must contain only letters, numbers, underscore, colon, or hyphen' backend/test/quote-repository-lifecycle.test.mjs
 grep -q 'Signed quote snapshotId must be a primitive string' backend/test/quote-repository-signed-validation.test.mjs
@@ -1411,34 +1419,34 @@ grep -q 'quoteId` and `snapshotId` as primitive-string `SafeIdentifier` values w
 grep -q 'settlementEventId`、`hedgeOrderId`、`pnlId` must be primitive-string `SafeIdentifier` values' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '65-byte canonical low-s EIP-712 signature before writing the `chainId:user:nonce` index' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'rejects non-string address, signature, `txHash` and uint-like values' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'assertCanSaveSignedQuote(current, input)' backend/src/modules/quote/quote.repository.ts
-grep -q 'isSameSignedQuotePayload' backend/src/modules/quote/quote.repository.ts
-grep -q 'Signed quote payload cannot be changed' backend/src/modules/quote/quote.repository.ts
-grep -q 'cannot save signed quote from' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertStatusTransition(current, status)' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertCanMarkFailed(current, errorCode)' backend/src/modules/quote/quote.repository.ts
-grep -q 'Failed quote errorCode cannot be changed' backend/src/modules/quote/quote.repository.ts
-grep -q 'cannot transition from terminal status ${record.status} to failed' backend/src/modules/quote/quote.repository.ts
-grep -q 'cannot transition from requested to ${nextStatus} through markStatus' backend/src/modules/quote/quote.repository.ts
-grep -q 'cannot transition from signed to ${nextStatus} through markStatus' backend/src/modules/quote/quote.repository.ts
-grep -q 'cannot transition from submitted to ${nextStatus}' backend/src/modules/quote/quote.repository.ts
-grep -q 'terminal status expired' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertNonEmptyString(errorCode, "errorCode", "Failed quote")' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertQuoteStatusMetadata(metadata)' backend/src/modules/quote/quote.repository.ts
-grep -q 'normalizeQuoteStatusMetadata(metadata)' backend/src/modules/quote/quote.repository.ts
-grep -q 'metadata.txHash?.toLowerCase()' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertQuoteStatusMetadataDoesNotConflict(current, normalizedMetadata)' backend/src/modules/quote/quote.repository.ts
-grep -q 'mergeQuoteStatusMetadata(current, normalizedMetadata)' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertMetadataFieldDoesNotConflict' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertNonSettlementStatusMetadata(current, status, normalizedMetadata)' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertNonSettlementMetadataField' backend/src/modules/quote/quote.repository.ts
-grep -q 'assertSettlementStatusMetadata(current, status, normalizedMetadata)' backend/src/modules/quote/quote.repository.ts
-grep -q 'Quote status txHash must be a 32-byte hex string' backend/src/modules/quote/quote.repository.ts
-grep -q 'status must not include' backend/src/modules/quote/quote.repository.ts
-grep -q 'status cannot retain' backend/src/modules/quote/quote.repository.ts
-grep -q 'cannot be changed once set' backend/src/modules/quote/quote.repository.ts
-grep -q 'status requires txHash' backend/src/modules/quote/quote.repository.ts
-grep -q 'status requires settlementEventId' backend/src/modules/quote/quote.repository.ts
+grep -q 'assertCanSaveSignedQuote(current, input)' $quote_repository_sources
+grep -q 'isSameSignedQuotePayload' $quote_repository_sources
+grep -q 'Signed quote payload cannot be changed' $quote_repository_sources
+grep -q 'cannot save signed quote from' $quote_repository_sources
+grep -q 'assertStatusTransition(current, status)' $quote_repository_sources
+grep -q 'assertCanMarkFailed(current, errorCode)' $quote_repository_sources
+grep -q 'Failed quote errorCode cannot be changed' $quote_repository_sources
+grep -q 'cannot transition from terminal status ${record.status} to failed' $quote_repository_sources
+grep -q 'cannot transition from requested to ${nextStatus} through markStatus' $quote_repository_sources
+grep -q 'cannot transition from signed to ${nextStatus} through markStatus' $quote_repository_sources
+grep -q 'cannot transition from submitted to ${nextStatus}' $quote_repository_sources
+grep -q 'terminal status expired' $quote_repository_sources
+grep -q 'assertNonEmptyString(errorCode, "errorCode", "Failed quote")' $quote_repository_sources
+grep -q 'assertQuoteStatusMetadata(metadata)' $quote_repository_sources
+grep -q 'normalizeQuoteStatusMetadata(metadata)' $quote_repository_sources
+grep -q 'metadata.txHash?.toLowerCase()' $quote_repository_sources
+grep -q 'assertQuoteStatusMetadataDoesNotConflict(current, normalizedMetadata)' $quote_repository_sources
+grep -q 'mergeQuoteStatusMetadata(current, normalizedMetadata)' $quote_repository_sources
+grep -q 'assertMetadataFieldDoesNotConflict' $quote_repository_sources
+grep -q 'assertNonSettlementStatusMetadata(current, status, normalizedMetadata)' $quote_repository_sources
+grep -q 'assertNonSettlementMetadataField' $quote_repository_sources
+grep -q 'assertSettlementStatusMetadata(current, status, normalizedMetadata)' $quote_repository_sources
+grep -q 'Quote status txHash must be a 32-byte hex string' $quote_repository_sources
+grep -q 'status must not include' $quote_repository_sources
+grep -q 'status cannot retain' $quote_repository_sources
+grep -q 'cannot be changed once set' $quote_repository_sources
+grep -q 'status requires txHash' $quote_repository_sources
+grep -q 'status requires settlementEventId' $quote_repository_sources
 grep -q 'rejects signed quote nonce key conflicts' backend/test/quote-repository.test.mjs
 grep -q 'findSignedQuoteByQuoteId' backend/test/quote-repository.test.mjs
 grep -q 'returns defensive copies of signed quote records' backend/test/quote-repository.test.mjs
@@ -1701,25 +1709,25 @@ grep -q 'settlement_events.quote_id must be a required quotes(id) foreign key' s
 grep -q 'settlement_events.quote_id' docs/database/er-diagram.md
 grep -q 'uq_settlement_events_canonical_quote_id' docs/database/schema.sql
 grep -q 'settlement_events must keep one canonical settlement event per quote' scripts/check-database-schema-consistency.mjs
-grep -q 'slippageBps: input.request.slippageBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'slippageBps: input.slippageBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'spreadBps: input.spreadBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'sizeImpactBps: input.sizeImpactBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'inventorySkewBps: input.inventorySkewBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'volatilityPremiumBps: input.volatilityPremiumBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'hedgeCostBps: input.hedgeCostBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'slippageBps: input.request.slippageBps' $quote_repository_sources
+grep -q 'slippageBps: input.slippageBps' $quote_repository_sources
+grep -q 'spreadBps: input.spreadBps' $quote_repository_sources
+grep -q 'sizeImpactBps: input.sizeImpactBps' $quote_repository_sources
+grep -q 'inventorySkewBps: input.inventorySkewBps' $quote_repository_sources
+grep -q 'volatilityPremiumBps: input.volatilityPremiumBps' $quote_repository_sources
+grep -q 'hedgeCostBps: input.hedgeCostBps' $quote_repository_sources
 grep -q 'spreadBps: pricing.spreadBps' $quote_service_sources
 grep -q 'sizeImpactBps: pricing.sizeImpactBps' $quote_service_sources
 grep -q 'inventorySkewBps: pricing.inventorySkewBps' $quote_service_sources
 grep -q 'volatilityPremiumBps: pricing.volatilityPremiumBps' $quote_service_sources
 grep -q 'hedgeCostBps: pricing.hedgeCostBps' $quote_service_sources
-grep -q 'record.slippageBps === input.request.slippageBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'record.slippageBps === input.slippageBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'record.spreadBps === input.spreadBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'record.sizeImpactBps === input.sizeImpactBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'record.inventorySkewBps === input.inventorySkewBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'record.volatilityPremiumBps === input.volatilityPremiumBps' backend/src/modules/quote/quote.repository.ts
-grep -q 'record.hedgeCostBps === input.hedgeCostBps' backend/src/modules/quote/quote.repository.ts
+grep -q 'record.slippageBps === input.request.slippageBps' $quote_repository_sources
+grep -q 'record.slippageBps === input.slippageBps' $quote_repository_sources
+grep -q 'record.spreadBps === input.spreadBps' $quote_repository_sources
+grep -q 'record.sizeImpactBps === input.sizeImpactBps' $quote_repository_sources
+grep -q 'record.inventorySkewBps === input.inventorySkewBps' $quote_repository_sources
+grep -q 'record.volatilityPremiumBps === input.volatilityPremiumBps' $quote_repository_sources
+grep -q 'record.hedgeCostBps === input.hedgeCostBps' $quote_repository_sources
 test -s backend/src/db/migrations/034-quote-route-attribution.sql
 test -s backend/src/db/migrations/035-pnl-cursor-pagination.sql
 test -s backend/src/modules/pnl/pnl-pagination.ts
@@ -1912,8 +1920,8 @@ grep -q 'this.hedgePlanner.plan' backend/src/modules/reconciliation/reconciliati
 grep -q 'createHedgeIntent(hedgeIntent)' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.service.ts
 grep -q 'SIGNED_QUOTE_NOT_FOUND' backend/src/modules/reconciliation/reconciliation.service.ts
-grep -q 'clearSettlementStatus' backend/src/modules/quote/quote.repository.ts
-grep -q 'settlement status removal conflict' backend/src/modules/quote/quote.repository.ts
+grep -q 'clearSettlementStatus' $quote_repository_sources
+grep -q 'settlement status removal conflict' $quote_repository_sources
 grep -q 'removeHedgeIntentBySettlementEvent' backend/src/modules/hedge/hedge.service.ts
 grep -q 'removePnlRecord' backend/src/modules/pnl/pnl.service.ts
 grep -q 'repairs quote status from settlement events' backend/test/reconciliation.test.mjs
