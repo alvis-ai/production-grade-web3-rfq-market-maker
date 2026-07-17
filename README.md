@@ -158,6 +158,7 @@ Copy `.env.example` for local backend configuration. The included signer key is 
 ```text
 HOST=127.0.0.1
 PORT=3000
+RFQ_BACKEND_HOST_PORT=3000
 RFQ_LOG_LEVEL=info
 RFQ_SHUTDOWN_TIMEOUT_MS=20000
 RFQ_QUOTE_TTL_SECONDS=30
@@ -601,10 +602,14 @@ Local benchmarks:
 
 ```sh
 make benchmark-quote
+docker compose up -d --build backend
+make benchmark-quote-http
 make benchmark-submit
 ```
 
 The quote benchmark builds the backend, performs 10 warmup requests, then exercises 100 measured `POST /quote` requests through Fastify injection at concurrency 5 without binding a network port. It reports throughput plus p50/p95/p99/max latency and enforces p50 <= 10 ms, p99 <= 50 ms and zero HTTP errors. Override with `RFQ_BENCHMARK_QUOTE_REQUESTS`, `RFQ_BENCHMARK_QUOTE_WARMUP_REQUESTS`, `RFQ_BENCHMARK_QUOTE_CONCURRENCY`, `RFQ_BENCHMARK_MAX_P50_MS`, `RFQ_BENCHMARK_MAX_P99_MS` and `RFQ_BENCHMARK_MAX_ERRORS`. This is an in-process regression baseline, not evidence that a production PostgreSQL, Redis, RPC, remote signer and TLS path meets the SLO.
+
+`make benchmark-quote-http` runs the same default 10 warmup plus 100 measured requests against `RFQ_HTTP_BENCHMARK_API_URL` (default `http://127.0.0.1:3000`). The Compose backend exercises real HTTP, PostgreSQL, Redis and the isolated signer service; set `RFQ_BACKEND_HOST_PORT` when host port 3000 is unavailable, and point the benchmark URL at that port. The benchmark takes `/metrics` snapshots around the measured window and reports exact pricing-cache hit/miss deltas plus average and p99 bucket upper bounds for every observed quote dependency stage. It enforces p50 <= 10 ms, p99 <= 50 ms and zero errors by default. Use `RFQ_HTTP_BENCHMARK_API_KEY` for an authenticated target and `RFQ_HTTP_BENCHMARK_QUOTE_JSON` for its reviewed pair/amount; non-loopback targets must use HTTPS. Workload controls are `RFQ_HTTP_BENCHMARK_QUOTE_REQUESTS`, `RFQ_HTTP_BENCHMARK_QUOTE_WARMUP_REQUESTS`, `RFQ_HTTP_BENCHMARK_QUOTE_CONCURRENCY` and `RFQ_HTTP_BENCHMARK_REQUEST_TIMEOUT_MS`; SLO controls are `RFQ_HTTP_BENCHMARK_MAX_P50_MS`, `RFQ_HTTP_BENCHMARK_MAX_P99_MS`, `RFQ_HTTP_BENCHMARK_MAX_ERRORS` and `RFQ_HTTP_BENCHMARK_ENFORCE_SLO`. Set enforcement to `false` only for diagnosis, and preserve the reported violations. The default workload consumes 110 quote requests, so run it against an idle rate-limit window or a separately reviewed benchmark principal.
 
 The submit benchmark builds the backend, requests a fresh quote per sample, then measures `POST /submit` through settlement verification, inventory update, hedge intent creation and PnL attribution. Defaults are 50 measured submit samples, p95 <= 100 ms and zero setup or submit errors. Override with `RFQ_BENCHMARK_SUBMIT_REQUESTS`, `RFQ_BENCHMARK_SUBMIT_MAX_P95_MS` and `RFQ_BENCHMARK_SUBMIT_MAX_ERRORS`.
 

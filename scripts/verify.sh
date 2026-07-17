@@ -47,6 +47,7 @@ run_step make api-schema-check
 run_step make api-route-check
 run_step make database-schema-check
 run_step make reconciliation-check
+run_step make benchmark-quote-http-check
 run_step make benchmark-quote
 run_step make benchmark-submit
 run_step make backend-test

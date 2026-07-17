@@ -278,6 +278,8 @@ Metrics collection must be low overhead. Histograms should use bounded buckets.
 
 本地性能回归使用 `make benchmark-quote` 和 `make benchmark-submit`。Quote benchmark 先预热，再以默认并发 5 输出 `POST /quote` 的 samples、errors、throughput、p50、p95、p99 和 max latency，默认门禁为 p50 <= 10 ms、p99 <= 50 ms 且 errors = 0。Submit benchmark 为每个样本先生成 fresh signed quote，再测量 `POST /submit` 的 settlement、inventory、hedge 和 PnL 接受路径，默认门禁为 50 measured samples、p95 <= 100 ms 且 setup/submit errors = 0。CI 通过 `make verify` 运行这些门禁。生产环境仍应使用真实网络、真实 signer、真实数据库和阶梯并发流量做容量测试，本地 benchmark 只用于捕捉代码级明显回归。
 
+运行中的依赖栈使用 `make benchmark-quote-http`。该命令默认指向 loopback API，也可使用 HTTPS、API key 和显式 quote JSON 指向受控目标环境；非 loopback HTTP 会在发请求前被拒绝。结果同时包含客户端 latency、HTTP status/error code 分布、pricing cache 差分，以及每个固定 quote dependency stage 的 average 和 p99 histogram upper bound。指标在预热后取 baseline，因此只归因 measured window；若进程重启导致 counter reset，基准直接失败而不是生成错误差分。默认 SLO 与总 quote alert 一致，关闭 enforcement 只能用于定位，不能作为上线验收。
+
 ## Testing Strategy
 
 Test metrics presence, alert rules, dashboard JSON validity and runbook links.

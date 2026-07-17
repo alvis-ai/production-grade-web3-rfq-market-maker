@@ -111,7 +111,7 @@ services:
       RFQ_ALLOW_SIMULATED_SETTLEMENT: "true"
       DATABASE_URL: postgres://rfq:rfq@postgres:5432/rfq_market_maker
     ports:
-      - "3000:3000"
+      - "${RFQ_BACKEND_HOST_PORT:-3000}:3000"
 
   hedge-worker:
     profiles: ["hedge"]

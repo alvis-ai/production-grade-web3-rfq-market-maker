@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check analytics-pipeline-check cex-orderbook-check hedge-planning-check hedge-execution-check chainlink-canary-check binance-testnet-check aws-kms-canary-check target-api-quote-check target-settlement-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check quote-exposure-integration-check hedge-net-pnl-integration-check hedge-worker-e2e analytics-integration-check analytics-e2e cex-orderbook-integration-check chainlink-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check target-settlement-integration-check contract-deployment-integration-check settlement-e2e settlement-indexer-e2e benchmark-quote benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check analytics-pipeline-check cex-orderbook-check hedge-planning-check hedge-execution-check chainlink-canary-check binance-testnet-check aws-kms-canary-check target-api-quote-check target-settlement-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check quote-exposure-integration-check hedge-net-pnl-integration-check hedge-worker-e2e analytics-integration-check analytics-e2e cex-orderbook-integration-check chainlink-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check target-settlement-integration-check contract-deployment-integration-check settlement-e2e settlement-indexer-e2e benchmark-quote benchmark-quote-http benchmark-quote-http-check benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -65,6 +65,8 @@ help:
 	@echo "  settlement-e2e  Verify quote-to-receipt settlement against a temporary Anvil chain"
 	@echo "  settlement-indexer-e2e  Verify wallet-only settlement and reorg recovery against Anvil and PostgreSQL"
 	@echo "  benchmark-quote  Run a local POST /quote latency benchmark"
+	@echo "  benchmark-quote-http Run POST /quote latency against a running HTTP dependency stack"
+	@echo "  benchmark-quote-http-check Test HTTP benchmark validation and metric correlation"
 	@echo "  benchmark-submit Run a local POST /submit latency benchmark"
 	@echo "  backend-build  Build backend package"
 	@echo "  backend-test  Run backend API tests"
@@ -280,6 +282,12 @@ settlement-indexer-e2e: backend-build contract-build
 
 benchmark-quote: backend-build
 	@node benchmark/quote-benchmark.mjs
+
+benchmark-quote-http:
+	@node benchmark/quote-http-benchmark.mjs
+
+benchmark-quote-http-check:
+	@node --test benchmark/quote-http-benchmark.test.mjs
 
 benchmark-submit: backend-build
 	@node benchmark/submit-benchmark.mjs
