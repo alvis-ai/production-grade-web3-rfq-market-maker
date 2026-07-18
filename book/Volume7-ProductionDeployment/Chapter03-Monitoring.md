@@ -138,6 +138,7 @@ Key metrics include:
 - `rfq_signer_service_requests_total`
 - `rfq_signer_service_last_success_timestamp_seconds`
 - `rfq_signer_service_audit_errors_total`
+- `rfq_signer_service_stage_latency_seconds` with fixed `validation|digest|signature|audit` stages; alert when any stage p95 exceeds 25ms
 - `rfq_signer_audit_stream_appends_total` with bounded `result` label
 - `rfq_signer_audit_stream_backlog`
 - `rfq_signer_audit_mirrored_total` with bounded `result` label

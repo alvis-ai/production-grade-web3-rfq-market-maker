@@ -443,9 +443,22 @@
     },
     {
       "type": "timeseries",
-      "title": "Signer Audit Stream",
+      "title": "Signer Internal Stage P95 Latency",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 0, "y": 94, "w": 24, "h": 7 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, stage) (rate(rfq_signer_service_stage_latency_seconds_bucket[5m])))",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Signer Audit Stream",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 101, "w": 24, "h": 7 },
       "targets": [
         { "expr": "max(rfq_signer_audit_stream_backlog)", "legendFormat": "unmirrored backlog", "refId": "A" },
         { "expr": "sum by (result) (rate(rfq_signer_audit_stream_appends_total[5m]))", "legendFormat": "append {{result}}/s", "refId": "B" },

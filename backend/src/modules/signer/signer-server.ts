@@ -2,6 +2,11 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { ServerOptions as HttpsServerOptions } from "node:https";
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 import { hashTypedData, keccak256 } from "viem";
+import { createHistogramState, recordHistogram } from "../metrics/histogram.js";
+import {
+  latencyBucketsSeconds,
+  type HistogramState,
+} from "../metrics/metrics-contract.js";
 import type { TokenRegistry } from "../pricing/token-registry.js";
 import { requireTokenMetadata } from "../pricing/token-registry.js";
 import type { TokenLimitRiskPolicy, TokenRiskLimit } from "../risk/token-limit-risk.engine.js";
@@ -41,6 +46,14 @@ export interface SignerAuditMetricsProvider {
 }
 
 type SignerRequestOutcome = "success" | "auth_rejected" | "invalid" | "error";
+type SignerRequestStage = "validation" | "digest" | "signature" | "audit";
+
+const signerRequestStages: readonly SignerRequestStage[] = [
+  "validation",
+  "digest",
+  "signature",
+  "audit",
+];
 
 export class SignerServerMetrics {
   private readonly requests = new Map<SignerRequestOutcome, number>([
@@ -51,6 +64,9 @@ export class SignerServerMetrics {
   ]);
   private lastSuccessTimestampSeconds = 0;
   private auditErrors = 0;
+  private readonly stageLatency = new Map<SignerRequestStage, HistogramState>(
+    signerRequestStages.map((stage) => [stage, createHistogramState()]),
+  );
 
   record(outcome: SignerRequestOutcome, nowMs = Date.now()): void {
     this.requests.set(outcome, this.requests.get(outcome)! + 1);
@@ -59,6 +75,10 @@ export class SignerServerMetrics {
 
   recordAuditError(): void {
     this.auditErrors += 1;
+  }
+
+  recordStage(stage: SignerRequestStage, startedAtMs: number): void {
+    recordHistogram(this.stageLatency.get(stage)!, (performance.now() - startedAtMs) / 1_000);
   }
 
   renderPrometheus(): string {
@@ -73,6 +93,11 @@ export class SignerServerMetrics {
       "# HELP rfq_signer_service_audit_errors_total Signer audit persistence and health-check failures.",
       "# TYPE rfq_signer_service_audit_errors_total counter",
       `rfq_signer_service_audit_errors_total ${this.auditErrors}`,
+      "# HELP rfq_signer_service_stage_latency_seconds Isolated signer request latency by fixed internal stage.",
+      "# TYPE rfq_signer_service_stage_latency_seconds histogram",
+      ...signerRequestStages.flatMap((stage) =>
+        renderStageHistogram(stage, this.stageLatency.get(stage)!),
+      ),
       "",
     ].join("\n");
   }
@@ -136,24 +161,31 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
       return reply.code(401).send({ error: "unauthorized" });
     }
     let input: AuthorizedSignQuoteInput;
+    const validationStartedAt = performance.now();
     try {
       const requestInput = request.body as SignQuoteInput;
       assertAuthorizedSignQuoteInput(requestInput);
       input = requestInput;
       assertSigningEnvelope(input, options.tokenRegistry, enabledChains, limits, config, now());
     } catch {
+      metrics.recordStage("validation", validationStartedAt);
       metrics.record("invalid", now());
       return reply.code(400).send({ error: "invalid_signing_request" });
     }
+    metrics.recordStage("validation", validationStartedAt);
 
     let quoteDigest: `0x${string}`;
+    const digestStartedAt = performance.now();
     try {
       quoteDigest = hashTypedData(buildQuoteTypedData(input.quote, config.settlementAddress));
     } catch {
+      metrics.recordStage("digest", digestStartedAt);
       metrics.record("error", now());
       return reply.code(503).send({ error: "signer_unavailable" });
     }
+    metrics.recordStage("digest", digestStartedAt);
     let signature: `0x${string}`;
+    const signatureStartedAt = performance.now();
     try {
       signature = await options.signerService.signQuote(input);
       assertSignature(signature);
@@ -162,6 +194,8 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
         throw new Error("Signer returned an unverifiable signature");
       }
     } catch {
+      metrics.recordStage("signature", signatureStartedAt);
+      const auditStartedAt = performance.now();
       await appendAuditBestEffort(options.auditStore, buildAuditEvent(
         input,
         config,
@@ -169,10 +203,13 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
         "signer_error",
         now(),
       ), metrics);
+      metrics.recordStage("audit", auditStartedAt);
       metrics.record("error", now());
       return reply.code(503).send({ error: "signer_unavailable" });
     }
+    metrics.recordStage("signature", signatureStartedAt);
 
+    const auditStartedAt = performance.now();
     try {
       await options.auditStore.append(buildAuditEvent(
         input,
@@ -183,15 +220,33 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
         keccak256(signature),
       ));
     } catch {
+      metrics.recordStage("audit", auditStartedAt);
       metrics.recordAuditError();
       metrics.record("error", now());
       return reply.code(503).send({ error: "signer_unavailable" });
     }
+    metrics.recordStage("audit", auditStartedAt);
     metrics.record("success", now());
     return { signature };
   });
 
   return server;
+}
+
+function renderStageHistogram(stage: SignerRequestStage, state: HistogramState): string[] {
+  const labels = `stage="${stage}"`;
+  return [
+    ...latencyBucketsSeconds.map((bucket, index) =>
+      `rfq_signer_service_stage_latency_seconds_bucket{${labels},le="${bucket}"} ${state.buckets[index]}`),
+    `rfq_signer_service_stage_latency_seconds_bucket{${labels},le="+Inf"} ${state.count}`,
+    `rfq_signer_service_stage_latency_seconds_sum{${labels}} ${formatMetricNumber(state.sum)}`,
+    `rfq_signer_service_stage_latency_seconds_count{${labels}} ${state.count}`,
+  ];
+}
+
+function formatMetricNumber(value: number): string {
+  if (Number.isInteger(value)) return value.toString();
+  return value.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 async function verifyReadiness(

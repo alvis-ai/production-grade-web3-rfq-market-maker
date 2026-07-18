@@ -35,6 +35,9 @@ test("signer server authenticates and signs only an approved envelope", async ()
   const metrics = await server.inject({ method: "GET", url: "/metrics" });
   assert.match(metrics.body, /rfq_signer_service_requests_total\{outcome="success"\} 1/);
   assert.match(metrics.body, /rfq_signer_service_last_success_timestamp_seconds 1700000000/);
+  for (const stage of ["validation", "digest", "signature", "audit"]) {
+    assert.match(metrics.body, new RegExp(`rfq_signer_service_stage_latency_seconds_count\\{stage="${stage}"\\} 1`));
+  }
   assert.match(metrics.body, /rfq_signer_audit_stream_backlog 3/);
 
   const readiness = await server.inject({ method: "GET", url: "/ready" });
@@ -127,6 +130,10 @@ test("signer server returns a closed unavailable response for signing failures",
   assert.equal(auditStore.snapshot()[0].outcome, "signer_error");
   assert.equal(Object.hasOwn(auditStore.snapshot()[0], "signatureHash"), false);
   assert.doesNotMatch(response.body, /sensitive/);
+  const metrics = await server.inject({ method: "GET", url: "/metrics" });
+  for (const stage of ["validation", "digest", "signature", "audit"]) {
+    assert.match(metrics.body, new RegExp(`rfq_signer_service_stage_latency_seconds_count\\{stage="${stage}"\\} 1`));
+  }
   const readiness = await server.inject({ method: "GET", url: "/ready" });
   assert.equal(readiness.statusCode, 503);
   assert.deepEqual(readiness.json(), { status: "degraded" });
