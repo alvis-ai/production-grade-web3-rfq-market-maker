@@ -87,7 +87,7 @@ export class OnchainTreasuryLiquidityProvider implements TreasuryLiquidityProvid
   }
 
   async getLiquidity(request: TreasuryLiquidityRequest): Promise<TreasuryLiquiditySnapshot> {
-    assertRequest(request);
+    assertTreasuryLiquidityRequest(request);
     const chain = this.chains.get(request.chainId);
     const reader = this.readers.get(request.chainId);
     if (!chain || !reader) {
@@ -132,6 +132,47 @@ export class OnchainTreasuryLiquidityProvider implements TreasuryLiquidityProvid
   }
 }
 
+export function assertTreasuryLiquidityRequest(
+  value: unknown,
+): asserts value is TreasuryLiquidityRequest {
+  assertRecord(value, "Treasury liquidity request");
+  const keys = Object.keys(value);
+  if (keys.length !== requestFields.length ||
+      requestFields.some((field) => !Object.prototype.hasOwnProperty.call(value, field))) {
+    throw new Error("Treasury liquidity request fields are invalid");
+  }
+  if (typeof value.chainId !== "number" || !Number.isSafeInteger(value.chainId) || value.chainId <= 0) {
+    throw new Error("Treasury liquidity request.chainId must be a positive safe integer");
+  }
+  parseAddress(value.token, "request.token");
+}
+
+export function assertTreasuryLiquiditySnapshot(
+  value: unknown,
+  request: TreasuryLiquidityRequest,
+): asserts value is TreasuryLiquiditySnapshot {
+  assertTreasuryLiquidityRequest(request);
+  assertRecord(value, "Treasury liquidity snapshot");
+  const fields = [
+    "chainId", "settlementAddress", "treasuryAddress", "token", "availableBalance", "blockNumber",
+  ];
+  if (Object.keys(value).some((field) => !fields.includes(field)) ||
+      fields.some((field) => !Object.prototype.hasOwnProperty.call(value, field))) {
+    throw new Error("Treasury liquidity snapshot fields are invalid");
+  }
+  if (value.chainId !== request.chainId ||
+      parseAddress(value.token, "snapshot.token").toLowerCase() !== request.token.toLowerCase()) {
+    throw new Error("Treasury liquidity snapshot does not match its requested chain/token");
+  }
+  parseAddress(value.settlementAddress, "snapshot.settlementAddress");
+  parseAddress(value.treasuryAddress, "snapshot.treasuryAddress");
+  if (typeof value.availableBalance !== "string" || !/^(0|[1-9][0-9]*)$/.test(value.availableBalance) ||
+      BigInt(value.availableBalance) > maxUint256) {
+    throw new Error("Treasury liquidity snapshot.availableBalance must be a uint256 decimal string");
+  }
+  parseBlockNumber(value.blockNumber);
+}
+
 function createTreasuryLiquidityReader(config: ReceiptChainConfig): TreasuryLiquidityReader {
   const chain = defineChain({
     id: config.chainId,
@@ -160,19 +201,6 @@ function createTreasuryLiquidityReader(config: ReceiptChainConfig): TreasuryLiqu
       blockNumber,
     }),
   };
-}
-
-function assertRequest(value: unknown): asserts value is TreasuryLiquidityRequest {
-  assertRecord(value, "Treasury liquidity request");
-  const keys = Object.keys(value);
-  if (keys.length !== requestFields.length ||
-      requestFields.some((field) => !Object.prototype.hasOwnProperty.call(value, field))) {
-    throw new Error("Treasury liquidity request fields are invalid");
-  }
-  if (typeof value.chainId !== "number" || !Number.isSafeInteger(value.chainId) || value.chainId <= 0) {
-    throw new Error("Treasury liquidity request.chainId must be a positive safe integer");
-  }
-  parseAddress(value.token, "request.token");
 }
 
 function assertReader(value: unknown): asserts value is TreasuryLiquidityReader {

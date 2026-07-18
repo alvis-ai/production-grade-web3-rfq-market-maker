@@ -41,7 +41,6 @@ import { registerToxicFlowScoreRoutes } from "../api/toxic-flow-score-routes.js"
 import {
   buildDefaultSettlementVerifierPolicy,
   buildRuntimeSettlementEvidenceProvider,
-  buildRuntimeTreasuryLiquidityProvider,
   readGatewayServerSettings,
   resolveApiKeyAuthenticator,
   resolvePostgresPool,
@@ -76,6 +75,7 @@ import {
   resolveGatewayQuoteExposureRuntime,
 } from "./gateway-quote-exposure.js";
 import { closeGatewayResources } from "./gateway-resource-cleanup.js";
+import { buildGatewayTreasuryLiquidityRuntime } from "./gateway-treasury-liquidity.js";
 
 export type { BuildServerOptions } from "./gateway-runtime.js";
 export { closeGatewayResources } from "./gateway-resource-cleanup.js";
@@ -179,8 +179,10 @@ export function buildServer(options: BuildServerOptions = {}) {
   const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
   const inMemoryInventoryService = postgresPool ? undefined : new InventoryService();
   const inventoryService: IInventoryService = postgresInventoryService ?? inMemoryInventoryService!;
-  const treasuryLiquidityProvider = options.treasuryLiquidityProvider ??
-    buildRuntimeTreasuryLiquidityProvider();
+  const treasuryLiquidityRuntime = buildGatewayTreasuryLiquidityRuntime(
+    options.treasuryLiquidityProvider, managedRiskPairs, server.log,
+  );
+  const treasuryLiquidityProvider = treasuryLiquidityRuntime.provider;
   const postgresSettlementEventStore = postgresPool && options.settlementEventService === undefined
     ? new PostgresSettlementEventStore(postgresPool, postgresInventoryService!)
     : undefined;
@@ -265,6 +267,9 @@ export function buildServer(options: BuildServerOptions = {}) {
     postgresPool !== undefined,
   );
   if (redisQuoteExposureRuntime) server.addHook("onReady", () => redisQuoteExposureRuntime.start());
+  if (treasuryLiquidityRuntime.start) {
+    server.addHook("onReady", () => treasuryLiquidityRuntime.start!());
+  }
   if (postgresSettlementEventStore) {
     server.addHook("onReady", async () => {
       await postgresSettlementEventStore.initialize();
@@ -274,6 +279,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     await closeGatewayResources([
       ...(stopMarketBackgroundTasks ? [stopMarketBackgroundTasks] : []),
       ...(redisQuoteExposureRuntime ? [() => redisQuoteExposureRuntime.close()] : []),
+      ...(treasuryLiquidityRuntime.stop ? [() => treasuryLiquidityRuntime.stop!()] : []),
       ...(rateLimiter?.close ? [() => rateLimiter.close!()] : []),
       ...(defaultSignerRuntime?.close ? [() => defaultSignerRuntime.close!()] : []),
       ...(ownsPostgresPool ? [() => endPool()] : []),

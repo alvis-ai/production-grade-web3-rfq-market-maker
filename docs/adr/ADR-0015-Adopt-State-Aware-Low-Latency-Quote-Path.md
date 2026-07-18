@@ -8,7 +8,7 @@ Accepted
 
 `POST /quote` must return a risk-authorized EIP-712 signed quote while market state is still valid. The latency objective is p50 below 10 ms and p99 below 50 ms under a declared production load profile. Querying PostgreSQL, RPC providers, CEX REST APIs, or a remote signer for every arithmetic input makes that objective structurally unreliable. Caching an entire signed quote is also unsafe because user, nonce, deadline, inventory, route, risk reservation, and signer evidence have different validity and ownership rules.
 
-The repository already streams or polls market sources into process-local snapshots, computes the internal-inventory route and formula price in memory, supports Redis-backed distributed controls, persists audit evidence to PostgreSQL, and exports API latency histograms. It does not yet provide a distributed precomputed graph router or a database-free production signing path. ADR-0017 moved exposure/VaR admission to Redis plus immutable hot state, but quote creation still performs synchronous durable lifecycle transitions, dynamic risk evidence reads, treasury/indexer checks, Redis exposure authorization, and remote signing. A local in-memory benchmark therefore cannot prove the production SLO.
+The repository already streams or polls market sources into process-local snapshots, computes the internal-inventory route and formula price in memory, supports Redis-backed distributed controls, persists audit evidence to PostgreSQL, and exports API latency histograms. It does not yet provide a distributed precomputed graph router or a database-free production signing path. ADR-0017 moved exposure/VaR admission to Redis plus immutable hot state, and ADR-0018 moved default Treasury RPC reads into a versioned background-refreshed view. Quote creation still performs synchronous durable lifecycle transitions, dynamic risk evidence reads, an indexer cursor check, Redis exposure authorization, and remote signing. A local in-memory benchmark therefore cannot prove the production SLO.
 
 ## Decision
 
@@ -39,12 +39,12 @@ REST remains the supported request interface. A WebSocket quote stream may be ad
 
 - Process-local caches are duplicated across replicas and may have lower hit rates when traffic is widely distributed.
 - Exact keys and short TTLs intentionally limit hit ratio when snapshots, inventory, routes, or users change.
-- Synchronous PostgreSQL, RPC, and remote signing can still prevent the production p50 target even when arithmetic is fast.
+- Synchronous PostgreSQL, Redis lease contention, indexer evidence, and remote signing can still prevent the production p50 target even when arithmetic and Treasury lookup are in memory.
 - Dependency observation and cache bookkeeping add a small amount of CPU and allocation to each process.
 
 ### Mitigation
 
-Track pricing hit/miss rates, exposure lock/backlog/mirror health, stage p99, event-loop saturation, replica concurrency, and signer throughput together. Prefetch and version market/route state, use sticky routing only when it does not weaken availability, and scale API replicas before queueing dominates p50. Keep TTL below the shortest source-state validity window. ADR-0017 supplies the reviewed exposure ledger; any proposal to remove the remaining synchronous quote lifecycle, risk audit, treasury/indexer, or signer boundary must still specify atomic ownership, crash recovery, replay, reconciliation, and fail-closed production fault tests.
+Track pricing hit/miss rates, exposure lock/backlog/mirror health, Treasury generation freshness, stage p99, event-loop saturation, replica concurrency, and signer throughput together. Prefetch and version market/route state, use sticky routing only when it does not weaken availability, and scale API replicas before queueing dominates p50. Keep TTL below the shortest source-state validity window. ADR-0017 supplies the reviewed exposure ledger and ADR-0018 supplies the Treasury hot view; any proposal to remove the remaining synchronous quote lifecycle, risk audit, indexer, Redis admission, or signer boundary must still specify atomic ownership, crash recovery, replay, reconciliation, and fail-closed production fault tests.
 
 ## Alternatives Considered
 

@@ -12,6 +12,7 @@ import {
   dailyLossRuntimeEnvName,
   usdReferenceRuntimeEnvName,
 } from "./helpers/usd-reference-runtime-fixtures.mjs";
+import { unusedTreasuryLiquidityProvider } from "./helpers/runtime-dependency-fixtures.mjs";
 
 test("non-local RFQ API startup requires durable PostgreSQL persistence", async () => {
   const original = saveEnv([
@@ -47,6 +48,7 @@ test("non-local RFQ API startup requires durable PostgreSQL persistence", async 
       quoteExposureStore: unusedQuoteExposureStore(),
       rateLimiter: allowAllRateLimiter(),
       signerService: localTestSignerService(),
+      treasuryLiquidityProvider: unusedTreasuryLiquidityProvider(),
     });
     await server.ready();
     await server.close();

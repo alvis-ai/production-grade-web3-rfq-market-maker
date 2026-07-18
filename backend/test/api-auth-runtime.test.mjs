@@ -14,6 +14,7 @@ import {
   dailyLossRuntimeEnvName,
   usdReferenceRuntimeEnvName,
 } from "./helpers/usd-reference-runtime-fixtures.mjs";
+import { unusedTreasuryLiquidityProvider } from "./helpers/runtime-dependency-fixtures.mjs";
 
 const secret = "0123456789abcdefghijklmnopqrstuvwxyz_ABCD";
 const apiKey = `client_primary.${secret}`;
@@ -135,6 +136,7 @@ test("non-local RFQ API requires API key auth configuration or an injected authe
       rateLimiter: allowAllRateLimiter(),
       quoteExposureStore: unusedQuoteExposureStore(),
       signerService: localTestSignerService(),
+      treasuryLiquidityProvider: unusedTreasuryLiquidityProvider(),
     };
     assert.throws(() => buildServer(options), /RFQ_API_KEY_CONFIG_JSON is required when NODE_ENV=production/);
     assert.throws(

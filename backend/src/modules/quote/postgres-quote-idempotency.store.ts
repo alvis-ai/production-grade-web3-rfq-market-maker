@@ -55,8 +55,8 @@ export class PostgresQuoteIdempotencyStore implements QuoteIdempotencyStore {
     assertQuoteIdempotencyReservation(candidate);
 
     const client = await this.pool.connect();
+    let transactionStarted = false;
     try {
-      await client.query("BEGIN");
       const inserted = await client.query(
         `INSERT INTO quote_idempotency_requests (
            principal_id, idempotency_key, request_hash, state, owner_token,
@@ -70,10 +70,11 @@ export class PostgresQuoteIdempotencyStore implements QuoteIdempotencyStore {
         [principalId, key, requestHash, ownerToken, this.config.leaseMs],
       );
       if (inserted.rows.length === 1) {
-        await client.query("COMMIT");
         return { status: "acquired", reservation: reservationFromRow(inserted.rows[0]) };
       }
 
+      await client.query("BEGIN");
+      transactionStarted = true;
       const existing = await client.query(
         `SELECT principal_id, idempotency_key, request_hash, state, owner_token,
                 lease_expires_at, quote_id, response, error_code, error_message, error_status_code,
@@ -140,7 +141,7 @@ export class PostgresQuoteIdempotencyStore implements QuoteIdempotencyStore {
       await client.query("COMMIT");
       return { status: "acquired", reservation: reservationFromRow(reclaimed.rows[0]) };
     } catch (error) {
-      await rollbackBestEffort(client);
+      if (transactionStarted) await rollbackBestEffort(client);
       throw error;
     } finally {
       client.release();

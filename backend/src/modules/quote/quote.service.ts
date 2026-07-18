@@ -146,21 +146,16 @@ export class QuoteService {
   ): Promise<QuoteResponse> {
     const snapshot = await this.getUsableSnapshot(validatedRequest);
     const snapshotSource = getMarketDataSnapshotSource(snapshot);
-    await this.saveMarketSnapshot({
-      request: validatedRequest,
-      snapshot,
-      ...(snapshotSource ? { source: snapshotSource } : {}),
-    });
-
     const identity = this.identityGenerator.next();
     const quoteId = identity.quoteId;
-    if (idempotency) {
-      try {
-        await this.deps.quoteIdempotencyStore?.bindQuote(idempotency, quoteId);
-      } catch {
-        throw new APIError("QUOTE_STORE_UNAVAILABLE", "Quote idempotency binding unavailable", 503);
-      }
-    }
+    await Promise.all([
+      this.saveMarketSnapshot({
+        request: validatedRequest,
+        snapshot,
+        ...(snapshotSource ? { source: snapshotSource } : {}),
+      }),
+      this.bindIdempotencyQuote(idempotency, quoteId),
+    ]);
     await this.saveRequestedQuote({
       quoteId,
       principalId: access.principalId,
@@ -177,26 +172,27 @@ export class QuoteService {
     let inventorySkewBps: number;
     let hedgeCostBps: number;
     try {
-      const inventorySkewResult = await this.deps.inventoryService.calculateQuoteSkewBps({
-        chainId: validatedRequest.chainId,
-        token: validatedRequest.tokenOut,
-      });
+      const [inventorySkewResult, pairPenalties] = await Promise.all([
+        this.deps.inventoryService.calculateQuoteSkewBps({
+          chainId: validatedRequest.chainId,
+          token: validatedRequest.tokenOut,
+        }),
+        this.deps.hedgeService?.quoteRiskPenaltyBps
+          ? Promise.all([
+              this.deps.hedgeService.quoteRiskPenaltyBps({
+                chainId: validatedRequest.chainId,
+                token: validatedRequest.tokenIn,
+              }),
+              this.deps.hedgeService.quoteRiskPenaltyBps({
+                chainId: validatedRequest.chainId,
+                token: validatedRequest.tokenOut,
+              }),
+            ])
+          : Promise.resolve([]),
+      ]);
       assertInventorySkewBps(inventorySkewResult);
-      let hedgeRiskPenaltyResult = 0;
-      if (this.deps.hedgeService?.quoteRiskPenaltyBps) {
-        const pairPenalties = await Promise.all([
-          this.deps.hedgeService.quoteRiskPenaltyBps({
-            chainId: validatedRequest.chainId,
-            token: validatedRequest.tokenIn,
-          }),
-          this.deps.hedgeService.quoteRiskPenaltyBps({
-            chainId: validatedRequest.chainId,
-            token: validatedRequest.tokenOut,
-          }),
-        ]);
-        pairPenalties.forEach(assertHedgeRiskPenaltyBps);
-        hedgeRiskPenaltyResult = Math.max(...pairPenalties);
-      }
+      pairPenalties.forEach(assertHedgeRiskPenaltyBps);
+      const hedgeRiskPenaltyResult = pairPenalties.length === 0 ? 0 : Math.max(...pairPenalties);
       inventorySkewBps = inventorySkewResult;
       hedgeCostBps = hedgeRiskPenaltyResult;
       assertPricingAdjustmentBps(inventorySkewBps + hedgeCostBps);
@@ -398,6 +394,18 @@ export class QuoteService {
       await this.deps.quoteRepository.saveRequested(input);
     } catch (error) {
       throw quoteStoreFailure(error);
+    }
+  }
+
+  private async bindIdempotencyQuote(
+    reservation: QuoteIdempotencyReservation | undefined,
+    quoteId: string,
+  ): Promise<void> {
+    if (!reservation) return;
+    try {
+      await this.deps.quoteIdempotencyStore?.bindQuote(reservation, quoteId);
+    } catch {
+      throw new APIError("QUOTE_STORE_UNAVAILABLE", "Quote idempotency binding unavailable", 503);
     }
   }
 

@@ -37,6 +37,7 @@ test("PostgresQuoteIdempotencyStore claims, binds, and completes with owner cond
   await store.complete(claim.reservation, response);
 
   const queries = clients.flatMap((client) => client.queries);
+  assert.equal(queries.some(({ sql }) => sql === "BEGIN" || sql === "COMMIT"), false);
   const insert = queries.find(({ sql }) => sql.startsWith("INSERT INTO quote_idempotency_requests"));
   assert.match(insert.sql, /ON CONFLICT \(principal_id, idempotency_key\) DO NOTHING/);
   assert.deepEqual(insert.params, ["principal_1", "quote_request_pg_0001", hash, "quote_idem_owner_1", 60_000]);
@@ -85,6 +86,8 @@ test("PostgresQuoteIdempotencyStore recovers a bound signed quote after lease ex
     response,
   });
   const queries = clients[0].queries;
+  assert.equal(queries[0].sql.startsWith("INSERT INTO quote_idempotency_requests"), true);
+  assert.equal(queries[1].sql, "BEGIN");
   assert.match(queries.find(({ sql }) => sql.startsWith("SELECT principal_id")).sql, /FOR UPDATE/);
   assert.match(queries.find(({ sql }) => sql.includes("SET state = 'succeeded'")).sql, /state = 'processing'/);
   assert.equal(queries.at(-1).sql, "COMMIT");

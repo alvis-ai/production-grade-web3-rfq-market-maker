@@ -163,8 +163,8 @@ test("PostgresQuoteRepository rejects rejected quote payload rewrites", async ()
 
 test("PostgresQuoteRepository rejects signed quote payload rewrites", async () => {
   const { pool } = fakePool([
-    { rowCount: 1, rows: [signedQuoteRow()] },
     { rowCount: 0, rows: [] },
+    { rowCount: 1, rows: [signedQuoteRow()] },
   ]);
   const repository = new PostgresQuoteRepository(pool);
 
@@ -178,6 +178,33 @@ test("PostgresQuoteRepository rejects signed quote payload rewrites", async () =
     }),
     /Signed quote payload cannot be changed/,
   );
+});
+
+test("PostgresQuoteRepository saves the common signed transition with one identity-bound upsert", async () => {
+  const fixture = fakePool([{ rowCount: 1, rows: [] }]);
+  const repository = new PostgresQuoteRepository(fixture.pool);
+
+  await repository.saveSigned(signedInput());
+
+  assert.equal(fixture.connectCount, 1);
+  assert.equal(fixture.client.queries.length, 1);
+  assert.match(fixture.client.queries[0].sql, /ON CONFLICT \(id\) DO UPDATE/);
+  assert.match(fixture.client.queries[0].sql, /quotes\.chain_id = EXCLUDED\.chain_id/);
+  assert.match(fixture.client.queries[0].sql, /quotes\.amount_in = EXCLUDED\.amount_in/);
+  assert.match(fixture.client.queries[0].sql, /quotes\.snapshot_id = EXCLUDED\.snapshot_id/);
+});
+
+test("PostgresQuoteRepository maps the nonce unique index conflict without a preflight query", async () => {
+  const fixture = fakePool([() => {
+    throw Object.assign(new Error("duplicate key"), {
+      code: "23505",
+      constraint: "uq_quotes_chain_user_nonce",
+    });
+  }]);
+  const repository = new PostgresQuoteRepository(fixture.pool);
+
+  await assert.rejects(repository.saveSigned(signedInput()), /Signed quote nonce key already exists/);
+  assert.equal(fixture.client.queries.length, 1);
 });
 
 test("PostgresQuoteRepository rejects malformed status metadata before SQL", async () => {

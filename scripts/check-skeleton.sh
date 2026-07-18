@@ -499,7 +499,9 @@ grep -q 'observedAt: "2026-06-29"' backend/test/market-data-validation.test.mjs
 grep -q 'observedAt: "June 29, 2026"' backend/test/market-data-validation.test.mjs
 grep -q 'observedAt: "2026-02-31T00:00:00.000Z"' backend/test/market-data-validation.test.mjs
 grep -q 'marketSnapshotStore: MarketSnapshotStore' $quote_service_sources
-grep -q 'await this.saveMarketSnapshot' $quote_service_sources
+grep -q 'await Promise.all' $quote_service_sources
+grep -q 'this.saveMarketSnapshot' $quote_service_sources
+grep -q 'this.bindIdempotencyQuote' $quote_service_sources
 grep -q 'marketSnapshotStoreStatus' backend/src/modules/health/readiness.service.ts
 grep -q 'marketSnapshotStore' backend/src/modules/metrics/metrics-contract.ts
 grep -q 'getMarketSnapshotIssue' backend/src/modules/market-data/market-data.service.ts

@@ -13,6 +13,7 @@ import {
   dailyLossRuntimeEnvName,
   usdReferenceRuntimeEnvName,
 } from "./helpers/usd-reference-runtime-fixtures.mjs";
+import { unusedTreasuryLiquidityProvider } from "./helpers/runtime-dependency-fixtures.mjs";
 
 const quoteRequest = {
   chainId: 1,
@@ -212,6 +213,7 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
         databasePool: fakeDatabasePool(),
         marketDataService: { async getSnapshot() { throw new Error("unused market data"); } },
         signerService: localTestSignerService(),
+        treasuryLiquidityProvider: unusedTreasuryLiquidityProvider(),
       }),
       /must use rediss:\/\//,
     );
@@ -224,6 +226,7 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
       marketDataService: { async getSnapshot() { throw new Error("unused market data"); } },
       quoteExposureStore: unusedQuoteExposureStore(),
       signerService: localTestSignerService(),
+      treasuryLiquidityProvider: unusedTreasuryLiquidityProvider(),
     });
     await server.ready();
     await server.close();

@@ -217,30 +217,10 @@ export class PostgresQuoteRepository implements QuoteRepository {
 
     const client = await this.pool.connect();
     try {
-      const existing = await findQuoteRecordById(client, quoteId);
-
-      // Check nonce uniqueness
-      const nonceCheck = await client.query(
-        `SELECT id FROM quotes WHERE chain_id = $1 AND lower(user_address) = $2 AND nonce = $3 AND id != $4 AND nonce IS NOT NULL`,
-        [chainId, user, nonce, quoteId],
-      );
-      if (nonceCheck.rowCount && nonceCheck.rowCount > 0) {
-        throw new Error(`Signed quote nonce key already exists for ${nonceCheck.rows[0].id}`);
-      }
-
-      if (existing) {
-        if (existing.nonce && !isSameSignedQuoteIdentity(existing, quote)) {
-          throw new Error(`Signed quote identity cannot be changed for ${quoteId}`);
-        }
-        assertCanSaveSignedQuote(existing, input);
-        if (existing.status === "signed") {
-          return;
-        }
-      }
-
-      // Upsert: INSERT or UPDATE from requested
-      const result = await client.query(
-        `INSERT INTO quotes (id, principal_id, chain_id, user_address, token_in, token_out, amount_in,
+      let result: pg.QueryResult;
+      try {
+        result = await client.query(
+          `INSERT INTO quotes (id, principal_id, chain_id, user_address, token_in, token_out, amount_in,
           slippage_bps, amount_out, min_amount_out, nonce, deadline, snapshot_id,
           pricing_version, spread_bps, size_impact_bps, market_spread_bps, inventory_skew_bps,
           volatility_premium_bps, hedge_cost_bps, risk_policy_version,
@@ -272,16 +252,28 @@ export class PostgresQuoteRepository implements QuoteRepository {
            updated_at = now()
          WHERE quotes.status = 'requested'
            AND quotes.principal_id = EXCLUDED.principal_id
-        `,
-        [
-          quoteId, input.principalId, chainId, user, tokenIn, tokenOut, amountIn,
-          input.slippageBps, amountOut, minAmountOut, nonce, deadline,
-          input.snapshotId, input.pricingVersion, input.spreadBps,
-          input.sizeImpactBps, input.marketSpreadBps, input.inventorySkewBps,
-          input.volatilityPremiumBps, input.hedgeCostBps,
-          input.riskPolicyVersion, input.signature,
-        ],
-      );
+           AND quotes.chain_id = EXCLUDED.chain_id
+           AND lower(quotes.user_address) = lower(EXCLUDED.user_address)
+           AND lower(quotes.token_in) = lower(EXCLUDED.token_in)
+           AND lower(quotes.token_out) = lower(EXCLUDED.token_out)
+           AND quotes.amount_in = EXCLUDED.amount_in
+           AND quotes.slippage_bps = EXCLUDED.slippage_bps
+           AND quotes.snapshot_id = EXCLUDED.snapshot_id`,
+          [
+            quoteId, input.principalId, chainId, user, tokenIn, tokenOut, amountIn,
+            input.slippageBps, amountOut, minAmountOut, nonce, deadline,
+            input.snapshotId, input.pricingVersion, input.spreadBps,
+            input.sizeImpactBps, input.marketSpreadBps, input.inventorySkewBps,
+            input.volatilityPremiumBps, input.hedgeCostBps,
+            input.riskPolicyVersion, input.signature,
+          ],
+        );
+      } catch (error) {
+        if (isQuoteNonceConflict(error)) {
+          throw new Error(`Signed quote nonce key already exists for ${chainId}:${user}:${nonce}`);
+        }
+        throw error;
+      }
       if (result.rowCount === 0) {
         const current = await findQuoteRecordById(client, quoteId);
         if (!current) {
@@ -587,4 +579,10 @@ export class PostgresQuoteRepository implements QuoteRepository {
 
     return this.findSignedQuoteByQuoteId(quoteId, principalId);
   }
+}
+
+function isQuoteNonceConflict(value: unknown): boolean {
+  return typeof value === "object" && value !== null &&
+    (value as { code?: unknown }).code === "23505" &&
+    (value as { constraint?: unknown }).constraint === "uq_quotes_chain_user_nonce";
 }

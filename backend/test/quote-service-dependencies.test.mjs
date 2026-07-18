@@ -5,6 +5,7 @@ import { StaticMarketDataService } from "../dist/modules/market-data/market-data
 import { InMemoryMarketSnapshotRepository } from "../dist/modules/market-data/market-snapshot.repository.js";
 import { FormulaPricingEngine } from "../dist/modules/pricing/pricing.engine.js";
 import { InMemoryQuoteRepository } from "../dist/modules/quote/quote.repository.js";
+import { InMemoryQuoteIdempotencyStore } from "../dist/modules/quote/quote-idempotency.store.js";
 import { QuoteService } from "../dist/modules/quote/quote.service.js";
 import { InMemoryRiskDecisionRepository } from "../dist/modules/risk/risk-decision.repository.js";
 import { BasicRiskEngine } from "../dist/modules/risk/risk.engine.js";
@@ -140,6 +141,66 @@ test("QuoteService rejects malformed inventory and hedge pricing adjustments bef
   }
 });
 
+test("QuoteService overlaps snapshot persistence with idempotency binding", async () => {
+  const marketSnapshotStore = new InMemoryMarketSnapshotRepository();
+  const saveSnapshot = marketSnapshotStore.saveSnapshot.bind(marketSnapshotStore);
+  const idempotency = new InMemoryQuoteIdempotencyStore();
+  const bindQuote = idempotency.bindQuote.bind(idempotency);
+  const gate = deferred();
+  const started = new Set();
+  marketSnapshotStore.saveSnapshot = async (input) => {
+    started.add("snapshot");
+    await gate.promise;
+    return saveSnapshot(input);
+  };
+  idempotency.bindQuote = async (reservation, quoteId) => {
+    started.add("idempotency");
+    await gate.promise;
+    return bindQuote(reservation, quoteId);
+  };
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    marketSnapshotStore,
+    quoteIdempotencyStore: idempotency,
+  });
+
+  const pending = service.createQuote(request, {
+    principalId: "principal_parallel",
+    idempotencyKey: "quote_parallel_dependencies_0001",
+  });
+  await waitFor(() => started.size === 2);
+  gate.resolve();
+  assert.match((await pending).quoteId, /^q_/);
+});
+
+test("QuoteService evaluates inventory skew and both hedge penalties concurrently", async () => {
+  const inventory = new InventoryService();
+  const calculateQuoteSkewBps = inventory.calculateQuoteSkewBps.bind(inventory);
+  const gate = deferred();
+  let started = 0;
+  inventory.calculateQuoteSkewBps = async (input) => {
+    started += 1;
+    await gate.promise;
+    return calculateQuoteSkewBps(input);
+  };
+  const service = new QuoteService({
+    ...quoteServiceDeps(),
+    inventoryService: inventory,
+    hedgeService: {
+      async quoteRiskPenaltyBps() {
+        started += 1;
+        await gate.promise;
+        return 0;
+      },
+    },
+  });
+
+  const pending = service.createQuote(request);
+  await waitFor(() => started === 3);
+  gate.resolve();
+  assert.match((await pending).quoteId, /^q_/);
+});
+
 function fixedSignature() {
   return `0x${"11".repeat(64)}1b`;
 }
@@ -163,4 +224,18 @@ function quoteServiceDeps() {
       },
     },
   };
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+async function waitFor(predicate) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  throw new Error("Timed out waiting for concurrent quote dependencies");
 }

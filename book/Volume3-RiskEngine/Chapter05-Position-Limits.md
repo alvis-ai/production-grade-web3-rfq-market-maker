@@ -105,7 +105,7 @@ stateDiagram-v2
 
 单笔门禁通过后，Quote Service 在 Signer 之前预留活动签名报价敞口。生产 `redis-stream` runtime 以 quoteId 为幂等键，把 USD-reference 一侧按可信 decimals 转成 18 位 USD 定点数；两侧均为 USD reference 时取较大值，超过 18 decimals 的极小余数向上取整，避免低估。用户作用域为 `(chainId, user)`，交易对作用域使用排序后的 `(chainId, tokenLow, tokenHigh)`，因此反向报价不能绕过 pair limit。一个有界 chain-scoped lease 包围 hot inventory、valuation snapshot 与 Redis 活动 delta 的 read-evaluate-commit；Lua 使用 decimal string 精确检查并原子更新 user、pair、Treasury-output、VaR/Delta 聚合，同时追加版本化 Stream event。reservation 保留到签名 deadline 之后的同步 grace，覆盖库存刷新与刚结算 quote 的交接窗口。Stream consumer 把活动状态镜像到 `quote_exposure_reservations` 查询投影，并把原始事件保留在 append-only audit 表；生产准入不读取该投影。签名、审计或 signed quote 持久化失败会 best-effort 显式 release；进程崩溃时仍由 deadline 自动释放容量。PostgreSQL 的 advisory-lock 实现仅用于本地兼容、语义对照和显式回滚，不得在 Redis 故障时由单个 pod 自动启用。
 
-名义限额之外，生产 runtime 使用 `RFQ_RECEIPT_CONFIG_JSON` 的链 RPC 在同一 block 读取 `RFQSettlement.treasury()` 与 `tokenOut.balanceOf(treasury)`。reservation 把方向性的 `tokenOut/amountOut` 和链上观察证据写入 Redis，并在同一个 chain lease 与 Lua commit 中检查 `(chainId, tokenOut)` 聚合。所有仍在 ledger deadline 内的 quote 输出数量都参与流动性限额，包括为同步 grace 保守保留的 reservation。若 `reserved + candidate > observedBalance`，记录 `TREASURY_LIQUIDITY_INSUFFICIENT` 并在 Signer 前拒绝。RPC 不可用、treasury 地址畸形、balance 非 uint256、Redis durability 不健康或 PostgreSQL mirror gate 失败都按 risk unavailable fail closed。
+名义限额之外，生产 runtime 使用 `RFQ_RECEIPT_CONFIG_JSON` 的链 RPC 在启动预热和后台刷新中读取 `RFQSettlement.treasury()` 与每个 managed token 的 `balanceOf(treasury)`；每个 target 的 Treasury 与余额来自同一 block。只有全量 chain/token target 均通过 chain identity、地址、uint256 和请求匹配校验时，新的 immutable generation 才会一次性发布。请求路径只读取该进程内 hot view，并把方向性的 `tokenOut/amountOut` 和链上观察证据交给 Redis，在同一个 chain lease 与 Lua commit 中检查 `(chainId, tokenOut)` 聚合。所有仍在 ledger deadline 内的 quote 输出数量都参与流动性限额，包括为同步 grace 保守保留的 reservation。若 `reserved + candidate > observedBalance`，记录 `TREASURY_LIQUIDITY_INSUFFICIENT` 并在 Signer 前拒绝。hot view 未预热、过期、覆盖不全，或 RPC、Redis durability、PostgreSQL mirror gate 不健康时都按 risk unavailable fail closed；请求不得同步回源 RPC 或查询 PostgreSQL 作为降级。
 
 组合 position limit 由 `portfolioDelta` 表达。Risk Engine 在同一个 chain lease 内复用 VaR valuation components，先按 `(chainId, tokenAddress)` 检查 absolute USD delta，再计算 pre/post gross USD delta 与 signed net USD delta。任一 asset/gross/net soft limit 被严格超过时 reservation 仍可接受，但 ledger event 持久化 component/aggregate `softLimitBreached` 并触发告警；任一 hard limit 被严格超过时返回 `PORTFOLIO_DELTA_LIMIT_EXCEEDED`，Lua commit 不会发生且 Signer 不可见该 quote。精确等于阈值不算越界。USD-reference token 作为现金腿不进入 delta component，仍由 open notional 与 Treasury liquidity 两层约束保护。
 
@@ -139,7 +139,7 @@ stateDiagram-v2
 
 ## Performance Considerations
 
-Active policy、inventory 与 valuation snapshots 应在请求外刷新，并带版本、观测时间和失效机制。生产准入不查询 PostgreSQL；Redis chain lease 当前会串行化同链 reservation，因此必须跟踪 lock-wait 与 mutation latency。实测证明移除 PostgreSQL SUM/lock 后仍未达到 `p50 < 10 ms`：远程签名、同步 lifecycle/risk audit、Treasury RPC 与租约竞争仍需继续拆解。
+Active policy、inventory、valuation snapshots 与 Treasury balances 应在请求外刷新，并带版本、观测时间、全量覆盖和失效机制。生产准入不查询 PostgreSQL，也不在请求中回源 Treasury RPC；Redis chain lease 当前仍会串行化同链 reservation，因此必须跟踪 lock-wait 与 mutation latency。实测证明移除 PostgreSQL SUM/lock、Treasury request-time RPC 并减少常见写路径往返后仍未达到 `p50 < 10 ms`：远程签名、同步 lifecycle/risk audit 与租约竞争仍需继续拆解。
 
 ## Testing Strategy
 
