@@ -20,7 +20,7 @@ RUN --mount=type=cache,id=rfq-frontend-corepack,target=/root/.cache \
   && pnpm install --filter @rfq-market-maker/frontend... --frozen-lockfile \
   && pnpm --filter @rfq-market-maker/frontend build
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 RUN rm -f /etc/nginx/conf.d/default.conf
 COPY infra/docker/nginx.conf /etc/nginx/nginx.conf
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
