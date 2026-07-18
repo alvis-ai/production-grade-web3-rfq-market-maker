@@ -124,6 +124,9 @@ assertContains("backend/src/modules/signer/remote-signer.service.ts", [
   "cancelResponseBody",
   "requestBoundedJson",
   "maxResponseBytes = 1_024",
+  "PooledSignerTransport",
+  "maxTotalSockets: maxConnections",
+  "response.destroy()",
   "verifyQuoteSignature(input.quote, signature",
   "SIGNER_UNAVAILABLE",
   "assertAuthorizedSignQuoteInput",
@@ -140,6 +143,8 @@ assertContains("backend/test/remote-signer.test.mjs", [
   "cancels oversized response streams before complete buffering",
   "keeps stalled response bodies inside the request timeout",
   "cancels unused sign and readiness error bodies",
+  "default transport reuses a bounded keep-alive connection",
+  "default transport bounds stalled and oversized responses",
 ]);
 assertContains("backend/src/modules/signer/signer-server.ts", [
   'server.post("/internal/sign"',
@@ -281,6 +286,7 @@ assertContains("docker-compose.yml", [
   "RFQ_SIGNER_MODE: local",
   "RFQ_SIGNER_MODE: remote",
   "RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP",
+  "RFQ_SIGNER_SERVICE_MAX_CONNECTIONS",
   'RFQ_SIGNER_PRIVATE_KEY: "0x',
   'RFQ_TRUSTED_SIGNER_ADDRESS: "0x',
   'RFQ_SETTLEMENT_ADDRESS: "0x',
@@ -288,6 +294,7 @@ assertContains("docker-compose.yml", [
 assertContains("infra/k8s/configmap.yaml", [
   "RFQ_SIGNER_MODE: remote",
   "RFQ_SIGNER_SERVICE_URL: https://rfq-signer.rfq-market-maker.svc.cluster.local:3006",
+  'RFQ_SIGNER_SERVICE_MAX_CONNECTIONS: "32"',
 ]);
 assertContains("infra/k8s/backend-secret.yaml", [
   "RFQ_SIGNER_SERVICE_TOKEN:",
@@ -398,7 +405,10 @@ assertContains("docs/security/audit-checklist.md", [
   "target-workload AWS KMS canary",
   "1 KiB streaming pre-decode cap",
 ]);
-assertContains("README.md", ["response streaming and JSON decoding inside `RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS`"]);
+assertContains("README.md", [
+  "response streaming and JSON decoding inside `RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS`",
+  "`RFQ_SIGNER_SERVICE_MAX_CONNECTIONS`",
+]);
 
 console.log("KMS signer consistency check passed: explicit trust root and workload identity");
 

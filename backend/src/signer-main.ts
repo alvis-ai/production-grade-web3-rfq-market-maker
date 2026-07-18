@@ -47,6 +47,7 @@ export function readSignerProcessConfig(
     delete signerEnv.RFQ_SIGNER_SERVICE_URL;
     delete signerEnv.RFQ_SIGNER_SERVICE_TOKEN;
     delete signerEnv.RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS;
+    delete signerEnv.RFQ_SIGNER_SERVICE_MAX_CONNECTIONS;
     delete signerEnv.RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP;
   }
   const signer = readSignerRuntimeConfig(signerEnv);

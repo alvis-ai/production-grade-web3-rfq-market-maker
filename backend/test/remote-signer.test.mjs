@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { once } from "node:events";
+import { createServer as createHttpServer } from "node:http";
 import test from "node:test";
 import { privateKeyToAccount } from "viem/accounts";
 import { LocalEIP712SignerService } from "../dist/modules/signer/signer.service.js";
@@ -13,6 +15,7 @@ const config = {
   allowInsecureHttp: false,
   authToken,
   requestTimeoutMs: 1000,
+  maxConnections: 8,
   settlementAddress,
   trustedSignerAddress,
 };
@@ -140,6 +143,7 @@ test("RemoteSignerService rejects unsafe transport and credential configuration"
   assert.throws(() => new RemoteSignerService({ ...config, baseUrl: "https://user@signer.example.com" }), /HTTPS origin/);
   assert.throws(() => new RemoteSignerService({ ...config, authToken: "short" }), /authToken/);
   assert.throws(() => new RemoteSignerService({ ...config, requestTimeoutMs: 99 }), /requestTimeoutMs/);
+  assert.throws(() => new RemoteSignerService({ ...config, maxConnections: 0 }), /maxConnections/);
   assert.throws(() => new RemoteSignerService({ ...config, unexpected: true }), /fields are invalid/);
 });
 
@@ -155,6 +159,81 @@ test("RemoteSignerService probes the isolated signer readiness without requestin
 
   const degraded = new RemoteSignerService(config, async () => jsonResponse({ status: "degraded" }, 503));
   await assert.rejects(degraded.checkHealth(), (error) => error?.code === "SIGNER_UNAVAILABLE");
+});
+
+test("RemoteSignerService default transport reuses a bounded keep-alive connection", async () => {
+  const local = new LocalEIP712SignerService({ privateKey, settlementAddress });
+  let connections = 0;
+  const sockets = new Set();
+  const server = createHttpServer(async (request, response) => {
+    const body = await readRequestBody(request);
+    assert.equal(request.headers.authorization, `Bearer ${authToken}`);
+    assert.equal(Number(request.headers["content-length"]), Buffer.byteLength(body));
+    const payload = JSON.parse(body);
+    const signature = await local.signQuote(payload);
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ signature }));
+  });
+  server.on("connection", (socket) => {
+    connections += 1;
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+  const baseUrl = await listen(server);
+  const remote = new RemoteSignerService({
+    ...config,
+    baseUrl,
+    allowInsecureHttp: true,
+    maxConnections: 1,
+  });
+  try {
+    await remote.signQuote(input);
+    await remote.signQuote({
+      ...input,
+      quoteId: "q_remote_replay",
+      snapshotId: "snapshot_remote_replay",
+      riskDecisionId: "rd_q_remote_replay",
+      traceId: "tr_remote_replay",
+    });
+    assert.equal(connections, 1);
+  } finally {
+    remote.close();
+    await waitFor(() => sockets.size === 0);
+    server.close();
+    await once(server, "close");
+  }
+});
+
+test("RemoteSignerService default transport bounds stalled and oversized responses", async () => {
+  let mode = "stall";
+  const server = createHttpServer((_request, response) => {
+    response.writeHead(200, { "content-type": "application/json" });
+    if (mode === "oversized") response.end("x".repeat(1_025));
+  });
+  const baseUrl = await listen(server);
+  const remote = new RemoteSignerService({
+    ...config,
+    baseUrl,
+    allowInsecureHttp: true,
+    requestTimeoutMs: 100,
+    maxConnections: 1,
+  });
+  try {
+    await assert.rejects(
+      remote.signQuote(input),
+      (error) => error?.code === "SIGNER_UNAVAILABLE" && error?.statusCode === 503,
+    );
+    mode = "oversized";
+    await assert.rejects(
+      remote.signQuote(input),
+      (error) => error?.code === "SIGNER_UNAVAILABLE" && error?.statusCode === 503,
+    );
+  } finally {
+    remote.close();
+    server.closeAllConnections();
+    server.close();
+    await once(server, "close");
+  }
 });
 
 function jsonResponse(body, status = 200) {
@@ -183,4 +262,26 @@ function stallingJsonResponse(signal) {
 async function settle() {
   await new Promise((resolve) => setImmediate(resolve));
   await new Promise((resolve) => setImmediate(resolve));
+}
+
+async function listen(server) {
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  assert.equal(typeof address, "object");
+  return `http://127.0.0.1:${address.port}`;
+}
+
+async function readRequestBody(request) {
+  const chunks = [];
+  for await (const chunk of request) chunks.push(chunk);
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+async function waitFor(predicate) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.fail("condition did not become true");
 }

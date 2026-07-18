@@ -64,6 +64,7 @@ test("remote signer mode isolates KMS material behind a bounded authenticated or
     RFQ_SIGNER_SERVICE_URL: "https://rfq-signer.example.internal",
     RFQ_SIGNER_SERVICE_TOKEN: "a".repeat(43),
     RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS: "2500",
+    RFQ_SIGNER_SERVICE_MAX_CONNECTIONS: "24",
   };
   assert.deepEqual(readSignerRuntimeConfig(remote), {
     mode: "remote",
@@ -74,6 +75,7 @@ test("remote signer mode isolates KMS material behind a bounded authenticated or
     allowInsecureHttp: false,
     authToken: "a".repeat(43),
     requestTimeoutMs: 2500,
+    maxConnections: 24,
   });
   assert.throws(
     () => readSignerRuntimeConfig({ ...remote, RFQ_SIGNER_SERVICE_URL: "http://rfq-signer.example.internal" }),
@@ -92,6 +94,10 @@ test("remote signer mode isolates KMS material behind a bounded authenticated or
   assert.throws(
     () => readSignerRuntimeConfig({ ...remote, RFQ_SIGNER_SERVICE_TOKEN: "short" }),
     /RFQ_SIGNER_SERVICE_TOKEN/,
+  );
+  assert.throws(
+    () => readSignerRuntimeConfig({ ...remote, RFQ_SIGNER_SERVICE_MAX_CONNECTIONS: "257" }),
+    /RFQ_SIGNER_SERVICE_MAX_CONNECTIONS/,
   );
   assert.throws(
     () => readSignerRuntimeConfig({ ...remote, RFQ_AWS_KMS_KEY_ID: "alias/conflict" }),
