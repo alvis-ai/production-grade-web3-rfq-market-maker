@@ -28,6 +28,7 @@ export interface KmsSignerConfig {
 }
 
 export class KmsSignerService implements SignerService {
+  readonly signaturesSelfVerified = true as const;
   private readonly keyId: string;
   private readonly signDigest: (digest: Uint8Array) => Promise<Uint8Array>;
   private readonly closeProvider?: () => void | Promise<void>;

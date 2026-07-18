@@ -133,6 +133,46 @@ test("signer server returns a closed unavailable response for signing failures",
   await server.close();
 });
 
+test("signer server skips only explicitly self-verified signer recovery", async () => {
+  const local = new LocalEIP712SignerService({ privateKey, settlementAddress });
+  let ordinaryVerifications = 0;
+  const ordinary = createServer({
+    async signQuote(input) { return local.signQuote(input); },
+    async verifyQuoteSignature() { ordinaryVerifications += 1; return false; },
+  });
+  const rejected = await ordinary.inject({
+    method: "POST",
+    url: "/internal/sign",
+    headers: { authorization: `Bearer ${authToken}` },
+    payload: signInput(),
+  });
+  assert.equal(rejected.statusCode, 503);
+  assert.equal(ordinaryVerifications, 1);
+  await ordinary.close();
+
+  let fastVerifications = 0;
+  const selfVerified = createServer({
+    signaturesSelfVerified: true,
+    async signQuote(input) { return local.signQuote(input); },
+    async verifyQuoteSignature() { fastVerifications += 1; return false; },
+  });
+  const accepted = await selfVerified.inject({
+    method: "POST",
+    url: "/internal/sign",
+    headers: { authorization: `Bearer ${authToken}` },
+    payload: signInput(),
+  });
+  assert.equal(accepted.statusCode, 200);
+  assert.equal(fastVerifications, 0);
+  await selfVerified.close();
+
+  assert.throws(() => createServer({
+    signaturesSelfVerified: false,
+    async signQuote(input) { return local.signQuote(input); },
+    async verifyQuoteSignature() { return true; },
+  }), /signaturesSelfVerified capability is invalid/);
+});
+
 test("signer server does not return a signature when durable audit fails", async () => {
   const server = createServer(undefined, {
     async append() { throw new Error("sensitive database detail"); },

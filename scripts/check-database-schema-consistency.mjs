@@ -131,6 +131,14 @@ const quoteRouteSelectionSource = await readFile(
   "backend/src/modules/quote/quote-route-selection.ts",
   "utf8",
 );
+const quoteAuthorizationSource = await readFile(
+  "backend/src/modules/quote/quote-authorization.ts",
+  "utf8",
+);
+const postgresQuoteIssuanceSource = await readFile(
+  "backend/src/modules/quote/postgres-quote-issuance.store.ts",
+  "utf8",
+);
 const routingEngineSource = await readFile("backend/src/modules/routing/routing.engine.ts", "utf8");
 const riskEngineSource = await readFile("backend/src/modules/risk/risk.engine.ts", "utf8");
 const riskDecisionRepositorySource = await readFile(
@@ -924,9 +932,13 @@ assert.ok(
   "Postgres quote persistence must atomically set an unset route decision",
 );
 assert.ok(
-  /routePlan\s*=\s*await\s+selectAndPersistQuoteRoute\s*\([\s\S]*?let\s+inventorySkewBps/i.test(quoteServiceSource) &&
-    /await\s+deps\.quoteRepository\.saveRouteDecision\s*\(/i.test(quoteRouteSelectionSource),
-  "QuoteService must persist route attribution before pricing dependencies run",
+  quoteServiceSource.indexOf(": await selectAndPersistQuoteRoute") <
+      quoteServiceSource.indexOf("let inventorySkewBps") &&
+    /await\s+deps\.quoteRepository\.saveRouteDecision\s*\(/i.test(quoteRouteSelectionSource) &&
+    /snapshot_id, route_id, route_venue, route_expected_liquidity_usd/i.test(postgresQuoteIssuanceSource) &&
+    quoteAuthorizationSource.indexOf("quoteIssuanceStore.prepare") <
+      quoteAuthorizationSource.indexOf("quoteExposureStore.reserve"),
+  "QuoteService must persist route attribution before exposure authorization or signer access",
 );
 assert.ok(
   (routingEngineSource.match(/\.slice\(2\)\.toLowerCase\(\)/g) ?? []).length >= 2 &&

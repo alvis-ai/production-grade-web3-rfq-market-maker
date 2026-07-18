@@ -37,6 +37,7 @@ const authTokenPattern = /^[A-Za-z0-9._~-]{43,256}$/;
 const maxResponseBytes = 1_024;
 
 export class RemoteSignerService implements SignerService {
+  readonly signaturesSelfVerified = true as const;
   private readonly baseUrl: string;
   private readonly authToken: string;
   private readonly requestTimeoutMs: number;

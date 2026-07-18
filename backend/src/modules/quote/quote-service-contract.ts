@@ -16,6 +16,7 @@ import type { RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
 import type { QuoteRepository } from "./quote.repository.js";
 import type { QuoteIdempotencyStore } from "./quote-idempotency.store.js";
+import type { QuoteIssuanceStore } from "./quote-issuance.store.js";
 
 export interface QuoteServiceDeps {
   inventoryService: IInventoryService;
@@ -24,6 +25,7 @@ export interface QuoteServiceDeps {
   pricingEngine: PricingEngine;
   hedgeService?: HedgeIntentService;
   quoteIdempotencyStore?: QuoteIdempotencyStore;
+  quoteIssuanceStore?: QuoteIssuanceStore;
   quoteRepository: QuoteRepository;
   quoteExposureStore?: QuoteExposureStore;
   treasuryLiquidityProvider?: TreasuryLiquidityProvider;
@@ -116,6 +118,7 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   assertOwnFields(deps, quoteServiceDepsFields, "deps");
   assertOptionalOwnField(deps, "hedgeService", "deps");
   assertOptionalOwnField(deps, "quoteIdempotencyStore", "deps");
+  assertOptionalOwnField(deps, "quoteIssuanceStore", "deps");
   assertOptionalOwnField(deps, "quoteExposureStore", "deps");
   assertOptionalOwnField(deps, "settlementIndexerRiskGuard", "deps");
   assertOptionalOwnField(deps, "treasuryLiquidityProvider", "deps");
@@ -130,6 +133,11 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
     for (const method of ["acquire", "bindQuote", "complete", "fail", "checkHealth"]) {
       assertDependencyMethod(deps.quoteIdempotencyStore, "quoteIdempotencyStore", method);
     }
+  }
+  if (deps.quoteIssuanceStore !== undefined) {
+    assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "prepare");
+    assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "authorize");
+    assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "finalize");
   }
   if (deps.quoteExposureStore !== undefined) {
     assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "reserve");

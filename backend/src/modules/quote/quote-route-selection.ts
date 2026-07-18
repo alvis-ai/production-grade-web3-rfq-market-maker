@@ -12,6 +12,20 @@ interface SelectAndPersistQuoteRouteInput {
 }
 
 type QuoteRouteDeps = Pick<QuoteServiceDeps, "quoteRepository" | "routingEngine">;
+type SelectQuoteRouteDeps = Pick<QuoteServiceDeps, "routingEngine">;
+
+export async function selectQuoteRoute(
+  deps: SelectQuoteRouteDeps,
+  input: Pick<SelectAndPersistQuoteRouteInput, "request" | "snapshot">,
+): Promise<RoutePlan> {
+  try {
+    const result = await deps.routingEngine.selectRoute({ request: input.request, snapshot: input.snapshot });
+    assertRoutePlan(result, input.request);
+    return result;
+  } catch (error) {
+    throw routingFailure(error);
+  }
+}
 
 export async function selectAndPersistQuoteRoute(
   deps: QuoteRouteDeps,
@@ -33,14 +47,7 @@ async function selectAndPersistQuoteRouteUnchecked(
   deps: QuoteRouteDeps,
   input: SelectAndPersistQuoteRouteInput,
 ): Promise<RoutePlan> {
-  let routePlan: RoutePlan;
-  try {
-    const result = await deps.routingEngine.selectRoute({ request: input.request, snapshot: input.snapshot });
-    assertRoutePlan(result, input.request);
-    routePlan = result;
-  } catch (error) {
-    throw routingFailure(error);
-  }
+  const routePlan = await selectQuoteRoute(deps, input);
 
   try {
     await deps.quoteRepository.saveRouteDecision({

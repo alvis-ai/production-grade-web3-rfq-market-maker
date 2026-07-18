@@ -5,25 +5,19 @@ import type {
   QuoteStatusResponse,
   MarketSnapshot,
   SignedQuote,
-  Address,
-  UIntString,
 } from "../../shared/types/rfq.js";
 import { APIError, toAPIError } from "../../shared/errors/api-error.js";
 import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
-import { validateSubmitQuoteRequest } from "../../shared/validation/submit-request.js";
-import { assertPrincipalId, localPrincipalId } from "../../shared/validation/principal-id.js";
 import { getMarketDataSnapshotSource } from "../market-data/market-data.service.js";
 import type { SaveMarketSnapshotInput } from "../market-data/market-snapshot.repository.js";
 import type { PricingResult } from "../pricing/pricing.engine.js";
 import type {
-  QuoteRecord,
   QuoteStatusMetadata,
   SaveRejectedQuoteInput,
   SaveRequestedQuoteInput,
+  SaveRouteDecisionInput,
   SaveSignedQuoteInput,
 } from "./quote.repository.js";
-import type { RiskDecision, RiskInput } from "../risk/risk.engine.js";
-import type { RiskDecisionRecord } from "../risk/risk-decision.repository.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
 import {
   assertQuoteIdempotencyKey,
@@ -49,17 +43,14 @@ import {
 } from "./quote-service-errors.js";
 import {
   assertHedgeRiskPenaltyBps,
-  assertInventoryProjection,
   assertInventorySkewBps,
   assertPricingAdjustmentBps,
   assertPricingResult,
-  assertQuoteExposureReservationResult,
-  assertRiskDecision,
-  isExactSignedQuote,
-  riskUnavailableDecision,
 } from "./quote-service-result-validation.js";
-import { persistQuoteRiskDecision } from "./quote-risk-decision.js";
-import { selectAndPersistQuoteRoute } from "./quote-route-selection.js";
+import { selectAndPersistQuoteRoute, selectQuoteRoute } from "./quote-route-selection.js";
+import type { RoutePlan } from "../routing/routing.engine.js";
+import { authorizeQuote } from "./quote-authorization.js";
+import { requireSubmittableQuote } from "./quote-submittable.js";
 
 export { defaultQuoteServiceConfig } from "./quote-service-contract.js";
 export type {
@@ -68,6 +59,19 @@ export type {
   QuoteServiceDeps,
   SubmittableQuoteOptions,
 } from "./quote-service-contract.js";
+
+interface FreshQuoteResult {
+  response: QuoteResponse;
+  idempotencyCompleted: boolean;
+}
+
+interface PreAuthorizationFailureInput {
+  marketSnapshotInput: SaveMarketSnapshotInput;
+  requestedQuote: SaveRequestedQuoteInput;
+  idempotency?: QuoteIdempotencyReservation;
+  routePlan?: RoutePlan;
+  errorCode: string;
+}
 
 export class QuoteService {
   private readonly identityGenerator = new QuoteIdentityGenerator();
@@ -86,7 +90,7 @@ export class QuoteService {
     const access = normalizeQuoteAccessContext(context);
     const validatedRequest = validateQuoteRequest(request);
     if (access.idempotencyKey === undefined) {
-      return this.createFreshQuote(validatedRequest, access);
+      return (await this.createFreshQuote(validatedRequest, access)).response;
     }
 
     try {
@@ -114,9 +118,9 @@ export class QuoteService {
       throw new APIError("IDEMPOTENCY_REQUEST_IN_PROGRESS", "Idempotent quote request is still processing", 409);
     }
 
-    let response: QuoteResponse;
+    let result: FreshQuoteResult;
     try {
-      response = await this.createFreshQuote(validatedRequest, access, claim.reservation);
+      result = await this.createFreshQuote(validatedRequest, access, claim.reservation);
     } catch (error) {
       const apiError = toAPIError(error);
       try {
@@ -131,44 +135,66 @@ export class QuoteService {
       throw error;
     }
 
-    try {
-      await store.complete(claim.reservation, response);
-    } catch {
-      throw new APIError("QUOTE_STORE_UNAVAILABLE", "Quote idempotency completion unavailable", 503);
+    if (!result.idempotencyCompleted) {
+      try {
+        await store.complete(claim.reservation, result.response);
+      } catch {
+        throw new APIError("QUOTE_STORE_UNAVAILABLE", "Quote idempotency completion unavailable", 503);
+      }
     }
-    return response;
+    return result.response;
   }
 
   private async createFreshQuote(
     validatedRequest: QuoteRequest,
     access: QuoteAccessContext,
     idempotency?: QuoteIdempotencyReservation,
-  ): Promise<QuoteResponse> {
+  ): Promise<FreshQuoteResult> {
     const snapshot = await this.getUsableSnapshot(validatedRequest);
     const snapshotSource = getMarketDataSnapshotSource(snapshot);
+    const marketSnapshotInput: SaveMarketSnapshotInput = {
+      request: validatedRequest,
+      snapshot,
+      ...(snapshotSource ? { source: snapshotSource } : {}),
+    };
     const identity = this.identityGenerator.next();
     const quoteId = identity.quoteId;
-    await Promise.all([
-      this.saveMarketSnapshot({
-        request: validatedRequest,
-        snapshot,
-        ...(snapshotSource ? { source: snapshotSource } : {}),
-      }),
-      this.bindIdempotencyQuote(idempotency, quoteId),
-    ]);
-    await this.saveRequestedQuote({
+    const requestedQuote: SaveRequestedQuoteInput = {
       quoteId,
       principalId: access.principalId,
       snapshotId: snapshot.snapshotId,
       request: validatedRequest,
-    });
+    };
+    const fusedIssuance = this.deps.quoteIssuanceStore;
+    if (!fusedIssuance) {
+      await Promise.all([
+        this.saveMarketSnapshot(marketSnapshotInput),
+        this.bindIdempotencyQuote(idempotency, quoteId),
+      ]);
+      await this.saveRequestedQuote(requestedQuote);
+    }
 
-    const routePlan = await selectAndPersistQuoteRoute(this.deps, {
-      quoteId,
-      principalId: access.principalId,
-      request: validatedRequest,
-      snapshot,
-    });
+    let routePlan: RoutePlan;
+    try {
+      routePlan = fusedIssuance
+        ? await selectQuoteRoute(this.deps, { request: validatedRequest, snapshot })
+        : await selectAndPersistQuoteRoute(this.deps, {
+            quoteId,
+            principalId: access.principalId,
+            request: validatedRequest,
+            snapshot,
+          });
+    } catch (error) {
+      if (fusedIssuance) {
+        await this.persistPreAuthorizationFailureBestEffort({
+          marketSnapshotInput,
+          requestedQuote,
+          idempotency,
+          errorCode: quoteFailureCode(error),
+        });
+      }
+      throw error;
+    }
     let inventorySkewBps: number;
     let hedgeCostBps: number;
     try {
@@ -198,7 +224,17 @@ export class QuoteService {
       assertPricingAdjustmentBps(inventorySkewBps + hedgeCostBps);
     } catch (error) {
       const failure = pricingFailure(error);
-      await this.markQuoteFailedBestEffort(quoteId, failure.code);
+      if (fusedIssuance) {
+        await this.persistPreAuthorizationFailureBestEffort({
+          marketSnapshotInput,
+          requestedQuote,
+          idempotency,
+          routePlan,
+          errorCode: failure.code,
+        });
+      } else {
+        await this.markQuoteFailedBestEffort(quoteId, failure.code);
+      }
       throw failure;
     }
 
@@ -215,81 +251,60 @@ export class QuoteService {
       pricing = pricingResult;
     } catch (error) {
       const failure = pricingFailure(error);
+      if (fusedIssuance) {
+        await this.persistPreAuthorizationFailureBestEffort({
+          marketSnapshotInput,
+          requestedQuote,
+          idempotency,
+          routePlan,
+          errorCode: failure.code,
+        });
+      } else {
+        await this.markQuoteFailedBestEffort(quoteId, failure.code);
+      }
+      throw failure;
+    }
+    const routeDecision: SaveRouteDecisionInput = {
+      quoteId,
+      principalId: access.principalId,
+      snapshotId: snapshot.snapshotId,
+      routePlan,
+    };
+    const deadline = Math.floor(Date.now() / 1000) + this.config.quoteTtlSeconds;
+    let authorization;
+    try {
+      authorization = await authorizeQuote(this.deps, {
+        request: validatedRequest,
+        snapshot,
+        pricing,
+        quoteId,
+        deadline,
+        ...(fusedIssuance ? {
+          preparation: {
+            marketSnapshot: marketSnapshotInput,
+            requestedQuote,
+            routeDecision,
+            ...(idempotency ? { idempotency } : {}),
+          },
+        } : {}),
+      });
+    } catch (error) {
+      const failure = error instanceof APIError ? error : quoteStoreFailure(error);
       await this.markQuoteFailedBestEffort(quoteId, failure.code);
       throw failure;
     }
-    const deadline = Math.floor(Date.now() / 1000) + this.config.quoteTtlSeconds;
-    let risk: RiskDecision;
-    let exposureReserved = false;
-    try {
-      const projectionResult = await this.deps.inventoryService.projectSettlement({
-        chainId: validatedRequest.chainId,
-        tokenIn: validatedRequest.tokenIn,
-        tokenOut: validatedRequest.tokenOut,
-        amountIn: validatedRequest.amountIn,
-        amountOut: pricing.amountOut,
-      });
-      assertInventoryProjection(projectionResult, validatedRequest);
-      risk = await this.evaluateRisk({
-        request: validatedRequest,
-        pricing,
-        snapshot,
-        inventoryProjection: projectionResult,
-      });
-      if (risk.status === "approved") {
-        const treasuryLiquidity = this.deps.treasuryLiquidityProvider
-          ? await this.deps.treasuryLiquidityProvider.getLiquidity({
-              chainId: validatedRequest.chainId,
-              token: validatedRequest.tokenOut,
-            })
-          : undefined;
-        await this.deps.settlementIndexerRiskGuard?.assertQuoteSafe({
-          chainId: validatedRequest.chainId,
-          ...(treasuryLiquidity ? { observedHead: treasuryLiquidity.blockNumber } : {}),
-        });
-        if (this.deps.quoteExposureStore) {
-          const exposure = await this.deps.quoteExposureStore.reserve({
-            quoteId,
-            request: validatedRequest,
-            pricing,
-            deadline,
-            ...(treasuryLiquidity ? { treasuryLiquidity } : {}),
-          });
-          assertQuoteExposureReservationResult(exposure);
-          if (exposure.status === "reserved") {
-            exposureReserved = true;
-          } else {
-            risk = {
-              status: "rejected",
-              policyVersion: risk.policyVersion,
-              reasonCode: exposure.reasonCode,
-            };
-          }
-        }
-      }
-    } catch {
-      risk = riskUnavailableDecision();
-    }
-    let persistedRiskDecision: RiskDecisionRecord;
-    try {
-      persistedRiskDecision = await persistQuoteRiskDecision(this.deps.riskDecisionStore, {
-        quoteId,
-        decision: risk,
-      });
-    } catch (error) {
-      if (exposureReserved) await this.releaseQuoteExposureBestEffort(quoteId);
-      await this.markQuoteFailedBestEffort(quoteId, quoteFailureCode(error));
-      throw error;
-    }
+    const { risk, persistedRiskDecision, exposureReserved } = authorization;
     if (risk.status !== "approved") {
-      await this.saveRejectedQuoteBestEffort({
-        quoteId,
-        principalId: access.principalId,
-        snapshotId: snapshot.snapshotId,
-        request: validatedRequest,
-        rejectCode: risk.reasonCode ?? "RISK_REJECTED",
-        riskPolicyVersion: risk.policyVersion,
-      });
+      if (!fusedIssuance) {
+        await this.saveRejectedQuoteBestEffort({
+          quoteId,
+          principalId: access.principalId,
+          snapshotId: snapshot.snapshotId,
+          request: validatedRequest,
+          rejectCode: risk.reasonCode ?? "RISK_REJECTED",
+          riskPolicyVersion: risk.policyVersion,
+        });
+      }
       throw new APIError(
         "RISK_REJECTED",
         "Quote rejected by risk policy",
@@ -327,28 +342,6 @@ export class QuoteService {
       throw error;
     }
 
-    try {
-      await this.saveSignedQuote({
-        quoteId,
-        principalId: access.principalId,
-        snapshotId: snapshot.snapshotId,
-        slippageBps: validatedRequest.slippageBps,
-        quote: signedQuote,
-        pricingVersion: pricing.pricingVersion,
-        spreadBps: pricing.spreadBps,
-        sizeImpactBps: pricing.sizeImpactBps,
-        marketSpreadBps: pricing.marketSpreadBps,
-        inventorySkewBps: pricing.inventorySkewBps,
-        volatilityPremiumBps: pricing.volatilityPremiumBps,
-        hedgeCostBps: pricing.hedgeCostBps,
-        riskPolicyVersion: risk.policyVersion,
-        signature,
-      });
-    } catch (error) {
-      if (exposureReserved) await this.releaseQuoteExposureBestEffort(quoteId);
-      throw error;
-    }
-
     const response: QuoteResponse = {
       quoteId,
       snapshotId: snapshot.snapshotId,
@@ -358,7 +351,41 @@ export class QuoteService {
       nonce: identity.nonce,
       signature,
     };
-    return response;
+    const signedQuoteInput: SaveSignedQuoteInput = {
+      quoteId,
+      principalId: access.principalId,
+      snapshotId: snapshot.snapshotId,
+      slippageBps: validatedRequest.slippageBps,
+      quote: signedQuote,
+      pricingVersion: pricing.pricingVersion,
+      spreadBps: pricing.spreadBps,
+      sizeImpactBps: pricing.sizeImpactBps,
+      marketSpreadBps: pricing.marketSpreadBps,
+      inventorySkewBps: pricing.inventorySkewBps,
+      volatilityPremiumBps: pricing.volatilityPremiumBps,
+      hedgeCostBps: pricing.hedgeCostBps,
+      riskPolicyVersion: risk.policyVersion,
+      signature,
+    };
+    try {
+      if (fusedIssuance) {
+        await fusedIssuance.finalize({
+          signedQuote: signedQuoteInput,
+          response,
+          ...(idempotency ? { idempotency } : {}),
+        });
+      } else {
+        await this.saveSignedQuote(signedQuoteInput);
+      }
+    } catch (error) {
+      if (exposureReserved) await this.releaseQuoteExposureBestEffort(quoteId);
+      throw quoteStoreFailure(error);
+    }
+
+    return {
+      response,
+      idempotencyCompleted: fusedIssuance !== undefined && idempotency !== undefined,
+    };
   }
 
   async getQuoteStatus(quoteId: string, context?: QuoteAccessContext): Promise<QuoteStatusResponse | undefined> {
@@ -441,6 +468,29 @@ export class QuoteService {
     }
   }
 
+  private async persistPreAuthorizationFailureBestEffort(
+    input: PreAuthorizationFailureInput,
+  ): Promise<void> {
+    try {
+      await Promise.all([
+        this.saveMarketSnapshot(input.marketSnapshotInput),
+        this.bindIdempotencyQuote(input.idempotency, input.requestedQuote.quoteId),
+      ]);
+      await this.saveRequestedQuote(input.requestedQuote);
+      if (input.routePlan) {
+        await this.deps.quoteRepository.saveRouteDecision({
+          quoteId: input.requestedQuote.quoteId,
+          principalId: input.requestedQuote.principalId,
+          snapshotId: input.requestedQuote.snapshotId,
+          routePlan: input.routePlan,
+        });
+      }
+      await this.markStoredQuoteFailed(input.requestedQuote.quoteId, input.errorCode);
+    } catch {
+      // The original dependency error remains authoritative; reconciliation handles partial audit state.
+    }
+  }
+
   private async releaseQuoteExposureBestEffort(quoteId: string): Promise<void> {
     try {
       await this.deps.quoteExposureStore?.release(quoteId);
@@ -494,29 +544,6 @@ export class QuoteService {
     }
   }
 
-  private async findSignedQuoteByChainUserNonce(
-    chainId: number,
-    user: Address,
-    nonce: UIntString,
-    principalId: string,
-  ): Promise<QuoteRecord | undefined> {
-    try {
-      return await this.deps.quoteRepository.findSignedQuoteByChainUserNonce(chainId, user, nonce, principalId);
-    } catch (error) {
-      throw quoteStoreFailure(error);
-    }
-  }
-
-  private async evaluateRisk(input: RiskInput): Promise<RiskDecision> {
-    try {
-      const riskDecision = await this.deps.riskEngine.evaluate(input);
-      assertRiskDecision(riskDecision);
-      return riskDecision;
-    } catch {
-      return riskUnavailableDecision();
-    }
-  }
-
   async markQuoteStatus(quoteId: string, status: QuoteLifecycleStatus, metadata?: QuoteStatusMetadata): Promise<void> {
     await this.markStoredQuoteStatus(quoteId, status, metadata);
     if (status === "expired") {
@@ -533,67 +560,12 @@ export class QuoteService {
     signature: `0x${string}`,
     options: SubmittableQuoteOptions = {},
   ): Promise<string> {
-    if (typeof options !== "object" || options === null || Array.isArray(options)) {
-      throw new APIError("INVALID_REQUEST", "Submit quote lookup options must be an object", 400);
-    }
-    const unknownOption = Object.keys(options).find(
-      (field) => field !== "allowExpired" && field !== "principalId",
+    return requireSubmittableQuote(
+      this.deps,
+      quote,
+      signature,
+      options,
+      this.markQuoteExpiredBestEffort.bind(this),
     );
-    if (unknownOption) {
-      throw new APIError("INVALID_REQUEST", `Submit quote lookup options contain unknown field ${unknownOption}`, 400);
-    }
-    if ("allowExpired" in options && !Object.prototype.hasOwnProperty.call(options, "allowExpired")) {
-      throw new APIError("INVALID_REQUEST", "Submit quote lookup allowExpired must be an own field", 400);
-    }
-    if (options.allowExpired !== undefined && typeof options.allowExpired !== "boolean") {
-      throw new APIError("INVALID_REQUEST", "Submit quote lookup allowExpired must be a boolean", 400);
-    }
-    if ("principalId" in options && !Object.prototype.hasOwnProperty.call(options, "principalId")) {
-      throw new APIError("INVALID_REQUEST", "Submit quote lookup principalId must be an own field", 400);
-    }
-    try {
-      assertPrincipalId(options.principalId ?? localPrincipalId, "Submit quote lookup principalId");
-    } catch (error) {
-      throw new APIError("INVALID_REQUEST", error instanceof Error ? error.message : "Invalid principalId", 400);
-    }
-    const allowExpired = options.allowExpired ?? false;
-    const principalId = options.principalId ?? localPrincipalId;
-    const validatedSubmitRequest = validateSubmitQuoteRequest({ quote, signature }, { allowExpired: true });
-    const validatedQuote = validatedSubmitRequest.quote;
-    const record = await this.findSignedQuoteByChainUserNonce(
-      validatedQuote.chainId,
-      validatedQuote.user,
-      validatedQuote.nonce,
-      principalId,
-    );
-    if (!record || !isExactSignedQuote(record, validatedQuote)) {
-      throw new APIError("QUOTE_NOT_FOUND", "Signed quote not found", 404);
-    }
-    if (record.status === "submitted" || record.status === "settled") {
-      throw new APIError("QUOTE_ALREADY_USED", "Quote already used", 409);
-    }
-    if (record.status === "failed") {
-      throw new APIError("QUOTE_FAILED", "Quote already failed", 409);
-    }
-    if (record.status === "expired" && !allowExpired) {
-      throw new APIError("QUOTE_EXPIRED", "Quote expired", 409);
-    }
-    if (!allowExpired && record.deadline && record.deadline < Math.floor(Date.now() / 1000)) {
-      await this.markQuoteExpiredBestEffort(record.quoteId);
-      throw new APIError("QUOTE_EXPIRED", "Quote expired", 409);
-    }
-    if (record.signature?.toLowerCase() !== validatedSubmitRequest.signature.toLowerCase()) {
-      throw new APIError("INVALID_SIGNATURE", "Quote signature does not match stored signed quote", 409);
-    }
-
-    const isValidSignature = await this.deps.signerService.verifyQuoteSignature(
-      validatedQuote,
-      validatedSubmitRequest.signature,
-    );
-    if (!isValidSignature) {
-      throw new APIError("INVALID_SIGNATURE", "Quote signature is not from the trusted signer", 409);
-    }
-
-    return record.quoteId;
   }
 }

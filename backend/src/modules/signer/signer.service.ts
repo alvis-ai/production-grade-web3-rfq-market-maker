@@ -55,6 +55,7 @@ export interface AuthorizedSignQuoteInput extends SignQuoteInput {
 }
 
 export interface SignerService {
+  readonly signaturesSelfVerified?: true;
   signQuote(input: SignQuoteInput): Promise<`0x${string}`>;
   verifyQuoteSignature(quote: SignedQuote, signature: `0x${string}`): Promise<boolean>;
   checkHealth?(): Promise<void>;
@@ -66,6 +67,7 @@ export interface LocalEIP712SignerConfig {
 }
 
 export class LocalEIP712SignerService implements SignerService {
+  readonly signaturesSelfVerified = true as const;
   private readonly config: LocalEIP712SignerConfig;
   private readonly account: PrivateKeyAccount;
 
@@ -110,6 +112,10 @@ export class ObservedSignerService implements SignerService {
     private readonly metricsService: MetricsService,
   ) {
     assertObservedSignerDeps(inner, metricsService);
+  }
+
+  get signaturesSelfVerified(): true | undefined {
+    return this.inner.signaturesSelfVerified === true ? true : undefined;
   }
 
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {

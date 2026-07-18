@@ -14,7 +14,10 @@ export const quoteLatencyStages = [
   "indexer_guard",
   "exposure_reservation",
   "risk_persistence",
+  "quote_preparation_persistence",
+  "authorization_persistence",
   "signing",
+  "issuance_persistence",
 ] as const;
 
 export type QuoteLatencyStage = typeof quoteLatencyStages[number];
@@ -59,6 +62,13 @@ export function observeQuoteServiceDependencies(
         bindQuote: "idempotency",
         complete: "idempotency",
         fail: "idempotency",
+      }, observer),
+    }),
+    ...(deps.quoteIssuanceStore === undefined ? {} : {
+      quoteIssuanceStore: observeMethods(deps.quoteIssuanceStore, {
+        prepare: "quote_preparation_persistence",
+        authorize: "authorization_persistence",
+        finalize: "issuance_persistence",
       }, observer),
     }),
     ...(deps.quoteExposureStore === undefined ? {} : {

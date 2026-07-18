@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-hedge-risk.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-settlement-indexer-risk.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
-quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts backend/src/modules/quote/quote-route-selection.ts"
+gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-hedge-risk.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-quote-issuance.ts backend/src/runtime/gateway-settlement-indexer-risk.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
+quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-authorization.ts backend/src/modules/quote/quote-issuance.store.ts backend/src/modules/quote/postgres-quote-issuance.store.ts backend/src/modules/quote/quote-submittable.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts backend/src/modules/quote/quote-route-selection.ts"
 quote_repository_sources="backend/src/modules/quote/quote-repository-contract.ts backend/src/modules/quote/quote-repository-invariants.ts backend/src/modules/quote/in-memory-quote.repository.ts backend/src/modules/quote/postgres-quote-row.ts backend/src/modules/quote/postgres-quote.repository.ts"
 sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-transport.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts sdk/src/client-pnl-page.ts"
 
@@ -27,6 +27,7 @@ test -s backend/src/api/trading-routes.ts
 test -s backend/src/api/quote-control-routes.ts
 test -s backend/src/runtime/environment.ts
 test -s backend/src/runtime/gateway-application.ts
+test -s backend/src/runtime/gateway-quote-issuance.ts
 test -s backend/src/runtime/gateway-resource-cleanup.ts
 test -s backend/src/runtime/gateway-hedge-risk.ts
 test -s backend/src/runtime/gateway-market-data.ts
@@ -333,6 +334,10 @@ test -s backend/src/modules/quote/quote-service-contract.ts
 test -s backend/src/modules/quote/quote-service-errors.ts
 test -s backend/src/modules/quote/quote-service-result-validation.ts
 test -s backend/src/modules/quote/quote-service-observability.ts
+test -s backend/src/modules/quote/quote-authorization.ts
+test -s backend/src/modules/quote/quote-issuance.store.ts
+test -s backend/src/modules/quote/postgres-quote-issuance.store.ts
+test -s backend/src/modules/quote/quote-submittable.ts
 test -s backend/src/modules/quote/quote-risk-decision.ts
 test -s backend/src/modules/quote/quote-identity.ts
 test -s backend/src/modules/quote/quote.repository.ts
@@ -382,8 +387,8 @@ grep -q 'Risk decision riskDecisionId must be 128 characters or fewer' backend/t
 grep -q 'QuoteService persists approved and rejected risk decisions before signer boundary' backend/test/quote-service-risk-dependencies.test.mjs
 grep -q 'QuoteService blocks signer when risk decision persistence fails' backend/test/quote-service-risk-dependencies.test.mjs
 grep -q 'RFQ API marks requested quotes failed when risk decision audit store fails' backend/test/api-quote-dependencies.test.mjs
-grep -q 'persists RiskDecisionStore audit records before signer' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'best-effort 将 requested quote 标记为 `failed`，并阻断 Signer' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'persists risk authorization before signer access' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q '释放已完成的 exposure reservation，并阻断 Signer' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'RiskDecisionStore mirrors the PostgreSQL risk_decisions contract' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'Risk decision audit persistence rejects malformed root payloads, missing `decision` objects, inherited `quoteId` / `decision` fields' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
 grep -q 'validates `quoteId` as an own primitive-string `SafeIdentifier` and validates the derived `riskDecisionId`' book/Volume5-BackendEngineering/Chapter04-Risk-Service.md
@@ -577,8 +582,8 @@ grep -q 'canonical positive uint string without leading zeros' book/Volume2-Mark
 grep -q '`observedAt` 必须是 `Date.prototype.toISOString()` 生成的 canonical UTC ISO timestamp' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'snapshot lookup validates `snapshotId` before reading the store' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'Snapshot persistence rejects malformed root payloads, missing `request` / `snapshot` objects, inherited `request` / `snapshot` / `source` fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
-grep -q 'persists MarketSnapshotStore audit records before routing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
-grep -q 'Requested quote persistence happens immediately after market snapshot persistence and before routing or pricing' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q '原子写入 market snapshot、requested quote、route attribution 和 idempotency quote binding' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q '默认 fused 路径在 routing/pricing 失败时使用 legacy repository best-effort 补写' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '`observedAt`，该字段必须是 `Date.prototype.toISOString()` 生成的 canonical UTC ISO timestamp' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'runtime `MarketSnapshotStore` 必须镜像 `market_snapshots` 表的核心契约' docs/database/er-diagram.md
 test -s backend/src/modules/rate-limit/rate-limit.service.ts
@@ -1123,12 +1128,12 @@ grep -q 'Quote service pricing adjustment bps must be a safe bps integer' $quote
 grep -q 'pricingResultFields' $quote_service_sources
 grep -q 'assertPricingResult(pricingResult)' $quote_service_sources
 grep -q 'Quote service pricing result.amountOut must be greater than or equal to pricing result.minAmountOut' $quote_service_sources
-grep -q 'assertInventoryProjection(projectionResult, validatedRequest)' $quote_service_sources
+grep -q 'assertInventoryProjection(projection, input.request)' $quote_service_sources
 grep -q 'Quote service inventory projection.${field} must match quote request ${field}' $quote_service_sources
 grep -q 'evaluateRisk' $quote_service_sources
 grep -q 'RISK_ENGINE_UNAVAILABLE' $quote_service_sources
 grep -q 'riskUnavailableDecision()' $quote_service_sources
-grep -q 'assertRiskDecision(riskDecision)' $quote_service_sources
+grep -q 'assertRiskDecision(risk)' $quote_service_sources
 grep -q 'Quote service risk decision.status must be approved or rejected' $quote_service_sources
 grep -q 'Quote service risk decision.reasonCode must be a stable risk reject reason' $quote_service_sources
 grep -q 'saveRejectedQuoteBestEffort' $quote_service_sources
@@ -3938,7 +3943,7 @@ grep -q 'SettlementIndexerError("DEEP_REORG")' backend/src/modules/indexer/settl
 grep -q 'revision = \$4' backend/src/modules/indexer/postgres-settlement-indexer.store.ts
 grep -q 'next_block = \$5' backend/src/modules/indexer/postgres-settlement-indexer.store.ts
 grep -q 'rfq_settlement_indexer_lag_blocks' backend/src/modules/indexer/settlement-indexer.metrics.ts
-grep -q 'settlementIndexerRiskGuard?.assertQuoteSafe' backend/src/modules/quote/quote.service.ts
+grep -q 'settlementIndexerRiskGuard?.assertQuoteSafe' $quote_service_sources
 grep -q 'buildRuntimeSettlementIndexerRiskGuard(postgresPool, metricsService)' backend/src/runtime/gateway-application.ts
 grep -q 'safeHead - evidence.nextBlock + 1n' backend/src/modules/risk/settlement-indexer-risk.guard.ts
 grep -q 'RFQ_SETTLEMENT_INDEXER_MAX_CURSOR_AGE_MS' backend/src/runtime/gateway-settlement-indexer-risk.ts

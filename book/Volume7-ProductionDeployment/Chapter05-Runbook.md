@@ -342,6 +342,10 @@ For a mirror-only outage, the process-local health gate blocks new reserves afte
 
 Loss of every Redis replica is an authorization-state incident, not a cache miss. Keep quote admission stopped, reconcile PostgreSQL ledger events, active signed quotes, signer audit and canonical inventory, then import one reviewed projection into a new empty epoch. Resume only after two operators verify aggregate totals and all API replicas use the same epoch. Automatic fallback or an epoch change while any old authority accepts traffic is prohibited.
 
+### Quote Issuance Persistence
+
+When `quote_preparation_persistence`, `authorization_persistence` or `issuance_persistence` p99 rises, pause benchmark traffic and separate PostgreSQL pool saturation from Redis exposure and signer latency. Preparation must commit before exposure mirroring; repeated foreign-key failures in the exposure mirror indicate rollout-order or protocol drift and require quote admission to remain paused. Do not disable the foreign key, mirror health gate or exact CTE consistency guards. Verify each affected quote has one snapshot, one route, one risk decision, matching idempotency ownership and at most one signed payload; repair through reviewed reconciliation, never by forcing a skipped stage to succeeded.
+
 ### Analytics Pipeline Backlog
 
 Alerts: `RFQAnalyticsWorkerDown`, `RFQAnalyticsOutboxBacklog`, `RFQAnalyticsPublishRetries`, `RFQAnalyticsConsumerErrors`, `RFQAnalyticsProjectionStalled`, `RFQAnalyticsOutboxCleanupStalled`.

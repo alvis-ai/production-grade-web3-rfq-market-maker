@@ -24,6 +24,7 @@ const files = Object.fromEntries(await Promise.all([
   "backend/src/runtime/market-runtime.ts",
   "backend/src/runtime/gateway-daily-loss-risk.ts",
   "backend/src/modules/quote/quote.service.ts",
+  "backend/src/modules/quote/quote-authorization.ts",
   "backend/src/modules/quote/quote-service-result-validation.ts",
   "backend/src/modules/health/readiness.service.ts",
   "backend/test/token-limit-risk.test.mjs",
@@ -277,11 +278,11 @@ assertContains("backend/test/portfolio-var.test.mjs", [
   "rounds exposure and loss away from zero",
   "fails closed for missing, stale, future, or unconfigured valuations",
 ]);
-assertContains("backend/src/modules/quote/quote.service.ts", [
-  "risk = await this.evaluateRisk({",
-  "snapshot,",
-  "quoteExposureStore.reserve",
-  "releaseQuoteExposureBestEffort",
+assertContains("backend/src/modules/quote/quote-authorization.ts", [
+  "const risk = await deps.riskEngine.evaluate({",
+  "snapshot: input.snapshot,",
+  "deps.quoteExposureStore.reserve",
+  "releaseExposureBestEffort",
 ]);
 assertContains("backend/src/modules/health/readiness.service.ts", [
   "snapshot: this.config.probeSnapshot",

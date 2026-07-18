@@ -27,10 +27,7 @@ import { SettlementEventService } from "../modules/settlement/settlement-event.s
 import { PostgresSettlementEventStore } from "../modules/settlement/postgres-settlement-event.store.js";
 import { LocalSettlementVerifier } from "../modules/settlement/settlement-verifier.service.js";
 import { ObservedSignerService } from "../modules/signer/signer.service.js";
-import {
-  createSignerRuntime,
-  readSignerRuntimeConfig,
-} from "../modules/signer/signer-runtime.js";
+import { createSignerRuntime, readSignerRuntimeConfig } from "../modules/signer/signer-runtime.js";
 import {
   installGatewayBoundary,
   maxStatusIdentifierRouteParamLength,
@@ -76,6 +73,7 @@ import {
 } from "./gateway-quote-exposure.js";
 import { closeGatewayResources } from "./gateway-resource-cleanup.js";
 import { buildGatewayTreasuryLiquidityRuntime } from "./gateway-treasury-liquidity.js";
+import { resolveQuoteIssuanceStore } from "./gateway-quote-issuance.js";
 
 export type { BuildServerOptions } from "./gateway-runtime.js";
 export { closeGatewayResources } from "./gateway-resource-cleanup.js";
@@ -143,6 +141,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const riskDecisionStore = options.riskDecisionStore ?? (
     postgresPool ? new PostgresRiskDecisionStore(postgresPool) : new InMemoryRiskDecisionRepository()
   );
+  const quoteIssuanceStore = resolveQuoteIssuanceStore(options, postgresPool);
   const routingEngine = options.routingEngine ?? new InternalInventoryRoutingEngine();
   const pricingRuntime = resolvePricingRuntime(
     options.pricingEngine,
@@ -249,6 +248,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     hedgeService,
     pricingEngine,
     quoteIdempotencyStore,
+    ...(quoteIssuanceStore ? { quoteIssuanceStore } : {}),
     quoteExposureStore,
     quoteRepository,
     riskDecisionStore,

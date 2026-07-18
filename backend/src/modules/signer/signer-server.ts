@@ -157,7 +157,8 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
     try {
       signature = await options.signerService.signQuote(input);
       assertSignature(signature);
-      if (!await options.signerService.verifyQuoteSignature(input.quote, signature)) {
+      if (options.signerService.signaturesSelfVerified !== true &&
+          !await options.signerService.verifyQuoteSignature(input.quote, signature)) {
         throw new Error("Signer returned an unverifiable signature");
       }
     } catch {
@@ -347,6 +348,10 @@ function assertOptions(options: SignerServerOptions): void {
       typeof options.signerService.signQuote !== "function" ||
       typeof options.signerService.verifyQuoteSignature !== "function") {
     throw new Error("Signer server signerService is invalid");
+  }
+  if (options.signerService.signaturesSelfVerified !== undefined &&
+      options.signerService.signaturesSelfVerified !== true) {
+    throw new Error("Signer server signerService signaturesSelfVerified capability is invalid");
   }
   if (typeof options.auditStore !== "object" || options.auditStore === null ||
       typeof options.auditStore.append !== "function" || typeof options.auditStore.checkHealth !== "function") {
