@@ -138,6 +138,8 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
     assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "prepare");
     assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "authorize");
     assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "finalize");
+    assertOptionalDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "findHotStatus");
+    assertOptionalDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "awaitSignedQuoteProjection");
   }
   if (deps.quoteExposureStore !== undefined) {
     assertDependencyMethod(deps.quoteExposureStore, "quoteExposureStore", "reserve");

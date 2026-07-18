@@ -10,6 +10,8 @@ erDiagram
   QUOTES ||--o| QUOTE_EXPOSURE_RESERVATIONS : limits
   QUOTES ||--o{ QUOTE_EXPOSURE_LEDGER_EVENTS : audits
   QUOTES ||--o| QUOTE_EXPOSURE_LEDGER_PROJECTION_VERSIONS : orders
+  QUOTES ||--o{ QUOTE_ISSUANCE_JOURNAL_EVENTS : audits
+  QUOTES ||--o| QUOTE_ISSUANCE_PROJECTION_VERSIONS : orders
   QUOTES ||--o{ SETTLEMENT_EVENTS : settles
   SETTLEMENT_EVENTS ||--o{ HEDGE_ORDERS : triggers
   HEDGE_ORDERS ||--o{ HEDGE_EXECUTION_FILLS : reconciles
@@ -120,6 +122,24 @@ erDiagram
     bigint chain_id
     jsonb payload
     timestamptz mirrored_at
+  }
+
+  QUOTE_ISSUANCE_JOURNAL_EVENTS {
+    text source_stream_id PK
+    text event_type
+    text quote_id FK
+    text principal_id
+    jsonb payload
+    timestamptz mirrored_at
+  }
+
+  QUOTE_ISSUANCE_PROJECTION_VERSIONS {
+    text quote_id PK, FK
+    text source_epoch
+    numeric stream_milliseconds
+    numeric stream_sequence
+    text event_type
+    timestamptz updated_at
   }
 
   QUOTE_EXPOSURE_LEDGER_PROJECTION_VERSIONS {

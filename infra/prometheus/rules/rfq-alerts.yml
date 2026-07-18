@@ -253,6 +253,33 @@ groups:
           summary: RFQ quote exposure fused lease and state-read p99 is above 25ms
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQQuoteIssuanceBacklogHigh
+        expr: max(rfq_quote_issuance_backlog) > 8000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ quote issuance journal backlog is near admission capacity
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQQuoteIssuanceFailure
+        expr: sum(increase(rfq_quote_issuance_failures_total[5m])) > 0 or sum(increase(rfq_quote_issuance_mirror_errors_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ quote issuance admission or PostgreSQL projection failed
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQQuoteIssuanceMirrorStalled
+        expr: max(rfq_quote_issuance_backlog) > 0 and sum(increase(rfq_quote_issuance_mutations_total[5m])) > 0 and sum(increase(rfq_quote_issuance_mirrored_total[5m])) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: RFQ quote issuance has durable mutations without PostgreSQL projection progress
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQPricingCacheIneffective
         expr: sum(rate(rfq_pricing_cache_misses_total[10m])) > 5 and sum(rate(rfq_pricing_cache_hits_total[10m])) == 0
         for: 10m

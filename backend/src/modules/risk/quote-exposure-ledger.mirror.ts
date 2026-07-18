@@ -10,7 +10,7 @@ import {
 const acknowledgeAndDeleteScript = `
 local acknowledged = redis.call("XACK", KEYS[1], ARGV[1], ARGV[2])
 if acknowledged == 1 then redis.call("XDEL", KEYS[1], ARGV[2]) end
-return acknowledged
+return {acknowledged, redis.call("XLEN", KEYS[1])}
 `;
 
 export interface RedisQuoteExposureConsumerClient {
@@ -45,6 +45,11 @@ export interface QuoteExposureLedgerMirrorObservation {
 export interface QuoteExposureLedgerMirrorObserver {
   recordLedgerMirrored(observation: QuoteExposureLedgerMirrorObservation): void;
   recordLedgerMirrorError(): void;
+  recordLedgerBacklog(backlog: number): void;
+}
+
+export interface QuoteExposureProjectionBarrier {
+  awaitPreparedQuoteProjection(quoteId: string): Promise<void>;
 }
 
 export interface QuoteExposureLedgerMirrorLogger {
@@ -60,6 +65,7 @@ interface StreamEntry {
 const noopObserver: QuoteExposureLedgerMirrorObserver = {
   recordLedgerMirrored() {},
   recordLedgerMirrorError() {},
+  recordLedgerBacklog() {},
 };
 
 const noopLogger: QuoteExposureLedgerMirrorLogger = { warn() {} };
@@ -82,6 +88,7 @@ export class QuoteExposureLedgerMirror {
     observer: QuoteExposureLedgerMirrorObserver = noopObserver,
     logger: QuoteExposureLedgerMirrorLogger = noopLogger,
     private readonly nowMilliseconds: () => number = Date.now,
+    private readonly projectionBarrier?: QuoteExposureProjectionBarrier,
   ) {
     assertClient(client);
     if (typeof sink !== "object" || sink === null ||
@@ -92,6 +99,7 @@ export class QuoteExposureLedgerMirror {
     this.config = normalizeConfig(config);
     assertObserver(observer);
     assertLogger(logger);
+    assertProjectionBarrier(projectionBarrier);
     if (typeof nowMilliseconds !== "function") {
       throw new Error("Quote exposure ledger mirror nowMilliseconds must be a function");
     }
@@ -143,6 +151,7 @@ export class QuoteExposureLedgerMirror {
       const entries = claimed.length > 0 ? claimed : await this.readNew(block);
       for (const entry of entries) {
         const sourceStreamId = `${this.config.sourceEpoch}:${entry.id}`;
+        await this.projectionBarrier?.awaitPreparedQuoteProjection(entry.record.quoteId);
         const result = await this.sink.applyMirrored(entry.operation, entry.record, sourceStreamId);
         sinkVerified = true;
         const acknowledged = await this.client.eval(
@@ -152,9 +161,11 @@ export class QuoteExposureLedgerMirror {
           this.config.group,
           entry.id,
         );
-        if (acknowledged !== 1) {
+        if (!Array.isArray(acknowledged) || acknowledged.length !== 2 || acknowledged[0] !== 1 ||
+            !Number.isSafeInteger(acknowledged[1]) || Number(acknowledged[1]) < 0) {
           throw new Error(`Quote exposure ledger mirror could not acknowledge ${entry.id}`);
         }
+        this.notifyBacklog(Number(acknowledged[1]));
         this.notifyMirrored({ sourceStreamId, operation: entry.operation, ...result });
       }
       const nowMilliseconds = readNowMilliseconds(this.nowMilliseconds);
@@ -247,6 +258,10 @@ export class QuoteExposureLedgerMirror {
   private notifyError(): void {
     try { this.observer.recordLedgerMirrorError(); } catch {}
   }
+
+  private notifyBacklog(backlog: number): void {
+    try { this.observer.recordLedgerBacklog(backlog); } catch {}
+  }
 }
 
 function parseEntries(value: unknown[]): StreamEntry[] {
@@ -320,10 +335,20 @@ function assertClient(client: unknown): asserts client is RedisQuoteExposureCons
 
 function assertObserver(observer: unknown): asserts observer is QuoteExposureLedgerMirrorObserver {
   assertRecord(observer, "Quote exposure ledger mirror observer");
-  for (const method of ["recordLedgerMirrored", "recordLedgerMirrorError"] as const) {
+  for (const method of ["recordLedgerMirrored", "recordLedgerMirrorError", "recordLedgerBacklog"] as const) {
     if (typeof observer[method] !== "function") {
       throw new Error(`Quote exposure ledger mirror observer.${method} must be a function`);
     }
+  }
+}
+
+function assertProjectionBarrier(
+  barrier: QuoteExposureProjectionBarrier | undefined,
+): asserts barrier is QuoteExposureProjectionBarrier | undefined {
+  if (barrier === undefined) return;
+  assertRecord(barrier, "Quote exposure projection barrier");
+  if (typeof barrier.awaitPreparedQuoteProjection !== "function") {
+    throw new Error("Quote exposure projection barrier method is invalid");
   }
 }
 

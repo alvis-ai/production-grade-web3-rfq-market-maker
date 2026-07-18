@@ -41,7 +41,6 @@ import {
   readGatewayServerSettings,
   resolveApiKeyAuthenticator,
   resolvePostgresPool,
-  resolveQuoteIdempotencyStore,
   resolveQuoteControlStore,
   resolveRateLimiter,
   resolveSubmitReservationStore,
@@ -68,12 +67,10 @@ import {
 import { buildRuntimeSettlementIndexerRiskGuard } from "./gateway-settlement-indexer-risk.js";
 import { DynamicToxicFlowRiskEngine } from "../modules/risk/dynamic-toxic-flow-risk.engine.js";
 import { structuredLoggerConfig } from "../shared/logger/structured-logger.js";
-import {
-  resolveGatewayQuoteExposureRuntime,
-} from "./gateway-quote-exposure.js";
+import { resolveGatewayQuoteExposureRuntime } from "./gateway-quote-exposure.js";
 import { closeGatewayResources } from "./gateway-resource-cleanup.js";
 import { buildGatewayTreasuryLiquidityRuntime } from "./gateway-treasury-liquidity.js";
-import { resolveQuoteIssuanceStore } from "./gateway-quote-issuance.js";
+import { resolveGatewayQuoteIssuance } from "./gateway-quote-issuance.js";
 
 export type { BuildServerOptions } from "./gateway-runtime.js";
 export { closeGatewayResources } from "./gateway-resource-cleanup.js";
@@ -133,15 +130,13 @@ export function buildServer(options: BuildServerOptions = {}) {
   const quoteRepository = options.quoteRepository ?? (
     postgresPool ? new PostgresQuoteRepository(postgresPool) : new InMemoryQuoteRepository()
   );
-  const quoteIdempotencyStore = resolveQuoteIdempotencyStore(
-    options.quoteIdempotencyStore,
-    postgresPool,
-    quoteIdempotencyLeaseMs,
+  const quoteIssuance = resolveGatewayQuoteIssuance(
+    options, postgresPool, quoteIdempotencyLeaseMs, metricsService, server.log,
   );
+  const { quoteIdempotencyStore, quoteIssuanceStore, runtime: quoteIssuanceRuntime } = quoteIssuance;
   const riskDecisionStore = options.riskDecisionStore ?? (
     postgresPool ? new PostgresRiskDecisionStore(postgresPool) : new InMemoryRiskDecisionRepository()
   );
-  const quoteIssuanceStore = resolveQuoteIssuanceStore(options, postgresPool);
   const routingEngine = options.routingEngine ?? new InternalInventoryRoutingEngine();
   const pricingRuntime = resolvePricingRuntime(
     options.pricingEngine,
@@ -231,6 +226,8 @@ export function buildServer(options: BuildServerOptions = {}) {
     managedPairs: managedRiskPairs,
     metrics: metricsService,
     logger: server.log,
+    asynchronousQuoteIssuance: quoteIssuanceRuntime?.asynchronousProjection === true,
+    quoteProjectionBarrier: quoteIssuanceRuntime,
     resolveFallback: (state) => resolveQuoteExposureStore(
       options.quoteExposureStore, postgresPool, defaultRiskEngine, runtimeTokenRegistry, state, metricsService,
     ),
@@ -266,6 +263,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     marketSnapshotStore,
     postgresPool !== undefined,
   );
+  if (quoteIssuanceRuntime) server.addHook("onReady", () => quoteIssuanceRuntime.start());
   if (redisQuoteExposureRuntime) server.addHook("onReady", () => redisQuoteExposureRuntime.start());
   if (treasuryLiquidityRuntime.start) {
     server.addHook("onReady", () => treasuryLiquidityRuntime.start!());
@@ -278,6 +276,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   server.addHook("onClose", async () => {
     await closeGatewayResources([
       ...(stopMarketBackgroundTasks ? [stopMarketBackgroundTasks] : []),
+      ...(quoteIssuanceRuntime ? [() => quoteIssuanceRuntime.close()] : []),
       ...(redisQuoteExposureRuntime ? [() => redisQuoteExposureRuntime.close()] : []),
       ...(treasuryLiquidityRuntime.stop ? [() => treasuryLiquidityRuntime.stop!()] : []),
       ...(rateLimiter?.close ? [() => rateLimiter.close!()] : []),

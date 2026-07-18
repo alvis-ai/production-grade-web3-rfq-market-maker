@@ -8,7 +8,10 @@ import type { TokenRegistry } from "../modules/pricing/token-registry.js";
 import { InMemoryPortfolioVarEvaluator } from "../modules/risk/in-memory-portfolio-var.js";
 import { HealthGatedQuoteExposureStore } from "../modules/risk/health-gated-quote-exposure.store.js";
 import { PostgresQuoteExposureLedgerSink } from "../modules/risk/postgres-quote-exposure-ledger.sink.js";
-import { QuoteExposureLedgerMirror } from "../modules/risk/quote-exposure-ledger.mirror.js";
+import {
+  QuoteExposureLedgerMirror,
+  type QuoteExposureProjectionBarrier,
+} from "../modules/risk/quote-exposure-ledger.mirror.js";
 import type { QuoteExposurePolicy, QuoteExposureStore } from "../modules/risk/quote-exposure.store.js";
 import {
   createRedisQuoteExposureClient,
@@ -82,6 +85,8 @@ export function resolveGatewayQuoteExposureRuntime(input: {
   managedPairs: readonly { chainId: number }[];
   metrics: MetricsService;
   logger: QuoteExposureRuntimeLogger;
+  asynchronousQuoteIssuance?: boolean;
+  quoteProjectionBarrier?: QuoteExposureProjectionBarrier;
   resolveFallback(state: {
     inventoryService: IInventoryService;
     marketSnapshotStore: MarketSnapshotStore;
@@ -100,6 +105,8 @@ export function resolveGatewayQuoteExposureRuntime(input: {
         managedPairs: input.managedPairs,
         metrics: input.metrics,
         logger: input.logger,
+        asynchronousQuoteIssuance: input.asynchronousQuoteIssuance === true,
+        quoteProjectionBarrier: input.quoteProjectionBarrier,
         config,
       })
     : undefined;
@@ -240,6 +247,8 @@ export function createRedisQuoteExposureRuntime(input: {
   managedPairs: readonly { chainId: number }[];
   metrics: MetricsService;
   logger: QuoteExposureRuntimeLogger;
+  asynchronousQuoteIssuance?: boolean;
+  quoteProjectionBarrier?: QuoteExposureProjectionBarrier;
   config: QuoteExposureRuntimeConfig;
 }): RedisQuoteExposureRuntime {
   if (input.config.backend !== "redis-stream" || !input.config.redisUrl) {
@@ -304,11 +313,15 @@ export function createRedisQuoteExposureRuntime(input: {
     },
     input.metrics,
     input.logger,
+    Date.now,
+    input.quoteProjectionBarrier,
   );
   let started = false;
 
   return {
-    quoteExposureStore: new HealthGatedQuoteExposureStore(store, mirror),
+    quoteExposureStore: input.asynchronousQuoteIssuance
+      ? store
+      : new HealthGatedQuoteExposureStore(store, mirror),
     inventoryService,
     marketSnapshotStore,
     async start() {

@@ -82,6 +82,22 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
     applied: true,
   });
   metrics.recordLedgerMirrorError();
+  metrics.recordIssuanceMutation({ eventType: "prepared", duplicate: false, backlog: 4 });
+  metrics.recordIssuanceMutation({ eventType: "prepared", duplicate: true, backlog: 4 });
+  metrics.recordIssuanceFailure("projection_timeout");
+  metrics.recordIssuanceMirrored({
+    sourceStreamId: "epoch_v1:2-0",
+    eventType: "finalized",
+    inserted: true,
+    applied: true,
+  });
+  metrics.recordIssuanceMirrored({
+    sourceStreamId: "epoch_v1:1-0",
+    eventType: "prepared",
+    inserted: true,
+    applied: false,
+  });
+  metrics.recordIssuanceMirrorError();
   metrics.recordHedgeIntentError("venue offline\nretry");
   metrics.recordPnlRecordError("");
   metrics.recordQuoteStatusUpdateError("settled");
@@ -137,6 +153,13 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   assert.match(output, /rfq_quote_exposure_ledger_backlog 3/);
   assert.match(output, /rfq_quote_exposure_ledger_mirrored_total\{operation="reserve",result="applied"\} 1/);
   assert.match(output, /rfq_quote_exposure_ledger_mirror_errors_total 1/);
+  assert.match(output, /rfq_quote_issuance_mutations_total\{event="prepared",result="applied"\} 1/);
+  assert.match(output, /rfq_quote_issuance_mutations_total\{event="prepared",result="duplicate"\} 1/);
+  assert.match(output, /rfq_quote_issuance_failures_total\{reason="projection_timeout"\} 1/);
+  assert.match(output, /rfq_quote_issuance_backlog 4/);
+  assert.match(output, /rfq_quote_issuance_mirrored_total\{event="finalized",result="applied"\} 1/);
+  assert.match(output, /rfq_quote_issuance_mirrored_total\{event="prepared",result="stale"\} 1/);
+  assert.match(output, /rfq_quote_issuance_mirror_errors_total 1/);
   assert.match(output, /rfq_hedge_intent_errors_total\{reason="VENUE_OFFLINE_RETRY"\} 1/);
   assert.match(output, /rfq_pnl_record_errors_total\{reason="UNKNOWN"\} 1/);
   assert.match(output, /rfq_quote_status_update_errors_total\{target_status="SETTLED"\} 1/);

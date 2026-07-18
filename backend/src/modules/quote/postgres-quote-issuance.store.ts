@@ -77,6 +77,14 @@ export class PostgresQuoteIssuanceStore implements QuoteIssuanceStore {
   }
 }
 
+export function assertQuoteIssuancePreparation(input: PrepareQuoteIssuanceInput): void {
+  normalizePreparation(input);
+}
+
+export function assertQuoteIssuanceFinalization(input: FinalizeQuoteIssuanceInput): void {
+  normalizeFinalization(input);
+}
+
 interface NormalizedPreparation {
   snapshot: MarketSnapshotRecord;
 }

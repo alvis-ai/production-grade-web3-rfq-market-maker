@@ -2,7 +2,7 @@
   "title": "RFQ Market Maker Overview",
   "uid": "rfq-market-maker-overview",
   "schemaVersion": 39,
-  "version": 11,
+  "version": 12,
   "refresh": "15s",
   "panels": [
     {
@@ -26,7 +26,12 @@
         { "expr": "sum(rfq_quote_exposure_ledger_failures_total)", "legendFormat": "exposure failures", "refId": "M" },
         { "expr": "sum(rfq_quote_exposure_ledger_mirror_errors_total)", "legendFormat": "exposure mirror errors", "refId": "N" },
         { "expr": "sum by (operation, result) (rate(rfq_quote_exposure_ledger_mutations_total[5m]))", "legendFormat": "exposure {{operation}} {{result}}/s", "refId": "O" },
-        { "expr": "sum by (operation, result) (rate(rfq_quote_exposure_ledger_mirrored_total[5m]))", "legendFormat": "mirror {{operation}} {{result}}/s", "refId": "P" }
+        { "expr": "sum by (operation, result) (rate(rfq_quote_exposure_ledger_mirrored_total[5m]))", "legendFormat": "mirror {{operation}} {{result}}/s", "refId": "P" },
+        { "expr": "max(rfq_quote_issuance_backlog)", "legendFormat": "issuance backlog", "refId": "Q" },
+        { "expr": "sum(rfq_quote_issuance_failures_total)", "legendFormat": "issuance failures", "refId": "R" },
+        { "expr": "sum(rfq_quote_issuance_mirror_errors_total)", "legendFormat": "issuance mirror errors", "refId": "S" },
+        { "expr": "sum by (event, result) (rate(rfq_quote_issuance_mutations_total[5m]))", "legendFormat": "issuance {{event}} {{result}}/s", "refId": "T" },
+        { "expr": "sum by (event, result) (rate(rfq_quote_issuance_mirrored_total[5m]))", "legendFormat": "projection {{event}} {{result}}/s", "refId": "U" }
       ]
     },
     {

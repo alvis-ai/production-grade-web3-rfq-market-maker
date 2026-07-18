@@ -8,6 +8,7 @@ import type {
 } from "../../shared/types/rfq.js";
 import { APIError, toAPIError } from "../../shared/errors/api-error.js";
 import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
+import { localPrincipalId } from "../../shared/validation/principal-id.js";
 import { getMarketDataSnapshotSource } from "../market-data/market-data.service.js";
 import type { SaveMarketSnapshotInput } from "../market-data/market-snapshot.repository.js";
 import type { PricingResult } from "../pricing/pricing.engine.js";
@@ -501,6 +502,8 @@ export class QuoteService {
 
   private async findQuoteStatus(quoteId: string, principalId: string): Promise<QuoteStatusResponse | undefined> {
     try {
+      const hotStatus = await this.deps.quoteIssuanceStore?.findHotStatus?.(quoteId, principalId);
+      if (hotStatus) return hotStatus;
       return await this.deps.quoteRepository.findStatus(quoteId, principalId);
     } catch (error) {
       throw quoteStoreFailure(error);
@@ -560,6 +563,12 @@ export class QuoteService {
     signature: `0x${string}`,
     options: SubmittableQuoteOptions = {},
   ): Promise<string> {
+    const principalId = options.principalId ?? localPrincipalId;
+    try {
+      await this.deps.quoteIssuanceStore?.awaitSignedQuoteProjection?.(quote, principalId);
+    } catch (error) {
+      throw quoteStoreFailure(error);
+    }
     return requireSubmittableQuote(
       this.deps,
       quote,

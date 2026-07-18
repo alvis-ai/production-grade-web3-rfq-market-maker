@@ -43,8 +43,12 @@ import {
   renderQuoteExposureMetrics,
   type QuoteExposureMetricsState,
 } from "./quote-exposure-metrics.js";
+import {
+  renderQuoteIssuanceMetrics,
+  type QuoteIssuanceMetricsState,
+} from "./quote-issuance-metrics.js";
 
-export interface PrometheusMetricsState extends QuoteExposureMetricsState {
+export interface PrometheusMetricsState extends QuoteExposureMetricsState, QuoteIssuanceMetricsState {
   quoteRequests: number;
   quoteResponses: number;
   quoteErrors: number;
@@ -126,6 +130,7 @@ export function renderPrometheusMetrics(state: PrometheusMetricsState): string {
     "# TYPE rfq_portfolio_delta_soft_breaches_total counter",
     `rfq_portfolio_delta_soft_breaches_total ${state.portfolioDeltaSoftBreaches}`,
     ...renderQuoteExposureMetrics(state),
+    ...renderQuoteIssuanceMetrics(state),
     "# HELP rfq_quote_paused Whether quote creation is administratively paused (1) or enabled (0).",
     "# TYPE rfq_quote_paused gauge",
     `rfq_quote_paused ${state.quotePaused}`,

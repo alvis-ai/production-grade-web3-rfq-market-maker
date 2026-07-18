@@ -103,6 +103,37 @@ test("QuoteService fused issuance stops before exposure when preparation fails",
   assert.equal(signerCalls, 0);
 });
 
+test("QuoteService overlaps Redis preparation with exposure and releases on preparation failure", async () => {
+  const events = [];
+  let releaseCalls = 0;
+  let rejectPreparation;
+  const preparation = new Promise((_resolve, reject) => { rejectPreparation = reject; });
+  const service = new QuoteService({
+    ...deps(),
+    quoteExposureStore: {
+      async reserve() {
+        events.push("exposure");
+        rejectPreparation(new Error("redis issuance unavailable"));
+        return { status: "reserved", notionalUsdE18: "1000000000000000000" };
+      },
+      async release() { releaseCalls += 1; },
+    },
+    quoteIssuanceStore: {
+      asynchronousProjection: true,
+      async prepare() {
+        events.push("prepare");
+        return preparation;
+      },
+      async authorize() { assert.fail("failed asynchronous preparation cannot authorize"); },
+      async finalize() { assert.fail("failed asynchronous preparation cannot finalize"); },
+    },
+  });
+
+  await assert.rejects(service.createQuote(request), (error) => error?.code === "QUOTE_STORE_UNAVAILABLE");
+  assert.deepEqual(events, ["prepare", "exposure"]);
+  assert.equal(releaseCalls, 1);
+});
+
 test("QuoteService fused issuance blocks signer on malformed authorization evidence", async () => {
   let signerCalls = 0;
   const service = new QuoteService({

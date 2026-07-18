@@ -107,7 +107,9 @@ test -s backend/src/db/migrations/027-signer-audit.sql
 test -s backend/src/db/migrations/028-signer-risk-context.sql
 test -s backend/src/db/migrations/036-signer-audit-stream.sql
 test -s backend/src/db/migrations/037-quote-exposure-ledger.sql
+test -s backend/src/db/migrations/038-quote-issuance-journal.sql
 test -s scripts/quote-exposure-ledger-bootstrap.mjs
+test -s scripts/quote-issuance-redis-integration-check.mjs
 test -s backend/src/db/migrations/029-bounded-hedge-failure-risk.sql
 test -s backend/src/db/migrations/030-usd-reference-depeg-risk.sql
 test -s backend/src/db/migrations/031-daily-loss-risk.sql
@@ -337,6 +339,13 @@ test -s backend/src/modules/quote/quote-service-observability.ts
 test -s backend/src/modules/quote/quote-authorization.ts
 test -s backend/src/modules/quote/quote-issuance.store.ts
 test -s backend/src/modules/quote/postgres-quote-issuance.store.ts
+test -s backend/src/modules/quote/redis-quote-issuance.protocol.ts
+test -s backend/src/modules/quote/redis-quote-issuance.scripts.ts
+test -s backend/src/modules/quote/redis-quote-issuance.store.ts
+test -s backend/src/modules/quote/quote-issuance-journal.mirror.ts
+test -s backend/src/modules/quote/postgres-quote-issuance-journal.sink.ts
+test -s backend/test/quote-issuance-journal-mirror.test.mjs
+test -s backend/test/quote-issuance-runtime.test.mjs
 test -s backend/src/modules/quote/quote-submittable.ts
 test -s backend/src/modules/quote/quote-risk-decision.ts
 test -s backend/src/modules/quote/quote-identity.ts
@@ -451,6 +460,7 @@ test -s backend/src/modules/metrics/metrics-validation.ts
 test -s backend/src/modules/metrics/prometheus-metrics.ts
 test -s backend/src/modules/metrics/histogram.ts
 test -s backend/src/modules/metrics/quote-exposure-metrics.ts
+test -s backend/src/modules/metrics/quote-issuance-metrics.ts
 test -s scripts/lib/read-backend-metrics-source.mjs
 grep -q 'checkHealth' backend/src/modules/metrics/metrics.service.ts
 grep -q 'MetricsService sanitizes reason labels and renders core settlement metrics' backend/test/metrics.test.mjs
@@ -582,7 +592,7 @@ grep -q 'canonical positive uint string without leading zeros' book/Volume2-Mark
 grep -q '`observedAt` 必须是 `Date.prototype.toISOString()` 生成的 canonical UTC ISO timestamp' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'snapshot lookup validates `snapshotId` before reading the store' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'Snapshot persistence rejects malformed root payloads, missing `request` / `snapshot` objects, inherited `request` / `snapshot` / `source` fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
-grep -q '原子写入 market snapshot、requested quote、route attribution 和 idempotency quote binding' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q 'prepare Lua 原子写入 cumulative quote hot state' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '默认 fused 路径在 routing/pricing 失败时使用 legacy repository best-effort 补写' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '`observedAt`，该字段必须是 `Date.prototype.toISOString()` 生成的 canonical UTC ISO timestamp' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'runtime `MarketSnapshotStore` 必须镜像 `market_snapshots` 表的核心契约' docs/database/er-diagram.md

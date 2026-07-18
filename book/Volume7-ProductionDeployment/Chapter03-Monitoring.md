@@ -103,7 +103,7 @@ Key metrics include:
 - `rfq_quote_responses_total`
 - `rfq_quote_errors_total`
 - `rfq_quote_latency_seconds`
-- `rfq_quote_stage_latency_seconds` with a bounded `stage` label; default PostgreSQL issuance uses `quote_preparation_persistence`, `authorization_persistence` and `issuance_persistence`, while custom repositories retain legacy persistence stages; alert when any stage p99 remains above 25ms
+- `rfq_quote_stage_latency_seconds` with a bounded `stage` label; Redis and PostgreSQL issuance both expose `quote_preparation_persistence`, `authorization_persistence` and `issuance_persistence`, while custom repositories retain legacy persistence stages; alert when any stage p99 remains above 25ms
 - `rfq_quote_rejections_total` with bounded `reason`; alert separately on `TREASURY_LIQUIDITY_INSUFFICIENT`, `PORTFOLIO_VAR_LIMIT_EXCEEDED`, `PORTFOLIO_DELTA_LIMIT_EXCEEDED`, `GAMMA_GUARDRAIL_TRIGGERED`, `USD_REFERENCE_DEPEG` and `RISK_ENGINE_UNAVAILABLE`
 - `rfq_portfolio_delta_soft_breaches_total` counts newly accepted reservations above a reviewed chain/token asset, gross, or signed net delta soft limit; any increase requires component-level inventory and hedge review before a hard limit starts rejecting quotes
 - `rfq_quote_exposure_ledger_mutations_total` with bounded operation/result labels
@@ -112,6 +112,11 @@ Key metrics include:
 - `rfq_quote_exposure_ledger_backlog`; alert before the configured admission maximum
 - `rfq_quote_exposure_ledger_mirrored_total` with bounded operation/result labels
 - `rfq_quote_exposure_ledger_mirror_errors_total`; any increase means new reserves should be gated
+- `rfq_quote_issuance_mutations_total` with bounded event/result labels
+- `rfq_quote_issuance_failures_total` with bounded failure reason
+- `rfq_quote_issuance_backlog`; alert before the configured admission maximum
+- `rfq_quote_issuance_mirrored_total` with bounded event/result labels
+- `rfq_quote_issuance_mirror_errors_total`; any increase means the PostgreSQL audit projection needs intervention
 - `rfq_quote_paused`
 - `rfq_quote_pairs_paused` without chain or token labels
 - `rfq_quote_control_updates_total` for successful global or pair CAS updates
@@ -226,6 +231,7 @@ Kubernetes control-plane observability comes from kube-state-metrics rather than
 - Quote SLO alerting uses `rfq_quote_latency_seconds` p99 below 50ms and `rfq_quote_stage_latency_seconds` p99 by bounded stage. A local in-process benchmark is only a regression baseline; production readiness requires the same thresholds under representative PostgreSQL, Redis, RPC, signer, TLS and concurrency load.
 - Correlate the three fused PostgreSQL stages with signer and exposure latency. A low p99 with p50 above 10ms is still an SLO failure; do not report success from one passing percentile. Sustained preparation growth indicates snapshot/request/idempotency contention, authorization growth indicates quote/risk write contention, and finalization growth indicates signed-payload or idempotency completion contention.
 - Quote exposure alerting correlates fused lease/read `rfq_quote_exposure_ledger_lock_wait_seconds`, Lua-returned backlog, bounded failures and mirror errors. A mirror failure is an admission-health failure even while Redis remains reachable; keep releases enabled, repair and drain the same consumer group, and never create a PostgreSQL fallback authority.
+- Quote issuance alerting correlates cumulative mutation outcomes, Lua-returned backlog, bounded durability/projection failures and mirror progress. In asynchronous issuance mode, exposure projection waits for the prepared quote marker; a non-zero mirror error therefore indicates PostgreSQL, projection integrity or timeout failure rather than an expected foreign-key race. Stop admission before backlog reaches its configured maximum, repair the projector under the same epoch and drain to zero without trimming unacknowledged entries.
 - Treasury hot-state health is part of the fixed `risk` readiness component. The `treasury_liquidity` quote stage must remain an in-memory read; rising stage latency indicates event-loop or lease pressure rather than acceptable request-time RPC. Correlate `TREASURY_LIQUIDITY_HOT_STATE_REFRESH_FAILED` transition logs with RPC health and generation freshness, and never hide an expired generation by widening max age during an incident.
 - Base-provider prefetch exposes only `outcome=success|failure`; audit snapshot sampling exposes only `outcome=saved|unchanged|unavailable|failed`. Observer failures are isolated from refresh and persistence decisions, and pair addresses, chain ids, RPC URLs, snapshot ids and database errors remain outside labels. Alerts use refresh `failure` and persistence `failed`; sampler `unavailable` remains diagnostic because it can describe a cold cache without an attempted database write.
 - CEX order-book alerting uses fixed source/pair states, latest-cycle maximum event age, latest-cycle deviation rejections and connector error rates. A synchronized socket alone is not healthy: `ready` requires a valid two-sided book whose exchange event timestamp is within `RFQ_CEX_MAX_SOURCE_AGE_MS`; blocked pairs must remain on the lower-priority provider or fail closed until quorum and deviation checks recover.

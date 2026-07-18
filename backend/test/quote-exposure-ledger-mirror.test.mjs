@@ -22,18 +22,22 @@ test("QuoteExposureLedgerMirror persists before acknowledging and cleans expired
   const mirror = new QuoteExposureLedgerMirror(client, sink, config(), {
     recordLedgerMirrored(value) { observations.push(value); },
     recordLedgerMirrorError() {},
-  }, undefined, () => 10_000);
+    recordLedgerBacklog(value) { observations.push({ backlog: value }); },
+  }, undefined, () => 10_000, {
+    async awaitPreparedQuoteProjection(quoteId) { order.push(`barrier:${quoteId}`); },
+  });
 
   assert.equal(await mirror.runOnce(), 1);
   assert.deepEqual(order, [
     "group",
     "claim",
     "read",
+    "barrier:q_mirror",
     "persist:reserve:epoch_v1:1700000000000-0:q_mirror",
     "ack",
     "cleanup:25",
   ]);
-  assert.deepEqual(observations, [{
+  assert.deepEqual(observations, [{ backlog: 0 }, {
     sourceStreamId: "epoch_v1:1700000000000-0",
     operation: "reserve",
     inserted: true,
@@ -132,7 +136,7 @@ function streamClient(order, entry) {
     },
     async eval() {
       order.push("ack");
-      return 1;
+      return [1, 0];
     },
     async quit() { return "OK"; },
   };

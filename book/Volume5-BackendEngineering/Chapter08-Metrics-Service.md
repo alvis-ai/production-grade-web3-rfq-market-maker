@@ -126,6 +126,11 @@ Prometheus metrics:
 - `rfq_quote_exposure_ledger_backlog`
 - `rfq_quote_exposure_ledger_mirrored_total`
 - `rfq_quote_exposure_ledger_mirror_errors_total`
+- `rfq_quote_issuance_mutations_total`
+- `rfq_quote_issuance_failures_total`
+- `rfq_quote_issuance_backlog`
+- `rfq_quote_issuance_mirrored_total`
+- `rfq_quote_issuance_mirror_errors_total`
 - `rfq_quote_latency_seconds`
 - `rfq_quote_stage_latency_seconds`
 - `rfq_quote_paused`

@@ -36,12 +36,20 @@ export async function authorizeQuote(
   input: AuthorizeQuoteInput,
 ): Promise<AuthorizedQuote> {
   let risk = await evaluateRisk(deps, input);
+  let asynchronousPreparation: Promise<{ error?: unknown; failed: boolean }> | undefined;
   if (deps.quoteIssuanceStore) {
     if (!input.preparation) throw quoteStoreFailure(new Error("Quote issuance preparation is required"));
-    try {
-      await deps.quoteIssuanceStore.prepare(input.preparation);
-    } catch (error) {
-      throw quoteStoreFailure(error);
+    if (deps.quoteIssuanceStore.asynchronousProjection === true) {
+      asynchronousPreparation = deps.quoteIssuanceStore.prepare(input.preparation).then(
+        () => ({ failed: false }),
+        (error: unknown) => ({ error, failed: true }),
+      );
+    } else {
+      try {
+        await deps.quoteIssuanceStore.prepare(input.preparation);
+      } catch (error) {
+        throw quoteStoreFailure(error);
+      }
     }
   }
 
@@ -79,6 +87,14 @@ export async function authorizeQuote(
       }
     } catch {
       risk = riskUnavailableDecision();
+    }
+  }
+
+  if (asynchronousPreparation) {
+    const preparation = await asynchronousPreparation;
+    if (preparation.failed) {
+      if (exposureReserved) await releaseExposureBestEffort(deps, input.quoteId);
+      throw quoteStoreFailure(preparation.error);
     }
   }
 
