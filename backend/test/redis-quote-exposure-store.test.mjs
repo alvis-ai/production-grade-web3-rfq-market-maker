@@ -3,11 +3,11 @@ import test from "node:test";
 import { ConfiguredTokenRegistry } from "../dist/modules/pricing/token-registry.js";
 import { RedisQuoteExposureStore } from "../dist/modules/risk/redis-quote-exposure.store.js";
 import {
-  acquireAndReadQuoteExposureStateScript,
   acquireQuoteExposureLockScript,
   commitQuoteExposureReservationScript,
   getQuoteExposureReservationScript,
   initializeQuoteExposureLedgerScript,
+  readVersionedQuoteExposureStateScript,
   releaseQuoteExposureLockScript,
   releaseQuoteExposureReservationScript,
 } from "../dist/modules/risk/redis-quote-exposure.scripts.js";
@@ -27,12 +27,12 @@ test("RedisQuoteExposureStore uses two Redis round trips for a common reservatio
   const input = reserveInput("q_fused_common");
   const reserved = await store.reserve(input);
   assert.equal(reserved.status, "reserved");
-  assert.deepEqual(client.scriptCalls, ["initialize", "acquire-read", "commit"]);
+  assert.deepEqual(client.scriptCalls, ["initialize", "versioned-read", "commit"]);
   assert.equal(client.xlenCalls, 0);
   assert.deepEqual(observations[0], { operation: "reserve", duplicate: false, backlog: 1 });
 
   assert.deepEqual(await store.reserve(input), reserved);
-  assert.deepEqual(client.scriptCalls.slice(3), ["acquire-read"]);
+  assert.deepEqual(client.scriptCalls.slice(3), ["versioned-read"]);
   assert.equal(client.xlenCalls, 0);
 
   await store.release(input.quoteId);
@@ -50,10 +50,52 @@ test("RedisQuoteExposureStore requires replica acknowledgement for an existing r
   assert.equal((await store.reserve(input)).status, "reserved");
   await assert.rejects(store.reserve(input), /required replicas/);
   assert.equal(client.waitCalls, 2);
-  assert.deepEqual(client.scriptCalls.slice(-1), ["acquire-read"]);
+  assert.deepEqual(client.scriptCalls.slice(-1), ["versioned-read"]);
 });
 
-test("RedisQuoteExposureStore conditionally unlocks malformed fused state", async () => {
+test("RedisQuoteExposureStore retries a generation conflict before committing", async () => {
+  const waits = [];
+  let conflicts = 0;
+  const client = fakeClient({ commitConflicts: 1 });
+  const store = buildStore(client, {
+    recordLedgerVersionConflict() { conflicts += 1; },
+    recordLedgerLockWait(seconds) { waits.push(seconds); },
+  });
+
+  await store.initialize();
+  assert.equal((await store.reserve(reserveInput("q_generation_retry"))).status, "reserved");
+  assert.deepEqual(client.scriptCalls, [
+    "initialize",
+    "versioned-read",
+    "commit-conflict",
+    "versioned-read",
+    "commit",
+  ]);
+  assert.equal(conflicts, 1);
+  assert.equal(waits.length, 1);
+  assert.equal(waits[0] > 0, true);
+});
+
+test("RedisQuoteExposureStore fails closed when the generation retry budget expires", async () => {
+  const failures = [];
+  let conflicts = 0;
+  const client = fakeClient({ commitConflicts: 1, commitConflictDelayMs: 2 });
+  const store = buildStore(client, {
+    recordLedgerFailure(reason) { failures.push(reason); },
+    recordLedgerVersionConflict() { conflicts += 1; },
+  }, { lockAcquireTimeoutMs: 1 });
+
+  await store.initialize();
+  await assert.rejects(
+    store.reserve(reserveInput("q_generation_retry_timeout")),
+    /version retry timed out/,
+  );
+  assert.deepEqual(client.scriptCalls, ["initialize", "versioned-read", "commit-conflict"]);
+  assert.deepEqual(failures, ["version_retry_timeout"]);
+  assert.equal(conflicts, 1);
+});
+
+test("RedisQuoteExposureStore rejects malformed versioned state without unlocking", async () => {
   const failures = [];
   const client = fakeClient({ malformedAcquireRead: true });
   const store = buildStore(client, {
@@ -62,7 +104,7 @@ test("RedisQuoteExposureStore conditionally unlocks malformed fused state", asyn
 
   await store.initialize();
   await assert.rejects(store.reserve(reserveInput("q_fused_malformed")), /backlog must be/);
-  assert.deepEqual(client.scriptCalls, ["initialize", "acquire-read", "unlock"]);
+  assert.deepEqual(client.scriptCalls, ["initialize", "versioned-read"]);
   assert.deepEqual(failures, ["state_invalid"]);
 });
 
@@ -89,6 +131,7 @@ function buildStore(client, observerOverrides = {}, configOverrides = {}) {
     {
       recordLedgerMutation() {},
       recordLedgerFailure() {},
+      recordLedgerVersionConflict() {},
       recordLedgerLockWait() {},
       recordLedgerBacklog() {},
       recordPortfolioDeltaSoftBreach() {},
@@ -101,6 +144,8 @@ function buildStore(client, observerOverrides = {}, configOverrides = {}) {
 function fakeClient(options = {}) {
   let storedPayload;
   let backlog = 0;
+  let version = 0;
+  let remainingCommitConflicts = options.commitConflicts ?? 0;
   const waitResults = [...(options.waitResults ?? [])];
   const client = {
     status: "ready",
@@ -113,17 +158,27 @@ function fakeClient(options = {}) {
         client.scriptCalls.push("initialize");
         return [1, "test_v1"];
       }
-      if (script === acquireAndReadQuoteExposureStateScript) {
-        client.scriptCalls.push("acquire-read");
-        if (options.malformedAcquireRead) return [1, "", "invalid-backlog"];
-        const quoteId = args[12];
+      if (script === readVersionedQuoteExposureStateScript) {
+        client.scriptCalls.push("versioned-read");
+        if (options.malformedAcquireRead) return [1, "", "invalid-backlog", String(version)];
+        const quoteId = args[10];
         const existing = storedPayload && JSON.parse(storedPayload).quoteId === quoteId ? storedPayload : "";
-        return [1, existing, backlog];
+        return [1, existing, backlog, String(version)];
       }
       if (script === commitQuoteExposureReservationScript) {
+        if (remainingCommitConflicts > 0) {
+          remainingCommitConflicts -= 1;
+          version += 1;
+          client.scriptCalls.push("commit-conflict");
+          if (options.commitConflictDelayMs) {
+            await new Promise((resolve) => setTimeout(resolve, options.commitConflictDelayMs));
+          }
+          return [4, "version_conflict", backlog];
+        }
         client.scriptCalls.push("commit");
         storedPayload = args[11];
         backlog += 1;
+        version += 1;
         return [1, storedPayload, backlog];
       }
       if (script === getQuoteExposureReservationScript) {
@@ -139,6 +194,7 @@ function fakeClient(options = {}) {
         const released = storedPayload ?? "";
         storedPayload = undefined;
         backlog += 1;
+        version += 1;
         return [1, released, backlog];
       }
       if (script === releaseQuoteExposureLockScript) {

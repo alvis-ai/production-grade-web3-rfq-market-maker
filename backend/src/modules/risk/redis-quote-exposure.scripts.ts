@@ -170,22 +170,20 @@ if acquired then return 1 end
 return 0
 `;
 
-export const acquireAndReadQuoteExposureStateScript = `${decimalHelpers}${String.raw`
-local acquired = redis.call("SET", KEYS[8], ARGV[1], "PX", ARGV[2], "NX")
-if not acquired then return {0, "lock_busy"} end
+export const readVersionedQuoteExposureStateScript = `${decimalHelpers}${String.raw`
 local redis_time = redis.call("TIME")
-local remaining_expired = clean_expired(tonumber(redis_time[1]), tonumber(ARGV[3]))
+local remaining_expired = clean_expired(tonumber(redis_time[1]), tonumber(ARGV[1]))
 if remaining_expired > 0 then return {-1, tostring(remaining_expired)} end
-local existing = redis.call("HGET", KEYS[1], ARGV[4]) or ""
-if existing ~= "" and redis.call("GET", KEYS[8]) == ARGV[1] then redis.call("DEL", KEYS[8]) end
+local existing = redis.call("HGET", KEYS[1], ARGV[2]) or ""
 local output = {
   1,
   existing,
-  redis.call("XLEN", KEYS[7])
+  redis.call("XLEN", KEYS[7]),
+  redis.call("HGET", KEYS[9], ARGV[3]) or "0"
 }
-local asset_count = tonumber(ARGV[5])
+local asset_count = tonumber(ARGV[4])
 for index = 1, asset_count do
-  table.insert(output, redis.call("HGET", KEYS[6], ARGV[5 + index]) or "0")
+  table.insert(output, redis.call("HGET", KEYS[6], ARGV[4 + index]) or "0")
 end
 return output
 `}`;
@@ -201,57 +199,34 @@ export const getQuoteExposureReservationScript = String.raw`
 return redis.call("HGET", KEYS[1], ARGV[1]) or ""
 `;
 
-export const readQuoteExposureStateScript = `${decimalHelpers}${String.raw`
-if redis.call("GET", KEYS[8]) ~= ARGV[1] then return {0, "lock_lost"} end
-local redis_time = redis.call("TIME")
-local remaining_expired = clean_expired(tonumber(redis_time[1]), tonumber(ARGV[2]))
-if remaining_expired > 0 then return {-1, tostring(remaining_expired)} end
-local existing = redis.call("HGET", KEYS[1], ARGV[3]) or ""
-if existing ~= "" and redis.call("GET", KEYS[8]) == ARGV[1] then redis.call("DEL", KEYS[8]) end
-local output = {
-  1,
-  existing,
-  redis.call("XLEN", KEYS[7])
-}
-local asset_count = tonumber(ARGV[4])
-for index = 1, asset_count do
-  table.insert(output, redis.call("HGET", KEYS[6], ARGV[4 + index]) or "0")
-end
-return output
-`}`;
-
 export const commitQuoteExposureReservationScript = `${decimalHelpers}${String.raw`
-local function finish(status, value, backlog)
-  if redis.call("GET", KEYS[8]) == ARGV[1] then redis.call("DEL", KEYS[8]) end
-  return {status, value, backlog}
-end
-
 local backlog = redis.call("XLEN", KEYS[7])
-if redis.call("GET", KEYS[8]) ~= ARGV[1] then return {0, "lock_lost", backlog} end
 local existing = redis.call("HGET", KEYS[1], ARGV[2])
-if existing then return finish(2, existing, backlog) end
+if existing then return {2, existing, backlog} end
+local record = cjson.decode(ARGV[3])
+local current_version = redis.call("HGET", KEYS[9], tostring(record.chainId)) or "0"
+if current_version ~= ARGV[1] then return {4, "version_conflict", backlog} end
 local redis_time = redis.call("TIME")
 local now_seconds = tonumber(redis_time[1])
 if tonumber(ARGV[4]) <= now_seconds or tonumber(ARGV[5]) <= now_seconds then
-  return finish(0, "expired", backlog)
+  return {0, "expired", backlog}
 end
-if backlog >= tonumber(ARGV[9]) then return finish(0, "backlog_full", backlog) end
+if backlog >= tonumber(ARGV[9]) then return {0, "backlog_full", backlog} end
 
-local record = cjson.decode(ARGV[3])
 local user_key = user_field(record)
 local pair_key = pair_field(record)
 local output_key = output_field(record)
 local next_user = add_unsigned(redis.call("HGET", KEYS[3], user_key) or "0", record.notionalUsdE18)
 if compare_unsigned(next_user, ARGV[6]) > 0 then
-  return finish(3, "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED", backlog)
+  return {3, "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED", backlog}
 end
 local next_pair = add_unsigned(redis.call("HGET", KEYS[4], pair_key) or "0", record.notionalUsdE18)
 if compare_unsigned(next_pair, ARGV[7]) > 0 then
-  return finish(3, "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED", backlog)
+  return {3, "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED", backlog}
 end
 local next_output = add_unsigned(redis.call("HGET", KEYS[5], output_key) or "0", record.amountOut)
 if ARGV[8] ~= "" and compare_unsigned(next_output, ARGV[8]) > 0 then
-  return finish(3, "TREASURY_LIQUIDITY_INSUFFICIENT", backlog)
+  return {3, "TREASURY_LIQUIDITY_INSUFFICIENT", backlog}
 end
 
 redis.call("HSET", KEYS[1], record.quoteId, ARGV[3])
@@ -268,7 +243,7 @@ redis.call(
   "operation", "reserve",
   "payload", ARGV[3]
 )
-return finish(1, ARGV[3], backlog + 1)
+return {1, ARGV[3], backlog + 1}
 `}`;
 
 export const releaseQuoteExposureReservationScript = `${decimalHelpers}${String.raw`

@@ -74,6 +74,7 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   metrics.recordPortfolioDeltaSoftBreach();
   metrics.recordLedgerMutation({ operation: "reserve", duplicate: false, backlog: 3 });
   metrics.recordLedgerFailure("replica_ack");
+  metrics.recordLedgerVersionConflict();
   metrics.recordLedgerLockWait(0.002);
   metrics.recordLedgerMirrored({
     sourceStreamId: "epoch_v1:1-0",
@@ -151,6 +152,7 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   assert.match(output, /rfq_portfolio_delta_soft_breaches_total 1/);
   assert.match(output, /rfq_quote_exposure_ledger_mutations_total\{operation="reserve",result="applied"\} 1/);
   assert.match(output, /rfq_quote_exposure_ledger_failures_total\{reason="replica_ack"\} 1/);
+  assert.match(output, /rfq_quote_exposure_ledger_version_conflicts_total 1/);
   assert.match(output, /rfq_quote_exposure_ledger_lock_wait_seconds_count 1/);
   assert.match(output, /rfq_quote_exposure_ledger_backlog 3/);
   assert.match(output, /rfq_quote_exposure_ledger_mirrored_total\{operation="reserve",result="applied"\} 1/);

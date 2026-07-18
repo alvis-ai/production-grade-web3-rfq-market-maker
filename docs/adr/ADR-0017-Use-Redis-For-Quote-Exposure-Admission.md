@@ -6,6 +6,8 @@ Accepted
 
 ## Context
 
+The Redis authority decision remains accepted. [ADR-0023](./ADR-0023-Use-Optimistic-CAS-For-Quote-Exposure.md) later amended reserve coordination from a chain lease to optimistic generation CAS.
+
 The production-shaped `POST /quote` path serializes exposure admission through PostgreSQL advisory locks. The reservation transaction also reads current inventory, active reservations, and valuation snapshots before it writes the accepted reservation. A 100-request, concurrency-5 dependency-stack benchmark attributed 34.14 ms on average to this stage and reported p50 61.65 ms and p99 100.5 ms. This exceeds the complete quote-path objective before remote signing is considered.
 
 Moving only arithmetic into process memory is unsafe. Every API replica must see one atomic user, pair, treasury-output, portfolio VaR, and portfolio delta admission decision. Expired quotes must restore capacity, retries must return the original evidence, a crashed replica must not retain an unbounded lock, and an accepted reservation must survive process failure. Inventory and valuation inputs must also be versioned and fresh; an unversioned pod-local cache can understate exposure after settlement or reorg processing.
@@ -14,7 +16,7 @@ PostgreSQL remains necessary for long-term quote, risk, settlement, and audit qu
 
 ## Decision
 
-Use a hash-tagged Redis or Valkey keyspace as the cross-replica quote exposure admission ledger. One bounded chain-scoped lease serializes a read-evaluate-commit cycle. Redis stores exact decimal-string aggregates for user notional, pair notional, output-token reservations, and directional token deltas. Lua scripts perform expiration cleanup, exact integer limit checks, idempotent conflict detection, aggregate mutation, stream append and owner-checked release atomically. ADR-0019 later fuses acquisition with state read and commit with unlock without changing this authority model. The scripts never use floating-point arithmetic for token or USD quantities.
+Use a hash-tagged Redis or Valkey keyspace as the cross-replica quote exposure admission ledger. Redis stores exact decimal-string aggregates for user notional, pair notional, output-token reservations, and directional token deltas. Lua scripts perform expiration cleanup, exact integer limit checks, idempotent conflict detection, aggregate mutation, stream append and release atomically. ADR-0019 originally fused a bounded lease protocol; ADR-0023 replaced reserve coordination with versioned read/evaluate/CAS while retaining the same Redis authority and release lease. The scripts never use floating-point arithmetic for token or USD quantities.
 
 Portfolio VaR and delta arithmetic consume an immutable hot-state snapshot containing canonical inventory and valuation observations plus the Redis reservation deltas. The snapshot is refreshed outside request handling, carries a monotonic source version and observation time, and is rejected when it exceeds the reviewed freshness bound. A reservation remains counted for an additional bounded synchronization grace after its signed quote deadline so an inventory refresh cannot briefly omit both the expiring reservation and a just-settled inventory change.
 
@@ -37,7 +39,7 @@ The initial rollout keeps the PostgreSQL implementation as an explicit rollback 
 ### Negative
 
 - Redis becomes an authorization dependency whose persistence, replication, lease timing, and memory capacity require production operation.
-- The chain-scoped lease can still serialize a hot chain; the lease duration and state-evaluation cost must remain below the quote tail budget.
+- The original chain-scoped reserve lease serialized a hot chain; ADR-0023 supersedes that consequence with observable, bounded CAS conflict and retry cost.
 - Background state refresh introduces a bounded consistency delay and requires a synchronization grace on reservation expiry.
 - A complete Redis-cluster data loss cannot be treated as an ordinary cache miss.
 - The transition adds a stream mirror, recovery procedure, schema migration, metrics, alerts, and deployment configuration.

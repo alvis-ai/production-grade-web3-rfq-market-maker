@@ -272,6 +272,7 @@ export class MetricsService implements RefreshingSnapshotObserver {
   recordPortfolioDeltaSoftBreach(): void { this.portfolioDeltaSoftBreaches += 1; }
   recordLedgerMutation(observation: Parameters<QuoteExposureMetrics["recordMutation"]>[0]): void { this.quoteExposure.recordMutation(observation); }
   recordLedgerFailure(reason: Parameters<QuoteExposureMetrics["recordFailure"]>[0]): void { this.quoteExposure.recordFailure(reason); }
+  recordLedgerVersionConflict(): void { this.quoteExposure.recordVersionConflict(); }
   recordLedgerLockWait(seconds: number): void { this.quoteExposure.recordLockWait(seconds); }
   recordLedgerBacklog(backlog: number): void { this.quoteExposure.recordBacklog(backlog); }
   recordLedgerMirrored(observation: Parameters<QuoteExposureMetrics["recordMirrored"]>[0]): void { this.quoteExposure.recordMirrored(observation); }

@@ -227,7 +227,7 @@ groups:
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
       - alert: RFQQuoteExposureLedgerFailure
-        expr: sum(increase(rfq_quote_exposure_ledger_failures_total[5m])) > 0 or sum(increase(rfq_quote_exposure_ledger_mirror_errors_total[5m])) > 0
+        expr: sum(increase(rfq_quote_exposure_ledger_failures_total[5m])) > 0 or sum(increase(rfq_quote_exposure_ledger_mirror_errors_total[5m])) > 0 or sum(rate(rfq_quote_exposure_ledger_version_conflicts_total[5m])) / clamp_min(sum(rate(rfq_quote_exposure_ledger_mutations_total{operation="reserve"}[5m])), 1) > 4
         for: 1m
         labels:
           severity: critical
@@ -250,7 +250,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: RFQ quote exposure fused lease and state-read p99 is above 25ms
+          summary: RFQ quote exposure coordination p99 is above 25ms
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
       - alert: RFQQuoteIssuanceBacklogHigh

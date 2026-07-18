@@ -28,6 +28,7 @@ const registry = new ConfiguredTokenRegistry({
 });
 const observations = [];
 const failures = [];
+let versionConflicts = 0;
 const store = new RedisQuoteExposureStore(
   client,
   { maxUserOpenNotionalUsd: "15000000", maxPairOpenNotionalUsd: "15000000" },
@@ -49,6 +50,7 @@ const store = new RedisQuoteExposureStore(
   {
     recordLedgerMutation(value) { observations.push(value); },
     recordLedgerFailure(value) { failures.push(value); },
+    recordLedgerVersionConflict() { versionConflicts += 1; },
     recordLedgerLockWait() {},
     recordLedgerBacklog() {},
     recordPortfolioDeltaSoftBreach() {},
@@ -164,6 +166,7 @@ try {
     idempotentReplay: true,
     releaseRestoresCapacity: true,
     treasuryLimitAtomic: true,
+    versionConflicts,
     streamLength,
   }, null, 2)}\n`);
 } finally {

@@ -6,6 +6,8 @@ Accepted
 
 ## Context
 
+This decision records the fused lease protocol that was accepted at the time. [ADR-0023](./ADR-0023-Use-Optimistic-CAS-For-Quote-Exposure.md) later superseded reserve leasing with optimistic generation CAS while retaining a release lease.
+
 ADR-0017 made Redis/Valkey the production authorization source for active quote exposure, but the initial implementation used separate network commands to acquire a chain lease, read state, commit the reservation, read Stream backlog and release the lease. A successful quote therefore required five Redis round trips when replica acknowledgement was disabled, and more under contention because waiters polled the lease. The post-ADR-0018 dependency-stack benchmark attributed 12.84 ms on average to exposure reservation at concurrency five.
 
 The lease cannot simply be removed. Portfolio VaR and Delta are evaluated in process memory from a consistent Redis token-delta snapshot, while user, pair and Treasury limits must be checked atomically against the commit. Another replica must not mutate the chain between that snapshot and commit. A crashed or rejected request must also lose ownership within a bounded time, and accepted mutations must still reach the Redis Stream and required replicas before signing.

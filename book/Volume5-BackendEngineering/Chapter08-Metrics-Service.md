@@ -122,6 +122,7 @@ Prometheus metrics:
 - `rfq_portfolio_delta_soft_breaches_total`
 - `rfq_quote_exposure_ledger_mutations_total`
 - `rfq_quote_exposure_ledger_failures_total`
+- `rfq_quote_exposure_ledger_version_conflicts_total`
 - `rfq_quote_exposure_ledger_lock_wait_seconds`
 - `rfq_quote_exposure_ledger_backlog`
 - `rfq_quote_exposure_ledger_mirrored_total`
@@ -257,7 +258,7 @@ CEX connector metrics intentionally count every retry error by the fixed `binanc
 - Histogram observations must be finite numbers before mutation; finite negative latency values are clamped to zero, but `NaN` and `Infinity` are rejected so Prometheus output cannot contain non-numeric samples.
 - `rfq_quote_rejections_total` 只使用稳定内部 `reasonCode` 作为 label，不暴露阈值、金额、地址或 quoteId。
 - `rfq_portfolio_delta_soft_breaches_total` 统计已接受但 post-trade chain/token asset、gross 或 signed net delta 超过 soft limit 的首次 reservation；幂等重放不重复计数，指标故障不能回滚业务 reservation。
-- `rfq_quote_exposure_ledger_mutations_total` 仅使用 `operation="reserve|release"` 与 `result="applied|duplicate"`；`rfq_quote_exposure_ledger_failures_total` 仅使用 bounded reason。`rfq_quote_exposure_ledger_lock_wait_seconds` 覆盖 fused lease acquisition/read，`rfq_quote_exposure_ledger_backlog` 使用 Lua mutation 直接返回的值而不增加独立 `XLEN` 往返；`rfq_quote_exposure_ledger_mirrored_total` 记录 applied/stale/duplicate projection，`rfq_quote_exposure_ledger_mirror_errors_total` 触发 PostgreSQL mirror 健康门控。所有指标禁止 quote、user、pair、token 和 stream id label。
+- `rfq_quote_exposure_ledger_mutations_total` 仅使用 `operation="reserve|release"` 与 `result="applied|duplicate"`；`rfq_quote_exposure_ledger_failures_total` 仅使用 bounded reason，其中 `version_retry_timeout` 区分 reserve CAS 预算耗尽和 release lease 的 `lock_timeout`。`rfq_quote_exposure_ledger_version_conflicts_total` 统计无标签 generation 冲突；`rfq_quote_exposure_ledger_lock_wait_seconds` 保留稳定指标名并记录发生 contention 后的完整协调等待时间。`rfq_quote_exposure_ledger_backlog` 使用 Lua mutation 直接返回的值而不增加独立 `XLEN` 往返；`rfq_quote_exposure_ledger_mirrored_total` 记录 applied/stale/duplicate projection，`rfq_quote_exposure_ledger_mirror_errors_total` 触发 PostgreSQL mirror 健康门控。所有指标禁止 quote、user、pair、token 和 stream id label。
 - `rfq_hedge_lag_seconds` 使用无高基数 label 的 histogram，记录 settlement accepted 到 hedge intent queued 的耗时；生产版可复用同一指标记录异步 hedge queue 和 venue submit lag。
 - Hedge worker 只使用 `filled|failed|retry_scheduled` 三个固定 outcome label；`rfq_hedge_worker_order_cancellations_total` 只使用 `attempted|confirmed`，用来区分已持久化的超时撤单请求和 Binance 明确返回的撤单终态。`rfq_hedge_worker_symbol_rules_valid` 是无标签 gauge，只有 Binance `exchangeInfo` 中的交易状态、资产、`PRICE_FILTER` 和 `LOT_SIZE` 与全部共享路由一致时才为 1。`rfq_hedge_worker_iteration_errors_total` 记录 DB/poll loop 故障，`rfq_hedge_worker_last_processed_timestamp_seconds` 用于识别有新 intent 但 worker 无进展的停滞。不得把 symbol、order id 或 venue message 放入 label。
 - Fee worker 只使用 `reconciled|retry_scheduled` 固定 status；`rfq_hedge_fee_pending` 和 `rfq_hedge_fee_oldest_due_age_seconds` 来自 PostgreSQL 的只读 scrape-time 聚合。统计查询失败时保留进程 counter，但不输出伪造的零 backlog；symbol、order id、trade id、commission asset 和 venue message 都不得成为 label。

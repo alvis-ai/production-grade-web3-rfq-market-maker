@@ -42,7 +42,10 @@ export interface RedisQuoteExposureObservation {
 
 export interface RedisQuoteExposureLedgerObserver extends QuoteExposureObserver {
   recordLedgerMutation(observation: RedisQuoteExposureObservation): void;
-  recordLedgerFailure(reason: "backlog_full" | "lock_timeout" | "replica_ack" | "state_invalid"): void;
+  recordLedgerFailure(
+    reason: "backlog_full" | "lock_timeout" | "version_retry_timeout" | "replica_ack" | "state_invalid",
+  ): void;
+  recordLedgerVersionConflict(): void;
   recordLedgerLockWait(seconds: number): void;
   recordLedgerBacklog(backlog: number): void;
 }
@@ -75,11 +78,13 @@ export interface ReadRedisQuoteExposureState {
   existing?: RedisQuoteExposureRecord;
   tokenDeltas: PortfolioTokenDelta[];
   backlog: number;
+  version: number;
 }
 
 export const noopRedisQuoteExposureObserver: RedisQuoteExposureLedgerObserver = {
   recordLedgerMutation() {},
   recordLedgerFailure() {},
+  recordLedgerVersionConflict() {},
   recordLedgerLockWait() {},
   recordLedgerBacklog() {},
   recordPortfolioDeltaSoftBreach() {},
@@ -204,23 +209,25 @@ export function parseRedisQuoteExposureState(
   assets: readonly `0x${string}`[],
   chainId: number,
 ): ReadRedisQuoteExposureState {
-  if (!Array.isArray(result) || result.length !== 3 + assets.length || result[0] !== 1 ||
+  if (!Array.isArray(result) || result.length !== 4 + assets.length || result[0] !== 1 ||
       typeof result[1] !== "string") {
     throw new Error("Redis quote exposure state read returned malformed values");
   }
   const existing = result[1] === "" ? undefined : parseRedisQuoteExposureRecord(result[1]);
   const backlog = parseRedisNonNegativeSafeInteger(result[2], "backlog");
+  const version = parseRedisNonNegativeSafeInteger(result[3], "version");
   const tokenDeltas = assets.map((tokenAddress, index) => {
-    const value = result[index + 3];
+    const value = result[index + 4];
     assertSignedDecimal(value, "token delta");
     return { chainId, tokenAddress, delta: BigInt(value as string) };
   });
-  return { ...(existing ? { existing } : {}), tokenDeltas, backlog };
+  return { ...(existing ? { existing } : {}), tokenDeltas, backlog, version };
 }
 
 export function parseRedisQuoteExposureMutation(result: unknown):
   | { status: "reserved"; payload: string; backlog: number }
   | { status: "duplicate"; payload: string; backlog: number }
+  | { status: "conflict"; backlog: number }
   | { status: "rejected"; reason: string; backlog: number }
   | { status: "error"; reason: string; backlog: number } {
   if (!Array.isArray(result) || result.length !== 3 || !Number.isSafeInteger(result[0]) ||
@@ -231,6 +238,7 @@ export function parseRedisQuoteExposureMutation(result: unknown):
   if (result[0] === 1) return { status: "reserved", payload: result[1], backlog };
   if (result[0] === 2) return { status: "duplicate", payload: result[1], backlog };
   if (result[0] === 3) return { status: "rejected", reason: result[1], backlog };
+  if (result[0] === 4 && result[1] === "version_conflict") return { status: "conflict", backlog };
   if (result[0] === 0) return { status: "error", reason: result[1], backlog };
   throw new Error("Redis quote exposure mutation returned an unsupported status");
 }
@@ -288,7 +296,7 @@ export function assertRedisQuoteExposureObserver(
 ): asserts observer is RedisQuoteExposureLedgerObserver {
   if (!isRecord(observer)) throw new Error("Redis quote exposure observer must be an object");
   for (const method of [
-    "recordLedgerMutation", "recordLedgerFailure", "recordLedgerLockWait",
+    "recordLedgerMutation", "recordLedgerFailure", "recordLedgerVersionConflict", "recordLedgerLockWait",
     "recordLedgerBacklog", "recordPortfolioDeltaSoftBreach",
   ] as const) {
     if (typeof observer[method] !== "function") {

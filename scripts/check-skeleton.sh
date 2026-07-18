@@ -2241,6 +2241,7 @@ grep -q 'Metrics ${path}.${field} must be an own field' backend/src/modules/metr
 grep -q 'Metrics label value must be a string' backend/src/modules/metrics/metrics-validation.ts
 grep -q 'Metrics histogram observation must be a finite number' backend/src/modules/metrics/histogram.ts
 grep -q 'rfq_quote_exposure_ledger_mutations_total' backend/src/modules/metrics/quote-exposure-metrics.ts
+grep -q 'rfq_quote_exposure_ledger_version_conflicts_total' backend/src/modules/metrics/quote-exposure-metrics.ts
 grep -q 'rfq_quote_exposure_ledger_mirror_errors_total' backend/src/modules/metrics/quote-exposure-metrics.ts
 grep -q 'MetricsService rejects unsupported fixed-label inputs before mutating state' backend/test/metrics-validation.test.mjs
 grep -q 'MetricsService rejects non-string dynamic label values before mutating state' backend/test/metrics-validation.test.mjs

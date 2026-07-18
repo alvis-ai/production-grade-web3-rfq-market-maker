@@ -168,7 +168,7 @@ VaR 不扫描历史行情，只读取每个受管 valuation pair 的最新 snaps
 
 ## Testing Strategy
 
-测试覆盖 direct/reverse cross-decimal valuation、向上取整、pre/post VaR、超限拒绝、过期/未来/缺失 snapshot、未知资产、并发本地 reservation、Redis fused lease/read 与 commit/unlock、精确 token delta、mirror failure gate、PostgreSQL 兼容 chain lock 和 JSONB 回放证据。
+测试覆盖 direct/reverse cross-decimal valuation、向上取整、pre/post VaR、超限拒绝、过期/未来/缺失 snapshot、未知资产、并发本地 reservation、Redis versioned read/evaluate/CAS conflict、精确 token delta、mirror failure gate、PostgreSQL 兼容 chain lock 和 JSONB 回放证据。
 
 ## Interview Notes
 

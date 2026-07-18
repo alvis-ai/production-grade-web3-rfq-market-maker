@@ -6,6 +6,7 @@ import type { HistogramState } from "./metrics-contract.js";
 export interface QuoteExposureMetricsState {
   quoteExposureLedgerMutations: ReadonlyMap<string, number>;
   quoteExposureLedgerFailures: ReadonlyMap<string, number>;
+  quoteExposureLedgerVersionConflicts: number;
   quoteExposureLedgerLockWait: HistogramState;
   quoteExposureLedgerBacklog: number;
   quoteExposureLedgerMirrored: ReadonlyMap<string, number>;
@@ -15,6 +16,7 @@ export interface QuoteExposureMetricsState {
 export class QuoteExposureMetrics {
   private readonly mutations = new Map<string, number>();
   private readonly failures = new Map<string, number>();
+  private versionConflicts = 0;
   private readonly lockWait = createHistogramState();
   private backlog = 0;
   private readonly mirrored = new Map<string, number>();
@@ -32,11 +34,17 @@ export class QuoteExposureMetrics {
     this.mutations.set(key, (this.mutations.get(key) ?? 0) + 1);
   }
 
-  recordFailure(reason: "backlog_full" | "lock_timeout" | "replica_ack" | "state_invalid"): void {
-    if (!["backlog_full", "lock_timeout", "replica_ack", "state_invalid"].includes(reason)) {
+  recordFailure(
+    reason: "backlog_full" | "lock_timeout" | "version_retry_timeout" | "replica_ack" | "state_invalid",
+  ): void {
+    if (!["backlog_full", "lock_timeout", "version_retry_timeout", "replica_ack", "state_invalid"].includes(reason)) {
       throw new Error("Metrics quote exposure ledger failure reason is invalid");
     }
     this.failures.set(reason, (this.failures.get(reason) ?? 0) + 1);
+  }
+
+  recordVersionConflict(): void {
+    this.versionConflicts += 1;
   }
 
   recordLockWait(seconds: number): void {
@@ -68,6 +76,7 @@ export class QuoteExposureMetrics {
     return {
       quoteExposureLedgerMutations: this.mutations,
       quoteExposureLedgerFailures: this.failures,
+      quoteExposureLedgerVersionConflicts: this.versionConflicts,
       quoteExposureLedgerLockWait: this.lockWait,
       quoteExposureLedgerBacklog: this.backlog,
       quoteExposureLedgerMirrored: this.mirrored,
@@ -84,7 +93,10 @@ export function renderQuoteExposureMetrics(state: QuoteExposureMetricsState): st
     "# HELP rfq_quote_exposure_ledger_failures_total Redis quote exposure ledger failures by bounded reason.",
     "# TYPE rfq_quote_exposure_ledger_failures_total counter",
     ...renderCounters("rfq_quote_exposure_ledger_failures_total", ["reason"], state.quoteExposureLedgerFailures),
-    "# HELP rfq_quote_exposure_ledger_lock_wait_seconds Time spent acquiring the chain-scoped exposure lease and fused state read.",
+    "# HELP rfq_quote_exposure_ledger_version_conflicts_total Redis quote exposure reservation CAS version conflicts.",
+    "# TYPE rfq_quote_exposure_ledger_version_conflicts_total counter",
+    `rfq_quote_exposure_ledger_version_conflicts_total ${state.quoteExposureLedgerVersionConflicts}`,
+    "# HELP rfq_quote_exposure_ledger_lock_wait_seconds Time spent resolving chain-scoped exposure coordination after contention.",
     "# TYPE rfq_quote_exposure_ledger_lock_wait_seconds histogram",
     ...renderHistogram("rfq_quote_exposure_ledger_lock_wait_seconds", state.quoteExposureLedgerLockWait),
     "# HELP rfq_quote_exposure_ledger_backlog Current unmirrored Redis exposure events.",

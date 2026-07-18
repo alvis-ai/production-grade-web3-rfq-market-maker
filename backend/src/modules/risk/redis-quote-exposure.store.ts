@@ -27,12 +27,11 @@ import {
 } from "./portfolio-delta.js";
 import type { PortfolioVarEvaluation } from "./portfolio-var.js";
 import {
-  acquireAndReadQuoteExposureStateScript,
   acquireQuoteExposureLockScript,
   commitQuoteExposureReservationScript,
   getQuoteExposureReservationScript,
   initializeQuoteExposureLedgerScript,
-  readQuoteExposureStateScript,
+  readVersionedQuoteExposureStateScript,
   releaseQuoteExposureLockScript,
   releaseQuoteExposureReservationScript,
 } from "./redis-quote-exposure.scripts.js";
@@ -172,51 +171,27 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
     if (!this.initialized) await this.initialize();
     const reservation = normalizeQuoteExposureReservation(input, this.tokenRegistry, this.nowSeconds());
     const assets = this.portfolioVarEvaluator?.valuationAssets(reservation.chainId) ?? [];
-    const { lockToken, state } = await this.acquireState(reservation, assets);
-    let lockReleased = false;
-    try {
+    const startedAt = performance.now();
+    const retryDeadline = startedAt + this.config.lockAcquireTimeoutMs;
+    let conflicted = false;
+    while (true) {
+      const state = await this.readVersionedState(reservation, assets);
       if (state.existing) {
         assertSameReservation(storedRedisQuoteExposureToNormalized(state.existing), reservation);
-        lockReleased = true;
         await this.requireReplicaAcknowledgements();
+        if (conflicted) this.notifyLockWait((performance.now() - startedAt) / 1_000);
         this.notifyMutation({ operation: "reserve", duplicate: true, backlog: state.backlog });
         return storedRedisQuoteExposureResult(state.existing);
       }
 
-      let portfolioVar: PortfolioVarEvaluation | undefined;
-      let portfolioDelta: PortfolioDeltaEvaluation | undefined;
-      if (this.portfolioVarEvaluator) {
-        portfolioVar = await this.portfolioVarEvaluator.evaluateTokenDeltas(
-          reservation.chainId,
-          state.tokenDeltas,
-          reservation,
-        );
-        if (this.portfolioVarEvaluator.exceedsLimit(portfolioVar)) {
-          return { status: "rejected", reasonCode: "PORTFOLIO_VAR_LIMIT_EXCEEDED" };
-        }
-        if (this.portfolioDeltaPolicy) {
-          portfolioDelta = evaluatePortfolioDelta(
-            portfolioVar,
-            this.portfolioDeltaPolicy,
-            reservation.chainId,
-          );
-          if (exceedsPortfolioDeltaHardLimit(portfolioDelta)) {
-            return { status: "rejected", reasonCode: "PORTFOLIO_DELTA_LIMIT_EXCEEDED" };
-          }
-        }
-      }
-
-      const stored = toStoredRedisQuoteExposureReservation(
-        reservation,
-        this.config.expiryGraceSeconds,
-        portfolioVar,
-        portfolioDelta,
-      );
+      const evaluated = await this.evaluateReservation(reservation, state);
+      if ("rejection" in evaluated) return evaluated.rejection;
+      const stored = evaluated.record;
       const result = await this.client.eval(
         commitQuoteExposureReservationScript,
         9,
         ...this.ledgerKeys(reservation.chainId),
-        lockToken,
+        state.version,
         reservation.quoteId,
         JSON.stringify(stored),
         reservation.deadline,
@@ -227,7 +202,17 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
         this.config.maxBacklog,
       );
       const committed = parseRedisQuoteExposureMutation(result);
-      lockReleased = true;
+      if (committed.status === "conflict") {
+        conflicted = true;
+        this.notifyVersionConflict();
+        if (performance.now() >= retryDeadline) {
+          this.notifyLockWait((performance.now() - startedAt) / 1_000);
+          this.notifyFailure("version_retry_timeout");
+          throw new Error("Redis quote exposure version retry timed out");
+        }
+        await yieldControl();
+        continue;
+      }
       if (committed.status === "rejected") {
         if (!rejectReasons.has(committed.reason as QuoteExposureRejectReason)) {
           this.notifyFailure("state_invalid");
@@ -242,6 +227,7 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
       const accepted = parseRedisQuoteExposureRecord(committed.payload);
       assertSameReservation(storedRedisQuoteExposureToNormalized(accepted), reservation);
       await this.requireReplicaAcknowledgements();
+      if (conflicted) this.notifyLockWait((performance.now() - startedAt) / 1_000);
       this.notifyMutation({
         operation: "reserve",
         duplicate: committed.status === "duplicate",
@@ -251,8 +237,6 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
         notifyPortfolioDeltaSoftBreach(this.observer);
       }
       return storedRedisQuoteExposureResult(accepted);
-    } finally {
-      if (!lockReleased) await this.releaseLock(reservation.chainId, lockToken);
     }
   }
 
@@ -315,80 +299,75 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
     return parseRedisQuoteExposureRecord(result);
   }
 
-  private async readState(
-    lockToken: string,
+  private async readVersionedState(
     reservation: NormalizedQuoteExposureReservation,
     assets: readonly `0x${string}`[],
   ): Promise<ReadRedisQuoteExposureState> {
     for (let pass = 0; pass < 100; pass += 1) {
       const fields = assets.map((asset) => `${reservation.chainId}:${asset.toLowerCase()}`);
       const result = await this.client.eval(
-        readQuoteExposureStateScript,
+        readVersionedQuoteExposureStateScript,
         9,
         ...this.ledgerKeys(reservation.chainId),
-        lockToken,
         this.config.cleanupLimit,
         reservation.quoteId,
+        reservation.chainId,
         fields.length,
         ...fields,
       );
       if (Array.isArray(result) && result[0] === -1) continue;
-      return parseRedisQuoteExposureState(
-        result,
-        assets.map((asset) => asset.toLowerCase() as `0x${string}`),
-        reservation.chainId,
-      );
+      try {
+        return parseRedisQuoteExposureState(
+          result,
+          assets.map((asset) => asset.toLowerCase() as `0x${string}`),
+          reservation.chainId,
+        );
+      } catch (error) {
+        this.notifyFailure("state_invalid");
+        throw error;
+      }
     }
     this.notifyFailure("state_invalid");
     throw new Error("Redis quote exposure expired cleanup did not converge");
   }
 
-  private async acquireState(
+  private async evaluateReservation(
     reservation: NormalizedQuoteExposureReservation,
-    assets: readonly `0x${string}`[],
-  ): Promise<{ lockToken: string; state: ReadRedisQuoteExposureState }> {
-    const lockToken = `owner_${randomBytes(16).toString("hex")}`;
-    const fields = assets.map((asset) => `${reservation.chainId}:${asset.toLowerCase()}`);
-    const startedAt = performance.now();
-    const deadline = startedAt + this.config.lockAcquireTimeoutMs;
-    while (true) {
-      let result: unknown;
-      try {
-        result = await this.client.eval(
-          acquireAndReadQuoteExposureStateScript,
-          9,
-          ...this.ledgerKeys(reservation.chainId),
-          lockToken,
-          this.config.lockTtlMs,
-          this.config.cleanupLimit,
-          reservation.quoteId,
-          fields.length,
-          ...fields,
+    state: ReadRedisQuoteExposureState,
+  ): Promise<
+    { record: RedisQuoteExposureRecord } |
+    { rejection: QuoteExposureReservationResult }
+  > {
+    let portfolioVar: PortfolioVarEvaluation | undefined;
+    let portfolioDelta: PortfolioDeltaEvaluation | undefined;
+    if (this.portfolioVarEvaluator) {
+      portfolioVar = await this.portfolioVarEvaluator.evaluateTokenDeltas(
+        reservation.chainId,
+        state.tokenDeltas,
+        reservation,
+      );
+      if (this.portfolioVarEvaluator.exceedsLimit(portfolioVar)) {
+        return { rejection: { status: "rejected", reasonCode: "PORTFOLIO_VAR_LIMIT_EXCEEDED" } };
+      }
+      if (this.portfolioDeltaPolicy) {
+        portfolioDelta = evaluatePortfolioDelta(
+          portfolioVar,
+          this.portfolioDeltaPolicy,
+          reservation.chainId,
         );
-      } catch (error) {
-        await this.releaseLock(reservation.chainId, lockToken);
-        throw error;
-      }
-      if (Array.isArray(result) && result[0] === 0 && result[1] === "lock_busy") {
-        if (performance.now() >= deadline) {
-          this.notifyFailure("lock_timeout");
-          throw new Error("Redis quote exposure chain lock timed out");
+        if (exceedsPortfolioDeltaHardLimit(portfolioDelta)) {
+          return { rejection: { status: "rejected", reasonCode: "PORTFOLIO_DELTA_LIMIT_EXCEEDED" } };
         }
-        await delay(1);
-        continue;
-      }
-      try {
-        const state = Array.isArray(result) && result[0] === -1
-          ? await this.readState(lockToken, reservation, assets)
-          : parseRedisQuoteExposureState(result, assets, reservation.chainId);
-        this.notifyLockWait((performance.now() - startedAt) / 1_000);
-        return { lockToken, state };
-      } catch (error) {
-        await this.releaseLock(reservation.chainId, lockToken);
-        this.notifyFailure("state_invalid");
-        throw error;
       }
     }
+    return {
+      record: toStoredRedisQuoteExposureReservation(
+        reservation,
+        this.config.expiryGraceSeconds,
+        portfolioVar,
+        portfolioDelta,
+      ),
+    };
   }
 
   private async acquireLock(chainId: number): Promise<string> {
@@ -485,6 +464,10 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
     try { this.observer.recordLedgerLockWait(seconds); } catch {}
   }
 
+  private notifyVersionConflict(): void {
+    try { this.observer.recordLedgerVersionConflict(); } catch {}
+  }
+
   private notifyBacklog(backlog: number): void {
     try { this.observer.recordLedgerBacklog(backlog); } catch {}
   }
@@ -492,4 +475,8 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function yieldControl(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
 }
