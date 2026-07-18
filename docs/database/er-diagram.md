@@ -8,6 +8,8 @@ erDiagram
   QUOTES ||--o| QUOTE_SUBMIT_RESERVATIONS : reserves
   QUOTES |o--o| QUOTE_IDEMPOTENCY_REQUESTS : replays
   QUOTES ||--o| QUOTE_EXPOSURE_RESERVATIONS : limits
+  QUOTES ||--o{ QUOTE_EXPOSURE_LEDGER_EVENTS : audits
+  QUOTES ||--o| QUOTE_EXPOSURE_LEDGER_PROJECTION_VERSIONS : orders
   QUOTES ||--o{ SETTLEMENT_EVENTS : settles
   SETTLEMENT_EVENTS ||--o{ HEDGE_ORDERS : triggers
   HEDGE_ORDERS ||--o{ HEDGE_EXECUTION_FILLS : reconciles
@@ -108,6 +110,25 @@ erDiagram
     jsonb var_evaluation
     jsonb delta_evaluation
     timestamptz expires_at
+    timestamptz ledger_expires_at
+  }
+
+  QUOTE_EXPOSURE_LEDGER_EVENTS {
+    text source_stream_id PK
+    text operation
+    text quote_id FK
+    bigint chain_id
+    jsonb payload
+    timestamptz mirrored_at
+  }
+
+  QUOTE_EXPOSURE_LEDGER_PROJECTION_VERSIONS {
+    text quote_id PK, FK
+    text source_epoch
+    numeric stream_milliseconds
+    numeric stream_sequence
+    text operation
+    timestamptz updated_at
   }
 
   MARKET_SNAPSHOTS {
@@ -435,8 +456,9 @@ erDiagram
 - `toxic_flow_markout_jobs` 由具有权威 `settled_at` 的 canonical settlement insert/reorg trigger 驱动，以 settlement event 为幂等键，并用 revision、lease owner 和 `FOR UPDATE SKIP LOCKED` 支持多 analyzer 副本。horizon 在 claim 时由统一部署配置计算，避免把策略参数写死在数据库 trigger 中。
 - `toxic_flow_markouts` 保存执行价、horizon 后首个同方向 market snapshot、maker-side drift 和规则 toxicity score。负 drift 表示 maker 在成交后遭遇不利价格变化。reorg 不删除证据，而是将派生 markout 标为 non-canonical、重新聚合用户窗口并发布零样本清分版本，防止旧高分继续生效。
 - `/quote` 先读取全局控制，再校验请求并读取对应 pair 控制；任一状态 paused 都在定价和签名前返回 `QUOTE_PAUSED`，任一表不可读、状态畸形或 migration 缺失都返回 `QUOTE_CONTROL_UNAVAILABLE`。pair 暂停与全局暂停一样只限制新 signed quote，不改变既有 quote 的 submit、settlement、inventory、hedge 或 reconciliation 义务。
-- `quote_exposure_reservations` 以 `quote_id` 为主键并级联绑定 requested quote，保存 `(chain_id, normalized user)`、排序后的无方向 `(token_low, token_high)`、方向性的 `token_out/amount_out`、18-decimal USD 定点名义金额和 `expires_at`。生产 quote 还保存同一 block 读取的 settlement、treasury、token balance 和 block number 证据。`var_evaluation` 保存波动率加权组合 VaR；`delta_evaluation` 保存同一原子估值窗口内的 pre/post chain/token components、gross/net USD delta、asset/portfolio soft-hard limits、component/aggregate soft breach 状态和 snapshot ids。应用读取 JSONB 时重新验证字段闭包、canonical 数值、component sums、limit ordering、soft flags 和重叠资产 snapshot identity。只有尚未过期且 quote 状态仍为 requested/signed/failed 的行参与累计名义限额；failed signed quote 的链上 nonce 未必已消耗，必须保守计数。submitted/settled 有成交证据后暂不计入名义限额但保留行，reorg 恢复 signed 状态时自动重新纳入。
-- PostgreSQL exposure store 对 quote、user、pair 与 `(chainId, tokenOut)` liquidity scope 按字符串稳定排序后逐个获取 transaction-scoped advisory locks，再执行 SUM 和 INSERT；这让多 API replica 无法通过 write skew 同时越过 user/pair limit 或超卖 Treasury。输出流动性 SUM 计算所有未过期 reservation，不因 submitted/settled 提前释放，避免 RPC 余额下降与数据库状态切换之间重复使用余额；expired 行由有界 `FOR UPDATE SKIP LOCKED` 清理。
+- `quote_exposure_reservations` 是 Redis 活动账本的 PostgreSQL 查询投影。`expires_at` 记录签名 quote deadline，`ledger_expires_at` 额外覆盖库存刷新 grace；后台镜像只按有界批次清理后者已过期的行。生产准入不读取或锁定这张表。
+- `quote_exposure_ledger_events` 按 `<epoch>:<stream-id>` 幂等保存 reserve/release 原始证据。`quote_exposure_ledger_projection_versions` 保存每个 quote 已应用的 epoch 和 Redis stream position；即使多个 consumer 乱序恢复，也不能让旧 reserve 复活已 release 的投影。只有 PostgreSQL event insert、position compare 和活动投影变更全部提交后才确认并删除 Redis stream entry。
+- Redis/Valkey 是生产活动 exposure 的唯一授权源。Lua 在一个 hash-tag keyspace 内以 exact decimal string 原子维护 user/pair/output totals、directional token deltas、deadline index 和 stream append；链级有界 lease 包围 VaR read-evaluate-commit。PostgreSQL 实现仅保留为本地测试与显式回滚工具，故障期间禁止自动形成双授权源。
 - 数据库层使用 CHECK constraints 固化应用层关键不变量：操作表 primary id 使用 SafeIdentifier 约束、quote lifecycle status、risk decision status / reason_code consistency、hedge side/status（`queued`、`filled`、`failed`）、hedge `venue` 非空、PnL attribution model / model description、20-byte address、distinct token pair、market snapshot `source` 非空、market snapshot `bid_price <= mid_price <= ask_price`、market snapshot `market_spread_bps` 与 market snapshot `volatility_bps` 在 0..10000 bps、signed quote pricing bps component ranges、32-byte tx/quote hash、65-byte canonical low-s EIP-712 signature with `v` in 27/28、`amount_out >= min_amount_out`，以及正数 signed amount/nonce、settled amount/nonce 和 hedge amount。
 - `quotes`、`market_snapshots`、`risk_decisions`、`settlement_events`、`inventory_positions`、`hedge_orders` 和 `pnl_records` 的 primary id 都必须符合 SafeIdentifier：非空、不超过 128 个字符，并且只包含 letters、numbers、underscore、colon 或 hyphen，避免数据库保存 API/SDK 无法查询或展示的资源主键。
 - `quotes` 的 status payload consistency 约束要求 signed payload 字段全有或全无，requested/rejected 状态不能携带 signed payload 字段，signed/expired/submitted/settled 状态必须保留完整 signed quote payload metadata，只有 rejected/failed 状态可以携带非空 `reject_code`，submitted/settled 状态必须至少保留 `tx_hash` 和 `settlement_event_id`。

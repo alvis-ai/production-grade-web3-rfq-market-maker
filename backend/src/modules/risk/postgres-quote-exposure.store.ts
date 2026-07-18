@@ -219,10 +219,11 @@ export class PostgresQuoteExposureStore implements QuoteExposureStore {
           quote_id, chain_id, user_address, token_low, token_high, token_in, amount_in,
           token_out, amount_out,
           notional_usd_e18, settlement_address, treasury_address,
-          treasury_available_balance, treasury_block_number, var_evaluation, delta_evaluation, expires_at
+          treasury_available_balance, treasury_block_number, var_evaluation, delta_evaluation,
+          expires_at, ledger_expires_at
         )
         SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-          $15::jsonb, $16::jsonb, to_timestamp($17)
+          $15::jsonb, $16::jsonb, to_timestamp($17), to_timestamp($17)
         WHERE to_timestamp($17) > now()
           AND EXISTS (SELECT 1 FROM quotes WHERE id = $1 AND status = 'requested')
         RETURNING quote_id`,

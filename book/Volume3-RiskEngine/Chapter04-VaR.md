@@ -78,7 +78,7 @@ pre-trade portfolio
   = post-trade portfolio
 ```
 
-PostgreSQL 模式在 quote exposure transaction 内取得 `quote-exposure:portfolio:<chainId>` advisory lock，并对 `inventory_positions` 取得短生命周期 `SHARE` table lock。这样 settlement/inventory 写入与多个 API replica 的 quote reservation 不会形成 write skew。本地模式使用 per-chain mutex，保证两个并发 Promise 也不能同时基于同一旧组合通过预算。
+生产模式在 quote exposure ledger 内取得 chain-scoped Redis lease，读取 immutable hot inventory、valuation snapshots 和 ledger token deltas，并在 lease 仍有效时用 Lua 原子提交 reservation、聚合值与 stream event。库存视图超过最大年龄、lease 丢失、AOF/副本确认失败或 mirror 不健康都会阻断签名。本地内存模式使用 per-chain mutex；PostgreSQL advisory lock + inventory `SHARE` lock 实现保留为显式兼容和回滚路径，不能在 Redis 故障时由单个 pod 自动切换。
 
 只有 `postTradeVarUsdE18 <= varLimitUsdE18` 才能插入 reservation 并进入 Signer。超限返回内部 `PORTFOLIO_VAR_LIMIT_EXCEEDED`；行情缺失、过期、未来时间、未知 token、方向错误或数据库失败统一 fail closed 为 `RISK_ENGINE_UNAVAILABLE`。
 
@@ -134,7 +134,7 @@ stateDiagram-v2
 
 ## Data Model
 
-`PortfolioVarEvaluation` 包含 `preTradeVarUsdE18`、`postTradeVarUsdE18`、`varLimitUsdE18`、`horizonSeconds`、`modelVersion`，以及 pre/post component arrays。每个 component 保存 normalized token address、base-unit balance、signed USD exposure、volatility、component VaR 和 snapshot id。接受的结果写入 `quote_exposure_reservations.var_evaluation` JSONB，方向性 `token_in/amount_in/token_out/amount_out` 同时持久化，因此事故调查可以按 policy version 和 snapshot 原始行重放。
+`PortfolioVarEvaluation` 包含 `preTradeVarUsdE18`、`postTradeVarUsdE18`、`varLimitUsdE18`、`horizonSeconds`、`modelVersion`，以及 pre/post component arrays。每个 component 保存 normalized token address、base-unit balance、signed USD exposure、volatility、component VaR 和 snapshot id。生产 ledger 先保存完整证据并追加同事务 stream event；PostgreSQL mirror 随后写入 `quote_exposure_reservations.var_evaluation`、方向性 token/amount 和 append-only ledger event，因此事故调查可以按 epoch、stream position、policy version 和 snapshot 原始行重放。
 
 同一组 component 还驱动独立的 portfolio delta 门禁。它不乘 volatility 或 confidence multiplier，而是按 chain/token 检查 absolute USD exposure，并分别求 `gross = sum(abs(exposureUsdE18))` 与 `net = sum(exposureUsdE18)`。`portfolioDelta.assetLimits` 必须与 VaR valuation assets 一一对应，另配置 gross/net soft 与 hard USD limits；post-trade 任一 asset、gross 或 net hard limit 被严格超过时返回 `PORTFOLIO_DELTA_LIMIT_EXCEEDED`，仅超过 soft limit 时继续签名并记录 component/aggregate `softLimitBreached`。pre/post gross、signed net、阈值、components 与 snapshot ids 写入独立 `delta_evaluation` JSONB，既不污染既有 VaR schema，也能复用同一事务内的 canonical inventory、active reservations 和 candidate quote 证据。
 
@@ -156,7 +156,7 @@ stateDiagram-v2
 - exposure、token metadata 或 valuation pair 缺失：拒绝。
 - VaR 参数缺失：拒绝签名。
 - snapshot 过期或超出 future skew：拒绝。
-- PostgreSQL inventory / reservation query 失败：事务回滚，禁止调用 Signer。
+- Redis ledger、hot inventory、valuation snapshot 或 PostgreSQL mirror health 失败：禁止调用 Signer；已经存在的 reservation 仍可执行风险降低型 release。
 
 ## Security Considerations
 
@@ -168,7 +168,7 @@ VaR 不扫描历史行情，只读取每个受管 valuation pair 的最新 snaps
 
 ## Testing Strategy
 
-测试覆盖 direct/reverse cross-decimal valuation、向上取整、pre/post VaR、超限拒绝、过期/未来/缺失 snapshot、未知资产、并发本地 reservation、PostgreSQL chain lock、inventory + active quote 聚合和 JSONB 回放证据。
+测试覆盖 direct/reverse cross-decimal valuation、向上取整、pre/post VaR、超限拒绝、过期/未来/缺失 snapshot、未知资产、并发本地 reservation、Redis chain lease、精确 token delta、mirror failure gate、PostgreSQL 兼容 chain lock 和 JSONB 回放证据。
 
 ## Interview Notes
 

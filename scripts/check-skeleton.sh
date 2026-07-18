@@ -27,6 +27,7 @@ test -s backend/src/api/trading-routes.ts
 test -s backend/src/api/quote-control-routes.ts
 test -s backend/src/runtime/environment.ts
 test -s backend/src/runtime/gateway-application.ts
+test -s backend/src/runtime/gateway-resource-cleanup.ts
 test -s backend/src/runtime/gateway-hedge-risk.ts
 test -s backend/src/runtime/gateway-market-data.ts
 test -s backend/src/runtime/gateway-settlement-indexer-risk.ts
@@ -104,6 +105,8 @@ test -s backend/src/db/migrations/026-hedge-order-expiry.sql
 test -s backend/src/db/migrations/027-signer-audit.sql
 test -s backend/src/db/migrations/028-signer-risk-context.sql
 test -s backend/src/db/migrations/036-signer-audit-stream.sql
+test -s backend/src/db/migrations/037-quote-exposure-ledger.sql
+test -s scripts/quote-exposure-ledger-bootstrap.mjs
 test -s backend/src/db/migrations/029-bounded-hedge-failure-risk.sql
 test -s backend/src/db/migrations/030-usd-reference-depeg-risk.sql
 test -s backend/src/db/migrations/031-daily-loss-risk.sql
@@ -441,6 +444,8 @@ test -s backend/src/modules/metrics/metrics.service.ts
 test -s backend/src/modules/metrics/metrics-contract.ts
 test -s backend/src/modules/metrics/metrics-validation.ts
 test -s backend/src/modules/metrics/prometheus-metrics.ts
+test -s backend/src/modules/metrics/histogram.ts
+test -s backend/src/modules/metrics/quote-exposure-metrics.ts
 test -s scripts/lib/read-backend-metrics-source.mjs
 grep -q 'checkHealth' backend/src/modules/metrics/metrics.service.ts
 grep -q 'MetricsService sanitizes reason labels and renders core settlement metrics' backend/test/metrics.test.mjs
@@ -2215,7 +2220,9 @@ grep -q 'assertOwnFields(position, inventoryMetricPositionFields, "inventory pos
 grep -q 'assertOwnFields(record, pnlTradeMetricRecordFields, "PnL trade record")' backend/src/modules/metrics/metrics-validation.ts
 grep -q 'Metrics ${path}.${field} must be an own field' backend/src/modules/metrics/metrics-validation.ts
 grep -q 'Metrics label value must be a string' backend/src/modules/metrics/metrics-validation.ts
-grep -q 'Metrics histogram observation must be a finite number' backend/src/modules/metrics/prometheus-metrics.ts
+grep -q 'Metrics histogram observation must be a finite number' backend/src/modules/metrics/histogram.ts
+grep -q 'rfq_quote_exposure_ledger_mutations_total' backend/src/modules/metrics/quote-exposure-metrics.ts
+grep -q 'rfq_quote_exposure_ledger_mirror_errors_total' backend/src/modules/metrics/quote-exposure-metrics.ts
 grep -q 'MetricsService rejects unsupported fixed-label inputs before mutating state' backend/test/metrics-validation.test.mjs
 grep -q 'MetricsService rejects non-string dynamic label values before mutating state' backend/test/metrics-validation.test.mjs
 grep -q 'MetricsService rejects non-finite histogram observations before mutating state' backend/test/metrics-validation.test.mjs

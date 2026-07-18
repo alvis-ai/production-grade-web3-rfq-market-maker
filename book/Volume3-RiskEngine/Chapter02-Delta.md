@@ -62,7 +62,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-Delta Calculator 是 quote exposure reservation 的组合风险组件。它与 portfolio VaR 共用 canonical inventory、仍可执行的活动 quote、候选 quote 和同一批有界新鲜度 valuation snapshots；PostgreSQL 在 chain-scoped advisory lock 和 inventory `SHARE` lock 内完成计算与插入，本地模式使用 per-chain mutex。
+Delta Calculator 是 quote exposure reservation 的组合风险组件。它与 portfolio VaR 共用 immutable hot inventory、Redis/Valkey 中仍可执行的活动 quote delta、候选 quote 和同一批有界新鲜度 valuation snapshots；生产模式用 chain-scoped Redis lease 串行化读取、计算与 Lua commit，本地兼容模式使用 per-chain mutex，PostgreSQL 实现只保留回滚和并发语义验证。
 
 ## Sequence Diagram
 
@@ -97,7 +97,7 @@ stateDiagram-v2
 
 `PortfolioDeltaPolicy` 包含版本化 portfolio gross/net soft/hard limits 和 `assetLimits[]`。每个 asset limit 由 canonical `(chainId, tokenAddress)` 唯一定位，保存 integer-USD `softLimitUsd` 与 `hardLimitUsd`，并且必须与 `portfolioVar.valuationPairs` 的非现金 valuation assets 一一对应。
 
-`PortfolioDeltaEvaluation` 保存 pre/post gross delta、signed net delta、四个 portfolio limits、aggregate soft-breach flag 和 pre/post components。每个 component 保存 `chainId`、normalized token address、base-unit balance、signed `exposureUsdE18`、snapshot id、asset soft/hard limits 和 component soft-breach flag。接受的 reservation 将完整结果写入 `quote_exposure_reservations.delta_evaluation`；反序列化时重新计算 component sums、soft flags、limit ordering 和重叠资产 snapshot identity，畸形证据 fail closed。requested reservation 的幂等重放还必须匹配当前 model version、chain 和全部 active limits；策略已变更时不能拿旧预算证据继续进入 Signer。
+`PortfolioDeltaEvaluation` 保存 pre/post gross delta、signed net delta、四个 portfolio limits、aggregate soft-breach flag 和 pre/post components。每个 component 保存 `chainId`、normalized token address、base-unit balance、signed `exposureUsdE18`、snapshot id、asset soft/hard limits 和 component soft-breach flag。生产模式把完整结果和 reservation 原子写入 Redis ledger，再通过 stream mirror 写入 `quote_exposure_reservations.delta_evaluation` 与 append-only event；反序列化时重新计算 component sums、soft flags、limit ordering 和重叠资产 snapshot identity，畸形证据 fail closed。requested reservation 的幂等重放还必须匹配当前 model version、chain 和全部 active limits；策略已变更时不能拿旧预算证据继续进入 Signer。
 
 ## API Design
 
@@ -126,7 +126,7 @@ delta 计算应为内存计算，库存和价格应预加载或缓存。
 
 ## Testing Strategy
 
-测试正负 signed exposure、gross/net exact boundary、chain/token soft/hard 独立触发、policy duplicate/missing/extra asset、price missing、pre/post component 集合变化、snapshot 一致性、幂等重放和 PostgreSQL 并发原子预留。
+测试正负 signed exposure、gross/net exact boundary、chain/token soft/hard 独立触发、policy duplicate/missing/extra asset、price missing、pre/post component 集合变化、snapshot 一致性、幂等重放、Redis 精确整数原子预留、stream mirror 和 PostgreSQL 兼容并发预留。
 
 ## Interview Notes
 

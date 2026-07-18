@@ -277,6 +277,10 @@ const signerAuditStreamMigrationSource = await readFile(
   "backend/src/db/migrations/036-signer-audit-stream.sql",
   "utf8",
 );
+const quoteExposureLedgerMigrationSource = await readFile(
+  "backend/src/db/migrations/037-quote-exposure-ledger.sql",
+  "utf8",
+);
 const signerAuditStoreSource = await readFile(
   "backend/src/modules/signer/signer-audit.store.ts",
   "utf8",
@@ -557,6 +561,13 @@ const requiredTables = {
     "notional_usd_e18",
     "var_evaluation",
     "expires_at",
+    "ledger_expires_at",
+  ],
+  quote_exposure_ledger_events: [
+    "source_stream_id", "operation", "quote_id", "chain_id", "payload", "mirrored_at",
+  ],
+  quote_exposure_ledger_projection_versions: [
+    "quote_id", "source_epoch", "stream_milliseconds", "stream_sequence", "operation", "updated_at",
   ],
   quote_control: ["singleton", "paused", "version", "reason", "updated_by", "updated_at"],
   quote_control_audit: ["version", "paused", "reason", "updated_by", "updated_at"],
@@ -780,6 +791,18 @@ const requiredCheckConstraints = {
     ["chk_quote_exposure_input", "quote exposure must constrain directional input"],
     ["chk_quote_exposure_output", "quote exposure must constrain directional output"],
     ["chk_quote_exposure_var_evaluation", "quote exposure must constrain portfolio VaR evidence"],
+    ["chk_quote_exposure_ledger_expiry", "quote exposure must bound ledger expiry grace"],
+  ],
+  quote_exposure_ledger_events: [
+    ["chk_quote_exposure_ledger_source", "quote exposure audit must constrain source stream ids"],
+    ["chk_quote_exposure_ledger_operation", "quote exposure audit must constrain operations"],
+    ["chk_quote_exposure_ledger_chain", "quote exposure audit must constrain chain ids"],
+    ["chk_quote_exposure_ledger_payload", "quote exposure audit must bind payload identity"],
+  ],
+  quote_exposure_ledger_projection_versions: [
+    ["chk_quote_exposure_projection_epoch", "quote exposure projection must constrain epochs"],
+    ["chk_quote_exposure_projection_position", "quote exposure projection must constrain stream positions"],
+    ["chk_quote_exposure_projection_operation", "quote exposure projection must constrain operations"],
   ],
   quote_control: [
     ["chk_quote_control_version", "quote control must constrain version to JavaScript safe integer range"],
@@ -1909,6 +1932,13 @@ assert.ok(
     erDiagramSource.includes("source_stream_id") &&
     erDiagramSource.includes("append-only evidence"),
   "signer audit migration, store, and docs must preserve fail-closed append-only signing evidence",
+);
+assert.ok(
+  quoteExposureLedgerMigrationSource.includes("ADD COLUMN IF NOT EXISTS ledger_expires_at") &&
+    quoteExposureLedgerMigrationSource.includes("CREATE TABLE IF NOT EXISTS quote_exposure_ledger_events") &&
+    quoteExposureLedgerMigrationSource.includes("CREATE TABLE IF NOT EXISTS quote_exposure_ledger_projection_versions") &&
+    schemaSource.includes("('037', 'quote-exposure-ledger')"),
+  "quote exposure ledger migration and schema must preserve expiry grace and ordered audit projection",
 );
 assert.ok(
   boundedHedgeFailureRiskMigrationSource.includes("ADD COLUMN risk_failure_at TIMESTAMPTZ") &&

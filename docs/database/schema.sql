@@ -252,6 +252,7 @@ CREATE TABLE quote_exposure_reservations (
   var_evaluation JSONB,
   delta_evaluation JSONB,
   expires_at TIMESTAMPTZ NOT NULL,
+  ledger_expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_quote_exposure_chain_id CHECK (chain_id BETWEEN 1 AND 9007199254740991),
   CONSTRAINT chk_quote_exposure_addresses CHECK (
@@ -347,6 +348,10 @@ CREATE TABLE quote_exposure_reservations (
       AND treasury_available_balance >= 0
       AND treasury_block_number >= 0
     )
+  ),
+  CONSTRAINT chk_quote_exposure_ledger_expiry CHECK (
+    ledger_expires_at >= expires_at
+    AND ledger_expires_at <= expires_at + interval '5 minutes'
   )
 );
 
@@ -358,6 +363,60 @@ CREATE INDEX idx_quote_exposure_expiry
   ON quote_exposure_reservations (expires_at);
 CREATE INDEX idx_quote_exposure_output_active
   ON quote_exposure_reservations (chain_id, token_out, expires_at);
+CREATE INDEX idx_quote_exposure_ledger_expiry
+  ON quote_exposure_reservations (ledger_expires_at);
+
+CREATE TABLE quote_exposure_ledger_events (
+  source_stream_id VARCHAR(128) PRIMARY KEY,
+  operation TEXT NOT NULL,
+  quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+  chain_id BIGINT NOT NULL,
+  payload JSONB NOT NULL,
+  mirrored_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_quote_exposure_ledger_source CHECK (
+    source_stream_id ~ '^[A-Za-z][A-Za-z0-9_-]{0,63}:[0-9]+-[0-9]+$'
+  ),
+  CONSTRAINT chk_quote_exposure_ledger_operation CHECK (
+    operation IN ('reserve', 'release')
+  ),
+  CONSTRAINT chk_quote_exposure_ledger_chain CHECK (
+    chain_id BETWEEN 1 AND 9007199254740991
+  ),
+  CONSTRAINT chk_quote_exposure_ledger_payload CHECK (
+    jsonb_typeof(payload) = 'object'
+    AND payload ?& ARRAY[
+      'schemaVersion', 'quoteId', 'chainId', 'user', 'tokenLow', 'tokenHigh',
+      'tokenIn', 'amountIn', 'tokenOut', 'amountOut', 'notionalUsdE18',
+      'deadline', 'ledgerExpiresAt'
+    ]
+    AND (payload->>'schemaVersion') = '1'
+    AND payload->>'quoteId' = quote_id
+    AND (payload->>'chainId')::bigint = chain_id
+  )
+);
+
+CREATE INDEX idx_quote_exposure_ledger_events_quote
+  ON quote_exposure_ledger_events (quote_id, source_stream_id);
+CREATE INDEX idx_quote_exposure_ledger_events_mirrored
+  ON quote_exposure_ledger_events (mirrored_at, source_stream_id);
+
+CREATE TABLE quote_exposure_ledger_projection_versions (
+  quote_id TEXT PRIMARY KEY REFERENCES quotes(id) ON DELETE CASCADE,
+  source_epoch VARCHAR(64) NOT NULL,
+  stream_milliseconds NUMERIC(20, 0) NOT NULL,
+  stream_sequence NUMERIC(20, 0) NOT NULL,
+  operation TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_quote_exposure_projection_epoch CHECK (
+    source_epoch ~ '^[A-Za-z][A-Za-z0-9_-]{0,63}$'
+  ),
+  CONSTRAINT chk_quote_exposure_projection_position CHECK (
+    stream_milliseconds >= 0 AND stream_sequence >= 0
+  ),
+  CONSTRAINT chk_quote_exposure_projection_operation CHECK (
+    operation IN ('reserve', 'release')
+  )
+);
 
 CREATE TABLE quote_idempotency_requests (
   principal_id TEXT NOT NULL,
@@ -2210,4 +2269,5 @@ INSERT INTO _migrations (version, name) VALUES
   ('033', 'gamma-guardrail-risk'),
   ('034', 'quote-route-attribution'),
   ('035', 'pnl-cursor-pagination'),
-  ('036', 'signer-audit-stream');
+  ('036', 'signer-audit-stream'),
+  ('037', 'quote-exposure-ledger');

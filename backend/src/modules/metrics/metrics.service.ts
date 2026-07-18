@@ -51,7 +51,9 @@ import {
   parseBoundedSignedInteger,
   usdReferenceMetricKey,
 } from "./metrics-validation.js";
-import { createHistogramState, recordHistogram, renderPrometheusMetrics } from "./prometheus-metrics.js";
+import { createHistogramState, recordHistogram } from "./histogram.js";
+import { QuoteExposureMetrics } from "./quote-exposure-metrics.js";
+import { renderPrometheusMetrics } from "./prometheus-metrics.js";
 
 export type { InventoryMetricPosition, SignerMetricOperation } from "./metrics-contract.js";
 
@@ -115,6 +117,7 @@ export class MetricsService {
   private readonly dailyLossRiskObservations = new Map<string, DailyLossMetricObservation>();
   private readonly dailyLossRiskSafe = new Map<string, boolean>();
   private readonly dailyLossRiskFailures = new Map<string, number>();
+  private readonly quoteExposure = new QuoteExposureMetrics();
 
   recordMarketDataCacheHit(): void {
     this.priceCacheHits += 1;
@@ -268,6 +271,13 @@ export class MetricsService {
   recordPortfolioDeltaSoftBreach(): void {
     this.portfolioDeltaSoftBreaches += 1;
   }
+
+  recordLedgerMutation(observation: Parameters<QuoteExposureMetrics["recordMutation"]>[0]): void { this.quoteExposure.recordMutation(observation); }
+  recordLedgerFailure(reason: Parameters<QuoteExposureMetrics["recordFailure"]>[0]): void { this.quoteExposure.recordFailure(reason); }
+  recordLedgerLockWait(seconds: number): void { this.quoteExposure.recordLockWait(seconds); }
+  recordLedgerBacklog(backlog: number): void { this.quoteExposure.recordBacklog(backlog); }
+  recordLedgerMirrored(observation: Parameters<QuoteExposureMetrics["recordMirrored"]>[0]): void { this.quoteExposure.recordMirrored(observation); }
+  recordLedgerMirrorError(): void { this.quoteExposure.recordMirrorError(); }
 
   recordQuoteControlState(paused: boolean): void {
     if (typeof paused !== "boolean") throw new Error("Metrics quote control paused state must be a boolean");
@@ -458,6 +468,7 @@ export class MetricsService {
       dailyLossRiskObservations: this.dailyLossRiskObservations,
       dailyLossRiskSafe: this.dailyLossRiskSafe,
       dailyLossRiskFailures: this.dailyLossRiskFailures,
+      ...this.quoteExposure.snapshot(),
     });
   }
 

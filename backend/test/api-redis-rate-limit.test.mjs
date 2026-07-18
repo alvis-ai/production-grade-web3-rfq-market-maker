@@ -222,6 +222,7 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
       logger: false,
       databasePool: fakeDatabasePool(),
       marketDataService: { async getSnapshot() { throw new Error("unused market data"); } },
+      quoteExposureStore: unusedQuoteExposureStore(),
       signerService: localTestSignerService(),
     });
     await server.ready();
@@ -230,6 +231,14 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
     restoreEnv(original);
   }
 });
+
+function unusedQuoteExposureStore() {
+  return {
+    async checkHealth() {},
+    async reserve() { throw new Error("unused quote exposure"); },
+    async release() {},
+  };
+}
 
 test("RFQ API rejects conflicting or malformed injected rate limiters", () => {
   const limiter = {

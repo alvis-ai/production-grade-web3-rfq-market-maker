@@ -133,6 +133,7 @@ test("non-local RFQ API requires API key auth configuration or an injected authe
       databasePool: fakeDatabasePool(),
       marketDataService: { async getSnapshot() { throw new Error("unused market data"); } },
       rateLimiter: allowAllRateLimiter(),
+      quoteExposureStore: unusedQuoteExposureStore(),
       signerService: localTestSignerService(),
     };
     assert.throws(() => buildServer(options), /RFQ_API_KEY_CONFIG_JSON is required when NODE_ENV=production/);
@@ -157,6 +158,14 @@ test("non-local RFQ API requires API key auth configuration or an injected authe
     restoreEnv(original);
   }
 });
+
+function unusedQuoteExposureStore() {
+  return {
+    async checkHealth() {},
+    async reserve() { throw new Error("unused quote exposure"); },
+    async release() {},
+  };
+}
 
 test("RFQ API CORS contract permits the API key request header", async () => {
   const server = buildServer({ logger: false, corsAllowedOrigins: ["https://app.example.com"] });

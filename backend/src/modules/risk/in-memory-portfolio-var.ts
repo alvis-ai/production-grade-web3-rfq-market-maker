@@ -20,6 +20,12 @@ export interface PortfolioQuoteDelta {
   amountOut: bigint;
 }
 
+export interface PortfolioTokenDelta {
+  chainId: number;
+  tokenAddress: Address;
+  delta: bigint;
+}
+
 export interface InMemoryPortfolioVarDependencies {
   inventoryService: IInventoryService;
   marketSnapshotStore: MarketSnapshotStore;
@@ -51,6 +57,22 @@ export class InMemoryPortfolioVarEvaluator {
     activeReservations: readonly PortfolioQuoteDelta[],
     candidate: PortfolioQuoteDelta,
   ): Promise<PortfolioVarEvaluation> {
+    const tokenDeltas: PortfolioTokenDelta[] = [];
+    for (const reservation of activeReservations) {
+      if (reservation.chainId !== chainId) continue;
+      tokenDeltas.push(
+        { chainId, tokenAddress: reservation.tokenIn, delta: reservation.amountIn },
+        { chainId, tokenAddress: reservation.tokenOut, delta: -reservation.amountOut },
+      );
+    }
+    return this.evaluateTokenDeltas(chainId, tokenDeltas, candidate);
+  }
+
+  async evaluateTokenDeltas(
+    chainId: number,
+    activeDeltas: readonly PortfolioTokenDelta[],
+    candidate: PortfolioQuoteDelta,
+  ): Promise<PortfolioVarEvaluation> {
     const nowMs = this.nowMilliseconds();
     if (!Number.isSafeInteger(nowMs) || nowMs <= 0) {
       throw new Error("In-memory portfolio VaR current time must be a positive safe integer");
@@ -61,16 +83,9 @@ export class InMemoryPortfolioVarEvaluator {
       tokenAddress: position.token,
       balance: position.balance,
     }));
-    for (const reservation of activeReservations) {
-      if (reservation.chainId !== chainId) continue;
-      preTradePositions = applyPortfolioDelta(
-        preTradePositions,
-        chainId,
-        reservation.tokenIn,
-        reservation.amountIn,
-        reservation.tokenOut,
-        reservation.amountOut,
-      );
+    for (const active of activeDeltas) {
+      assertPortfolioTokenDelta(active, chainId);
+      preTradePositions = applyTokenDelta(preTradePositions, active);
     }
     const postTradePositions = applyPortfolioDelta(
       preTradePositions,
@@ -113,6 +128,42 @@ export class InMemoryPortfolioVarEvaluator {
 
   exceedsLimit(evaluation: PortfolioVarEvaluation): boolean {
     return BigInt(evaluation.postTradeVarUsdE18) > this.policy.maxPortfolioVarUsdE18;
+  }
+
+  valuationAssets(chainId: number): Address[] {
+    if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+      throw new Error("In-memory portfolio VaR chainId must be a positive safe integer");
+    }
+    return this.policy.valuationPairs
+      .filter((pair) => pair.chainId === chainId)
+      .map((pair) => pair.tokenAddress);
+  }
+}
+
+function applyTokenDelta(
+  positions: readonly PortfolioVarPosition[],
+  active: PortfolioTokenDelta,
+): PortfolioVarPosition[] {
+  const normalizedToken = active.tokenAddress.toLowerCase() as Address;
+  const next = positions.map((position) => ({ ...position }));
+  const existing = next.find(
+    (position) => position.chainId === active.chainId &&
+      position.tokenAddress.toLowerCase() === normalizedToken,
+  );
+  if (existing) {
+    existing.balance += active.delta;
+  } else {
+    next.push({ chainId: active.chainId, tokenAddress: normalizedToken, balance: active.delta });
+  }
+  return next;
+}
+
+function assertPortfolioTokenDelta(value: PortfolioTokenDelta, expectedChainId: number): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value) ||
+      !Number.isSafeInteger(value.chainId) || value.chainId <= 0 || value.chainId !== expectedChainId ||
+      typeof value.tokenAddress !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value.tokenAddress) ||
+      typeof value.delta !== "bigint") {
+    throw new Error("In-memory portfolio VaR active token delta is invalid");
   }
 }
 

@@ -260,7 +260,7 @@ async function assertExclusiveRace({ store, inputs, reasonCode }) {
 async function assertRequiredMigrations() {
   const migrations = await pool.query("SELECT version FROM _migrations ORDER BY version");
   const applied = new Set(migrations.rows.map((row) => row.version));
-  for (const version of ["011", "016", "017", "022"]) {
+  for (const version of ["011", "016", "017", "022", "037"]) {
     assert.equal(applied.has(version), true, `migration ${version} must be applied`);
   }
 }
@@ -283,8 +283,11 @@ async function insertExpiredReservation() {
   await pool.query(
     `INSERT INTO quote_exposure_reservations (
        quote_id, chain_id, user_address, token_low, token_high, token_in, amount_in,
-       token_out, amount_out, notional_usd_e18, expires_at
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now() - interval '5 seconds')`,
+       token_out, amount_out, notional_usd_e18, expires_at, ledger_expires_at
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+       now() - interval '5 seconds', now() - interval '5 seconds'
+     )`,
     [
       quoteIds.stale,
       chainId,

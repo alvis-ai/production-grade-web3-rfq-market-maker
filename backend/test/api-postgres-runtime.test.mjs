@@ -44,6 +44,7 @@ test("non-local RFQ API startup requires durable PostgreSQL persistence", async 
       logger: false,
       databasePool: pool,
       marketDataService: { async getSnapshot() { throw new Error("unused market data"); } },
+      quoteExposureStore: unusedQuoteExposureStore(),
       rateLimiter: allowAllRateLimiter(),
       signerService: localTestSignerService(),
     });
@@ -71,6 +72,14 @@ function allowAllRateLimiter() {
       return { allowed: true, remaining: 1, retryAfterSeconds: 60 };
     },
     checkHealth() {},
+  };
+}
+
+function unusedQuoteExposureStore() {
+  return {
+    async checkHealth() {},
+    async reserve() { throw new Error("unused quote exposure"); },
+    async release() {},
   };
 }
 

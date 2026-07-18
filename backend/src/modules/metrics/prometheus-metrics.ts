@@ -38,8 +38,13 @@ import {
   type SubmitReservationMetricOperation,
   type ToxicFlowScoreMetricOperation,
 } from "./metrics-contract.js";
+import { createHistogramState, renderHistogram } from "./histogram.js";
+import {
+  renderQuoteExposureMetrics,
+  type QuoteExposureMetricsState,
+} from "./quote-exposure-metrics.js";
 
-export interface PrometheusMetricsState {
+export interface PrometheusMetricsState extends QuoteExposureMetricsState {
   quoteRequests: number;
   quoteResponses: number;
   quoteErrors: number;
@@ -92,36 +97,12 @@ export interface PrometheusMetricsState {
   dailyLossRiskFailures: ReadonlyMap<string, number>;
 }
 
-export function createHistogramState(): HistogramState {
-  return {
-    sum: 0,
-    count: 0,
-    buckets: latencyBucketsSeconds.map(() => 0),
-  };
-}
-
-export function recordHistogram(state: HistogramState, value: number): void {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error("Metrics histogram observation must be a finite number");
-  }
-  const normalized = Math.max(0, value);
-  state.count += 1;
-  state.sum += normalized;
-
-  for (let index = 0; index < latencyBucketsSeconds.length; index += 1) {
-    if (normalized <= latencyBucketsSeconds[index]!) {
-      state.buckets[index] += 1;
-    }
-  }
-}
-
 export function renderPrometheusMetrics(state: PrometheusMetricsState): string {
   const lines = [
     "# HELP rfq_quote_requests_total Total quote requests handled by the RFQ API.",
     "# TYPE rfq_quote_requests_total counter",
     `rfq_quote_requests_total ${state.quoteRequests}`,
     "# HELP rfq_quote_responses_total Total quote responses returned by the RFQ API.",
-    "# TYPE rfq_quote_responses_total counter",
     `rfq_quote_responses_total ${state.quoteResponses}`,
     "# HELP rfq_quote_errors_total Total quote errors returned by the RFQ API.",
     "# TYPE rfq_quote_errors_total counter",
@@ -144,6 +125,7 @@ export function renderPrometheusMetrics(state: PrometheusMetricsState): string {
     "# HELP rfq_portfolio_delta_soft_breaches_total Total accepted reservations above a portfolio delta soft limit.",
     "# TYPE rfq_portfolio_delta_soft_breaches_total counter",
     `rfq_portfolio_delta_soft_breaches_total ${state.portfolioDeltaSoftBreaches}`,
+    ...renderQuoteExposureMetrics(state),
     "# HELP rfq_quote_paused Whether quote creation is administratively paused (1) or enabled (0).",
     "# TYPE rfq_quote_paused gauge",
     `rfq_quote_paused ${state.quotePaused}`,
@@ -328,6 +310,22 @@ function renderStringCounter(name: string, label: string, values: ReadonlyMap<st
     .map(([value, count]) => `${name}{${label}="${value}"} ${count}`);
 }
 
+function renderCompositeCounter(
+  name: string,
+  labels: readonly [string, string],
+  values: ReadonlyMap<string, number>,
+): string[] {
+  return [...values.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, count]) => {
+      const parts = key.split(":");
+      if (parts.length !== labels.length) {
+        throw new Error(`Metrics composite counter ${name} has an invalid key`);
+      }
+      return `${name}{${labels.map((label, index) => `${label}="${parts[index]}"`).join(",")}} ${count}`;
+    });
+}
+
 function renderInventoryBalances(values: ReadonlyMap<string, InventoryMetricPosition>): string[] {
   return [...values.values()]
     .sort((left, right) => inventoryKey(left.chainId, left.token).localeCompare(inventoryKey(right.chainId, right.token)))
@@ -427,19 +425,6 @@ function renderDependencyStatuses(state: PrometheusMetricsState): string[] {
       return `rfq_dependency_status{component="${component}",status="${status}"} ${currentStatus === status ? 1 : 0}`;
     });
   });
-}
-
-function renderHistogram(name: string, state: HistogramState): string[] {
-  const lines = latencyBucketsSeconds.map((bucket, index) => {
-    return `${name}_bucket{le="${bucket}"} ${state.buckets[index]}`;
-  });
-
-  return [
-    ...lines,
-    `${name}_bucket{le="+Inf"} ${state.count}`,
-    `${name}_sum ${formatMetricNumber(state.sum)}`,
-    `${name}_count ${state.count}`,
-  ];
 }
 
 function renderLabeledHistogram(

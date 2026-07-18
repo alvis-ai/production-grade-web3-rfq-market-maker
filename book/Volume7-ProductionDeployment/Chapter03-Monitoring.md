@@ -106,6 +106,12 @@ Key metrics include:
 - `rfq_quote_stage_latency_seconds` with a bounded `stage` label; alert when any stage p99 remains above 25ms
 - `rfq_quote_rejections_total` with bounded `reason`; alert separately on `TREASURY_LIQUIDITY_INSUFFICIENT`, `PORTFOLIO_VAR_LIMIT_EXCEEDED`, `PORTFOLIO_DELTA_LIMIT_EXCEEDED`, `GAMMA_GUARDRAIL_TRIGGERED`, `USD_REFERENCE_DEPEG` and `RISK_ENGINE_UNAVAILABLE`
 - `rfq_portfolio_delta_soft_breaches_total` counts newly accepted reservations above a reviewed chain/token asset, gross, or signed net delta soft limit; any increase requires component-level inventory and hedge review before a hard limit starts rejecting quotes
+- `rfq_quote_exposure_ledger_mutations_total` with bounded operation/result labels
+- `rfq_quote_exposure_ledger_failures_total` with bounded failure reason
+- `rfq_quote_exposure_ledger_lock_wait_seconds`; keep p99 inside the quote-stage budget
+- `rfq_quote_exposure_ledger_backlog`; alert before the configured admission maximum
+- `rfq_quote_exposure_ledger_mirrored_total` with bounded operation/result labels
+- `rfq_quote_exposure_ledger_mirror_errors_total`; any increase means new reserves should be gated
 - `rfq_quote_paused`
 - `rfq_quote_pairs_paused` without chain or token labels
 - `rfq_quote_control_updates_total` for successful global or pair CAS updates
@@ -218,6 +224,7 @@ Kubernetes control-plane observability comes from kube-state-metrics rather than
 - Market-data cache alerting should compare `rfq_market_data_cache_hits_total` and `rfq_market_data_cache_misses_total` before increasing quote limits; a cold cache points to disabled prefetch, stale CEX order book streams or unsupported pair configuration.
 - Pricing-cache alerting compares `rfq_pricing_cache_hits_total` with `rfq_pricing_cache_misses_total`. Sustained misses without hits under repeated flow indicate excessive snapshot churn, a TTL/capacity error or request distribution that cannot benefit from exact caching; operators must not widen the key or TTL past route, inventory and market-state validity.
 - Quote SLO alerting uses `rfq_quote_latency_seconds` p99 below 50ms and `rfq_quote_stage_latency_seconds` p99 by bounded stage. A local in-process benchmark is only a regression baseline; production readiness requires the same thresholds under representative PostgreSQL, Redis, RPC, signer, TLS and concurrency load.
+- Quote exposure alerting correlates `rfq_quote_exposure_ledger_lock_wait_seconds`, backlog, bounded failures and mirror errors. A mirror failure is an admission-health failure even while Redis remains reachable; keep releases enabled, repair and drain the same consumer group, and never create a PostgreSQL fallback authority.
 - Base-provider prefetch exposes only `outcome=success|failure`; audit snapshot sampling exposes only `outcome=saved|unchanged|unavailable|failed`. Observer failures are isolated from refresh and persistence decisions, and pair addresses, chain ids, RPC URLs, snapshot ids and database errors remain outside labels. Alerts use refresh `failure` and persistence `failed`; sampler `unavailable` remains diagnostic because it can describe a cold cache without an attempted database write.
 - CEX order-book alerting uses fixed source/pair states, latest-cycle maximum event age, latest-cycle deviation rejections and connector error rates. A synchronized socket alone is not healthy: `ready` requires a valid two-sided book whose exchange event timestamp is within `RFQ_CEX_MAX_SOURCE_AGE_MS`; blocked pairs must remain on the lower-priority provider or fail closed until quorum and deviation checks recover.
 - Settlement-indexer API guard alerting pairs the current `rfq_settlement_indexer_risk_guard_safe{chain_id}` gauge with a closed failure counter. The only reason labels are `RPC_UNAVAILABLE|CURSOR_STORE_UNAVAILABLE|CURSOR_MISSING|CURSOR_INVALID|CONTRACT_MISMATCH|CURSOR_STALE|BLOCK_LAG`, and `chain_id` is restricted to configured receipt chains; unsupported request chains fail closed without creating metric series. Database messages, RPC URLs, contract addresses and configured thresholds remain outside Prometheus.

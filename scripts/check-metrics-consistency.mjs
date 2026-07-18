@@ -62,6 +62,8 @@ const kubernetesAvailabilityMetrics = [
 const metricsModuleLineLimits = new Map([
   ["backend/src/modules/metrics/metrics.service.ts", 500],
   ["backend/src/modules/metrics/metrics-contract.ts", 140],
+  ["backend/src/modules/metrics/histogram.ts", 80],
+  ["backend/src/modules/metrics/quote-exposure-metrics.ts", 160],
   ["backend/src/modules/metrics/metrics-validation.ts", 350],
   ["backend/src/modules/metrics/prometheus-metrics.ts", 520],
 ]);

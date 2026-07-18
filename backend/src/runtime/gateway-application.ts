@@ -72,8 +72,13 @@ import {
 import { buildRuntimeSettlementIndexerRiskGuard } from "./gateway-settlement-indexer-risk.js";
 import { DynamicToxicFlowRiskEngine } from "../modules/risk/dynamic-toxic-flow-risk.engine.js";
 import { structuredLoggerConfig } from "../shared/logger/structured-logger.js";
+import {
+  resolveGatewayQuoteExposureRuntime,
+} from "./gateway-quote-exposure.js";
+import { closeGatewayResources } from "./gateway-resource-cleanup.js";
 
 export type { BuildServerOptions } from "./gateway-runtime.js";
+export { closeGatewayResources } from "./gateway-resource-cleanup.js";
 
 const disabledRateLimiterHealth = { checkHealth(): void {} };
 
@@ -124,7 +129,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       ? new PostgresHedgeService(postgresPool, hedgeServiceConfig!)
       : new HedgeService(hedgeServiceConfig!)
   );
-  const marketSnapshotStore = options.marketSnapshotStore ?? (
+  const durableMarketSnapshotStore = options.marketSnapshotStore ?? (
     postgresPool ? new PostgresMarketSnapshotStore(postgresPool) : new InMemoryMarketSnapshotRepository()
   );
   const quoteRepository = options.quoteRepository ?? (
@@ -174,14 +179,6 @@ export function buildServer(options: BuildServerOptions = {}) {
   const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
   const inMemoryInventoryService = postgresPool ? undefined : new InventoryService();
   const inventoryService: IInventoryService = postgresInventoryService ?? inMemoryInventoryService!;
-  const quoteExposureStore = resolveQuoteExposureStore(
-    options.quoteExposureStore,
-    postgresPool,
-    defaultRiskEngine,
-    runtimeTokenRegistry,
-    { inventoryService, marketSnapshotStore },
-    metricsService,
-  );
   const treasuryLiquidityProvider = options.treasuryLiquidityProvider ??
     buildRuntimeTreasuryLiquidityProvider();
   const postgresSettlementEventStore = postgresPool && options.settlementEventService === undefined
@@ -198,7 +195,10 @@ export function buildServer(options: BuildServerOptions = {}) {
     ),
   }, options.settlementEvidenceProvider ?? buildRuntimeSettlementEvidenceProvider(signerRuntimeConfig.settlementAddress),
   new DeltaNeutralHedgePlanner(runtimeTokenRegistry));
-  const pnlValuationProvider = new QuoteSnapshotPnlValuationProvider(marketSnapshotStore, runtimeTokenRegistry);
+  const pnlValuationProvider = new QuoteSnapshotPnlValuationProvider(
+    durableMarketSnapshotStore,
+    runtimeTokenRegistry,
+  );
   const pnlService = options.pnlService ?? (
     postgresPool
       ? new PostgresPnlStore(postgresPool, pnlValuationProvider)
@@ -217,8 +217,31 @@ export function buildServer(options: BuildServerOptions = {}) {
     enableHsts,
     metricsService,
   });
+  marketRuntime.assertProductionPolicy();
+  assertProductionUsdReferenceRiskPolicy(options.riskEngine === undefined);
+  assertProductionDailyLossRiskPolicy(options.riskEngine === undefined, postgresPool);
+  const quoteExposure = resolveGatewayQuoteExposureRuntime({
+    configuredStore: options.quoteExposureStore,
+    pool: postgresPool,
+    policy: defaultRiskEngine?.getQuoteExposurePolicy(),
+    tokenRegistry: runtimeTokenRegistry,
+    canonicalInventoryService: inventoryService,
+    durableMarketSnapshotStore,
+    managedPairs: managedRiskPairs,
+    metrics: metricsService,
+    logger: server.log,
+    resolveFallback: (state) => resolveQuoteExposureStore(
+      options.quoteExposureStore, postgresPool, defaultRiskEngine, runtimeTokenRegistry, state, metricsService,
+    ),
+  });
+  const {
+    inventoryService: quoteInventoryService,
+    marketSnapshotStore,
+    quoteExposureStore,
+    runtime: redisQuoteExposureRuntime,
+  } = quoteExposure;
   const quoteService = new QuoteService(observeQuoteServiceDependencies({
-    inventoryService,
+    inventoryService: quoteInventoryService,
     marketDataService,
     marketSnapshotStore,
     hedgeService,
@@ -237,13 +260,11 @@ export function buildServer(options: BuildServerOptions = {}) {
     maxSnapshotAgeMs,
     quoteTtlSeconds,
   });
-  marketRuntime.assertProductionPolicy();
-  assertProductionUsdReferenceRiskPolicy(options.riskEngine === undefined);
-  assertProductionDailyLossRiskPolicy(options.riskEngine === undefined, postgresPool);
   const stopMarketBackgroundTasks = marketRuntime.startBackgroundTasks(
     marketSnapshotStore,
     postgresPool !== undefined,
   );
+  if (redisQuoteExposureRuntime) server.addHook("onReady", () => redisQuoteExposureRuntime.start());
   if (postgresSettlementEventStore) {
     server.addHook("onReady", async () => {
       await postgresSettlementEventStore.initialize();
@@ -252,6 +273,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   server.addHook("onClose", async () => {
     await closeGatewayResources([
       ...(stopMarketBackgroundTasks ? [stopMarketBackgroundTasks] : []),
+      ...(redisQuoteExposureRuntime ? [() => redisQuoteExposureRuntime.close()] : []),
       ...(rateLimiter?.close ? [() => rateLimiter.close!()] : []),
       ...(defaultSignerRuntime?.close ? [() => defaultSignerRuntime.close!()] : []),
       ...(ownsPostgresPool ? [() => endPool()] : []),
@@ -261,7 +283,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const readinessService = new ReadinessService({
     hedgeService,
     ...(hedgeRouteRulesHealth ? { hedgeRouteRulesHealth } : {}),
-    inventoryService,
+    inventoryService: quoteInventoryService,
     marketDataService,
     marketSnapshotStore,
     metricsService,
@@ -318,20 +340,4 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
 
   return server;
-}
-
-export async function closeGatewayResources(
-  closers: readonly (() => void | Promise<void>)[],
-): Promise<void> {
-  let firstError: unknown;
-  let failed = false;
-  for (const close of closers) {
-    try {
-      await close();
-    } catch (error) {
-      if (!failed) firstError = error;
-      failed = true;
-    }
-  }
-  if (failed) throw firstError;
 }

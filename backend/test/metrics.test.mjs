@@ -72,6 +72,16 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
 
   metrics.recordQuoteRejection("toxic flow/user");
   metrics.recordPortfolioDeltaSoftBreach();
+  metrics.recordLedgerMutation({ operation: "reserve", duplicate: false, backlog: 3 });
+  metrics.recordLedgerFailure("replica_ack");
+  metrics.recordLedgerLockWait(0.002);
+  metrics.recordLedgerMirrored({
+    sourceStreamId: "epoch_v1:1-0",
+    operation: "reserve",
+    inserted: true,
+    applied: true,
+  });
+  metrics.recordLedgerMirrorError();
   metrics.recordHedgeIntentError("venue offline\nretry");
   metrics.recordPnlRecordError("");
   metrics.recordQuoteStatusUpdateError("settled");
@@ -121,6 +131,12 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
 
   assert.match(output, /rfq_quote_rejections_total\{reason="TOXIC_FLOW_USER"\} 1/);
   assert.match(output, /rfq_portfolio_delta_soft_breaches_total 1/);
+  assert.match(output, /rfq_quote_exposure_ledger_mutations_total\{operation="reserve",result="applied"\} 1/);
+  assert.match(output, /rfq_quote_exposure_ledger_failures_total\{reason="replica_ack"\} 1/);
+  assert.match(output, /rfq_quote_exposure_ledger_lock_wait_seconds_count 1/);
+  assert.match(output, /rfq_quote_exposure_ledger_backlog 3/);
+  assert.match(output, /rfq_quote_exposure_ledger_mirrored_total\{operation="reserve",result="applied"\} 1/);
+  assert.match(output, /rfq_quote_exposure_ledger_mirror_errors_total 1/);
   assert.match(output, /rfq_hedge_intent_errors_total\{reason="VENUE_OFFLINE_RETRY"\} 1/);
   assert.match(output, /rfq_pnl_record_errors_total\{reason="UNKNOWN"\} 1/);
   assert.match(output, /rfq_quote_status_update_errors_total\{target_status="SETTLED"\} 1/);

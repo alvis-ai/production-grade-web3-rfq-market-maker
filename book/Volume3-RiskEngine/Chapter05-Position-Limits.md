@@ -103,11 +103,11 @@ stateDiagram-v2
 
 `RiskLimitPolicy` 的完整目标包含 `policyVersion`、`chainId`、`tokenAddress`、`maxPosition`、`softPosition`、`maxNotionalUsd`、`maxUserNotionalUsd`、`maxQuotedSpreadBps`、`enabled`。当前默认后端已落地 `TokenLimitRiskPolicy`：`enabledChainIds` 定义 chain gate，`tokenLimits` 以 `(chainId, tokenAddress)` 唯一键分别保存 canonical uint256 `maxAmountIn`、`minAmountOut`、整数美元 `maxNotionalUsd` 和 `maxAbsoluteInventory`，公共字段保存 `maxUserOpenNotionalUsd`、`maxPairOpenNotionalUsd`、`minLiquidityUsd`、`maxVolatilityBps` 以及 slippage/spread/toxic-flow 上限。Quote Service 把定价 snapshot 与 projected tokenIn/tokenOut position 一并传给 Risk Engine；任一余额按对应 token raw-unit hard limit 超限、USD-reference 一侧按可信 decimals 计算出的单笔名义金额超过两侧较小上限、市场流动性不足、波动率越界或最终 quoted spread 超过 policy，都会拒绝签名。没有 USD-reference 的 managed pair 在启动时失败，避免把非稳定币 raw units 当成美元。
 
-单笔门禁通过后，Quote Service 在 Signer 之前预留活动签名报价敞口。`quote_exposure_reservations` 以 quoteId 为幂等键，把 USD-reference 一侧按可信 decimals 转成 18 位 USD 定点数；两侧均为 USD reference 时取较大值，超过 18 decimals 的极小余数向上取整，避免低估。用户作用域为 `(chainId, user)`，交易对作用域使用排序后的 `(chainId, tokenLow, tokenHigh)`，因此反向报价不能绕过 pair limit。PostgreSQL 实现按稳定顺序逐个获取 transaction-scoped advisory locks，再在同一事务中求和并插入，消除多 API replica 的 check-then-insert write skew。只有 `expires_at > now()` 且 quote 状态为 `requested`、`signed` 或 `failed` 的记录计入活动敞口；submitted/settled 已有链上 nonce 消耗证据，暂不计数但保留记录，以便 reorg 将 quote 恢复为 signed 时自动重新计数。`failed` 仍可能对应用户已经拿到、链上尚可重试的签名，不能仅凭本地失败状态提前释放。签名前的签名、审计或 signed quote 持久化失败会 best-effort 显式释放；expired 记录由每次预留时的有界 `FOR UPDATE SKIP LOCKED` 清理，进程崩溃时也最多保守占用到 quote TTL。
+单笔门禁通过后，Quote Service 在 Signer 之前预留活动签名报价敞口。生产 `redis-stream` runtime 以 quoteId 为幂等键，把 USD-reference 一侧按可信 decimals 转成 18 位 USD 定点数；两侧均为 USD reference 时取较大值，超过 18 decimals 的极小余数向上取整，避免低估。用户作用域为 `(chainId, user)`，交易对作用域使用排序后的 `(chainId, tokenLow, tokenHigh)`，因此反向报价不能绕过 pair limit。一个有界 chain-scoped lease 包围 hot inventory、valuation snapshot 与 Redis 活动 delta 的 read-evaluate-commit；Lua 使用 decimal string 精确检查并原子更新 user、pair、Treasury-output、VaR/Delta 聚合，同时追加版本化 Stream event。reservation 保留到签名 deadline 之后的同步 grace，覆盖库存刷新与刚结算 quote 的交接窗口。Stream consumer 把活动状态镜像到 `quote_exposure_reservations` 查询投影，并把原始事件保留在 append-only audit 表；生产准入不读取该投影。签名、审计或 signed quote 持久化失败会 best-effort 显式 release；进程崩溃时仍由 deadline 自动释放容量。PostgreSQL 的 advisory-lock 实现仅用于本地兼容、语义对照和显式回滚，不得在 Redis 故障时由单个 pod 自动启用。
 
-名义限额之外，生产 runtime 使用 `RFQ_RECEIPT_CONFIG_JSON` 的链 RPC 在同一 block 读取 `RFQSettlement.treasury()` 与 `tokenOut.balanceOf(treasury)`。reservation 额外持久化方向性的 `tokenOut/amountOut` 和链上观察证据，并为 `(chainId, tokenOut)` 获取 advisory lock。所有未过期 quote 的输出数量都参与流动性 SUM，包括已经 submitted/settled 的 quote；后者保留到 TTL 是有意的保守策略，用于覆盖 RPC 读取、链上余额下降和数据库状态切换无法组成原子事务的窗口。若 `reserved + candidate > observedBalance`，记录 `TREASURY_LIQUIDITY_INSUFFICIENT` 并在 Signer 前拒绝。RPC 不可用、treasury 地址畸形或 balance 非 uint256 都按 risk unavailable fail closed。
+名义限额之外，生产 runtime 使用 `RFQ_RECEIPT_CONFIG_JSON` 的链 RPC 在同一 block 读取 `RFQSettlement.treasury()` 与 `tokenOut.balanceOf(treasury)`。reservation 把方向性的 `tokenOut/amountOut` 和链上观察证据写入 Redis，并在同一个 chain lease 与 Lua commit 中检查 `(chainId, tokenOut)` 聚合。所有仍在 ledger deadline 内的 quote 输出数量都参与流动性限额，包括为同步 grace 保守保留的 reservation。若 `reserved + candidate > observedBalance`，记录 `TREASURY_LIQUIDITY_INSUFFICIENT` 并在 Signer 前拒绝。RPC 不可用、treasury 地址畸形、balance 非 uint256、Redis durability 不健康或 PostgreSQL mirror gate 失败都按 risk unavailable fail closed。
 
-组合 position limit 由 `portfolioDelta` 表达。Risk Engine 在 portfolio advisory lock 内复用 VaR valuation components，先按 `(chainId, tokenAddress)` 检查 absolute USD delta，再计算 pre/post gross USD delta 与 signed net USD delta。任一 asset/gross/net soft limit 被严格超过时 reservation 仍可接受，但持久化 component/aggregate `softLimitBreached` 并触发告警；任一 hard limit 被严格超过时返回 `PORTFOLIO_DELTA_LIMIT_EXCEEDED`，事务回滚且 Signer 不可见该 quote。精确等于阈值不算越界。USD-reference token 作为现金腿不进入 delta component，仍由 open notional 与 Treasury liquidity 两层约束保护。
+组合 position limit 由 `portfolioDelta` 表达。Risk Engine 在同一个 chain lease 内复用 VaR valuation components，先按 `(chainId, tokenAddress)` 检查 absolute USD delta，再计算 pre/post gross USD delta 与 signed net USD delta。任一 asset/gross/net soft limit 被严格超过时 reservation 仍可接受，但 ledger event 持久化 component/aggregate `softLimitBreached` 并触发告警；任一 hard limit 被严格超过时返回 `PORTFOLIO_DELTA_LIMIT_EXCEEDED`，Lua commit 不会发生且 Signer 不可见该 quote。精确等于阈值不算越界。USD-reference token 作为现金腿不进入 delta component，仍由 open notional 与 Treasury liquidity 两层约束保护。
 
 `gammaGuardrail` 不替代上述限额。它在单维 hard limit 尚未越界时，对投影库存、USD 名义金额和波动率的相对利用率进行分段组合，捕获多个维度同时接近上限的非线性风险。达到组合乘数边界返回 `GAMMA_GUARDRAIL_TRIGGERED`；缺少库存投影不得按零库存处理。
 
@@ -123,7 +123,7 @@ stateDiagram-v2
 - token address 必须与 chainId 共同构成授权键；不能因为同一地址在另一个 enabled chain 获准就跨链放行。
 - `RFQ_RISK_POLICY_JSON` 和 `RFQ_TOKEN_REGISTRY_JSON` 必须在启动时双向覆盖 active pair；raw-unit 限额不得跨 decimals token 复用。
 - `maxUserOpenNotionalUsd` 与 `maxPairOpenNotionalUsd` 是独立正整数阈值；累计 user/pair 门禁必须在签名前完成原子预留。
-- `portfolioVar` 对所有非 USD 风险 token 要求显式 valuation pair。组合状态是 `inventory_positions + active quote reservations + candidate`；PostgreSQL 以 chain advisory lock 和 inventory `SHARE` lock 防止并发穿透，超限稳定返回 `PORTFOLIO_VAR_LIMIT_EXCEEDED`。
+- `portfolioVar` 对所有非 USD 风险 token 要求显式 valuation pair。生产组合状态是 immutable hot inventory + Redis active quote deltas + candidate；同一 chain lease 防止并发穿透，超限稳定返回 `PORTFOLIO_VAR_LIMIT_EXCEEDED`。
 - `portfolioDelta` 必须与 `portfolioVar` 同时配置，复用其 valuation pair 和一致性窗口；hard breach 返回 `PORTFOLIO_DELTA_LIMIT_EXCEEDED`，soft breach 只记录证据与指标。
 
 ## Failure Scenarios
@@ -139,11 +139,11 @@ stateDiagram-v2
 
 ## Performance Considerations
 
-Active policy 应缓存，但缓存必须有版本和失效机制。PostgreSQL 只串行化共享同一用户或同一无方向交易对的预留，不使用全局锁；活动求和由 user/pair + expiry 复合索引支持。
+Active policy、inventory 与 valuation snapshots 应在请求外刷新，并带版本、观测时间和失效机制。生产准入不查询 PostgreSQL；Redis chain lease 当前会串行化同链 reservation，因此必须跟踪 lock-wait 与 mutation latency。实测证明移除 PostgreSQL SUM/lock 后仍未达到 `p50 < 10 ms`：远程签名、同步 lifecycle/risk audit、Treasury RPC 与租约竞争仍需继续拆解。
 
 ## Testing Strategy
 
-测试 token limit、chain limit、同地址跨链隔离、USDC 6 decimals、WETH 18 decimals、每侧 inventory limit、user/portfolio limit、soft/hard 分支、policy missing 和 registry mismatch。`make quote-exposure-integration-check` 还必须在真实 PostgreSQL 的两个独立 session 中分别竞争 user、无方向 pair 和同 tokenOut Treasury 容量，断言恰好一个预留成功、另一个返回稳定 reasonCode；成功项重放不能新增记录，释放后失败项必须能够取得容量，过期 reservation 必须由正常预留路径清理。该门禁使用随机 quote/snapshot/address fixture 并在事务中清理，CI 不得用 SQL mock 结果替代它。
+测试 token limit、chain limit、同地址跨链隔离、USDC 6 decimals、WETH 18 decimals、每侧 inventory limit、user/portfolio limit、soft/hard 分支、policy missing 和 registry mismatch。Backend CI 在真实 Redis 上验证超 IEEE-754 精确整数、幂等重放、user/pair/Treasury 并发原子限额、release 与 Stream append，再在真实 PostgreSQL 上验证 reserve/release 的有序镜像和 append-only audit。`make quote-exposure-integration-check` 继续以两个独立 PostgreSQL session 验证兼容实现的等价并发语义；它不是生产准入链路的性能证明。
 
 ## Interview Notes
 

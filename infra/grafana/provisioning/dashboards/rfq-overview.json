@@ -2,7 +2,7 @@
   "title": "RFQ Market Maker Overview",
   "uid": "rfq-market-maker-overview",
   "schemaVersion": 39,
-  "version": 9,
+  "version": 11,
   "refresh": "15s",
   "panels": [
     {
@@ -21,7 +21,12 @@
         { "expr": "max(rfq_quote_pairs_paused)", "legendFormat": "paused pairs", "refId": "H" },
         { "expr": "sum(rfq_toxic_flow_score_updates_total)", "legendFormat": "toxic score updates", "refId": "I" },
         { "expr": "sum by (operation) (rfq_toxic_flow_score_errors_total)", "legendFormat": "toxic score {{operation}} errors", "refId": "J" },
-        { "expr": "sum(rfq_portfolio_delta_soft_breaches_total)", "legendFormat": "delta soft breaches", "refId": "K" }
+        { "expr": "sum(rfq_portfolio_delta_soft_breaches_total)", "legendFormat": "delta soft breaches", "refId": "K" },
+        { "expr": "max(rfq_quote_exposure_ledger_backlog)", "legendFormat": "exposure backlog", "refId": "L" },
+        { "expr": "sum(rfq_quote_exposure_ledger_failures_total)", "legendFormat": "exposure failures", "refId": "M" },
+        { "expr": "sum(rfq_quote_exposure_ledger_mirror_errors_total)", "legendFormat": "exposure mirror errors", "refId": "N" },
+        { "expr": "sum by (operation, result) (rate(rfq_quote_exposure_ledger_mutations_total[5m]))", "legendFormat": "exposure {{operation}} {{result}}/s", "refId": "O" },
+        { "expr": "sum by (operation, result) (rate(rfq_quote_exposure_ledger_mirrored_total[5m]))", "legendFormat": "mirror {{operation}} {{result}}/s", "refId": "P" }
       ]
     },
     {
@@ -64,6 +69,11 @@
           "expr": "histogram_quantile(0.99, rate(rfq_quote_latency_seconds_bucket[5m]))",
           "legendFormat": "p99",
           "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(rfq_quote_exposure_ledger_lock_wait_seconds_bucket[5m]))",
+          "legendFormat": "exposure lock p99",
+          "refId": "C"
         }
       ]
     },

@@ -94,7 +94,16 @@ function runtimeServerOptions() {
     logger: false,
     databasePool: fakeDatabasePool(),
     marketDataService: testMarketDataService(),
+    quoteExposureStore: unusedQuoteExposureStore(),
     signerService: localTestSignerService(),
+  };
+}
+
+function unusedQuoteExposureStore() {
+  return {
+    async checkHealth() {},
+    async reserve() { throw new Error("unused quote exposure"); },
+    async release() {},
   };
 }
 

@@ -110,7 +110,7 @@ Inventory Service 对内部提供 `getPosition(chainId, token)`、`projectSettle
 - Local development uses `InventoryService`; any non-local runtime requires PostgreSQL and uses `PostgresInventoryService`.
 - PostgreSQL inventory replay includes canonical settlement deltas and every terminal `hedge_orders.filled_amount` delta. A chain reorg removes only the chain trade delta; an already executed CEX hedge remains real exposure and therefore remains in the rebuilt projection.
 - Hedge terminal writes lock the triggering settlement row before the hedge row and inventory position. Reorg follows the same settlement-before-inventory order, so concurrent rebuild and venue terminal evidence serialize without losing either the canonical-chain decision or an irreversible CEX fill.
-- Production skew, projection and position reads query shared `inventory_positions`, so API replicas cannot quote against divergent pod-local balances.
+- PostgreSQL `inventory_positions` remains the canonical durable projection. Production quote replicas refresh immutable process-local views outside request handling, reject stale versions, and use the same view for skew, risk projection and portfolio VaR; settlement and hedge writes continue to update PostgreSQL transactionally.
 - Settlement ingestion updates both token legs in deterministic address order and in the same transaction as the canonical settlement event. This prevents partial inventory and reduces opposite-pair deadlock risk.
 - Startup and reorg repair rebuild the projection only from `settlement_events.canonical=TRUE` while holding a transaction-scoped advisory lock and an inventory table lock; readers keep seeing the previous committed projection until repair commits.
 
