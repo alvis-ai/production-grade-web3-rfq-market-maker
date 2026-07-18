@@ -227,7 +227,9 @@
         { "expr": "sum by (outcome) (rate(rfq_market_data_refreshes_total[5m]))", "legendFormat": "refresh {{outcome}}/s", "refId": "C" },
         { "expr": "sum by (outcome) (rate(rfq_market_snapshot_samples_total[5m]))", "legendFormat": "sample {{outcome}}/s", "refId": "D" },
         { "expr": "rate(rfq_pricing_cache_hits_total[5m])", "legendFormat": "pricing hits/s", "refId": "E" },
-        { "expr": "rate(rfq_pricing_cache_misses_total[5m])", "legendFormat": "pricing misses/s", "refId": "F" }
+        { "expr": "rate(rfq_pricing_cache_misses_total[5m])", "legendFormat": "pricing misses/s", "refId": "F" },
+        { "expr": "sum by (state, outcome) (rate(rfq_hot_state_refreshes_total[5m]))", "legendFormat": "{{state}} {{outcome}}/s", "refId": "G" },
+        { "expr": "time() - rfq_hot_state_last_success_unixtime_seconds", "legendFormat": "{{state}} age/s", "refId": "H" }
       ]
     },
     {

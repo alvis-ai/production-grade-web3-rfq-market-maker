@@ -1,9 +1,11 @@
 import { readFile } from "node:fs/promises";
 
 export const backendMetricsSourcePaths = [
+  "backend/src/modules/metrics/cex-order-book-metrics.ts",
   "backend/src/modules/metrics/metrics.service.ts",
   "backend/src/modules/metrics/metrics-contract.ts",
   "backend/src/modules/metrics/histogram.ts",
+  "backend/src/modules/metrics/hot-state-metrics.ts",
   "backend/src/modules/metrics/quote-exposure-metrics.ts",
   "backend/src/modules/metrics/quote-issuance-metrics.ts",
   "backend/src/modules/metrics/metrics-validation.ts",

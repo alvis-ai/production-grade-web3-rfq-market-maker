@@ -146,6 +146,8 @@ Key metrics include:
 - `rfq_pricing_cache_hits_total`
 - `rfq_pricing_cache_misses_total`
 - `rfq_market_data_refreshes_total`
+- `rfq_hot_state_refreshes_total` with fixed `state` and `outcome="success|failure"` labels
+- `rfq_hot_state_last_success_unixtime_seconds` with the same fixed state labels
 - `rfq_market_snapshot_samples_total`
 - `rfq_cex_order_book_sources`
 - `rfq_cex_order_book_pairs`
@@ -175,6 +177,8 @@ Key metrics include:
 - `rfq_realized_pnl_token_out`
 
 `rfq_realized_pnl_token_out` remains the quote-snapshot gross edge gauge. Hedge net execution accounting is stateful and principal-scoped, so operators inspect `/pnl.hedgeNet` or query `hedge_orders.hedge_net_pnl_status` rather than exporting per-principal values as global Prometheus labels. Alert when pending rows outlive the fee reconciliation SLO, when `UNVALUED_COMMISSION_ASSET` grows unexpectedly, or when new rows appear without `route_accounting_version`; unavailable rows are never converted to zero for dashboards.
+
+Quote-control, toxic-flow, daily-loss, hedge-risk, USD-reference and settlement-indexer refreshers publish only six fixed `state` values. `time() - rfq_hot_state_last_success_unixtime_seconds` measures generation age without adding token/user labels. A failed refresh may continue serving the previous complete generation only inside `RFQ_HOT_STATE_MAX_AGE_MS`; once expired, readiness degrades and `/quote` fails closed. Correlate these metrics with `rfq_quote_stage_latency_seconds`, because a hot-state stage should remain an in-process map read and must not acquire database or RPC latency.
 - `rfq_analytics_outbox_published_total`
 - `rfq_analytics_outbox_retries_total`
 - `rfq_analytics_outbox_deleted_total`

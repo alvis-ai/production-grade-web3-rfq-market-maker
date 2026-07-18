@@ -13,7 +13,10 @@ import {
   dailyLossRuntimeEnvName,
   usdReferenceRuntimeEnvName,
 } from "./helpers/usd-reference-runtime-fixtures.mjs";
-import { unusedTreasuryLiquidityProvider } from "./helpers/runtime-dependency-fixtures.mjs";
+import {
+  isolatedGatewayHotStateDependencies,
+  unusedTreasuryLiquidityProvider,
+} from "./helpers/runtime-dependency-fixtures.mjs";
 
 const quoteRequest = {
   chainId: 1,
@@ -220,6 +223,7 @@ test("RFQ API validates Redis rate limit runtime configuration", async () => {
 
     process.env.RFQ_REDIS_URL = "rediss://redis.example.com:6380/0";
     const server = buildServer({
+      ...isolatedGatewayHotStateDependencies(),
       apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
       logger: false,
       databasePool: fakeDatabasePool(),

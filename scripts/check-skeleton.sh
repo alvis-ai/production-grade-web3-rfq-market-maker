@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-hedge-risk.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-quote-issuance.ts backend/src/runtime/gateway-settlement-indexer-risk.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
+gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-hedge-risk.ts backend/src/runtime/gateway-hot-state.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-quote-issuance.ts backend/src/runtime/gateway-risk-runtime.ts backend/src/runtime/gateway-settlement-indexer-risk.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
 quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-authorization.ts backend/src/modules/quote/quote-issuance.store.ts backend/src/modules/quote/postgres-quote-issuance.store.ts backend/src/modules/quote/quote-submittable.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts backend/src/modules/quote/quote-route-selection.ts"
 quote_repository_sources="backend/src/modules/quote/quote-repository-contract.ts backend/src/modules/quote/quote-repository-invariants.ts backend/src/modules/quote/in-memory-quote.repository.ts backend/src/modules/quote/postgres-quote-row.ts backend/src/modules/quote/postgres-quote.repository.ts"
 sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-transport.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts sdk/src/client-pnl-page.ts"
@@ -30,7 +30,9 @@ test -s backend/src/runtime/gateway-application.ts
 test -s backend/src/runtime/gateway-quote-issuance.ts
 test -s backend/src/runtime/gateway-resource-cleanup.ts
 test -s backend/src/runtime/gateway-hedge-risk.ts
+test -s backend/src/runtime/gateway-hot-state.ts
 test -s backend/src/runtime/gateway-market-data.ts
+test -s backend/src/runtime/gateway-risk-runtime.ts
 test -s backend/src/runtime/gateway-settlement-indexer-risk.ts
 test -s backend/src/runtime/gateway-runtime.ts
 test -s backend/src/runtime/market-runtime.ts
@@ -3954,8 +3956,10 @@ grep -q 'revision = \$4' backend/src/modules/indexer/postgres-settlement-indexer
 grep -q 'next_block = \$5' backend/src/modules/indexer/postgres-settlement-indexer.store.ts
 grep -q 'rfq_settlement_indexer_lag_blocks' backend/src/modules/indexer/settlement-indexer.metrics.ts
 grep -q 'settlementIndexerRiskGuard?.assertQuoteSafe' $quote_service_sources
-grep -q 'buildRuntimeSettlementIndexerRiskGuard(postgresPool, metricsService)' backend/src/runtime/gateway-application.ts
-grep -q 'safeHead - evidence.nextBlock + 1n' backend/src/modules/risk/settlement-indexer-risk.guard.ts
+grep -q 'buildGatewayCoreHotStateRuntime({' backend/src/runtime/gateway-application.ts
+grep -q 'buildRuntimeSettlementIndexerRiskGuard(input.pool' backend/src/runtime/gateway-hot-state.ts
+grep -q 'registerGatewayHotStateLifecycles(server' backend/src/runtime/gateway-application.ts
+grep -q 'safeHead - cursor.nextBlock + 1n' backend/src/modules/risk/settlement-indexer-risk.guard.ts
 grep -q 'RFQ_SETTLEMENT_INDEXER_MAX_CURSOR_AGE_MS' backend/src/runtime/gateway-settlement-indexer-risk.ts
 grep -q 'RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG' backend/src/runtime/gateway-settlement-indexer-risk.ts
 grep -q 'RFQSettlementIndexerDeepReorg' infra/prometheus/rules/rfq-alerts.yml

@@ -58,6 +58,7 @@ test("BackgroundPriceUpdater records failures without trusting observer side eff
 
   await updater.refreshOnce();
   assert.deepEqual(outcomes, ["failure"]);
+  assert.throws(() => updater.assertConfiguredCoverage(), /initial coverage is incomplete/);
 });
 
 test("BackgroundPriceUpdater validates its observer", () => {

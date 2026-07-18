@@ -13,12 +13,14 @@ export class CachedMarketDataService implements MarketDataService {
   private hits = 0;
   private misses = 0;
   private readonly requiredPrimaryCacheKeys: ReadonlySet<string>;
+  private readonly requiredCacheKeys: ReadonlySet<string>;
 
   constructor(
     private readonly inner: MarketDataService,
     cache: SharedPriceCache | readonly SharedPriceCache[],
     private readonly metricsService?: MetricsService,
     requiredPrimaryCacheKeys: readonly string[] = [],
+    requiredCacheKeys: readonly string[] = [],
   ) {
     this.caches = Array.isArray(cache) ? [...cache] : [cache as SharedPriceCache];
     if (this.caches.length === 0 || this.caches.some((entry) => !(entry instanceof SharedPriceCache))) {
@@ -29,6 +31,11 @@ export class CachedMarketDataService implements MarketDataService {
       throw new Error("Cached market data required primary keys must be bounded non-empty strings");
     }
     this.requiredPrimaryCacheKeys = new Set(requiredPrimaryCacheKeys);
+    if (!Array.isArray(requiredCacheKeys) ||
+        requiredCacheKeys.some((key) => typeof key !== "string" || key.length === 0 || key.length > 256)) {
+      throw new Error("Cached market data required keys must be bounded non-empty strings");
+    }
+    this.requiredCacheKeys = new Set(requiredCacheKeys);
   }
 
   private readonly caches: SharedPriceCache[];
@@ -49,6 +56,9 @@ export class CachedMarketDataService implements MarketDataService {
     }
 
     this.recordMiss();
+    if (this.requiredCacheKeys.has(key)) {
+      throw new Error("Required hot market data is unavailable");
+    }
     const snapshot = await this.inner.getSnapshot(request);
     this.caches[this.caches.length - 1].set(key, snapshot);
     return snapshot;

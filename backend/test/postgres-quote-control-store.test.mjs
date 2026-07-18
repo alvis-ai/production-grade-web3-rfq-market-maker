@@ -11,6 +11,45 @@ const stateRow = {
   updated_at: new Date("2026-07-14T00:00:00.000Z"),
 };
 
+test("PostgresQuoteControlStore loads one consistent hot-state snapshot", async () => {
+  const pairRow = {
+    chain_id: "8453",
+    token_low: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    token_high: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    paused: true,
+    version: "2",
+    reason: "venue incident",
+    updated_by: "institution_a:ops_key",
+    updated_at: new Date("2026-07-14T00:01:00.000Z"),
+  };
+  const pool = fakePool([{ rows: [stateRow] }, { rows: [pairRow] }]);
+
+  assert.deepEqual(await new PostgresQuoteControlStore(pool).loadSnapshot(), {
+    state: {
+      paused: false,
+      version: 0,
+      reason: null,
+      updatedBy: "migration",
+      updatedAt: "2026-07-14T00:00:00.000Z",
+    },
+    pairStates: [{
+      chainId: 8453,
+      tokenLow: pairRow.token_low,
+      tokenHigh: pairRow.token_high,
+      paused: true,
+      version: 2,
+      reason: "venue incident",
+      updatedBy: "institution_a:ops_key",
+      updatedAt: "2026-07-14T00:01:00.000Z",
+    }],
+  });
+  assert.match(pool.calls[0].sql, /FROM quote_control/);
+  assert.match(pool.calls[1].sql, /FROM quote_pair_control/);
+  assert.match(pool.calls[1].sql, /ORDER BY chain_id, token_low, token_high/);
+  assert.equal(pool.connectCount, 1);
+  assert.equal(pool.releaseCount, 1);
+});
+
 test("PostgresQuoteControlStore reads and atomically audits CAS updates", async () => {
   const pool = fakePool([
     { rows: [stateRow] },

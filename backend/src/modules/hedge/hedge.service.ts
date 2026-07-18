@@ -45,7 +45,12 @@ export interface HedgeRiskInput {
   token: Address;
 }
 
-export interface HedgeIntentService {
+export interface HedgeRiskPenaltyProvider {
+  checkHealth?(): void | Promise<void>;
+  quoteRiskPenaltyBps(input: HedgeRiskInput): number | Promise<number>;
+}
+
+export interface HedgeIntentService extends Partial<HedgeRiskPenaltyProvider> {
   checkHealth?(): void | Promise<void>;
   createHedgeIntent(intent: HedgeIntent): HedgeResult | Promise<HedgeResult>;
   getHedgeIntent(hedgeOrderId: string): HedgeIntentStatusResponse | undefined | Promise<HedgeIntentStatusResponse | undefined>;
@@ -54,7 +59,6 @@ export interface HedgeIntentService {
   markHedgeIntentFilled?(input: MarkHedgeIntentFilledInput): UpdateHedgeIntentResult | Promise<UpdateHedgeIntentResult>;
   markHedgeIntentFailed?(hedgeOrderId: string): UpdateHedgeIntentResult | Promise<UpdateHedgeIntentResult>;
   recordHedgeFailure?(intent: HedgeIntent, reasonCode: HedgeFailureReasonCode): void | Promise<void>;
-  quoteRiskPenaltyBps?(input: HedgeRiskInput): number | Promise<number>;
 }
 
 export interface HedgeServiceConfig {

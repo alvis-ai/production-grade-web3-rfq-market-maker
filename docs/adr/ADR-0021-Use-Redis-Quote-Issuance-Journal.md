@@ -37,14 +37,14 @@ Production requires `rediss://`, healthy AOF persistence, at least one successfu
 - Redis is now an issuance authority, not a disposable cache; complete cluster loss is a signing incident.
 - Three sequential issuance mutations and remote signing still add network latency even though PostgreSQL is absent.
 - The projector creates write amplification in PostgreSQL and needs capacity independent of API replicas.
-- Dynamic toxic-flow and daily-loss evidence still use PostgreSQL-backed risk providers, so the complete quote path is not yet database-query-free.
+- Dynamic toxic-flow and daily-loss evidence were remaining synchronous PostgreSQL boundaries at acceptance time; ADR-0022 subsequently moves them into versioned process-local snapshots.
 - The measured p50 remains above 10 ms; this ADR does not declare the high-frequency quote SLO satisfied.
 
 ### Mitigation
 
 Focused tests cover runtime durability policy, preparation/exposure overlap, failed-preparation release, cumulative projection, duplicate delivery and retained events after PostgreSQL failure. A real Redis/PostgreSQL integration finalizes a quote while PostgreSQL is unavailable to the response path, then starts the mirror and requires the signed quote, approved risk, succeeded idempotency response, three audit events, final projection marker and zero backlog to converge.
 
-The final rebuilt dependency-stack diagnostic used 10 warmups and 100 measured requests. At concurrency one it reported p50 19.30 ms, p99 42.19 ms, 48.00 requests/second and zero errors; signing averaged 7.65 ms while idempotency plus the three issuance stages averaged 0.95 ms, 1.30 ms, 1.38 ms and 1.65 ms. A concurrency-five run with the exposure projection barrier reported p50 35.91 ms and p99 54.94 ms, but eight base-risk requests failed closed and the run therefore did not pass. Both Stream backlogs drained to zero with zero mirror errors. The remaining work is to replace request-time dynamic risk reads with versioned hot state and reduce signer plus issuance round trips; durability settings must not be weakened to improve benchmark numbers.
+The final rebuilt dependency-stack diagnostic used 10 warmups and 100 measured requests. At concurrency one it reported p50 19.30 ms, p99 42.19 ms, 48.00 requests/second and zero errors; signing averaged 7.65 ms while idempotency plus the three issuance stages averaged 0.95 ms, 1.30 ms, 1.38 ms and 1.65 ms. A concurrency-five run with the exposure projection barrier reported p50 35.91 ms and p99 54.94 ms, but eight base-risk requests failed closed and the run therefore did not pass. Both Stream backlogs drained to zero with zero mirror errors. ADR-0022 subsequently replaces request-time dynamic risk reads with versioned hot state; signer plus issuance round trips remain, and durability settings must not be weakened to improve benchmark numbers.
 
 ## Alternatives Considered
 

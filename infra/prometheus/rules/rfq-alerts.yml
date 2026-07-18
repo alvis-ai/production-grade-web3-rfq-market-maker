@@ -496,6 +496,24 @@ groups:
           summary: RFQ background base-market-data refreshes are failing
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQHotStateRefreshFailures
+        expr: sum by (state) (increase(rfq_hot_state_refreshes_total{outcome="failure"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: An RFQ quote-risk hot-state refresher is failing
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
+      - alert: RFQHotStateStale
+        expr: (time() - rfq_hot_state_last_success_unixtime_seconds > 5) and rfq_hot_state_last_success_unixtime_seconds > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: An RFQ quote-risk hot-state generation is stale
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQMarketSnapshotPersistenceFailures
         expr: sum(increase(rfq_market_snapshot_samples_total{outcome="failed"}[10m])) > 0
         for: 2m

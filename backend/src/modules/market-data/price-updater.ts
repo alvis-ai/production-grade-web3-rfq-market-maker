@@ -86,6 +86,14 @@ export class BackgroundPriceUpdater {
     return this.cache;
   }
 
+  assertConfiguredCoverage(): void {
+    for (const pair of this.pairs) {
+      if (!this.cache.get(pairKey(pair.chainId, pair.tokenIn, pair.tokenOut))) {
+        throw new Error("Background market data initial coverage is incomplete");
+      }
+    }
+  }
+
   refreshOnce(): Promise<void> {
     if (this.activeUpdate) return this.activeUpdate;
     const update = this.updateAll();

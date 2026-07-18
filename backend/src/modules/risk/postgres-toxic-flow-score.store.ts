@@ -25,6 +25,27 @@ export class PostgresToxicFlowScoreStore implements ToxicFlowScoreStore {
     }
   }
 
+  async listScores(limit: number): Promise<readonly ToxicFlowScoreState[]> {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_000_001) {
+      throw new Error("Postgres toxic flow score limit must be between 1 and 1000001");
+    }
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT chain_id::text AS chain_id, user_address, score_bps, post_trade_drift_bps,
+                sample_size::text AS sample_size, window_seconds, policy_version, observed_at,
+                version::text AS version, updated_by, updated_at
+         FROM toxic_flow_scores
+         ORDER BY chain_id, user_address
+         LIMIT $1`,
+        [limit],
+      );
+      return result.rows.map(parseScoreRow);
+    } finally {
+      client.release();
+    }
+  }
+
   async getScore(key: ToxicFlowScoreKey): Promise<ToxicFlowScoreState | null> {
     const normalizedKey = normalizeToxicFlowScoreKey(key);
     const client = await this.pool.connect();

@@ -12,7 +12,10 @@ import {
   dailyLossRuntimeEnvName,
   usdReferenceRuntimeEnvName,
 } from "./helpers/usd-reference-runtime-fixtures.mjs";
-import { unusedTreasuryLiquidityProvider } from "./helpers/runtime-dependency-fixtures.mjs";
+import {
+  isolatedGatewayHotStateDependencies,
+  unusedTreasuryLiquidityProvider,
+} from "./helpers/runtime-dependency-fixtures.mjs";
 
 test("RFQ API validates simulated and receipt-confirmed execution configuration", async () => {
   const original = saveEnv([
@@ -91,6 +94,7 @@ function testMarketDataService() {
 
 function runtimeServerOptions() {
   return {
+    ...isolatedGatewayHotStateDependencies(),
     apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
     logger: false,
     databasePool: fakeDatabasePool(),

@@ -18,6 +18,26 @@ const row = {
   updated_at: new Date("2026-07-14T00:00:01.000Z"),
 };
 
+test("PostgresToxicFlowScoreStore bulk-loads bounded hot-state scores", async () => {
+  const pool = fakePool([{ rows: [row] }]);
+  const scores = await new PostgresToxicFlowScoreStore(pool).listScores(100_001);
+
+  assert.equal(scores.length, 1);
+  assert.equal(scores[0].user, user);
+  assert.equal(scores[0].sampleSize, 25);
+  assert.match(pool.calls[0].sql, /ORDER BY chain_id, user_address/);
+  assert.match(pool.calls[0].sql, /LIMIT \$1/);
+  assert.deepEqual(pool.calls[0].params, [100_001]);
+  assert.equal(pool.releaseCount, 1);
+
+  const unusedPool = fakePool([]);
+  await assert.rejects(
+    new PostgresToxicFlowScoreStore(unusedPool).listScores(1_000_002),
+    /limit must be between 1 and 1000001/,
+  );
+  assert.equal(unusedPool.connectCount, 0);
+});
+
 test("PostgresToxicFlowScoreStore reads and atomically audits CAS updates", async () => {
   const pool = fakePool([{ rows: [] }, { rows: [row] }, { rows: [row] }]);
   const store = new PostgresToxicFlowScoreStore(pool);

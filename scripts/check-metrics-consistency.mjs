@@ -60,9 +60,11 @@ const kubernetesAvailabilityMetrics = [
 ];
 
 const metricsModuleLineLimits = new Map([
+  ["backend/src/modules/metrics/cex-order-book-metrics.ts", 80],
   ["backend/src/modules/metrics/metrics.service.ts", 500],
   ["backend/src/modules/metrics/metrics-contract.ts", 140],
   ["backend/src/modules/metrics/histogram.ts", 80],
+  ["backend/src/modules/metrics/hot-state-metrics.ts", 100],
   ["backend/src/modules/metrics/quote-exposure-metrics.ts", 160],
   ["backend/src/modules/metrics/quote-issuance-metrics.ts", 120],
   ["backend/src/modules/metrics/metrics-validation.ts", 350],

@@ -162,6 +162,8 @@ Prometheus metrics:
 - `rfq_pricing_cache_hits_total`
 - `rfq_pricing_cache_misses_total`
 - `rfq_market_data_refreshes_total`
+- `rfq_hot_state_refreshes_total`
+- `rfq_hot_state_last_success_unixtime_seconds`
 - `rfq_market_snapshot_samples_total`
 - `rfq_cex_order_book_sources`
 - `rfq_cex_order_book_pairs`
@@ -240,6 +242,8 @@ The API-side pre-sign guard separately exports `rfq_settlement_indexer_risk_guar
 The daily loss guard exports exact PostgreSQL-backed UTC-day hedge-net PnL as `rfq_daily_realized_pnl_usd{chain_id,token}`, remaining budget as `rfq_daily_loss_limit_remaining_usd{chain_id,token}`, the latest decision as `rfq_daily_loss_risk_safe{chain_id,token}`, and evidence failures as `rfq_daily_loss_risk_failures_total{chain_id,token,reason}`. Token labels are bounded to at most 100 startup-configured USD-reference limits, and reason is closed to `STORE_UNAVAILABLE|EVIDENCE_INVALID`. Quote ids, database errors and policy thresholds never become labels; observer errors cannot change the risk decision.
 
 API market-data background tasks export `rfq_market_data_refreshes_total{outcome}` with `success|failure` and `rfq_market_snapshot_samples_total{outcome}` with `saved|unchanged|unavailable|failed`. Refresh counts represent configured base-provider pair attempts; sample counts represent per-pair cycle results. These fixed labels expose provider and persistence failures before quote traffic encounters a cold cache without leaking token pairs, RPC endpoints, snapshot ids or storage errors. Observer exceptions are swallowed so telemetry cannot alter cache writes, retries or graceful drain.
+
+Quote risk hot-state loaders export `rfq_hot_state_refreshes_total{state,outcome}` and `rfq_hot_state_last_success_unixtime_seconds{state}`. The bounded `state` label identifies `quote_control`, `toxic_flow`, `daily_loss`, `hedge_risk`, `usd_reference`, or `settlement_indexer`; `outcome` is restricted to `success|failure`. Operators alert on refresh failures and compare the last-success timestamp with the configured maximum age, while the quote path fails closed from its immutable process-local generation instead of querying PostgreSQL or RPC synchronously.
 
 Prometheus intentionally omits the pair label. Structured logs supply configured-pair diagnosis only at state transitions: `MARKET_DATA_REFRESH_FAILED` / `MARKET_SNAPSHOT_PERSIST_FAILED` warn once until a successful cycle emits the matching `*_RECOVERED` info record. Raw RPC and PostgreSQL exceptions are discarded at this boundary, and logging failures cannot alter the metric, cache, retry, persistence or shutdown result.
 

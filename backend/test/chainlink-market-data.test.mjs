@@ -253,6 +253,20 @@ test("CachedMarketDataService keeps fallback available for pairs without a live-
   );
 });
 
+test("CachedMarketDataService never falls through to RPC for managed hot pairs", async () => {
+  const cache = new SharedPriceCache();
+  const key = pairKey(request.chainId, request.tokenIn, request.tokenOut);
+  let innerReads = 0;
+  const service = new CachedMarketDataService({
+    async getSnapshot() { innerReads += 1; return snapshot("inner", "3"); },
+  }, cache, undefined, [], [key]);
+
+  await assert.rejects(service.getSnapshot(request), /Required hot market data is unavailable/);
+  assert.equal(innerReads, 0);
+  cache.set(key, snapshot("hot", "2"));
+  assert.equal((await service.getSnapshot(request)).snapshotId, "snapshot_hot");
+});
+
 function validConfig() {
   return {
     networks: [{

@@ -12,7 +12,10 @@ import {
   dailyLossRuntimeEnvName,
   usdReferenceRuntimeEnvName,
 } from "./helpers/usd-reference-runtime-fixtures.mjs";
-import { unusedTreasuryLiquidityProvider } from "./helpers/runtime-dependency-fixtures.mjs";
+import {
+  isolatedGatewayHotStateDependencies,
+  unusedTreasuryLiquidityProvider,
+} from "./helpers/runtime-dependency-fixtures.mjs";
 
 test("non-local RFQ API startup requires durable PostgreSQL persistence", async () => {
   const original = saveEnv([
@@ -41,6 +44,7 @@ test("non-local RFQ API startup requires durable PostgreSQL persistence", async 
 
     const { pool, queries } = fakeDatabasePool();
     const server = buildServer({
+      ...isolatedGatewayHotStateDependencies(),
       apiKeyAuthenticator: allowAllApiKeyAuthenticator(),
       logger: false,
       databasePool: pool,

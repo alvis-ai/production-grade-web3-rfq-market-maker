@@ -14,7 +14,10 @@ import {
   dailyLossRuntimeEnvName,
   usdReferenceRuntimeEnvName,
 } from "./helpers/usd-reference-runtime-fixtures.mjs";
-import { unusedTreasuryLiquidityProvider } from "./helpers/runtime-dependency-fixtures.mjs";
+import {
+  isolatedGatewayHotStateDependencies,
+  unusedTreasuryLiquidityProvider,
+} from "./helpers/runtime-dependency-fixtures.mjs";
 
 const secret = "0123456789abcdefghijklmnopqrstuvwxyz_ABCD";
 const apiKey = `client_primary.${secret}`;
@@ -130,6 +133,7 @@ test("non-local RFQ API requires API key auth configuration or an injected authe
     delete process.env.RFQ_API_KEY_CONFIG_JSON;
 
     const options = {
+      ...isolatedGatewayHotStateDependencies(),
       logger: false,
       databasePool: fakeDatabasePool(),
       marketDataService: { async getSnapshot() { throw new Error("unused market data"); } },

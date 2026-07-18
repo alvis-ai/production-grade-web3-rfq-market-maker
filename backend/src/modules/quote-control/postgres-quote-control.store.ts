@@ -13,6 +13,11 @@ import {
   type UpdateQuoteControlInput,
 } from "./quote-control.store.js";
 
+export interface QuoteControlSnapshot {
+  state: QuoteControlState;
+  pairStates: readonly PairQuoteControlState[];
+}
+
 export class PostgresQuoteControlStore implements QuoteControlStore {
   constructor(private readonly pool: pg.Pool) {
     assertPool(pool);
@@ -20,6 +25,30 @@ export class PostgresQuoteControlStore implements QuoteControlStore {
 
   async checkHealth(): Promise<void> {
     await this.getState();
+  }
+
+  async loadSnapshot(): Promise<QuoteControlSnapshot> {
+    const client = await this.pool.connect();
+    try {
+      const stateResult = await client.query(
+        `SELECT paused, version::text AS version, reason, updated_by, updated_at
+         FROM quote_control
+         WHERE singleton = TRUE`,
+      );
+      if (stateResult.rows.length !== 1) throw new Error("Postgres quote control singleton is missing");
+      const pairResult = await client.query(
+        `SELECT chain_id::text AS chain_id, token_low, token_high, paused,
+                version::text AS version, reason, updated_by, updated_at
+         FROM quote_pair_control
+         ORDER BY chain_id, token_low, token_high`,
+      );
+      return {
+        state: parseStateRow(stateResult.rows[0]),
+        pairStates: pairResult.rows.map(parsePairStateRow),
+      };
+    } finally {
+      client.release();
+    }
   }
 
   async getState(): Promise<QuoteControlState> {

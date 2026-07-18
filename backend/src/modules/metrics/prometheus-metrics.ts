@@ -39,6 +39,11 @@ import {
   type ToxicFlowScoreMetricOperation,
 } from "./metrics-contract.js";
 import { createHistogramState, renderHistogram } from "./histogram.js";
+import type { CexOrderBookMetricsState } from "./cex-order-book-metrics.js";
+import {
+  renderHotStateMetrics,
+  type HotStateMetricsState,
+} from "./hot-state-metrics.js";
 import {
   renderQuoteExposureMetrics,
   type QuoteExposureMetricsState,
@@ -48,7 +53,11 @@ import {
   type QuoteIssuanceMetricsState,
 } from "./quote-issuance-metrics.js";
 
-export interface PrometheusMetricsState extends QuoteExposureMetricsState, QuoteIssuanceMetricsState {
+export interface PrometheusMetricsState
+  extends QuoteExposureMetricsState,
+    QuoteIssuanceMetricsState,
+    HotStateMetricsState,
+    CexOrderBookMetricsState {
   quoteRequests: number;
   quoteResponses: number;
   quoteErrors: number;
@@ -90,8 +99,6 @@ export interface PrometheusMetricsState extends QuoteExposureMetricsState, Quote
   pricingCacheMisses: number;
   marketDataRefreshes: ReadonlyMap<MarketDataRefreshOutcome, number>;
   marketSnapshotSamples: ReadonlyMap<keyof MarketSnapshotSampleResult, number>;
-  cexOrderBookCycle: CexOrderBookCycleObservation;
-  cexOrderBookConnectorErrors: ReadonlyMap<OrderBookPairConfig["exchange"], number>;
   settlementIndexerRiskGuardSafe: ReadonlyMap<number, boolean>;
   settlementIndexerRiskGuardFailures: ReadonlyMap<string, number>;
   usdReferenceHealthSafe: ReadonlyMap<string, boolean>;
@@ -254,6 +261,7 @@ export function renderPrometheusMetrics(state: PrometheusMetricsState): string {
     ...marketDataRefreshOutcomes.map((outcome) => {
       return `rfq_market_data_refreshes_total{outcome="${outcome}"} ${state.marketDataRefreshes.get(outcome) ?? 0}`;
     }),
+    ...renderHotStateMetrics(state),
     "# HELP rfq_market_snapshot_samples_total Background audit snapshot samples by bounded outcome.",
     "# TYPE rfq_market_snapshot_samples_total counter",
     ...marketSnapshotSampleOutcomes.map((outcome) => {

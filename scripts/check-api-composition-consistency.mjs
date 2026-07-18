@@ -14,7 +14,9 @@ const quoteControlRoutes = sources["backend/src/api/quote-control-routes.ts"];
 const toxicFlowScoreRoutes = sources["backend/src/api/toxic-flow-score-routes.ts"];
 const environment = sources["backend/src/runtime/environment.ts"];
 const gatewayApplication = sources["backend/src/runtime/gateway-application.ts"];
+const gatewayHotState = sources["backend/src/runtime/gateway-hot-state.ts"];
 const gatewayMarketData = sources["backend/src/runtime/gateway-market-data.ts"];
+const gatewayRiskRuntime = sources["backend/src/runtime/gateway-risk-runtime.ts"];
 const gatewayRuntime = sources["backend/src/runtime/gateway-runtime.ts"];
 const marketRuntime = sources["backend/src/runtime/market-runtime.ts"];
 const processShutdown = sources["backend/src/runtime/process-shutdown.ts"];
@@ -131,14 +133,24 @@ assertContains(main, [
 assertContains(gatewayApplication, [
   "export function buildServer",
   "closeGatewayResources([",
-  "...(stopMarketBackgroundTasks ? [stopMarketBackgroundTasks] : [])",
+  "...(marketBackgroundRuntime ? [() => marketBackgroundRuntime.stop()] : [])",
   "...(ownsPostgresPool ? [() => endPool()] : [])",
   "installGatewayBoundary(server",
   "registerTradingRoutes(server",
   "registerQuoteControlRoutes(server",
   "buildGatewayMarketDataRuntime(options.marketDataService",
+  "buildGatewayCoreHotStateRuntime({",
+  "registerGatewayHotStateLifecycles(server",
+  "buildGatewayRiskRuntime({",
   "resolvePostgresPool(options, server.log)",
 ], "gateway application runtime");
+assertContains(gatewayHotState, [
+  "buildGatewayCoreHotStateRuntime",
+  "new RefreshingQuoteControlStore",
+  "new RefreshingToxicFlowScoreStore",
+  "buildRuntimeSettlementIndexerRiskGuard",
+  "registerGatewayHotStateLifecycles",
+], "gateway hot-state runtime");
 assertContains(gatewayMarketData, [
   "buildGatewayMarketDataRuntime",
   "readDefaultMarketDataRuntime()",
@@ -147,6 +159,11 @@ assertContains(gatewayMarketData, [
   "new BackgroundMarketSnapshotSampler",
   "startBackgroundTasks",
 ], "gateway market-data runtime");
+assertContains(gatewayRiskRuntime, [
+  "new DynamicToxicFlowRiskEngine",
+  "new RefreshingUsdReferenceHealthProvider",
+  "buildDailyLossRiskRuntime",
+], "gateway risk runtime");
 for (const directRoute of ['server.get("', 'server.post("', 'server.options("']) {
   assert.ok(!main.includes(directRoute), `backend/src/main.ts must not register routes directly: ${directRoute}`);
   assert.ok(

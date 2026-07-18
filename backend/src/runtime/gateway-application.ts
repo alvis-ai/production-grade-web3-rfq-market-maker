@@ -1,8 +1,6 @@
 import Fastify from "fastify";
 import { SkeletonExecutionService } from "../modules/execution/execution.service.js";
 import { endPool } from "../db/pool.js";
-import { HedgeService } from "../modules/hedge/hedge.service.js";
-import { PostgresHedgeService } from "../modules/hedge/postgres-hedge.service.js";
 import { DeltaNeutralHedgePlanner } from "../modules/hedge/hedge-intent-planner.js";
 import {
   defaultReadinessServiceConfig,
@@ -41,40 +39,36 @@ import {
   readGatewayServerSettings,
   resolveApiKeyAuthenticator,
   resolvePostgresPool,
-  resolveQuoteControlStore,
   resolveRateLimiter,
   resolveSubmitReservationStore,
-  resolveToxicFlowScoreStore,
   type BuildServerOptions,
 } from "./gateway-runtime.js";
 import {
   buildDefaultRiskEngine,
   buildRuntimeBinanceSymbolRulesHealth,
   buildMarketReadinessConfig,
-  buildUsdReferenceRiskEngine,
   assertProductionUsdReferenceRiskPolicy,
-  readDynamicToxicFlowRiskConfig,
   readTokenRegistry,
   resolveQuoteExposureStore,
   resolvePricingRuntime,
 } from "./market-runtime.js";
 import { buildGatewayMarketDataRuntime } from "./gateway-market-data.js";
-import { readGatewayHedgeServiceConfig } from "./gateway-hedge-risk.js";
+import { buildGatewayHedgeRiskRuntime } from "./gateway-hedge-risk.js";
 import {
   assertProductionDailyLossRiskPolicy,
-  buildDailyLossRiskEngine,
 } from "./gateway-daily-loss-risk.js";
-import { buildRuntimeSettlementIndexerRiskGuard } from "./gateway-settlement-indexer-risk.js";
-import { DynamicToxicFlowRiskEngine } from "../modules/risk/dynamic-toxic-flow-risk.engine.js";
 import { structuredLoggerConfig } from "../shared/logger/structured-logger.js";
 import { resolveGatewayQuoteExposureRuntime } from "./gateway-quote-exposure.js";
 import { closeGatewayResources } from "./gateway-resource-cleanup.js";
 import { buildGatewayTreasuryLiquidityRuntime } from "./gateway-treasury-liquidity.js";
 import { resolveGatewayQuoteIssuance } from "./gateway-quote-issuance.js";
-
+import {
+  buildGatewayCoreHotStateRuntime,
+  registerGatewayHotStateLifecycles,
+} from "./gateway-hot-state.js";
+import { buildGatewayRiskRuntime } from "./gateway-risk-runtime.js";
 export type { BuildServerOptions } from "./gateway-runtime.js";
 export { closeGatewayResources } from "./gateway-resource-cleanup.js";
-
 const disabledRateLimiterHealth = { checkHealth(): void {} };
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -113,17 +107,19 @@ export function buildServer(options: BuildServerOptions = {}) {
   const signerService = options.signerService ?? defaultSignerRuntime!.service;
   const postgresPool = resolvePostgresPool(options, server.log);
   const ownsPostgresPool = postgresPool !== undefined && options.databasePool === undefined;
-  const settlementIndexerRiskGuard = buildRuntimeSettlementIndexerRiskGuard(postgresPool, metricsService);
-  const quoteControlStore = resolveQuoteControlStore(options.quoteControlStore, postgresPool);
-  const toxicFlowScoreStore = resolveToxicFlowScoreStore(options.toxicFlowScoreStore, postgresPool);
-  const hedgeServiceConfig = options.hedgeService === undefined
-    ? readGatewayHedgeServiceConfig()
-    : undefined;
-  const hedgeService = options.hedgeService ?? (
-    postgresPool
-      ? new PostgresHedgeService(postgresPool, hedgeServiceConfig!)
-      : new HedgeService(hedgeServiceConfig!)
-  );
+  const coreHotState = buildGatewayCoreHotStateRuntime({
+    quoteControlStore: options.quoteControlStore,
+    toxicFlowScoreStore: options.toxicFlowScoreStore,
+    pool: postgresPool,
+    observer: metricsService,
+    settlementIndexerRiskGuard: options.settlementIndexerRiskGuard,
+    logger: server.log,
+  });
+  const { config: hotStateConfig, settlementIndexerRiskGuard } = coreHotState;
+  const quoteControlRuntime = coreHotState.quoteControl;
+  const quoteControlStore = quoteControlRuntime.store;
+  const toxicFlowRuntime = coreHotState.toxicFlow;
+  const toxicFlowScoreStore = toxicFlowRuntime.store;
   const durableMarketSnapshotStore = options.marketSnapshotStore ?? (
     postgresPool ? new PostgresMarketSnapshotStore(postgresPool) : new InMemoryMarketSnapshotRepository()
   );
@@ -147,29 +143,27 @@ export function buildServer(options: BuildServerOptions = {}) {
   );
   const pricingEngine = pricingRuntime.engine;
   const runtimeTokenRegistry = options.tokenRegistry ?? pricingRuntime.tokenRegistry ?? readTokenRegistry();
+  const hedgeRiskRuntime = buildGatewayHedgeRiskRuntime(
+    options.hedgeService, postgresPool, managedRiskPairs, hotStateConfig, server.log, metricsService,
+  );
+  const hedgeService = hedgeRiskRuntime.service;
   const hedgeRouteRulesHealth = options.hedgeRouteRulesHealth ??
     buildRuntimeBinanceSymbolRulesHealth(cexPairs);
   const defaultRiskEngine = options.riskEngine === undefined
     ? buildDefaultRiskEngine(runtimeTokenRegistry, managedRiskPairs)
     : undefined;
-  const riskEngine = options.riskEngine ?? buildDailyLossRiskEngine(
-    buildUsdReferenceRiskEngine(
-      new DynamicToxicFlowRiskEngine(
-        defaultRiskEngine!,
-        toxicFlowScoreStore,
-        readDynamicToxicFlowRiskConfig(defaultRiskEngine!.getMaxToxicScoreBps()),
-      ),
-      runtimeTokenRegistry,
-      managedRiskPairs,
-      undefined,
-      metricsService,
-    ),
-    runtimeTokenRegistry,
-    managedRiskPairs,
-    postgresPool,
-    undefined,
-    metricsService,
-  );
+  const riskRuntime = buildGatewayRiskRuntime({
+    configured: options.riskEngine,
+    defaultEngine: defaultRiskEngine,
+    toxicFlowScoreStore,
+    tokenRegistry: runtimeTokenRegistry,
+    managedPairs: managedRiskPairs,
+    pool: postgresPool,
+    hotStateConfig,
+    observer: metricsService,
+    logger: server.log,
+  });
+  const riskEngine = riskRuntime.engine;
   const postgresInventoryService = postgresPool ? new PostgresInventoryService(postgresPool) : undefined;
   const inMemoryInventoryService = postgresPool ? undefined : new InventoryService();
   const inventoryService: IInventoryService = postgresInventoryService ?? inMemoryInventoryService!;
@@ -242,7 +236,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     inventoryService: quoteInventoryService,
     marketDataService,
     marketSnapshotStore,
-    hedgeService,
+    hedgeService: hedgeRiskRuntime.quoteRiskProvider,
     pricingEngine,
     quoteIdempotencyStore,
     ...(quoteIssuanceStore ? { quoteIssuanceStore } : {}),
@@ -259,10 +253,15 @@ export function buildServer(options: BuildServerOptions = {}) {
     maxSnapshotAgeMs,
     quoteTtlSeconds,
   });
-  const stopMarketBackgroundTasks = marketRuntime.startBackgroundTasks(
-    marketSnapshotStore,
-    postgresPool !== undefined,
-  );
+  const marketBackgroundRuntime = marketRuntime.startBackgroundTasks(marketSnapshotStore, postgresPool !== undefined);
+  if (marketBackgroundRuntime) server.addHook("onReady", () => marketBackgroundRuntime.start());
+  const hotStateClosers = registerGatewayHotStateLifecycles(server, [
+    quoteControlRuntime.lifecycle,
+    toxicFlowRuntime.lifecycle,
+    hedgeRiskRuntime.lifecycle,
+    riskRuntime.lifecycle,
+    coreHotState.settlementIndexerLifecycle,
+  ]);
   if (quoteIssuanceRuntime) server.addHook("onReady", () => quoteIssuanceRuntime.start());
   if (redisQuoteExposureRuntime) server.addHook("onReady", () => redisQuoteExposureRuntime.start());
   if (treasuryLiquidityRuntime.start) {
@@ -275,7 +274,8 @@ export function buildServer(options: BuildServerOptions = {}) {
   }
   server.addHook("onClose", async () => {
     await closeGatewayResources([
-      ...(stopMarketBackgroundTasks ? [stopMarketBackgroundTasks] : []),
+      ...(marketBackgroundRuntime ? [() => marketBackgroundRuntime.stop()] : []),
+      ...hotStateClosers,
       ...(quoteIssuanceRuntime ? [() => quoteIssuanceRuntime.close()] : []),
       ...(redisQuoteExposureRuntime ? [() => redisQuoteExposureRuntime.close()] : []),
       ...(treasuryLiquidityRuntime.stop ? [() => treasuryLiquidityRuntime.stop!()] : []),

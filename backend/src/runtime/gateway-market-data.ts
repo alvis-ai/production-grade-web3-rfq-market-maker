@@ -13,7 +13,7 @@ import {
   defaultMarketSnapshotSampleIntervalMs,
   type MarketSnapshotSamplingPair,
 } from "../modules/market-data/market-snapshot-sampler.js";
-import { SharedPriceCache } from "../modules/market-data/price-cache.js";
+import { SharedPriceCache, pairKey } from "../modules/market-data/price-cache.js";
 import { BackgroundPriceUpdater } from "../modules/market-data/price-updater.js";
 import type { MetricsService } from "../modules/metrics/metrics.service.js";
 import { defaultQuoteServiceConfig } from "../modules/quote/quote.service.js";
@@ -38,7 +38,12 @@ export interface GatewayMarketDataRuntime {
   startBackgroundTasks(
     marketSnapshotStore: MarketSnapshotStore,
     persistSnapshots: boolean,
-  ): (() => Promise<void>) | undefined;
+  ): GatewayMarketDataBackgroundRuntime | undefined;
+}
+
+export interface GatewayMarketDataBackgroundRuntime {
+  start(): Promise<void>;
+  stop(): Promise<void>;
 }
 
 export function buildGatewayMarketDataRuntime(
@@ -64,6 +69,7 @@ export function buildGatewayMarketDataRuntime(
         cexPriceCache ? [cexPriceCache, basePriceCache] : [basePriceCache],
         metricsService,
         requiredCexCacheKeys,
+        priceUpdaterPairs.map((pair) => pairKey(pair.chainId, pair.tokenIn, pair.tokenOut)),
       )
     : rawMarketDataService;
   const readinessPair = cexConfig?.requireLiveBook && cexPairs[0]
@@ -109,17 +115,25 @@ export function buildGatewayMarketDataRuntime(
           }, metricsService, logger)
         : undefined;
 
-      priceUpdater?.start();
-      cexMonitor?.start();
-      snapshotSampler?.start();
       if (!priceUpdater && !cexMonitor && !snapshotSampler) return undefined;
-      return async () => {
-        const priceUpdaterStop = priceUpdater?.stop();
-        cexMonitor?.stop();
-        const snapshotSamplerStop = snapshotSampler?.stop();
-        const results = await Promise.allSettled([priceUpdaterStop, snapshotSamplerStop]);
-        const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
-        if (failure) throw failure.reason;
+      return {
+        async start() {
+          if (priceUpdater) {
+            await priceUpdater.refreshOnce();
+            priceUpdater.assertConfiguredCoverage();
+            priceUpdater.start();
+          }
+          cexMonitor?.start();
+          snapshotSampler?.start();
+        },
+        async stop() {
+          const priceUpdaterStop = priceUpdater?.stop();
+          cexMonitor?.stop();
+          const snapshotSamplerStop = snapshotSampler?.stop();
+          const results = await Promise.allSettled([priceUpdaterStop, snapshotSamplerStop]);
+          const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+          if (failure) throw failure.reason;
+        },
       };
     },
   };

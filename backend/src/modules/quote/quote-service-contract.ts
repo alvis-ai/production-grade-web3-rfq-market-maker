@@ -5,7 +5,7 @@ import {
   type MarketDataService,
 } from "../market-data/market-data.service.js";
 import type { MarketSnapshotStore } from "../market-data/market-snapshot.repository.js";
-import type { HedgeIntentService } from "../hedge/hedge.service.js";
+import type { HedgeRiskPenaltyProvider } from "../hedge/hedge.service.js";
 import type { PricingEngine } from "../pricing/pricing.engine.js";
 import type { RiskDecisionStore } from "../risk/risk-decision.repository.js";
 import type { QuoteExposureStore } from "../risk/quote-exposure.store.js";
@@ -23,7 +23,7 @@ export interface QuoteServiceDeps {
   marketDataService: MarketDataService;
   marketSnapshotStore: MarketSnapshotStore;
   pricingEngine: PricingEngine;
-  hedgeService?: HedgeIntentService;
+  hedgeService?: HedgeRiskPenaltyProvider;
   quoteIdempotencyStore?: QuoteIdempotencyStore;
   quoteIssuanceStore?: QuoteIssuanceStore;
   quoteRepository: QuoteRepository;

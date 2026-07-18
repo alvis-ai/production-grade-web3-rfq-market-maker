@@ -54,6 +54,7 @@ import {
 } from "../modules/rate-limit/redis-rate-limit.service.js";
 import type { RiskDecisionStore } from "../modules/risk/risk-decision.repository.js";
 import type { RiskEngine } from "../modules/risk/risk.engine.js";
+import type { SettlementIndexerRiskGuard } from "../modules/risk/settlement-indexer-risk.guard.js";
 import {
   InMemoryToxicFlowScoreStore,
   assertToxicFlowScoreStore,
@@ -115,6 +116,7 @@ const buildServerOptionFields = [
   "riskEngine",
   "routingEngine",
   "settlementEvidenceProvider",
+  "settlementIndexerRiskGuard",
   "settlementEventService",
   "settlementVerifier",
   "signerService",
@@ -143,6 +145,7 @@ export interface BuildServerOptions {
   riskEngine?: RiskEngine;
   routingEngine?: RoutingEngine;
   settlementEvidenceProvider?: SettlementEvidenceProvider;
+  settlementIndexerRiskGuard?: SettlementIndexerRiskGuard;
   hedgeService?: HedgeIntentService;
   hedgeRouteRulesHealth?: BinanceSymbolRulesHealth;
   pnlService?: PnlStore;

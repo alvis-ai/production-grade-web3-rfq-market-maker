@@ -1,9 +1,13 @@
 import type { Address, IntString, PnlTradeRecord, UIntString } from "../../shared/types/rfq.js";
 import type { ReadinessComponentName, ReadinessResponse } from "../health/readiness.service.js";
-import type { CexOrderBookCycleObservation } from "../market-data/cex-orderbook/cex-orderbook-monitor.js";
 import type { OrderBookPairConfig } from "../market-data/cex-orderbook/orderbook.js";
 import type { MarketSnapshotSampleResult } from "../market-data/market-snapshot-sampler.js";
 import type { MarketDataRefreshOutcome } from "../market-data/price-updater.js";
+import type {
+  RefreshingSnapshotMetricName,
+  RefreshingSnapshotObserver,
+  RefreshingSnapshotRefreshOutcome,
+} from "../hot-state/refreshing-snapshot.js";
 import {
   quoteLatencyStages,
   type QuoteLatencyStage,
@@ -14,7 +18,6 @@ import type { SettlementIndexerRiskFailureCode } from "../risk/settlement-indexe
 import type { UsdReferenceHealthFailureCode } from "../market-data/chainlink-usd-reference.provider.js";
 import {
   apiAuthMetricRejectionReasons,
-  cexOrderBookExchanges,
   dailyLossRiskFailureCodes,
   marketDataRefreshOutcomes,
   marketSnapshotSampleOutcomes,
@@ -37,7 +40,6 @@ import {
 } from "./metrics-contract.js";
 import {
   assertAddress,
-  assertCexOrderBookCycleObservation,
   assertInventoryMetricPosition,
   assertMarketSnapshotSampleResult,
   assertPnlTradeMetricRecord,
@@ -52,13 +54,15 @@ import {
   usdReferenceMetricKey,
 } from "./metrics-validation.js";
 import { createHistogramState, recordHistogram } from "./histogram.js";
+import { HotStateMetrics } from "./hot-state-metrics.js";
+import { CexOrderBookMetrics } from "./cex-order-book-metrics.js";
 import { QuoteExposureMetrics } from "./quote-exposure-metrics.js";
 import { QuoteIssuanceMetrics } from "./quote-issuance-metrics.js";
 import { renderPrometheusMetrics } from "./prometheus-metrics.js";
 
 export type { InventoryMetricPosition, SignerMetricOperation } from "./metrics-contract.js";
 
-export class MetricsService {
+export class MetricsService implements RefreshingSnapshotObserver {
   private quoteRequests = 0;
   private quoteResponses = 0;
   private quoteErrors = 0;
@@ -99,18 +103,9 @@ export class MetricsService {
   private pricingCacheHits = 0;
   private pricingCacheMisses = 0;
   private readonly marketDataRefreshes = new Map<MarketDataRefreshOutcome, number>();
+  private readonly hotState = new HotStateMetrics();
   private readonly marketSnapshotSamples = new Map<keyof MarketSnapshotSampleResult, number>();
-  private cexOrderBookCycle: CexOrderBookCycleObservation = {
-    configuredSources: 0,
-    readySources: 0,
-    staleSources: 0,
-    unavailableSources: 0,
-    usablePairs: 0,
-    blockedPairs: 0,
-    deviationRejectedSources: 0,
-    maxUpdateAgeSeconds: 0,
-  };
-  private readonly cexOrderBookConnectorErrors = new Map<OrderBookPairConfig["exchange"], number>();
+  private readonly cexOrderBook = new CexOrderBookMetrics();
   private readonly settlementIndexerRiskGuardSafe = new Map<number, boolean>();
   private readonly settlementIndexerRiskGuardFailures = new Map<string, number>();
   private readonly usdReferenceHealthSafe = new Map<string, boolean>();
@@ -144,6 +139,14 @@ export class MetricsService {
     this.marketDataRefreshes.set(outcome, (this.marketDataRefreshes.get(outcome) ?? 0) + 1);
   }
 
+  recordHotStateRefresh(
+    name: RefreshingSnapshotMetricName,
+    outcome: RefreshingSnapshotRefreshOutcome,
+    refreshedAtMs?: number,
+  ): void {
+    this.hotState.record(name, outcome, refreshedAtMs);
+  }
+
   recordMarketSnapshotSampleCycle(result: Readonly<MarketSnapshotSampleResult>): void {
     assertMarketSnapshotSampleResult(result);
     for (const outcome of marketSnapshotSampleOutcomes) {
@@ -154,16 +157,12 @@ export class MetricsService {
     }
   }
 
-  recordCexOrderBookCycle(observation: CexOrderBookCycleObservation): void {
-    assertCexOrderBookCycleObservation(observation);
-    this.cexOrderBookCycle = { ...observation };
+  recordCexOrderBookCycle(observation: Parameters<CexOrderBookMetrics["recordCycle"]>[0]): void {
+    this.cexOrderBook.recordCycle(observation);
   }
 
   recordCexOrderBookConnectorError(exchange: OrderBookPairConfig["exchange"]): void {
-    if (!cexOrderBookExchanges.includes(exchange)) {
-      throw new Error("Metrics CEX order book exchange must be binance or coinbase");
-    }
-    this.cexOrderBookConnectorErrors.set(exchange, (this.cexOrderBookConnectorErrors.get(exchange) ?? 0) + 1);
+    this.cexOrderBook.recordConnectorError(exchange);
   }
 
   recordSettlementIndexerRiskGuardSuccess(chainId: number): void {
@@ -461,9 +460,9 @@ export class MetricsService {
       pricingCacheHits: this.pricingCacheHits,
       pricingCacheMisses: this.pricingCacheMisses,
       marketDataRefreshes: this.marketDataRefreshes,
+      ...this.hotState.snapshot(),
       marketSnapshotSamples: this.marketSnapshotSamples,
-      cexOrderBookCycle: this.cexOrderBookCycle,
-      cexOrderBookConnectorErrors: this.cexOrderBookConnectorErrors,
+      ...this.cexOrderBook.snapshot(),
       settlementIndexerRiskGuardSafe: this.settlementIndexerRiskGuardSafe,
       settlementIndexerRiskGuardFailures: this.settlementIndexerRiskGuardFailures,
       usdReferenceHealthSafe: this.usdReferenceHealthSafe,

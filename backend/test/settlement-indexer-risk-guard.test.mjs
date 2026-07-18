@@ -10,23 +10,35 @@ test("settlement indexer risk guard enforces confirmed cursor lag boundaries", a
   const observations = observerFixture();
   const fixture = guardFixture({ next_block: "101", cursor_age_ms: "500" }, 112n, 1, observations.observer);
 
+  await fixture.guard.refresh();
+  const queryCount = fixture.clients.flatMap(({ queries }) => queries).length;
   await fixture.guard.assertQuoteSafe({ chainId: 1, observedHead: 112n });
   await fixture.guard.checkHealth();
   assert.equal(fixture.reader.chainCalls, 1);
   assert.equal(fixture.reader.headCalls, 1);
-  assert.deepEqual(fixture.clients.flatMap(({ queries }) => queries).map(({ params }) => params), [[1], [1]]);
+  assert.equal(fixture.clients.flatMap(({ queries }) => queries).length, queryCount);
+  assert.deepEqual(fixture.clients.flatMap(({ queries }) => queries).map(({ params }) => params), [[1]]);
 
   await assert.rejects(
     fixture.guard.assertQuoteSafe({ chainId: 1, observedHead: 113n }),
     /exceeds the confirmed block lag limit/,
   );
-  assert.deepEqual(observations.successes, [1, 1]);
+  assert.deepEqual(observations.successes, [1]);
   assert.deepEqual(observations.failures, [{ chainId: 1, reason: "BLOCK_LAG" }]);
 });
 
-test("settlement indexer risk guard rejects missing, stale, and mismatched cursor evidence", async () => {
+test("settlement indexer risk guard rejects invalid refresh evidence and unsafe hot evidence", async () => {
   for (const scenario of [
-    { row: null, error: /missing or duplicated/, reason: "CURSOR_MISSING" },
+    { row: null, error: /missing or duplicated/ },
+    { row: { next_block: "0103", cursor_age_ms: "0" }, error: /canonical non-negative integer/ },
+    { row: { next_block: "103", cursor_age_ms: "-1" }, error: /canonical non-negative integer/ },
+  ]) {
+    const fixture = guardFixture(scenario.row);
+    await assert.rejects(fixture.guard.refresh(), scenario.error);
+    assert.equal(fixture.clients.every(({ released }) => released), true);
+  }
+
+  for (const scenario of [
     { row: { next_block: "103", cursor_age_ms: "60001" }, error: /cursor is stale/, reason: "CURSOR_STALE" },
     {
       row: {
@@ -37,19 +49,10 @@ test("settlement indexer risk guard rejects missing, stale, and mismatched curso
       error: /contract does not match/,
       reason: "CONTRACT_MISMATCH",
     },
-    {
-      row: { next_block: "0103", cursor_age_ms: "0" },
-      error: /canonical non-negative integer/,
-      reason: "CURSOR_INVALID",
-    },
-    {
-      row: { next_block: "103", cursor_age_ms: "-1" },
-      error: /canonical non-negative integer/,
-      reason: "CURSOR_INVALID",
-    },
   ]) {
     const observations = observerFixture();
     const fixture = guardFixture(scenario.row, 112n, 1, observations.observer);
+    await fixture.guard.refresh();
     await assert.rejects(
       fixture.guard.assertQuoteSafe({ chainId: 1, observedHead: 112n }),
       scenario.error,
@@ -62,12 +65,13 @@ test("settlement indexer risk guard rejects missing, stale, and mismatched curso
 test("settlement indexer risk guard verifies RPC identity and configured chains", async () => {
   const observations = observerFixture();
   const wrongChain = guardFixture(undefined, 112n, 2, observations.observer);
-  await assert.rejects(wrongChain.guard.checkHealth(), /chain ID does not match/);
+  await assert.rejects(wrongChain.guard.refresh(), /chain ID does not match/);
   assert.equal(wrongChain.clients.length, 0);
-  assert.deepEqual(observations.failures, [{ chainId: 1, reason: "RPC_UNAVAILABLE" }]);
+  assert.deepEqual(observations.failures, []);
 
   const unconfiguredObservations = observerFixture();
   const fixture = guardFixture(undefined, 112n, 1, unconfiguredObservations.observer);
+  await fixture.guard.refresh();
   await assert.rejects(
     fixture.guard.assertQuoteSafe({ chainId: 2, observedHead: 112n }),
     /not configured for the requested chain/,
@@ -97,6 +101,10 @@ test("settlement indexer risk guard validates configuration and dependencies", (
     /maxCursorAgeMs must be an integer between 1000 and 600000/,
   );
   assert.throws(
+    () => new PostgresSettlementIndexerRiskGuard(fakePool().pool, { ...config, maxSnapshotAgeMs: 19 }),
+    /maxSnapshotAgeMs must be an integer between 20 and 300000/,
+  );
+  assert.throws(
     () => new PostgresSettlementIndexerRiskGuard(fakePool().pool, config, () => ({})),
     /reader methods are invalid/,
   );
@@ -122,10 +130,8 @@ test("settlement indexer risk guard classifies store outages without trusting ob
     },
   );
 
-  await assert.rejects(
-    guard.assertQuoteSafe({ chainId: 1, observedHead: 112n }),
-    /cursor store is unavailable/,
-  );
+  await assert.rejects(guard.refresh(), /cursor store is unavailable/);
+  await assert.rejects(guard.assertQuoteSafe({ chainId: 1, observedHead: 112n }), /hot state is not initialized/);
   assert.deepEqual(failures, [{ chainId: 1, reason: "CURSOR_STORE_UNAVAILABLE" }]);
   assert.equal(clients.every(({ released }) => released), true);
 });
@@ -180,6 +186,8 @@ function guardConfig() {
     },
     maxCursorAgeMs: 60_000,
     maxBlockLag: 2,
+    refreshIntervalMs: 250,
+    maxSnapshotAgeMs: 2_000,
   };
 }
 

@@ -141,6 +141,8 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   );
   metrics.recordMarketDataRefresh("success");
   metrics.recordMarketDataRefresh("failure");
+  metrics.recordHotStateRefresh("quote_control", "success", 1_721_000_000_000);
+  metrics.recordHotStateRefresh("quote_control", "failure");
   metrics.recordMarketSnapshotSampleCycle({ saved: 2, unchanged: 3, unavailable: 4, failed: 5 });
 
   const output = metrics.renderPrometheus();
@@ -227,6 +229,10 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
   );
   assert.match(output, /rfq_market_data_refreshes_total\{outcome="success"\} 1/);
   assert.match(output, /rfq_market_data_refreshes_total\{outcome="failure"\} 1/);
+  assert.match(output, /rfq_hot_state_refreshes_total\{state="quote_control",outcome="success"\} 1/);
+  assert.match(output, /rfq_hot_state_refreshes_total\{state="quote_control",outcome="failure"\} 1/);
+  assert.match(output, /rfq_hot_state_refreshes_total\{state="daily_loss",outcome="success"\} 0/);
+  assert.match(output, /rfq_hot_state_last_success_unixtime_seconds\{state="quote_control"\} 1721000000/);
   assert.match(output, /rfq_market_snapshot_samples_total\{outcome="saved"\} 2/);
   assert.match(output, /rfq_market_snapshot_samples_total\{outcome="failed"\} 5/);
   assert.throws(
@@ -270,6 +276,18 @@ test("MetricsService sanitizes reason labels and renders core settlement metrics
     /maxLossUsdE18 must be a bounded canonical positive integer/,
   );
   assert.throws(() => metrics.recordMarketDataRefresh("unknown"), /outcome must be success or failure/);
+  assert.throws(
+    () => metrics.recordHotStateRefresh("unknown", "success", 1),
+    /hot-state name is invalid/,
+  );
+  assert.throws(
+    () => metrics.recordHotStateRefresh("quote_control", "unknown"),
+    /refresh outcome is invalid/,
+  );
+  assert.throws(
+    () => metrics.recordHotStateRefresh("quote_control", "success"),
+    /refreshedAtMs must be a positive safe integer/,
+  );
   assert.throws(
     () => metrics.recordMarketSnapshotSampleCycle({ saved: 0, unchanged: 0, unavailable: 0, failed: -1 }),
     /failed must be a non-negative safe integer/,
