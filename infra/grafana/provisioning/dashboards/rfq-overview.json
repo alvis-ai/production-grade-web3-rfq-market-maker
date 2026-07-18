@@ -72,7 +72,7 @@
         },
         {
           "expr": "histogram_quantile(0.99, rate(rfq_quote_exposure_ledger_lock_wait_seconds_bucket[5m]))",
-          "legendFormat": "exposure lock p99",
+          "legendFormat": "exposure lease/read p99",
           "refId": "C"
         }
       ]

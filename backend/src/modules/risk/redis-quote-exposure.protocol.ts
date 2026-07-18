@@ -74,6 +74,7 @@ export interface RedisQuoteExposureRecord {
 export interface ReadRedisQuoteExposureState {
   existing?: RedisQuoteExposureRecord;
   tokenDeltas: PortfolioTokenDelta[];
+  backlog: number;
 }
 
 export const noopRedisQuoteExposureObserver: RedisQuoteExposureLedgerObserver = {
@@ -203,32 +204,34 @@ export function parseRedisQuoteExposureState(
   assets: readonly `0x${string}`[],
   chainId: number,
 ): ReadRedisQuoteExposureState {
-  if (!Array.isArray(result) || result.length !== 2 + assets.length || result[0] !== 1 ||
+  if (!Array.isArray(result) || result.length !== 3 + assets.length || result[0] !== 1 ||
       typeof result[1] !== "string") {
     throw new Error("Redis quote exposure state read returned malformed values");
   }
   const existing = result[1] === "" ? undefined : parseRedisQuoteExposureRecord(result[1]);
+  const backlog = parseRedisNonNegativeSafeInteger(result[2], "backlog");
   const tokenDeltas = assets.map((tokenAddress, index) => {
-    const value = result[index + 2];
+    const value = result[index + 3];
     assertSignedDecimal(value, "token delta");
     return { chainId, tokenAddress, delta: BigInt(value as string) };
   });
-  return { ...(existing ? { existing } : {}), tokenDeltas };
+  return { ...(existing ? { existing } : {}), tokenDeltas, backlog };
 }
 
 export function parseRedisQuoteExposureMutation(result: unknown):
-  | { status: "reserved"; payload: string }
-  | { status: "duplicate"; payload: string }
-  | { status: "rejected"; reason: string }
-  | { status: "error"; reason: string } {
-  if (!Array.isArray(result) || result.length !== 2 || !Number.isSafeInteger(result[0]) ||
+  | { status: "reserved"; payload: string; backlog: number }
+  | { status: "duplicate"; payload: string; backlog: number }
+  | { status: "rejected"; reason: string; backlog: number }
+  | { status: "error"; reason: string; backlog: number } {
+  if (!Array.isArray(result) || result.length !== 3 || !Number.isSafeInteger(result[0]) ||
       typeof result[1] !== "string") {
     throw new Error("Redis quote exposure mutation returned malformed values");
   }
-  if (result[0] === 1) return { status: "reserved", payload: result[1] };
-  if (result[0] === 2) return { status: "duplicate", payload: result[1] };
-  if (result[0] === 3) return { status: "rejected", reason: result[1] };
-  if (result[0] === 0) return { status: "error", reason: result[1] };
+  const backlog = parseRedisNonNegativeSafeInteger(result[2], "mutation backlog");
+  if (result[0] === 1) return { status: "reserved", payload: result[1], backlog };
+  if (result[0] === 2) return { status: "duplicate", payload: result[1], backlog };
+  if (result[0] === 3) return { status: "rejected", reason: result[1], backlog };
+  if (result[0] === 0) return { status: "error", reason: result[1], backlog };
   throw new Error("Redis quote exposure mutation returned an unsupported status");
 }
 

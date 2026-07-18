@@ -27,6 +27,7 @@ import {
 } from "./portfolio-delta.js";
 import type { PortfolioVarEvaluation } from "./portfolio-var.js";
 import {
+  acquireAndReadQuoteExposureStateScript,
   acquireQuoteExposureLockScript,
   commitQuoteExposureReservationScript,
   getQuoteExposureReservationScript,
@@ -170,13 +171,15 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
   async reserve(input: ReserveQuoteExposureInput): Promise<QuoteExposureReservationResult> {
     if (!this.initialized) await this.initialize();
     const reservation = normalizeQuoteExposureReservation(input, this.tokenRegistry, this.nowSeconds());
-    return this.withChainLock(reservation.chainId, async (lockToken) => {
-      const assets = this.portfolioVarEvaluator?.valuationAssets(reservation.chainId) ?? [];
-      const state = await this.readState(lockToken, reservation, assets);
+    const assets = this.portfolioVarEvaluator?.valuationAssets(reservation.chainId) ?? [];
+    const { lockToken, state } = await this.acquireState(reservation, assets);
+    let lockReleased = false;
+    try {
       if (state.existing) {
         assertSameReservation(storedRedisQuoteExposureToNormalized(state.existing), reservation);
-        const backlog = parseRedisNonNegativeSafeInteger(await this.client.xlen(this.key("events")), "backlog");
-        this.notifyMutation({ operation: "reserve", duplicate: true, backlog });
+        lockReleased = true;
+        await this.requireReplicaAcknowledgements();
+        this.notifyMutation({ operation: "reserve", duplicate: true, backlog: state.backlog });
         return storedRedisQuoteExposureResult(state.existing);
       }
 
@@ -224,6 +227,7 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
         this.config.maxBacklog,
       );
       const committed = parseRedisQuoteExposureMutation(result);
+      lockReleased = true;
       if (committed.status === "rejected") {
         if (!rejectReasons.has(committed.reason as QuoteExposureRejectReason)) {
           this.notifyFailure("state_invalid");
@@ -238,13 +242,18 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
       const accepted = parseRedisQuoteExposureRecord(committed.payload);
       assertSameReservation(storedRedisQuoteExposureToNormalized(accepted), reservation);
       await this.requireReplicaAcknowledgements();
-      const backlog = parseRedisNonNegativeSafeInteger(await this.client.xlen(this.key("events")), "backlog");
-      this.notifyMutation({ operation: "reserve", duplicate: committed.status === "duplicate", backlog });
+      this.notifyMutation({
+        operation: "reserve",
+        duplicate: committed.status === "duplicate",
+        backlog: committed.backlog,
+      });
       if (accepted.portfolioDelta?.softLimitBreached) {
         notifyPortfolioDeltaSoftBreach(this.observer);
       }
       return storedRedisQuoteExposureResult(accepted);
-    });
+    } finally {
+      if (!lockReleased) await this.releaseLock(reservation.chainId, lockToken);
+    }
   }
 
   async release(quoteId: string): Promise<void> {
@@ -252,7 +261,9 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
     if (!this.initialized) await this.initialize();
     const record = await this.readReservation(quoteId);
     if (!record) return;
-    await this.withChainLock(record.chainId, async (lockToken) => {
+    const lockToken = await this.acquireLock(record.chainId);
+    let lockReleased = false;
+    try {
       const result = await this.client.eval(
         releaseQuoteExposureReservationScript,
         9,
@@ -262,14 +273,20 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
         this.config.maxBacklog,
       );
       const released = parseRedisQuoteExposureMutation(result);
+      lockReleased = true;
       if (released.status === "error" || released.status === "rejected") {
         this.notifyFailure(released.reason === "backlog_full" ? "backlog_full" : "state_invalid");
         throw new Error(`Redis quote exposure release failed: ${released.reason}`);
       }
       if (released.status === "reserved") await this.requireReplicaAcknowledgements();
-      const backlog = parseRedisNonNegativeSafeInteger(await this.client.xlen(this.key("events")), "backlog");
-      this.notifyMutation({ operation: "release", duplicate: released.status === "duplicate", backlog });
-    });
+      this.notifyMutation({
+        operation: "release",
+        duplicate: released.status === "duplicate",
+        backlog: released.backlog,
+      });
+    } finally {
+      if (!lockReleased) await this.releaseLock(record.chainId, lockToken);
+    }
   }
 
   async close(): Promise<void> {
@@ -326,12 +343,51 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
     throw new Error("Redis quote exposure expired cleanup did not converge");
   }
 
-  private async withChainLock<T>(chainId: number, operation: (lockToken: string) => Promise<T>): Promise<T> {
-    const token = await this.acquireLock(chainId);
-    try {
-      return await operation(token);
-    } finally {
-      await this.releaseLock(chainId, token);
+  private async acquireState(
+    reservation: NormalizedQuoteExposureReservation,
+    assets: readonly `0x${string}`[],
+  ): Promise<{ lockToken: string; state: ReadRedisQuoteExposureState }> {
+    const lockToken = `owner_${randomBytes(16).toString("hex")}`;
+    const fields = assets.map((asset) => `${reservation.chainId}:${asset.toLowerCase()}`);
+    const startedAt = performance.now();
+    const deadline = startedAt + this.config.lockAcquireTimeoutMs;
+    while (true) {
+      let result: unknown;
+      try {
+        result = await this.client.eval(
+          acquireAndReadQuoteExposureStateScript,
+          9,
+          ...this.ledgerKeys(reservation.chainId),
+          lockToken,
+          this.config.lockTtlMs,
+          this.config.cleanupLimit,
+          reservation.quoteId,
+          fields.length,
+          ...fields,
+        );
+      } catch (error) {
+        await this.releaseLock(reservation.chainId, lockToken);
+        throw error;
+      }
+      if (Array.isArray(result) && result[0] === 0 && result[1] === "lock_busy") {
+        if (performance.now() >= deadline) {
+          this.notifyFailure("lock_timeout");
+          throw new Error("Redis quote exposure chain lock timed out");
+        }
+        await delay(1);
+        continue;
+      }
+      try {
+        const state = Array.isArray(result) && result[0] === -1
+          ? await this.readState(lockToken, reservation, assets)
+          : parseRedisQuoteExposureState(result, assets, reservation.chainId);
+        this.notifyLockWait((performance.now() - startedAt) / 1_000);
+        return { lockToken, state };
+      } catch (error) {
+        await this.releaseLock(reservation.chainId, lockToken);
+        this.notifyFailure("state_invalid");
+        throw error;
+      }
     }
   }
 

@@ -84,7 +84,7 @@ export function renderQuoteExposureMetrics(state: QuoteExposureMetricsState): st
     "# HELP rfq_quote_exposure_ledger_failures_total Redis quote exposure ledger failures by bounded reason.",
     "# TYPE rfq_quote_exposure_ledger_failures_total counter",
     ...renderCounters("rfq_quote_exposure_ledger_failures_total", ["reason"], state.quoteExposureLedgerFailures),
-    "# HELP rfq_quote_exposure_ledger_lock_wait_seconds Time spent acquiring the chain-scoped exposure lease.",
+    "# HELP rfq_quote_exposure_ledger_lock_wait_seconds Time spent acquiring the chain-scoped exposure lease and fused state read.",
     "# TYPE rfq_quote_exposure_ledger_lock_wait_seconds histogram",
     ...renderHistogram("rfq_quote_exposure_ledger_lock_wait_seconds", state.quoteExposureLedgerLockWait),
     "# HELP rfq_quote_exposure_ledger_backlog Current unmirrored Redis exposure events.",

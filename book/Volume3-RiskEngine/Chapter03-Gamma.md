@@ -175,7 +175,7 @@ sum(increase(rfq_quote_rejections_total{reason="GAMMA_GUARDRAIL_TRIGGERED"}[5m])
 - **token decimals 配置错误**：Token Registry 与 risk policy 启动校验失败；不能用运行期猜测修复。
 - **阈值倒置或 unknown field**：API 和 Signer 启动失败。
 - **波动率 hard limit 为零**：仅零波动 snapshot 可继续，非零值先由 market-regime hard gate 拒绝。
-- **并发询价改变组合库存**：Gamma 使用当前 immutable hot projection 做快速检查；后续 Redis chain lease、VaR/Delta 和 Lua open-exposure reservation 负责跨副本原子并发边界。
+- **并发询价改变组合库存**：Gamma 使用当前 immutable hot projection 做快速检查；后续 Redis fused lease/read、VaR/Delta 和 commit/unlock Lua open-exposure reservation 负责跨副本原子并发边界。
 - **策略升级期间版本不一致**：API 与 Signer 不能混用不同闭合 schema；部署前先应用迁移 033，再滚动统一配置。
 
 ## Security Considerations

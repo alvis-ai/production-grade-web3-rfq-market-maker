@@ -96,6 +96,25 @@ try {
       requireAof,
     },
   );
+  const treasuryPeerStore = new RedisQuoteExposureStore(
+    createRedisQuoteExposureClient(redisUrl),
+    { maxUserOpenNotionalUsd: "50000000", maxPairOpenNotionalUsd: "50000000" },
+    registry,
+    undefined,
+    {
+      keyPrefix,
+      ledgerEpoch: "integration_v1",
+      allowEpochInitialization: false,
+      maxBacklog: 100,
+      expiryGraceSeconds: 2,
+      cleanupLimit: 10,
+      lockTtlMs: 1_000,
+      lockAcquireTimeoutMs: 100,
+      minReplicaAcks: 0,
+      replicaAckTimeoutMs: 10,
+      requireAof,
+    },
+  );
   try {
     const treasuryLimit = (BigInt(amount) * 2n - 1n).toString();
     const treasuryA = reserveInput(
@@ -112,13 +131,18 @@ try {
       now + 30,
       treasuryLimit,
     );
-    assert.equal((await treasuryStore.reserve(treasuryA)).status, "reserved");
-    assert.deepEqual(await treasuryStore.reserve(treasuryB), {
+    const treasuryResults = await Promise.all([
+      treasuryStore.reserve(treasuryA),
+      treasuryPeerStore.reserve(treasuryB),
+    ]);
+    assert.equal(treasuryResults.filter((result) => result.status === "reserved").length, 1);
+    assert.deepEqual(treasuryResults.find((result) => result.status === "rejected"), {
       status: "rejected",
       reasonCode: "TREASURY_LIQUIDITY_INSUFFICIENT",
     });
   } finally {
     await treasuryStore.close();
+    await treasuryPeerStore.close();
   }
 
   assert.equal(failures.length, 0);

@@ -50,7 +50,7 @@ Focused tests prove startup warmup, no source call during request reads, defensi
 
 The local dependency-stack benchmark used real HTTP, PostgreSQL, Redis and the isolated signer with 10 warmups and 100 measured requests. At concurrency one it reported p50 28.74 ms, p99 38.23 ms and 34.41 requests/second. At concurrency five, the first run reported p50 51.93 ms, p99 68.97 ms and 95.79 requests/second; a clean-window repeat reported p50 45.04 ms, p99 63.49 ms and 106.25 requests/second with no errors. In the repeat, exposure reservation averaged 12.84 ms and signing averaged 11.43 ms.
 
-The Compose benchmark does not configure `RFQ_RECEIPT_CONFIG_JSON`, so it does not exercise Treasury RPC or the new hot view; that behavior is established by focused tests and deployment validation, not inferred from these latency numbers. The measured system still fails p50 below 10 ms and p99 below 50 ms. The next work must target durable signer latency, Redis chain-lease contention and remaining synchronous lifecycle/risk persistence without weakening durability.
+The Compose benchmark does not configure `RFQ_RECEIPT_CONFIG_JSON`, so it does not exercise Treasury RPC or the new hot view; that behavior is established by focused tests and deployment validation, not inferred from these latency numbers. The measured system still fails p50 below 10 ms and p99 below 50 ms. ADR-0019 subsequently reduces Redis chain-lease round trips; durable signer latency and remaining synchronous lifecycle/risk persistence remain unresolved without weakening durability.
 
 ## Alternatives Considered
 

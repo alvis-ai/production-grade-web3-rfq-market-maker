@@ -250,7 +250,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: RFQ quote exposure chain lease p99 is above 25ms
+          summary: RFQ quote exposure fused lease and state-read p99 is above 25ms
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
       - alert: RFQPricingCacheIneffective
