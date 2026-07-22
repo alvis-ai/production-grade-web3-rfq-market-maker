@@ -36,7 +36,7 @@ Script transport errors, malformed responses and local VaR/Delta rejection retai
 
 - The fused Lua scripts are larger and couple lease, cleanup, state-read and mutation protocol versions.
 - A chain lease still serializes in-memory VaR/Delta evaluation; very hot chains can continue to queue.
-- EVAL still transmits and parses the script body on each command; script loading/EVALSHA remains a future optimization.
+- The original implementation still transmitted the script body on each command; [ADR-0031](./ADR-0031-Use-SHA-Cached-Redis-Scripts.md) later adopted strict `EVALSHA` with exact `NOSCRIPT` fallback.
 - This change does not remove synchronous PostgreSQL quote lifecycle writes or remote signing. ADR-0020 subsequently fuses lifecycle writes into three ordered issuance stages and removes only capability-proven duplicate signer recovery.
 
 ### Mitigation

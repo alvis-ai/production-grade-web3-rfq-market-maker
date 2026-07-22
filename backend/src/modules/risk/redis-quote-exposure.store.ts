@@ -5,6 +5,7 @@ import {
   normalizeRedisUrl,
   type RedisUrlPolicy,
 } from "../../shared/redis/redis-url.js";
+import { RedisLuaScript } from "../../shared/redis/redis-lua-script.js";
 import {
   assertSameReservation,
   notifyPortfolioDeltaSoftBreach,
@@ -56,6 +57,14 @@ import {
   type RedisQuoteExposureRecord,
   type RedisQuoteExposureStoreConfig,
 } from "./redis-quote-exposure.protocol.js";
+
+const initializeQuoteExposureLedgerCommand = new RedisLuaScript(initializeQuoteExposureLedgerScript);
+const commitQuoteExposureReservationCommand = new RedisLuaScript(commitQuoteExposureReservationScript);
+const releaseQuoteExposureReservationCommand = new RedisLuaScript(releaseQuoteExposureReservationScript);
+const getQuoteExposureReservationCommand = new RedisLuaScript(getQuoteExposureReservationScript);
+const readVersionedQuoteExposureStateCommand = new RedisLuaScript(readVersionedQuoteExposureStateScript);
+const acquireQuoteExposureLockCommand = new RedisLuaScript(acquireQuoteExposureLockScript);
+const releaseQuoteExposureLockCommand = new RedisLuaScript(releaseQuoteExposureLockScript);
 
 export { parseRedisQuoteExposureRecord } from "./redis-quote-exposure.protocol.js";
 export type {
@@ -132,8 +141,8 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
 
   async initialize(): Promise<void> {
     await this.ensureConnected();
-    const result = await this.client.eval(
-      initializeQuoteExposureLedgerScript,
+    const result = await initializeQuoteExposureLedgerCommand.execute(
+      this.client,
       1,
       this.key("epoch"),
       this.config.ledgerEpoch,
@@ -208,8 +217,8 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
         continue;
       }
       const stored = evaluated.record;
-      const result = await this.client.eval(
-        commitQuoteExposureReservationScript,
+      const result = await commitQuoteExposureReservationCommand.execute(
+        this.client,
         9,
         ...this.ledgerKeys(reservation.chainId),
         state.version,
@@ -276,8 +285,8 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
     const lockToken = await this.acquireLock(record.chainId);
     let lockReleased = false;
     try {
-      const result = await this.client.eval(
-        releaseQuoteExposureReservationScript,
+      const result = await releaseQuoteExposureReservationCommand.execute(
+        this.client,
         9,
         ...this.ledgerKeys(record.chainId),
         lockToken,
@@ -315,8 +324,8 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
   }
 
   private async readReservation(quoteId: string): Promise<RedisQuoteExposureRecord | undefined> {
-    const result = await this.client.eval(
-      getQuoteExposureReservationScript,
+    const result = await getQuoteExposureReservationCommand.execute(
+      this.client,
       1,
       this.key("reservations"),
       quoteId,
@@ -334,8 +343,8 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
   ): Promise<ReadRedisQuoteExposureState> {
     for (let pass = 0; pass < 100; pass += 1) {
       const fields = assets.map((asset) => `${reservation.chainId}:${asset.toLowerCase()}`);
-      const result = await this.client.eval(
-        readVersionedQuoteExposureStateScript,
+      const result = await readVersionedQuoteExposureStateCommand.execute(
+        this.client,
         9,
         ...this.ledgerKeys(reservation.chainId),
         this.config.cleanupLimit,
@@ -456,8 +465,8 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
     const startedAt = performance.now();
     const deadline = startedAt + this.config.lockAcquireTimeoutMs;
     while (true) {
-      const result = await this.client.eval(
-        acquireQuoteExposureLockScript,
+      const result = await acquireQuoteExposureLockCommand.execute(
+        this.client,
         1,
         this.key(`lock:${chainId}`),
         token,
@@ -481,8 +490,8 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
 
   private async releaseLock(chainId: number, token: string): Promise<void> {
     try {
-      await this.client.eval(
-        releaseQuoteExposureLockScript,
+      await releaseQuoteExposureLockCommand.execute(
+        this.client,
         1,
         this.key(`lock:${chainId}`),
         token,

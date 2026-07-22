@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { Redis } from "ioredis";
 import { keccak256 } from "viem";
 import { normalizeRedisUrl, type RedisUrlPolicy } from "../../shared/redis/redis-url.js";
+import { RedisLuaScript } from "../../shared/redis/redis-lua-script.js";
 import type { FinalizeQuoteIssuanceInput } from "../quote/quote-issuance.store.js";
 import { assertQuoteIssuanceFinalization } from "../quote/postgres-quote-issuance.store.js";
 import { parseRedisQuoteIssuanceRecord } from "../quote/redis-quote-issuance.protocol.js";
@@ -76,11 +77,11 @@ current.stage = "finalized"
 current.finalizationHash = ARGV[3]
 current.finalization = cjson.decode(ARGV[4])
 current.signerAuditEventKey = ARGV[13]
-current.updatedAtMs = tonumber(ARGV[5])
+current.updatedAtMs = math.max(tonumber(ARGV[5]), tonumber(current.updatedAtMs))
 local updated = cjson.encode(current)
 if idempotency ~= nil then
   idempotency.state = "succeeded"
-  idempotency.updatedAtMs = tonumber(ARGV[5])
+  idempotency.updatedAtMs = math.max(tonumber(ARGV[5]), tonumber(idempotency.updatedAtMs))
   idempotency.ownerToken = nil
   idempotency.leaseExpiresAtMs = nil
   idempotency.response = current.finalization.response
@@ -89,7 +90,7 @@ end
 local issuance_event = {
   schemaVersion = 1,
   eventType = "finalized",
-  occurredAtMs = tonumber(ARGV[5]),
+  occurredAtMs = current.updatedAtMs,
   quote = current
 }
 if idempotency ~= nil then issuance_event.idempotency = idempotency end
@@ -110,6 +111,8 @@ local audit_stream_id = redis.call(
 redis.call("SET", KEYS[6], audit_stream_id, "PX", ARGV[15], "NX")
 return {1, ARGV[3], issuance_backlog + 1, audit_backlog + 1, issuance_stream_id, audit_stream_id}
 `;
+
+const commitSignedQuoteCommand = new RedisLuaScript(commitSignedQuoteScript);
 
 export interface RedisSignerQuoteCommitClient {
   readonly status?: string;
@@ -256,8 +259,8 @@ export class RedisSignerQuoteCommitStore implements SignerQuoteCommitStore {
     const idempotencyKey = finalization.idempotency
       ? this.idempotencyKey(finalization.idempotency.principalId, finalization.idempotency.key)
       : this.key(`idempotency:none:${finalization.signedQuote.quoteId}`);
-    const result = await this.client.eval(
-      commitSignedQuoteScript,
+    const result = await commitSignedQuoteCommand.execute(
+      this.client,
       7,
       this.key(`quote:${finalization.signedQuote.quoteId}`),
       idempotencyKey,

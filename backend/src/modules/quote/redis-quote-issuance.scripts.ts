@@ -54,7 +54,7 @@ if current.state ~= "processing" or current.principalId ~= ARGV[1]
 end
 if current.quoteId ~= nil and current.quoteId ~= ARGV[4] then return {0, "quote_conflict"} end
 current.quoteId = ARGV[4]
-current.updatedAtMs = tonumber(ARGV[5])
+current.updatedAtMs = math.max(tonumber(ARGV[5]), tonumber(current.updatedAtMs))
 local encoded = cjson.encode(current)
 redis.call("SET", KEYS[1], encoded, "PX", ARGV[6])
 return {1, encoded}
@@ -83,7 +83,7 @@ if ARGV[7] == "1" then
     return {0, "idempotency_quote_conflict", backlog, ""}
   end
   idempotency.quoteId = ARGV[1]
-  idempotency.updatedAtMs = tonumber(ARGV[5])
+  idempotency.updatedAtMs = math.max(tonumber(ARGV[5]), tonumber(idempotency.updatedAtMs))
   local updated_idem = cjson.encode(idempotency)
   redis.call("SET", KEYS[2], updated_idem, "PX", ARGV[10])
 end
@@ -121,12 +121,12 @@ if backlog >= tonumber(ARGV[5]) then return {0, "backlog_full", backlog, ""} end
 current.stage = "authorized"
 current.authorizationHash = ARGV[2]
 current.authorization = cjson.decode(ARGV[3])
-current.updatedAtMs = tonumber(ARGV[4])
+current.updatedAtMs = math.max(tonumber(ARGV[4]), tonumber(current.updatedAtMs))
 local updated = cjson.encode(current)
 local event = {
   schemaVersion = 1,
   eventType = "authorized",
-  occurredAtMs = tonumber(ARGV[4]),
+  occurredAtMs = current.updatedAtMs,
   quote = current
 }
 local payload = cjson.encode(event)
@@ -170,11 +170,11 @@ end
 current.stage = "finalized"
 current.finalizationHash = ARGV[3]
 current.finalization = cjson.decode(ARGV[4])
-current.updatedAtMs = tonumber(ARGV[5])
+current.updatedAtMs = math.max(tonumber(ARGV[5]), tonumber(current.updatedAtMs))
 local updated = cjson.encode(current)
 if idempotency ~= nil then
   idempotency.state = "succeeded"
-  idempotency.updatedAtMs = tonumber(ARGV[5])
+  idempotency.updatedAtMs = math.max(tonumber(ARGV[5]), tonumber(idempotency.updatedAtMs))
   idempotency.ownerToken = nil
   idempotency.leaseExpiresAtMs = nil
   idempotency.response = current.finalization.response
@@ -183,7 +183,7 @@ end
 local event = {
   schemaVersion = 1,
   eventType = "finalized",
-  occurredAtMs = tonumber(ARGV[5]),
+  occurredAtMs = current.updatedAtMs,
   quote = current
 }
 if idempotency ~= nil then event.idempotency = idempotency end
@@ -214,7 +214,7 @@ end
 local backlog = redis.call("XLEN", KEYS[3])
 if backlog >= tonumber(ARGV[6]) then return {0, "backlog_full", backlog, ""} end
 idempotency.state = "failed"
-idempotency.updatedAtMs = tonumber(ARGV[5])
+idempotency.updatedAtMs = math.max(tonumber(ARGV[5]), tonumber(idempotency.updatedAtMs))
 idempotency.ownerToken = nil
 idempotency.leaseExpiresAtMs = nil
 idempotency.error = cjson.decode(ARGV[4])
@@ -230,7 +230,7 @@ if idempotency.quoteId ~= nil then
        (quote.authorization == nil or quote.authorization.record.decision == "approved") then
       quote.stage = "failed"
       quote.failure = idempotency.error
-      quote.updatedAtMs = tonumber(ARGV[5])
+      quote.updatedAtMs = math.max(tonumber(ARGV[5]), tonumber(quote.updatedAtMs))
       redis.call("SET", KEYS[2], cjson.encode(quote), "PX", ARGV[8])
     end
   end
@@ -240,7 +240,7 @@ redis.call("SET", KEYS[1], updated_idem, "PX", ARGV[7])
 local event = {
   schemaVersion = 1,
   eventType = "failed",
-  occurredAtMs = tonumber(ARGV[5]),
+  occurredAtMs = idempotency.updatedAtMs,
   idempotency = idempotency
 }
 if quote ~= nil and quote.stage == "failed" then event.quote = quote end
@@ -267,7 +267,7 @@ if current.state ~= "processing" or current.ownerToken ~= ARGV[3]
 local backlog = redis.call("XLEN", KEYS[2])
 if backlog >= tonumber(ARGV[7]) then return {0, "backlog_full", backlog, ""} end
 current.state = "succeeded"
-current.updatedAtMs = tonumber(ARGV[6])
+current.updatedAtMs = math.max(tonumber(ARGV[6]), tonumber(current.updatedAtMs))
 current.ownerToken = nil
 current.leaseExpiresAtMs = nil
 current.response = cjson.decode(ARGV[5])
@@ -276,7 +276,7 @@ redis.call("SET", KEYS[1], updated, "PX", ARGV[8])
 local event = {
   schemaVersion = 1,
   eventType = "finalized",
-  occurredAtMs = tonumber(ARGV[6]),
+  occurredAtMs = current.updatedAtMs,
   idempotency = current
 }
 local stream_id = redis.call(

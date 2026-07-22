@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { Redis } from "ioredis";
 import type { QuoteResponse, QuoteStatusResponse, SignedQuote } from "../../shared/types/rfq.js";
 import { normalizeRedisUrl, type RedisUrlPolicy } from "../../shared/redis/redis-url.js";
+import { RedisLuaScript } from "../../shared/redis/redis-lua-script.js";
 import { assertPrincipalId } from "../../shared/validation/principal-id.js";
 import {
   assertRiskDecisionRecord,
@@ -54,6 +55,15 @@ import {
 } from "./redis-quote-issuance.protocol.js";
 import { quoteSigningAuthorizationHash } from "../signer/signer-quote-commit.js";
 
+const initializeQuoteIssuanceLedgerCommand = new RedisLuaScript(initializeQuoteIssuanceLedgerScript);
+const acquireQuoteIdempotencyCommand = new RedisLuaScript(acquireQuoteIdempotencyScript);
+const bindQuoteIdempotencyCommand = new RedisLuaScript(bindQuoteIdempotencyScript);
+const completeQuoteIdempotencyCommand = new RedisLuaScript(completeQuoteIdempotencyScript);
+const failQuoteIdempotencyCommand = new RedisLuaScript(failQuoteIdempotencyScript);
+const prepareQuoteIssuanceCommand = new RedisLuaScript(prepareQuoteIssuanceScript);
+const authorizeQuoteIssuanceCommand = new RedisLuaScript(authorizeQuoteIssuanceScript);
+const finalizeQuoteIssuanceCommand = new RedisLuaScript(finalizeQuoteIssuanceScript);
+
 export type {
   RedisQuoteIssuanceClient,
   RedisQuoteIssuanceConfig,
@@ -101,8 +111,8 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
 
   async initialize(): Promise<void> {
     await this.ensureConnected();
-    const result = await this.client.eval(
-      initializeQuoteIssuanceLedgerScript,
+    const result = await initializeQuoteIssuanceLedgerCommand.execute(
+      this.client,
       1,
       this.key("epoch"),
       this.config.ledgerEpoch,
@@ -141,8 +151,8 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     assertSha256(requestHash, "Redis quote idempotency requestHash");
     if (!this.initialized) await this.initialize();
     const ownerToken = `quote_idem_${randomBytes(16).toString("hex")}`;
-    const result = await this.client.eval(
-      acquireQuoteIdempotencyScript,
+    const result = await acquireQuoteIdempotencyCommand.execute(
+      this.client,
       1,
       this.idempotencyKey(principalId, key),
       principalId,
@@ -178,8 +188,8 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     assertQuoteIdempotencyReservation(reservation);
     assertSafeIdentifier(quoteId, "Redis quote idempotency quoteId");
     if (!this.initialized) await this.initialize();
-    const result = await this.client.eval(
-      bindQuoteIdempotencyScript,
+    const result = await bindQuoteIdempotencyCommand.execute(
+      this.client,
       1,
       this.idempotencyKey(reservation.principalId, reservation.key),
       reservation.principalId,
@@ -199,8 +209,8 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     assertQuoteIdempotencyReservation(reservation);
     assertQuoteResponse(response);
     if (!this.initialized) await this.initialize();
-    const result = await this.client.eval(
-      completeQuoteIdempotencyScript,
+    const result = await completeQuoteIdempotencyCommand.execute(
+      this.client,
       2,
       this.idempotencyKey(reservation.principalId, reservation.key),
       this.key("events"),
@@ -227,8 +237,8 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     const stateValue = await this.client.get(this.idempotencyKey(reservation.principalId, reservation.key));
     const state = typeof stateValue === "string" ? parseRedisQuoteIdempotencyRecord(stateValue) : undefined;
     const quoteId = state?.quoteId;
-    const result = await this.client.eval(
-      failQuoteIdempotencyScript,
+    const result = await failQuoteIdempotencyCommand.execute(
+      this.client,
       3,
       this.idempotencyKey(reservation.principalId, reservation.key),
       quoteId ? this.quoteKey(quoteId) : this.key("quote:none"),
@@ -274,8 +284,8 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     const idempotencyKey = input.idempotency
       ? this.idempotencyKey(input.idempotency.principalId, input.idempotency.key)
       : this.key(`idempotency:none:${input.requestedQuote.quoteId}`);
-    const result = await this.client.eval(
-      prepareQuoteIssuanceScript,
+    const result = await prepareQuoteIssuanceCommand.execute(
+      this.client,
       3,
       this.quoteKey(record.quoteId),
       idempotencyKey,
@@ -332,8 +342,8 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
         ),
       } : {}),
     };
-    const result = await this.client.eval(
-      authorizeQuoteIssuanceScript,
+    const result = await authorizeQuoteIssuanceCommand.execute(
+      this.client,
       2,
       this.quoteKey(input.quoteId),
       this.key("events"),
@@ -361,8 +371,8 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     const idempotencyKey = input.idempotency
       ? this.idempotencyKey(input.idempotency.principalId, input.idempotency.key)
       : this.key(`idempotency:none:${input.signedQuote.quoteId}`);
-    const result = await this.client.eval(
-      finalizeQuoteIssuanceScript,
+    const result = await finalizeQuoteIssuanceCommand.execute(
+      this.client,
       4,
       this.quoteKey(input.signedQuote.quoteId),
       idempotencyKey,

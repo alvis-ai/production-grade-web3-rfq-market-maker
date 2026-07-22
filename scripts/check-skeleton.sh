@@ -22,6 +22,14 @@ test -s .github/workflows/analytics-ci.yml
 test -s .github/workflows/contract-ci.yml
 test -s .github/workflows/docs-ci.yml
 test -s backend/src/main.ts
+test -s backend/src/shared/redis/redis-lua-script.ts
+test -s backend/test/redis-lua-script.test.mjs
+grep -q 'class RedisLuaScript' backend/src/shared/redis/redis-lua-script.ts
+grep -q 'NOSCRIPT' backend/src/shared/redis/redis-lua-script.ts
+grep -q 'new RedisLuaScript' backend/src/modules/quote/redis-quote-issuance.store.ts
+grep -q 'new RedisLuaScript' backend/src/modules/risk/redis-quote-exposure.store.ts
+grep -q 'new RedisLuaScript' backend/src/modules/signer/redis-signer-quote-commit.store.ts
+grep -q 'falls back only for an exact Redis NOSCRIPT response' backend/test/redis-lua-script.test.mjs
 test -s backend/src/api/http-boundary.ts
 test -s backend/src/api/trading-routes.ts
 test -s backend/src/api/quote-control-routes.ts
