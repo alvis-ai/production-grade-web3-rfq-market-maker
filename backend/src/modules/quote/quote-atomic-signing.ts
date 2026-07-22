@@ -49,17 +49,18 @@ export async function signQuoteWithAtomicRecovery(input: {
   riskPolicyVersion: string;
   traceId: string;
   commit?: SignerQuoteCommitContext;
+  signaturePromise?: Promise<`0x${string}`>;
 }): Promise<AtomicQuoteSigningResult> {
   try {
-    const signature = await input.signerService.signQuote({
-      quote: input.quote,
-      quoteId: input.quoteId,
-      snapshotId: input.snapshotId,
-      riskDecisionId: input.riskDecisionId,
-      riskPolicyVersion: input.riskPolicyVersion,
-      traceId: input.traceId,
-      ...(input.commit ? { commit: input.commit } : {}),
-    });
+    const signature = await (input.signaturePromise ?? input.signerService.signQuote({
+        quote: input.quote,
+        quoteId: input.quoteId,
+        snapshotId: input.snapshotId,
+        riskDecisionId: input.riskDecisionId,
+        riskPolicyVersion: input.riskPolicyVersion,
+        traceId: input.traceId,
+        ...(input.commit ? { commit: input.commit } : {}),
+      }));
     return { status: "signed", signature };
   } catch (error) {
     if (!input.atomicCommit) return { status: "failed", error, releaseExposure: true };

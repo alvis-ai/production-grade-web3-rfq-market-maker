@@ -83,6 +83,7 @@ const commitStore = new RedisSignerQuoteCommitStore(commitProducer, {
   minReplicaAcks: 0,
   replicaAckTimeoutMs: 20,
   requireAof,
+  authorizationWaitMs: 0,
 });
 
 try {

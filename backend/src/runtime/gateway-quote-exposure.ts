@@ -58,6 +58,8 @@ export interface QuoteExposureRuntimeConfig {
 
 export interface RedisQuoteExposureRuntime {
   quoteExposureStore: QuoteExposureStore;
+  redisStore: RedisQuoteExposureStore;
+  redisUrl: string;
   inventoryService: IInventoryService;
   marketSnapshotStore: MarketSnapshotStore;
   start(): Promise<void>;
@@ -322,6 +324,8 @@ export function createRedisQuoteExposureRuntime(input: {
     quoteExposureStore: input.asynchronousQuoteIssuance
       ? store
       : new HealthGatedQuoteExposureStore(store, mirror),
+    redisStore: store,
+    redisUrl: input.config.redisUrl,
     inventoryService,
     marketSnapshotStore,
     async start() {
@@ -392,7 +396,7 @@ function readSafeIdentifier(
 }
 
 function readKeyPrefix(env: Record<string, string | undefined>): string {
-  const value = readOwnEnvValue(env, "RFQ_QUOTE_EXPOSURE_KEY_PREFIX") ?? "rfq:{quote-exposure}:ledger";
+  const value = readOwnEnvValue(env, "RFQ_QUOTE_EXPOSURE_KEY_PREFIX") ?? "rfq:{quote-state}:exposure";
   if (!/^rfq:\{[a-z0-9_-]{1,32}\}:[a-z0-9:_-]{1,48}$/.test(value)) {
     throw new Error("RFQ_QUOTE_EXPOSURE_KEY_PREFIX must use a bounded rfq:{hash-tag}: key");
   }

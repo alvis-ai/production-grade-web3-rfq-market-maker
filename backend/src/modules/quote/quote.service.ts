@@ -1,10 +1,4 @@
-import type {
-  QuoteLifecycleStatus,
-  QuoteRequest,
-  QuoteResponse,
-  QuoteStatusResponse,
-  SignedQuote,
-} from "../../shared/types/rfq.js";
+import type { QuoteLifecycleStatus, QuoteRequest, QuoteResponse, QuoteStatusResponse, SignedQuote } from "../../shared/types/rfq.js";
 import { APIError, toAPIError } from "../../shared/errors/api-error.js";
 import { validateQuoteRequest } from "../../shared/validation/quote-request.js";
 import { localPrincipalId } from "../../shared/validation/principal-id.js";
@@ -49,6 +43,8 @@ import { buildSignerCommitBase, signQuoteWithAtomicRecovery } from "./quote-atom
 import { getUsableQuoteSnapshot } from "./quote-market-snapshot.js";
 import { persistPreAuthorizationFailureBestEffort } from "./quote-preauthorization-failure.js";
 import { requireSubmittableQuote } from "./quote-submittable.js";
+import { createSpeculativeQuoteSigning } from "./quote-speculative-signing.js";
+import { buildSignedQuoteResult } from "./quote-signed-result.js";
 
 export { defaultQuoteServiceConfig } from "./quote-service-contract.js";
 export type {
@@ -306,6 +302,20 @@ export class QuoteService {
       pricing,
       ...(idempotencyReservation ? { idempotency: idempotencyReservation } : {}),
     });
+    const traceId = access.traceId ?? `tr_${quoteId}`;
+    const speculativeSigning = createSpeculativeQuoteSigning({
+      enabled: atomicSignerCommit && this.deps.quoteAdmissionStore !== undefined &&
+        this.deps.signerService.waitsForDurableAuthorization === true,
+      signerService: this.deps.signerService,
+      quoteIssuanceStore: fusedIssuance,
+      quote: signedQuote,
+      quoteId,
+      principalId: access.principalId,
+      snapshotId: snapshot.snapshotId,
+      pricing,
+      traceId,
+      commitBase: signerCommitBase,
+    });
     let authorization;
     try {
       authorization = await authorizeQuote(this.deps, {
@@ -330,9 +340,20 @@ export class QuoteService {
             ...(idempotencyReservation ? { idempotency: idempotencyReservation } : {}),
           },
         } : {}),
+        ...(speculativeSigning ? {
+          beforeJointAdmission: speculativeSigning.beforeJointAdmission,
+        } : {}),
       });
     } catch (error) {
       const failure = error instanceof APIError ? error : quoteStoreFailure(error);
+      const recovery = await speculativeSigning?.recoverAdmissionFailure();
+      if (recovery?.status === "committed") {
+        return {
+          response: recovery.response,
+          idempotencyCompleted: idempotencyReservation !== undefined,
+        };
+      }
+      if (recovery?.releaseExposure) await this.releaseQuoteExposureBestEffort(quoteId);
       await this.markQuoteFailedBestEffort(quoteId, failure.code);
       throw failure;
     }
@@ -373,8 +394,11 @@ export class QuoteService {
       pricing,
       riskDecisionId: persistedRiskDecision.riskDecisionId,
       riskPolicyVersion: persistedRiskDecision.policyVersion,
-      traceId: access.traceId ?? `tr_${quoteId}`,
+      traceId,
       ...(signerCommit ? { commit: signerCommit } : {}),
+      ...(speculativeSigning?.signaturePromise ? {
+        signaturePromise: speculativeSigning.signaturePromise,
+      } : {}),
     });
     if (signing.status === "recovered") {
       return {
@@ -391,31 +415,11 @@ export class QuoteService {
     }
     const signature = signing.signature;
 
-    const response: QuoteResponse = {
-      quoteId,
-      snapshotId: snapshot.snapshotId,
-      amountOut: pricing.amountOut,
-      minAmountOut: pricing.minAmountOut,
-      deadline,
-      nonce: identity.nonce,
-      signature,
-    };
-    const signedQuoteInput: SaveSignedQuoteInput = {
-      quoteId,
-      principalId: access.principalId,
-      snapshotId: snapshot.snapshotId,
-      slippageBps: validatedRequest.slippageBps,
-      quote: signedQuote,
-      pricingVersion: pricing.pricingVersion,
-      spreadBps: pricing.spreadBps,
-      sizeImpactBps: pricing.sizeImpactBps,
-      marketSpreadBps: pricing.marketSpreadBps,
-      inventorySkewBps: pricing.inventorySkewBps,
-      volatilityPremiumBps: pricing.volatilityPremiumBps,
-      hedgeCostBps: pricing.hedgeCostBps,
-      riskPolicyVersion: risk.policyVersion,
-      signature,
-    };
+    const { response, signedQuoteInput } = buildSignedQuoteResult({
+      quoteId, principalId: access.principalId, snapshotId: snapshot.snapshotId,
+      slippageBps: validatedRequest.slippageBps, quote: signedQuote, pricing,
+      riskPolicyVersion: risk.policyVersion, signature,
+    });
     try {
       if (fusedIssuance && !atomicSignerCommit) {
         await fusedIssuance.finalize({

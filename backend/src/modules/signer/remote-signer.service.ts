@@ -34,6 +34,7 @@ export interface RemoteSignerConfig {
   requestTimeoutMs: number;
   maxConnections: number;
   atomicQuoteCommit: boolean;
+  authorizationWaitMs: number;
   settlementAddress: `0x${string}`;
   trustedSignerAddress: `0x${string}`;
 }
@@ -47,6 +48,7 @@ const configFields = [
   "requestTimeoutMs",
   "maxConnections",
   "atomicQuoteCommit",
+  "authorizationWaitMs",
   "settlementAddress",
   "trustedSignerAddress",
 ] as const;
@@ -56,6 +58,7 @@ const maxResponseBytes = 1_024;
 export class RemoteSignerService implements SignerService {
   readonly signaturesSelfVerified = true as const;
   readonly commitsQuoteFinalization?: true;
+  readonly waitsForDurableAuthorization?: true;
   private readonly baseUrl: string;
   private readonly authToken: string;
   private readonly requestTimeoutMs: number;
@@ -75,6 +78,7 @@ export class RemoteSignerService implements SignerService {
     this.authToken = config.authToken;
     this.requestTimeoutMs = config.requestTimeoutMs;
     this.commitsQuoteFinalization = config.atomicQuoteCommit ? true : undefined;
+    this.waitsForDurableAuthorization = config.authorizationWaitMs > 0 ? true : undefined;
     this.settlementAddress = normalizeAddress(config.settlementAddress, "settlementAddress");
     this.trustedSignerAddress = normalizeAddress(config.trustedSignerAddress, "trustedSignerAddress");
     if (fetchFn === undefined) {
@@ -130,10 +134,13 @@ export class RemoteSignerService implements SignerService {
     const body = await this.requestBoundedJson("/ready", { method: "GET" });
     const expectedFields = this.commitsQuoteFinalization === true ? 2 : 1;
     const capabilities = isRecord(body) ? body.capabilities : undefined;
+    const expectedCapabilities = this.waitsForDurableAuthorization === true
+      ? ["atomic_quote_commit_v1", "durable_authorization_wait_v1"]
+      : ["atomic_quote_commit_v1"];
     if (!isRecord(body) || Object.keys(body).length !== expectedFields || body.status !== "ok" ||
         (this.commitsQuoteFinalization === true &&
-         (!Array.isArray(capabilities) || capabilities.length !== 1 ||
-          capabilities[0] !== "atomic_quote_commit_v1"))) {
+         (!Array.isArray(capabilities) || capabilities.length !== expectedCapabilities.length ||
+          capabilities.some((capability, index) => capability !== expectedCapabilities[index])))) {
       throw signerUnavailable();
     }
   }
@@ -212,6 +219,13 @@ function assertConfig(value: unknown): asserts value is RemoteSignerConfig {
   }
   if (typeof value.atomicQuoteCommit !== "boolean") {
     throw new Error("Remote signer atomicQuoteCommit must be a boolean");
+  }
+  if (!Number.isSafeInteger(value.authorizationWaitMs) ||
+      (value.authorizationWaitMs as number) < 0 || (value.authorizationWaitMs as number) > 100) {
+    throw new Error("Remote signer authorizationWaitMs must be between 0 and 100");
+  }
+  if ((value.authorizationWaitMs as number) > 0 && value.atomicQuoteCommit !== true) {
+    throw new Error("Remote signer authorizationWaitMs requires atomicQuoteCommit");
   }
   normalizeBaseUrl(value.baseUrl as string, value.allowInsecureHttp);
   if (typeof value.authToken !== "string" || !authTokenPattern.test(value.authToken)) {

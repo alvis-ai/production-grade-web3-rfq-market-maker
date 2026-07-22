@@ -22,6 +22,7 @@ test("quote exposure runtime requires replicated durable Redis in production", (
   assert.equal(config.minReplicaAcks, 1);
   assert.equal(config.requireAof, true);
   assert.equal(config.requireTls, true);
+  assert.equal(config.keyPrefix, "rfq:{quote-state}:exposure");
   assert.ok(config.expiryGraceSeconds * 1_000 > config.inventoryMaxAgeMs);
 });
 

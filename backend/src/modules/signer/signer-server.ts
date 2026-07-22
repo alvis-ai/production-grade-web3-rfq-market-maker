@@ -156,7 +156,12 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
         await readinessCheck;
       }
       return options.quoteCommitStore
-        ? { status: "ok", capabilities: ["atomic_quote_commit_v1"] }
+        ? {
+            status: "ok",
+            capabilities: options.quoteCommitStore.waitsForDurableAuthorization === true
+              ? ["atomic_quote_commit_v1", "durable_authorization_wait_v1"]
+              : ["atomic_quote_commit_v1"],
+          }
         : { status: "ok" };
     } catch {
       return reply.code(503).send({ status: "degraded" });
@@ -214,7 +219,9 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
     let signature: `0x${string}`;
     const signatureStartedAt = performance.now();
     try {
-      signature = await options.signerService.signQuote(input);
+      signature = options.signerService.signQuoteDigest
+        ? await options.signerService.signQuoteDigest(input, quoteDigest)
+        : await options.signerService.signQuote(input);
       assertSignature(signature);
       if (options.signerService.signaturesSelfVerified !== true &&
           !await options.signerService.verifyQuoteSignature(input.quote, signature)) {
@@ -443,6 +450,10 @@ function assertOptions(options: SignerServerOptions): void {
       typeof options.signerService.verifyQuoteSignature !== "function") {
     throw new Error("Signer server signerService is invalid");
   }
+  if (options.signerService.signQuoteDigest !== undefined &&
+      typeof options.signerService.signQuoteDigest !== "function") {
+    throw new Error("Signer server signerService.signQuoteDigest is invalid");
+  }
   if (options.signerService.signaturesSelfVerified !== undefined &&
       options.signerService.signaturesSelfVerified !== true) {
     throw new Error("Signer server signerService signaturesSelfVerified capability is invalid");
@@ -463,6 +474,10 @@ function assertOptions(options: SignerServerOptions): void {
        typeof options.quoteCommitStore.checkHealth !== "function" ||
        typeof options.quoteCommitStore.close !== "function")) {
     throw new Error("Signer server quoteCommitStore is invalid");
+  }
+  if (options.quoteCommitStore?.waitsForDurableAuthorization !== undefined &&
+      options.quoteCommitStore.waitsForDurableAuthorization !== true) {
+    throw new Error("Signer server quoteCommitStore authorization wait capability is invalid");
   }
   if (typeof options.tokenRegistry !== "object" || options.tokenRegistry === null ||
       typeof options.tokenRegistry.getToken !== "function") {

@@ -19,6 +19,7 @@ test("quote issuance runtime requires durable Redis policy in production", () =>
   }, 60_000);
   assert.equal(config.backend, "redis-stream");
   assert.equal(config.requireTls, true);
+  assert.equal(config.keyPrefix, "rfq:{quote-state}:issuance");
   assert.equal(config.allowEpochInitialization, false);
   assert.equal(config.minReplicaAcks, 1);
 });

@@ -82,11 +82,16 @@ spec:
             - name: RFQ_SIGNER_AUDIT_MIN_REPLICA_ACKS
               value: "1"
             - name: RFQ_SIGNER_AUDIT_STREAM_KEY
-              value: rfq:{quote-issuance}:signer-audit-events:v1
+              value: rfq:{quote-state}:signer-audit-events:v1
             - name: RFQ_SIGNER_AUDIT_STREAM_EPOCH
               value: production_atomic_v1
             - name: RFQ_SIGNER_ATOMIC_QUOTE_COMMIT
               value: "true"
+            - name: RFQ_SIGNER_AUTHORIZATION_WAIT_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: rfq-backend-config
+                  key: RFQ_SIGNER_AUTHORIZATION_WAIT_MS
             - name: RFQ_QUOTE_ISSUANCE_LEDGER_EPOCH
               valueFrom:
                 configMapKeyRef:

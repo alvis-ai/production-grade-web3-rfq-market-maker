@@ -146,6 +146,7 @@ test("signer server verifies persisted authorization before signing and atomical
   const events = [];
   let committedFinalization;
   const quoteCommitStore = {
+    waitsForDurableAuthorization: true,
     async assertAuthorized(input) {
       events.push("authorization");
       assert.equal(input.commit.principalId, "principal_signer_server");
@@ -177,7 +178,10 @@ test("signer server verifies persisted authorization before signing and atomical
 
   const readiness = await server.inject({ method: "GET", url: "/ready" });
   assert.equal(readiness.statusCode, 200);
-  assert.deepEqual(readiness.json(), { status: "ok", capabilities: ["atomic_quote_commit_v1"] });
+  assert.deepEqual(readiness.json(), {
+    status: "ok",
+    capabilities: ["atomic_quote_commit_v1", "durable_authorization_wait_v1"],
+  });
   assert.deepEqual(events, ["authorization", "commit", "health"]);
   await server.close();
 });
@@ -247,6 +251,36 @@ test("signer server skips only explicitly self-verified signer recovery", async 
     async signQuote(input) { return local.signQuote(input); },
     async verifyQuoteSignature() { return true; },
   }), /signaturesSelfVerified capability is invalid/);
+});
+
+test("signer server reuses its audited EIP-712 digest for signing", async () => {
+  const local = new LocalEIP712SignerService({ privateKey, settlementAddress });
+  let quoteSigningCalls = 0;
+  let digestSigningCalls = 0;
+  const server = createServer({
+    signaturesSelfVerified: true,
+    async signQuote() {
+      quoteSigningCalls += 1;
+      throw new Error("duplicate quote hashing is not allowed");
+    },
+    async signQuoteDigest(input, digest) {
+      digestSigningCalls += 1;
+      assert.match(digest, /^0x[0-9a-f]{64}$/i);
+      return local.signQuoteDigest(input, digest);
+    },
+    async verifyQuoteSignature() { return true; },
+  });
+
+  const response = await server.inject({
+    method: "POST",
+    url: "/internal/sign",
+    headers: { authorization: `Bearer ${authToken}` },
+    payload: signInput(),
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(quoteSigningCalls, 0);
+  assert.equal(digestSigningCalls, 1);
+  await server.close();
 });
 
 test("signer server does not return a signature when durable audit fails", async () => {

@@ -1,8 +1,9 @@
-import { hashTypedData, recoverTypedDataAddress, toBytes } from "viem";
+import { hashTypedData, recoverAddress, recoverTypedDataAddress, toBytes } from "viem";
 import type { SignedQuote } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
 import {
   assertSignQuoteInput,
+  assertQuoteDigest,
   assertSignature,
   assertSignedQuote,
   buildQuoteTypedData,
@@ -48,11 +49,16 @@ export class KmsSignerService implements SignerService {
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
     assertSignQuoteInput(input);
     const typedData = buildQuoteTypedData(input.quote, this.settlementAddress);
-    const digest = toBytes(hashTypedData(typedData));
+    return this.signQuoteDigest(input, hashTypedData(typedData));
+  }
+
+  async signQuoteDigest(input: SignQuoteInput, digest: `0x${string}`): Promise<`0x${string}`> {
+    assertSignQuoteInput(input);
+    assertQuoteDigest(digest);
 
     let derSignature: Uint8Array;
     try {
-      derSignature = await this.signDigest(Uint8Array.from(digest));
+      derSignature = await this.signDigest(Uint8Array.from(toBytes(digest)));
     } catch {
       throw signerUnavailable(`KMS signing failed for ${this.keyId}`);
     }
@@ -67,7 +73,7 @@ export class KmsSignerService implements SignerService {
       const candidate = `0x${rHex}${sHex}${v}` as `0x${string}`;
       let recovered: `0x${string}`;
       try {
-        recovered = await recoverTypedDataAddress({ ...typedData, signature: candidate });
+        recovered = await recoverAddress({ hash: digest, signature: candidate });
       } catch {
         continue;
       }

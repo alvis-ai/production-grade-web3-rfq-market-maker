@@ -11,6 +11,7 @@ import type {
   AuthorizeQuoteIssuanceInput,
   PrepareQuoteIssuanceInput,
 } from "./quote-issuance.store.js";
+import { assertQuoteAdmissionResult } from "./quote-admission.store.js";
 import type { QuoteServiceDeps } from "./quote-service-contract.js";
 import { quoteStoreFailure } from "./quote-service-errors.js";
 import {
@@ -33,6 +34,7 @@ export interface AuthorizeQuoteInput {
     snapshotId: string;
     commit: Omit<SignerQuoteCommitContext, "riskPolicyVersion">;
   };
+  beforeJointAdmission?: (risk: RiskDecision) => void;
 }
 
 export interface AuthorizedQuote {
@@ -47,7 +49,7 @@ export async function authorizeQuote(
 ): Promise<AuthorizedQuote> {
   let risk = await evaluateRisk(deps, input);
   let asynchronousPreparation: Promise<{ error?: unknown; failed: boolean }> | undefined;
-  const directAdmission = deps.quoteIssuanceStore?.admit !== undefined;
+  const directAdmission = deps.quoteIssuanceStore?.admit !== undefined || deps.quoteAdmissionStore !== undefined;
   if (deps.quoteIssuanceStore) {
     if (!input.preparation) throw quoteStoreFailure(new Error("Quote issuance preparation is required"));
     if (!directAdmission) {
@@ -67,6 +69,8 @@ export async function authorizeQuote(
   }
 
   let exposureReserved = false;
+  let jointlyPersistedRiskDecision: RiskDecisionRecord | undefined;
+  let speculativeAdmissionStarted = false;
   if (risk.status === "approved") {
     try {
       const treasuryLiquidity = deps.treasuryLiquidityProvider
@@ -80,16 +84,41 @@ export async function authorizeQuote(
         ...(treasuryLiquidity ? { observedHead: treasuryLiquidity.blockNumber } : {}),
       });
       if (deps.quoteExposureStore) {
-        const exposure = await deps.quoteExposureStore.reserve({
+        const exposureInput = {
           quoteId: input.quoteId,
           request: input.request,
           pricing: input.pricing,
           deadline: input.deadline,
           ...(treasuryLiquidity ? { treasuryLiquidity } : {}),
-        });
+        };
+        let jointAdmission;
+        if (deps.quoteAdmissionStore && deps.quoteIssuanceStore && input.preparation) {
+          jointAdmission = await deps.quoteAdmissionStore.admit({
+            exposure: exposureInput,
+            issuance: {
+              preparation: input.preparation,
+              authorization: buildAuthorizationInput(input, risk),
+            },
+          }, input.beforeJointAdmission ? () => {
+            input.beforeJointAdmission!(risk);
+            speculativeAdmissionStarted = true;
+          } : undefined);
+          if (jointAdmission.exposure.status === "reserved") exposureReserved = true;
+          assertQuoteAdmissionResult(jointAdmission);
+        }
+        const exposure = jointAdmission
+          ? jointAdmission.exposure
+          : await deps.quoteExposureStore.reserve(exposureInput);
         assertQuoteExposureReservationResult(exposure);
         if (exposure.status === "reserved") {
           exposureReserved = true;
+          if (jointAdmission && "riskDecision" in jointAdmission) {
+            assertRiskDecisionRecord(jointAdmission.riskDecision, {
+              quoteId: input.quoteId,
+              decision: risk,
+            });
+            jointlyPersistedRiskDecision = jointAdmission.riskDecision;
+          }
         } else {
           risk = {
             status: "rejected",
@@ -98,7 +127,12 @@ export async function authorizeQuote(
           };
         }
       }
-    } catch {
+    } catch (error) {
+      if (speculativeAdmissionStarted) throw error;
+      if (exposureReserved) {
+        await releaseExposureBestEffort(deps, input.quoteId);
+        exposureReserved = false;
+      }
       risk = riskUnavailableDecision();
     }
   }
@@ -111,19 +145,16 @@ export async function authorizeQuote(
     }
   }
 
+  if (jointlyPersistedRiskDecision) {
+    return {
+      risk,
+      persistedRiskDecision: jointlyPersistedRiskDecision,
+      exposureReserved,
+    };
+  }
+
   const riskDecisionInput = { quoteId: input.quoteId, decision: risk };
-  const authorizationInput: AuthorizeQuoteIssuanceInput = {
-    ...riskDecisionInput,
-    ...(input.signingAuthorization ? {
-      signingAuthorization: {
-        ...input.signingAuthorization,
-        commit: {
-          ...input.signingAuthorization.commit,
-          riskPolicyVersion: risk.policyVersion,
-        },
-      },
-    } : {}),
-  };
+  const authorizationInput = buildAuthorizationInput(input, risk);
   try {
     const persistedRiskDecision = deps.quoteIssuanceStore
       ? directAdmission
@@ -139,6 +170,25 @@ export async function authorizeQuote(
     if (exposureReserved) await releaseExposureBestEffort(deps, input.quoteId);
     throw quoteStoreFailure(error);
   }
+}
+
+function buildAuthorizationInput(
+  input: AuthorizeQuoteInput,
+  risk: RiskDecision,
+): AuthorizeQuoteIssuanceInput {
+  return {
+    quoteId: input.quoteId,
+    decision: risk,
+    ...(input.signingAuthorization ? {
+      signingAuthorization: {
+        ...input.signingAuthorization,
+        commit: {
+          ...input.signingAuthorization.commit,
+          riskPolicyVersion: risk.policyVersion,
+        },
+      },
+    } : {}),
+  };
 }
 
 async function evaluateRisk(deps: QuoteServiceDeps, input: AuthorizeQuoteInput): Promise<RiskDecision> {

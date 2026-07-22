@@ -64,7 +64,9 @@ export interface AuthorizedSignQuoteInput extends SignQuoteInput {
 export interface SignerService {
   readonly signaturesSelfVerified?: true;
   readonly commitsQuoteFinalization?: true;
+  readonly waitsForDurableAuthorization?: true;
   signQuote(input: SignQuoteInput): Promise<`0x${string}`>;
+  signQuoteDigest?(input: SignQuoteInput, digest: `0x${string}`): Promise<`0x${string}`>;
   verifyQuoteSignature(quote: SignedQuote, signature: `0x${string}`): Promise<boolean>;
   checkHealth?(): Promise<void>;
 }
@@ -93,6 +95,12 @@ export class LocalEIP712SignerService implements SignerService {
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
     assertSignQuoteInput(input);
     const digest = hashTypedData(buildQuoteTypedData(input.quote, this.config.settlementAddress));
+    return this.signQuoteDigest(input, digest);
+  }
+
+  async signQuoteDigest(input: SignQuoteInput, digest: `0x${string}`): Promise<`0x${string}`> {
+    assertSignQuoteInput(input);
+    assertQuoteDigest(digest);
     const signed = signRecoverable(hexToBytes(digest), this.privateKey);
     if (signed.recoveryId !== 0 && signed.recoveryId !== 1) {
       throw new Error("Signer produced an unsupported Ethereum recovery id");
@@ -137,9 +145,23 @@ export class ObservedSignerService implements SignerService {
     return this.inner.commitsQuoteFinalization === true ? true : undefined;
   }
 
+  get waitsForDurableAuthorization(): true | undefined {
+    return this.inner.waitsForDurableAuthorization === true ? true : undefined;
+  }
+
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
     return this.observe("sign", async () => {
       const signature = await this.inner.signQuote(input);
+      assertSignature(signature);
+      return signature;
+    });
+  }
+
+  async signQuoteDigest(input: SignQuoteInput, digest: `0x${string}`): Promise<`0x${string}`> {
+    return this.observe("sign", async () => {
+      const signature = this.inner.signQuoteDigest
+        ? await this.inner.signQuoteDigest(input, digest)
+        : await this.inner.signQuote(input);
       assertSignature(signature);
       return signature;
     });
@@ -177,6 +199,9 @@ export class ObservedSignerService implements SignerService {
 function assertObservedSignerDeps(inner: SignerService, metricsService: MetricsService): void {
   assertDependencyMethod(inner, "inner", "signQuote");
   assertDependencyMethod(inner, "inner", "verifyQuoteSignature");
+  if (inner.signQuoteDigest !== undefined && typeof inner.signQuoteDigest !== "function") {
+    throw new Error("Signer inner.signQuoteDigest must be a function when provided");
+  }
   assertDependencyMethod(metricsService, "metricsService", "recordSignerRequest");
   assertDependencyMethod(metricsService, "metricsService", "recordSignerError");
   assertDependencyMethod(metricsService, "metricsService", "recordSignerLatency");
@@ -231,6 +256,12 @@ export function hashQuoteTypedData(
   assertSignedQuote(quote);
   assertAddress(settlementAddress, "settlementAddress");
   return hashTypedData(buildQuoteTypedData(quote, settlementAddress));
+}
+
+export function assertQuoteDigest(value: unknown): asserts value is `0x${string}` {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error("Quote digest must be a 32-byte hex string");
+  }
 }
 
 export async function recoverQuoteSigner(

@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { LocalEIP712SignerService, ObservedSignerService } from "../dist/modules/signer/signer.service.js";
+import { hashTypedData } from "viem";
+import {
+  buildQuoteTypedData,
+  LocalEIP712SignerService,
+  ObservedSignerService,
+} from "../dist/modules/signer/signer.service.js";
 
 const privateKey = "0x59c6995e998f97a5a0044966f094538d9dae1ffc26a3b6d86dae8e3a0b97e6a0";
 const settlementAddress = "0x0000000000000000000000000000000000000004";
@@ -87,6 +92,14 @@ test("LocalEIP712SignerService binds signatures to the settlement contract addre
   });
 
   assert.equal(await otherSettlementSigner.verifyQuoteSignature(quote, signature), false);
+});
+
+test("LocalEIP712SignerService signs a validated precomputed quote digest", async () => {
+  const signer = new LocalEIP712SignerService({ privateKey, settlementAddress });
+  const input = { quote, quoteId: "q_prehashed", snapshotId: "snapshot_prehashed" };
+  const digest = hashTypedData(buildQuoteTypedData(quote, settlementAddress));
+  assert.equal(await signer.signQuoteDigest(input, digest), await signer.signQuote(input));
+  await assert.rejects(signer.signQuoteDigest(input, "0x01"), /32-byte hex/);
 });
 
 test("LocalEIP712SignerService snapshots signer configuration at construction", async () => {

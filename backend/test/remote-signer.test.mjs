@@ -21,6 +21,7 @@ const config = {
   requestTimeoutMs: 1000,
   maxConnections: 8,
   atomicQuoteCommit: false,
+  authorizationWaitMs: 0,
   settlementAddress,
   trustedSignerAddress,
 };
@@ -215,6 +216,17 @@ test("RemoteSignerService probes the isolated signer readiness without requestin
   const atomic = new RemoteSignerService({ ...config, atomicQuoteCommit: true }, async () =>
     jsonResponse({ status: "ok", capabilities: ["atomic_quote_commit_v1"] }));
   await atomic.checkHealth();
+
+  const waiting = new RemoteSignerService({
+    ...config,
+    atomicQuoteCommit: true,
+    authorizationWaitMs: 10,
+  }, async () => jsonResponse({
+    status: "ok",
+    capabilities: ["atomic_quote_commit_v1", "durable_authorization_wait_v1"],
+  }));
+  assert.equal(waiting.waitsForDurableAuthorization, true);
+  await waiting.checkHealth();
 });
 
 test("RemoteSignerService default transport reuses a bounded keep-alive connection", async () => {

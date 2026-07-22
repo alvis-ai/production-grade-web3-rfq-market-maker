@@ -43,6 +43,14 @@ const quoteAtomicSigning = await readFile(
   "backend/src/modules/quote/quote-atomic-signing.ts",
   "utf8",
 );
+const quoteSpeculativeSigning = await readFile(
+  "backend/src/modules/quote/quote-speculative-signing.ts",
+  "utf8",
+);
+const quoteSignedResult = await readFile(
+  "backend/src/modules/quote/quote-signed-result.ts",
+  "utf8",
+);
 const quoteMarketSnapshot = await readFile(
   "backend/src/modules/quote/quote-market-snapshot.ts",
   "utf8",
@@ -88,6 +96,8 @@ const quoteServiceErrorsLines = quoteServiceErrors.split(/\r?\n/).length;
 const quoteRouteSelectionLines = quoteRouteSelection.split(/\r?\n/).length;
 const quoteServiceResultValidationLines = quoteServiceResultValidation.split(/\r?\n/).length;
 const quoteAtomicSigningLines = quoteAtomicSigning.split(/\r?\n/).length;
+const quoteSpeculativeSigningLines = quoteSpeculativeSigning.split(/\r?\n/).length;
+const quoteSignedResultLines = quoteSignedResult.split(/\r?\n/).length;
 const quoteMarketSnapshotLines = quoteMarketSnapshot.split(/\r?\n/).length;
 const quotePreAuthorizationFailureLines = quotePreAuthorizationFailure.split(/\r?\n/).length;
 const executionServiceLines = executionService.split(/\r?\n/).length;
@@ -123,6 +133,14 @@ assert.ok(
 assert.ok(
   quoteAtomicSigningLines <= 150,
   `quote-atomic-signing.ts must remain a bounded signer transaction boundary (got ${quoteAtomicSigningLines} lines)`,
+);
+assert.ok(
+  quoteSpeculativeSigningLines <= 125,
+  `quote-speculative-signing.ts must remain a bounded signer overlap boundary (got ${quoteSpeculativeSigningLines} lines)`,
+);
+assert.ok(
+  quoteSignedResultLines <= 75,
+  `quote-signed-result.ts must remain a bounded response mapper (got ${quoteSignedResultLines} lines)`,
 );
 assert.ok(
   quoteMarketSnapshotLines <= 60,
@@ -271,6 +289,8 @@ assertContains(processShutdown, [
 ], "bounded process shutdown runtime");
 assertContains(quoteService, [
   'from "./quote-atomic-signing.js"',
+  'from "./quote-speculative-signing.js"',
+  'from "./quote-signed-result.js"',
   'from "./quote-market-snapshot.js"',
   'from "./quote-preauthorization-failure.js"',
   'from "./quote-service-contract.js"',
@@ -280,6 +300,8 @@ assertContains(quoteService, [
   "async createQuote",
   "async requireSubmittableSignedQuote",
   "buildSignerCommitBase({",
+  "createSpeculativeQuoteSigning({",
+  "buildSignedQuoteResult({",
   "signQuoteWithAtomicRecovery({",
   "getUsableQuoteSnapshot(",
   "persistPreAuthorizationFailureBestEffort(this.deps",

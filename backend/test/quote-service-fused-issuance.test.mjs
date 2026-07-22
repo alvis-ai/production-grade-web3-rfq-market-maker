@@ -120,6 +120,246 @@ test("QuoteService atomically admits preparation and authorization after exposur
   assert.deepEqual(events, ["exposure", "admit", "sign", "finalize"]);
 });
 
+test("QuoteService jointly admits exposure and authorization before signing", async () => {
+  const events = [];
+  const service = new QuoteService({
+    ...deps(),
+    quoteExposureStore: {
+      async reserve() { assert.fail("joint admission owns exposure reservation"); },
+      async release() {},
+    },
+    quoteAdmissionStore: {
+      async admit(input) {
+        assert.equal(input.issuance.authorization.decision.status, "approved");
+        assert.equal(input.exposure.quoteId, input.issuance.authorization.quoteId);
+        events.push("joint_admit");
+        return {
+          exposure: { status: "reserved", notionalUsdE18: "1000000000000000000" },
+          riskDecision: {
+            riskDecisionId: `rd_${input.exposure.quoteId}`,
+            quoteId: input.exposure.quoteId,
+            decision: "approved",
+            policyVersion: input.issuance.authorization.decision.policyVersion,
+            createdAt: new Date().toISOString(),
+          },
+        };
+      },
+    },
+    quoteIssuanceStore: {
+      asynchronousProjection: true,
+      async admit() { assert.fail("joint admission already persisted authorization"); },
+      async prepare() { assert.fail("joint admission must skip preparation"); },
+      async authorize() { assert.fail("joint admission must skip authorization"); },
+      async finalize() { events.push("finalize"); },
+    },
+    signerService: {
+      async signQuote() {
+        assert.deepEqual(events, ["joint_admit"]);
+        events.push("sign");
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() { return true; },
+    },
+  });
+
+  assert.equal((await service.createQuote(request)).signature, fixedSignature());
+  assert.deepEqual(events, ["joint_admit", "sign", "finalize"]);
+});
+
+test("QuoteService overlaps an authorization-waiting atomic signer with joint admission", async () => {
+  const events = [];
+  let signerInput;
+  const service = new QuoteService({
+    ...deps(),
+    quoteExposureStore: {
+      async reserve() { assert.fail("joint admission owns exposure reservation"); },
+      async release() {},
+    },
+    quoteAdmissionStore: {
+      async admit(input, beforeCommit) {
+        beforeCommit();
+        assert.deepEqual(events, ["sign"]);
+        events.push("joint_admit");
+        return {
+          exposure: { status: "reserved", notionalUsdE18: "1000000000000000000" },
+          riskDecision: {
+            riskDecisionId: `rd_${input.exposure.quoteId}`,
+            quoteId: input.exposure.quoteId,
+            decision: "approved",
+            policyVersion: input.issuance.authorization.decision.policyVersion,
+            createdAt: new Date().toISOString(),
+          },
+        };
+      },
+    },
+    quoteIssuanceStore: atomicIssuanceStore({
+      asynchronousProjection: true,
+      async admit() { assert.fail("joint admission already persisted authorization"); },
+      async prepare() { assert.fail("joint admission must skip preparation"); },
+      async authorize() { assert.fail("joint admission must skip authorization"); },
+    }),
+    signerService: {
+      commitsQuoteFinalization: true,
+      waitsForDurableAuthorization: true,
+      async signQuote(input) {
+        events.push("sign");
+        signerInput = input;
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() { return true; },
+    },
+  });
+
+  assert.equal((await service.createQuote(request)).signature, fixedSignature());
+  assert.deepEqual(events, ["sign", "joint_admit"]);
+  assert.equal(signerInput.riskDecisionId, `rd_${signerInput.quoteId}`);
+  assert.equal(signerInput.commit.riskPolicyVersion, signerInput.riskPolicyVersion);
+});
+
+test("QuoteService recovers a speculative atomic signer when the admission reply is ambiguous", async () => {
+  let releaseCalls = 0;
+  const service = new QuoteService({
+    ...deps(),
+    quoteExposureStore: {
+      async reserve() { assert.fail("joint admission owns exposure reservation"); },
+      async release() { releaseCalls += 1; },
+    },
+    quoteAdmissionStore: {
+      async admit(_input, beforeCommit) {
+        beforeCommit();
+        throw new Error("admission response lost after commit");
+      },
+    },
+    quoteIssuanceStore: atomicIssuanceStore({ asynchronousProjection: true }),
+    signerService: {
+      commitsQuoteFinalization: true,
+      waitsForDurableAuthorization: true,
+      async signQuote() { return fixedSignature(); },
+      async verifyQuoteSignature() { return true; },
+    },
+  });
+
+  assert.equal((await service.createQuote(request)).signature, fixedSignature());
+  assert.equal(releaseCalls, 0);
+});
+
+test("QuoteService releases exposure only after speculative recovery proves no commit", async () => {
+  let releaseCalls = 0;
+  const service = new QuoteService({
+    ...deps(),
+    quoteExposureStore: {
+      async reserve() { assert.fail("joint admission owns exposure reservation"); },
+      async release() { releaseCalls += 1; },
+    },
+    quoteAdmissionStore: {
+      async admit(_input, beforeCommit) {
+        beforeCommit();
+        throw new Error("admission unavailable");
+      },
+    },
+    quoteIssuanceStore: atomicIssuanceStore({ asynchronousProjection: true }),
+    signerService: {
+      commitsQuoteFinalization: true,
+      waitsForDurableAuthorization: true,
+      async signQuote() { throw new Error("durable authorization never appeared"); },
+      async verifyQuoteSignature() { return false; },
+    },
+  });
+
+  await assert.rejects(service.createQuote(request), (error) => error?.code === "QUOTE_STORE_UNAVAILABLE");
+  assert.equal(releaseCalls, 1);
+});
+
+test("QuoteService audits a joint exposure rejection without calling the signer", async () => {
+  let signerCalls = 0;
+  let rejectedAdmissionCalls = 0;
+  const service = new QuoteService({
+    ...deps(),
+    quoteExposureStore: {
+      async reserve() { assert.fail("joint admission owns exposure reservation"); },
+      async release() {},
+    },
+    quoteAdmissionStore: {
+      async admit() {
+        return { exposure: { status: "rejected", reasonCode: "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED" } };
+      },
+    },
+    quoteIssuanceStore: {
+      async admit(input) {
+        rejectedAdmissionCalls += 1;
+        assert.equal(input.authorization.decision.status, "rejected");
+        return {
+          riskDecisionId: `rd_${input.authorization.quoteId}`,
+          quoteId: input.authorization.quoteId,
+          decision: "rejected",
+          reasonCode: input.authorization.decision.reasonCode,
+          policyVersion: input.authorization.decision.policyVersion,
+          createdAt: new Date().toISOString(),
+        };
+      },
+      async prepare() { assert.fail("joint admission must skip preparation"); },
+      async authorize() { assert.fail("joint rejection uses direct admission audit"); },
+      async finalize() { assert.fail("rejected quote cannot finalize"); },
+    },
+    signerService: {
+      async signQuote() { signerCalls += 1; return fixedSignature(); },
+      async verifyQuoteSignature() { return true; },
+    },
+  });
+
+  await assert.rejects(
+    service.createQuote(request),
+    (error) => error?.code === "RISK_REJECTED" &&
+      error.internalReasonCode === "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED",
+  );
+  assert.equal(rejectedAdmissionCalls, 1);
+  assert.equal(signerCalls, 0);
+});
+
+test("QuoteService releases a malformed reserved joint result and fails closed", async () => {
+  let releaseCalls = 0;
+  let signerCalls = 0;
+  const service = new QuoteService({
+    ...deps(),
+    quoteExposureStore: {
+      async reserve() { assert.fail("joint admission owns exposure reservation"); },
+      async release() { releaseCalls += 1; },
+    },
+    quoteAdmissionStore: {
+      async admit() {
+        return { exposure: { status: "reserved", notionalUsdE18: "1000000000000000000" } };
+      },
+    },
+    quoteIssuanceStore: {
+      async admit(input) {
+        assert.equal(input.authorization.decision.reasonCode, "RISK_ENGINE_UNAVAILABLE");
+        return {
+          riskDecisionId: `rd_${input.authorization.quoteId}`,
+          quoteId: input.authorization.quoteId,
+          decision: "rejected",
+          reasonCode: "RISK_ENGINE_UNAVAILABLE",
+          policyVersion: input.authorization.decision.policyVersion,
+          createdAt: new Date().toISOString(),
+        };
+      },
+      async prepare() {},
+      async authorize() { assert.fail("malformed joint result uses direct rejection admission"); },
+      async finalize() { assert.fail("malformed joint result cannot finalize"); },
+    },
+    signerService: {
+      async signQuote() { signerCalls += 1; return fixedSignature(); },
+      async verifyQuoteSignature() { return true; },
+    },
+  });
+
+  await assert.rejects(
+    service.createQuote(request),
+    (error) => error?.code === "RISK_REJECTED" && error.internalReasonCode === "RISK_ENGINE_UNAVAILABLE",
+  );
+  assert.equal(releaseCalls, 1);
+  assert.equal(signerCalls, 0);
+});
+
 test("QuoteService releases exposure and blocks signing when atomic admission fails", async () => {
   let releaseCalls = 0;
   let signerCalls = 0;

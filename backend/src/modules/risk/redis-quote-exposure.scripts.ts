@@ -1,4 +1,4 @@
-const decimalHelpers = String.raw`
+export const quoteExposureLuaHelpers = String.raw`
 local function unsigned(value)
   if type(value) ~= "string" or string.match(value, "^[0-9]+$") == nil then
     error("invalid unsigned decimal")
@@ -170,7 +170,7 @@ if acquired then return 1 end
 return 0
 `;
 
-export const readVersionedQuoteExposureStateScript = `${decimalHelpers}${String.raw`
+export const readVersionedQuoteExposureStateScript = `${quoteExposureLuaHelpers}${String.raw`
 local redis_time = redis.call("TIME")
 local remaining_expired = clean_expired(tonumber(redis_time[1]), tonumber(ARGV[1]))
 if remaining_expired > 0 then return {-1, tostring(remaining_expired)} end
@@ -199,43 +199,58 @@ export const getQuoteExposureReservationScript = String.raw`
 return redis.call("HGET", KEYS[1], ARGV[1]) or ""
 `;
 
-export const commitQuoteExposureReservationScript = `${decimalHelpers}${String.raw`
+export const quoteExposureReservationLuaFunctions = String.raw`
+local function prepare_quote_exposure_reservation()
 local redis_time = redis.call("TIME")
 local remaining_expired = clean_expired(tonumber(redis_time[1]), tonumber(ARGV[10]))
 local backlog = redis.call("XLEN", KEYS[7])
-if remaining_expired > 0 then return {4, "version_conflict", backlog} end
+if remaining_expired > 0 then return {result = {4, "version_conflict", backlog}} end
 local existing = redis.call("HGET", KEYS[1], ARGV[2])
-if existing then return {2, existing, backlog} end
+if existing then return {result = {2, existing, backlog}} end
 local record = cjson.decode(ARGV[3])
 local current_version = redis.call("HGET", KEYS[9], tostring(record.chainId)) or "0"
-if current_version ~= ARGV[1] then return {4, "version_conflict", backlog} end
+if current_version ~= ARGV[1] then return {result = {4, "version_conflict", backlog}} end
 local now_seconds = tonumber(redis_time[1])
 if tonumber(ARGV[4]) <= now_seconds or tonumber(ARGV[5]) <= now_seconds then
-  return {0, "expired", backlog}
+  return {result = {0, "expired", backlog}}
 end
-if backlog >= tonumber(ARGV[9]) then return {0, "backlog_full", backlog} end
+if backlog >= tonumber(ARGV[9]) then return {result = {0, "backlog_full", backlog}} end
 
 local user_key = user_field(record)
 local pair_key = pair_field(record)
 local output_key = output_field(record)
 local next_user = add_unsigned(redis.call("HGET", KEYS[3], user_key) or "0", record.notionalUsdE18)
 if compare_unsigned(next_user, ARGV[6]) > 0 then
-  return {3, "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED", backlog}
+  return {result = {3, "USER_OPEN_NOTIONAL_LIMIT_EXCEEDED", backlog}}
 end
 local next_pair = add_unsigned(redis.call("HGET", KEYS[4], pair_key) or "0", record.notionalUsdE18)
 if compare_unsigned(next_pair, ARGV[7]) > 0 then
-  return {3, "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED", backlog}
+  return {result = {3, "PAIR_OPEN_NOTIONAL_LIMIT_EXCEEDED", backlog}}
 end
 local next_output = add_unsigned(redis.call("HGET", KEYS[5], output_key) or "0", record.amountOut)
 if ARGV[8] ~= "" and compare_unsigned(next_output, ARGV[8]) > 0 then
-  return {3, "TREASURY_LIQUIDITY_INSUFFICIENT", backlog}
+  return {result = {3, "TREASURY_LIQUIDITY_INSUFFICIENT", backlog}}
 end
 
+return {
+  record = record,
+  backlog = backlog,
+  user_key = user_key,
+  pair_key = pair_key,
+  output_key = output_key,
+  next_user = next_user,
+  next_pair = next_pair,
+  next_output = next_output
+}
+end
+
+local function apply_quote_exposure_reservation(prepared)
+local record = prepared.record
 redis.call("HSET", KEYS[1], record.quoteId, ARGV[3])
 redis.call("ZADD", KEYS[2], ARGV[5], record.quoteId)
-redis.call("HSET", KEYS[3], user_key, next_user)
-redis.call("HSET", KEYS[4], pair_key, next_pair)
-redis.call("HSET", KEYS[5], output_key, next_output)
+redis.call("HSET", KEYS[3], prepared.user_key, prepared.next_user)
+redis.call("HSET", KEYS[4], prepared.pair_key, prepared.next_pair)
+redis.call("HSET", KEYS[5], prepared.output_key, prepared.next_output)
 set_signed_total(KEYS[6], token_field(record, record.tokenIn), record.amountIn)
 set_signed_total(KEYS[6], token_field(record, record.tokenOut), "-" .. record.amountOut)
 redis.call("HINCRBY", KEYS[9], tostring(record.chainId), 1)
@@ -245,10 +260,17 @@ redis.call(
   "operation", "reserve",
   "payload", ARGV[3]
 )
-return {1, ARGV[3], backlog + 1}
+return {1, ARGV[3], prepared.backlog + 1}
+end
+`;
+
+export const commitQuoteExposureReservationScript = `${quoteExposureLuaHelpers}${quoteExposureReservationLuaFunctions}${String.raw`
+local prepared = prepare_quote_exposure_reservation()
+if prepared.result then return prepared.result end
+return apply_quote_exposure_reservation(prepared)
 `}`;
 
-export const releaseQuoteExposureReservationScript = `${decimalHelpers}${String.raw`
+export const releaseQuoteExposureReservationScript = `${quoteExposureLuaHelpers}${String.raw`
 local function finish(status, value, backlog)
   if redis.call("GET", KEYS[8]) == ARGV[1] then redis.call("DEL", KEYS[8]) end
   return {status, value, backlog}

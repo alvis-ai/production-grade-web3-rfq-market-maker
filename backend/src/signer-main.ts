@@ -58,6 +58,7 @@ export function readSignerProcessConfig(
     delete signerEnv.RFQ_SIGNER_SERVICE_MAX_CONNECTIONS;
     delete signerEnv.RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP;
     delete signerEnv.RFQ_SIGNER_ATOMIC_QUOTE_COMMIT;
+    delete signerEnv.RFQ_SIGNER_AUTHORIZATION_WAIT_MS;
   }
   const signer = readSignerRuntimeConfig(signerEnv);
   if (signer.mode === "remote" || signer.mode === "external") {
@@ -163,7 +164,14 @@ function readSignerQuoteCommitConfig(
   env: Record<string, string | undefined> | undefined,
   audit: SignerAuditProcessConfig,
 ): SignerProcessConfig["quoteCommit"] {
-  if (!readBoolean(env, "RFQ_SIGNER_ATOMIC_QUOTE_COMMIT", false)) return undefined;
+  const atomicQuoteCommit = readBoolean(env, "RFQ_SIGNER_ATOMIC_QUOTE_COMMIT", false);
+  const authorizationWaitMs = readInteger(env, "RFQ_SIGNER_AUTHORIZATION_WAIT_MS", 0, 0, 100);
+  if (!atomicQuoteCommit) {
+    if (authorizationWaitMs > 0) {
+      throw new Error("RFQ_SIGNER_AUTHORIZATION_WAIT_MS requires RFQ_SIGNER_ATOMIC_QUOTE_COMMIT=true");
+    }
+    return undefined;
+  }
   if (audit.backend !== "redis-stream") {
     throw new Error("RFQ_SIGNER_ATOMIC_QUOTE_COMMIT requires RFQ_SIGNER_AUDIT_BACKEND=redis-stream");
   }
@@ -189,7 +197,7 @@ function readSignerQuoteCommitConfig(
     throw new Error("RFQ_QUOTE_ISSUANCE_LEDGER_EPOCH is required for atomic signer commit");
   }
   const quoteCommitConfig = normalizeRedisSignerQuoteCommitConfig({
-    quoteKeyPrefix: readOwnEnvValue(env, "RFQ_QUOTE_ISSUANCE_KEY_PREFIX") ?? "rfq:{quote-issuance}:ledger",
+    quoteKeyPrefix: readOwnEnvValue(env, "RFQ_QUOTE_ISSUANCE_KEY_PREFIX") ?? "rfq:{quote-state}:issuance",
     ledgerEpoch,
     issuanceMaxBacklog: readInteger(
       env,
@@ -215,6 +223,7 @@ function readSignerQuoteCommitConfig(
       audit.replicaAckTimeoutMs,
     ),
     requireAof: true,
+    authorizationWaitMs,
   });
   return {
     redisUrl: audit.redisUrl,

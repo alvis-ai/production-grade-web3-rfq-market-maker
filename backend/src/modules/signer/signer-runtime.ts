@@ -15,6 +15,7 @@ const defaultLocalSettlementAddress = "0x000000000000000000000000000000000000000
 const defaultAwsKmsMaxAttempts = 3;
 const defaultRemoteSignerRequestTimeoutMs = 5_000;
 const defaultRemoteSignerMaxConnections = 32;
+const defaultAuthorizationWaitMs = 0;
 
 interface SignerIdentity {
   settlementAddress: `0x${string}`;
@@ -46,6 +47,7 @@ export interface RemoteSignerRuntimeConfig extends SignerIdentity {
   requestTimeoutMs: number;
   maxConnections: number;
   atomicQuoteCommit: boolean;
+  authorizationWaitMs: number;
 }
 
 export type SignerRuntimeConfig =
@@ -88,6 +90,7 @@ export function readSignerRuntimeConfig(
   const remoteMaxConnectionsValue = readOwnEnvValue(env, "RFQ_SIGNER_SERVICE_MAX_CONNECTIONS");
   const remoteAllowInsecureHttpValue = readOwnEnvValue(env, "RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP");
   const remoteAtomicQuoteCommitValue = readOwnEnvValue(env, "RFQ_SIGNER_ATOMIC_QUOTE_COMMIT");
+  const authorizationWaitMsValue = readOwnEnvValue(env, "RFQ_SIGNER_AUTHORIZATION_WAIT_MS");
 
   if (mode === "local") {
     if (!localEnvironment) {
@@ -101,6 +104,7 @@ export function readSignerRuntimeConfig(
       remoteMaxConnectionsValue,
       remoteAllowInsecureHttpValue,
       remoteAtomicQuoteCommitValue,
+      authorizationWaitMsValue,
     );
     const privateKey = parsePrivateKey(privateKeyValue ?? defaultLocalPrivateKey, "RFQ_SIGNER_PRIVATE_KEY");
     const settlementAddress = parseAddress(
@@ -154,6 +158,7 @@ export function readSignerRuntimeConfig(
       remoteMaxConnectionsValue,
       remoteAllowInsecureHttpValue,
       remoteAtomicQuoteCommitValue,
+      authorizationWaitMsValue,
     );
     return {
       mode,
@@ -170,6 +175,19 @@ export function readSignerRuntimeConfig(
       "RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP",
       localEnvironment,
     );
+    const atomicQuoteCommit = parseBoolean(
+      remoteAtomicQuoteCommitValue,
+      "RFQ_SIGNER_ATOMIC_QUOTE_COMMIT",
+    );
+    const authorizationWaitMs = parseNonNegativeInteger(
+      authorizationWaitMsValue,
+      defaultAuthorizationWaitMs,
+      "RFQ_SIGNER_AUTHORIZATION_WAIT_MS",
+      100,
+    );
+    if (authorizationWaitMs > 0 && !atomicQuoteCommit) {
+      throw new Error("RFQ_SIGNER_AUTHORIZATION_WAIT_MS requires RFQ_SIGNER_ATOMIC_QUOTE_COMMIT=true");
+    }
     return {
       mode,
       settlementAddress,
@@ -194,10 +212,8 @@ export function readSignerRuntimeConfig(
         "RFQ_SIGNER_SERVICE_MAX_CONNECTIONS",
         256,
       ),
-      atomicQuoteCommit: parseBoolean(
-        remoteAtomicQuoteCommitValue,
-        "RFQ_SIGNER_ATOMIC_QUOTE_COMMIT",
-      ),
+      atomicQuoteCommit,
+      authorizationWaitMs,
     };
   }
 
@@ -208,6 +224,7 @@ export function readSignerRuntimeConfig(
     remoteMaxConnectionsValue,
     remoteAllowInsecureHttpValue,
     remoteAtomicQuoteCommitValue,
+    authorizationWaitMsValue,
   );
 
   const awsConfig = {
@@ -247,6 +264,7 @@ export function createSignerRuntime(config: SignerRuntimeConfig): SignerRuntime 
       requestTimeoutMs: config.requestTimeoutMs,
       maxConnections: config.maxConnections,
       atomicQuoteCommit: config.atomicQuoteCommit,
+      authorizationWaitMs: config.authorizationWaitMs,
       settlementAddress: config.settlementAddress,
       trustedSignerAddress: config.trustedSignerAddress,
     });
@@ -357,6 +375,23 @@ function parsePositiveInteger(
   return parsed;
 }
 
+function parseNonNegativeInteger(
+  value: string | undefined,
+  defaultValue: number,
+  name: string,
+  max: number,
+): number {
+  if (value === undefined) return defaultValue;
+  if (!/^(0|[1-9][0-9]*)$/.test(value)) {
+    throw new Error(`${name} must be a base-10 integer between 0 and ${max}`);
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed > max) {
+    throw new Error(`${name} must be a base-10 integer between 0 and ${max}`);
+  }
+  return parsed;
+}
+
 function parseRemoteSignerUrl(value: string, allowInsecureHttp: boolean): string {
   let url: URL;
   try {
@@ -396,9 +431,11 @@ function rejectConfiguredRemoteFields(
   maxConnections: string | undefined,
   allowInsecureHttp: string | undefined,
   atomicQuoteCommit: string | undefined,
+  authorizationWaitMs: string | undefined,
 ): void {
   if (baseUrl !== undefined || authToken !== undefined || requestTimeoutMs !== undefined ||
-      maxConnections !== undefined || allowInsecureHttp !== undefined || atomicQuoteCommit !== undefined) {
+      maxConnections !== undefined || allowInsecureHttp !== undefined || atomicQuoteCommit !== undefined ||
+      authorizationWaitMs !== undefined) {
     throw new Error("RFQ_SIGNER_SERVICE_* fields are only allowed when RFQ_SIGNER_MODE=remote");
   }
 }

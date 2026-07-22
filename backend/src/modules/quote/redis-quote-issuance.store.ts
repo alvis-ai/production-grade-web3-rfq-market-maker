@@ -8,6 +8,7 @@ import {
   assertRiskDecisionRecord,
   assertRiskDecisionInput,
   type RiskDecisionRecord,
+  type SaveRiskDecisionInput,
 } from "../risk/risk-decision.repository.js";
 import {
   assertQuoteIdempotencyFailure,
@@ -72,6 +73,19 @@ export type {
   RedisQuoteIssuanceConfig,
   RedisQuoteIssuanceObserver,
 } from "./redis-quote-issuance.protocol.js";
+
+export interface PreparedRedisQuoteIssuanceAdmission {
+  readonly keys: readonly [string, string, string];
+  readonly arguments: readonly (string | number)[];
+  readonly riskInput: SaveRiskDecisionInput;
+}
+
+export interface RedisQuoteIssuanceAtomicAdmissionConfig {
+  readonly keyPrefix: string;
+  readonly minReplicaAcks: number;
+  readonly replicaAckTimeoutMs: number;
+  readonly requireAof: boolean;
+}
 
 export function createRedisQuoteIssuanceClient(
   redisUrl: string,
@@ -264,6 +278,19 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
   }
 
   async admit(input: AdmitQuoteIssuanceInput): Promise<RiskDecisionRecord> {
+    const prepared = await this.prepareAtomicAdmission(input);
+    const result = await admitQuoteIssuanceCommand.execute(
+      this.client,
+      prepared.keys.length,
+      ...prepared.keys,
+      ...prepared.arguments,
+    );
+    return this.acceptAtomicAdmission(prepared, result);
+  }
+
+  async prepareAtomicAdmission(
+    input: AdmitQuoteIssuanceInput,
+  ): Promise<PreparedRedisQuoteIssuanceAdmission> {
     assertQuoteIssuancePreparation(input.preparation);
     const riskInput = {
       quoteId: input.authorization.quoteId,
@@ -335,31 +362,46 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     const idempotencyKey = idempotency
       ? this.idempotencyKey(idempotency.principalId, idempotency.key)
       : this.key(`idempotency:none:${record.quoteId}`);
-    const result = await admitQuoteIssuanceCommand.execute(
-      this.client,
-      3,
-      this.quoteKey(record.quoteId),
-      idempotencyKey,
-      this.key("events"),
-      record.quoteId,
-      record.principalId,
-      preparationHash,
-      authorizationHash,
-      JSON.stringify(record),
-      now,
-      this.config.maxBacklog,
-      idempotency ? "1" : "0",
-      idempotency?.requestHash ?? "",
-      idempotency?.ownerToken ?? "",
-      this.config.idempotencyTtlMs,
-      this.config.hotStateTtlMs,
-    );
+    return {
+      keys: [this.quoteKey(record.quoteId), idempotencyKey, this.key("events")],
+      arguments: [
+        record.quoteId,
+        record.principalId,
+        preparationHash,
+        authorizationHash,
+        JSON.stringify(record),
+        now,
+        this.config.maxBacklog,
+        idempotency ? "1" : "0",
+        idempotency?.requestHash ?? "",
+        idempotency?.ownerToken ?? "",
+        this.config.idempotencyTtlMs,
+        this.config.hotStateTtlMs,
+      ],
+      riskInput,
+    };
+  }
+
+  async acceptAtomicAdmission(
+    prepared: PreparedRedisQuoteIssuanceAdmission,
+    result: unknown,
+    requireReplicaAcknowledgements = true,
+  ): Promise<RiskDecisionRecord> {
     const mutation = parseMutationResult(result, "issuance admission");
     if (mutation.code !== 1 && mutation.code !== 2) throw mutationError("issuance admission", mutation);
-    const stored = parseRiskDecisionRecord(mutation.payload, riskInput);
-    await this.requireReplicaAcknowledgements();
+    const stored = parseRiskDecisionRecord(mutation.payload, prepared.riskInput);
+    if (requireReplicaAcknowledgements) await this.requireReplicaAcknowledgements();
     this.notifyMutation("authorized", mutation);
     return stored;
+  }
+
+  atomicAdmissionConfig(): RedisQuoteIssuanceAtomicAdmissionConfig {
+    return {
+      keyPrefix: this.config.keyPrefix,
+      minReplicaAcks: this.config.minReplicaAcks,
+      replicaAckTimeoutMs: this.config.replicaAckTimeoutMs,
+      requireAof: this.config.requireAof,
+    };
   }
 
   async prepare(input: PrepareQuoteIssuanceInput): Promise<void> {
@@ -697,7 +739,7 @@ function parseMutationResult(value: unknown, operation: string): MutationResult 
 
 function parseRiskDecisionRecord(
   payload: string,
-  input: AuthorizeQuoteIssuanceInput,
+  input: SaveRiskDecisionInput,
 ): RiskDecisionRecord {
   let value: unknown;
   try {

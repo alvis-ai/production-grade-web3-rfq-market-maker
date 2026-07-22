@@ -75,6 +75,32 @@ export type {
   RedisQuoteExposureStoreConfig,
 } from "./redis-quote-exposure.protocol.js";
 
+export interface RedisQuoteExposureCommitExtension<T> {
+  readonly command: RedisLuaScript;
+  readonly keys: readonly string[];
+  readonly arguments: readonly (string | number)[];
+  parseResult(result: unknown):
+    | { exposureResult: unknown }
+    | { exposureResult: unknown; extension: T };
+  beforeExecute?: () => void;
+}
+
+export type RedisQuoteExposureExtendedReservationResult<T> =
+  | {
+      exposure: Extract<QuoteExposureReservationResult, { status: "reserved" }>;
+      extension: T;
+    }
+  | {
+      exposure: Extract<QuoteExposureReservationResult, { status: "rejected" }>;
+    };
+
+export interface RedisQuoteExposureAtomicAdmissionConfig {
+  readonly keyPrefix: string;
+  readonly minReplicaAcks: number;
+  readonly replicaAckTimeoutMs: number;
+  readonly requireAof: boolean;
+}
+
 export function createRedisQuoteExposureClient(
   redisUrl: string,
   policy: RedisUrlPolicy = {},
@@ -179,17 +205,48 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
   }
 
   async reserve(input: ReserveQuoteExposureInput): Promise<QuoteExposureReservationResult> {
+    const result = await this.reserveInternal(input);
+    return result.exposure;
+  }
+
+  async reserveWithCommit<T>(
+    input: ReserveQuoteExposureInput,
+    extension: RedisQuoteExposureCommitExtension<T>,
+  ): Promise<RedisQuoteExposureExtendedReservationResult<T>> {
+    const result = await this.reserveInternal(input, extension);
+    if (result.exposure.status === "rejected") return { exposure: result.exposure };
+    if (result.extension === undefined) {
+      this.notifyFailure("state_invalid");
+      throw new Error("Redis quote exposure extended commit returned no extension result");
+    }
+    return { exposure: result.exposure, extension: result.extension };
+  }
+
+  atomicAdmissionConfig(): RedisQuoteExposureAtomicAdmissionConfig {
+    return {
+      keyPrefix: this.config.keyPrefix,
+      minReplicaAcks: this.config.minReplicaAcks,
+      replicaAckTimeoutMs: this.config.replicaAckTimeoutMs,
+      requireAof: this.config.requireAof,
+    };
+  }
+
+  private async reserveInternal<T = never>(
+    input: ReserveQuoteExposureInput,
+    extension?: RedisQuoteExposureCommitExtension<T>,
+  ): Promise<{ exposure: QuoteExposureReservationResult; extension?: T }> {
     if (!this.initialized) await this.initialize();
     const reservation = normalizeQuoteExposureReservation(input, this.tokenRegistry, this.nowSeconds());
     return this.serializeChainMutation(
       reservation.chainId,
-      () => this.reserveNormalized(reservation),
+      () => this.reserveNormalized(reservation, extension),
     );
   }
 
-  private async reserveNormalized(
+  private async reserveNormalized<T>(
     reservation: NormalizedQuoteExposureReservation,
-  ): Promise<QuoteExposureReservationResult> {
+    extension?: RedisQuoteExposureCommitExtension<T>,
+  ): Promise<{ exposure: QuoteExposureReservationResult; extension?: T }> {
     const assets = this.portfolioVarEvaluator?.valuationAssets(reservation.chainId) ?? [];
     const startedAt = performance.now();
     const retryDeadline = startedAt + this.config.lockAcquireTimeoutMs;
@@ -202,37 +259,21 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
         this.cacheHotState(state, reservation.chainId);
         stateWasCached = false;
       }
+      let stored: RedisQuoteExposureRecord;
       if (state.existing) {
         assertSameReservation(storedRedisQuoteExposureToNormalized(state.existing), reservation);
-        await this.requireReplicaAcknowledgements();
-        if (conflicted) this.notifyLockWait((performance.now() - startedAt) / 1_000);
-        this.notifyMutation({ operation: "reserve", duplicate: true, backlog: state.backlog });
-        return storedRedisQuoteExposureResult(state.existing);
+        stored = state.existing;
+      } else {
+        const evaluated = await this.evaluateReservation(reservation, state);
+        if ("rejection" in evaluated) {
+          if (!stateWasCached) return { exposure: evaluated.rejection };
+          state = undefined;
+          continue;
+        }
+        stored = evaluated.record;
       }
-
-      const evaluated = await this.evaluateReservation(reservation, state);
-      if ("rejection" in evaluated) {
-        if (!stateWasCached) return evaluated.rejection;
-        state = undefined;
-        continue;
-      }
-      const stored = evaluated.record;
-      const result = await commitQuoteExposureReservationCommand.execute(
-        this.client,
-        9,
-        ...this.ledgerKeys(reservation.chainId),
-        state.version,
-        reservation.quoteId,
-        JSON.stringify(stored),
-        reservation.deadline,
-        stored.ledgerExpiresAt,
-        this.maxUserOpenNotionalUsdE18.toString(),
-        this.maxPairOpenNotionalUsdE18.toString(),
-        reservation.treasuryLiquidity?.availableBalance.toString() ?? "",
-        this.config.maxBacklog,
-        this.config.cleanupLimit,
-      );
-      const committed = parseRedisQuoteExposureMutation(result);
+      const execution = await this.executeReservationCommit(reservation, stored, state, extension);
+      const committed = parseRedisQuoteExposureMutation(execution.exposureResult);
       if (committed.status === "conflict") {
         conflicted = true;
         this.notifyVersionConflict();
@@ -250,7 +291,9 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
           this.notifyFailure("state_invalid");
           throw new Error("Redis quote exposure commit returned an invalid rejection reason");
         }
-        return { status: "rejected", reasonCode: committed.reason as QuoteExposureRejectReason };
+        return {
+          exposure: { status: "rejected", reasonCode: committed.reason as QuoteExposureRejectReason },
+        };
       }
       if (committed.status === "error") {
         this.notifyFailure(committed.reason === "backlog_full" ? "backlog_full" : "state_invalid");
@@ -273,8 +316,52 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
       if (accepted.portfolioDelta?.softLimitBreached) {
         notifyPortfolioDeltaSoftBreach(this.observer);
       }
-      return storedRedisQuoteExposureResult(accepted);
+      return {
+        exposure: storedRedisQuoteExposureResult(accepted),
+        ...("extension" in execution ? { extension: execution.extension } : {}),
+      };
     }
+  }
+
+  private async executeReservationCommit<T>(
+    reservation: NormalizedQuoteExposureReservation,
+    stored: RedisQuoteExposureRecord,
+    state: ReadRedisQuoteExposureState,
+    extension?: RedisQuoteExposureCommitExtension<T>,
+  ): Promise<{ exposureResult: unknown; extension?: T }> {
+    const keys = this.ledgerKeys(reservation.chainId);
+    const args: Array<string | number> = [
+      state.version,
+      reservation.quoteId,
+      JSON.stringify(stored),
+      reservation.deadline,
+      stored.ledgerExpiresAt,
+      this.maxUserOpenNotionalUsdE18.toString(),
+      this.maxPairOpenNotionalUsdE18.toString(),
+      reservation.treasuryLiquidity?.availableBalance.toString() ?? "",
+      this.config.maxBacklog,
+      this.config.cleanupLimit,
+    ];
+    if (!extension) {
+      return {
+        exposureResult: await commitQuoteExposureReservationCommand.execute(
+          this.client,
+          keys.length,
+          ...keys,
+          ...args,
+        ),
+      };
+    }
+    extension.beforeExecute?.();
+    const result = await extension.command.execute(
+      this.client,
+      keys.length + extension.keys.length,
+      ...keys,
+      ...extension.keys,
+      ...args,
+      ...extension.arguments,
+    );
+    return extension.parseResult(result);
   }
 
   async release(quoteId: string): Promise<void> {

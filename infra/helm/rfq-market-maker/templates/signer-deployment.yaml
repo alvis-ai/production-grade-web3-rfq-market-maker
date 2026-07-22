@@ -78,6 +78,8 @@ spec:
               value: {{ .Values.signerService.auditStreamEpoch | quote }}
             - name: RFQ_SIGNER_ATOMIC_QUOTE_COMMIT
               value: {{ .Values.signerService.atomicQuoteCommit | quote }}
+            - name: RFQ_SIGNER_AUTHORIZATION_WAIT_MS
+              value: {{ .Values.env.RFQ_SIGNER_AUTHORIZATION_WAIT_MS | quote }}
             - name: RFQ_QUOTE_ISSUANCE_LEDGER_EPOCH
               value: {{ .Values.env.RFQ_QUOTE_ISSUANCE_LEDGER_EPOCH | quote }}
             - name: RFQ_QUOTE_ISSUANCE_REQUIRE_AOF

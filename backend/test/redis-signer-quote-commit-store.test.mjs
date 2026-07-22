@@ -50,6 +50,36 @@ test("RedisSignerQuoteCommitStore verifies the persisted authorization before si
   await assert.rejects(store.assertAuthorized(signInput()), /preparation identity|does not match/);
 });
 
+test("RedisSignerQuoteCommitStore waits only for a missing durable authorization", async () => {
+  const delayedClient = clientFixture();
+  delayedClient.quoteState = undefined;
+  const delayedStore = buildStore(delayedClient, undefined, { authorizationWaitMs: 20 });
+  const publish = setTimeout(() => {
+    delayedClient.quoteState = JSON.stringify(authorizedQuoteState());
+  }, 3);
+  await delayedStore.assertAuthorized(signInput());
+  clearTimeout(publish);
+  assert.equal(delayedClient.getKeys.length >= 2, true);
+  assert.equal(delayedStore.waitsForDurableAuthorization, true);
+
+  const missingClient = clientFixture();
+  missingClient.quoteState = undefined;
+  await assert.rejects(
+    buildStore(missingClient, undefined, { authorizationWaitMs: 3 }).assertAuthorized(signInput()),
+    /authorization is missing/,
+  );
+  assert.equal(missingClient.getKeys.length >= 2, true);
+
+  const conflictingClient = clientFixture({
+    quoteState: { ...authorizedQuoteState(), principalId: "principal_other" },
+  });
+  await assert.rejects(
+    buildStore(conflictingClient, undefined, { authorizationWaitMs: 20 }).assertAuthorized(signInput()),
+    /preparation identity|does not match/,
+  );
+  assert.equal(conflictingClient.getKeys.length, 1);
+});
+
 test("signing authorization hash is field-order independent and binds idempotency ownership", () => {
   const reservation = {
     principalId,
@@ -209,6 +239,7 @@ function buildStore(client, observer = undefined, overrides = {}) {
     minReplicaAcks: 0,
     replicaAckTimeoutMs: 10,
     requireAof: true,
+    authorizationWaitMs: 0,
     ...overrides,
   }, observer, () => nowMs);
 }

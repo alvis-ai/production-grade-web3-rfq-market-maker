@@ -50,6 +50,8 @@ export interface QuoteIssuanceRuntimeConfig {
 export interface GatewayQuoteIssuanceRuntime {
   quoteIssuanceStore: QuoteIssuanceStore;
   quoteIdempotencyStore: QuoteIdempotencyStore;
+  redisStore: RedisQuoteIssuanceStore;
+  redisUrl: string;
   asynchronousProjection: true;
   awaitPreparedQuoteProjection(quoteId: string): Promise<void>;
   start(): Promise<void>;
@@ -262,6 +264,8 @@ function createRedisQuoteIssuanceRuntime(
   return {
     quoteIssuanceStore: store,
     quoteIdempotencyStore: store,
+    redisStore: store,
+    redisUrl: config.redisUrl,
     asynchronousProjection: true,
     awaitPreparedQuoteProjection(quoteId) {
       return store.awaitQuoteProjection(quoteId, "prepared");
@@ -317,7 +321,7 @@ function readSafeIdentifier(
 }
 
 function readKeyPrefix(env: Record<string, string | undefined>): string {
-  const value = readOwnEnvValue(env, "RFQ_QUOTE_ISSUANCE_KEY_PREFIX") ?? "rfq:{quote-issuance}:ledger";
+  const value = readOwnEnvValue(env, "RFQ_QUOTE_ISSUANCE_KEY_PREFIX") ?? "rfq:{quote-state}:issuance";
   if (!/^rfq:\{[a-z0-9_-]{1,32}\}:[a-z0-9:_-]{1,48}$/.test(value)) {
     throw new Error("RFQ_QUOTE_ISSUANCE_KEY_PREFIX must use a bounded rfq:{hash-tag}: key");
   }

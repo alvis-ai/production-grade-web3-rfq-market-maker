@@ -7,7 +7,7 @@ if (process.env.RFQ_QUOTE_EXPOSURE_BOOTSTRAP_CONFIRM !== confirmation) {
 }
 
 const redisUrl = required("RFQ_QUOTE_EXPOSURE_REDIS_URL");
-const keyPrefix = process.env.RFQ_QUOTE_EXPOSURE_KEY_PREFIX ?? "rfq:{quote-exposure}:ledger";
+const keyPrefix = process.env.RFQ_QUOTE_EXPOSURE_KEY_PREFIX ?? "rfq:{quote-state}:exposure";
 const ledgerEpoch = required("RFQ_QUOTE_EXPOSURE_LEDGER_EPOCH");
 if (!/^rfq:\{[a-z0-9_-]{1,32}\}:[a-z0-9:_-]{1,48}$/.test(keyPrefix)) {
   throw new Error("RFQ_QUOTE_EXPOSURE_KEY_PREFIX must use a bounded rfq:{hash-tag}: key");

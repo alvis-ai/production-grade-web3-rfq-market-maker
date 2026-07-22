@@ -1106,7 +1106,7 @@ assertContains(helmValues, [
   "auditDatabaseUrlKey: RFQ_SIGNER_AUDIT_DATABASE_URL",
   "auditRedisUrlKey: RFQ_SIGNER_AUDIT_REDIS_URL",
   "auditMinReplicaAcks: 1",
-  "auditStreamKey: rfq:{quote-issuance}:signer-audit-events:v1",
+  "auditStreamKey: rfq:{quote-state}:signer-audit-events:v1",
   "auditStreamEpoch: production_atomic_v1",
   "atomicQuoteCommit: true",
   "databaseCaCertKey: database-ca.crt",

@@ -15,6 +15,7 @@ export const quoteLatencyStages = [
   "treasury_liquidity",
   "indexer_guard",
   "exposure_reservation",
+  "quote_admission",
   "risk_persistence",
   "quote_preparation_persistence",
   "authorization_persistence",
@@ -73,6 +74,9 @@ export function observeQuoteServiceDependencies(
         authorize: "authorization_persistence",
         finalize: "issuance_persistence",
       }, observer),
+    }),
+    ...(deps.quoteAdmissionStore === undefined ? {} : {
+      quoteAdmissionStore: observeMethods(deps.quoteAdmissionStore, { admit: "quote_admission" }, observer),
     }),
     ...(deps.quoteExposureStore === undefined ? {} : {
       quoteExposureStore: observeMethods(deps.quoteExposureStore, { reserve: "exposure_reservation" }, observer),

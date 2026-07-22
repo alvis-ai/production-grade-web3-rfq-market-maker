@@ -72,6 +72,7 @@ assertContains(workflows.backend, [
   "RFQ_QUOTE_EXPOSURE_REDIS_INTEGRATION_CONFIRM",
   "RFQ_QUOTE_EXPOSURE_LEDGER_INTEGRATION_CONFIRM",
   "run: make quote-exposure-redis-integration-check quote-exposure-ledger-integration-check",
+  "run: make quote-issuance-integration-check quote-admission-integration-check",
   "Verify production hedge execution end to end",
   "RFQ_HEDGE_WORKER_E2E_CONFIRM",
   "run: make hedge-worker-e2e",

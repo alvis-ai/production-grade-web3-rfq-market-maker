@@ -8,7 +8,6 @@ import { assertQuoteIssuanceFinalization } from "../quote/postgres-quote-issuanc
 import { parseRedisQuoteIssuanceRecord } from "../quote/redis-quote-issuance.protocol.js";
 import { assertSignerAuditEvent, type SignerAuditEvent } from "./signer-audit.store.js";
 import {
-  quoteFinalizationHash,
   quoteFinalizationPayload,
   quoteSigningAuthorizationHash,
   quoteSigningAuthorizationHashFromFinalization,
@@ -139,6 +138,7 @@ export interface RedisSignerQuoteCommitConfig {
   minReplicaAcks: number;
   replicaAckTimeoutMs: number;
   requireAof: boolean;
+  authorizationWaitMs: number;
 }
 
 export interface SignerQuoteCommitEvidence {
@@ -147,6 +147,7 @@ export interface SignerQuoteCommitEvidence {
 }
 
 export interface SignerQuoteCommitStore {
+  readonly waitsForDurableAuthorization?: true;
   assertAuthorized(input: AuthorizedSignQuoteInput): Promise<void>;
   commit(event: SignerAuditEvent, finalization: FinalizeQuoteIssuanceInput): Promise<SignerQuoteCommitEvidence>;
   checkHealth(): Promise<void>;
@@ -187,6 +188,7 @@ export function createRedisSignerQuoteCommitClient(
 }
 
 export class RedisSignerQuoteCommitStore implements SignerQuoteCommitStore {
+  readonly waitsForDurableAuthorization?: true;
   private readonly config: RedisSignerQuoteCommitConfig;
   private connectPromise: Promise<void> | undefined;
 
@@ -198,6 +200,7 @@ export class RedisSignerQuoteCommitStore implements SignerQuoteCommitStore {
   ) {
     assertClient(client);
     this.config = normalizeRedisSignerQuoteCommitConfig(config);
+    this.waitsForDurableAuthorization = this.config.authorizationWaitMs > 0 ? true : undefined;
     assertObserver(observer);
     if (typeof nowMilliseconds !== "function") {
       throw new Error("Redis signer quote commit clock must be a function");
@@ -210,7 +213,7 @@ export class RedisSignerQuoteCommitStore implements SignerQuoteCommitStore {
       throw new Error("Redis signer quote authorization requires a commit context");
     }
     await this.ensureConnected();
-    const payload = await this.client.get(this.key(`quote:${input.quoteId}`));
+    const payload = await this.readAuthorization(input.quoteId);
     if (typeof payload !== "string") {
       throw new Error("Redis signer quote authorization is missing");
     }
@@ -233,11 +236,7 @@ export class RedisSignerQuoteCommitStore implements SignerQuoteCommitStore {
         authorization.record.decision !== "approved" ||
         authorization.record.policyVersion !== input.riskPolicyVersion ||
         input.commit.riskPolicyVersion !== input.riskPolicyVersion ||
-        authorization.signingAuthorizationHash !== signingAuthorizationHash ||
-        quoteSigningAuthorizationHash(
-          authorization.signingAuthorization,
-          authorization.signingAuthorization.commit,
-        ) !== signingAuthorizationHash) {
+        authorization.signingAuthorizationHash !== signingAuthorizationHash) {
       throw new Error("Redis signer quote authorization does not match the signing request");
     }
   }
@@ -251,8 +250,8 @@ export class RedisSignerQuoteCommitStore implements SignerQuoteCommitStore {
     assertMatchingCommit(event, finalization);
     await this.ensureConnected();
     const now = this.now();
-    const payload = quoteFinalizationPayload(finalization);
-    const finalizationHash = quoteFinalizationHash(finalization);
+    const payload = JSON.stringify(quoteFinalizationPayload(finalization));
+    const finalizationHash = digest(payload);
     const auditPayload = JSON.stringify(event);
     const auditEventKey = digest(auditPayload);
     const quote = finalization.signedQuote.quote;
@@ -272,7 +271,7 @@ export class RedisSignerQuoteCommitStore implements SignerQuoteCommitStore {
       finalization.signedQuote.quoteId,
       finalization.signedQuote.principalId,
       finalizationHash,
-      JSON.stringify(payload),
+      payload,
       now,
       this.config.issuanceMaxBacklog,
       finalization.idempotency ? "1" : "0",
@@ -334,6 +333,17 @@ export class RedisSignerQuoteCommitStore implements SignerQuoteCommitStore {
     return `${this.config.quoteKeyPrefix}:${suffix}`;
   }
 
+  private async readAuthorization(quoteId: string): Promise<unknown> {
+    const key = this.key(`quote:${quoteId}`);
+    const deadline = performance.now() + this.config.authorizationWaitMs;
+    let payload = await this.client.get(key);
+    while (typeof payload !== "string" && performance.now() < deadline) {
+      await delayAuthorizationPoll();
+      payload = await this.client.get(key);
+    }
+    return payload;
+  }
+
   private idempotencyKey(principalId: string, key: string): string {
     return this.key(`idempotency:${digest(`${principalId}\u0000${key}`)}`);
   }
@@ -393,6 +403,7 @@ export function normalizeRedisSignerQuoteCommitConfig(
     "quoteKeyPrefix", "ledgerEpoch", "issuanceMaxBacklog", "hotStateTtlMs", "idempotencyTtlMs",
     "auditStreamKey", "auditMaxBacklog", "auditDedupeTtlMs", "minReplicaAcks",
     "replicaAckTimeoutMs", "requireAof",
+    "authorizationWaitMs",
   ];
   if (Object.keys(config).length !== fields.length ||
       fields.some((field) => !Object.prototype.hasOwnProperty.call(config, field))) {
@@ -417,10 +428,15 @@ export function normalizeRedisSignerQuoteCommitConfig(
   assertInteger(config.auditDedupeTtlMs, 60_000, 604_800_000, "auditDedupeTtlMs");
   assertInteger(config.minReplicaAcks, 0, 5, "minReplicaAcks");
   assertInteger(config.replicaAckTimeoutMs, 1, 5_000, "replicaAckTimeoutMs");
+  assertInteger(config.authorizationWaitMs, 0, 100, "authorizationWaitMs");
   if (typeof config.requireAof !== "boolean") {
     throw new Error("Redis signer quote commit requireAof must be a boolean");
   }
   return { ...config };
+}
+
+function delayAuthorizationPoll(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 1));
 }
 
 function parseCommitResult(value: unknown): {

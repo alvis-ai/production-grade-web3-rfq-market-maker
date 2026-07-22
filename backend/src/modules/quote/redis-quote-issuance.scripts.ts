@@ -140,38 +140,47 @@ local stream_id = redis.call(
 return {1, cjson.encode(current.authorization.record), backlog + 1, stream_id}
 `;
 
-export const admitQuoteIssuanceScript = `
-local existing_json = redis.call("GET", KEYS[1])
+export const quoteIssuanceAdmissionLuaFunctions = `
+local function prepare_quote_issuance_admission(keys, args)
+local existing_json = redis.call("GET", keys[1])
 if existing_json then
   local existing = cjson.decode(existing_json)
-  if existing.quoteId ~= ARGV[1] or existing.principalId ~= ARGV[2]
-     or existing.preparationHash ~= ARGV[3] or existing.authorizationHash ~= ARGV[4]
-     or existing.authorization == nil then return {0, "quote_conflict", 0, ""} end
-  return {2, cjson.encode(existing.authorization.record), redis.call("XLEN", KEYS[3]), ""}
+  if existing.quoteId ~= args[1] or existing.principalId ~= args[2]
+     or existing.preparationHash ~= args[3] or existing.authorizationHash ~= args[4]
+     or existing.authorization == nil then return {result = {0, "quote_conflict", 0, ""}} end
+  return {result = {2, cjson.encode(existing.authorization.record), redis.call("XLEN", keys[3]), ""}}
 end
-local backlog = redis.call("XLEN", KEYS[3])
-if backlog >= tonumber(ARGV[7]) then return {0, "backlog_full", backlog, ""} end
+local backlog = redis.call("XLEN", keys[3])
+if backlog >= tonumber(args[7]) then return {result = {0, "backlog_full", backlog, ""}} end
 local idempotency = nil
-if ARGV[8] == "1" then
-  local idem_json = redis.call("GET", KEYS[2])
-  if not idem_json then return {0, "idempotency_missing", backlog, ""} end
+if args[8] == "1" then
+  local idem_json = redis.call("GET", keys[2])
+  if not idem_json then return {result = {0, "idempotency_missing", backlog, ""}} end
   idempotency = cjson.decode(idem_json)
-  if idempotency.state ~= "processing" or idempotency.principalId ~= ARGV[2]
-     or idempotency.requestHash ~= ARGV[9] or idempotency.ownerToken ~= ARGV[10] then
-    return {0, "idempotency_ownership", backlog, ""}
+  if idempotency.state ~= "processing" or idempotency.principalId ~= args[2]
+     or idempotency.requestHash ~= args[9] or idempotency.ownerToken ~= args[10] then
+    return {result = {0, "idempotency_ownership", backlog, ""}}
   end
-  if idempotency.quoteId ~= nil and idempotency.quoteId ~= ARGV[1] then
-    return {0, "idempotency_quote_conflict", backlog, ""}
+  if idempotency.quoteId ~= nil and idempotency.quoteId ~= args[1] then
+    return {result = {0, "idempotency_quote_conflict", backlog, ""}}
   end
 end
-local quote = cjson.decode(ARGV[5])
-if quote.stage ~= "authorized" or quote.quoteId ~= ARGV[1] or quote.principalId ~= ARGV[2]
-   or quote.preparationHash ~= ARGV[3] or quote.authorizationHash ~= ARGV[4]
-   or quote.authorization == nil then return {0, "payload_conflict", backlog, ""} end
+local quote = cjson.decode(args[5])
+if quote.stage ~= "authorized" or quote.quoteId ~= args[1] or quote.principalId ~= args[2]
+   or quote.preparationHash ~= args[3] or quote.authorizationHash ~= args[4]
+   or quote.authorization == nil then return {result = {0, "payload_conflict", backlog, ""}} end
+return {keys = keys, args = args, backlog = backlog, idempotency = idempotency, quote = quote}
+end
+
+local function apply_quote_issuance_admission(prepared)
+local keys = prepared.keys
+local args = prepared.args
+local idempotency = prepared.idempotency
+local quote = prepared.quote
 if idempotency ~= nil then
-  idempotency.quoteId = ARGV[1]
-  idempotency.updatedAtMs = math.max(tonumber(ARGV[6]), tonumber(idempotency.updatedAtMs))
-  redis.call("SET", KEYS[2], cjson.encode(idempotency), "PX", ARGV[11])
+  idempotency.quoteId = args[1]
+  idempotency.updatedAtMs = math.max(tonumber(args[6]), tonumber(idempotency.updatedAtMs))
+  redis.call("SET", keys[2], cjson.encode(idempotency), "PX", args[11])
 end
 local event = {
   schemaVersion = 1,
@@ -180,14 +189,24 @@ local event = {
   quote = quote
 }
 if idempotency ~= nil then event.idempotency = idempotency end
-redis.call("SET", KEYS[1], ARGV[5], "PX", ARGV[12], "NX")
+redis.call("SET", keys[1], args[5], "PX", args[12], "NX")
 local stream_id = redis.call(
-  "XADD", KEYS[3], "*",
+  "XADD", keys[3], "*",
   "schema_version", "1",
   "event_type", "authorized",
   "payload", cjson.encode(event)
 )
-return {1, cjson.encode(quote.authorization.record), backlog + 1, stream_id}
+return {1, cjson.encode(quote.authorization.record), prepared.backlog + 1, stream_id}
+end
+`;
+
+export const admitQuoteIssuanceScript = `${quoteIssuanceAdmissionLuaFunctions}
+local prepared = prepare_quote_issuance_admission(
+  {KEYS[1], KEYS[2], KEYS[3]},
+  {ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7], ARGV[8], ARGV[9], ARGV[10], ARGV[11], ARGV[12]}
+)
+if prepared.result then return prepared.result end
+return apply_quote_issuance_admission(prepared)
 `;
 
 export const finalizeQuoteIssuanceScript = `

@@ -54,9 +54,7 @@ import {
 } from "./market-runtime.js";
 import { buildGatewayMarketDataRuntime } from "./gateway-market-data.js";
 import { buildGatewayHedgeRiskRuntime } from "./gateway-hedge-risk.js";
-import {
-  assertProductionDailyLossRiskPolicy,
-} from "./gateway-daily-loss-risk.js";
+import { assertProductionDailyLossRiskPolicy } from "./gateway-daily-loss-risk.js";
 import { structuredLoggerConfig } from "../shared/logger/structured-logger.js";
 import { resolveGatewayQuoteExposureRuntime } from "./gateway-quote-exposure.js";
 import { closeGatewayResources } from "./gateway-resource-cleanup.js";
@@ -67,6 +65,7 @@ import {
   registerGatewayHotStateLifecycles,
 } from "./gateway-hot-state.js";
 import { buildGatewayRiskRuntime } from "./gateway-risk-runtime.js";
+import { resolveRedisQuoteAdmissionStore } from "./gateway-quote-admission.js";
 export type { BuildServerOptions } from "./gateway-runtime.js";
 export { closeGatewayResources } from "./gateway-resource-cleanup.js";
 const disabledRateLimiterHealth = { checkHealth(): void {} };
@@ -232,6 +231,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     quoteExposureStore,
     runtime: redisQuoteExposureRuntime,
   } = quoteExposure;
+  const quoteAdmissionStore = resolveRedisQuoteAdmissionStore(quoteIssuanceRuntime, redisQuoteExposureRuntime);
   const quoteService = new QuoteService(observeQuoteServiceDependencies({
     inventoryService: quoteInventoryService,
     marketDataService,
@@ -240,6 +240,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     pricingEngine,
     quoteIdempotencyStore,
     ...(quoteIssuanceStore ? { quoteIssuanceStore } : {}),
+    ...(quoteAdmissionStore ? { quoteAdmissionStore } : {}),
     quoteExposureStore,
     quoteRepository,
     riskDecisionStore,

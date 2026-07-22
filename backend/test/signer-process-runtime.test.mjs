@@ -146,19 +146,22 @@ test("signer process binds atomic quote commit to the durable audit stream and i
     RFQ_SIGNER_AUDIT_BACKEND: "redis-stream",
     RFQ_SIGNER_AUDIT_DATABASE_URL: "postgres://rfq:rfq@postgres:5432/rfq_market_maker",
     RFQ_SIGNER_AUDIT_REDIS_URL: "redis://redis:6379/0",
-    RFQ_SIGNER_AUDIT_STREAM_KEY: "rfq:{quote-issuance}:signer-audit-events:v1",
+    RFQ_SIGNER_AUDIT_STREAM_KEY: "rfq:{quote-state}:signer-audit-events:v1",
     RFQ_SIGNER_ATOMIC_QUOTE_COMMIT: "true",
     RFQ_QUOTE_ISSUANCE_LEDGER_EPOCH: "local_atomic_v1",
     RFQ_QUOTE_ISSUANCE_REQUIRE_AOF: "true",
+    RFQ_SIGNER_AUTHORIZATION_WAIT_MS: "10",
   };
   const config = readSignerProcessConfig(atomic);
-  assert.equal(config.quoteCommit.quoteKeyPrefix, "rfq:{quote-issuance}:ledger");
+  assert.equal(config.quoteCommit.quoteKeyPrefix, "rfq:{quote-state}:issuance");
   assert.equal(config.quoteCommit.auditStreamKey, atomic.RFQ_SIGNER_AUDIT_STREAM_KEY);
   assert.equal(config.quoteCommit.ledgerEpoch, "local_atomic_v1");
   assert.equal(config.quoteCommit.requireAof, true);
   assert.equal(config.quoteCommit.minReplicaAcks, 0);
+  assert.equal(config.quoteCommit.authorizationWaitMs, 10);
   const store = createSignerQuoteCommitStore(config.quoteCommit);
   assert.ok(store);
+  assert.equal(store.waitsForDurableAuthorization, true);
   await store.close();
 
   assert.throws(
@@ -195,7 +198,7 @@ test("signer process requires a replicated quote ledger for production atomic co
     RFQ_SIGNER_AUDIT_DATABASE_URL:
       "postgres://rfq_signer_audit:secret@postgres.example.com:5432/rfq_market_maker?minPool=1&maxPool=3&sslmode=verify-full&sslrootcert=%2Fetc%2Frfq%2Fdatabase-ca%2Fca.crt",
     RFQ_SIGNER_AUDIT_REDIS_URL: "rediss://audit-redis.example.com:6380/0",
-    RFQ_SIGNER_AUDIT_STREAM_KEY: "rfq:{quote-issuance}:signer-audit-events:v1",
+    RFQ_SIGNER_AUDIT_STREAM_KEY: "rfq:{quote-state}:signer-audit-events:v1",
     RFQ_SIGNER_AUDIT_STREAM_EPOCH: "production_atomic_v1",
     RFQ_SIGNER_AUDIT_MIN_REPLICA_ACKS: "1",
     RFQ_SIGNER_ATOMIC_QUOTE_COMMIT: "true",

@@ -1,9 +1,6 @@
 import { assertPrincipalId, localPrincipalId } from "../../shared/validation/principal-id.js";
 import type { IInventoryService } from "../inventory/inventory.service.js";
-import {
-  defaultMaxSnapshotFutureSkewMs,
-  type MarketDataService,
-} from "../market-data/market-data.service.js";
+import { defaultMaxSnapshotFutureSkewMs, type MarketDataService } from "../market-data/market-data.service.js";
 import type { MarketSnapshotStore } from "../market-data/market-snapshot.repository.js";
 import type { HedgeRiskPenaltyProvider } from "../hedge/hedge.service.js";
 import type { PricingEngine } from "../pricing/pricing.engine.js";
@@ -15,6 +12,7 @@ import type { TreasuryLiquidityProvider } from "../risk/treasury-liquidity.provi
 import type { RoutingEngine } from "../routing/routing.engine.js";
 import type { SignerService } from "../signer/signer.service.js";
 import type { QuoteRepository } from "./quote.repository.js";
+import type { QuoteAdmissionStore } from "./quote-admission.store.js";
 import type { QuoteIdempotencyStore } from "./quote-idempotency.store.js";
 import type { QuoteIssuanceStore } from "./quote-issuance.store.js";
 
@@ -25,6 +23,7 @@ export interface QuoteServiceDeps {
   pricingEngine: PricingEngine;
   hedgeService?: HedgeRiskPenaltyProvider;
   quoteIdempotencyStore?: QuoteIdempotencyStore;
+  quoteAdmissionStore?: QuoteAdmissionStore;
   quoteIssuanceStore?: QuoteIssuanceStore;
   quoteRepository: QuoteRepository;
   quoteExposureStore?: QuoteExposureStore;
@@ -60,16 +59,8 @@ export const defaultQuoteServiceConfig: QuoteServiceConfig = {
 };
 
 const quoteServiceConfigFields = ["maxSnapshotAgeMs", "maxSnapshotFutureSkewMs", "quoteTtlSeconds"] as const;
-const quoteServiceDepsFields = [
-  "inventoryService",
-  "marketDataService",
-  "marketSnapshotStore",
-  "pricingEngine",
-  "quoteRepository",
-  "riskDecisionStore",
-  "riskEngine",
-  "routingEngine",
-  "signerService",
+const quoteServiceDepsFields = ["inventoryService", "marketDataService", "marketSnapshotStore", "pricingEngine",
+  "quoteRepository", "riskDecisionStore", "riskEngine", "routingEngine", "signerService",
 ] as const;
 const quoteAccessContextFields = ["principalId"] as const;
 const quoteAccessContextOptionalFields = ["idempotencyKey", "traceId"] as const;
@@ -118,6 +109,7 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   assertOwnFields(deps, quoteServiceDepsFields, "deps");
   assertOptionalOwnField(deps, "hedgeService", "deps");
   assertOptionalOwnField(deps, "quoteIdempotencyStore", "deps");
+  assertOptionalOwnField(deps, "quoteAdmissionStore", "deps");
   assertOptionalOwnField(deps, "quoteIssuanceStore", "deps");
   assertOptionalOwnField(deps, "quoteExposureStore", "deps");
   assertOptionalOwnField(deps, "settlementIndexerRiskGuard", "deps");
@@ -133,6 +125,12 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
     for (const method of ["acquire", "bindQuote", "complete", "fail", "checkHealth"]) {
       assertDependencyMethod(deps.quoteIdempotencyStore, "quoteIdempotencyStore", method);
     }
+  }
+  if (deps.quoteAdmissionStore !== undefined) {
+    if (!deps.quoteIssuanceStore || !deps.quoteExposureStore) {
+      throw new Error("Quote service quoteAdmissionStore requires issuance and exposure stores");
+    }
+    assertDependencyMethod(deps.quoteAdmissionStore, "quoteAdmissionStore", "admit");
   }
   if (deps.quoteIssuanceStore !== undefined) {
     assertOptionalDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "admit");
@@ -164,6 +162,14 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   if (deps.signerService.commitsQuoteFinalization !== undefined &&
       deps.signerService.commitsQuoteFinalization !== true) {
     throw new Error("Quote service signerService commitsQuoteFinalization capability is invalid");
+  }
+  if (deps.signerService.waitsForDurableAuthorization !== undefined &&
+      deps.signerService.waitsForDurableAuthorization !== true) {
+    throw new Error("Quote service signerService waitsForDurableAuthorization capability is invalid");
+  }
+  if (deps.signerService.waitsForDurableAuthorization === true &&
+      deps.signerService.commitsQuoteFinalization !== true) {
+    throw new Error("Quote service signer authorization wait requires atomic finalization");
   }
   if (deps.signerService.commitsQuoteFinalization === true) {
     if (!deps.quoteIssuanceStore) {

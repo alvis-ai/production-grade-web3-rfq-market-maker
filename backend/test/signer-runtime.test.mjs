@@ -77,6 +77,7 @@ test("remote signer mode isolates KMS material behind a bounded authenticated or
     requestTimeoutMs: 2500,
     maxConnections: 24,
     atomicQuoteCommit: false,
+    authorizationWaitMs: 0,
   });
   assert.throws(
     () => readSignerRuntimeConfig({ ...remote, RFQ_SIGNER_SERVICE_URL: "http://rfq-signer.example.internal" }),
@@ -104,6 +105,15 @@ test("remote signer mode isolates KMS material behind a bounded authenticated or
     ...remote,
     RFQ_SIGNER_ATOMIC_QUOTE_COMMIT: "true",
   }).atomicQuoteCommit, true);
+  assert.equal(readSignerRuntimeConfig({
+    ...remote,
+    RFQ_SIGNER_ATOMIC_QUOTE_COMMIT: "true",
+    RFQ_SIGNER_AUTHORIZATION_WAIT_MS: "10",
+  }).authorizationWaitMs, 10);
+  assert.throws(
+    () => readSignerRuntimeConfig({ ...remote, RFQ_SIGNER_AUTHORIZATION_WAIT_MS: "10" }),
+    /requires RFQ_SIGNER_ATOMIC_QUOTE_COMMIT=true/,
+  );
   assert.throws(
     () => readSignerRuntimeConfig({ ...remote, RFQ_SIGNER_ATOMIC_QUOTE_COMMIT: "yes" }),
     /RFQ_SIGNER_ATOMIC_QUOTE_COMMIT/,
