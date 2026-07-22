@@ -119,39 +119,60 @@ try {
     riskPolicyVersion: "risk-integration-v1",
     idempotency: reservation,
   };
-  await store.prepare({
-    marketSnapshot: {
-      request,
-      snapshot: {
+  const admission = {
+    preparation: {
+      marketSnapshot: {
+        request,
+        snapshot: {
+          snapshotId,
+          midPrice: "1.000000000000000000",
+          liquidityUsd: "10000000",
+          marketSpreadBps: 10,
+          volatilityBps: 20,
+          observedAt: new Date(now).toISOString(),
+        },
+        source: "quote-issuance-integration-v1",
+      },
+      requestedQuote: { quoteId, principalId, request, snapshotId },
+      routeDecision: {
+        quoteId,
+        principalId,
         snapshotId,
-        midPrice: "1.000000000000000000",
-        liquidityUsd: "10000000",
-        marketSpreadBps: 10,
-        volatilityBps: 20,
-        observedAt: new Date(now).toISOString(),
+        routePlan: {
+          routeId: `route_${suffix}`,
+          venue: "internal_inventory",
+          tokenIn,
+          tokenOut,
+          expectedLiquidityUsd: "10000000",
+        },
       },
-      source: "quote-issuance-integration-v1",
+      idempotency: reservation,
     },
-    requestedQuote: { quoteId, principalId, request, snapshotId },
-    routeDecision: {
+    authorization: {
       quoteId,
-      principalId,
-      snapshotId,
-      routePlan: {
-        routeId: `route_${suffix}`,
-        venue: "internal_inventory",
-        tokenIn,
-        tokenOut,
-        expectedLiquidityUsd: "10000000",
+      decision: { status: "approved", policyVersion: "risk-integration-v1" },
+      signingAuthorization: { quote, quoteId, snapshotId, commit },
+    },
+  };
+  const admissions = await Promise.all(Array.from({ length: 8 }, () => store.admit(admission)));
+  const risk = admissions[0];
+  assert.equal(admissions.every((candidate) => candidate.riskDecisionId === risk.riskDecisionId), true);
+  assert.equal(Number(await adminRedis.xlen(`${keyPrefix}:events`)), 1);
+  await assert.rejects(store.admit({
+    ...admission,
+    authorization: {
+      ...admission.authorization,
+      decision: { status: "approved", policyVersion: "risk-integration-v2" },
+      signingAuthorization: {
+        ...admission.authorization.signingAuthorization,
+        commit: {
+          ...admission.authorization.signingAuthorization.commit,
+          riskPolicyVersion: "risk-integration-v2",
+        },
       },
     },
-    idempotency: reservation,
-  });
-  const risk = await store.authorize({
-    quoteId,
-    decision: { status: "approved", policyVersion: "risk-integration-v1" },
-    signingAuthorization: { quote, quoteId, snapshotId, commit },
-  });
+  }), /quote_conflict/);
+  assert.equal(Number(await adminRedis.xlen(`${keyPrefix}:events`)), 1);
   assert.equal(risk.riskDecisionId, `rd_${quoteId}`);
   const signInput = {
     quote,
@@ -193,7 +214,7 @@ try {
 
   const beforeProjection = await pool.query("SELECT status FROM quotes WHERE id = $1", [quoteId]);
   assert.equal(beforeProjection.rowCount, 0, "PostgreSQL must not be required for synchronous issuance");
-  assert.equal(Number(await adminRedis.xlen(`${keyPrefix}:events`)), 3);
+  assert.equal(Number(await adminRedis.xlen(`${keyPrefix}:events`)), 2);
   assert.equal(Number(await adminRedis.xlen(auditStreamKey)), 1);
   assert.deepEqual(await store.recoverFinalizedResponse(quoteId, principalId), response);
 
@@ -211,7 +232,7 @@ try {
     retryDelayMs: 10,
   });
   await mirror.initialize();
-  assert.equal(await mirror.runOnce(), 3);
+  assert.equal(await mirror.runOnce(), 2);
 
   const projected = await pool.query(
     `SELECT q.status, q.signature, r.decision, i.state,
@@ -228,7 +249,7 @@ try {
     signature,
     decision: "approved",
     state: "succeeded",
-    event_count: 3,
+    event_count: 2,
   });
   assert.equal(Number(await adminRedis.xlen(`${keyPrefix}:events`)), 0);
   assert.equal(await adminRedis.get(`${keyPrefix}:projected:${quoteId}`), "finalized");
@@ -257,7 +278,7 @@ try {
   assert.equal((await store.acquire(principalId, idempotencyKey, "f".repeat(64))).status, "conflict");
   await auditMirror.close();
   await mirror.close();
-  console.log(JSON.stringify({ ok: true, quoteId, projectedEvents: 3, signerAuditEvents: 1 }));
+  console.log(JSON.stringify({ ok: true, quoteId, projectedEvents: 2, signerAuditEvents: 1 }));
 } finally {
   await Promise.allSettled([store.close(), commitStore.close(), adminRedis.quit(), auditConsumer.quit(), pool.end()]);
 }

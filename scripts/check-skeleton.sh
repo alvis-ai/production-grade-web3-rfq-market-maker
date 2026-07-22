@@ -360,8 +360,14 @@ test -s backend/src/modules/quote/redis-quote-issuance.scripts.ts
 test -s backend/src/modules/quote/redis-quote-issuance.store.ts
 test -s backend/src/modules/quote/quote-issuance-journal.mirror.ts
 test -s backend/src/modules/quote/postgres-quote-issuance-journal.sink.ts
+test -s backend/test/quote-service-fused-issuance.test.mjs
+test -s backend/test/redis-quote-issuance-store.test.mjs
 test -s backend/test/quote-issuance-journal-mirror.test.mjs
 test -s backend/test/quote-issuance-runtime.test.mjs
+grep -q 'admitQuoteIssuanceScript' backend/src/modules/quote/redis-quote-issuance.scripts.ts
+grep -q 'async admit(input: AdmitQuoteIssuanceInput)' backend/src/modules/quote/redis-quote-issuance.store.ts
+grep -q 'QuoteService atomically admits preparation and authorization after exposure' backend/test/quote-service-fused-issuance.test.mjs
+grep -q 'RedisQuoteIssuanceStore rejects malformed compact admission evidence' backend/test/redis-quote-issuance-store.test.mjs
 test -s backend/src/modules/quote/quote-submittable.ts
 test -s backend/src/modules/quote/quote-risk-decision.ts
 test -s backend/src/modules/quote/quote-identity.ts
@@ -608,7 +614,7 @@ grep -q 'canonical positive uint string without leading zeros' book/Volume2-Mark
 grep -q '`observedAt` 必须是 `Date.prototype.toISOString()` 生成的 canonical UTC ISO timestamp' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'snapshot lookup validates `snapshotId` before reading the store' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
 grep -q 'Snapshot persistence rejects malformed root payloads, missing `request` / `snapshot` objects, inherited `request` / `snapshot` / `source` fields' book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md
-grep -q 'prepare Lua 原子写入 cumulative quote hot state' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
+grep -q '一次 `admit` Lua 原子写入 snapshot、request、route、risk' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '默认 fused 路径在 routing/pricing 失败时使用 legacy repository best-effort 补写' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q '`observedAt`，该字段必须是 `Date.prototype.toISOString()` 生成的 canonical UTC ISO timestamp' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'runtime `MarketSnapshotStore` 必须镜像 `market_snapshots` 表的核心契约' docs/database/er-diagram.md

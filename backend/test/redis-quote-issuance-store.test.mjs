@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { RedisQuoteIssuanceStore } from "../dist/modules/quote/redis-quote-issuance.store.js";
 import {
+  admitQuoteIssuanceScript,
   authorizeQuoteIssuanceScript,
   finalizeQuoteIssuanceScript,
   initializeQuoteIssuanceLedgerScript,
@@ -42,6 +43,22 @@ test("RedisQuoteIssuanceStore rejects malformed compact authorization evidence",
   await assert.rejects(store.authorize({
     quoteId,
     decision: { status: "approved", policyVersion: "risk-v1" },
+  }), /malformed evidence/);
+});
+
+test("RedisQuoteIssuanceStore rejects malformed compact admission evidence", async () => {
+  const store = buildStore((script) => {
+    if (script === admitQuoteIssuanceScript) return [1, "not-json", 1, "1-0"];
+    throw new Error("unexpected script");
+  });
+  await store.initialize();
+
+  await assert.rejects(store.admit({
+    preparation: preparation(),
+    authorization: {
+      quoteId,
+      decision: { status: "approved", policyVersion: "risk-v1" },
+    },
   }), /malformed evidence/);
 });
 

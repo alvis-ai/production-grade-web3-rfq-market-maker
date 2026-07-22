@@ -75,6 +75,77 @@ test("QuoteService fused issuance prepares before exposure, authorizes before si
   assert.equal(events[4][1].signedQuote.signature, response.signature);
 });
 
+test("QuoteService atomically admits preparation and authorization after exposure", async () => {
+  const events = [];
+  const service = new QuoteService({
+    ...deps(),
+    quoteExposureStore: {
+      async reserve() {
+        assert.deepEqual(events, []);
+        events.push("exposure");
+        return { status: "reserved", notionalUsdE18: "1000000000000000000" };
+      },
+      async release() {},
+    },
+    quoteIssuanceStore: {
+      asynchronousProjection: true,
+      async admit(input) {
+        assert.deepEqual(events, ["exposure"]);
+        assert.equal(input.preparation.routeDecision.routePlan.venue, "internal_inventory");
+        assert.equal(input.authorization.decision.status, "approved");
+        events.push("admit");
+        return {
+          riskDecisionId: `rd_${input.authorization.quoteId}`,
+          quoteId: input.authorization.quoteId,
+          decision: "approved",
+          policyVersion: input.authorization.decision.policyVersion,
+          createdAt: new Date().toISOString(),
+        };
+      },
+      async prepare() { assert.fail("atomic admission must skip preparation"); },
+      async authorize() { assert.fail("atomic admission must skip authorization"); },
+      async finalize() { events.push("finalize"); },
+    },
+    signerService: {
+      async signQuote() {
+        assert.deepEqual(events, ["exposure", "admit"]);
+        events.push("sign");
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() { return true; },
+    },
+  });
+
+  assert.equal((await service.createQuote(request)).signature, fixedSignature());
+  assert.deepEqual(events, ["exposure", "admit", "sign", "finalize"]);
+});
+
+test("QuoteService releases exposure and blocks signing when atomic admission fails", async () => {
+  let releaseCalls = 0;
+  let signerCalls = 0;
+  const service = new QuoteService({
+    ...deps(),
+    quoteExposureStore: {
+      async reserve() { return { status: "reserved", notionalUsdE18: "1000000000000000000" }; },
+      async release() { releaseCalls += 1; },
+    },
+    quoteIssuanceStore: {
+      async admit() { throw new Error("redis admission unavailable"); },
+      async prepare() { assert.fail("atomic admission must skip preparation"); },
+      async authorize() { assert.fail("atomic admission must skip authorization"); },
+      async finalize() { assert.fail("failed admission cannot finalize"); },
+    },
+    signerService: {
+      async signQuote() { signerCalls += 1; return fixedSignature(); },
+      async verifyQuoteSignature() { return true; },
+    },
+  });
+
+  await assert.rejects(service.createQuote(request), (error) => error?.code === "QUOTE_STORE_UNAVAILABLE");
+  assert.equal(releaseCalls, 1);
+  assert.equal(signerCalls, 0);
+});
+
 test("QuoteService fused issuance stops before exposure when preparation fails", async () => {
   let exposureCalls = 0;
   let signerCalls = 0;

@@ -35,7 +35,7 @@ Every issuance mutation that rewrites an existing idempotency or quote record se
 
 ### Mitigation
 
-Unit tests require steady-state `EVALSHA`, exact `NOSCRIPT` fallback, non-`NOSCRIPT` failure propagation, eval-only compatibility and invalid key-count rejection. Real Redis tests retain exact-integer exposure, Treasury atomicity, idempotent replay, three issuance events, one signer audit event and PostgreSQL projection.
+Unit tests require steady-state `EVALSHA`, exact `NOSCRIPT` fallback, non-`NOSCRIPT` failure propagation, eval-only compatibility and invalid key-count rejection. At acceptance, real Redis tests retained exact-integer exposure, Treasury atomicity, idempotent replay, three issuance events, one signer audit event and PostgreSQL projection. ADR-0032 subsequently replaced the separate prepared/authorized mutations with one cumulative admission event and reduced the successful issuance projection to two events.
 
 The rebuilt dependency stack used 10 warmups and 100 serial requests with zero errors. It returned p50 13.00 ms, p99 18.55 ms and 75.15 requests/second, compared with the immediately preceding p50 12.96 ms, p99 21.13 ms and 73.21 requests/second window. Exposure averaged 2.21 ms instead of 2.40 ms, while authorization remained 1.38 ms and signing remained 5.23 ms. The isolated signer averaged 0.65 ms for authorization and 2.08 ms for atomic audit/finalization. The result removes avoidable script transport and improves this tail window, but it is not evidence of a p50 improvement or completion of the high-frequency target. Further work must reduce durable state-transition count.
 

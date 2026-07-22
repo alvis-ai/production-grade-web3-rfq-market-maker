@@ -20,6 +20,7 @@ import {
   type QuoteIdempotencyStore,
 } from "./quote-idempotency.store.js";
 import type {
+  AdmitQuoteIssuanceInput,
   AuthorizeQuoteIssuanceInput,
   FinalizeQuoteIssuanceInput,
   PrepareQuoteIssuanceInput,
@@ -30,6 +31,7 @@ import {
   assertQuoteIssuancePreparation,
 } from "./postgres-quote-issuance.store.js";
 import {
+  admitQuoteIssuanceScript,
   acquireQuoteIdempotencyScript,
   authorizeQuoteIssuanceScript,
   bindQuoteIdempotencyScript,
@@ -56,6 +58,7 @@ import {
 import { quoteSigningAuthorizationHash } from "../signer/signer-quote-commit.js";
 
 const initializeQuoteIssuanceLedgerCommand = new RedisLuaScript(initializeQuoteIssuanceLedgerScript);
+const admitQuoteIssuanceCommand = new RedisLuaScript(admitQuoteIssuanceScript);
 const acquireQuoteIdempotencyCommand = new RedisLuaScript(acquireQuoteIdempotencyScript);
 const bindQuoteIdempotencyCommand = new RedisLuaScript(bindQuoteIdempotencyScript);
 const completeQuoteIdempotencyCommand = new RedisLuaScript(completeQuoteIdempotencyScript);
@@ -258,6 +261,105 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     parseRedisQuoteIdempotencyRecord(mutation.payload);
     await this.requireReplicaAcknowledgements();
     this.notifyMutation("failed", mutation);
+  }
+
+  async admit(input: AdmitQuoteIssuanceInput): Promise<RiskDecisionRecord> {
+    assertQuoteIssuancePreparation(input.preparation);
+    const riskInput = {
+      quoteId: input.authorization.quoteId,
+      decision: input.authorization.decision,
+    };
+    assertRiskDecisionInput(riskInput);
+    const requested = input.preparation.requestedQuote;
+    if (riskInput.quoteId !== requested.quoteId) {
+      throw new Error("Redis quote admission authorization does not match preparation");
+    }
+    if (input.authorization.signingAuthorization !== undefined) {
+      assertQuoteSigningAuthorization(input.authorization.signingAuthorization);
+      if (input.authorization.signingAuthorization.quoteId !== riskInput.quoteId ||
+          input.authorization.signingAuthorization.commit.riskPolicyVersion !== riskInput.decision.policyVersion) {
+        throw new Error("Redis quote admission signing authorization does not match the risk decision");
+      }
+    }
+    if (!this.initialized) await this.initialize();
+    const now = this.now();
+    const preparation = {
+      marketSnapshot: input.preparation.marketSnapshot,
+      requestedQuote: input.preparation.requestedQuote,
+      routeDecision: input.preparation.routeDecision,
+    };
+    const preparationHash = digest(preparation);
+    const riskRecord: RiskDecisionRecord = {
+      riskDecisionId: `rd_${riskInput.quoteId}`,
+      quoteId: riskInput.quoteId,
+      decision: riskInput.decision.status,
+      ...(riskInput.decision.status === "rejected" ? { reasonCode: riskInput.decision.reasonCode } : {}),
+      policyVersion: riskInput.decision.policyVersion,
+      createdAt: new Date(now).toISOString(),
+    };
+    const signingAuthorizationHash = input.authorization.signingAuthorization
+      ? quoteSigningAuthorizationHash(
+          input.authorization.signingAuthorization,
+          input.authorization.signingAuthorization.commit,
+        )
+      : undefined;
+    const authorization = {
+      input: riskInput,
+      record: riskRecord,
+      ...(input.authorization.signingAuthorization ? {
+        signingAuthorization: input.authorization.signingAuthorization,
+        signingAuthorizationHash: signingAuthorizationHash!,
+      } : {}),
+    };
+    const authorizationHash = digest({
+      input: riskInput,
+      ...(input.authorization.signingAuthorization ? {
+        signingAuthorization: input.authorization.signingAuthorization,
+        signingAuthorizationHash: signingAuthorizationHash!,
+      } : {}),
+    });
+    const record: RedisQuoteIssuanceRecord = {
+      schemaVersion: 1,
+      quoteId: requested.quoteId,
+      principalId: requested.principalId,
+      stage: "authorized",
+      preparationHash,
+      preparation,
+      preparedAtMs: now,
+      updatedAtMs: now,
+      authorizationHash,
+      authorization,
+    };
+    parseRedisQuoteIssuanceRecord(JSON.stringify(record));
+    const idempotency = input.preparation.idempotency;
+    const idempotencyKey = idempotency
+      ? this.idempotencyKey(idempotency.principalId, idempotency.key)
+      : this.key(`idempotency:none:${record.quoteId}`);
+    const result = await admitQuoteIssuanceCommand.execute(
+      this.client,
+      3,
+      this.quoteKey(record.quoteId),
+      idempotencyKey,
+      this.key("events"),
+      record.quoteId,
+      record.principalId,
+      preparationHash,
+      authorizationHash,
+      JSON.stringify(record),
+      now,
+      this.config.maxBacklog,
+      idempotency ? "1" : "0",
+      idempotency?.requestHash ?? "",
+      idempotency?.ownerToken ?? "",
+      this.config.idempotencyTtlMs,
+      this.config.hotStateTtlMs,
+    );
+    const mutation = parseMutationResult(result, "issuance admission");
+    if (mutation.code !== 1 && mutation.code !== 2) throw mutationError("issuance admission", mutation);
+    const stored = parseRiskDecisionRecord(mutation.payload, riskInput);
+    await this.requireReplicaAcknowledgements();
+    this.notifyMutation("authorized", mutation);
+    return stored;
   }
 
   async prepare(input: PrepareQuoteIssuanceInput): Promise<void> {

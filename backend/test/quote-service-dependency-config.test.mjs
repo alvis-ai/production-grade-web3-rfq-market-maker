@@ -258,6 +258,18 @@ test("QuoteService rejects unsafe dependency configuration at construction", () 
     }),
     /Quote service settlementIndexerRiskGuard.assertQuoteSafe must be a function/,
   );
+  assert.throws(
+    () => new QuoteService({
+      ...deps,
+      quoteIssuanceStore: {
+        admit: true,
+        prepare() {},
+        authorize() {},
+        finalize() {},
+      },
+    }),
+    /Quote service quoteIssuanceStore.admit must be a function when provided/,
+  );
 });
 
 function fixedSignature() {

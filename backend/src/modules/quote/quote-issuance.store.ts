@@ -30,6 +30,11 @@ export type AuthorizeQuoteIssuanceInput = SaveRiskDecisionInput & {
   signingAuthorization?: QuoteSigningAuthorization;
 };
 
+export interface AdmitQuoteIssuanceInput {
+  preparation: PrepareQuoteIssuanceInput;
+  authorization: AuthorizeQuoteIssuanceInput;
+}
+
 export interface FinalizeQuoteIssuanceInput {
   signedQuote: SaveSignedQuoteInput;
   response: QuoteResponse;
@@ -38,6 +43,7 @@ export interface FinalizeQuoteIssuanceInput {
 
 export interface QuoteIssuanceStore {
   readonly asynchronousProjection?: true;
+  admit?(input: AdmitQuoteIssuanceInput): Promise<RiskDecisionRecord>;
   prepare(input: PrepareQuoteIssuanceInput): Promise<void>;
   authorize(input: AuthorizeQuoteIssuanceInput): Promise<RiskDecisionRecord>;
   finalize(input: FinalizeQuoteIssuanceInput): Promise<void>;

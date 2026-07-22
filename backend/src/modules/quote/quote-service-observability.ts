@@ -68,6 +68,7 @@ export function observeQuoteServiceDependencies(
     }),
     ...(deps.quoteIssuanceStore === undefined ? {} : {
       quoteIssuanceStore: observeMethods(deps.quoteIssuanceStore, {
+        admit: "authorization_persistence",
         prepare: "quote_preparation_persistence",
         authorize: "authorization_persistence",
         finalize: "issuance_persistence",

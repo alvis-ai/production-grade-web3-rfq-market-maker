@@ -7,7 +7,10 @@ import {
 } from "../risk/risk-decision.repository.js";
 import type { RiskDecision } from "../risk/risk.engine.js";
 import { persistQuoteRiskDecision } from "./quote-risk-decision.js";
-import type { PrepareQuoteIssuanceInput } from "./quote-issuance.store.js";
+import type {
+  AuthorizeQuoteIssuanceInput,
+  PrepareQuoteIssuanceInput,
+} from "./quote-issuance.store.js";
 import type { QuoteServiceDeps } from "./quote-service-contract.js";
 import { quoteStoreFailure } from "./quote-service-errors.js";
 import {
@@ -44,18 +47,21 @@ export async function authorizeQuote(
 ): Promise<AuthorizedQuote> {
   let risk = await evaluateRisk(deps, input);
   let asynchronousPreparation: Promise<{ error?: unknown; failed: boolean }> | undefined;
+  const directAdmission = deps.quoteIssuanceStore?.admit !== undefined;
   if (deps.quoteIssuanceStore) {
     if (!input.preparation) throw quoteStoreFailure(new Error("Quote issuance preparation is required"));
-    if (deps.quoteIssuanceStore.asynchronousProjection === true) {
-      asynchronousPreparation = deps.quoteIssuanceStore.prepare(input.preparation).then(
-        () => ({ failed: false }),
-        (error: unknown) => ({ error, failed: true }),
-      );
-    } else {
-      try {
-        await deps.quoteIssuanceStore.prepare(input.preparation);
-      } catch (error) {
-        throw quoteStoreFailure(error);
+    if (!directAdmission) {
+      if (deps.quoteIssuanceStore.asynchronousProjection === true) {
+        asynchronousPreparation = deps.quoteIssuanceStore.prepare(input.preparation).then(
+          () => ({ failed: false }),
+          (error: unknown) => ({ error, failed: true }),
+        );
+      } else {
+        try {
+          await deps.quoteIssuanceStore.prepare(input.preparation);
+        } catch (error) {
+          throw quoteStoreFailure(error);
+        }
       }
     }
   }
@@ -106,20 +112,26 @@ export async function authorizeQuote(
   }
 
   const riskDecisionInput = { quoteId: input.quoteId, decision: risk };
+  const authorizationInput: AuthorizeQuoteIssuanceInput = {
+    ...riskDecisionInput,
+    ...(input.signingAuthorization ? {
+      signingAuthorization: {
+        ...input.signingAuthorization,
+        commit: {
+          ...input.signingAuthorization.commit,
+          riskPolicyVersion: risk.policyVersion,
+        },
+      },
+    } : {}),
+  };
   try {
     const persistedRiskDecision = deps.quoteIssuanceStore
-      ? await deps.quoteIssuanceStore.authorize({
-          ...riskDecisionInput,
-          ...(input.signingAuthorization ? {
-            signingAuthorization: {
-              ...input.signingAuthorization,
-              commit: {
-                ...input.signingAuthorization.commit,
-                riskPolicyVersion: risk.policyVersion,
-              },
-            },
-          } : {}),
-        })
+      ? directAdmission
+        ? await deps.quoteIssuanceStore.admit!({
+            preparation: input.preparation!,
+            authorization: authorizationInput,
+          })
+        : await deps.quoteIssuanceStore.authorize(authorizationInput)
       : await persistQuoteRiskDecision(deps.riskDecisionStore, riskDecisionInput);
     assertRiskDecisionRecord(persistedRiskDecision, riskDecisionInput);
     return { risk, persistedRiskDecision, exposureReserved };

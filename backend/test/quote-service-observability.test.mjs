@@ -40,6 +40,7 @@ test("quote dependency observability records bounded stages and preserves method
   assert.equal(await observed.signerService.signQuote(), "ok");
   assert.equal(await observed.hedgeService.quoteRiskPenaltyBps(), "ok");
   assert.equal(await observed.quoteIdempotencyStore.acquire(), "ok");
+  assert.equal(await observed.quoteIssuanceStore.admit(), "ok");
   assert.equal(await observed.quoteExposureStore.reserve(), "ok");
   assert.equal(await observed.treasuryLiquidityProvider.getLiquidity(), "ok");
   assert.equal(await observed.settlementIndexerRiskGuard.assertQuoteSafe(), "ok");
@@ -57,6 +58,7 @@ test("quote dependency observability records bounded stages and preserves method
     "signing",
     "pricing_inputs",
     "idempotency",
+    "authorization_persistence",
     "exposure_reservation",
     "treasury_liquidity",
     "indexer_guard",
@@ -105,6 +107,12 @@ function createDependencies(marketDataService) {
       complete: ok,
       fail: ok,
       checkHealth: ok,
+    },
+    quoteIssuanceStore: {
+      admit: ok,
+      prepare: ok,
+      authorize: ok,
+      finalize: ok,
     },
     quoteRepository: {
       saveRequested: ok,

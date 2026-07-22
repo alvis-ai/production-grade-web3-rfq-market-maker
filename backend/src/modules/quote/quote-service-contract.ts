@@ -135,6 +135,7 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
     }
   }
   if (deps.quoteIssuanceStore !== undefined) {
+    assertOptionalDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "admit");
     assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "prepare");
     assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "authorize");
     assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "finalize");
