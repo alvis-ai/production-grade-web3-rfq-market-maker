@@ -4,6 +4,7 @@ import type { QuoteStatusResponse, SignedQuote } from "../../shared/types/rfq.js
 import { normalizeRedisUrl, type RedisUrlPolicy } from "../../shared/redis/redis-url.js";
 import { assertPrincipalId } from "../../shared/validation/principal-id.js";
 import {
+  assertRiskDecisionRecord,
   assertRiskDecisionInput,
   type RiskDecisionRecord,
 } from "../risk/risk-decision.repository.js";
@@ -291,7 +292,9 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     );
     const mutation = parseMutationResult(result, "issuance preparation");
     if (mutation.code !== 1 && mutation.code !== 2) throw mutationError("issuance preparation", mutation);
-    parseRedisQuoteIssuanceRecord(mutation.payload);
+    if (mutation.payload !== preparationHash) {
+      throw new Error("Redis quote issuance preparation returned conflicting evidence");
+    }
     await this.requireReplicaAcknowledgements();
     this.notifyMutation("prepared", mutation);
   }
@@ -323,10 +326,10 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     );
     const mutation = parseMutationResult(result, "issuance authorization");
     if (mutation.code !== 1 && mutation.code !== 2) throw mutationError("issuance authorization", mutation);
-    const stored = parseRedisQuoteIssuanceRecord(mutation.payload);
+    const stored = parseRiskDecisionRecord(mutation.payload, input);
     await this.requireReplicaAcknowledgements();
     this.notifyMutation("authorized", mutation);
-    return stored.authorization!.record;
+    return stored;
   }
 
   async finalize(input: FinalizeQuoteIssuanceInput): Promise<void> {
@@ -334,6 +337,7 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     if (!this.initialized) await this.initialize();
     const now = this.now();
     const finalization = { signedQuote: input.signedQuote, response: input.response };
+    const finalizationHash = digest(finalization);
     const idempotencyKey = input.idempotency
       ? this.idempotencyKey(input.idempotency.principalId, input.idempotency.key)
       : this.key(`idempotency:none:${input.signedQuote.quoteId}`);
@@ -346,7 +350,7 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
       this.key("events"),
       input.signedQuote.quoteId,
       input.signedQuote.principalId,
-      digest(finalization),
+      finalizationHash,
       JSON.stringify(finalization),
       now,
       this.config.maxBacklog,
@@ -358,7 +362,9 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     );
     const mutation = parseMutationResult(result, "issuance finalization");
     if (mutation.code !== 1 && mutation.code !== 2) throw mutationError("issuance finalization", mutation);
-    parseRedisQuoteIssuanceRecord(mutation.payload);
+    if (mutation.payload !== finalizationHash) {
+      throw new Error("Redis quote issuance finalization returned conflicting evidence");
+    }
     await this.requireReplicaAcknowledgements();
     this.notifyMutation("finalized", mutation);
   }
@@ -539,6 +545,20 @@ function parseMutationResult(value: unknown, operation: string): MutationResult 
     throw new Error(`Redis quote ${operation} returned an invalid stream id`);
   }
   return { code, payload: value[1], backlog: value[2] as number, streamId };
+}
+
+function parseRiskDecisionRecord(
+  payload: string,
+  input: AuthorizeQuoteIssuanceInput,
+): RiskDecisionRecord {
+  let value: unknown;
+  try {
+    value = JSON.parse(payload);
+  } catch {
+    throw new Error("Redis quote issuance authorization returned malformed evidence");
+  }
+  assertRiskDecisionRecord(value as RiskDecisionRecord, input);
+  return value as RiskDecisionRecord;
 }
 
 function mutationError(operation: string, mutation: MutationResult): Error {

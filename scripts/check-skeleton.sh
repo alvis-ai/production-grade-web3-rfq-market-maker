@@ -1253,14 +1253,18 @@ test -s backend/src/modules/rate-limit/redis-rate-limit.service.ts
 test -s backend/test/redis-rate-limit.test.mjs
 test -s backend/test/api-redis-rate-limit.test.mjs
 grep -q 'class RedisRateLimiter' backend/src/modules/rate-limit/redis-rate-limit.service.ts
-grep -q 'redis.call("SET", KEYS\[1\], 1, "PX", ARGV\[1\])' backend/src/modules/rate-limit/redis-rate-limit.service.ts
-grep -q 'if current >= tonumber(ARGV\[2\])' backend/src/modules/rate-limit/redis-rate-limit.service.ts
+grep -q 'redis.call("SET", KEYS\[1\], granted, "PX", ARGV\[1\])' backend/src/modules/rate-limit/redis-rate-limit.service.ts
+grep -q 'redis.call("INCRBY", KEYS\[1\], granted)' backend/src/modules/rate-limit/redis-rate-limit.service.ts
+grep -q 'if current >= limit' backend/src/modules/rate-limit/redis-rate-limit.service.ts
+grep -q 'consumeLocalPermit(key)' backend/src/modules/rate-limit/redis-rate-limit.service.ts
+grep -q 'RFQ_RATE_LIMIT_LOCAL_PERMIT_BATCH_SIZE' $gateway_sources
+grep -q 'RFQ_RATE_LIMIT_MAX_LOCAL_BUCKETS' $gateway_sources
 grep -q 'RFQ_RATE_LIMIT_BACKEND must be redis when NODE_ENV=' $gateway_sources
 grep -q 'rateLimit cannot be disabled when NODE_ENV=' $gateway_sources
 grep -q 'rateLimit cannot be disabled when NODE_ENV=production' backend/test/api-redis-rate-limit.test.mjs
 grep -q 'RATE_LIMIT_UNAVAILABLE' $gateway_sources
 grep -q '任何非本地 `NODE_ENV` 都强制 `RFQ_RATE_LIMIT_BACKEND=redis`' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q '超限后不继续递增计数' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
+grep -q '进程崩溃或 eviction 只会浪费未用 permit' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q '`rateLimitStore` readiness' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'maxQuoteRequests' backend/src/modules/rate-limit/rate-limit.service.ts
 grep -q 'maxSubmitRequests' backend/src/modules/rate-limit/rate-limit.service.ts

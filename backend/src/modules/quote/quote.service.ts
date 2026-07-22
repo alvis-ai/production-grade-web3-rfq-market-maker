@@ -20,11 +20,8 @@ import type {
   SaveSignedQuoteInput,
 } from "./quote.repository.js";
 import { QuoteIdentityGenerator } from "./quote-identity.js";
-import {
-  assertQuoteIdempotencyKey,
-  quoteRequestHash,
-  type QuoteIdempotencyReservation,
-} from "./quote-idempotency.store.js";
+import { assertQuoteIdempotencyKey, quoteRequestHash, type QuoteIdempotencyReservation } from "./quote-idempotency.store.js";
+import { executeFusedIdempotentQuote, isIdempotencyReservation, type IdempotentQuoteOperationResult } from "./quote-idempotency-admission.js";
 import {
   defaultQuoteServiceConfig,
   normalizeQuoteAccessContext,
@@ -61,10 +58,7 @@ export type {
   SubmittableQuoteOptions,
 } from "./quote-service-contract.js";
 
-interface FreshQuoteResult {
-  response: QuoteResponse;
-  idempotencyCompleted: boolean;
-}
+type FreshQuoteResult = IdempotentQuoteOperationResult;
 
 interface PreAuthorizationFailureInput {
   marketSnapshotInput: SaveMarketSnapshotInput;
@@ -94,17 +88,29 @@ export class QuoteService {
       return (await this.createFreshQuote(validatedRequest, access)).response;
     }
 
+    const idempotencyKey = access.idempotencyKey;
     try {
-      assertQuoteIdempotencyKey(access.idempotencyKey);
+      assertQuoteIdempotencyKey(idempotencyKey);
     } catch {
       throw new APIError("INVALID_REQUEST", "Idempotency-Key is invalid", 400);
     }
     const store = this.deps.quoteIdempotencyStore;
     if (!store) throw new APIError("QUOTE_STORE_UNAVAILABLE", "Quote idempotency store unavailable", 503);
 
+    const requestHash = quoteRequestHash(validatedRequest);
+    if (this.deps.quoteIssuanceStore) {
+      return executeFusedIdempotentQuote({
+        store,
+        principalId: access.principalId,
+        key: idempotencyKey,
+        requestHash,
+        execute: (admission) => this.createFreshQuote(validatedRequest, access, admission),
+      });
+    }
+
     let claim;
     try {
-      claim = await store.acquire(access.principalId, access.idempotencyKey, quoteRequestHash(validatedRequest));
+      claim = await store.acquire(access.principalId, access.idempotencyKey, requestHash);
     } catch {
       throw new APIError("QUOTE_STORE_UNAVAILABLE", "Quote idempotency store unavailable", 503);
     }
@@ -149,8 +155,14 @@ export class QuoteService {
   private async createFreshQuote(
     validatedRequest: QuoteRequest,
     access: QuoteAccessContext,
-    idempotency?: QuoteIdempotencyReservation,
+    idempotency?: QuoteIdempotencyReservation | Promise<QuoteIdempotencyReservation>,
   ): Promise<FreshQuoteResult> {
+    let resolvedIdempotency = isIdempotencyReservation(idempotency) ? idempotency : undefined;
+    const resolveIdempotency = async (): Promise<QuoteIdempotencyReservation | undefined> => {
+      if (resolvedIdempotency || idempotency === undefined) return resolvedIdempotency;
+      resolvedIdempotency = await idempotency;
+      return resolvedIdempotency;
+    };
     const snapshot = await this.getUsableSnapshot(validatedRequest);
     const snapshotSource = getMarketDataSnapshotSource(snapshot);
     const marketSnapshotInput: SaveMarketSnapshotInput = {
@@ -168,9 +180,10 @@ export class QuoteService {
     };
     const fusedIssuance = this.deps.quoteIssuanceStore;
     if (!fusedIssuance) {
+      const idempotencyReservation = await resolveIdempotency();
       await Promise.all([
         this.saveMarketSnapshot(marketSnapshotInput),
-        this.bindIdempotencyQuote(idempotency, quoteId),
+        this.bindIdempotencyQuote(idempotencyReservation, quoteId),
       ]);
       await this.saveRequestedQuote(requestedQuote);
     }
@@ -187,10 +200,11 @@ export class QuoteService {
           });
     } catch (error) {
       if (fusedIssuance) {
+        const idempotencyReservation = await resolveIdempotency();
         await this.persistPreAuthorizationFailureBestEffort({
           marketSnapshotInput,
           requestedQuote,
-          idempotency,
+          idempotency: idempotencyReservation,
           errorCode: quoteFailureCode(error),
         });
       }
@@ -226,10 +240,11 @@ export class QuoteService {
     } catch (error) {
       const failure = pricingFailure(error);
       if (fusedIssuance) {
+        const idempotencyReservation = await resolveIdempotency();
         await this.persistPreAuthorizationFailureBestEffort({
           marketSnapshotInput,
           requestedQuote,
-          idempotency,
+          idempotency: idempotencyReservation,
           routePlan,
           errorCode: failure.code,
         });
@@ -253,10 +268,11 @@ export class QuoteService {
     } catch (error) {
       const failure = pricingFailure(error);
       if (fusedIssuance) {
+        const idempotencyReservation = await resolveIdempotency();
         await this.persistPreAuthorizationFailureBestEffort({
           marketSnapshotInput,
           requestedQuote,
-          idempotency,
+          idempotency: idempotencyReservation,
           routePlan,
           errorCode: failure.code,
         });
@@ -271,6 +287,7 @@ export class QuoteService {
       snapshotId: snapshot.snapshotId,
       routePlan,
     };
+    const idempotencyReservation = await resolveIdempotency();
     const deadline = Math.floor(Date.now() / 1000) + this.config.quoteTtlSeconds;
     let authorization;
     try {
@@ -285,7 +302,7 @@ export class QuoteService {
             marketSnapshot: marketSnapshotInput,
             requestedQuote,
             routeDecision,
-            ...(idempotency ? { idempotency } : {}),
+            ...(idempotencyReservation ? { idempotency: idempotencyReservation } : {}),
           },
         } : {}),
       });
@@ -373,7 +390,7 @@ export class QuoteService {
         await fusedIssuance.finalize({
           signedQuote: signedQuoteInput,
           response,
-          ...(idempotency ? { idempotency } : {}),
+          ...(idempotencyReservation ? { idempotency: idempotencyReservation } : {}),
         });
       } else {
         await this.saveSignedQuote(signedQuoteInput);
@@ -385,7 +402,7 @@ export class QuoteService {
 
     return {
       response,
-      idempotencyCompleted: fusedIssuance !== undefined && idempotency !== undefined,
+      idempotencyCompleted: fusedIssuance !== undefined && idempotencyReservation !== undefined,
     };
   }
 

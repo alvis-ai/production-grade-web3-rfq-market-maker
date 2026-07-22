@@ -457,7 +457,16 @@ export function resolveRateLimiter(options: BuildServerOptions): RateLimiter | u
   }
   return new RedisRateLimiter(createRedisRateLimitClient(redisUrl, {
     requireTls: requiresExplicitRuntimeConfig(nodeEnv),
-  }), config);
+  }), config, {
+    localPermitBatchSize: readDecimalIntegerConfig(
+      readOwnEnvValue(env, "RFQ_RATE_LIMIT_LOCAL_PERMIT_BATCH_SIZE"),
+      { defaultValue: 8, min: 1, max: 1_024, name: "RFQ_RATE_LIMIT_LOCAL_PERMIT_BATCH_SIZE" },
+    ),
+    maxLocalBuckets: readDecimalIntegerConfig(
+      readOwnEnvValue(env, "RFQ_RATE_LIMIT_MAX_LOCAL_BUCKETS"),
+      { defaultValue: 10_000, min: 1, max: 1_000_000, name: "RFQ_RATE_LIMIT_MAX_LOCAL_BUCKETS" },
+    ),
+  });
 }
 
 function readQuoteTtlSeconds(): number {

@@ -95,6 +95,8 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
   private readonly maxUserOpenNotionalUsdE18: bigint;
   private readonly maxPairOpenNotionalUsdE18: bigint;
   private readonly portfolioDeltaPolicy?: NormalizedPortfolioDeltaPolicy;
+  private readonly hotStates = new Map<number, ReadRedisQuoteExposureState>();
+  private readonly reservationTails = new Map<number, Promise<void>>();
   private connectPromise: Promise<void> | undefined;
   private initialized = false;
 
@@ -170,12 +172,27 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
   async reserve(input: ReserveQuoteExposureInput): Promise<QuoteExposureReservationResult> {
     if (!this.initialized) await this.initialize();
     const reservation = normalizeQuoteExposureReservation(input, this.tokenRegistry, this.nowSeconds());
+    return this.serializeChainMutation(
+      reservation.chainId,
+      () => this.reserveNormalized(reservation),
+    );
+  }
+
+  private async reserveNormalized(
+    reservation: NormalizedQuoteExposureReservation,
+  ): Promise<QuoteExposureReservationResult> {
     const assets = this.portfolioVarEvaluator?.valuationAssets(reservation.chainId) ?? [];
     const startedAt = performance.now();
     const retryDeadline = startedAt + this.config.lockAcquireTimeoutMs;
     let conflicted = false;
+    let state = this.hotState(reservation.chainId, assets);
+    let stateWasCached = state !== undefined;
     while (true) {
-      const state = await this.readVersionedState(reservation, assets);
+      if (!state) {
+        state = await this.readVersionedState(reservation, assets);
+        this.cacheHotState(state, reservation.chainId);
+        stateWasCached = false;
+      }
       if (state.existing) {
         assertSameReservation(storedRedisQuoteExposureToNormalized(state.existing), reservation);
         await this.requireReplicaAcknowledgements();
@@ -185,7 +202,11 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
       }
 
       const evaluated = await this.evaluateReservation(reservation, state);
-      if ("rejection" in evaluated) return evaluated.rejection;
+      if ("rejection" in evaluated) {
+        if (!stateWasCached) return evaluated.rejection;
+        state = undefined;
+        continue;
+      }
       const stored = evaluated.record;
       const result = await this.client.eval(
         commitQuoteExposureReservationScript,
@@ -200,6 +221,7 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
         this.maxPairOpenNotionalUsdE18.toString(),
         reservation.treasuryLiquidity?.availableBalance.toString() ?? "",
         this.config.maxBacklog,
+        this.config.cleanupLimit,
       );
       const committed = parseRedisQuoteExposureMutation(result);
       if (committed.status === "conflict") {
@@ -211,6 +233,7 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
           throw new Error("Redis quote exposure version retry timed out");
         }
         await yieldControl();
+        state = undefined;
         continue;
       }
       if (committed.status === "rejected") {
@@ -226,6 +249,11 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
       }
       const accepted = parseRedisQuoteExposureRecord(committed.payload);
       assertSameReservation(storedRedisQuoteExposureToNormalized(accepted), reservation);
+      if (committed.status === "reserved") {
+        this.cacheAcceptedReservation(state, accepted, committed.backlog);
+      } else if (stateWasCached) {
+        this.hotStates.delete(reservation.chainId);
+      }
       await this.requireReplicaAcknowledgements();
       if (conflicted) this.notifyLockWait((performance.now() - startedAt) / 1_000);
       this.notifyMutation({
@@ -262,6 +290,7 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
         this.notifyFailure(released.reason === "backlog_full" ? "backlog_full" : "state_invalid");
         throw new Error(`Redis quote exposure release failed: ${released.reason}`);
       }
+      this.hotStates.delete(record.chainId);
       if (released.status === "reserved") await this.requireReplicaAcknowledgements();
       this.notifyMutation({
         operation: "release",
@@ -368,6 +397,58 @@ export class RedisQuoteExposureStore implements QuoteExposureStore {
         portfolioDelta,
       ),
     };
+  }
+
+  private hotState(
+    chainId: number,
+    assets: readonly `0x${string}`[],
+  ): ReadRedisQuoteExposureState | undefined {
+    const state = this.hotStates.get(chainId);
+    if (!state || state.tokenDeltas.length !== assets.length) return undefined;
+    for (let index = 0; index < assets.length; index += 1) {
+      if (state.tokenDeltas[index]?.tokenAddress !== assets[index]?.toLowerCase()) return undefined;
+    }
+    return state;
+  }
+
+  private cacheHotState(state: ReadRedisQuoteExposureState, chainId: number): void {
+    this.hotStates.set(chainId, {
+      tokenDeltas: state.tokenDeltas.map((delta) => ({ ...delta })),
+      backlog: state.backlog,
+      version: state.version,
+    });
+  }
+
+  private cacheAcceptedReservation(
+    state: ReadRedisQuoteExposureState,
+    record: RedisQuoteExposureRecord,
+    backlog: number,
+  ): void {
+    const tokenDeltas = state.tokenDeltas.map((delta) => {
+      let next = delta.delta;
+      if (delta.tokenAddress === record.tokenIn) next += BigInt(record.amountIn);
+      if (delta.tokenAddress === record.tokenOut) next -= BigInt(record.amountOut);
+      return { ...delta, delta: next };
+    });
+    this.hotStates.set(record.chainId, {
+      tokenDeltas,
+      backlog,
+      version: state.version + 1,
+    });
+  }
+
+  private async serializeChainMutation<T>(chainId: number, operation: () => Promise<T>): Promise<T> {
+    const previous = this.reservationTails.get(chainId) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    this.reservationTails.set(chainId, current);
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+      if (this.reservationTails.get(chainId) === current) this.reservationTails.delete(chainId);
+    }
   }
 
   private async acquireLock(chainId: number): Promise<string> {

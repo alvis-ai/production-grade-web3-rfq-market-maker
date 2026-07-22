@@ -57,6 +57,17 @@ test("RemoteSignerService authenticates an exact sign request and verifies the r
   assert.deepEqual(JSON.parse(calls[0].init.body), input);
 });
 
+test("RemoteSignerService binds WASM recovery to the EIP-712 digest and Ethereum recovery id", async () => {
+  const local = new LocalEIP712SignerService({ privateKey, settlementAddress });
+  const signature = await local.signQuote(input);
+  const remote = new RemoteSignerService(config, async () => jsonResponse({ signature }));
+  const flippedRecoveryId = `${signature.slice(0, 130)}${signature.endsWith("1b") ? "1c" : "1b"}`;
+
+  assert.equal(await remote.verifyQuoteSignature(input.quote, signature), true);
+  assert.equal(await remote.verifyQuoteSignature(input.quote, flippedRecoveryId), false);
+  assert.equal(await remote.verifyQuoteSignature({ ...input.quote, amountOut: "997" }, signature), false);
+});
+
 test("RemoteSignerService fails closed on transport, status, response, and signer mismatches", async () => {
   const failures = [
     async () => { throw new Error("network"); },

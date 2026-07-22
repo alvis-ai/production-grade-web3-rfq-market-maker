@@ -103,7 +103,7 @@ Key metrics include:
 - `rfq_quote_responses_total`
 - `rfq_quote_errors_total`
 - `rfq_quote_latency_seconds`
-- `rfq_quote_stage_latency_seconds` with a bounded `stage` label; Redis and PostgreSQL issuance both expose `quote_preparation_persistence`, `authorization_persistence` and `issuance_persistence`, while custom repositories retain legacy persistence stages; alert when any stage p99 remains above 25ms
+- `rfq_quote_stage_latency_seconds` with a bounded `stage` label; API admission exposes `rate_limit` and `quote_control`, Redis and PostgreSQL issuance both expose `quote_preparation_persistence`, `authorization_persistence` and `issuance_persistence`, while custom repositories retain legacy persistence stages; alert when any stage p99 remains above 25ms
 - `rfq_quote_rejections_total` with bounded `reason`; alert separately on `TREASURY_LIQUIDITY_INSUFFICIENT`, `PORTFOLIO_VAR_LIMIT_EXCEEDED`, `PORTFOLIO_DELTA_LIMIT_EXCEEDED`, `GAMMA_GUARDRAIL_TRIGGERED`, `USD_REFERENCE_DEPEG` and `RISK_ENGINE_UNAVAILABLE`
 - `rfq_portfolio_delta_soft_breaches_total` counts newly accepted reservations above a reviewed chain/token asset, gross, or signed net delta soft limit; any increase requires component-level inventory and hedge review before a hard limit starts rejecting quotes
 - `rfq_quote_exposure_ledger_mutations_total` with bounded operation/result labels

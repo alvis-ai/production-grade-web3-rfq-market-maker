@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { performance } from "node:perf_hooks";
 import type { SkeletonExecutionService } from "../modules/execution/execution.service.js";
 import {
   assertSubmitReservation,
@@ -253,24 +254,28 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
     metricsService.recordQuoteRequest();
     try {
       const principal = authenticatedPrincipals.get(request);
-      const rateLimitResult = await enforceRateLimit(
-        rateLimiter,
-        metricsService,
-        "quote",
-        request,
-        reply,
-        trustProxy,
-        principal,
-      );
+      const rateLimitResult = await observeQuoteBoundaryStage(metricsService, "rate_limit", () =>
+        enforceRateLimit(
+          rateLimiter,
+          metricsService,
+          "quote",
+          request,
+          reply,
+          trustProxy,
+          principal,
+        ));
       if (!rateLimitResult.allowed) {
         metricsService.recordQuoteError();
         return rateLimitResult.response;
       }
 
       const idempotencyKey = readQuoteIdempotencyKey(request, requireQuoteIdempotencyKey);
-      await requireQuoteEnabled(quoteControlStore, metricsService);
-      const quoteRequest = validateQuoteRequest(request.body);
-      await requirePairQuoteEnabled(quoteControlStore, metricsService, quoteRequest);
+      const quoteRequest = await observeQuoteBoundaryStage(metricsService, "quote_control", async () => {
+        await requireQuoteEnabled(quoteControlStore, metricsService);
+        const validated = validateQuoteRequest(request.body);
+        await requirePairQuoteEnabled(quoteControlStore, metricsService, validated);
+        return validated;
+      });
 
       const response = await quoteService.createQuote(quoteRequest, {
         principalId: principal?.principalId ?? localPrincipalId,
@@ -371,6 +376,19 @@ export function registerTradingRoutes(server: FastifyInstance, deps: TradingRout
       metricsService.recordSubmitLatency(elapsedSeconds(startedAt));
     }
   });
+}
+
+async function observeQuoteBoundaryStage<T>(
+  metricsService: MetricsService,
+  stage: "rate_limit" | "quote_control",
+  operation: () => Promise<T>,
+): Promise<T> {
+  const startedAt = performance.now();
+  try {
+    return await operation();
+  } finally {
+    metricsService.recordQuoteStageLatency(stage, (performance.now() - startedAt) / 1_000);
+  }
 }
 
 function readQuoteIdempotencyKey(request: FastifyRequest, required: boolean): string | undefined {

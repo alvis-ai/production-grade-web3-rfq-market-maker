@@ -1,4 +1,5 @@
 import { Redis } from "ioredis";
+import { performance } from "node:perf_hooks";
 import {
   normalizeRedisUrl as normalizeSharedRedisUrl,
   type RedisUrlPolicy,
@@ -17,18 +18,24 @@ import {
 const rateLimitScript = `
 local current = tonumber(redis.call("GET", KEYS[1]) or "0")
 local ttl = redis.call("PTTL", KEYS[1])
+local requested = tonumber(ARGV[3])
+local limit = tonumber(ARGV[2])
 if current == 0 or ttl < 1 then
-  redis.call("SET", KEYS[1], 1, "PX", ARGV[1])
-  return {1, 1, tonumber(ARGV[1])}
+  local granted = math.min(requested, limit)
+  redis.call("SET", KEYS[1], granted, "PX", ARGV[1])
+  return {granted, granted, tonumber(ARGV[1])}
 end
-if current >= tonumber(ARGV[2]) then
+if current >= limit then
   return {0, current, ttl}
 end
-current = redis.call("INCR", KEYS[1])
-return {1, current, ttl}
+local granted = math.min(requested, limit - current)
+current = redis.call("INCRBY", KEYS[1], granted)
+return {granted, current, ttl}
 `;
 
 const defaultKeyPrefix = "rfq:rate-limit:v1";
+const defaultLocalPermitBatchSize = 8;
+const defaultMaxLocalBuckets = 10_000;
 
 export interface RedisRateLimitClient {
   readonly status?: string;
@@ -41,6 +48,19 @@ export interface RedisRateLimitClient {
 
 export interface RedisRateLimiterOptions {
   keyPrefix?: string;
+  localPermitBatchSize?: number;
+  maxLocalBuckets?: number;
+}
+
+interface LocalPermitLease {
+  expiresAtMs: number;
+  permits: number;
+}
+
+interface PermitAllocation {
+  count: number;
+  granted: number;
+  ttlMs: number;
 }
 
 export type { RedisUrlPolicy } from "../../shared/redis/redis-url.js";
@@ -49,6 +69,10 @@ export class RedisRateLimiter implements RateLimiter {
   private readonly client: RedisRateLimitClient;
   private readonly config: RateLimitConfig;
   private readonly keyPrefix: string;
+  private readonly localPermitBatchSize: number;
+  private readonly maxLocalBuckets: number;
+  private readonly localPermits = new Map<string, LocalPermitLease>();
+  private readonly allocations = new Map<string, Promise<PermitAllocation>>();
   private connectPromise: Promise<void> | undefined;
 
   constructor(
@@ -61,27 +85,37 @@ export class RedisRateLimiter implements RateLimiter {
     assertRedisRateLimiterOptions(options);
     this.client = client;
     this.config = cloneRateLimitConfig(config);
-    this.keyPrefix = normalizeKeyPrefix(options.keyPrefix ?? defaultKeyPrefix);
+    const normalizedOptions = normalizeOptions(options);
+    this.keyPrefix = normalizedOptions.keyPrefix;
+    this.localPermitBatchSize = normalizedOptions.localPermitBatchSize;
+    this.maxLocalBuckets = normalizedOptions.maxLocalBuckets;
   }
 
   async check(input: RateLimitInput): Promise<RateLimitDecision> {
     const safeInput = normalizeRateLimitInput(input);
     const limit = limitForRateLimitEndpoint(this.config, safeInput.endpoint);
-    await this.ensureConnected();
-    const result = await this.client.eval(
-      rateLimitScript,
-      1,
-      `${this.keyPrefix}:${safeInput.endpoint}:${safeInput.clientId}`,
-      this.config.windowMs,
-      limit,
-    );
-    const [allowed, count, ttlMs] = assertScriptResult(result);
+    const key = `${this.keyPrefix}:${safeInput.endpoint}:${safeInput.clientId}`;
+    while (true) {
+      const local = this.consumeLocalPermit(key);
+      if (local) return local;
 
-    return {
-      allowed: allowed === 1,
-      remaining: Math.max(0, limit - count),
-      retryAfterSeconds: Math.max(1, Math.ceil(ttlMs / 1000)),
-    };
+      let allocation = this.allocations.get(key);
+      if (!allocation) {
+        allocation = this.allocatePermits(key, limit);
+        this.allocations.set(key, allocation);
+        void allocation.finally(() => {
+          if (this.allocations.get(key) === allocation) this.allocations.delete(key);
+        }).catch(() => undefined);
+      }
+      const allocated = await allocation;
+      if (allocated.granted === 0) {
+        return {
+          allowed: false,
+          remaining: 0,
+          retryAfterSeconds: Math.max(1, Math.ceil(allocated.ttlMs / 1000)),
+        };
+      }
+    }
   }
 
   async checkHealth(): Promise<void> {
@@ -93,6 +127,8 @@ export class RedisRateLimiter implements RateLimiter {
   }
 
   async close(): Promise<void> {
+    this.localPermits.clear();
+    this.allocations.clear();
     if (this.client.status === "wait" || this.client.status === "end") {
       this.client.disconnect?.();
       return;
@@ -121,6 +157,57 @@ export class RedisRateLimiter implements RateLimiter {
       this.connectPromise = undefined;
     });
     await this.connectPromise;
+  }
+
+  private consumeLocalPermit(key: string): RateLimitDecision | undefined {
+    const lease = this.localPermits.get(key);
+    if (!lease) return undefined;
+    const now = performance.now();
+    if (lease.permits < 1 || lease.expiresAtMs <= now) {
+      this.localPermits.delete(key);
+      return undefined;
+    }
+    lease.permits -= 1;
+    const decision = {
+      allowed: true,
+      remaining: lease.permits,
+      retryAfterSeconds: Math.max(1, Math.ceil((lease.expiresAtMs - now) / 1_000)),
+    } as const;
+    if (lease.permits === 0) this.localPermits.delete(key);
+    return decision;
+  }
+
+  private async allocatePermits(key: string, limit: number): Promise<PermitAllocation> {
+    await this.ensureConnected();
+    const requested = Math.min(limit, this.localPermitBatchSize);
+    const requestedAtMs = performance.now();
+    const result = await this.client.eval(
+      rateLimitScript,
+      1,
+      key,
+      this.config.windowMs,
+      limit,
+      requested,
+    );
+    const [granted, count, ttlMs] = assertScriptResult(result);
+    if (granted > requested || count > limit) {
+      throw new Error("Redis rate limit script exceeded the configured permit bounds");
+    }
+    if (granted > 0) {
+      this.storeLocalPermits(key, {
+        expiresAtMs: requestedAtMs + ttlMs,
+        permits: granted,
+      });
+    }
+    return { count, granted, ttlMs };
+  }
+
+  private storeLocalPermits(key: string, lease: LocalPermitLease): void {
+    if (!this.localPermits.has(key) && this.localPermits.size >= this.maxLocalBuckets) {
+      const oldest = this.localPermits.keys().next().value as string | undefined;
+      if (oldest !== undefined) this.localPermits.delete(oldest);
+    }
+    this.localPermits.set(key, lease);
   }
 }
 
@@ -152,17 +239,17 @@ export function normalizeRedisUrl(value: string, policy: RedisUrlPolicy = {}): s
   }
 }
 
-function assertScriptResult(result: unknown): [0 | 1, number, number] {
+function assertScriptResult(result: unknown): [number, number, number] {
   if (!Array.isArray(result) || result.length !== 3) {
     throw new Error("Redis rate limit script returned a malformed result");
   }
-  const [allowed, count, ttlMs] = result;
-  if ((allowed !== 0 && allowed !== 1) || !Number.isSafeInteger(count) || count < 1 ||
+  const [granted, count, ttlMs] = result;
+  if (!Number.isSafeInteger(granted) || granted < 0 || !Number.isSafeInteger(count) || count < 1 ||
       !Number.isSafeInteger(ttlMs) || ttlMs < 1) {
     throw new Error("Redis rate limit script returned invalid values");
   }
 
-  return [allowed, count, ttlMs];
+  return [granted, count, ttlMs];
 }
 
 function assertRedisRateLimitClient(client: unknown): asserts client is RedisRateLimitClient {
@@ -181,12 +268,33 @@ function assertRedisRateLimiterOptions(options: unknown): asserts options is Red
     throw new Error("Redis rate limiter options must be an object");
   }
   for (const key of Object.keys(options)) {
-    if (key !== "keyPrefix") {
+    if (key !== "keyPrefix" && key !== "localPermitBatchSize" && key !== "maxLocalBuckets") {
       throw new Error(`Redis rate limiter options must not include unknown field ${key}`);
     }
   }
-  if ("keyPrefix" in options && !Object.prototype.hasOwnProperty.call(options, "keyPrefix")) {
-    throw new Error("Redis rate limiter options.keyPrefix must be an own field when provided");
+  for (const field of ["keyPrefix", "localPermitBatchSize", "maxLocalBuckets"] as const) {
+    if (field in options && !Object.prototype.hasOwnProperty.call(options, field)) {
+      throw new Error(`Redis rate limiter options.${field} must be an own field when provided`);
+    }
+  }
+}
+
+function normalizeOptions(options: RedisRateLimiterOptions): Required<RedisRateLimiterOptions> {
+  assertRedisRateLimiterOptions(options);
+  const localPermitBatchSize = options.localPermitBatchSize ?? defaultLocalPermitBatchSize;
+  const maxLocalBuckets = options.maxLocalBuckets ?? defaultMaxLocalBuckets;
+  assertBoundedOption(localPermitBatchSize, "localPermitBatchSize", 1, 1_024);
+  assertBoundedOption(maxLocalBuckets, "maxLocalBuckets", 1, 1_000_000);
+  return {
+    keyPrefix: normalizeKeyPrefix(options.keyPrefix ?? defaultKeyPrefix),
+    localPermitBatchSize,
+    maxLocalBuckets,
+  };
+}
+
+function assertBoundedOption(value: number, name: string, min: number, max: number): void {
+  if (!Number.isSafeInteger(value) || value < min || value > max) {
+    throw new Error(`Redis rate limiter ${name} must be between ${min} and ${max}`);
   }
 }
 

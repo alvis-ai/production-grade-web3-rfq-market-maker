@@ -124,7 +124,7 @@ test("gateway request logs correlate route templates with trace ids without cred
       route: completion.route,
       statusCode: completion.statusCode,
     }, {
-      level: "info",
+      level: "debug",
       service: "rfq-api",
       traceId,
       method: "POST",

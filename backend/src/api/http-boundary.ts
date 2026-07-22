@@ -59,8 +59,11 @@ export function installGatewayBoundary(
   server.addHook("onResponse", async (request, reply) => {
     const fields = requestLogFields(request, reply.statusCode, requestStartedAt.get(request));
     requestStartedAt.delete(request);
-    if (isProbeRoute(request)) request.log.debug(fields, "HTTP request completed");
-    else request.log.info(fields, "HTTP request completed");
+    if (isProbeRoute(request) || isSuccessfulQuoteRequest(request, reply.statusCode)) {
+      request.log.debug(fields, "HTTP request completed");
+    } else {
+      request.log.info(fields, "HTTP request completed");
+    }
   });
   server.setErrorHandler((error, request, reply) => {
     const apiError = frameworkErrorToAPIError(error);
@@ -73,6 +76,10 @@ export function installGatewayBoundary(
     return sendError(reply, requestTraceId(request), error);
   });
   return authenticatedPrincipals;
+}
+
+function isSuccessfulQuoteRequest(request: FastifyRequest, statusCode: number): boolean {
+  return statusCode < 400 && request.method === "POST" && request.routeOptions.url === "/quote";
 }
 
 export async function enforceRateLimit(

@@ -16,7 +16,7 @@ const tokenIn = "0x0000000000000000000000000000000000000011";
 const tokenOut = "0x0000000000000000000000000000000000000022";
 const now = 1_900_000_000;
 
-test("RedisQuoteExposureStore uses two Redis round trips for a common reservation", async () => {
+test("RedisQuoteExposureStore warms once then uses one Redis round trip for common reservations", async () => {
   const client = fakeClient();
   const observations = [];
   const store = buildStore(client, {
@@ -31,14 +31,34 @@ test("RedisQuoteExposureStore uses two Redis round trips for a common reservatio
   assert.equal(client.xlenCalls, 0);
   assert.deepEqual(observations[0], { operation: "reserve", duplicate: false, backlog: 1 });
 
+  assert.equal((await store.reserve(reserveInput("q_fused_next"))).status, "reserved");
+  assert.deepEqual(client.scriptCalls.slice(3), ["commit"]);
+
   assert.deepEqual(await store.reserve(input), reserved);
-  assert.deepEqual(client.scriptCalls.slice(3), ["versioned-read"]);
+  assert.deepEqual(client.scriptCalls.slice(4), ["commit-duplicate"]);
   assert.equal(client.xlenCalls, 0);
 
   await store.release(input.quoteId);
-  assert.deepEqual(client.scriptCalls.slice(4), ["get", "lock", "release"]);
+  assert.deepEqual(client.scriptCalls.slice(5), ["get", "lock", "release"]);
   assert.equal(client.xlenCalls, 0);
-  assert.deepEqual(observations.at(-1), { operation: "release", duplicate: false, backlog: 2 });
+  assert.deepEqual(observations.at(-1), { operation: "release", duplicate: false, backlog: 3 });
+
+  assert.equal((await store.reserve(reserveInput("q_after_release"))).status, "reserved");
+  assert.deepEqual(client.scriptCalls.slice(-2), ["versioned-read", "commit"]);
+});
+
+test("RedisQuoteExposureStore serializes same-chain local generations before Redis CAS", async () => {
+  const client = fakeClient({ enforceVersion: true });
+  const store = buildStore(client);
+
+  await store.initialize();
+  const results = await Promise.all([
+    store.reserve(reserveInput("q_local_generation_1")),
+    store.reserve(reserveInput("q_local_generation_2")),
+  ]);
+
+  assert.deepEqual(results.map((result) => result.status), ["reserved", "reserved"]);
+  assert.deepEqual(client.scriptCalls, ["initialize", "versioned-read", "commit", "commit"]);
 });
 
 test("RedisQuoteExposureStore requires replica acknowledgement for an existing replay", async () => {
@@ -50,7 +70,7 @@ test("RedisQuoteExposureStore requires replica acknowledgement for an existing r
   assert.equal((await store.reserve(input)).status, "reserved");
   await assert.rejects(store.reserve(input), /required replicas/);
   assert.equal(client.waitCalls, 2);
-  assert.deepEqual(client.scriptCalls.slice(-1), ["versioned-read"]);
+  assert.deepEqual(client.scriptCalls.slice(-1), ["commit-duplicate"]);
 });
 
 test("RedisQuoteExposureStore retries a generation conflict before committing", async () => {
@@ -142,7 +162,7 @@ function buildStore(client, observerOverrides = {}, configOverrides = {}) {
 }
 
 function fakeClient(options = {}) {
-  let storedPayload;
+  const storedPayloads = new Map();
   let backlog = 0;
   let version = 0;
   let remainingCommitConflicts = options.commitConflicts ?? 0;
@@ -162,10 +182,21 @@ function fakeClient(options = {}) {
         client.scriptCalls.push("versioned-read");
         if (options.malformedAcquireRead) return [1, "", "invalid-backlog", String(version)];
         const quoteId = args[10];
-        const existing = storedPayload && JSON.parse(storedPayload).quoteId === quoteId ? storedPayload : "";
+        const existing = storedPayloads.get(quoteId) ?? "";
         return [1, existing, backlog, String(version)];
       }
       if (script === commitQuoteExposureReservationScript) {
+        assert.equal(args[18], 10, "commit must clean expired reservations before CAS");
+        const quoteId = args[10];
+        const existing = storedPayloads.get(quoteId);
+        if (existing) {
+          client.scriptCalls.push("commit-duplicate");
+          return [2, existing, backlog];
+        }
+        if (options.enforceVersion && String(args[9]) !== String(version)) {
+          client.scriptCalls.push("commit-conflict");
+          return [4, "version_conflict", backlog];
+        }
         if (remainingCommitConflicts > 0) {
           remainingCommitConflicts -= 1;
           version += 1;
@@ -176,14 +207,15 @@ function fakeClient(options = {}) {
           return [4, "version_conflict", backlog];
         }
         client.scriptCalls.push("commit");
-        storedPayload = args[11];
+        const storedPayload = args[11];
+        storedPayloads.set(quoteId, storedPayload);
         backlog += 1;
         version += 1;
         return [1, storedPayload, backlog];
       }
       if (script === getQuoteExposureReservationScript) {
         client.scriptCalls.push("get");
-        return storedPayload ?? "";
+        return storedPayloads.get(args[1]) ?? "";
       }
       if (script === acquireQuoteExposureLockScript) {
         client.scriptCalls.push("lock");
@@ -191,8 +223,8 @@ function fakeClient(options = {}) {
       }
       if (script === releaseQuoteExposureReservationScript) {
         client.scriptCalls.push("release");
-        const released = storedPayload ?? "";
-        storedPayload = undefined;
+        const released = storedPayloads.get(args[10]) ?? "";
+        storedPayloads.delete(args[10]);
         backlog += 1;
         version += 1;
         return [1, released, backlog];

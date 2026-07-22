@@ -160,6 +160,108 @@ test("QuoteService fused issuance blocks signer on malformed authorization evide
   assert.equal(signerCalls, 0);
 });
 
+test("QuoteService overlaps fused idempotency admission with side-effect-free pricing", async () => {
+  const events = [];
+  let resolveAdmission;
+  const admission = new Promise((resolve) => { resolveAdmission = resolve; });
+  const pricingEngine = new FormulaPricingEngine();
+  const service = new QuoteService({
+    ...deps(),
+    pricingEngine: {
+      async price(input) {
+        events.push("pricing");
+        resolveAdmission({
+          status: "acquired",
+          reservation: {
+            principalId: "principal_parallel",
+            key: "quote_parallel_fused_0001",
+            requestHash: "a".repeat(64),
+            ownerToken: "quote_idem_parallel_0001",
+            expiresAt: new Date(Date.now() + 10_000).toISOString(),
+          },
+        });
+        return pricingEngine.price(input);
+      },
+    },
+    quoteIdempotencyStore: {
+      async checkHealth() {},
+      async acquire() {
+        events.push("acquire");
+        return admission;
+      },
+      async bindQuote() { assert.fail("fused issuance binds idempotency during prepare"); },
+      async complete() { assert.fail("fused issuance completes idempotency during finalize"); },
+      async fail() { assert.fail("successful quote must not fail idempotency"); },
+    },
+    quoteIssuanceStore: {
+      async prepare(input) {
+        events.push("prepare");
+        assert.equal(input.idempotency?.ownerToken, "quote_idem_parallel_0001");
+      },
+      async authorize(input) {
+        events.push("authorize");
+        return {
+          riskDecisionId: `rd_${input.quoteId}`,
+          quoteId: input.quoteId,
+          decision: "approved",
+          policyVersion: input.decision.policyVersion,
+          createdAt: new Date().toISOString(),
+        };
+      },
+      async finalize(input) {
+        events.push("finalize");
+        assert.equal(input.idempotency?.ownerToken, "quote_idem_parallel_0001");
+      },
+    },
+  });
+
+  assert.match((await service.createQuote(request, {
+    principalId: "principal_parallel",
+    idempotencyKey: "quote_parallel_fused_0001",
+  })).quoteId, /^q_/);
+  assert.deepEqual(events.slice(0, 2), ["acquire", "pricing"]);
+  assert.equal(events.indexOf("prepare") > events.indexOf("pricing"), true);
+  assert.deepEqual(events.slice(-3), ["prepare", "authorize", "finalize"]);
+});
+
+test("QuoteService returns a fused replay even when speculative pricing fails", async () => {
+  const replay = {
+    quoteId: "q_replayed",
+    snapshotId: "snapshot_replayed",
+    amountOut: "998",
+    minAmountOut: "990",
+    deadline: 4_102_444_800,
+    nonce: "42",
+    signature: fixedSignature(),
+  };
+  const service = new QuoteService({
+    ...deps(),
+    pricingEngine: {
+      async price() {
+        await Promise.resolve();
+        throw new Error("speculative pricing unavailable");
+      },
+    },
+    quoteIdempotencyStore: {
+      async checkHealth() {},
+      async acquire() { return { status: "replay", response: replay }; },
+      async bindQuote() { assert.fail("replay must not bind"); },
+      async complete() { assert.fail("replay must not complete"); },
+      async fail() { assert.fail("replay must not fail"); },
+    },
+    quoteIssuanceStore: {
+      async prepare() { assert.fail("replay must not prepare"); },
+      async authorize() { assert.fail("replay must not authorize"); },
+      async finalize() { assert.fail("replay must not finalize"); },
+    },
+  });
+
+  assert.deepEqual(await service.createQuote(request, {
+    principalId: "principal_replay",
+    idempotencyKey: "quote_parallel_fused_replay_0001",
+  }), replay);
+});
+
 function deps() {
   return {
     inventoryService: new InventoryService(),

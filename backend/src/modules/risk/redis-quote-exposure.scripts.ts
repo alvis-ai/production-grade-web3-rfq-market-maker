@@ -200,13 +200,15 @@ return redis.call("HGET", KEYS[1], ARGV[1]) or ""
 `;
 
 export const commitQuoteExposureReservationScript = `${decimalHelpers}${String.raw`
+local redis_time = redis.call("TIME")
+local remaining_expired = clean_expired(tonumber(redis_time[1]), tonumber(ARGV[10]))
 local backlog = redis.call("XLEN", KEYS[7])
+if remaining_expired > 0 then return {4, "version_conflict", backlog} end
 local existing = redis.call("HGET", KEYS[1], ARGV[2])
 if existing then return {2, existing, backlog} end
 local record = cjson.decode(ARGV[3])
 local current_version = redis.call("HGET", KEYS[9], tostring(record.chainId)) or "0"
 if current_version ~= ARGV[1] then return {4, "version_conflict", backlog} end
-local redis_time = redis.call("TIME")
 local now_seconds = tonumber(redis_time[1])
 if tonumber(ARGV[4]) <= now_seconds or tonumber(ARGV[5]) <= now_seconds then
   return {0, "expired", backlog}

@@ -5,7 +5,9 @@ import {
   type IncomingMessage,
 } from "node:http";
 import { Agent as HttpsAgent, request as httpsRequest } from "node:https";
-import { recoverTypedDataAddress } from "viem";
+import { bytesToHex, hashTypedData, hexToBytes } from "viem";
+import { publicKeyToAddress } from "viem/accounts";
+import { recover } from "tiny-secp256k1";
 import { APIError } from "../../shared/errors/api-error.js";
 import {
   cancelResponseBody,
@@ -113,11 +115,18 @@ export class RemoteSignerService implements SignerService {
     try {
       assertSignedQuote(quote);
       assertSignature(signature);
-      const recovered = await recoverTypedDataAddress({
-        ...buildQuoteTypedData(quote, this.settlementAddress),
-        signature,
-      });
-      return recovered.toLowerCase() === this.trustedSignerAddress;
+      const digest = hashTypedData(buildQuoteTypedData(quote, this.settlementAddress));
+      const rawRecoveryId = Number.parseInt(signature.slice(130, 132), 16);
+      const recoveryId = rawRecoveryId < 27 ? rawRecoveryId : rawRecoveryId - 27;
+      if (recoveryId !== 0 && recoveryId !== 1) return false;
+      const publicKey = recover(
+        hexToBytes(digest),
+        hexToBytes(`0x${signature.slice(2, 130)}`),
+        recoveryId,
+        false,
+      );
+      if (!publicKey) return false;
+      return publicKeyToAddress(bytesToHex(publicKey)).toLowerCase() === this.trustedSignerAddress;
     } catch {
       return false;
     }

@@ -14,7 +14,7 @@ const config = {
 
 test("RedisRateLimiter maps atomic script results to endpoint decisions", async () => {
   const calls = [];
-  const results = [[1, 1, 60_000], [1, 2, 59_500], [0, 2, 59_000]];
+  const results = [[2, 2, 60_000], [0, 2, 59_000]];
   const client = fakeClient({
     async eval(...args) {
       calls.push(args);
@@ -39,13 +39,59 @@ test("RedisRateLimiter maps atomic script results to endpoint decisions", async 
     retryAfterSeconds: 59,
   });
 
+  assert.equal(calls.length, 2);
   for (const call of calls) {
     assert.match(call[0], /redis\.call\("GET"/);
+    assert.match(call[0], /redis\.call\("INCRBY"/);
     assert.equal(call[1], 1);
     assert.equal(call[2], "rfq:rate-limit:v1:quote:client-a");
     assert.equal(call[3], 60_000);
     assert.equal(call[4], 2);
+    assert.equal(call[5], 2);
   }
+});
+
+test("RedisRateLimiter shares one conservative permit allocation across concurrent checks", async () => {
+  let calls = 0;
+  const limiter = new RedisRateLimiter(fakeClient({
+    async eval() {
+      calls += 1;
+      await Promise.resolve();
+      return [2, 2, 60_000];
+    },
+  }), config);
+
+  const decisions = await Promise.all([
+    limiter.check({ endpoint: "quote", clientId: "client-a" }),
+    limiter.check({ endpoint: "quote", clientId: "client-a" }),
+  ]);
+
+  assert.equal(calls, 1);
+  assert.deepEqual(decisions, [
+    { allowed: true, remaining: 1, retryAfterSeconds: 60 },
+    { allowed: true, remaining: 0, retryAfterSeconds: 60 },
+  ]);
+});
+
+test("RedisRateLimiter does not extend a permit lease by Redis response latency", async () => {
+  let calls = 0;
+  const limiter = new RedisRateLimiter(fakeClient({
+    async eval() {
+      calls += 1;
+      if (calls === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return [2, 2, 1];
+      }
+      return [0, 2, 60_000];
+    },
+  }), config);
+
+  assert.deepEqual(await limiter.check({ endpoint: "quote", clientId: "client-a" }), {
+    allowed: false,
+    remaining: 0,
+    retryAfterSeconds: 60,
+  });
+  assert.equal(calls, 2);
 });
 
 test("RedisRateLimiter snapshots configuration and supports bounded key prefixes", async () => {
@@ -65,6 +111,7 @@ test("RedisRateLimiter snapshots configuration and supports bounded key prefixes
   assert.equal(calls[0][2], "rfq:tenant_1:submit:127.0.0.1");
   assert.equal(calls[0][3], 60_000);
   assert.equal(calls[0][4], 1);
+  assert.equal(calls[0][5], 1);
 });
 
 test("RedisRateLimiter validates dependencies, config, inputs and script output", async () => {
@@ -84,6 +131,14 @@ test("RedisRateLimiter validates dependencies, config, inputs and script output"
   assert.throws(
     () => new RedisRateLimiter(fakeClient(), config, { keyPrefix: "ok", extra: true }),
     /must not include unknown field extra/,
+  );
+  assert.throws(
+    () => new RedisRateLimiter(fakeClient(), config, { localPermitBatchSize: 0 }),
+    /localPermitBatchSize must be between 1 and 1024/,
+  );
+  assert.throws(
+    () => new RedisRateLimiter(fakeClient(), config, { maxLocalBuckets: 1_000_001 }),
+    /maxLocalBuckets must be between 1 and 1000000/,
   );
 
   const limiter = new RedisRateLimiter(fakeClient({ async eval() { return [1, "1", 1000]; } }), config);

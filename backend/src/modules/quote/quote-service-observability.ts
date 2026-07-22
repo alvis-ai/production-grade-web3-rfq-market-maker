@@ -1,6 +1,8 @@
 import type { QuoteServiceDeps } from "./quote-service-contract.js";
 
 export const quoteLatencyStages = [
+  "rate_limit",
+  "quote_control",
   "idempotency",
   "market_data",
   "market_snapshot_persistence",

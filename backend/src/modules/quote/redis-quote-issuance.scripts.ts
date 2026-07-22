@@ -66,7 +66,7 @@ if existing_json then
   local existing = cjson.decode(existing_json)
   if existing.quoteId ~= ARGV[1] or existing.principalId ~= ARGV[2]
      or existing.preparationHash ~= ARGV[3] then return {0, "quote_conflict", 0, ""} end
-  return {2, existing_json, redis.call("XLEN", KEYS[3]), ""}
+  return {2, existing.preparationHash, redis.call("XLEN", KEYS[3]), ""}
 end
 local backlog = redis.call("XLEN", KEYS[3])
 if backlog >= tonumber(ARGV[6]) then return {0, "backlog_full", backlog, ""} end
@@ -103,7 +103,7 @@ local stream_id = redis.call(
   "event_type", "prepared",
   "payload", payload
 )
-return {1, ARGV[4], backlog + 1, stream_id}
+return {1, ARGV[3], backlog + 1, stream_id}
 `;
 
 export const authorizeQuoteIssuanceScript = `
@@ -113,7 +113,7 @@ local current = cjson.decode(current_json)
 if current.quoteId ~= ARGV[1] then return {0, "quote_conflict", 0, ""} end
 if current.authorization ~= nil then
   if current.authorizationHash ~= ARGV[2] then return {0, "authorization_conflict", 0, ""} end
-  return {2, current_json, redis.call("XLEN", KEYS[2]), ""}
+  return {2, cjson.encode(current.authorization.record), redis.call("XLEN", KEYS[2]), ""}
 end
 if current.stage ~= "prepared" then return {0, "invalid_stage", 0, ""} end
 local backlog = redis.call("XLEN", KEYS[2])
@@ -137,7 +137,7 @@ local stream_id = redis.call(
   "event_type", "authorized",
   "payload", payload
 )
-return {1, updated, backlog + 1, stream_id}
+return {1, cjson.encode(current.authorization.record), backlog + 1, stream_id}
 `;
 
 export const finalizeQuoteIssuanceScript = `
@@ -149,7 +149,7 @@ if current.quoteId ~= ARGV[1] or current.principalId ~= ARGV[2] then
 end
 if current.finalization ~= nil then
   if current.finalizationHash ~= ARGV[3] then return {0, "finalization_conflict", 0, ""} end
-  return {2, current_json, redis.call("XLEN", KEYS[4]), ""}
+  return {2, current.finalizationHash, redis.call("XLEN", KEYS[4]), ""}
 end
 if current.stage ~= "authorized" or current.authorization.record.decision ~= "approved" then
   return {0, "invalid_stage", 0, ""}
@@ -196,7 +196,7 @@ local stream_id = redis.call(
   "event_type", "finalized",
   "payload", payload
 )
-return {1, updated, backlog + 1, stream_id}
+return {1, ARGV[3], backlog + 1, stream_id}
 `;
 
 export const failQuoteIdempotencyScript = `

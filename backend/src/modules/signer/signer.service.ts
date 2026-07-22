@@ -1,6 +1,7 @@
-import { hashTypedData, keccak256, recoverTypedDataAddress } from "viem";
+import { bytesToHex, hashTypedData, hexToBytes, keccak256, recoverTypedDataAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type { PrivateKeyAccount } from "viem/accounts";
+import { signRecoverable } from "tiny-secp256k1";
 import type { SignedQuote } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
 import type { MetricsService, SignerMetricOperation } from "../metrics/metrics.service.js";
@@ -70,6 +71,7 @@ export class LocalEIP712SignerService implements SignerService {
   readonly signaturesSelfVerified = true as const;
   private readonly config: LocalEIP712SignerConfig;
   private readonly account: PrivateKeyAccount;
+  private readonly privateKey: Uint8Array;
 
   constructor(config: LocalEIP712SignerConfig) {
     assertObject(config, "config");
@@ -78,11 +80,17 @@ export class LocalEIP712SignerService implements SignerService {
     assertAddress(config.settlementAddress, "settlementAddress");
     this.config = cloneLocalEIP712SignerConfig(config);
     this.account = privateKeyToAccount(this.config.privateKey);
+    this.privateKey = hexToBytes(this.config.privateKey);
   }
 
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
     assertSignQuoteInput(input);
-    return this.account.signTypedData(buildQuoteTypedData(input.quote, this.config.settlementAddress));
+    const digest = hashTypedData(buildQuoteTypedData(input.quote, this.config.settlementAddress));
+    const signed = signRecoverable(hexToBytes(digest), this.privateKey);
+    if (signed.recoveryId !== 0 && signed.recoveryId !== 1) {
+      throw new Error("Signer produced an unsupported Ethereum recovery id");
+    }
+    return `${bytesToHex(signed.signature)}${(signed.recoveryId + 27).toString(16)}`;
   }
 
   async verifyQuoteSignature(quote: SignedQuote, signature: `0x${string}`): Promise<boolean> {
