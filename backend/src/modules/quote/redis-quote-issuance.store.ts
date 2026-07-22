@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { Redis } from "ioredis";
-import type { QuoteStatusResponse, SignedQuote } from "../../shared/types/rfq.js";
+import type { QuoteResponse, QuoteStatusResponse, SignedQuote } from "../../shared/types/rfq.js";
 import { normalizeRedisUrl, type RedisUrlPolicy } from "../../shared/redis/redis-url.js";
 import { assertPrincipalId } from "../../shared/validation/principal-id.js";
 import {
@@ -39,6 +39,7 @@ import {
   prepareQuoteIssuanceScript,
 } from "./redis-quote-issuance.scripts.js";
 import {
+  assertQuoteSigningAuthorization,
   assertRedisAofHealth,
   noopRedisQuoteIssuanceObserver,
   normalizeRedisQuoteIssuanceConfig,
@@ -51,6 +52,7 @@ import {
   type RedisQuoteIssuanceObserver,
   type RedisQuoteIssuanceRecord,
 } from "./redis-quote-issuance.protocol.js";
+import { quoteSigningAuthorizationHash } from "../signer/signer-quote-commit.js";
 
 export type {
   RedisQuoteIssuanceClient,
@@ -300,7 +302,15 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
   }
 
   async authorize(input: AuthorizeQuoteIssuanceInput): Promise<RiskDecisionRecord> {
-    assertRiskDecisionInput(input);
+    const riskInput = { quoteId: input.quoteId, decision: input.decision };
+    assertRiskDecisionInput(riskInput);
+    if (input.signingAuthorization !== undefined) {
+      assertQuoteSigningAuthorization(input.signingAuthorization);
+      if (input.signingAuthorization.quoteId !== input.quoteId ||
+          input.signingAuthorization.commit.riskPolicyVersion !== input.decision.policyVersion) {
+        throw new Error("Redis quote issuance signing authorization does not match the risk decision");
+      }
+    }
     if (!this.initialized) await this.initialize();
     const now = this.now();
     const record: RiskDecisionRecord = {
@@ -311,14 +321,24 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
       policyVersion: input.decision.policyVersion,
       createdAt: new Date(now).toISOString(),
     };
-    const authorization = { input, record };
+    const authorization = {
+      input: riskInput,
+      record,
+      ...(input.signingAuthorization ? {
+        signingAuthorization: input.signingAuthorization,
+        signingAuthorizationHash: quoteSigningAuthorizationHash(
+          input.signingAuthorization,
+          input.signingAuthorization.commit,
+        ),
+      } : {}),
+    };
     const result = await this.client.eval(
       authorizeQuoteIssuanceScript,
       2,
       this.quoteKey(input.quoteId),
       this.key("events"),
       input.quoteId,
-      digest(input),
+      digest(authorization),
       JSON.stringify(authorization),
       now,
       this.config.maxBacklog,
@@ -326,7 +346,7 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
     );
     const mutation = parseMutationResult(result, "issuance authorization");
     if (mutation.code !== 1 && mutation.code !== 2) throw mutationError("issuance authorization", mutation);
-    const stored = parseRiskDecisionRecord(mutation.payload, input);
+    const stored = parseRiskDecisionRecord(mutation.payload, riskInput);
     await this.requireReplicaAcknowledgements();
     this.notifyMutation("authorized", mutation);
     return stored;
@@ -383,6 +403,22 @@ export class RedisQuoteIssuanceStore implements QuoteIssuanceStore, QuoteIdempot
       return undefined;
     }
     return hotStatus(record);
+  }
+
+  async recoverFinalizedResponse(quoteId: string, principalId: string): Promise<QuoteResponse | undefined> {
+    assertSafeIdentifier(quoteId, "Redis quote recovery quoteId");
+    assertPrincipalId(principalId, "Redis quote recovery principalId");
+    if (!this.initialized) await this.initialize();
+    const value = await this.client.get(this.quoteKey(quoteId));
+    if (value === null) return undefined;
+    if (typeof value !== "string") throw new Error("Redis quote recovery returned malformed state");
+    const record = parseRedisQuoteIssuanceRecord(value);
+    if (record.principalId !== principalId || record.stage !== "finalized" || !record.finalization) {
+      return undefined;
+    }
+    const response = { ...record.finalization.response };
+    assertQuoteResponse(response);
+    return response;
   }
 
   async awaitSignedQuoteProjection(quote: SignedQuote, principalId: string): Promise<void> {

@@ -221,7 +221,7 @@
     },
     "signerService": {
       "type": "object",
-      "required": ["enabled", "replicaCount", "port", "serviceAccount", "secret", "awsRegion", "awsMaxAttempts", "maxClockSkewSeconds", "bodyLimitBytes", "auditTimeoutMs", "auditMinReplicaAcks", "auditStreamEpoch", "resources"],
+      "required": ["enabled", "replicaCount", "port", "serviceAccount", "secret", "awsRegion", "awsMaxAttempts", "maxClockSkewSeconds", "bodyLimitBytes", "auditTimeoutMs", "auditMinReplicaAcks", "auditStreamKey", "auditStreamEpoch", "atomicQuoteCommit", "resources"],
       "properties": {
         "enabled": { "const": true },
         "replicaCount": { "type": "integer", "minimum": 2, "maximum": 20 },
@@ -250,7 +250,9 @@
         "bodyLimitBytes": { "type": "integer", "minimum": 1024, "maximum": 1048576 },
         "auditTimeoutMs": { "type": "integer", "minimum": 100, "maximum": 10000 },
         "auditMinReplicaAcks": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "auditStreamKey": { "type": "string", "pattern": "^rfq:\\{[a-z0-9_-]{1,32}\\}:[a-z0-9:_-]{1,64}$" },
         "auditStreamEpoch": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$" },
+        "atomicQuoteCommit": { "const": true },
         "resources": { "type": "object" }
       },
       "additionalProperties": false

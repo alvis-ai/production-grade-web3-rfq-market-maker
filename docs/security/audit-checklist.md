@@ -68,6 +68,7 @@
 - [x] API, migration and worker containers run as UID/GID 1000 with RuntimeDefault seccomp, no privilege escalation, no Linux capabilities, read-only root filesystems and bounded `/tmp` storage.
 - [x] Every workload disables the default Kubernetes API ServiceAccount token; the API uses only the separate audience-scoped IRSA projection for KMS signing.
 - [x] Non-local API, worker and migration processes require hostname-verified PostgreSQL TLS; Redis requires `rediss://`, while analytics requires Kafka TLS/SASL and ClickHouse HTTPS.
+- [x] Atomic signer mode verifies the exact persisted quote authorization before KMS/HSM access, commits signer audit and terminal quote state in one Redis hash slot, and grants the signer Redis identity only the required key families and commands.
 - [x] Public API responses include no-store cache control and baseline browser security headers.
 - [x] Browser access is restricted by a CORS origin allowlist.
 - [x] Browser bundles never receive institutional API secrets; production browser access requires a trusted backend-for-frontend or another approved session boundary.

@@ -3,7 +3,6 @@ import type {
   QuoteRequest,
   QuoteResponse,
   QuoteStatusResponse,
-  MarketSnapshot,
   SignedQuote,
 } from "../../shared/types/rfq.js";
 import { APIError, toAPIError } from "../../shared/errors/api-error.js";
@@ -33,8 +32,6 @@ import {
   type SubmittableQuoteOptions,
 } from "./quote-service-contract.js";
 import {
-  assertUsableSnapshot,
-  marketDataFailure,
   pricingFailure,
   quoteFailureCode,
   quoteStoreFailure,
@@ -48,6 +45,9 @@ import {
 import { selectAndPersistQuoteRoute, selectQuoteRoute } from "./quote-route-selection.js";
 import type { RoutePlan } from "../routing/routing.engine.js";
 import { authorizeQuote } from "./quote-authorization.js";
+import { buildSignerCommitBase, signQuoteWithAtomicRecovery } from "./quote-atomic-signing.js";
+import { getUsableQuoteSnapshot } from "./quote-market-snapshot.js";
+import { persistPreAuthorizationFailureBestEffort } from "./quote-preauthorization-failure.js";
 import { requireSubmittableQuote } from "./quote-submittable.js";
 
 export { defaultQuoteServiceConfig } from "./quote-service-contract.js";
@@ -59,14 +59,6 @@ export type {
 } from "./quote-service-contract.js";
 
 type FreshQuoteResult = IdempotentQuoteOperationResult;
-
-interface PreAuthorizationFailureInput {
-  marketSnapshotInput: SaveMarketSnapshotInput;
-  requestedQuote: SaveRequestedQuoteInput;
-  idempotency?: QuoteIdempotencyReservation;
-  routePlan?: RoutePlan;
-  errorCode: string;
-}
 
 export class QuoteService {
   private readonly identityGenerator = new QuoteIdentityGenerator();
@@ -163,7 +155,12 @@ export class QuoteService {
       resolvedIdempotency = await idempotency;
       return resolvedIdempotency;
     };
-    const snapshot = await this.getUsableSnapshot(validatedRequest);
+    const snapshot = await getUsableQuoteSnapshot(
+      this.deps.marketDataService,
+      validatedRequest,
+      this.config.maxSnapshotAgeMs,
+      this.config.maxSnapshotFutureSkewMs,
+    );
     const snapshotSource = getMarketDataSnapshotSource(snapshot);
     const marketSnapshotInput: SaveMarketSnapshotInput = {
       request: validatedRequest,
@@ -201,7 +198,7 @@ export class QuoteService {
     } catch (error) {
       if (fusedIssuance) {
         const idempotencyReservation = await resolveIdempotency();
-        await this.persistPreAuthorizationFailureBestEffort({
+        await persistPreAuthorizationFailureBestEffort(this.deps, {
           marketSnapshotInput,
           requestedQuote,
           idempotency: idempotencyReservation,
@@ -241,7 +238,7 @@ export class QuoteService {
       const failure = pricingFailure(error);
       if (fusedIssuance) {
         const idempotencyReservation = await resolveIdempotency();
-        await this.persistPreAuthorizationFailureBestEffort({
+        await persistPreAuthorizationFailureBestEffort(this.deps, {
           marketSnapshotInput,
           requestedQuote,
           idempotency: idempotencyReservation,
@@ -269,7 +266,7 @@ export class QuoteService {
       const failure = pricingFailure(error);
       if (fusedIssuance) {
         const idempotencyReservation = await resolveIdempotency();
-        await this.persistPreAuthorizationFailureBestEffort({
+        await persistPreAuthorizationFailureBestEffort(this.deps, {
           marketSnapshotInput,
           requestedQuote,
           idempotency: idempotencyReservation,
@@ -289,6 +286,26 @@ export class QuoteService {
     };
     const idempotencyReservation = await resolveIdempotency();
     const deadline = Math.floor(Date.now() / 1000) + this.config.quoteTtlSeconds;
+    const signedQuote: SignedQuote = {
+      user: validatedRequest.user,
+      tokenIn: validatedRequest.tokenIn,
+      tokenOut: validatedRequest.tokenOut,
+      amountIn: validatedRequest.amountIn,
+      amountOut: pricing.amountOut,
+      minAmountOut: pricing.minAmountOut,
+      nonce: identity.nonce,
+      deadline,
+      chainId: validatedRequest.chainId,
+    };
+    const atomicSignerCommit = fusedIssuance !== undefined &&
+      this.deps.signerService.commitsQuoteFinalization === true;
+    const signerCommitBase = buildSignerCommitBase({
+      enabled: atomicSignerCommit,
+      principalId: access.principalId,
+      slippageBps: validatedRequest.slippageBps,
+      pricing,
+      ...(idempotencyReservation ? { idempotency: idempotencyReservation } : {}),
+    });
     let authorization;
     try {
       authorization = await authorizeQuote(this.deps, {
@@ -297,6 +314,14 @@ export class QuoteService {
         pricing,
         quoteId,
         deadline,
+        ...(signerCommitBase ? {
+          signingAuthorization: {
+            quote: signedQuote,
+            quoteId,
+            snapshotId: snapshot.snapshotId,
+            commit: signerCommitBase,
+          },
+        } : {}),
         ...(fusedIssuance ? {
           preparation: {
             marketSnapshot: marketSnapshotInput,
@@ -332,33 +357,39 @@ export class QuoteService {
       );
     }
 
-    const signedQuote: SignedQuote = {
-      user: validatedRequest.user,
-      tokenIn: validatedRequest.tokenIn,
-      tokenOut: validatedRequest.tokenOut,
-      amountIn: validatedRequest.amountIn,
-      amountOut: pricing.amountOut,
-      minAmountOut: pricing.minAmountOut,
-      nonce: identity.nonce,
-      deadline,
-      chainId: validatedRequest.chainId,
-    };
+    const signerCommit = signerCommitBase ? {
+      ...signerCommitBase,
+      riskPolicyVersion: risk.policyVersion,
+    } : undefined;
 
-    let signature: `0x${string}`;
-    try {
-      signature = await this.deps.signerService.signQuote({
-        quote: signedQuote,
-        quoteId,
-        snapshotId: snapshot.snapshotId,
-        riskDecisionId: persistedRiskDecision.riskDecisionId,
-        riskPolicyVersion: persistedRiskDecision.policyVersion,
-        traceId: access.traceId ?? `tr_${quoteId}`,
-      });
-    } catch (error) {
-      if (exposureReserved) await this.releaseQuoteExposureBestEffort(quoteId);
-      await this.markQuoteFailedBestEffort(quoteId, quoteFailureCode(error));
-      throw error;
+    const signing = await signQuoteWithAtomicRecovery({
+      signerService: this.deps.signerService,
+      quoteIssuanceStore: fusedIssuance,
+      atomicCommit: atomicSignerCommit,
+      quote: signedQuote,
+      quoteId,
+      principalId: access.principalId,
+      snapshotId: snapshot.snapshotId,
+      pricing,
+      riskDecisionId: persistedRiskDecision.riskDecisionId,
+      riskPolicyVersion: persistedRiskDecision.policyVersion,
+      traceId: access.traceId ?? `tr_${quoteId}`,
+      ...(signerCommit ? { commit: signerCommit } : {}),
+    });
+    if (signing.status === "recovered") {
+      return {
+        response: signing.response,
+        idempotencyCompleted: idempotencyReservation !== undefined,
+      };
     }
+    if (signing.status === "failed") {
+      if (signing.releaseExposure && exposureReserved) {
+        await this.releaseQuoteExposureBestEffort(quoteId);
+      }
+      await this.markQuoteFailedBestEffort(quoteId, quoteFailureCode(signing.error));
+      throw signing.error;
+    }
+    const signature = signing.signature;
 
     const response: QuoteResponse = {
       quoteId,
@@ -386,14 +417,14 @@ export class QuoteService {
       signature,
     };
     try {
-      if (fusedIssuance) {
+      if (fusedIssuance && !atomicSignerCommit) {
         await fusedIssuance.finalize({
           signedQuote: signedQuoteInput,
           response,
           ...(idempotencyReservation ? { idempotency: idempotencyReservation } : {}),
         });
       } else {
-        await this.saveSignedQuote(signedQuoteInput);
+        if (!fusedIssuance) await this.saveSignedQuote(signedQuoteInput);
       }
     } catch (error) {
       if (exposureReserved) await this.releaseQuoteExposureBestEffort(quoteId);
@@ -420,18 +451,6 @@ export class QuoteService {
     }
 
     return status;
-  }
-
-  private async getUsableSnapshot(request: QuoteRequest): Promise<MarketSnapshot> {
-    let snapshot: MarketSnapshot;
-    try {
-      snapshot = await this.deps.marketDataService.getSnapshot(request);
-    } catch (error) {
-      throw marketDataFailure(error);
-    }
-
-    assertUsableSnapshot(snapshot, this.config.maxSnapshotAgeMs, this.config.maxSnapshotFutureSkewMs);
-    return snapshot;
   }
 
   private async saveRequestedQuote(input: SaveRequestedQuoteInput): Promise<void> {
@@ -483,29 +502,6 @@ export class QuoteService {
       await this.deps.quoteRepository.saveSigned(input);
     } catch (error) {
       throw quoteStoreFailure(error);
-    }
-  }
-
-  private async persistPreAuthorizationFailureBestEffort(
-    input: PreAuthorizationFailureInput,
-  ): Promise<void> {
-    try {
-      await Promise.all([
-        this.saveMarketSnapshot(input.marketSnapshotInput),
-        this.bindIdempotencyQuote(input.idempotency, input.requestedQuote.quoteId),
-      ]);
-      await this.saveRequestedQuote(input.requestedQuote);
-      if (input.routePlan) {
-        await this.deps.quoteRepository.saveRouteDecision({
-          quoteId: input.requestedQuote.quoteId,
-          principalId: input.requestedQuote.principalId,
-          snapshotId: input.requestedQuote.snapshotId,
-          routePlan: input.routePlan,
-        });
-      }
-      await this.markStoredQuoteFailed(input.requestedQuote.quoteId, input.errorCode);
-    } catch {
-      // The original dependency error remains authoritative; reconciliation handles partial audit state.
     }
   }
 

@@ -2,7 +2,7 @@
 set -eu
 
 gateway_sources="backend/src/main.ts backend/src/api/http-boundary.ts backend/src/api/trading-routes.ts backend/src/api/quote-control-routes.ts backend/src/runtime/environment.ts backend/src/runtime/gateway-application.ts backend/src/runtime/gateway-hedge-risk.ts backend/src/runtime/gateway-hot-state.ts backend/src/runtime/gateway-market-data.ts backend/src/runtime/gateway-quote-issuance.ts backend/src/runtime/gateway-risk-runtime.ts backend/src/runtime/gateway-settlement-indexer-risk.ts backend/src/runtime/gateway-runtime.ts backend/src/runtime/market-runtime.ts backend/src/runtime/process-shutdown.ts backend/src/runtime/server-process.ts"
-quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-authorization.ts backend/src/modules/quote/quote-issuance.store.ts backend/src/modules/quote/postgres-quote-issuance.store.ts backend/src/modules/quote/quote-submittable.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts backend/src/modules/quote/quote-route-selection.ts"
+quote_service_sources="backend/src/modules/quote/quote.service.ts backend/src/modules/quote/quote-atomic-signing.ts backend/src/modules/quote/quote-authorization.ts backend/src/modules/quote/quote-issuance.store.ts backend/src/modules/quote/postgres-quote-issuance.store.ts backend/src/modules/quote/quote-market-snapshot.ts backend/src/modules/quote/quote-preauthorization-failure.ts backend/src/modules/quote/quote-submittable.ts backend/src/modules/quote/quote-service-contract.ts backend/src/modules/quote/quote-service-errors.ts backend/src/modules/quote/quote-service-result-validation.ts backend/src/modules/quote/quote-risk-decision.ts backend/src/modules/quote/quote-route-selection.ts"
 quote_repository_sources="backend/src/modules/quote/quote-repository-contract.ts backend/src/modules/quote/quote-repository-invariants.ts backend/src/modules/quote/in-memory-quote.repository.ts backend/src/modules/quote/postgres-quote-row.ts backend/src/modules/quote/postgres-quote.repository.ts"
 sdk_client_sources="sdk/src/client.ts sdk/src/client-error.ts sdk/src/client-request.ts sdk/src/client-transport.ts sdk/src/client-response-validation.ts sdk/src/client-trading-responses.ts sdk/src/client-accounting-responses.ts sdk/src/client-pnl-page.ts"
 
@@ -120,9 +120,12 @@ test -s backend/src/modules/signer/redis-signer-audit.store.ts
 test -s backend/src/modules/signer/signer-audit-mirror.ts
 test -s backend/src/modules/signer/signer-audit-runtime.ts
 test -s backend/src/modules/signer/signer-audit-stream.metrics.ts
+test -s backend/src/modules/signer/signer-quote-commit.ts
+test -s backend/src/modules/signer/redis-signer-quote-commit.store.ts
 test -s backend/test/signer-audit-store.test.mjs
 test -s backend/test/redis-signer-audit-store.test.mjs
 test -s backend/test/signer-audit-mirror.test.mjs
+test -s backend/test/redis-signer-quote-commit-store.test.mjs
 test -s backend/src/modules/hedge/hedge-net-pnl.ts
 test -s backend/test/hedge-net-pnl.test.mjs
 test -s scripts/hedge-net-pnl-integration-check.mjs
@@ -334,6 +337,9 @@ grep -q 'nested probe payload required fields 在构造期 fail fast' book/Volum
 grep -q 'snapshots `ReadinessServiceConfig` at construction after validation' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'ReadinessService` rejects malformed config, inherited config fields, malformed dependency map, inherited dependency entries and malformed dependency entries before reading freshness fields or probe methods' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 test -s backend/src/modules/quote/quote.service.ts
+test -s backend/src/modules/quote/quote-atomic-signing.ts
+test -s backend/src/modules/quote/quote-market-snapshot.ts
+test -s backend/src/modules/quote/quote-preauthorization-failure.ts
 test -s backend/src/modules/quote/quote-service-contract.ts
 test -s backend/src/modules/quote/quote-service-errors.ts
 test -s backend/src/modules/quote/quote-service-result-validation.ts
@@ -1102,7 +1108,7 @@ grep -q 'SETTLEMENT_EVENT_NOT_FOUND' backend/src/shared/errors/api-error.ts
 grep -q 'SETTLEMENT_EVENT_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
 grep -q 'PNL_STORE_UNAVAILABLE' backend/src/shared/errors/api-error.ts
 grep -q 'getSnapshot' $quote_service_sources
-grep -q 'getUsableSnapshot' $quote_service_sources
+grep -q 'getUsableQuoteSnapshot' $quote_service_sources
 grep -q 'validateQuoteRequest(request)' $quote_service_sources
 grep -q 'marketDataFailure' $quote_service_sources
 grep -q 'assertUsableSnapshot' $quote_service_sources

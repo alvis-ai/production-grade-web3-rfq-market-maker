@@ -10,6 +10,7 @@ import type {
   SaveSignedQuoteInput,
 } from "./quote-repository-contract.js";
 import type { QuoteIdempotencyReservation } from "./quote-idempotency.store.js";
+import type { SignerQuoteCommitContext } from "../signer/signer-quote-commit.js";
 
 export interface PrepareQuoteIssuanceInput {
   marketSnapshot: SaveMarketSnapshotInput;
@@ -18,7 +19,16 @@ export interface PrepareQuoteIssuanceInput {
   idempotency?: QuoteIdempotencyReservation;
 }
 
-export type AuthorizeQuoteIssuanceInput = SaveRiskDecisionInput;
+export interface QuoteSigningAuthorization {
+  quote: SignedQuote;
+  quoteId: string;
+  snapshotId: string;
+  commit: SignerQuoteCommitContext;
+}
+
+export type AuthorizeQuoteIssuanceInput = SaveRiskDecisionInput & {
+  signingAuthorization?: QuoteSigningAuthorization;
+};
 
 export interface FinalizeQuoteIssuanceInput {
   signedQuote: SaveSignedQuoteInput;
@@ -31,6 +41,7 @@ export interface QuoteIssuanceStore {
   prepare(input: PrepareQuoteIssuanceInput): Promise<void>;
   authorize(input: AuthorizeQuoteIssuanceInput): Promise<RiskDecisionRecord>;
   finalize(input: FinalizeQuoteIssuanceInput): Promise<void>;
+  recoverFinalizedResponse?(quoteId: string, principalId: string): Promise<QuoteResponse | undefined>;
   findHotStatus?(quoteId: string, principalId: string): Promise<QuoteStatusResponse | undefined>;
   awaitSignedQuoteProjection?(quote: SignedQuote, principalId: string): Promise<void>;
 }

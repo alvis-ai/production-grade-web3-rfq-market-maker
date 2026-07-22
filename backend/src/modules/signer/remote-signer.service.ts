@@ -22,6 +22,10 @@ import {
   type SignQuoteInput,
   type SignerService,
 } from "./signer.service.js";
+import {
+  buildSignerQuoteFinalization,
+  quoteFinalizationHash,
+} from "./signer-quote-commit.js";
 
 export interface RemoteSignerConfig {
   baseUrl: string;
@@ -29,6 +33,7 @@ export interface RemoteSignerConfig {
   authToken: string;
   requestTimeoutMs: number;
   maxConnections: number;
+  atomicQuoteCommit: boolean;
   settlementAddress: `0x${string}`;
   trustedSignerAddress: `0x${string}`;
 }
@@ -41,6 +46,7 @@ const configFields = [
   "authToken",
   "requestTimeoutMs",
   "maxConnections",
+  "atomicQuoteCommit",
   "settlementAddress",
   "trustedSignerAddress",
 ] as const;
@@ -49,6 +55,7 @@ const maxResponseBytes = 1_024;
 
 export class RemoteSignerService implements SignerService {
   readonly signaturesSelfVerified = true as const;
+  readonly commitsQuoteFinalization?: true;
   private readonly baseUrl: string;
   private readonly authToken: string;
   private readonly requestTimeoutMs: number;
@@ -67,6 +74,7 @@ export class RemoteSignerService implements SignerService {
     this.baseUrl = normalizeBaseUrl(config.baseUrl, config.allowInsecureHttp);
     this.authToken = config.authToken;
     this.requestTimeoutMs = config.requestTimeoutMs;
+    this.commitsQuoteFinalization = config.atomicQuoteCommit ? true : undefined;
     this.settlementAddress = normalizeAddress(config.settlementAddress, "settlementAddress");
     this.trustedSignerAddress = normalizeAddress(config.trustedSignerAddress, "trustedSignerAddress");
     if (fetchFn === undefined) {
@@ -80,6 +88,9 @@ export class RemoteSignerService implements SignerService {
 
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
     assertAuthorizedSignQuoteInput(input);
+    if ((this.commitsQuoteFinalization === true) !== (input.commit !== undefined)) {
+      throw signerUnavailable();
+    }
     const body = await this.requestBoundedJson("/internal/sign", {
       method: "POST",
       headers: {
@@ -88,7 +99,8 @@ export class RemoteSignerService implements SignerService {
       },
       body: JSON.stringify(input),
     });
-    if (!isRecord(body) || Object.keys(body).length !== 1 ||
+    const expectedFields = this.commitsQuoteFinalization === true ? 2 : 1;
+    if (!isRecord(body) || Object.keys(body).length !== expectedFields ||
         !Object.prototype.hasOwnProperty.call(body, "signature")) {
       throw signerUnavailable();
     }
@@ -101,12 +113,27 @@ export class RemoteSignerService implements SignerService {
     if (!await this.verifyQuoteSignature(input.quote, signature as `0x${string}`)) {
       throw signerUnavailable();
     }
+    if (this.commitsQuoteFinalization === true) {
+      if (typeof body.finalizationHash !== "string" || !/^[0-9a-f]{64}$/.test(body.finalizationHash) ||
+          body.finalizationHash !== quoteFinalizationHash(buildSignerQuoteFinalization(
+            input,
+            input.commit!,
+            signature as `0x${string}`,
+          ))) {
+        throw signerUnavailable();
+      }
+    }
     return signature as `0x${string}`;
   }
 
   async checkHealth(): Promise<void> {
     const body = await this.requestBoundedJson("/ready", { method: "GET" });
-    if (!isRecord(body) || Object.keys(body).length !== 1 || body.status !== "ok") {
+    const expectedFields = this.commitsQuoteFinalization === true ? 2 : 1;
+    const capabilities = isRecord(body) ? body.capabilities : undefined;
+    if (!isRecord(body) || Object.keys(body).length !== expectedFields || body.status !== "ok" ||
+        (this.commitsQuoteFinalization === true &&
+         (!Array.isArray(capabilities) || capabilities.length !== 1 ||
+          capabilities[0] !== "atomic_quote_commit_v1"))) {
       throw signerUnavailable();
     }
   }
@@ -182,6 +209,9 @@ function assertConfig(value: unknown): asserts value is RemoteSignerConfig {
   }
   if (typeof value.allowInsecureHttp !== "boolean") {
     throw new Error("Remote signer allowInsecureHttp must be a boolean");
+  }
+  if (typeof value.atomicQuoteCommit !== "boolean") {
+    throw new Error("Remote signer atomicQuoteCommit must be a boolean");
   }
   normalizeBaseUrl(value.baseUrl as string, value.allowInsecureHttp);
   if (typeof value.authToken !== "string" || !authTokenPattern.test(value.authToken)) {

@@ -45,6 +45,7 @@ export interface RemoteSignerRuntimeConfig extends SignerIdentity {
   authToken: string;
   requestTimeoutMs: number;
   maxConnections: number;
+  atomicQuoteCommit: boolean;
 }
 
 export type SignerRuntimeConfig =
@@ -86,6 +87,7 @@ export function readSignerRuntimeConfig(
   const remoteTimeoutValue = readOwnEnvValue(env, "RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS");
   const remoteMaxConnectionsValue = readOwnEnvValue(env, "RFQ_SIGNER_SERVICE_MAX_CONNECTIONS");
   const remoteAllowInsecureHttpValue = readOwnEnvValue(env, "RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP");
+  const remoteAtomicQuoteCommitValue = readOwnEnvValue(env, "RFQ_SIGNER_ATOMIC_QUOTE_COMMIT");
 
   if (mode === "local") {
     if (!localEnvironment) {
@@ -98,6 +100,7 @@ export function readSignerRuntimeConfig(
       remoteTimeoutValue,
       remoteMaxConnectionsValue,
       remoteAllowInsecureHttpValue,
+      remoteAtomicQuoteCommitValue,
     );
     const privateKey = parsePrivateKey(privateKeyValue ?? defaultLocalPrivateKey, "RFQ_SIGNER_PRIVATE_KEY");
     const settlementAddress = parseAddress(
@@ -150,6 +153,7 @@ export function readSignerRuntimeConfig(
       remoteTimeoutValue,
       remoteMaxConnectionsValue,
       remoteAllowInsecureHttpValue,
+      remoteAtomicQuoteCommitValue,
     );
     return {
       mode,
@@ -190,6 +194,10 @@ export function readSignerRuntimeConfig(
         "RFQ_SIGNER_SERVICE_MAX_CONNECTIONS",
         256,
       ),
+      atomicQuoteCommit: parseBoolean(
+        remoteAtomicQuoteCommitValue,
+        "RFQ_SIGNER_ATOMIC_QUOTE_COMMIT",
+      ),
     };
   }
 
@@ -199,6 +207,7 @@ export function readSignerRuntimeConfig(
     remoteTimeoutValue,
     remoteMaxConnectionsValue,
     remoteAllowInsecureHttpValue,
+    remoteAtomicQuoteCommitValue,
   );
 
   const awsConfig = {
@@ -237,6 +246,7 @@ export function createSignerRuntime(config: SignerRuntimeConfig): SignerRuntime 
       authToken: config.authToken,
       requestTimeoutMs: config.requestTimeoutMs,
       maxConnections: config.maxConnections,
+      atomicQuoteCommit: config.atomicQuoteCommit,
       settlementAddress: config.settlementAddress,
       trustedSignerAddress: config.trustedSignerAddress,
     });
@@ -385,11 +395,18 @@ function rejectConfiguredRemoteFields(
   requestTimeoutMs: string | undefined,
   maxConnections: string | undefined,
   allowInsecureHttp: string | undefined,
+  atomicQuoteCommit: string | undefined,
 ): void {
   if (baseUrl !== undefined || authToken !== undefined || requestTimeoutMs !== undefined ||
-      maxConnections !== undefined || allowInsecureHttp !== undefined) {
+      maxConnections !== undefined || allowInsecureHttp !== undefined || atomicQuoteCommit !== undefined) {
     throw new Error("RFQ_SIGNER_SERVICE_* fields are only allowed when RFQ_SIGNER_MODE=remote");
   }
+}
+
+function parseBoolean(value: string | undefined, name: string): boolean {
+  if (value === undefined || value === "false") return false;
+  if (value === "true") return true;
+  throw new Error(`${name} must be true or false`);
 }
 
 function parseLocalOnlyBoolean(value: string | undefined, name: string, localEnvironment: boolean): boolean {

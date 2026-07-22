@@ -8,10 +8,25 @@ import {
   createRedisQuoteIssuanceClient,
   RedisQuoteIssuanceStore,
 } from "../backend/dist/modules/quote/redis-quote-issuance.store.js";
+import {
+  createRedisSignerQuoteCommitClient,
+  RedisSignerQuoteCommitStore,
+} from "../backend/dist/modules/signer/redis-signer-quote-commit.store.js";
+import { PostgresSignerAuditStore } from "../backend/dist/modules/signer/signer-audit.store.js";
+import { SignerAuditMirror } from "../backend/dist/modules/signer/signer-audit-mirror.js";
+import {
+  buildSignerQuoteFinalization,
+  quoteFinalizationHash,
+} from "../backend/dist/modules/signer/signer-quote-commit.js";
+import {
+  buildQuoteTypedData,
+  LocalEIP712SignerService,
+} from "../backend/dist/modules/signer/signer.service.js";
 
 const require = createRequire(new URL("../backend/package.json", import.meta.url));
 const pg = require("pg");
 const { Redis } = require("ioredis");
+const { hashTypedData, keccak256 } = require("viem");
 
 const redisUrl = requiredEnv("RFQ_QUOTE_ISSUANCE_REDIS_URL");
 const databaseUrl = requiredEnv("DATABASE_URL");
@@ -28,11 +43,20 @@ const tokenOut = "0x0000000000000000000000000000000000000022";
 const now = Date.now();
 const deadline = Math.floor(now / 1_000) + 60;
 const nonce = String(now);
-const signature = `0x${"11".repeat(64)}1b`;
+const privateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const signerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
+const settlementAddress = "0x0000000000000000000000000000000000000004";
+const requireAof = process.env.RFQ_QUOTE_ISSUANCE_REQUIRE_AOF !== "false";
+if (!requireAof && process.env.NODE_ENV !== "test") {
+  throw new Error("RFQ_QUOTE_ISSUANCE_REQUIRE_AOF=false is allowed only with NODE_ENV=test");
+}
 const pool = new pg.Pool({ connectionString: databaseUrl, max: 3 });
 const adminRedis = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1 });
 const producer = createRedisQuoteIssuanceClient(redisUrl);
 const consumer = createRedisQuoteIssuanceClient(redisUrl);
+const commitProducer = createRedisSignerQuoteCommitClient(redisUrl);
+const auditConsumer = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1 });
+const auditStreamKey = "rfq:{quote-issuance-it}:signer-audit-events:v1";
 const store = new RedisQuoteIssuanceStore(producer, {
   keyPrefix,
   ledgerEpoch: "integration_v1",
@@ -43,14 +67,27 @@ const store = new RedisQuoteIssuanceStore(producer, {
   idempotencyTtlMs: 60_000,
   minReplicaAcks: 0,
   replicaAckTimeoutMs: 20,
-  requireAof: true,
+  requireAof,
   projectionWaitTimeoutMs: 1_000,
   projectionPollIntervalMs: 5,
+});
+const commitStore = new RedisSignerQuoteCommitStore(commitProducer, {
+  quoteKeyPrefix: keyPrefix,
+  ledgerEpoch: "integration_v1",
+  issuanceMaxBacklog: 100,
+  hotStateTtlMs: 60_000,
+  idempotencyTtlMs: 60_000,
+  auditStreamKey,
+  auditMaxBacklog: 100,
+  auditDedupeTtlMs: 60_000,
+  minReplicaAcks: 0,
+  replicaAckTimeoutMs: 20,
+  requireAof,
 });
 
 try {
   await adminRedis.connect();
-  await deletePrefix(adminRedis, `${keyPrefix}:*`);
+  await deletePrefix(adminRedis, "rfq:{quote-issuance-it}:*");
   await cleanupPostgres();
   await store.initialize();
 
@@ -58,6 +95,30 @@ try {
   assert.equal(claim.status, "acquired");
   const reservation = claim.reservation;
   const request = { chainId: 1, user, tokenIn, tokenOut, amountIn: "1000000000000000000", slippageBps: 50 };
+  const quote = {
+    user,
+    tokenIn,
+    tokenOut,
+    amountIn: request.amountIn,
+    amountOut: "999000000000000000",
+    minAmountOut: "990000000000000000",
+    nonce,
+    deadline,
+    chainId: 1,
+  };
+  const commit = {
+    principalId,
+    slippageBps: request.slippageBps,
+    pricingVersion: "pricing-integration-v1",
+    spreadBps: 10,
+    sizeImpactBps: 1,
+    marketSpreadBps: 5,
+    inventorySkewBps: -2,
+    volatilityPremiumBps: 3,
+    hedgeCostBps: 4,
+    riskPolicyVersion: "risk-integration-v1",
+    idempotency: reservation,
+  };
   await store.prepare({
     marketSnapshot: {
       request,
@@ -89,52 +150,52 @@ try {
   const risk = await store.authorize({
     quoteId,
     decision: { status: "approved", policyVersion: "risk-integration-v1" },
+    signingAuthorization: { quote, quoteId, snapshotId, commit },
   });
   assert.equal(risk.riskDecisionId, `rd_${quoteId}`);
-  const quote = {
-    user,
-    tokenIn,
-    tokenOut,
-    amountIn: request.amountIn,
-    amountOut: "999000000000000000",
-    minAmountOut: "990000000000000000",
-    nonce,
-    deadline,
-    chainId: 1,
-  };
-  const response = {
+  const signInput = {
+    quote,
     quoteId,
     snapshotId,
-    amountOut: quote.amountOut,
-    minAmountOut: quote.minAmountOut,
-    nonce,
-    deadline,
-    signature,
+    riskDecisionId: risk.riskDecisionId,
+    riskPolicyVersion: risk.policyVersion,
+    traceId: `tr_${quoteId}`,
+    commit,
   };
-  await store.finalize({
-    signedQuote: {
-      quoteId,
-      principalId,
-      snapshotId,
-      slippageBps: request.slippageBps,
-      quote,
-      pricingVersion: "pricing-integration-v1",
-      spreadBps: 10,
-      sizeImpactBps: 1,
-      marketSpreadBps: 5,
-      inventorySkewBps: -2,
-      volatilityPremiumBps: 3,
-      hedgeCostBps: 4,
-      riskPolicyVersion: "risk-integration-v1",
-      signature,
-    },
-    response,
-    idempotency: reservation,
+  await commitStore.assertAuthorized(signInput);
+  await assert.rejects(commitStore.assertAuthorized({
+    ...signInput,
+    quote: { ...quote, amountOut: String(BigInt(quote.amountOut) - 1n) },
+  }), /does not match the signing request/);
+  const signer = new LocalEIP712SignerService({ privateKey, settlementAddress });
+  const signature = await signer.signQuote(signInput);
+  const finalization = buildSignerQuoteFinalization(signInput, commit, signature);
+  const event = {
+    quoteId,
+    snapshotId,
+    riskDecisionId: risk.riskDecisionId,
+    riskPolicyVersion: risk.policyVersion,
+    traceId: signInput.traceId,
+    quoteDigest: hashTypedData(buildQuoteTypedData(quote, settlementAddress)),
+    signatureHash: keccak256(signature),
+    signerAddress,
+    settlementAddress,
+    chainId: quote.chainId,
+    deadline: quote.deadline,
+    outcome: "success",
+    occurredAt: new Date().toISOString(),
+  };
+  assert.deepEqual(await commitStore.commit(event, finalization), {
+    finalizationHash: quoteFinalizationHash(finalization),
+    duplicate: false,
   });
+  const response = finalization.response;
 
   const beforeProjection = await pool.query("SELECT status FROM quotes WHERE id = $1", [quoteId]);
   assert.equal(beforeProjection.rowCount, 0, "PostgreSQL must not be required for synchronous issuance");
   assert.equal(Number(await adminRedis.xlen(`${keyPrefix}:events`)), 3);
+  assert.equal(Number(await adminRedis.xlen(auditStreamKey)), 1);
+  assert.deepEqual(await store.recoverFinalizedResponse(quoteId, principalId), response);
 
   const sink = new PostgresQuoteIssuanceJournalSink(pool, 2_000);
   const mirror = new QuoteIssuanceJournalMirror(consumer, sink, {
@@ -172,17 +233,37 @@ try {
   assert.equal(Number(await adminRedis.xlen(`${keyPrefix}:events`)), 0);
   assert.equal(await adminRedis.get(`${keyPrefix}:projected:${quoteId}`), "finalized");
   await store.awaitSignedQuoteProjection(quote, principalId);
+  const signerAudit = new PostgresSignerAuditStore(pool, 2_000);
+  const auditMirror = new SignerAuditMirror(auditConsumer, signerAudit, {
+    streamKey: auditStreamKey,
+    sourceEpoch: "integration_atomic_v1",
+    group: "signer_quote_commit_it_pg_v1",
+    consumer: `integration_${suffix}`,
+    batchSize: 10,
+    blockMs: 0,
+    claimIdleMs: 1_000,
+    retryDelayMs: 10,
+  });
+  await auditMirror.initialize();
+  assert.equal(await auditMirror.runOnce(), 1);
+  assert.equal(Number(await adminRedis.xlen(auditStreamKey)), 0);
+  assert.equal(Number((await pool.query(
+    "SELECT count(*)::integer AS count FROM signer_audit_events WHERE quote_id = $1",
+    [quoteId],
+  )).rows[0].count), 1);
   const replay = await store.acquire(principalId, idempotencyKey, requestHash);
   assert.equal(replay.status, "replay");
   assert.deepEqual(replay.response, response);
   assert.equal((await store.acquire(principalId, idempotencyKey, "f".repeat(64))).status, "conflict");
+  await auditMirror.close();
   await mirror.close();
-  console.log(JSON.stringify({ ok: true, quoteId, projectedEvents: 3 }));
+  console.log(JSON.stringify({ ok: true, quoteId, projectedEvents: 3, signerAuditEvents: 1 }));
 } finally {
-  await Promise.allSettled([store.close(), adminRedis.quit(), pool.end()]);
+  await Promise.allSettled([store.close(), commitStore.close(), adminRedis.quit(), auditConsumer.quit(), pool.end()]);
 }
 
 async function cleanupPostgres() {
+  await pool.query("DELETE FROM signer_audit_events WHERE quote_id = $1", [quoteId]);
   await pool.query("DELETE FROM quote_idempotency_requests WHERE principal_id = $1", [principalId]);
   await pool.query("DELETE FROM quotes WHERE id = $1", [quoteId]);
   await pool.query("DELETE FROM market_snapshots WHERE id = $1", [snapshotId]);

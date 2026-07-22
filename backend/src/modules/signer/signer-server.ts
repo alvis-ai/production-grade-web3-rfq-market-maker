@@ -19,6 +19,8 @@ import {
   type SignerService,
 } from "./signer.service.js";
 import type { SignerAuditEvent, SignerAuditStore } from "./signer-audit.store.js";
+import type { SignerQuoteCommitStore } from "./redis-signer-quote-commit.store.js";
+import { buildSignerQuoteFinalization } from "./signer-quote-commit.js";
 
 export interface SignerServerConfig {
   authToken: string;
@@ -32,6 +34,7 @@ export interface SignerServerConfig {
 export interface SignerServerOptions {
   signerService: SignerService;
   auditStore: SignerAuditStore;
+  quoteCommitStore?: SignerQuoteCommitStore;
   tokenRegistry: TokenRegistry;
   riskPolicy: TokenLimitRiskPolicy;
   config: SignerServerConfig;
@@ -46,11 +49,12 @@ export interface SignerAuditMetricsProvider {
 }
 
 type SignerRequestOutcome = "success" | "auth_rejected" | "invalid" | "error";
-type SignerRequestStage = "validation" | "digest" | "signature" | "audit";
+type SignerRequestStage = "validation" | "digest" | "authorization" | "signature" | "audit";
 
 const signerRequestStages: readonly SignerRequestStage[] = [
   "validation",
   "digest",
+  "authorization",
   "signature",
   "audit",
 ];
@@ -140,12 +144,20 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
     try {
       const currentTimeMs = now();
       if (currentTimeMs >= readinessValidUntilMs) {
-        readinessCheck ??= verifyReadiness(options.signerService, options.auditStore, readinessInput, metrics)
+        readinessCheck ??= verifyReadiness(
+          options.signerService,
+          options.auditStore,
+          options.quoteCommitStore,
+          readinessInput,
+          metrics,
+        )
           .then(() => { readinessValidUntilMs = now() + readinessCacheMs; })
           .finally(() => { readinessCheck = undefined; });
         await readinessCheck;
       }
-      return { status: "ok" };
+      return options.quoteCommitStore
+        ? { status: "ok", capabilities: ["atomic_quote_commit_v1"] }
+        : { status: "ok" };
     } catch {
       return reply.code(503).send({ status: "degraded" });
     }
@@ -166,6 +178,9 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
       const requestInput = request.body as SignQuoteInput;
       assertAuthorizedSignQuoteInput(requestInput);
       input = requestInput;
+      if ((options.quoteCommitStore !== undefined) !== (input.commit !== undefined)) {
+        throw new Error("Signer quote commit capability does not match request");
+      }
       assertSigningEnvelope(input, options.tokenRegistry, enabledChains, limits, config, now());
     } catch {
       metrics.recordStage("validation", validationStartedAt);
@@ -184,6 +199,18 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
       return reply.code(503).send({ error: "signer_unavailable" });
     }
     metrics.recordStage("digest", digestStartedAt);
+
+    const authorizationStartedAt = performance.now();
+    try {
+      await options.quoteCommitStore?.assertAuthorized(input);
+    } catch {
+      metrics.recordStage("authorization", authorizationStartedAt);
+      metrics.recordAuditError();
+      metrics.record("error", now());
+      return reply.code(503).send({ error: "signer_unavailable" });
+    }
+    metrics.recordStage("authorization", authorizationStartedAt);
+
     let signature: `0x${string}`;
     const signatureStartedAt = performance.now();
     try {
@@ -211,14 +238,24 @@ export function buildSignerServer(options: SignerServerOptions): FastifyInstance
 
     const auditStartedAt = performance.now();
     try {
-      await options.auditStore.append(buildAuditEvent(
+      const event = buildAuditEvent(
         input,
         config,
         quoteDigest,
         "success",
         now(),
         keccak256(signature),
-      ));
+      );
+      if (options.quoteCommitStore && input.commit) {
+        const evidence = await options.quoteCommitStore.commit(
+          event,
+          buildSignerQuoteFinalization(input, input.commit, signature),
+        );
+        metrics.recordStage("audit", auditStartedAt);
+        metrics.record("success", now());
+        return { signature, finalizationHash: evidence.finalizationHash };
+      }
+      await options.auditStore.append(event);
     } catch {
       metrics.recordStage("audit", auditStartedAt);
       metrics.recordAuditError();
@@ -252,11 +289,13 @@ function formatMetricNumber(value: number): string {
 async function verifyReadiness(
   signerService: SignerService,
   auditStore: SignerAuditStore,
+  quoteCommitStore: SignerQuoteCommitStore | undefined,
   readinessInput: () => SignQuoteInput,
   metrics: SignerServerMetrics,
 ): Promise<void> {
   try {
     await auditStore.checkHealth();
+    await quoteCommitStore?.checkHealth();
   } catch (error) {
     metrics.recordAuditError();
     throw error;
@@ -416,6 +455,14 @@ function assertOptions(options: SignerServerOptions): void {
       (typeof options.auditMetrics !== "object" || options.auditMetrics === null ||
        typeof options.auditMetrics.renderPrometheus !== "function")) {
     throw new Error("Signer server auditMetrics is invalid");
+  }
+  if (options.quoteCommitStore !== undefined &&
+      (typeof options.quoteCommitStore !== "object" || options.quoteCommitStore === null ||
+       typeof options.quoteCommitStore.assertAuthorized !== "function" ||
+       typeof options.quoteCommitStore.commit !== "function" ||
+       typeof options.quoteCommitStore.checkHealth !== "function" ||
+       typeof options.quoteCommitStore.close !== "function")) {
+    throw new Error("Signer server quoteCommitStore is invalid");
   }
   if (typeof options.tokenRegistry !== "object" || options.tokenRegistry === null ||
       typeof options.tokenRegistry.getToken !== "function") {

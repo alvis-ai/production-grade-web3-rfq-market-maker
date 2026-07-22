@@ -5,6 +5,7 @@ import { buildSignerServer } from "../dist/modules/signer/signer-server.js";
 import { InMemorySignerAuditStore } from "../dist/modules/signer/signer-audit.store.js";
 import { ConfiguredTokenRegistry } from "../dist/modules/pricing/token-registry.js";
 import { defaultTokenLimitRiskPolicy } from "../dist/modules/risk/token-limit-risk.engine.js";
+import { quoteFinalizationHash } from "../dist/modules/signer/signer-quote-commit.js";
 
 const privateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const settlementAddress = "0x0000000000000000000000000000000000000004";
@@ -35,7 +36,7 @@ test("signer server authenticates and signs only an approved envelope", async ()
   const metrics = await server.inject({ method: "GET", url: "/metrics" });
   assert.match(metrics.body, /rfq_signer_service_requests_total\{outcome="success"\} 1/);
   assert.match(metrics.body, /rfq_signer_service_last_success_timestamp_seconds 1700000000/);
-  for (const stage of ["validation", "digest", "signature", "audit"]) {
+  for (const stage of ["validation", "digest", "authorization", "signature", "audit"]) {
     assert.match(metrics.body, new RegExp(`rfq_signer_service_stage_latency_seconds_count\\{stage="${stage}"\\} 1`));
   }
   assert.match(metrics.body, /rfq_signer_audit_stream_backlog 3/);
@@ -131,12 +132,80 @@ test("signer server returns a closed unavailable response for signing failures",
   assert.equal(Object.hasOwn(auditStore.snapshot()[0], "signatureHash"), false);
   assert.doesNotMatch(response.body, /sensitive/);
   const metrics = await server.inject({ method: "GET", url: "/metrics" });
-  for (const stage of ["validation", "digest", "signature", "audit"]) {
+  for (const stage of ["validation", "digest", "authorization", "signature", "audit"]) {
     assert.match(metrics.body, new RegExp(`rfq_signer_service_stage_latency_seconds_count\\{stage="${stage}"\\} 1`));
   }
   const readiness = await server.inject({ method: "GET", url: "/ready" });
   assert.equal(readiness.statusCode, 503);
   assert.deepEqual(readiness.json(), { status: "degraded" });
+  await server.close();
+});
+
+test("signer server verifies persisted authorization before signing and atomically commits success", async () => {
+  const auditStore = new InMemorySignerAuditStore();
+  const events = [];
+  let committedFinalization;
+  const quoteCommitStore = {
+    async assertAuthorized(input) {
+      events.push("authorization");
+      assert.equal(input.commit.principalId, "principal_signer_server");
+      assert.equal(input.commit.riskPolicyVersion, input.riskPolicyVersion);
+    },
+    async commit(event, finalization) {
+      events.push("commit");
+      committedFinalization = finalization;
+      assert.equal(event.outcome, "success");
+      return { finalizationHash: quoteFinalizationHash(finalization), duplicate: false };
+    },
+    async checkHealth() { events.push("health"); },
+    async close() {},
+  };
+  const server = createServer(undefined, auditStore, undefined, quoteCommitStore);
+  const response = await server.inject({
+    method: "POST",
+    url: "/internal/sign",
+    headers: { authorization: `Bearer ${authToken}` },
+    payload: { ...signInput(), commit: commitContext() },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(Object.keys(response.json()).sort(), ["finalizationHash", "signature"]);
+  assert.equal(response.json().finalizationHash, quoteFinalizationHash(committedFinalization));
+  assert.equal(committedFinalization.response.signature, response.json().signature);
+  assert.deepEqual(events, ["authorization", "commit"]);
+  assert.equal(auditStore.snapshot().length, 0);
+
+  const readiness = await server.inject({ method: "GET", url: "/ready" });
+  assert.equal(readiness.statusCode, 200);
+  assert.deepEqual(readiness.json(), { status: "ok", capabilities: ["atomic_quote_commit_v1"] });
+  assert.deepEqual(events, ["authorization", "commit", "health"]);
+  await server.close();
+});
+
+test("signer server never invokes the signer when persisted authorization is unavailable", async () => {
+  let signerCalls = 0;
+  const server = createServer({
+    async signQuote() { signerCalls += 1; throw new Error("must not sign"); },
+    async verifyQuoteSignature() { return false; },
+  }, new InMemorySignerAuditStore(), undefined, {
+    async assertAuthorized() { throw new Error("authorization unavailable"); },
+    async commit() { assert.fail("unauthorized request cannot commit"); },
+    async checkHealth() {},
+    async close() {},
+  });
+  const response = await server.inject({
+    method: "POST",
+    url: "/internal/sign",
+    headers: { authorization: `Bearer ${authToken}` },
+    payload: { ...signInput(), commit: commitContext() },
+  });
+
+  assert.equal(response.statusCode, 503);
+  assert.deepEqual(response.json(), { error: "signer_unavailable" });
+  assert.equal(signerCalls, 0);
+  const metrics = await server.inject({ method: "GET", url: "/metrics" });
+  assert.match(metrics.body, /rfq_signer_service_stage_latency_seconds_count\{stage="authorization"\} 1/);
+  assert.match(metrics.body, /rfq_signer_service_stage_latency_seconds_count\{stage="signature"\} 0/);
   await server.close();
 });
 
@@ -221,11 +290,13 @@ function createServer(
   signerService = new LocalEIP712SignerService({ privateKey, settlementAddress }),
   auditStore = new InMemorySignerAuditStore(),
   auditMetrics = undefined,
+  quoteCommitStore = undefined,
 ) {
   return buildSignerServer({
     signerService,
     auditStore,
     auditMetrics,
+    ...(quoteCommitStore ? { quoteCommitStore } : {}),
     tokenRegistry: new ConfiguredTokenRegistry(),
     riskPolicy: defaultTokenLimitRiskPolicy,
     config: {
@@ -238,6 +309,21 @@ function createServer(
     },
     now: () => nowMs,
   });
+}
+
+function commitContext() {
+  return {
+    principalId: "principal_signer_server",
+    slippageBps: 50,
+    pricingVersion: "pricing-v1",
+    spreadBps: 10,
+    sizeImpactBps: 1,
+    marketSpreadBps: 5,
+    inventorySkewBps: -2,
+    volatilityPremiumBps: 3,
+    hedgeCostBps: 4,
+    riskPolicyVersion: "risk-v1",
+  };
 }
 
 function signInput() {

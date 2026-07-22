@@ -20,6 +20,7 @@ export const signerRuntimeEnvNames = [
   "RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS",
   "RFQ_SIGNER_SERVICE_MAX_CONNECTIONS",
   "RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP",
+  "RFQ_SIGNER_ATOMIC_QUOTE_COMMIT",
 ];
 
 export function configureAwsSignerEnvironment(env = process.env) {

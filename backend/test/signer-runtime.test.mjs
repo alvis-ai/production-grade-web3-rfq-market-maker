@@ -76,6 +76,7 @@ test("remote signer mode isolates KMS material behind a bounded authenticated or
     authToken: "a".repeat(43),
     requestTimeoutMs: 2500,
     maxConnections: 24,
+    atomicQuoteCommit: false,
   });
   assert.throws(
     () => readSignerRuntimeConfig({ ...remote, RFQ_SIGNER_SERVICE_URL: "http://rfq-signer.example.internal" }),
@@ -98,6 +99,14 @@ test("remote signer mode isolates KMS material behind a bounded authenticated or
   assert.throws(
     () => readSignerRuntimeConfig({ ...remote, RFQ_SIGNER_SERVICE_MAX_CONNECTIONS: "257" }),
     /RFQ_SIGNER_SERVICE_MAX_CONNECTIONS/,
+  );
+  assert.equal(readSignerRuntimeConfig({
+    ...remote,
+    RFQ_SIGNER_ATOMIC_QUOTE_COMMIT: "true",
+  }).atomicQuoteCommit, true);
+  assert.throws(
+    () => readSignerRuntimeConfig({ ...remote, RFQ_SIGNER_ATOMIC_QUOTE_COMMIT: "yes" }),
+    /RFQ_SIGNER_ATOMIC_QUOTE_COMMIT/,
   );
   assert.throws(
     () => readSignerRuntimeConfig({ ...remote, RFQ_AWS_KMS_KEY_ID: "alias/conflict" }),

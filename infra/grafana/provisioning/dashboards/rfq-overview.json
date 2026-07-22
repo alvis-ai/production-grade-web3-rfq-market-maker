@@ -463,7 +463,8 @@
         { "expr": "max(rfq_signer_audit_stream_backlog)", "legendFormat": "unmirrored backlog", "refId": "A" },
         { "expr": "sum by (result) (rate(rfq_signer_audit_stream_appends_total[5m]))", "legendFormat": "append {{result}}/s", "refId": "B" },
         { "expr": "sum by (result) (rate(rfq_signer_audit_mirrored_total[5m]))", "legendFormat": "mirror {{result}}/s", "refId": "C" },
-        { "expr": "sum(rate(rfq_signer_audit_mirror_errors_total[5m]))", "legendFormat": "mirror errors/s", "refId": "D" }
+        { "expr": "sum(rate(rfq_signer_audit_mirror_errors_total[5m]))", "legendFormat": "mirror errors/s", "refId": "D" },
+        { "expr": "sum by (result) (rate(rfq_signer_atomic_quote_commits_total[5m]))", "legendFormat": "atomic commit {{result}}/s", "refId": "E" }
       ]
     }
   ]

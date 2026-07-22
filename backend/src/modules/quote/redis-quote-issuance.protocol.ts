@@ -16,11 +16,16 @@ import {
 import type {
   FinalizeQuoteIssuanceInput,
   PrepareQuoteIssuanceInput,
+  QuoteSigningAuthorization,
 } from "./quote-issuance.store.js";
 import {
   assertQuoteIssuanceFinalization,
   assertQuoteIssuancePreparation,
 } from "./postgres-quote-issuance.store.js";
+import {
+  assertSignerQuoteCommitContext,
+  quoteSigningAuthorizationHash,
+} from "../signer/signer-quote-commit.js";
 
 export type RedisQuoteIssuanceEventType = "prepared" | "authorized" | "finalized" | "failed";
 export type RedisQuoteIssuanceStage = Exclude<RedisQuoteIssuanceEventType, "failed"> | "failed";
@@ -53,9 +58,12 @@ export interface RedisQuoteIssuanceRecord {
   authorization?: {
     input: SaveRiskDecisionInput;
     record: RiskDecisionRecord;
+    signingAuthorization?: QuoteSigningAuthorization;
+    signingAuthorizationHash?: string;
   };
   finalizationHash?: string;
   finalization?: Omit<FinalizeQuoteIssuanceInput, "idempotency">;
+  signerAuditEventKey?: string;
   failure?: QuoteIdempotencyFailure;
 }
 
@@ -155,7 +163,7 @@ export function parseRedisQuoteIssuanceRecord(payload: string): RedisQuoteIssuan
     "preparedAtMs", "updatedAtMs",
   ];
   const optional = [
-    "authorizationHash", "authorization", "finalizationHash", "finalization", "failure",
+    "authorizationHash", "authorization", "finalizationHash", "finalization", "signerAuditEventKey", "failure",
   ];
   assertExactFields(value, required, "Redis quote issuance payload", optional);
   if (value.schemaVersion !== 1 ||
@@ -179,7 +187,12 @@ export function parseRedisQuoteIssuanceRecord(payload: string): RedisQuoteIssuan
 
   if (value.authorization !== undefined) {
     assertRecord(value.authorization, "Redis quote issuance authorization");
-    assertExactFields(value.authorization, ["input", "record"], "Redis quote issuance authorization");
+    assertExactFields(
+      value.authorization,
+      ["input", "record"],
+      "Redis quote issuance authorization",
+      ["signingAuthorization", "signingAuthorizationHash"],
+    );
     const authorizationInput = value.authorization.input as SaveRiskDecisionInput;
     assertRiskDecisionInput(authorizationInput);
     assertRiskDecisionRecord(value.authorization.record as RiskDecisionRecord, authorizationInput);
@@ -187,6 +200,20 @@ export function parseRedisQuoteIssuanceRecord(payload: string): RedisQuoteIssuan
       throw new Error("Redis quote issuance authorization quoteId is invalid");
     }
     assertSha256(value.authorizationHash, "Redis quote issuance authorizationHash");
+    const signingAuthorization = value.authorization.signingAuthorization;
+    if (signingAuthorization !== undefined) {
+      assertQuoteSigningAuthorization(signingAuthorization);
+      assertSha256(
+        value.authorization.signingAuthorizationHash,
+        "Redis quote issuance signingAuthorizationHash",
+      );
+      if (value.authorization.signingAuthorizationHash !==
+          quoteSigningAuthorizationHash(signingAuthorization, signingAuthorization.commit)) {
+        throw new Error("Redis quote issuance signing authorization hash is invalid");
+      }
+    } else if (value.authorization.signingAuthorizationHash !== undefined) {
+      throw new Error("Redis quote issuance signing authorization hash has no authorization");
+    }
   } else if (value.authorizationHash !== undefined) {
     throw new Error("Redis quote issuance authorization hash has no authorization");
   }
@@ -199,8 +226,13 @@ export function parseRedisQuoteIssuanceRecord(payload: string): RedisQuoteIssuan
       throw new Error("Redis quote issuance finalization identity is invalid");
     }
     assertSha256(value.finalizationHash, "Redis quote issuance finalizationHash");
+    if (value.signerAuditEventKey !== undefined) {
+      assertSha256(value.signerAuditEventKey, "Redis quote issuance signerAuditEventKey");
+    }
   } else if (value.finalizationHash !== undefined) {
     throw new Error("Redis quote issuance finalization hash has no finalization");
+  } else if (value.signerAuditEventKey !== undefined) {
+    throw new Error("Redis quote issuance signer audit key has no finalization");
   }
   if (value.failure !== undefined) assertQuoteIdempotencyFailure(value.failure);
 
@@ -218,6 +250,22 @@ export function parseRedisQuoteIssuanceRecord(payload: string): RedisQuoteIssuan
     throw new Error("Redis quote issuance failed stage has no failure");
   }
   return value as unknown as RedisQuoteIssuanceRecord;
+}
+
+export function assertQuoteSigningAuthorization(
+  value: unknown,
+): asserts value is QuoteSigningAuthorization {
+  assertRecord(value, "Redis quote signing authorization");
+  assertExactFields(
+    value,
+    ["quote", "quoteId", "snapshotId", "commit"],
+    "Redis quote signing authorization",
+  );
+  assertSignerQuoteCommitContext(value.commit, {
+    quote: value.quote as SignedQuote,
+    quoteId: value.quoteId as string,
+    snapshotId: value.snapshotId as string,
+  });
 }
 
 export function parseRedisQuoteIdempotencyRecord(payload: string): RedisQuoteIdempotencyRecord {

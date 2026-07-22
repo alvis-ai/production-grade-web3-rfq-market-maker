@@ -20,6 +20,7 @@ import {
 } from "./signer-audit-mirror.js";
 import { SignerAuditStreamMetrics } from "./signer-audit-stream.metrics.js";
 import type { SignerAuditMetricsProvider } from "./signer-server.js";
+import type { SignerQuoteCommitObserver } from "./redis-signer-quote-commit.store.js";
 
 const redisAuditFields = [
   "RFQ_SIGNER_AUDIT_REDIS_URL",
@@ -63,6 +64,7 @@ export type SignerAuditProcessConfig =
 export interface SignerAuditRuntime {
   store: SignerAuditStore;
   metrics?: SignerAuditMetricsProvider;
+  quoteCommitObserver?: SignerQuoteCommitObserver;
   usesPostgres: boolean;
   start(): Promise<void>;
   close(): Promise<void>;
@@ -211,6 +213,7 @@ export function createSignerAuditRuntime(
   return {
     store,
     metrics,
+    quoteCommitObserver: metrics,
     usesPostgres: true,
     start: () => mirror.start(),
     close: async () => {

@@ -262,6 +262,118 @@ test("QuoteService returns a fused replay even when speculative pricing fails", 
   }), replay);
 });
 
+test("QuoteService delegates finalization to an atomic signer with an exact commit context", async () => {
+  let signerInput;
+  const service = new QuoteService({
+    ...deps(),
+    quoteIssuanceStore: atomicIssuanceStore({
+      async finalize() { assert.fail("atomic signer owns finalization"); },
+    }),
+    signerService: {
+      commitsQuoteFinalization: true,
+      async signQuote(input) {
+        signerInput = input;
+        return fixedSignature();
+      },
+      async verifyQuoteSignature() { return true; },
+    },
+  });
+
+  const response = await service.createQuote(request, { principalId: "principal_atomic_gateway" });
+  assert.equal(response.signature, fixedSignature());
+  assert.equal(signerInput.commit.principalId, "principal_atomic_gateway");
+  assert.equal(signerInput.commit.slippageBps, request.slippageBps);
+  assert.equal(signerInput.commit.riskPolicyVersion, signerInput.riskPolicyVersion);
+  assert.equal(signerInput.commit.pricingVersion, "formula-v4:internal_inventory");
+  assert.equal(Object.hasOwn(signerInput.commit, "idempotency"), false);
+});
+
+test("QuoteService recovers an atomically committed signer response without releasing exposure", async () => {
+  let signerInput;
+  let releaseCalls = 0;
+  let recoveryCalls = 0;
+  const service = new QuoteService({
+    ...deps(),
+    quoteExposureStore: {
+      async reserve() { return { status: "reserved", notionalUsdE18: "1000000000000000000" }; },
+      async release() { releaseCalls += 1; },
+    },
+    quoteIssuanceStore: atomicIssuanceStore({
+      async recoverFinalizedResponse(quoteId, principalId) {
+        recoveryCalls += 1;
+        assert.equal(principalId, "principal_atomic_recovery");
+        return {
+          quoteId,
+          snapshotId: signerInput.snapshotId,
+          amountOut: signerInput.quote.amountOut,
+          minAmountOut: signerInput.quote.minAmountOut,
+          deadline: signerInput.quote.deadline,
+          nonce: signerInput.quote.nonce,
+          signature: fixedSignature(),
+        };
+      },
+    }),
+    signerService: {
+      commitsQuoteFinalization: true,
+      async signQuote(input) {
+        signerInput = input;
+        throw new Error("response lost after Redis commit");
+      },
+      async verifyQuoteSignature(quote, signature) {
+        assert.deepEqual(quote, signerInput.quote);
+        return signature === fixedSignature();
+      },
+    },
+  });
+
+  const response = await service.createQuote(request, { principalId: "principal_atomic_recovery" });
+  assert.equal(response.signature, fixedSignature());
+  assert.equal(recoveryCalls, 1);
+  assert.equal(releaseCalls, 0);
+});
+
+test("QuoteService retains exposure when atomic signer commit recovery is ambiguous", async () => {
+  let releaseCalls = 0;
+  const service = new QuoteService({
+    ...deps(),
+    quoteExposureStore: {
+      async reserve() { return { status: "reserved", notionalUsdE18: "1000000000000000000" }; },
+      async release() { releaseCalls += 1; },
+    },
+    quoteIssuanceStore: atomicIssuanceStore({
+      async recoverFinalizedResponse() { throw new Error("Redis unavailable"); },
+    }),
+    signerService: {
+      commitsQuoteFinalization: true,
+      async signQuote() { throw new Error("signer timeout"); },
+      async verifyQuoteSignature() { return false; },
+    },
+  });
+
+  await assert.rejects(service.createQuote(request), /signer timeout/);
+  assert.equal(releaseCalls, 0);
+});
+
+test("QuoteService releases exposure when atomic recovery proves no commit occurred", async () => {
+  let releaseCalls = 0;
+  const service = new QuoteService({
+    ...deps(),
+    quoteExposureStore: {
+      async reserve() { return { status: "reserved", notionalUsdE18: "1000000000000000000" }; },
+      async release() { releaseCalls += 1; },
+    },
+    quoteIssuanceStore: atomicIssuanceStore(),
+    signerService: {
+      commitsQuoteFinalization: true,
+      async signQuote() { throw new Error("signing failed before commit"); },
+      async verifyQuoteSignature() { return false; },
+    },
+  });
+
+  await assert.rejects(service.createQuote(request), /signing failed before commit/);
+  assert.equal(releaseCalls, 1);
+});
+
 function deps() {
   return {
     inventoryService: new InventoryService(),
@@ -276,6 +388,24 @@ function deps() {
       async signQuote() { return fixedSignature(); },
       async verifyQuoteSignature() { return true; },
     },
+  };
+}
+
+function atomicIssuanceStore(overrides = {}) {
+  return {
+    async prepare() {},
+    async authorize(input) {
+      return {
+        riskDecisionId: `rd_${input.quoteId}`,
+        quoteId: input.quoteId,
+        decision: "approved",
+        policyVersion: input.decision.policyVersion,
+        createdAt: new Date().toISOString(),
+      };
+    },
+    async finalize() {},
+    async recoverFinalizedResponse() { return undefined; },
+    ...overrides,
   };
 }
 

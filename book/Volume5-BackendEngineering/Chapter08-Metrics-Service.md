@@ -159,6 +159,7 @@ Prometheus metrics:
 - `rfq_signer_audit_stream_backlog`
 - `rfq_signer_audit_mirrored_total`
 - `rfq_signer_audit_mirror_errors_total`
+- `rfq_signer_atomic_quote_commits_total`
 - `rfq_market_data_cache_hits_total`
 - `rfq_market_data_cache_misses_total`
 - `rfq_pricing_cache_hits_total`
@@ -271,8 +272,9 @@ CEX connector metrics intentionally count every retry error by the fixed `binanc
 - `rfq_rate_limited_total` 使用固定 `endpoint="quote|submit|status"` label，把具体 HTTP route 收敛到稳定端点组，避免把 quoteId、settlementEventId、hedgeOrderId 或动态路径写入 Prometheus。
 - `rfq_api_auth_rejections_total` 只使用固定 `reason="missing|malformed|invalid|expired|scope_denied"` label；不得把 key id、principal、header 或摘要写入指标。
 - `rfq_submit_reservation_errors_total` 只使用固定 `operation="acquire|release"` label；contention 使用独立无标签 counter，不能把 quote id 或 owner token 写入 Prometheus。
-- `rfq_signer_service_audit_errors_total` 是独立 signer 的无标签 counter，覆盖 audit append 失败和 readiness table check 失败。`rfq_signer_service_stage_latency_seconds` 只允许 `validation|digest|signature|audit` 四个固定 stage，覆盖成功和失败请求，用来区分输入门禁、EIP-712 digest、KMS/本地签名与 durable audit admission；不得把 quoteId、snapshotId、digest、地址、数据库主机或错误消息写入 label。
+- `rfq_signer_service_audit_errors_total` 是独立 signer 的无标签 counter，覆盖 audit append 失败和 readiness table check 失败。`rfq_signer_service_stage_latency_seconds` 只允许 `validation|digest|authorization|signature|audit` 五个固定 stage，覆盖成功和失败请求，用来区分输入门禁、EIP-712 digest、Redis 完整报价授权、KMS/本地签名与 durable atomic admission；不得把 quoteId、snapshotId、digest、地址、数据库主机或错误消息写入 label。
 - Redis Stream 审计链路通过 `rfq_signer_audit_stream_appends_total{result="accepted|duplicate|backlog_full|replica_ack_failed"}`、`rfq_signer_audit_stream_backlog`、`rfq_signer_audit_mirrored_total{result="inserted|replayed"}` 和 `rfq_signer_audit_mirror_errors_total` 暴露准入、积压和 PostgreSQL 镜像状态。`result` 只能取固定枚举；stream id、epoch、consumer、quoteId 和数据库错误不得进入 label。
+- 原子 signer 路径通过 `rfq_signer_atomic_quote_commits_total{result="accepted|duplicate|state_invalid"}` 区分首次终态提交、同证据重放和授权/终态冲突。该 counter 不得包含 quoteId、principal、authorization hash、signature 或 Redis key；`state_invalid` 的任何增长都必须触发失败关闭和证据保全。
 - Metrics Service validates fixed-label inputs before mutation: rate-limit endpoints must be `quote|submit|status`, signer operations must be `sign|verify`, and readiness metrics must provide own `status` / `components` fields plus the exact supported component set as own fields with `ok|degraded` statuses.
 - Metrics Service validates dynamic label values before mutation: quote rejection reasons, hedge intent error reasons, quote status update targets and PnL record error reasons must be runtime strings before label normalization, so malformed observability calls cannot turn into native `.trim()` failures or mutate counters under unintended labels.
 - 当前后端实现已暴露 `rfq_pnl_trades_total` 和 `rfq_realized_pnl_token_out`，用于验证 `/submit -> settlement -> inventory -> hedge -> PnL` 闭环；生产版应将 quote-level PnL 归因写入 ClickHouse。

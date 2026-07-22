@@ -138,11 +138,12 @@ Key metrics include:
 - `rfq_signer_service_requests_total`
 - `rfq_signer_service_last_success_timestamp_seconds`
 - `rfq_signer_service_audit_errors_total`
-- `rfq_signer_service_stage_latency_seconds` with fixed `validation|digest|signature|audit` stages; alert when any stage p95 exceeds 25ms
+- `rfq_signer_service_stage_latency_seconds` with fixed `validation|digest|authorization|signature|audit` stages; alert when any stage p95 exceeds 25ms
 - `rfq_signer_audit_stream_appends_total` with bounded `result` label
 - `rfq_signer_audit_stream_backlog`
 - `rfq_signer_audit_mirrored_total` with bounded `result` label
 - `rfq_signer_audit_mirror_errors_total`
+- `rfq_signer_atomic_quote_commits_total` with bounded `accepted|duplicate|state_invalid` result
 - `rfq_market_data_cache_hits_total`
 - `rfq_market_data_cache_misses_total`
 - `rfq_pricing_cache_hits_total`
@@ -221,6 +222,7 @@ Kubernetes control-plane observability comes from kube-state-metrics rather than
 - No quoteId/user address labels in Prometheus.
 - API signer metrics use only the low-cardinality `operation` label: `sign` or `verify`. Isolated signer requests use the bounded `outcome=success|auth_rejected|invalid|error` label and never expose caller tokens, addresses or quote ids.
 - Signer audit stream labels are fixed: append `result=accepted|duplicate|backlog_full|replica_ack_failed` and mirror `result=inserted|replayed`. Backlog is a gauge of entries not yet atomically acknowledged and deleted. Stream epoch, consumer id, quote id, digest and Redis entry id must not become metric labels.
+- Atomic signer commit labels are fixed to `result=accepted|duplicate|state_invalid`. Any `state_invalid` increase pages the signer/issuance owner; authorization hashes, signatures, principals and quote ids remain evidence in restricted stores rather than Prometheus labels.
 - Rate-limit metrics use only the fixed `endpoint` label: `quote`, `submit` or `status`; dynamic route params must stay out of Prometheus labels.
 - Readiness metrics mirror the last `/ready` probe with fixed labels: `rfq_readiness_status{status="ready|degraded"}` and `rfq_dependency_status{component="marketData|marketSnapshotStore|routing|pricing|risk|signer|quoteRepository|quoteControl|riskDecisionStore|rateLimitStore|inventory|execution|settlementEventStore|pnl|metrics",status="ok|degraded"}`.
 - Quote-control metrics intentionally exclude operator identity and free-form reason. A pause gauge indicates the current safety state, update count supplies an audit correlation signal, and operation errors identify failed read/update paths without creating high-cardinality labels.

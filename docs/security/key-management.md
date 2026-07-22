@@ -83,6 +83,8 @@ GRANT USAGE ON SEQUENCE public.signer_audit_events_id_seq TO rfq_signer_audit;
 
 不要授予 `UPDATE`、`DELETE`、业务表读取或 schema DDL 权限。`/ready` 通过 `pg_attribute` 系统目录检查 migration 028 必需列，因此运行账号不需要 `SELECT` 审计表。`RFQ_SIGNER_AUDIT_DATABASE_URL` 必须使用独立 secret、`sslmode=verify-full`、受信 CA 和小连接池；Signer 的 Cilium egress 只放行配置的 PostgreSQL FQDN/5432。审计表只保存关联标识、EIP-712 digest、signature hash 和有界结果，不保存原始 signature、用户数量、token、bearer token、KMS 原始错误或数据库凭据。
 
+启用 `RFQ_SIGNER_ATOMIC_QUOTE_COMMIT=true` 后，Signer 的 Redis identity 需要访问与 API 相同 hash tag 下的 quote、epoch、events、idempotency、nonce 和 signer-audit key family，但仍不得获得其他 Redis tenant、API PostgreSQL 或 migration 权限。ACL 只允许连接健康检查和实现所需的 `GET`、`EVAL`、`PING`、`INFO`、`XLEN`、`WAIT`、`QUIT`；生产必须使用 `rediss://`、AOF 和 replica acknowledgement。`RFQ_SIGNER_AUDIT_STREAM_KEY` 必须与 `RFQ_QUOTE_ISSUANCE_KEY_PREFIX` 共享 hash tag。切换 capability 或重建 audit stream 时先暂停新报价、drain 旧流并轮换 `RFQ_SIGNER_AUDIT_STREAM_EPOCH`，不得在滚动期间让 atomic signer 接受 legacy gateway 请求。
+
 ## Incident Response
 
 If signer compromise is suspected:

@@ -5,6 +5,10 @@ import test from "node:test";
 import { privateKeyToAccount } from "viem/accounts";
 import { LocalEIP712SignerService } from "../dist/modules/signer/signer.service.js";
 import { RemoteSignerService } from "../dist/modules/signer/remote-signer.service.js";
+import {
+  buildSignerQuoteFinalization,
+  quoteFinalizationHash,
+} from "../dist/modules/signer/signer-quote-commit.js";
 
 const privateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const settlementAddress = "0x0000000000000000000000000000000000000004";
@@ -16,6 +20,7 @@ const config = {
   authToken,
   requestTimeoutMs: 1000,
   maxConnections: 8,
+  atomicQuoteCommit: false,
   settlementAddress,
   trustedSignerAddress,
 };
@@ -36,6 +41,18 @@ const input = {
   riskDecisionId: "rd_q_remote",
   riskPolicyVersion: "risk-v1",
   traceId: "tr_remote",
+};
+const commit = {
+  principalId: "principal_remote",
+  slippageBps: 50,
+  pricingVersion: "pricing-v1",
+  spreadBps: 10,
+  sizeImpactBps: 1,
+  marketSpreadBps: 5,
+  inventorySkewBps: -2,
+  volatilityPremiumBps: 3,
+  hedgeCostBps: 4,
+  riskPolicyVersion: "risk-v1",
 };
 
 test("RemoteSignerService authenticates an exact sign request and verifies the returned signer", async () => {
@@ -66,6 +83,30 @@ test("RemoteSignerService binds WASM recovery to the EIP-712 digest and Ethereum
   assert.equal(await remote.verifyQuoteSignature(input.quote, signature), true);
   assert.equal(await remote.verifyQuoteSignature(input.quote, flippedRecoveryId), false);
   assert.equal(await remote.verifyQuoteSignature({ ...input.quote, amountOut: "997" }, signature), false);
+});
+
+test("RemoteSignerService verifies atomic quote finalization evidence", async () => {
+  const local = new LocalEIP712SignerService({ privateKey, settlementAddress });
+  const atomicInput = { ...input, commit };
+  const remote = new RemoteSignerService({ ...config, atomicQuoteCommit: true }, async (_url, init) => {
+    const request = JSON.parse(init.body);
+    const signature = await local.signQuote(request);
+    return jsonResponse({
+      signature,
+      finalizationHash: quoteFinalizationHash(buildSignerQuoteFinalization(request, request.commit, signature)),
+    });
+  });
+
+  assert.equal(remote.commitsQuoteFinalization, true);
+  assert.match(await remote.signQuote(atomicInput), /^0x[0-9a-f]{130}$/);
+  await assert.rejects(remote.signQuote(input), (error) => error?.code === "SIGNER_UNAVAILABLE");
+
+  const conflicting = new RemoteSignerService({ ...config, atomicQuoteCommit: true }, async (_url, init) => {
+    const request = JSON.parse(init.body);
+    const signature = await local.signQuote(request);
+    return jsonResponse({ signature, finalizationHash: "0".repeat(64) });
+  });
+  await assert.rejects(conflicting.signQuote(atomicInput), (error) => error?.code === "SIGNER_UNAVAILABLE");
 });
 
 test("RemoteSignerService fails closed on transport, status, response, and signer mismatches", async () => {
@@ -170,6 +211,10 @@ test("RemoteSignerService probes the isolated signer readiness without requestin
 
   const degraded = new RemoteSignerService(config, async () => jsonResponse({ status: "degraded" }, 503));
   await assert.rejects(degraded.checkHealth(), (error) => error?.code === "SIGNER_UNAVAILABLE");
+
+  const atomic = new RemoteSignerService({ ...config, atomicQuoteCommit: true }, async () =>
+    jsonResponse({ status: "ok", capabilities: ["atomic_quote_commit_v1"] }));
+  await atomic.checkHealth();
 });
 
 test("RemoteSignerService default transport reuses a bounded keep-alive connection", async () => {

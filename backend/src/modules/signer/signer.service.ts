@@ -5,6 +5,10 @@ import { signRecoverable } from "tiny-secp256k1";
 import type { SignedQuote } from "../../shared/types/rfq.js";
 import { APIError } from "../../shared/errors/api-error.js";
 import type { MetricsService, SignerMetricOperation } from "../metrics/metrics.service.js";
+import {
+  assertSignerQuoteCommitContext,
+  type SignerQuoteCommitContext,
+} from "./signer-quote-commit.js";
 
 const RFQ_EIP712_DOMAIN_NAME = "ProductionGradeRFQ";
 const RFQ_EIP712_DOMAIN_VERSION = "1";
@@ -14,6 +18,7 @@ const safeIdentifierPattern = /^[A-Za-z0-9_:-]+$/;
 const localEIP712SignerConfigFields = ["privateKey", "settlementAddress"] as const;
 const signQuoteInputFields = ["quote", "quoteId", "snapshotId"] as const;
 const signQuoteAuthorizationFields = ["riskDecisionId", "riskPolicyVersion", "traceId"] as const;
+const signQuoteOptionalFields = ["commit"] as const;
 const signedQuoteFields = [
   "user",
   "tokenIn",
@@ -47,6 +52,7 @@ export interface SignQuoteInput {
   riskDecisionId?: string;
   riskPolicyVersion?: string;
   traceId?: string;
+  commit?: SignerQuoteCommitContext;
 }
 
 export interface AuthorizedSignQuoteInput extends SignQuoteInput {
@@ -57,6 +63,7 @@ export interface AuthorizedSignQuoteInput extends SignQuoteInput {
 
 export interface SignerService {
   readonly signaturesSelfVerified?: true;
+  readonly commitsQuoteFinalization?: true;
   signQuote(input: SignQuoteInput): Promise<`0x${string}`>;
   verifyQuoteSignature(quote: SignedQuote, signature: `0x${string}`): Promise<boolean>;
   checkHealth?(): Promise<void>;
@@ -124,6 +131,10 @@ export class ObservedSignerService implements SignerService {
 
   get signaturesSelfVerified(): true | undefined {
     return this.inner.signaturesSelfVerified === true ? true : undefined;
+  }
+
+  get commitsQuoteFinalization(): true | undefined {
+    return this.inner.commitsQuoteFinalization === true ? true : undefined;
   }
 
   async signQuote(input: SignQuoteInput): Promise<`0x${string}`> {
@@ -244,12 +255,22 @@ export function hashQuoteSignature(signature: `0x${string}`): `0x${string}` {
 export function assertSignQuoteInput(input: SignQuoteInput): void {
   assertObject(input, "input");
   assertOwnFields(input, signQuoteInputFields, "input");
-  const allowedFields = new Set<string>([...signQuoteInputFields, ...signQuoteAuthorizationFields]);
+  const allowedFields = new Set<string>([
+    ...signQuoteInputFields,
+    ...signQuoteAuthorizationFields,
+    ...signQuoteOptionalFields,
+  ]);
   const unknownField = Object.keys(input).find((field) => !allowedFields.has(field));
   if (unknownField) throw new Error(`Signer input contains unknown field ${unknownField}`);
   assertSafeIdentifier(input.quoteId, "quoteId");
   assertSafeIdentifier(input.snapshotId, "snapshotId");
   assertSignedQuote(input.quote);
+  if ("commit" in input && !Object.prototype.hasOwnProperty.call(input, "commit")) {
+    throw new Error("Signer input.commit must be an own field when provided");
+  }
+  if (input.commit !== undefined) {
+    assertSignerQuoteCommitContext(input.commit, input);
+  }
   const authorizationFieldsPresent = signQuoteAuthorizationFields.filter((field) => field in input);
   if (authorizationFieldsPresent.length !== 0 && authorizationFieldsPresent.length !== signQuoteAuthorizationFields.length) {
     throw new Error("Signer authorization context must be provided in full");

@@ -45,8 +45,9 @@ export class PostgresQuoteIssuanceStore implements QuoteIssuanceStore {
   }
 
   async authorize(input: AuthorizeQuoteIssuanceInput): Promise<RiskDecisionRecord> {
-    assertRiskDecisionInput(input);
-    const result = await this.pool.query(authorizationSql(), authorizationParams(input));
+    const riskInput = { quoteId: input.quoteId, decision: input.decision };
+    assertRiskDecisionInput(riskInput);
+    const result = await this.pool.query(authorizationSql(), authorizationParams(riskInput));
     if (result.rows.length !== 1) {
       throw new Error(`Quote issuance authorization failed for ${input.quoteId}`);
     }
@@ -61,7 +62,7 @@ export class PostgresQuoteIssuanceStore implements QuoteIssuanceStore {
       policyVersion: String(row.policy_version),
       createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     };
-    assertRiskDecisionRecord(record, input);
+    assertRiskDecisionRecord(record, riskInput);
     return record;
   }
 

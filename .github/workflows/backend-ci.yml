@@ -80,6 +80,13 @@ jobs:
           RFQ_QUOTE_EXPOSURE_REDIS_INTEGRATION_CONFIRM: "yes"
           RFQ_QUOTE_EXPOSURE_LEDGER_INTEGRATION_CONFIRM: "yes"
         run: make quote-exposure-redis-integration-check quote-exposure-ledger-integration-check
+      - name: Verify atomic signer quote commit and PostgreSQL mirrors
+        env:
+          NODE_ENV: test
+          DATABASE_URL: "postgres://rfq:rfq@127.0.0.1:5432/rfq_market_maker?minPool=2&maxPool=10"
+          RFQ_QUOTE_ISSUANCE_REDIS_URL: "redis://127.0.0.1:6379/0"
+          RFQ_QUOTE_ISSUANCE_REQUIRE_AOF: "false"
+        run: make quote-issuance-integration-check
       - name: Verify production hedge execution end to end
         env:
           NODE_ENV: test

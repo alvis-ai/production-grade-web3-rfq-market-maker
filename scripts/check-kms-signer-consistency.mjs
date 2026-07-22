@@ -15,6 +15,8 @@ const paths = [
   "backend/src/modules/signer/signer-server.ts",
   "backend/src/modules/signer/signer-audit.store.ts",
   "backend/src/modules/signer/redis-signer-audit.store.ts",
+  "backend/src/modules/signer/redis-signer-quote-commit.store.ts",
+  "backend/src/modules/signer/signer-quote-commit.ts",
   "backend/src/modules/signer/signer-audit-mirror.ts",
   "backend/src/modules/signer/signer-audit-runtime.ts",
   "backend/src/modules/signer/signer-audit-stream.metrics.ts",
@@ -33,6 +35,7 @@ const paths = [
   "backend/test/signer-server.test.mjs",
   "backend/test/signer-audit-store.test.mjs",
   "backend/test/redis-signer-audit-store.test.mjs",
+  "backend/test/redis-signer-quote-commit-store.test.mjs",
   "backend/test/signer-audit-mirror.test.mjs",
   "backend/test/signer-process-runtime.test.mjs",
   "backend/test/settlement-verifier.test.mjs",
@@ -57,6 +60,7 @@ const paths = [
   "infra/helm/rfq-market-maker/templates/service-account.yaml",
   "docs/adr/ADR-0005-Use-KMS-For-Production-Signing.md",
   "docs/adr/ADR-0008-Use-Bounded-Signer-Overlap-For-Key-Rotation.md",
+  "docs/adr/ADR-0030-Fuse-Signer-Audit-And-Quote-Finalization.md",
   "docs/security/key-management.md",
   "docs/security/threat-model.md",
   "docs/security/audit-checklist.md",
@@ -130,6 +134,8 @@ assertContains("backend/src/modules/signer/remote-signer.service.ts", [
   "verifyQuoteSignature(input.quote, signature",
   "SIGNER_UNAVAILABLE",
   "assertAuthorizedSignQuoteInput",
+  "atomic_quote_commit_v1",
+  "quoteFinalizationHash(buildSignerQuoteFinalization",
 ]);
 assert.ok(
   !files["backend/src/modules/signer/remote-signer.service.ts"].includes("response.text()"),
@@ -155,6 +161,23 @@ assertContains("backend/src/modules/signer/signer-server.ts", [
   "rfq_signer_service_audit_errors_total",
   "options.auditStore.append",
   "keccak256(signature)",
+  "quoteCommitStore?.assertAuthorized(input)",
+  "buildSignerQuoteFinalization(input, input.commit, signature)",
+  "atomic_quote_commit_v1",
+]);
+assertContains("backend/src/modules/signer/redis-signer-quote-commit.store.ts", [
+  "commitSignedQuoteScript",
+  "signingAuthorizationHash",
+  "current.stage ~= \"authorized\"",
+  '"XADD", KEYS[4]',
+  '"XADD", KEYS[5]',
+  "this.client.wait(",
+  "quoteSigningAuthorizationHashFromFinalization(finalization)",
+]);
+assertContains("backend/src/modules/signer/signer-quote-commit.ts", [
+  "quoteSigningAuthorizationHash",
+  "quoteFinalizationHash",
+  "assertQuoteIssuanceFinalization",
 ]);
 assertContains("backend/src/modules/signer/signer-audit.store.ts", [
   "class PostgresSignerAuditStore",
@@ -185,6 +208,9 @@ assertContains("backend/src/signer-main.ts", [
   "RFQ_SIGNER_TLS_KEY_PATH",
   "buildSignerServer",
   "createSignerAuditRuntime",
+  "RFQ_SIGNER_ATOMIC_QUOTE_COMMIT",
+  "RedisSignerQuoteCommitStore",
+  "const { redisUrl, requireTls, ...storeConfig } = config",
 ]);
 assertContains("backend/src/modules/signer/signer-audit-runtime.ts", [
   "RFQ_SIGNER_AUDIT_BACKEND",
@@ -277,6 +303,15 @@ assertContains("backend/test/signer-server.test.mjs", [
   "does not return a signature when durable audit fails",
   "readiness degrades when the audit store is unavailable",
 ]);
+assertContains("backend/test/redis-signer-quote-commit-store.test.mjs", [
+  "verifies the persisted authorization before signing",
+  'quote: { ...quote, amountOut: "998000000000000000" }',
+  "field-order independent and binds idempotency ownership",
+  "commits quote, idempotency, issuance, and audit in one hash slot",
+]);
+assertContains("backend/test/signer-process-runtime.test.mjs", [
+  "createSignerQuoteCommitStore(config.quoteCommit)",
+]);
 assertContains("backend/test/signer-audit-store.test.mjs", [
   "privacy-expanding event envelopes",
   "append-only table is absent",
@@ -295,6 +330,7 @@ assertContains("infra/k8s/configmap.yaml", [
   "RFQ_SIGNER_MODE: remote",
   "RFQ_SIGNER_SERVICE_URL: https://rfq-signer.rfq-market-maker.svc.cluster.local:3006",
   'RFQ_SIGNER_SERVICE_MAX_CONNECTIONS: "32"',
+  'RFQ_SIGNER_ATOMIC_QUOTE_COMMIT: "true"',
 ]);
 assertContains("infra/k8s/backend-secret.yaml", [
   "RFQ_SIGNER_SERVICE_TOKEN:",
@@ -331,6 +367,7 @@ assertContains("infra/k8s/signer-deployment.yaml", [
   "RFQ_SIGNER_AUDIT_BACKEND",
   "RFQ_SIGNER_AUDIT_DATABASE_URL",
   "RFQ_SIGNER_AUDIT_REDIS_URL",
+  "RFQ_SIGNER_ATOMIC_QUOTE_COMMIT",
 ]);
 assertContains("infra/k8s/signer-service-account.yaml", [
   "kind: ServiceAccount",
@@ -356,6 +393,13 @@ assertContains("infra/helm/rfq-market-maker/templates/signer-deployment.yaml", [
   "RFQ_SIGNER_TLS_CERT_PATH",
   "RFQ_SIGNER_AUDIT_DATABASE_URL",
   "RFQ_SIGNER_AUDIT_REDIS_URL",
+  "RFQ_SIGNER_ATOMIC_QUOTE_COMMIT",
+]);
+assertContains("docs/adr/ADR-0030-Fuse-Signer-Audit-And-Quote-Finalization.md", [
+  "exact unsigned EIP-712 quote",
+  "before invoking KMS/HSM",
+  "One Redis transaction",
+  "atomic_quote_commit_v1",
 ]);
 assertContains("docs/adr/ADR-0005-Use-KMS-For-Production-Signing.md", [
   "## Status",

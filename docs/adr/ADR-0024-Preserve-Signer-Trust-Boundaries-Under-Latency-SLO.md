@@ -20,7 +20,7 @@ Keep all current signer trust and durability boundaries while exposing their cos
 2. Production key access remains isolated from the API process and only the signer may call KMS/HSM.
 3. Durable audit admission remains before a successful signature response.
 4. The gateway continues to recover and compare the EIP-712 signer before quote finalization.
-5. `rfq_signer_service_stage_latency_seconds{stage}` uses only `validation|digest|signature|audit` and covers both success and failure paths.
+5. `rfq_signer_service_stage_latency_seconds{stage}` uses `validation|digest|authorization|signature|audit` and covers both success and failure paths. ADR-0030 adds the persisted authorization read and folds successful terminal quote commit into `audit` without weakening the original trust boundaries.
 6. Grafana and Prometheus compare signer-internal stage latency with gateway `signing` latency. Operators alert when any signer stage p95 exceeds 25 ms.
 7. The system does not declare p50 below 10 ms satisfied. A future transport or protocol change must include a production load profile, atomic ownership, crash recovery, replay, key-isolation and fail-closed tests before replacing any serial boundary.
 

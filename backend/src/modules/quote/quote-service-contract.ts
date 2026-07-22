@@ -138,6 +138,7 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
     assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "prepare");
     assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "authorize");
     assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "finalize");
+    assertOptionalDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "recoverFinalizedResponse");
     assertOptionalDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "findHotStatus");
     assertOptionalDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "awaitSignedQuoteProjection");
   }
@@ -159,6 +160,16 @@ function assertQuoteServiceDeps(deps: QuoteServiceDeps): void {
   assertDependencyMethod(deps.riskDecisionStore, "riskDecisionStore", "saveDecision");
   assertDependencyMethod(deps.signerService, "signerService", "signQuote");
   assertDependencyMethod(deps.signerService, "signerService", "verifyQuoteSignature");
+  if (deps.signerService.commitsQuoteFinalization !== undefined &&
+      deps.signerService.commitsQuoteFinalization !== true) {
+    throw new Error("Quote service signerService commitsQuoteFinalization capability is invalid");
+  }
+  if (deps.signerService.commitsQuoteFinalization === true) {
+    if (!deps.quoteIssuanceStore) {
+      throw new Error("Atomic signer quote commit requires quoteIssuanceStore");
+    }
+    assertDependencyMethod(deps.quoteIssuanceStore, "quoteIssuanceStore", "recoverFinalizedResponse");
+  }
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRequested");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRouteDecision");
   assertDependencyMethod(deps.quoteRepository, "quoteRepository", "saveRejected");

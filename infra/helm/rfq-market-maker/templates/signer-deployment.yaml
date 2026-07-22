@@ -72,8 +72,20 @@ spec:
               value: {{ .Values.signerService.auditTimeoutMs | quote }}
             - name: RFQ_SIGNER_AUDIT_MIN_REPLICA_ACKS
               value: {{ .Values.signerService.auditMinReplicaAcks | quote }}
+            - name: RFQ_SIGNER_AUDIT_STREAM_KEY
+              value: {{ .Values.signerService.auditStreamKey | quote }}
             - name: RFQ_SIGNER_AUDIT_STREAM_EPOCH
               value: {{ .Values.signerService.auditStreamEpoch | quote }}
+            - name: RFQ_SIGNER_ATOMIC_QUOTE_COMMIT
+              value: {{ .Values.signerService.atomicQuoteCommit | quote }}
+            - name: RFQ_QUOTE_ISSUANCE_LEDGER_EPOCH
+              value: {{ .Values.env.RFQ_QUOTE_ISSUANCE_LEDGER_EPOCH | quote }}
+            - name: RFQ_QUOTE_ISSUANCE_REQUIRE_AOF
+              value: {{ .Values.env.RFQ_QUOTE_ISSUANCE_REQUIRE_AOF | quote }}
+            - name: RFQ_QUOTE_ISSUANCE_MIN_REPLICA_ACKS
+              value: {{ .Values.env.RFQ_QUOTE_ISSUANCE_MIN_REPLICA_ACKS | quote }}
+            - name: RFQ_QUOTE_ISSUANCE_MAX_BACKLOG
+              value: {{ .Values.env.RFQ_QUOTE_ISSUANCE_MAX_BACKLOG | quote }}
             - name: RFQ_AWS_KMS_KEY_ID
               valueFrom:
                 secretKeyRef:

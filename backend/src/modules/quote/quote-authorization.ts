@@ -1,5 +1,6 @@
-import type { MarketSnapshot, QuoteRequest } from "../../shared/types/rfq.js";
+import type { MarketSnapshot, QuoteRequest, SignedQuote } from "../../shared/types/rfq.js";
 import type { PricingResult } from "../pricing/pricing.engine.js";
+import type { SignerQuoteCommitContext } from "../signer/signer-quote-commit.js";
 import {
   assertRiskDecisionRecord,
   type RiskDecisionRecord,
@@ -23,6 +24,12 @@ export interface AuthorizeQuoteInput {
   quoteId: string;
   deadline: number;
   preparation?: PrepareQuoteIssuanceInput;
+  signingAuthorization?: {
+    quote: SignedQuote;
+    quoteId: string;
+    snapshotId: string;
+    commit: Omit<SignerQuoteCommitContext, "riskPolicyVersion">;
+  };
 }
 
 export interface AuthorizedQuote {
@@ -101,7 +108,18 @@ export async function authorizeQuote(
   const riskDecisionInput = { quoteId: input.quoteId, decision: risk };
   try {
     const persistedRiskDecision = deps.quoteIssuanceStore
-      ? await deps.quoteIssuanceStore.authorize(riskDecisionInput)
+      ? await deps.quoteIssuanceStore.authorize({
+          ...riskDecisionInput,
+          ...(input.signingAuthorization ? {
+            signingAuthorization: {
+              ...input.signingAuthorization,
+              commit: {
+                ...input.signingAuthorization.commit,
+                riskPolicyVersion: risk.policyVersion,
+              },
+            },
+          } : {}),
+        })
       : await persistQuoteRiskDecision(deps.riskDecisionStore, riskDecisionInput);
     assertRiskDecisionRecord(persistedRiskDecision, riskDecisionInput);
     return { risk, persistedRiskDecision, exposureReserved };

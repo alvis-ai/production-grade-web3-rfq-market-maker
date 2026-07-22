@@ -39,6 +39,18 @@ const quoteServiceResultValidation = await readFile(
   "backend/src/modules/quote/quote-service-result-validation.ts",
   "utf8",
 );
+const quoteAtomicSigning = await readFile(
+  "backend/src/modules/quote/quote-atomic-signing.ts",
+  "utf8",
+);
+const quoteMarketSnapshot = await readFile(
+  "backend/src/modules/quote/quote-market-snapshot.ts",
+  "utf8",
+);
+const quotePreAuthorizationFailure = await readFile(
+  "backend/src/modules/quote/quote-preauthorization-failure.ts",
+  "utf8",
+);
 const executionService = await readFile(
   "backend/src/modules/execution/execution.service.ts",
   "utf8",
@@ -75,6 +87,9 @@ const quoteServiceContractLines = quoteServiceContract.split(/\r?\n/).length;
 const quoteServiceErrorsLines = quoteServiceErrors.split(/\r?\n/).length;
 const quoteRouteSelectionLines = quoteRouteSelection.split(/\r?\n/).length;
 const quoteServiceResultValidationLines = quoteServiceResultValidation.split(/\r?\n/).length;
+const quoteAtomicSigningLines = quoteAtomicSigning.split(/\r?\n/).length;
+const quoteMarketSnapshotLines = quoteMarketSnapshot.split(/\r?\n/).length;
+const quotePreAuthorizationFailureLines = quotePreAuthorizationFailure.split(/\r?\n/).length;
 const executionServiceLines = executionService.split(/\r?\n/).length;
 const executionServiceContractLines = executionServiceContract.split(/\r?\n/).length;
 const executionServiceResultValidationLines = executionServiceResultValidation.split(/\r?\n/).length;
@@ -104,6 +119,18 @@ assert.ok(
 assert.ok(
   quoteServiceResultValidationLines <= 500,
   `quote-service-result-validation.ts must remain a bounded validation boundary (got ${quoteServiceResultValidationLines} lines)`,
+);
+assert.ok(
+  quoteAtomicSigningLines <= 150,
+  `quote-atomic-signing.ts must remain a bounded signer transaction boundary (got ${quoteAtomicSigningLines} lines)`,
+);
+assert.ok(
+  quoteMarketSnapshotLines <= 60,
+  `quote-market-snapshot.ts must remain a bounded market-data boundary (got ${quoteMarketSnapshotLines} lines)`,
+);
+assert.ok(
+  quotePreAuthorizationFailureLines <= 100,
+  `quote-preauthorization-failure.ts must remain a bounded audit recovery boundary (got ${quotePreAuthorizationFailureLines} lines)`,
 );
 assert.ok(
   executionServiceLines <= 300,
@@ -243,12 +270,19 @@ assertContains(processShutdown, [
   "PROCESS_SHUTDOWN_FORCED",
 ], "bounded process shutdown runtime");
 assertContains(quoteService, [
+  'from "./quote-atomic-signing.js"',
+  'from "./quote-market-snapshot.js"',
+  'from "./quote-preauthorization-failure.js"',
   'from "./quote-service-contract.js"',
   'from "./quote-service-errors.js"',
   'from "./quote-service-result-validation.js"',
   "export class QuoteService",
   "async createQuote",
   "async requireSubmittableSignedQuote",
+  "buildSignerCommitBase({",
+  "signQuoteWithAtomicRecovery({",
+  "getUsableQuoteSnapshot(",
+  "persistPreAuthorizationFailureBestEffort(this.deps",
 ], "quote service orchestrator");
 for (const extractedDefinition of [
   "function assertRoutePlan",
@@ -274,6 +308,26 @@ assertContains(quoteServiceResultValidation, [
   "assertQuoteExposureReservationResult",
   "assertRiskDecision",
 ], "quote service result validation boundary");
+assertContains(quoteAtomicSigning, [
+  "buildSignerCommitBase",
+  "signQuoteWithAtomicRecovery",
+  "recoverAtomicSignerCommit",
+  "verifyQuoteSignature",
+  'releaseExposure: recovered.status === "not_committed"',
+], "quote atomic signing boundary");
+assertContains(quoteMarketSnapshot, [
+  "getUsableQuoteSnapshot",
+  "marketDataService.getSnapshot(request)",
+  "marketDataFailure(error)",
+  "assertUsableSnapshot(snapshot",
+], "quote market snapshot boundary");
+assertContains(quotePreAuthorizationFailure, [
+  "persistPreAuthorizationFailureBestEffort",
+  "deps.marketSnapshotStore.saveSnapshot",
+  "deps.quoteRepository.saveRequested",
+  "deps.quoteRepository.saveRouteDecision",
+  "deps.quoteRepository.markFailed",
+], "quote pre-authorization audit recovery boundary");
 assertContains(quoteServiceErrors, [
   "marketDataFailure",
   "quoteStoreFailure",

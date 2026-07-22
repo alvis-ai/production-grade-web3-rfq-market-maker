@@ -469,6 +469,15 @@ groups:
           summary: Isolated signer durable audit admission is failing closed
           runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
 
+      - alert: RFQSignerAtomicQuoteCommitStateInvalid
+        expr: sum(increase(rfq_signer_atomic_quote_commits_total{result="state_invalid"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Isolated signer rejected an atomic quote finalization state transition
+          runbook: book/Volume7-ProductionDeployment/Chapter05-Runbook.md
+
       - alert: RFQSignerAuditMirrorErrors
         expr: sum(increase(rfq_signer_audit_mirror_errors_total[5m])) > 0
         for: 2m

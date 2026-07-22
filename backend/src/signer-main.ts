@@ -13,6 +13,13 @@ import {
   readSignerRuntimeConfig,
   type SignerRuntimeConfig,
 } from "./modules/signer/signer-runtime.js";
+import {
+  createRedisSignerQuoteCommitClient,
+  normalizeRedisSignerQuoteCommitConfig,
+  RedisSignerQuoteCommitStore,
+  type RedisSignerQuoteCommitConfig,
+  type SignerQuoteCommitObserver,
+} from "./modules/signer/redis-signer-quote-commit.store.js";
 import { readShutdownTimeoutMs, installBoundedShutdown } from "./runtime/process-shutdown.js";
 import { readDecimalIntegerConfig, readOwnEnvValue } from "./runtime/environment.js";
 import { createStructuredLogger, logProcessFailure } from "./shared/logger/structured-logger.js";
@@ -29,6 +36,7 @@ export interface SignerProcessConfig {
   listenPort: number;
   shutdownTimeoutMs: number;
   audit: SignerAuditProcessConfig;
+  quoteCommit?: RedisSignerQuoteCommitConfig & { redisUrl: string; requireTls: boolean };
   tlsCertPath?: string;
   tlsKeyPath?: string;
 }
@@ -49,6 +57,7 @@ export function readSignerProcessConfig(
     delete signerEnv.RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS;
     delete signerEnv.RFQ_SIGNER_SERVICE_MAX_CONNECTIONS;
     delete signerEnv.RFQ_SIGNER_SERVICE_ALLOW_INSECURE_HTTP;
+    delete signerEnv.RFQ_SIGNER_ATOMIC_QUOTE_COMMIT;
   }
   const signer = readSignerRuntimeConfig(signerEnv);
   if (signer.mode === "remote" || signer.mode === "external") {
@@ -61,6 +70,7 @@ export function readSignerProcessConfig(
     !isLocalEnvironment(readOwnEnvValue(env, "NODE_ENV")),
   );
   const audit = readSignerAuditProcessConfig(env);
+  const quoteCommit = readSignerQuoteCommitConfig(env, audit);
   return {
     signer,
     authToken: readAuthToken(env),
@@ -73,6 +83,7 @@ export function readSignerProcessConfig(
     listenPort: readInteger(env, "RFQ_SIGNER_SERVICE_PORT", 3_006, 1, 65_535),
     shutdownTimeoutMs: readShutdownTimeoutMs(env),
     audit,
+    ...(quoteCommit ? { quoteCommit } : {}),
     ...tls,
   };
 }
@@ -83,6 +94,10 @@ export async function startSignerProcess(): Promise<void> {
   const runtime = createSignerRuntime(config.signer);
   const auditRuntime = createSignerAuditRuntime(config.audit, logger);
   await auditRuntime.start();
+  const quoteCommitStore = createSignerQuoteCommitStore(
+    config.quoteCommit,
+    auditRuntime.quoteCommitObserver,
+  );
   const https = config.tlsCertPath && config.tlsKeyPath ? {
     cert: await readFile(config.tlsCertPath),
     key: await readFile(config.tlsKeyPath),
@@ -90,6 +105,7 @@ export async function startSignerProcess(): Promise<void> {
   const server = buildSignerServer({
     signerService: runtime.service,
     auditStore: auditRuntime.store,
+    ...(quoteCommitStore ? { quoteCommitStore } : {}),
     ...(auditRuntime.metrics ? { auditMetrics: auditRuntime.metrics } : {}),
     tokenRegistry: config.tokenRegistry,
     riskPolicy: config.riskPolicy,
@@ -115,6 +131,7 @@ export async function startSignerProcess(): Promise<void> {
       Promise.resolve(server.close())
         .then(() => runtime.close?.())
         .then(() => auditRuntime.close())
+        .then(() => quoteCommitStore?.close())
         .then(() => auditRuntime.usesPostgres ? endPool() : undefined)
         .then(() => {
           controller.complete();
@@ -127,6 +144,83 @@ export async function startSignerProcess(): Promise<void> {
         });
     },
   });
+}
+
+export function createSignerQuoteCommitStore(
+  config: SignerProcessConfig["quoteCommit"],
+  observer?: SignerQuoteCommitObserver,
+): RedisSignerQuoteCommitStore | undefined {
+  if (!config) return undefined;
+  const { redisUrl, requireTls, ...storeConfig } = config;
+  return new RedisSignerQuoteCommitStore(
+    createRedisSignerQuoteCommitClient(redisUrl, { requireTls }),
+    storeConfig,
+    observer,
+  );
+}
+
+function readSignerQuoteCommitConfig(
+  env: Record<string, string | undefined> | undefined,
+  audit: SignerAuditProcessConfig,
+): SignerProcessConfig["quoteCommit"] {
+  if (!readBoolean(env, "RFQ_SIGNER_ATOMIC_QUOTE_COMMIT", false)) return undefined;
+  if (audit.backend !== "redis-stream") {
+    throw new Error("RFQ_SIGNER_ATOMIC_QUOTE_COMMIT requires RFQ_SIGNER_AUDIT_BACKEND=redis-stream");
+  }
+  const nodeEnv = readOwnEnvValue(env, "NODE_ENV");
+  const production = !isLocalEnvironment(nodeEnv);
+  const hotStateTtlMs = readInteger(env, "RFQ_QUOTE_ISSUANCE_HOT_STATE_TTL_MS", 3_600_000, 60_000, 604_800_000);
+  const minReplicaAcks = readInteger(
+    env,
+    "RFQ_QUOTE_ISSUANCE_MIN_REPLICA_ACKS",
+    audit.minReplicaAcks,
+    0,
+    5,
+  );
+  if (production && minReplicaAcks < 1) {
+    throw new Error("RFQ_QUOTE_ISSUANCE_MIN_REPLICA_ACKS must be at least 1 for atomic signer commit");
+  }
+  if (!readBoolean(env, "RFQ_QUOTE_ISSUANCE_REQUIRE_AOF", true)) {
+    throw new Error("RFQ_QUOTE_ISSUANCE_REQUIRE_AOF cannot be disabled for atomic signer commit");
+  }
+  const ledgerEpoch = readOwnEnvValue(env, "RFQ_QUOTE_ISSUANCE_LEDGER_EPOCH") ??
+    (production ? undefined : "local_v1");
+  if (!ledgerEpoch || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(ledgerEpoch)) {
+    throw new Error("RFQ_QUOTE_ISSUANCE_LEDGER_EPOCH is required for atomic signer commit");
+  }
+  const quoteCommitConfig = normalizeRedisSignerQuoteCommitConfig({
+    quoteKeyPrefix: readOwnEnvValue(env, "RFQ_QUOTE_ISSUANCE_KEY_PREFIX") ?? "rfq:{quote-issuance}:ledger",
+    ledgerEpoch,
+    issuanceMaxBacklog: readInteger(
+      env,
+      "RFQ_QUOTE_ISSUANCE_MAX_BACKLOG",
+      10_000,
+      1,
+      1_000_000,
+    ),
+    hotStateTtlMs,
+    idempotencyTtlMs: readInteger(
+      env,
+      "RFQ_QUOTE_ISSUANCE_IDEMPOTENCY_TTL_MS",
+      86_400_000,
+      hotStateTtlMs,
+      2_592_000_000,
+    ),
+    auditStreamKey: audit.streamKey,
+    auditMaxBacklog: audit.maxBacklog,
+    auditDedupeTtlMs: audit.dedupeTtlMs,
+    minReplicaAcks: Math.max(minReplicaAcks, audit.minReplicaAcks),
+    replicaAckTimeoutMs: Math.min(
+      readInteger(env, "RFQ_QUOTE_ISSUANCE_REPLICA_ACK_TIMEOUT_MS", 20, 1, 5_000),
+      audit.replicaAckTimeoutMs,
+    ),
+    requireAof: true,
+  });
+  return {
+    redisUrl: audit.redisUrl,
+    requireTls: production,
+    ...quoteCommitConfig,
+  };
 }
 
 function readAuthToken(env: Record<string, string | undefined> | undefined): string {
@@ -157,6 +251,18 @@ function readInteger(
     throw new Error(`${name} must be a base-10 integer between ${min} and ${max}`);
   }
   return readDecimalIntegerConfig(value, { defaultValue, min, max, name });
+}
+
+function readBoolean(
+  env: Record<string, string | undefined> | undefined,
+  name: string,
+  defaultValue: boolean,
+): boolean {
+  const value = readOwnEnvValue(env, name);
+  if (value === undefined) return defaultValue;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(`${name} must be true or false`);
 }
 
 function readListenHost(env: Record<string, string | undefined> | undefined): string {
