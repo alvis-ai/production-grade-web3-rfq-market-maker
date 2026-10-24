@@ -93,6 +93,10 @@ jobs:
       - name: Test contracts
         working-directory: contracts
         run: forge test
+      - name: Run Slither static analysis
+        run: |
+          pipx install slither-analyzer==0.11.3
+          make contract-static-analysis
       - name: Test target-chain deployment verification
         run: make contract-deployment-check
       - name: Test receipt-confirmed settlement end to end

@@ -1,0 +1,263 @@
+name: Live Integrations
+
+# Exercises the real external dependencies that `make verify` only covers with fixtures.
+# Every job runs in the protected `staging-testnet` environment, is opt-in through a
+# repository variable, and never runs for pull requests.
+on:
+  workflow_dispatch:
+    inputs:
+      include_settlement_canary:
+        description: "Broadcast one staging-testnet settlement canary"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "17 3 * * *"
+
+concurrency:
+  group: live-integrations
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
+
+jobs:
+  market-data:
+    if: vars.RFQ_LIVE_MARKET_DATA_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging-testnet
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install workspace dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+      - name: Verify live CEX order book streams
+        env:
+          RFQ_CEX_INTEGRATION_CONFIRM: "yes"
+          RFQ_CEX_INTEGRATION_BINANCE_SYMBOL: ${{ vars.RFQ_CEX_INTEGRATION_BINANCE_SYMBOL }}
+          RFQ_CEX_INTEGRATION_COINBASE_SYMBOL: ${{ vars.RFQ_CEX_INTEGRATION_COINBASE_SYMBOL }}
+        run: make cex-orderbook-integration-check
+      - name: Verify live Chainlink oracle reads
+        env:
+          RFQ_CHAINLINK_INTEGRATION_CONFIRM: read-live-oracle
+          RFQ_CHAINLINK_CONFIG_JSON: ${{ secrets.RFQ_CHAINLINK_CONFIG_JSON }}
+          RFQ_CHAINLINK_INTEGRATION_CHAIN_ID: ${{ vars.RFQ_CHAINLINK_INTEGRATION_CHAIN_ID }}
+          RFQ_CHAINLINK_INTEGRATION_TOKEN_IN: ${{ vars.RFQ_CHAINLINK_INTEGRATION_TOKEN_IN }}
+          RFQ_CHAINLINK_INTEGRATION_TOKEN_OUT: ${{ vars.RFQ_CHAINLINK_INTEGRATION_TOKEN_OUT }}
+        run: make chainlink-integration-check
+
+  binance-testnet:
+    if: vars.RFQ_LIVE_BINANCE_TESTNET_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging-testnet
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install workspace dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+      - name: Place and cancel one Binance Spot Testnet hedge order
+        env:
+          RFQ_BINANCE_TESTNET_INTEGRATION_CONFIRM: place-and-cancel
+          RFQ_BINANCE_TESTNET_API_KEY: ${{ secrets.RFQ_BINANCE_TESTNET_API_KEY }}
+          RFQ_BINANCE_TESTNET_API_SECRET: ${{ secrets.RFQ_BINANCE_TESTNET_API_SECRET }}
+          RFQ_BINANCE_TESTNET_SYMBOL: ${{ vars.RFQ_BINANCE_TESTNET_SYMBOL }}
+          RFQ_BINANCE_TESTNET_BASE_ASSET: ${{ vars.RFQ_BINANCE_TESTNET_BASE_ASSET }}
+          RFQ_BINANCE_TESTNET_QUOTE_ASSET: ${{ vars.RFQ_BINANCE_TESTNET_QUOTE_ASSET }}
+          RFQ_BINANCE_TESTNET_SIDE: ${{ vars.RFQ_BINANCE_TESTNET_SIDE }}
+          RFQ_BINANCE_TESTNET_PRICE: ${{ vars.RFQ_BINANCE_TESTNET_PRICE }}
+          RFQ_BINANCE_TESTNET_PRICE_TICK: ${{ vars.RFQ_BINANCE_TESTNET_PRICE_TICK }}
+          RFQ_BINANCE_TESTNET_QUANTITY: ${{ vars.RFQ_BINANCE_TESTNET_QUANTITY }}
+          RFQ_BINANCE_TESTNET_STEP_SIZE_RAW: ${{ vars.RFQ_BINANCE_TESTNET_STEP_SIZE_RAW }}
+          RFQ_BINANCE_TESTNET_TOKEN_DECIMALS: ${{ vars.RFQ_BINANCE_TESTNET_TOKEN_DECIMALS }}
+          RFQ_BINANCE_TESTNET_QUOTE_TOKEN_DECIMALS: ${{ vars.RFQ_BINANCE_TESTNET_QUOTE_TOKEN_DECIMALS }}
+          RFQ_BINANCE_TESTNET_MIN_BOOK_DISTANCE_BPS: ${{ vars.RFQ_BINANCE_TESTNET_MIN_BOOK_DISTANCE_BPS }}
+          RFQ_BINANCE_TESTNET_REQUEST_TIMEOUT_MS: ${{ vars.RFQ_BINANCE_TESTNET_REQUEST_TIMEOUT_MS }}
+        run: make binance-testnet-integration-check
+
+  aws-kms:
+    if: vars.RFQ_LIVE_AWS_KMS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging-testnet
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install workspace dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+      - name: Exchange GitHub OIDC token for AWS web identity
+        run: |
+          umask 077
+          curl --fail --silent --show-error \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" \
+            | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>process.stdout.write(JSON.parse(s).value))' \
+            > "${RUNNER_TEMP}/aws-web-identity-token"
+          echo "AWS_WEB_IDENTITY_TOKEN_FILE=${RUNNER_TEMP}/aws-web-identity-token" >> "${GITHUB_ENV}"
+      - name: Sign one EIP-712 quote digest with AWS KMS
+        env:
+          AWS_ROLE_ARN: ${{ vars.RFQ_AWS_KMS_INTEGRATION_ROLE_ARN }}
+          AWS_ROLE_SESSION_NAME: rfq-live-kms-${{ github.run_id }}
+          RFQ_AWS_KMS_INTEGRATION_CONFIRM: sign-eip712-digest
+          RFQ_SIGNER_MODE: aws-kms
+          RFQ_AWS_KMS_KEY_ID: ${{ vars.RFQ_AWS_KMS_KEY_ID }}
+          RFQ_AWS_KMS_REGION: ${{ vars.RFQ_AWS_KMS_REGION }}
+          RFQ_AWS_KMS_MAX_ATTEMPTS: ${{ vars.RFQ_AWS_KMS_MAX_ATTEMPTS }}
+          RFQ_TRUSTED_SIGNER_ADDRESS: ${{ vars.RFQ_TRUSTED_SIGNER_ADDRESS }}
+          RFQ_SETTLEMENT_ADDRESS: ${{ vars.RFQ_SETTLEMENT_ADDRESS }}
+          RFQ_AWS_KMS_INTEGRATION_CHAIN_ID: ${{ vars.RFQ_AWS_KMS_INTEGRATION_CHAIN_ID }}
+          RFQ_AWS_KMS_INTEGRATION_USER: ${{ vars.RFQ_AWS_KMS_INTEGRATION_USER }}
+          RFQ_AWS_KMS_INTEGRATION_TOKEN_IN: ${{ vars.RFQ_AWS_KMS_INTEGRATION_TOKEN_IN }}
+          RFQ_AWS_KMS_INTEGRATION_TOKEN_OUT: ${{ vars.RFQ_AWS_KMS_INTEGRATION_TOKEN_OUT }}
+          RFQ_AWS_KMS_INTEGRATION_AMOUNT_IN: ${{ vars.RFQ_AWS_KMS_INTEGRATION_AMOUNT_IN }}
+          RFQ_AWS_KMS_INTEGRATION_AMOUNT_OUT: ${{ vars.RFQ_AWS_KMS_INTEGRATION_AMOUNT_OUT }}
+          RFQ_AWS_KMS_INTEGRATION_MIN_AMOUNT_OUT: ${{ vars.RFQ_AWS_KMS_INTEGRATION_MIN_AMOUNT_OUT }}
+          RFQ_AWS_KMS_INTEGRATION_TTL_SECONDS: ${{ vars.RFQ_AWS_KMS_INTEGRATION_TTL_SECONDS }}
+          RFQ_AWS_KMS_INTEGRATION_RISK_POLICY_VERSION: ${{ vars.RFQ_AWS_KMS_INTEGRATION_RISK_POLICY_VERSION }}
+        run: make aws-kms-integration-check
+      - name: Remove web identity token
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/aws-web-identity-token"
+
+  target-chain:
+    if: vars.RFQ_LIVE_TARGET_CHAIN_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging-testnet
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - uses: foundry-rs/foundry-toolchain@b00af27efadbc7b4ca8b82abbd903b17cc874d2a # v1
+        with:
+          version: stable
+      - name: Install workspace dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+      - name: Verify deployed settlement contracts on the target chain
+        env:
+          RFQ_CHAIN_INTEGRATION_CONFIRM: "yes"
+          RFQ_CHAIN_INTEGRATION_RPC_URL: ${{ secrets.RFQ_CHAIN_INTEGRATION_RPC_URL }}
+          RFQ_CHAIN_INTEGRATION_CHAIN_ID: ${{ vars.RFQ_CHAIN_INTEGRATION_CHAIN_ID }}
+          RFQ_CHAIN_INTEGRATION_FACTORY_ADDRESS: ${{ vars.RFQ_CHAIN_INTEGRATION_FACTORY_ADDRESS }}
+          RFQ_CHAIN_INTEGRATION_SETTLEMENT_ADDRESS: ${{ vars.RFQ_CHAIN_INTEGRATION_SETTLEMENT_ADDRESS }}
+          RFQ_CHAIN_INTEGRATION_TREASURY_ADDRESS: ${{ vars.RFQ_CHAIN_INTEGRATION_TREASURY_ADDRESS }}
+          RFQ_CHAIN_INTEGRATION_ADMIN_ADDRESS: ${{ vars.RFQ_CHAIN_INTEGRATION_ADMIN_ADDRESS }}
+          RFQ_CHAIN_INTEGRATION_TRUSTED_SIGNERS_JSON: ${{ vars.RFQ_CHAIN_INTEGRATION_TRUSTED_SIGNERS_JSON }}
+          RFQ_CHAIN_INTEGRATION_TOKEN_WHITELIST_JSON: ${{ vars.RFQ_CHAIN_INTEGRATION_TOKEN_WHITELIST_JSON }}
+          RFQ_CHAIN_INTEGRATION_EXPECT_PAUSED: ${{ vars.RFQ_CHAIN_INTEGRATION_EXPECT_PAUSED }}
+          RFQ_CHAIN_INTEGRATION_MAX_BLOCK_AGE_SECONDS: ${{ vars.RFQ_CHAIN_INTEGRATION_MAX_BLOCK_AGE_SECONDS }}
+          RFQ_CHAIN_INTEGRATION_MAX_FUTURE_SKEW_SECONDS: ${{ vars.RFQ_CHAIN_INTEGRATION_MAX_FUTURE_SKEW_SECONDS }}
+          RFQ_CHAIN_INTEGRATION_REQUEST_TIMEOUT_MS: ${{ vars.RFQ_CHAIN_INTEGRATION_REQUEST_TIMEOUT_MS }}
+        run: make contract-deployment-integration-check
+      - name: Request and replay one signed quote against the staging API
+        env:
+          RFQ_API_INTEGRATION_CONFIRM: request-and-replay-quote
+          RFQ_API_INTEGRATION_BASE_URL: ${{ vars.RFQ_API_INTEGRATION_BASE_URL }}
+          RFQ_API_INTEGRATION_API_KEY: ${{ secrets.RFQ_API_INTEGRATION_API_KEY }}
+          RFQ_API_INTEGRATION_CHAIN_ID: ${{ vars.RFQ_CHAIN_INTEGRATION_CHAIN_ID }}
+          RFQ_API_INTEGRATION_USER: ${{ vars.RFQ_API_INTEGRATION_USER }}
+          RFQ_API_INTEGRATION_TOKEN_IN: ${{ vars.RFQ_API_INTEGRATION_TOKEN_IN }}
+          RFQ_API_INTEGRATION_TOKEN_OUT: ${{ vars.RFQ_API_INTEGRATION_TOKEN_OUT }}
+          RFQ_API_INTEGRATION_AMOUNT_IN: ${{ vars.RFQ_API_INTEGRATION_AMOUNT_IN }}
+          RFQ_API_INTEGRATION_SLIPPAGE_BPS: ${{ vars.RFQ_API_INTEGRATION_SLIPPAGE_BPS }}
+          RFQ_API_INTEGRATION_MAX_TTL_SECONDS: ${{ vars.RFQ_API_INTEGRATION_MAX_TTL_SECONDS }}
+          RFQ_API_INTEGRATION_MAX_CLOCK_SKEW_SECONDS: ${{ vars.RFQ_API_INTEGRATION_MAX_CLOCK_SKEW_SECONDS }}
+          RFQ_SETTLEMENT_ADDRESS: ${{ vars.RFQ_CHAIN_INTEGRATION_SETTLEMENT_ADDRESS }}
+          RFQ_TRUSTED_SIGNER_ADDRESS: ${{ vars.RFQ_TRUSTED_SIGNER_ADDRESS }}
+        run: make target-api-quote-integration-check
+
+  settlement-canary:
+    needs: target-chain
+    if: github.event_name == 'workflow_dispatch' && inputs.include_settlement_canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging-testnet
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install workspace dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+      - name: Materialize canary user key
+        env:
+          CANARY_USER_KEY: ${{ secrets.RFQ_SETTLEMENT_CANARY_USER_KEY }}
+        run: |
+          umask 077
+          printf '%s' "${CANARY_USER_KEY}" > "${RUNNER_TEMP}/rfq-canary-user-key"
+      - name: Broadcast one receipt-confirmed staging settlement
+        env:
+          RFQ_SETTLEMENT_CANARY_CONFIRM: broadcast-one-settlement
+          RFQ_SETTLEMENT_CANARY_ENVIRONMENT: staging-testnet
+          RFQ_SETTLEMENT_CANARY_USER_KEY_FILE: ${{ runner.temp }}/rfq-canary-user-key
+          RFQ_SETTLEMENT_CANARY_RPC_URL: ${{ secrets.RFQ_CHAIN_INTEGRATION_RPC_URL }}
+          RFQ_SETTLEMENT_CANARY_API_BASE_URL: ${{ vars.RFQ_API_INTEGRATION_BASE_URL }}
+          RFQ_SETTLEMENT_CANARY_API_KEY: ${{ secrets.RFQ_API_INTEGRATION_API_KEY }}
+          RFQ_SETTLEMENT_CANARY_CHAIN_ID: ${{ vars.RFQ_CHAIN_INTEGRATION_CHAIN_ID }}
+          RFQ_SETTLEMENT_CANARY_SETTLEMENT_ADDRESS: ${{ vars.RFQ_CHAIN_INTEGRATION_SETTLEMENT_ADDRESS }}
+          RFQ_SETTLEMENT_CANARY_TRUSTED_SIGNER_ADDRESS: ${{ vars.RFQ_TRUSTED_SIGNER_ADDRESS }}
+          RFQ_SETTLEMENT_CANARY_EXPECTED_USER_ADDRESS: ${{ vars.RFQ_SETTLEMENT_CANARY_EXPECTED_USER_ADDRESS }}
+          RFQ_SETTLEMENT_CANARY_TOKEN_IN: ${{ vars.RFQ_SETTLEMENT_CANARY_TOKEN_IN }}
+          RFQ_SETTLEMENT_CANARY_TOKEN_OUT: ${{ vars.RFQ_SETTLEMENT_CANARY_TOKEN_OUT }}
+          RFQ_SETTLEMENT_CANARY_AMOUNT_IN: ${{ vars.RFQ_SETTLEMENT_CANARY_AMOUNT_IN }}
+          RFQ_SETTLEMENT_CANARY_MAX_AMOUNT_IN: ${{ vars.RFQ_SETTLEMENT_CANARY_MAX_AMOUNT_IN }}
+          RFQ_SETTLEMENT_CANARY_MAX_AMOUNT_OUT: ${{ vars.RFQ_SETTLEMENT_CANARY_MAX_AMOUNT_OUT }}
+          RFQ_SETTLEMENT_CANARY_SLIPPAGE_BPS: ${{ vars.RFQ_SETTLEMENT_CANARY_SLIPPAGE_BPS }}
+          RFQ_SETTLEMENT_CANARY_MIN_TTL_SECONDS: ${{ vars.RFQ_SETTLEMENT_CANARY_MIN_TTL_SECONDS }}
+          RFQ_SETTLEMENT_CANARY_MAX_TTL_SECONDS: ${{ vars.RFQ_SETTLEMENT_CANARY_MAX_TTL_SECONDS }}
+          RFQ_SETTLEMENT_CANARY_CONFIRMATIONS: ${{ vars.RFQ_SETTLEMENT_CANARY_CONFIRMATIONS }}
+          RFQ_SETTLEMENT_CANARY_RECEIPT_TIMEOUT_MS: ${{ vars.RFQ_SETTLEMENT_CANARY_RECEIPT_TIMEOUT_MS }}
+        run: make target-settlement-integration-check
+      - name: Remove canary user key
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/rfq-canary-user-key"

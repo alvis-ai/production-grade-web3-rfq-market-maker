@@ -289,6 +289,8 @@ contract RFQSettlement is IRFQSettlement, EIP712, AccessControl, Pausable, Reent
         if (v < 27) v += 27;
         if (v != 27 && v != 28) revert InvalidSignatureV();
 
+        // The third tuple member only carries diagnostic data for recoverError.
+        // slither-disable-next-line unused-return
         (address recovered, ECDSA.RecoverError recoverError,) = ECDSA.tryRecover(digest, v, r, s);
         if (recoverError == ECDSA.RecoverError.InvalidSignatureS) revert InvalidSignatureS();
         if (recoverError != ECDSA.RecoverError.NoError || !trustedSigners[recovered]) {

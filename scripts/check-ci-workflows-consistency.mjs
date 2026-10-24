@@ -10,6 +10,7 @@ const workflows = {
   contract: await readFile(".github/workflows/contract-ci.yml", "utf8"),
   frontendE2E: await readFile(".github/workflows/frontend-e2e.yml", "utf8"),
   release: await readFile(".github/workflows/release.yml", "utf8"),
+  liveIntegrations: await readFile(".github/workflows/live-integrations.yml", "utf8"),
 };
 const dependabot = await readFile(".github/dependabot.yml", "utf8");
 
@@ -36,7 +37,9 @@ for (const [filename, source] of Object.entries({
 for (const [name, source] of Object.entries(workflows)) {
   const filename = name === "release"
     ? "release.yml"
-    : name === "frontendE2E"
+    : name === "liveIntegrations"
+      ? "live-integrations.yml"
+      : name === "frontendE2E"
       ? "frontend-e2e.yml"
       : `${name}-ci.yml`;
   assertActionsPinned(source, `.github/workflows/${filename}`);
@@ -241,6 +244,8 @@ assertContains(workflows.docs, [
 
 assertContains(workflows.contract, [
   'name: Contract CI',
+  "slither-analyzer==0.11.3",
+  "make contract-static-analysis",
   '- "contracts/**"',
   '- "backend/src/modules/signer/signer.service.ts"',
   '- "backend/src/modules/settlement/settlement-verifier.service.ts"',
@@ -364,6 +369,50 @@ assert.ok(
 assert.ok(
   !workflows.release.includes("pull_request:"),
   "release workflow must never expose publishing credentials to pull requests",
+);
+
+assertContains(workflows.liveIntegrations, [
+  "name: Live Integrations",
+  "workflow_dispatch:",
+  "schedule:",
+  "cancel-in-progress: false",
+  "permissions: {}",
+  "environment: staging-testnet",
+  "persist-credentials: false",
+  'node-version: "22"',
+  "pnpm install --frozen-lockfile",
+  "vars.RFQ_LIVE_MARKET_DATA_ENABLED == 'true'",
+  "vars.RFQ_LIVE_BINANCE_TESTNET_ENABLED == 'true'",
+  "vars.RFQ_LIVE_AWS_KMS_ENABLED == 'true'",
+  "vars.RFQ_LIVE_TARGET_CHAIN_ENABLED == 'true'",
+  'RFQ_CEX_INTEGRATION_CONFIRM: "yes"',
+  "RFQ_CHAINLINK_INTEGRATION_CONFIRM: read-live-oracle",
+  "RFQ_BINANCE_TESTNET_INTEGRATION_CONFIRM: place-and-cancel",
+  "RFQ_AWS_KMS_INTEGRATION_CONFIRM: sign-eip712-digest",
+  'RFQ_CHAIN_INTEGRATION_CONFIRM: "yes"',
+  "RFQ_API_INTEGRATION_CONFIRM: request-and-replay-quote",
+  "RFQ_SETTLEMENT_CANARY_CONFIRM: broadcast-one-settlement",
+  "RFQ_SETTLEMENT_CANARY_ENVIRONMENT: staging-testnet",
+  "run: make cex-orderbook-integration-check",
+  "run: make chainlink-integration-check",
+  "run: make binance-testnet-integration-check",
+  "run: make aws-kms-integration-check",
+  "run: make contract-deployment-integration-check",
+  "run: make target-api-quote-integration-check",
+  "run: make target-settlement-integration-check",
+  "id-token: write",
+  "AWS_WEB_IDENTITY_TOKEN_FILE",
+  "github.event_name == 'workflow_dispatch' && inputs.include_settlement_canary",
+  "umask 077",
+], ".github/workflows/live-integrations.yml");
+assert.ok(
+  !workflows.liveIntegrations.includes("pull_request:"),
+  "live integration workflow must never expose staging credentials to pull requests",
+);
+assert.equal(
+  (workflows.liveIntegrations.match(/id-token: write/g) ?? []).length,
+  1,
+  "live integration workflow must scope OIDC token issuance to the AWS KMS job only",
 );
 
 assertContains(dependabot, [

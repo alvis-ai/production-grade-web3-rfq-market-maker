@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check analytics-pipeline-check cex-orderbook-check hedge-planning-check hedge-execution-check chainlink-canary-check binance-testnet-check aws-kms-canary-check target-api-quote-check target-settlement-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check quote-exposure-ledger-bootstrap quote-exposure-integration-check quote-exposure-redis-integration-check quote-exposure-ledger-integration-check quote-issuance-integration-check quote-admission-integration-check hedge-net-pnl-integration-check hedge-worker-e2e analytics-integration-check analytics-e2e cex-orderbook-integration-check chainlink-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check target-settlement-integration-check contract-deployment-integration-check settlement-e2e settlement-indexer-e2e benchmark-quote benchmark-quote-http benchmark-quote-http-check benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check analytics-pipeline-check cex-orderbook-check hedge-planning-check hedge-execution-check chainlink-canary-check binance-testnet-check aws-kms-canary-check target-api-quote-check target-settlement-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check quote-exposure-ledger-bootstrap quote-exposure-integration-check quote-exposure-redis-integration-check quote-exposure-ledger-integration-check quote-issuance-integration-check quote-admission-integration-check hedge-net-pnl-integration-check hedge-worker-e2e analytics-integration-check analytics-e2e cex-orderbook-integration-check chainlink-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check target-settlement-integration-check contract-deployment-integration-check settlement-e2e settlement-indexer-e2e benchmark-quote benchmark-quote-http benchmark-quote-http-check benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test contract-static-analysis smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -82,6 +82,7 @@ help:
 	@echo "  typescript-check  Run backend, SDK, and frontend checks"
 	@echo "  contract-build  Build Foundry contracts"
 	@echo "  contract-test   Run Foundry contract tests offline"
+	@echo "  contract-static-analysis  Run Slither with the audited suppression baseline"
 	@echo "  smoke-api       Exercise health, quote, submit, and metrics endpoints"
 	@echo "  smoke-api-local Build, start backend locally, run smoke-api, and stop backend"
 	@echo "  db-migrate      Run pending database migrations"
@@ -344,6 +345,10 @@ contract-build:
 
 contract-test: contract-build
 	@cd contracts && FOUNDRY_DISABLE_NIGHTLY_WARNING=1 forge test --offline
+
+contract-static-analysis:
+	@command -v slither >/dev/null 2>&1 || { echo "slither not found; install slither-analyzer==0.11.3"; exit 1; }
+	@cd contracts && FOUNDRY_DISABLE_NIGHTLY_WARNING=1 slither . --config-file slither.config.json
 
 smoke-api:
 	@sh scripts/smoke-api.sh

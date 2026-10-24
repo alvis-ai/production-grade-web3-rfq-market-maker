@@ -22,6 +22,8 @@
 - [x] Target-chain deployment verification pins one fresh block, matches runtime artifacts outside declared immutable slots, recomputes the EIP-712 domain, and proves exact signer, token and role-member counts before quote admission.
 - [x] The target settlement canary is staging/testnet-only, uses a dedicated bounded wallet and allowance, simulates exact SDK calldata, broadcasts once without retry, and verifies receipt, transaction, event, nonce, balances and backend settlement/hedge/PnL projections without exposing credentials or raw signatures.
 - [x] Events contain enough data for idempotent indexing.
+- [x] A stateful Foundry invariant suite (256 runs x depth 64) interleaves valid settlements with replay, forged/tampered signatures, cross-user submission, expired quotes, pause toggles and unauthorized admin/Treasury calls, and proves token conservation, exact Treasury/user flow accounting, zero Settlement custody, consumed nonces and unchanged privileged configuration.
+- [x] Contract CI runs Slither 0.11.3 with `fail_on: pedantic`; only the timestamp-deadline, calldata-assembly and constant-getter naming detectors are excluded, and the single intentional `tryRecover` unused-return is suppressed inline.
 
 ## Backend
 
@@ -106,3 +108,4 @@
 - [x] Dashboards cover quote latency, settlement failures and inventory exposure.
 - [x] Alerts and runbooks cover submit reservation persistence errors and contention spikes.
 - [x] Production HTTPS egress is narrowed from port-level NetworkPolicy access to approved KMS, CEX, Chainlink, RPC and analytics destinations through an egress gateway, CNI FQDN policy or provider firewall.
+- [x] A scheduled, opt-in `Live Integrations` workflow runs the credentialed CEX, Chainlink, Binance Spot Testnet, AWS KMS (GitHub OIDC, no static AWS keys), target-chain deployment and staging API quote canaries in the protected `staging-testnet` environment; the settlement broadcast canary runs only on manual dispatch.
