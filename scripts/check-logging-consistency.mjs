@@ -27,7 +27,7 @@ const paths = {
   compose: "docker-compose.yml",
   helmValues: "infra/helm/rfq-market-maker/values.yaml",
   k8sConfig: "infra/k8s/configmap.yaml",
-  readme: "README.md",
+  readme: "docs/operations.md",
   apiDocs: "book/Volume5-BackendEngineering/Chapter01-API-Gateway.md",
   metricsDocs: "book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md",
   monitoringDocs: "book/Volume7-ProductionDeployment/Chapter03-Monitoring.md",

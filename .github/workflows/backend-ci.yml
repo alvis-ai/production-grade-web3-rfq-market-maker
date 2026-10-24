@@ -16,6 +16,8 @@ on:
       - "docker-compose.yml"
       - ".env.example"
       - "README.md"
+      - "README.zh-CN.md"
+      - "docs/operations.md"
       - ".github/workflows/backend-ci.yml"
   push:
     branches:

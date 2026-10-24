@@ -18,7 +18,7 @@ const sources = Object.fromEntries(await Promise.all(
 ));
 const chapter = await readFile("book/Volume6-Frontend-And-SDK/Chapter04-SDK.md", "utf8");
 const transportTests = await readFile("sdk/test/sdk-client-transport.test.mjs", "utf8");
-const readme = await readFile("README.md", "utf8");
+const readme = await readFile("docs/operations.md", "utf8");
 
 const limits = {
   client: 250,

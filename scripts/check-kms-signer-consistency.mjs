@@ -67,7 +67,7 @@ const paths = [
   "book/Volume1-SystemArchitecture/Chapter09-Architecture-Review.md",
   "book/Volume5-BackendEngineering/Chapter05-Signer-Service.md",
   "book/Volume7-ProductionDeployment/Chapter05-Runbook.md",
-  "README.md",
+  "docs/operations.md",
 ];
 const files = Object.fromEntries(await Promise.all(
   paths.map(async (path) => [path, await readFile(path, "utf8")]),
@@ -408,7 +408,7 @@ assertContains("docs/adr/ADR-0005-Use-KMS-For-Production-Signing.md", [
   "MessageType=DIGEST",
   "RFQ_TRUSTED_SIGNER_ADDRESS",
 ]);
-assertContains("README.md", [
+assertContains("docs/operations.md", [
   "RFQ_SIGNER_MODE=remote",
   "RFQ_SIGNER_MODE=aws-kms",
   "The API never receives a KMS key id",
@@ -428,7 +428,7 @@ assertContains("docs/security/key-management.md", [
   "make aws-kms-integration-check",
   "1 KiB pre-decode cap",
 ]);
-assertContains("README.md", ["make aws-kms-integration-check", "make aws-kms-canary-check"]);
+assertContains("docs/operations.md", ["make aws-kms-integration-check", "make aws-kms-canary-check"]);
 assertContains("book/Volume5-BackendEngineering/Chapter05-Signer-Service.md", [
   "make aws-kms-integration-check",
   "make aws-kms-canary-check",
@@ -449,7 +449,7 @@ assertContains("docs/security/audit-checklist.md", [
   "target-workload AWS KMS canary",
   "1 KiB streaming pre-decode cap",
 ]);
-assertContains("README.md", [
+assertContains("docs/operations.md", [
   "response streaming and JSON decoding inside `RFQ_SIGNER_SERVICE_REQUEST_TIMEOUT_MS`",
   "`RFQ_SIGNER_SERVICE_MAX_CONNECTIONS`",
 ]);

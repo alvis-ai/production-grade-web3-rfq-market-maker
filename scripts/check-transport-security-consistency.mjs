@@ -69,7 +69,7 @@ const helmDeployments = await Promise.all([
   "infra/helm/rfq-market-maker/templates/toxic-flow-analyzer-deployment.yaml",
 ].map(async (path) => [path, await read(path)]));
 const helmSchema = JSON.parse(await read("infra/helm/rfq-market-maker/values.schema.json"));
-const readme = await read("README.md");
+const readme = await read("docs/operations.md");
 const kubernetesChapter = await read("book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md");
 const gatewayChapter = await read("book/Volume5-BackendEngineering/Chapter01-API-Gateway.md");
 const threatModel = await read("docs/security/threat-model.md");
@@ -293,7 +293,7 @@ assert.equal(
 );
 
 for (const [label, source, terms] of [
-  ["README.md", readme, ["sslmode=verify-full", "`rediss://`", "plaintext dependency transport", "Non-local indexer RPC URLs must use HTTPS"]],
+  ["docs/operations.md", readme, ["sslmode=verify-full", "`rediss://`", "plaintext dependency transport", "Non-local indexer RPC URLs must use HTTPS"]],
   ["Kubernetes chapter", kubernetesChapter, ["Kafka TLS plus SASL", "ClickHouse", "sslrootcert", "startup and every poll verify `eth_chainId`"]],
   ["API Gateway chapter", gatewayChapter, ["`rediss://`", "`sslmode=verify-full`"]],
   ["threat model", threatModel, ["Plaintext or downgrade-prone dependency transport", "Kafka TLS plus SASL", "Wrong-chain or plaintext settlement RPC"]],

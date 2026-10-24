@@ -1112,8 +1112,8 @@ grep -q 'does not trust x-forwarded-for for rate limit identity by default' back
 grep -q 'trusts x-forwarded-for for rate limit identity only when proxy trust is enabled' backend/test/api-rate-limit.test.mjs
 grep -q 'rejects oversized trusted forwarded rate limit identity' backend/test/api-rate-limit.test.mjs
 grep -q 'rejects unsafe trusted forwarded rate limit identity' backend/test/api-rate-limit.test.mjs
-grep -q 'only enable it when a trusted reverse proxy or ingress strips untrusted' README.md
-grep -Fq '128 character limit and `[A-Za-z0-9_.:-]` character set' README.md
+grep -q 'only enable it when a trusted reverse proxy or ingress strips untrusted' docs/operations.md
+grep -Fq '128 character limit and `[A-Za-z0-9_.:-]` character set' docs/operations.md
 grep -q 'x-forwarded-for` is ignored unless `RFQ_TRUST_PROXY=true`' docs/api/errors.md
 grep -Fq 'forwarded client identities longer than 128 characters or outside `[A-Za-z0-9_.:-]` are rejected as `INVALID_REQUEST`/400' docs/api/errors.md
 grep -q '默认 `RFQ_TRUST_PROXY=false`' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
@@ -2537,7 +2537,7 @@ grep -q 'Web3Provider' frontend/src/components/WalletSubmitControl.tsx
 grep -q 'nextFrontendTraceId' frontend/src/lib/rfq.ts
 grep -q 'tr_web_' frontend/src/lib/rfq.ts
 grep -q 'traceId: nextFrontendTraceId' frontend/src/lib/rfq.ts
-grep -Fq 'sends a dynamic `tr_web_*` `x-trace-id` through the SDK' README.md
+grep -Fq 'sends a dynamic `tr_web_*` `x-trace-id` through the SDK' docs/operations.md
 grep -Fq '每个浏览器 API 请求都会发送一个符合 gateway 规则的 `tr_web_*` `x-trace-id`' book/Volume6-Frontend-And-SDK/Chapter01-Frontend-Architecture.md
 grep -q 'Hedge Status' frontend/src/components/QuoteStatusPanel.tsx
 grep -q 'Hedge External Order' frontend/src/components/QuoteStatusPanel.tsx
@@ -2684,7 +2684,7 @@ grep -q 'maxResponseBytes` defaults to 8 MiB' book/Volume6-Frontend-And-SDK/Chap
 grep -q 'can receive an injected `fetch` implementation' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'Client options are closed to own optional `fetch` / `traceId` / `apiKey` / `requestTimeoutMs` / `maxResponseBytes` fields' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'Inherited `traceId` options' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'new RFQClient("http://localhost:3000", { fetch: customFetch })' README.md
+grep -q 'new RFQClient("http://localhost:3000", { fetch: customFetch })' docs/operations.md
 grep -q 'errorResponseFields = \["code", "message", "traceId"\]' $sdk_client_sources
 grep -Fq 'hasExactOwnFields(value, errorResponseFields)' $sdk_client_sources
 grep -q 'RFQClient ignores non-closed API error bodies' sdk/test/sdk-client-errors.test.mjs
@@ -2748,11 +2748,11 @@ grep -q 'tr_malformed_json' sdk/test/sdk-client-responses.test.mjs
 grep -q 'tr_malformed_field' sdk/test/sdk-client-responses.test.mjs
 grep -q 'ignores unsafe response trace ids and falls back to safe trace headers' sdk/test/sdk-client-errors.test.mjs
 grep -q 'tr_safe_header' sdk/test/sdk-client-errors.test.mjs
-grep -q 'falls back to safe `x-trace-id` response headers' README.md
+grep -q 'falls back to safe `x-trace-id` response headers' docs/operations.md
 grep -q 'falls back to safe `x-trace-id` response headers' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'prototype-pollution-shaped error body' README.md
+grep -q 'prototype-pollution-shaped error body' docs/operations.md
 grep -q 'prototype-pollution-shaped error bodies' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
-grep -q 'unsafe body or header values are ignored' README.md
+grep -q 'unsafe body or header values are ignored' docs/operations.md
 grep -q 'Unsafe response trace ids' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'RFQClient baseUrl must be a string' $sdk_client_sources
 grep -q 'RFQClient baseUrl must be an absolute http(s) URL' $sdk_client_sources
@@ -2774,9 +2774,9 @@ grep -q 'toSettlementQuote(quote)' sdk/src/eip712.ts
 grep -Fq '^[1-9][0-9]*$' sdk/src/settlement.ts
 grep -q '01000000000' sdk/test/sdk-client-requests.test.mjs
 grep -q '0998400000' sdk/test/sdk-settlement-validation.test.mjs
-grep -q 'base URL and outgoing trace ids must be runtime primitive strings' README.md
-grep -q 'no credentials, no wildcard host, and no query string or fragment' README.md
-grep -q 'Integrators can pass `{ traceId:' README.md
+grep -q 'base URL and outgoing trace ids must be runtime primitive strings' docs/operations.md
+grep -q 'no credentials, no wildcard host, and no query string or fragment' docs/operations.md
+grep -q 'Integrators can pass `{ traceId:' docs/operations.md
 grep -q 'static or dynamic `traceId` option' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'Boxed `String` trace ids fail before header construction' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'rejects non-string, empty, relative or non-`http(s)` base URLs' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
@@ -2853,8 +2853,8 @@ grep -q 'exposes Retry-After seconds for rate limited responses' sdk/test/sdk-cl
 grep -q 'ignores non-canonical Retry-After headers' sdk/test/sdk-client-errors.test.mjs
 grep -q '"60.0"' sdk/test/sdk-client-errors.test.mjs
 grep -q '"6e1"' sdk/test/sdk-client-errors.test.mjs
-grep -q 'retryAfterSeconds' README.md
-grep -q 'canonical positive decimal delay-seconds value' README.md
+grep -q 'retryAfterSeconds' docs/operations.md
+grep -q 'canonical positive decimal delay-seconds value' docs/operations.md
 grep -q 'zero, leading-zero, decimal, exponent, HTTP-date and oversized values are ignored' book/Volume6-Frontend-And-SDK/Chapter04-SDK.md
 grep -q 'client.metrics' sdk/test/sdk.test.mjs
 grep -q 'function submitQuote' contracts/src/RFQSettlement.sol
@@ -2953,8 +2953,8 @@ grep -q 'roleMemberCount' contracts/src/RFQSettlement.sol
 grep -q 'testTokenWhitelistCountTracksOnlyMembershipChanges' contracts/test/RFQSettlement.t.sol
 grep -q 'treasury settlement mismatch' contracts/test/Deploy.t.sol
 grep -q 'settlement treasury mismatch' contracts/test/Deploy.t.sol
-grep -q 'RFQ_CONTRACT_ADMIN=0x' README.md
-grep -q 'factory retains no authority' README.md
+grep -q 'RFQ_CONTRACT_ADMIN=0x' docs/operations.md
+grep -q 'factory retains no authority' docs/operations.md
 grep -q 'contract-test' Makefile
 grep -q 'contract-abi-check' Makefile
 grep -q 'compose-check' Makefile
@@ -3031,12 +3031,12 @@ grep -q 'benchmark-quote-http-check' Makefile
 grep -q 'benchmark-submit' Makefile
 grep -q 'benchmark:quote' package.json
 grep -q 'benchmark:submit' package.json
-grep -q 'make benchmark-quote' README.md
-grep -q 'make benchmark-quote-http' README.md
-grep -q 'make benchmark-submit' README.md
-grep -q 'RFQ_BENCHMARK_MAX_P50_MS' README.md
-grep -q 'RFQ_BENCHMARK_MAX_P99_MS' README.md
-grep -q 'RFQ_BENCHMARK_SUBMIT_MAX_P95_MS' README.md
+grep -q 'make benchmark-quote' docs/operations.md
+grep -q 'make benchmark-quote-http' docs/operations.md
+grep -q 'make benchmark-submit' docs/operations.md
+grep -q 'RFQ_BENCHMARK_MAX_P50_MS' docs/operations.md
+grep -q 'RFQ_BENCHMARK_MAX_P99_MS' docs/operations.md
+grep -q 'RFQ_BENCHMARK_SUBMIT_MAX_P95_MS' docs/operations.md
 grep -q 'make benchmark-quote' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'make benchmark-submit' book/Volume5-BackendEngineering/Chapter02-Quote-Service.md
 grep -q 'make benchmark-submit' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
@@ -3283,7 +3283,7 @@ grep -q 'PnlSummary' docs/api/openapi.yaml
 grep -q 'PnlTradeRecord' docs/api/openapi.yaml
 grep -q 'modelDescription' docs/api/openapi.yaml
 grep -q 'Every response includes an x-trace-id header' docs/api/openapi.yaml
-grep -q 'Every HTTP response includes an `x-trace-id` header' README.md
+grep -q 'Every HTTP response includes an `x-trace-id` header' docs/operations.md
 grep -q 'assertTraceHeader' backend/test/api.test.mjs
 grep -q 'onRequest` hook' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'Fastify parser' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
@@ -3292,7 +3292,7 @@ grep -q 'readOwnEnvValue(env, "HOST")' $gateway_sources
 grep -q 'RFQ API reads startup environment only from own fields' backend/test/api-gateway-env.test.mjs
 grep -q 'Object.create({ HOST: "0.0.0.0", PORT: "8080" })' backend/test/api-gateway-env.test.mjs
 grep -q 'Gateway startup reads environment configuration only from own fields' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
-grep -q 'Backend startup reads only own environment fields' README.md
+grep -q 'Backend startup reads only own environment fields' docs/operations.md
 grep -q 'RFQ_BODY_LIMIT_BYTES' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
 grep -q 'CORS preflight' book/Volume5-BackendEngineering/Chapter01-API-Gateway.md
@@ -3323,20 +3323,20 @@ grep -q 'VITE_RFQ_SETTLEMENT_ADDRESS=0x0000000000000000000000000000000000000004'
 grep -q 'VITE_WALLETCONNECT_PROJECT_ID=00000000000000000000000000000000' .env.example
 grep -q 'WalletConnect project id must be a safe string' .env.example
 grep -q 'HOST=127.0.0.1' .env.example
-grep -q 'Production Configuration' README.md
-grep -q 'rfq-backend-secrets' README.md
-grep -q 'asymmetric `ECC_SECG_P256K1` signing key' README.md
-grep -q '`RFQ_SIGNER_PRIVATE_KEY` is rejected outside local mode' README.md
-grep -q 'RFQ_QUOTE_TTL_SECONDS' README.md
-grep -q 'RFQ_BODY_LIMIT_BYTES' README.md
-grep -q 'must be a base-10 integer from 1 to 3600' README.md
-grep -q 'must be a base-10 integer from 1024 to 1048576' README.md
-grep -q 'rejects non-boolean `logger`, `enableHsts` or `trustProxy` values' README.md
-grep -q 'cryptographically recovers the EIP-712 signer from the returned signature' README.md
-grep -q 'RFQ_CORS_ALLOWED_ORIGINS' README.md
-grep -q 'startup rejects entries with paths, query strings, fragments, credentials, or wildcards' README.md
-grep -q 'VITE_WALLETCONNECT_PROJECT_ID` configures RainbowKit wallet connection and must be a 128-character-or-shorter safe string' README.md
-grep -q 'RFQ_ENABLE_HSTS' README.md
+grep -q 'Production Configuration' docs/operations.md
+grep -q 'rfq-backend-secrets' docs/operations.md
+grep -q 'asymmetric `ECC_SECG_P256K1` signing key' docs/operations.md
+grep -q '`RFQ_SIGNER_PRIVATE_KEY` is rejected outside local mode' docs/operations.md
+grep -q 'RFQ_QUOTE_TTL_SECONDS' docs/operations.md
+grep -q 'RFQ_BODY_LIMIT_BYTES' docs/operations.md
+grep -q 'must be a base-10 integer from 1 to 3600' docs/operations.md
+grep -q 'must be a base-10 integer from 1024 to 1048576' docs/operations.md
+grep -q 'rejects non-boolean `logger`, `enableHsts` or `trustProxy` values' docs/operations.md
+grep -q 'cryptographically recovers the EIP-712 signer from the returned signature' docs/operations.md
+grep -q 'RFQ_CORS_ALLOWED_ORIGINS' docs/operations.md
+grep -q 'startup rejects entries with paths, query strings, fragments, credentials, or wildcards' docs/operations.md
+grep -q 'VITE_WALLETCONNECT_PROJECT_ID` configures RainbowKit wallet connection and must be a 128-character-or-shorter safe string' docs/operations.md
+grep -q 'RFQ_ENABLE_HSTS' docs/operations.md
 grep -q 'RFQ_QUOTE_TTL_SECONDS' docs/api/openapi.yaml
 grep -q 'RFQ_CORS_ALLOWED_ORIGINS' docs/api/openapi.yaml
 grep -q 'without path, query, fragment, credentials, or wildcards' docs/api/openapi.yaml
@@ -3414,7 +3414,7 @@ grep -q 'RFQ_SIGNER_MODE=local is not allowed when NODE_ENV=production' backend/
 grep -q 'RFQ_SIGNER_PRIVATE_KEY must not be configured' backend/test/api-gateway-signer-env.test.mjs
 grep -q 'RFQ_AWS_KMS_KEY_ID' backend/test/api-gateway-signer-env.test.mjs
 grep -q 'RFQ_TRUSTED_SIGNER_ADDRESS' backend/test/api-gateway-signer-env.test.mjs
-grep -q 'built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`' README.md
+grep -q 'built-in Anvil signer fallback is only for unset `NODE_ENV`, `development`, or `test`' docs/operations.md
 grep -q '默认 Anvil key 只允许用于 unset `NODE_ENV`、`development` 或 `test`' book/Volume5-BackendEngineering/Chapter05-Signer-Service.md
 grep -q 'marks requested quotes as failed when signer is unavailable' backend/test/quote-service.test.mjs
 grep -q 'preserves signer errors when marking failed quotes fails' backend/test/quote-service.test.mjs
@@ -3462,7 +3462,7 @@ grep -q 'q_bad_nonce_leading_zero' backend/test/settlement-verifier-validation.t
 grep -Fq 'typeof token !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(token)' backend/src/modules/settlement/settlement-verifier.service.ts
 grep -q 'new String(tokenIn)' backend/test/settlement-verifier-policy-validation.test.mjs
 grep -q 'signature shape, canonical low-s/v checks' book/Volume5-BackendEngineering/Chapter06-Execution-Service.md
-grep -q 'The settlement verifier always recovers the signature against that explicit signer identity' README.md
+grep -q 'The settlement verifier always recovers the signature against that explicit signer identity' docs/operations.md
 grep -q 'buildDefaultSettlementVerifierPolicy(signerRuntimeConfig, managedRiskPairs)' $gateway_sources
 grep -q 'trustedSignerAddress: signerConfig.trustedSignerAddress' $gateway_sources
 grep -q 'export function buildQuoteTypedData' backend/src/modules/signer/signer.service.ts
@@ -3789,7 +3789,7 @@ grep -q 'chainlink-canary-check: backend-build' Makefile
 grep -q 'chainlink:integration:check' package.json
 grep -q 'chainlink:canary:check' package.json
 grep -q 'run_step make chainlink-canary-check' scripts/verify.sh
-grep -q 'RFQ_CHAINLINK_INTEGRATION_CONFIRM=read-live-oracle' README.md
+grep -q 'RFQ_CHAINLINK_INTEGRATION_CONFIRM=read-live-oracle' docs/operations.md
 grep -q 'parseChainlinkMarketDataConfig' scripts/chainlink-integration-check.mjs
 grep -q 'ChainlinkMarketDataService' scripts/chainlink-integration-check.mjs
 grep -q 'readChainId' backend/src/modules/market-data/chainlink-market-data.service.ts
@@ -4105,7 +4105,7 @@ grep -q 'target-api-quote-integration-check: sdk-build' Makefile
 grep -q 'target-api-quote-check: sdk-build' Makefile
 grep -q 'target:api:quote:integration:check' package.json
 grep -q 'run_step make target-api-quote-check' scripts/verify.sh
-grep -q 'RFQ_API_INTEGRATION_CONFIRM=request-and-replay-quote' README.md
+grep -q 'RFQ_API_INTEGRATION_CONFIRM=request-and-replay-quote' docs/operations.md
 grep -q 'client.quote(quoteRequest, { idempotencyKey })' scripts/target-api-quote-integration-check.mjs
 grep -q 'recoverTypedDataAddress' scripts/target-api-quote-integration-check.mjs
 grep -q 'Target API quote integration check failed' scripts/target-api-quote-integration-check.mjs
@@ -4118,7 +4118,7 @@ grep -q 'target-settlement-integration-check: sdk-build' Makefile
 grep -q 'target-settlement-check: sdk-build' Makefile
 grep -q 'target:settlement:integration:check' package.json
 grep -q 'run_step make target-settlement-check' scripts/verify.sh
-grep -q 'RFQ_SETTLEMENT_CANARY_CONFIRM=broadcast-one-settlement' README.md
+grep -q 'RFQ_SETTLEMENT_CANARY_CONFIRM=broadcast-one-settlement' docs/operations.md
 grep -q 'broadcastAttempted = true' scripts/target-settlement-integration-check.mjs
 grep -q 'recoverTypedDataAddress' scripts/target-settlement-integration-check.mjs
 grep -q 'simulateContract' scripts/target-settlement-integration-check.mjs

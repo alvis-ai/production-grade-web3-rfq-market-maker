@@ -10,7 +10,7 @@ const paths = [
   "docker-compose.yml",
   "Makefile",
   "package.json",
-  "README.md",
+  "docs/operations.md",
   "book/Volume5-BackendEngineering/Chapter08-Metrics-Service.md",
   "book/Volume7-ProductionDeployment/Chapter04-CI-CD.md",
 ];
@@ -97,7 +97,7 @@ assertContains("package.json", [
   '"analytics:pipeline:check": "make analytics-pipeline-check"',
   '"analytics:e2e": "make analytics-e2e"',
 ]);
-assertContains("README.md", [
+assertContains("docs/operations.md", [
   "make analytics-e2e",
   "Analytics CI",
   "RFQ_ANALYTICS_E2E_TIMEOUT_SECONDS",

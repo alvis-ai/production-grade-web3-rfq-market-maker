@@ -59,6 +59,7 @@ assertContains(workflows.backend, [
   '- "docker-compose.yml"',
   '- ".env.example"',
   '- "README.md"',
+  '- "docs/operations.md"',
   "run: corepack enable",
   "run: pnpm install --frozen-lockfile",
   "run: make verify",
