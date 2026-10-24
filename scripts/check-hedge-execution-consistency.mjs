@@ -47,7 +47,7 @@ const paths = {
   k8sDeployment: "infra/k8s/hedge-worker-deployment.yaml",
   helmDeployment: "infra/helm/rfq-market-maker/templates/hedge-worker-deployment.yaml",
   helmValues: "infra/helm/rfq-market-maker/values.yaml",
-  readme: "README.md",
+  readme: "docs/operations.md",
   hedgeBook: "book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md",
   kubernetesBook: "book/Volume7-ProductionDeployment/Chapter02-Kubernetes.md",
   runbook: "book/Volume7-ProductionDeployment/Chapter05-Runbook.md",

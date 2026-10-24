@@ -45,7 +45,7 @@ const files = Object.fromEntries(await Promise.all([
   "docker-compose.yml",
   "infra/k8s/configmap.yaml",
   "infra/helm/rfq-market-maker/values.yaml",
-  "README.md",
+  "docs/operations.md",
   "book/Volume3-RiskEngine/Chapter05-Position-Limits.md",
   "book/Volume3-RiskEngine/Chapter02-Delta.md",
   "book/Volume3-RiskEngine/Chapter03-Gamma.md",
@@ -59,7 +59,7 @@ for (const path of [
   "docker-compose.yml",
   "infra/k8s/configmap.yaml",
   "infra/helm/rfq-market-maker/values.yaml",
-  "README.md",
+  "docs/operations.md",
 ]) {
   assertContains(path, [
     "RFQ_RISK_POLICY_JSON",

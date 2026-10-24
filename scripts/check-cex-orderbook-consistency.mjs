@@ -54,7 +54,7 @@ const [
   "infra/prometheus/rules/rfq-alerts.yml",
   "infra/grafana/provisioning/dashboards/rfq-overview.json",
   "book/Volume2-MarketData-And-Pricing/Chapter01-Market-Data.md",
-  "README.md",
+  "docs/operations.md",
   "Makefile",
   "package.json",
   "scripts/cex-orderbook-integration-check.mjs",

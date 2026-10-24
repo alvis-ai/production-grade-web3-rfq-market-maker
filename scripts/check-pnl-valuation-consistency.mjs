@@ -19,7 +19,7 @@ const paths = [
   "sdk/src/client.ts",
   "docs/api/openapi.yaml",
   "docs/database/schema.sql",
-  "README.md",
+  "docs/operations.md",
   "docker-compose.yml",
   "infra/helm/rfq-market-maker/templates/reconciliation-worker-deployment.yaml",
 ];
@@ -105,7 +105,7 @@ assertContains("docs/database/schema.sql", [
   "snapshot_id TEXT NOT NULL REFERENCES market_snapshots(id)",
   "('006', 'quote-snapshot-pnl')",
 ]);
-assertContains("README.md", [
+assertContains("docs/operations.md", [
   "immutable quote-time market snapshot",
   "aggregates `/pnl` totals by `(chainId, tokenOut)`",
 ]);

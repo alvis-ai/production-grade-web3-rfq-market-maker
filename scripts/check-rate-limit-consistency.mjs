@@ -23,7 +23,7 @@ const frontendStatusPanelSource = await readFile("frontend/src/components/QuoteS
 const openapiSource = await readFile("docs/api/openapi.yaml", "utf8");
 const errorDocsSource = await readFile("docs/api/errors.md", "utf8");
 const gatewayChapterSource = await readFile("book/Volume5-BackendEngineering/Chapter01-API-Gateway.md", "utf8");
-const readmeSource = await readFile("README.md", "utf8");
+const readmeSource = await readFile("docs/operations.md", "utf8");
 const envExampleSource = await readFile(".env.example", "utf8");
 const composeSource = await readFile("docker-compose.yml", "utf8");
 const k8sConfigSource = await readFile("infra/k8s/configmap.yaml", "utf8");
@@ -280,7 +280,7 @@ assertContains(readmeSource, [
   "`RFQ_RATE_LIMIT_LOCAL_PERMIT_BATCH_SIZE`",
   "`RFQ_RATE_LIMIT_MAX_LOCAL_BUCKETS`",
   "`RATE_LIMIT_UNAVAILABLE`/503",
-], "README.md");
+], "docs/operations.md");
 
 assertContains(envExampleSource, [
   "RFQ_RATE_LIMIT_BACKEND=memory",

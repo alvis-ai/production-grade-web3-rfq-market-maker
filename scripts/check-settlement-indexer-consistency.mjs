@@ -32,7 +32,7 @@ const paths = [
   ".github/workflows/contract-ci.yml",
   "Makefile",
   "package.json",
-  "README.md",
+  "docs/operations.md",
 ];
 const files = Object.fromEntries(await Promise.all(
   paths.map(async (path) => [path, await readFile(path, "utf8")]),
@@ -138,7 +138,7 @@ assertContains("infra/helm/rfq-market-maker/templates/settlement-indexer-deploym
 assertContains("infra/helm/rfq-market-maker/templates/cilium-fqdn-egress-policy.yaml", [
   ".Values.networkPolicy.fqdnEgress.settlementIndexer",
 ]);
-assertContains("README.md", [
+assertContains("docs/operations.md", [
   "does not depend on the browser successfully calling `/submit`",
   "An unknown quote or a reorg deeper than `reorgLookbackBlocks` stops that chain",
   "make settlement-indexer-e2e",

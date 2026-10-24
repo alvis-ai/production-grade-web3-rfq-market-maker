@@ -15,7 +15,7 @@ const files = Object.fromEntries(await Promise.all([
   "docker-compose.yml",
   "infra/k8s/configmap.yaml",
   "infra/helm/rfq-market-maker/values.yaml",
-  "README.md",
+  "docs/operations.md",
   "book/Volume2-MarketData-And-Pricing/Chapter02-Price-Normalization.md",
   "book/Volume2-MarketData-And-Pricing/Chapter07-Pricing-Formula.md",
 ].map(async (path) => [path, await readFile(path, "utf8")])));
@@ -26,7 +26,7 @@ const runtimeConfigFiles = [
   "docker-compose.yml",
   "infra/k8s/configmap.yaml",
   "infra/helm/rfq-market-maker/values.yaml",
-  "README.md",
+  "docs/operations.md",
 ];
 for (const path of runtimeConfigFiles) {
   assert.ok(files[path].includes("RFQ_TOKEN_REGISTRY_JSON"), `${path} must configure RFQ_TOKEN_REGISTRY_JSON`);

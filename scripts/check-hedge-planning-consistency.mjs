@@ -28,7 +28,7 @@ let [
   "infra/k8s/configmap.yaml",
   "infra/helm/rfq-market-maker/values.yaml",
   ".env.example",
-  "README.md",
+  "docs/operations.md",
   "book/Volume5-BackendEngineering/Chapter07-Hedge-Service.md",
 ].map((path) => readFile(path, "utf8")));
 main = await readBackendGatewaySource();
