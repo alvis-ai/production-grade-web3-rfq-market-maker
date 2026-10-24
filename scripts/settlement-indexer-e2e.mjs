@@ -227,6 +227,7 @@ const feeWorker = new HedgeFeeWorker(
 );
 let server;
 let ownsIndexerCursor = false;
+let primaryError;
 
 try {
   await assertRequiredMigrations();
@@ -492,6 +493,9 @@ try {
       replacementCursorNextBlock: cursor.nextBlock,
     },
   }, null, 2)}\n`);
+} catch (error) {
+  primaryError = error;
+  throw error;
 } finally {
   try {
     if (server) await server.close();
@@ -499,6 +503,10 @@ try {
     try {
       await indexerStore.releaseCursor(chainId, indexerWorkerId);
       await cleanup();
+    } catch (cleanupError) {
+      // Never let a cleanup failure replace the assertion that actually failed.
+      if (!primaryError) throw cleanupError;
+      console.error("settlement indexer e2e cleanup failed after the primary failure:", cleanupError);
     } finally {
       await endPool();
     }
@@ -648,6 +656,14 @@ async function cleanup() {
        WHERE chain_id = $1 AND lower(token_in) = $2 AND lower(token_out) = $3`,
       [chainId, tokenIn.toLowerCase(), tokenOut.toLowerCase()],
     );
+    // A quote rejected before its id was recorded still references this run's snapshots.
+    const snapshotQuoteRows = await client.query(
+      "SELECT id FROM quotes WHERE snapshot_id = ANY($1::text[])",
+      [snapshotRows.rows.map((row) => row.id)],
+    );
+    for (const row of snapshotQuoteRows.rows) {
+      if (!quoteIds.includes(row.id)) quoteIds.push(row.id);
+    }
     const inventoryRows = await client.query(
       "SELECT id FROM inventory_positions WHERE chain_id = $1 AND lower(token_address) = ANY($2::text[])",
       [chainId, [tokenIn.toLowerCase(), tokenOut.toLowerCase()]],
