@@ -260,6 +260,7 @@ try {
   await mineBlocks(1);
   const duplicateBefore = indexerObserver.events.duplicate;
   assert.equal(await indexerWorker.runChainOnce(chainId), true);
+  const indexerConvergedRefreshes = await readHotStateRefreshes(server, "settlement_indexer");
   assert.equal(
     indexerObserver.events.duplicate,
     duplicateBefore + 1,
@@ -363,6 +364,10 @@ try {
   const reorgSnapshotId = await rpc("evm_snapshot", []);
   assert.match(reorgSnapshotId, /^0x[0-9a-f]+$/i);
 
+  // The gateway guard compares a hot-state copy of the indexer cursor with the treasury view's
+  // chain head. With RFQ_SETTLEMENT_INDEXER_MAX_BLOCK_LAG=0 a quote must not race the refresh
+  // that publishes the converged cursor, so wait until a full refresh started after convergence.
+  await waitForHotStateRefreshes(server, "settlement_indexer", indexerConvergedRefreshes + 2);
   const walletOnlyQuote = await requestQuote(server, idempotencyKeys[1]);
   quoteIds.push(walletOnlyQuote.quoteId);
   const walletOnlyReceipt = await broadcastQuote(walletOnlyQuote);
@@ -798,6 +803,27 @@ async function rpc(method, params) {
   const payload = await response.json();
   assert.equal(payload.error, undefined, `${method} RPC must succeed: ${JSON.stringify(payload.error)}`);
   return payload.result;
+}
+
+async function readHotStateRefreshes(serverInstance, state) {
+  const response = await serverInstance.inject({ method: "GET", url: "/metrics" });
+  assert.equal(response.statusCode, 200, "metrics must be readable");
+  const pattern = new RegExp(
+    `^rfq_hot_state_refreshes_total\\{state="${state}",outcome="success"\\} ([0-9]+)$`,
+    "m",
+  );
+  const match = response.payload.match(pattern);
+  return match ? Number(match[1]) : 0;
+}
+
+async function waitForHotStateRefreshes(serverInstance, state, minimum) {
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    const refreshes = await readHotStateRefreshes(serverInstance, state);
+    if (refreshes >= minimum) return;
+    assert.ok(Date.now() < deadline, `${state} hot state did not refresh ${minimum} times (saw ${refreshes})`);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
 }
 
 async function readRiskDiagnostics(serverInstance) {
