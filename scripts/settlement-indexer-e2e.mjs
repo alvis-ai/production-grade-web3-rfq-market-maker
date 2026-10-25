@@ -525,7 +525,11 @@ async function requestQuote(serverInstance, idempotencyKey) {
   const response = await injectJson(serverInstance, "POST", "/quote", request, {
     "idempotency-key": idempotencyKey,
   });
-  assert.equal(response.statusCode, 200, JSON.stringify(response.body));
+  if (response.statusCode !== 200) {
+    // RISK_ENGINE_UNAVAILABLE hides the failing dependency, so attach its reason metrics.
+    const diagnostics = await readRiskDiagnostics(serverInstance);
+    assert.fail(`${JSON.stringify(response.body)}\n${response.statusCode} !== 200\n${diagnostics}`);
+  }
   assert.match(response.body.signature, /^0x[0-9a-f]{130}$/i);
   return {
     quoteId: response.body.quoteId,
@@ -703,7 +707,11 @@ async function cleanup() {
       [quoteIds],
     );
     await client.query(
-      `UPDATE quotes SET status = CASE WHEN signature IS NULL THEN 'requested' ELSE 'signed' END,
+      `UPDATE quotes SET status = CASE
+           WHEN reject_code IS NOT NULL THEN status
+           WHEN signature IS NULL THEN 'requested'
+           ELSE 'signed'
+         END,
          tx_hash = NULL, settlement_event_id = NULL, hedge_order_id = NULL, pnl_id = NULL,
          updated_at = now()
        WHERE id = ANY($1::text[])`,
@@ -790,6 +798,20 @@ async function rpc(method, params) {
   const payload = await response.json();
   assert.equal(payload.error, undefined, `${method} RPC must succeed: ${JSON.stringify(payload.error)}`);
   return payload.result;
+}
+
+async function readRiskDiagnostics(serverInstance) {
+  try {
+    const response = await serverInstance.inject({ method: "GET", url: "/metrics" });
+    const lines = response.payload.split("\n").filter((line) =>
+      !line.startsWith("#") &&
+      !line.includes("_bucket{") &&
+      /risk|hot_state|treasury|exposure|portfolio|dependency/.test(line) &&
+      !/ 0$/.test(line));
+    return `risk diagnostics (non-zero metrics):\n${lines.join("\n")}`;
+  } catch (error) {
+    return `risk diagnostics unavailable: ${error instanceof Error ? error.message : String(error)}`;
+  }
 }
 
 async function injectJson(serverInstance, method, url, payload, headers = {}) {
