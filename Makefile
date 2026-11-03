@@ -1,4 +1,4 @@
-.PHONY: help verify docs-check book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check analytics-pipeline-check cex-orderbook-check hedge-planning-check hedge-execution-check chainlink-canary-check binance-testnet-check aws-kms-canary-check target-api-quote-check target-settlement-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check quote-exposure-ledger-bootstrap quote-exposure-integration-check quote-exposure-redis-integration-check quote-exposure-ledger-integration-check quote-issuance-integration-check quote-admission-integration-check hedge-net-pnl-integration-check hedge-worker-e2e analytics-integration-check analytics-e2e cex-orderbook-integration-check chainlink-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check target-settlement-integration-check contract-deployment-integration-check settlement-e2e settlement-indexer-e2e benchmark-quote benchmark-quote-http benchmark-quote-http-check benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test contract-static-analysis smoke-api smoke-api-local db-migrate
+.PHONY: help verify docs-check diagrams book-template-check adr-check security-check transport-security-check logging-check metrics-check runbook-check grafana-check deployment-check container-runtime-check ci-check tree workspace-check skeleton-check examples-check config-check compose-check analytics-pipeline-check cex-orderbook-check hedge-planning-check hedge-execution-check chainlink-canary-check binance-testnet-check aws-kms-canary-check target-api-quote-check target-settlement-check price-normalization-check risk-policy-check pnl-valuation-check kms-signer-check settlement-indexer-check submit-reservation-check api-composition-check sdk-composition-check api-auth-check eip712-check contract-abi-check contract-deployment-check rate-limit-check api-error-check api-schema-check api-route-check database-schema-check reconciliation-check reconciliation-integration-check quote-exposure-ledger-bootstrap quote-exposure-integration-check quote-exposure-redis-integration-check quote-exposure-ledger-integration-check quote-issuance-integration-check quote-admission-integration-check hedge-net-pnl-integration-check hedge-worker-e2e analytics-integration-check analytics-e2e cex-orderbook-integration-check chainlink-integration-check binance-testnet-integration-check aws-kms-integration-check target-api-quote-integration-check target-settlement-integration-check contract-deployment-integration-check settlement-e2e settlement-indexer-e2e benchmark-quote benchmark-quote-http benchmark-quote-http-check benchmark-submit backend-build backend-test backend-typecheck sdk-build sdk-test sdk-typecheck frontend-build frontend-test frontend-e2e typescript-check contract-build contract-test contract-static-analysis smoke-api smoke-api-local db-migrate
 
 help:
 	@echo "Production-Grade Web3 RFQ Market Maker"
@@ -6,6 +6,7 @@ help:
 	@echo "Available targets:"
 	@echo "  verify      Run the repository quality gate"
 	@echo "  docs-check  Count Mermaid diagrams and RFQ interview questions"
+	@echo "  diagrams    Regenerate the editable Excalidraw diagrams in docs/diagrams/excalidraw"
 	@echo "  book-template-check  Verify book chapters follow the standard template"
 	@echo "  adr-check  Verify ADR numbering and template consistency"
 	@echo "  security-check  Verify security docs cover required production controls"
@@ -95,6 +96,9 @@ docs-check:
 	@grep -R "^\`\`\`mermaid" -n book docs | wc -l
 	@echo "RFQ interview questions:"
 	@grep -E "^## [0-9]+\\." docs/interview/rfq-questions.md | wc -l
+
+diagrams:
+	@node scripts/generate-excalidraw-diagrams.mjs
 
 book-template-check:
 	@node scripts/check-book-template-consistency.mjs

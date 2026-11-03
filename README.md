@@ -295,6 +295,7 @@ Production configuration covers KMS signing, TLS for dependencies, rate limits, 
 | Database schema and ER diagram | [`docs/database`](docs/database) |
 | Security: threat model, key management, audit checklist | [`docs/security`](docs/security) |
 | Sequence and state diagrams | [`docs/diagrams`](docs/diagrams) |
+| Editable Excalidraw diagrams: architecture, flow, sequence, classes (Chinese labels) | [`docs/diagrams/excalidraw`](docs/diagrams/excalidraw) |
 | Interview guide (Chinese) | [`docs/interview`](docs/interview) |
 
 Engineering design book (Chinese):

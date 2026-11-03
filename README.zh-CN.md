@@ -89,7 +89,9 @@ flowchart LR
        → 库存更新 → 对冲 → 指标 / PnL
 ```
 
-报价、提交、对冲的时序图和风控状态机见 [`docs/diagrams`](docs/diagrams)。
+报价、提交、对冲的时序图和风控状态机见 [`docs/diagrams`](docs/diagrams)。手绘风格的整体架构图、业务流程图、两张时序图和核心类图见 [`docs/diagrams/excalidraw`](docs/diagrams/excalidraw)：
+
+![整体架构图](docs/diagrams/excalidraw/architecture.svg)
 
 | 组件 | 职责 |
 | --- | --- |
@@ -295,6 +297,7 @@ SDK 会逐字段校验响应，保留带追踪 ID 的结构化 API 错误，还�
 | 数据库模型与 ER 图 | [`docs/database`](docs/database) |
 | 安全：威胁模型、密钥管理、审计清单 | [`docs/security`](docs/security) |
 | 时序图与状态机 | [`docs/diagrams`](docs/diagrams) |
+| 可编辑的 Excalidraw 图：整体架构、业务流程、两张时序图、核心类图 | [`docs/diagrams/excalidraw`](docs/diagrams/excalidraw) |
 | 面试指南 | [`docs/interview`](docs/interview) |
 
 工程设计书：
